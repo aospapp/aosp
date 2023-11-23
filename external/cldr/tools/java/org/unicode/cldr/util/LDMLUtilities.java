@@ -9,9 +9,7 @@
  */
 package org.unicode.cldr.util;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -19,8 +17,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -37,7 +33,6 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
 import org.unicode.cldr.icu.LDMLConstants;
-import org.unicode.cldr.util.XMLFileReader.SimpleHandler;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -1904,7 +1899,6 @@ public class LDMLUtilities {
             // applyAttributes(dfactory, attributes);
 
             DocumentBuilder docBuilder = dfactory.newDocumentBuilder();
-            docBuilder.setEntityResolver(new CachingEntityResolver());
             return docBuilder;
         } catch (Throwable se) {
             System.err.println(": ERROR : trying to create documentBuilder: " + se.getMessage());
@@ -2023,108 +2017,6 @@ public class LDMLUtilities {
 
         // out.close();
     } // printDOMTree(Node, PrintWriter)
-
-    // Utility functions, HTML and such.
-    public static String CVSBASE = "http://www.unicode.org/cldr/trac/browser/trunk";
-
-    public static final String getCVSLink(String locale) {
-        return "<a href=\"" + CVSBASE + "/common/main/" + locale + ".xml\">";
-    }
-
-    public static final String getCVSLink(String locale, String version) {
-        return "<a href=\"" + CVSBASE + "/common/main/" + locale + ".xml?rev=" +
-            version + "\">";
-
-    }
-
-    /**
-     * Load the revision from CVS or from the Identity element.
-     *
-     * @param fileName
-     * @return
-     */
-    static public String loadFileRevision(String fileName) {
-        int index = fileName.lastIndexOf(File.separatorChar);
-        if (index == -1) {
-            return null;
-        }
-        String sourceDir = fileName.substring(0, index);
-        return loadFileRevision(sourceDir, new File(fileName).getName());
-    }
-
-    // //ldml[@version="1.7"]/identity/version[@number="$Revision: 13987 $"]
-    // private static Pattern VERSION_PATTERN =
-    // PatternCache.get("//ldml[^/]*/identity/version\\[@number=\"[^0-9]*\\([0-9.]+\\).*");
-    private static Pattern VERSION_PATTERN = PatternCache.get(".*identity/version.*Revision[: ]*([0-9.]*).*");
-
-    /**
-     * Load the revision from CVS or from the Identity element.
-     *
-     * @param sourceDir
-     * @param fileName
-     * @return
-     */
-    static public String loadFileRevision(String sourceDir, String fileName) {
-        String aVersion = null;
-        File entriesFile = new File(sourceDir + File.separatorChar + "CVS", "Entries");
-        if (entriesFile.exists() && entriesFile.canRead()) {
-            try {
-                BufferedReader r = new BufferedReader(new FileReader(entriesFile.getPath()));
-                String s;
-                while ((s = r.readLine()) != null) {
-                    String lookFor = "/" + fileName + "/";
-                    if (s.startsWith(lookFor)) {
-                        String ver = s.substring(lookFor.length());
-                        ver = ver.substring(0, ver.indexOf('/'));
-                        aVersion = ver;
-                    }
-                }
-                r.close();
-            } catch (Throwable th) {
-                System.err.println(th.toString() + " trying to read CVS Entries file " + entriesFile.getPath());
-                return null;
-            }
-        } else {
-            // no CVS, use file ident.
-            File xmlFile = new File(sourceDir, fileName);
-            if (!xmlFile.exists()) return null;
-            final String bVersion[] = { "unknown" };
-            try {
-                XMLFileReader xfr = new XMLFileReader().setHandler(new SimpleHandler() {
-                    private boolean done = false;
-
-                    // public void handleAttributeDecl(String eName, String aName, String type, String mode, String
-                    // value) {
-                    public void handlePathValue(String p, String v) {
-                        if (!done) {
-                            Matcher m = VERSION_PATTERN.matcher(p);
-                            if (m.matches()) {
-                                // System.err.println("Matches! "+p+" = "+m.group(1));
-                                bVersion[0] = m.group(1);
-                                done = true;
-                            }
-                        }
-                    }
-                });
-                xfr.read(xmlFile.getPath(), -1, true);
-                aVersion = bVersion[0]; // copy from input param
-            } catch (Throwable t) {
-                t.printStackTrace();
-                aVersion = "err";
-                System.err.println("Error reading version of " + xmlFile.getAbsolutePath() + ": " + t.toString());
-            }
-        }
-        // System.err.println("v="+aVersion);
-        return aVersion;
-    }
-
-    // // Caching Resolution
-    // private static File getCacheName(String sourceDir, String last, String loc)
-    // {
-    // //File xCacheDir = new
-    // File((CachingEntityResolver.getCacheDir()!=null)?CachingEntityResolver.getCacheDir():"/tmp/cldrres");
-    // return new File(sourceDir).getName() + "_" + last + "." + loc;
-    // }
 
     // Document readMergeCache(String sourceDir, String last, String loc)
     // {
@@ -2347,7 +2239,7 @@ public class LDMLUtilities {
                     return null;
                 }
 
-                public Iterator<Object> getPrefixes(String namespaceURI) {
+                public Iterator<String> getPrefixes(String namespaceURI) {
                     return null;
                 }
             });

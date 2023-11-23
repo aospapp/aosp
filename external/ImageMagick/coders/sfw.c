@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -155,7 +155,7 @@ static void TranslateSFWMarker(unsigned char *marker)
 
 static Image *ReadSFWImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
-  static unsigned char
+  static const unsigned char
     HuffmanTable[] =
     {
       0xFF, 0xC4, 0x01, 0xA2, 0x00, 0x00, 0x01, 0x05, 0x01, 0x01, 0x01,

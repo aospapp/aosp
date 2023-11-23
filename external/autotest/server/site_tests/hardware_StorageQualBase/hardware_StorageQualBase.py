@@ -24,12 +24,12 @@ class hardware_StorageQualBase(test.test):
             '_seq_write_write_bw >= 15 * 1024',
             '_16k_write_write_iops >= 10'],
             'requirements': [
-                ('seq_read', []),
                 ('seq_write', []),
-                ('4k_read', []),
+                ('seq_read', []),
                 ('4k_write', []),
-                ('16k_read', []),
-                ('16k_write', [])],
+                ('4k_read', []),
+                ('16k_write', []),
+                ('16k_read', [])],
                 })
     ]
 
@@ -39,19 +39,28 @@ class hardware_StorageQualBase(test.test):
         'surfing',
         'boot',
         'login',
-        'seq_read',
         'seq_write',
-        '16k_read',
+        'seq_read',
         '16k_write',
-        '8k_read',
+        '16k_read',
         '8k_write',
-        '4k_read',
+        '8k_read',
         '4k_write',
+        '4k_read',
     ]
 
 
     def run_once(self, client_ip, client_tag='', crypto_runtime=CRYPTO_RUNTIME,
             cq=False):
+        """
+        Runs simple tests to ensure the device meets basic criteria.
+
+        @param client_ip: ip address of the client machine
+        @param client_tag: client tag for keyval label
+        @param crypto_runtime: runtime for platform.CryptohomeFio tests
+        @param cq: part of a cq run
+
+        """
 
         # in a cq run, do not execute the test, just output
         # the order that the test would have run in

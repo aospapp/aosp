@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-#  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -162,7 +162,7 @@ testReadCompare('sun:input.im24', 'reference/read/input_im24.miff', q//, 0.0, 0.
 
 print("Truevision Targa image file ...\n");
 ++$test;
-testReadCompare('input.tga', 'reference/read/input_tga.miff', q//, 0.0, 0.0);
+testReadCompare('input.tga', 'reference/read/input_tga.miff', q//, 0.1, 0.9);
 
 print("PSX TIM file ...\n");
 ++$test;

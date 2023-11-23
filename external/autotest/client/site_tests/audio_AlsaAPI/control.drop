@@ -4,7 +4,7 @@
 
 AUTHOR = 'The Chromium OS Authors,chromeos-audio@google.com'
 NAME = 'audio_AlsaAPI.drop'
-ATTRIBUTES = "suite:audio"
+ATTRIBUTES = ""
 PURPOSE = 'Test that simple ALSA API succeeds to drop playback and reset hw_ptr.'
 CRITERIA = """
 Check that the ALSA API succeeds.

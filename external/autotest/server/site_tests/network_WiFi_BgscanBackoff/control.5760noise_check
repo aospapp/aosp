@@ -8,6 +8,7 @@ TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = ('suite:wifi_matfunc')
 DEPENDENCIES = 'wificell'
+MAX_RESULT_SIZE_KB = 512000
 
 DOC = """
 This test case verifies that bgscan aborts and/or backs off when

@@ -25,6 +25,18 @@
  * Red Hat Author(s): Behdad Esfahbod
  */
 
+
+/* https://github.com/harfbuzz/harfbuzz/issues/1308
+ * http://www.gnu.org/software/libc/manual/html_node/Feature-Test-Macros.html
+ * https://www.oracle.com/technetwork/articles/servers-storage-dev/standardheaderfiles-453865.html
+ */
+#if !defined(_POSIX_C_SOURCE) && !defined(_MSC_VER) && !defined(__NetBSD__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-macros"
+#define _POSIX_C_SOURCE 200809L
+#pragma GCC diagnostic pop
+#endif
+
 #include "hb.hh"
 #include "hb-blob.hh"
 
@@ -36,7 +48,6 @@
 #endif /* HAVE_SYS_MMAN_H */
 
 #include <stdio.h>
-#include <errno.h>
 #include <stdlib.h>
 
 
@@ -143,7 +154,7 @@ hb_blob_create_sub_blob (hb_blob_t    *parent,
   hb_blob_make_immutable (parent);
 
   blob = hb_blob_create (parent->data + offset,
-			 MIN (length, parent->length - offset),
+			 hb_min (length, parent->length - offset),
 			 HB_MEMORY_MODE_READONLY,
 			 hb_blob_reference (parent),
 			 _hb_blob_destroy);
@@ -475,6 +486,7 @@ hb_blob_t::try_make_writable ()
  * Mmap
  */
 
+#ifndef HB_NO_OPEN
 #ifdef HAVE_MMAP
 # include <sys/types.h>
 # include <sys/stat.h>
@@ -579,7 +591,7 @@ fail_without_close:
     ceparams.lpSecurityAttributes = nullptr;
     ceparams.hTemplateFile = nullptr;
     fd = CreateFile2 (wchar_file_name, GENERIC_READ, FILE_SHARE_READ,
-                      OPEN_EXISTING, &ceparams);
+		      OPEN_EXISTING, &ceparams);
   }
 #else
   fd = CreateFileW (wchar_file_name, GENERIC_READ, FILE_SHARE_READ, nullptr,
@@ -656,7 +668,7 @@ fail_without_close:
   }
 
   return hb_blob_create (data, len, HB_MEMORY_MODE_WRITABLE, data,
-                         (hb_destroy_func_t) free);
+			 (hb_destroy_func_t) free);
 
 fread_fail:
   fclose (fp);
@@ -664,3 +676,4 @@ fread_fail_without_close:
   free (data);
   return hb_blob_get_empty ();
 }
+#endif /* !HB_NO_OPEN */

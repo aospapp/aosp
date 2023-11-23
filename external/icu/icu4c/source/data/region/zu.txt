@@ -134,7 +134,7 @@ zu{
         GW{"i-Guinea-Bissau"}
         GY{"i-Guyana"}
         HK{"i-Hong Kong"}
-        HM{"i-Heard Island ne-McDonald Islands"}
+        HM{"I-Heard & McDonald Island"}
         HN{"i-Honduras"}
         HR{"i-Croatia"}
         HT{"i-Haiti"}
@@ -183,7 +183,7 @@ zu{
         MF{"i-Saint Martin"}
         MG{"i-Madagascar"}
         MH{"i-Marshall Islands"}
-        MK{"i-Macedonia (FYROM)"}
+        MK{"i-North Macedonia"}
         ML{"iMali"}
         MM{"i-Myanmar (Burma)"}
         MN{"i-Mongolia"}
@@ -273,7 +273,7 @@ zu{
         TZ{"i-Tanzania"}
         UA{"i-Ukraine"}
         UG{"i-Uganda"}
-        UM{"i-U.S. Minor Outlying Islands"}
+        UM{"I-U.S. Outlying Islands"}
         UN{"I-United Nations"}
         US{"i-United States"}
         UY{"i-Uruguay"}
@@ -287,6 +287,8 @@ zu{
         VU{"i-Vanuatu"}
         WF{"i-Wallis ne-Futuna"}
         WS{"i-Samoa"}
+        XA{"Pseudo-Accents"}
+        XB{"Pseudo-Bidi"}
         XK{"i-Kosovo"}
         YE{"i-Yemen"}
         YT{"i-Mayotte"}
@@ -307,5 +309,5 @@ zu{
         CZ{"i-Czech Republic"}
         TL{"i-East Timor"}
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
 }

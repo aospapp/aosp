@@ -54,9 +54,9 @@
 	"boot_fdt=try\0" \
 	"ip_dyn=yes\0" \
 	"videomode=video=ctfb:x:800,y:480,depth:24,pclk:29850,le:89,ri:164,up:23,lo:10,hs:10,vs:10,sync:0,vmode:0\0" \
-	"mmcdev=2\0" \
+	"mmcdev=3\0" \
 	"mmcpart=1\0" \
-	"finduuid=part uuid mmc 2:2 uuid\0" \
+	"finduuid=part uuid mmc ${mmcdev}:2 uuid\0" \
 	"mmcargs=setenv bootargs console=${console},${baudrate} " \
 		"root=PARTUUID=${uuid} rootwait rw\0" \
 	"loadbootscript=" \
@@ -127,7 +127,6 @@
 #define CONFIG_SYS_MEMTEST_END		(CONFIG_SYS_MEMTEST_START + 0x10000)
 
 /* Physical Memory Map */
-#define CONFIG_NR_DRAM_BANKS		1
 #define PHYS_SDRAM			MMDC0_ARB_BASE_ADDR
 
 #define CONFIG_SYS_SDRAM_BASE		PHYS_SDRAM
@@ -151,7 +150,6 @@
 
 /* Network */
 #define CONFIG_FEC_MXC
-#define CONFIG_MII
 
 #define IMX_FEC_BASE			ENET_BASE_ADDR
 #define CONFIG_FEC_MXC_PHYADDR          0x1
@@ -200,9 +198,6 @@
 #define MXS_LCDIF_BASE MX6SX_LCDIF1_BASE_ADDR
 #endif
 #endif
-
-#define CONFIG_ENV_OFFSET		(14 * SZ_64K)
-#define CONFIG_ENV_SIZE			SZ_8K
 
 #define CONFIG_SYS_FSL_USDHC_NUM	3
 #if defined(CONFIG_ENV_IS_IN_MMC)

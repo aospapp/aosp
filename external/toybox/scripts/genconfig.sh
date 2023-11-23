@@ -33,10 +33,12 @@ probeconfig()
 
   # Probe for container support on target
   probesymbol TOYBOX_CONTAINER << EOF
+    #include <stdio.h>
+    #include <sys/syscall.h>
     #include <linux/sched.h>
     int x=CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWNET;
 
-    int main(int argc, char *argv[]) { setns(0,0); return unshare(x); }
+    int main(int argc, char *argv[]){printf("%d", x+SYS_unshare+ SYS_setns);}
 EOF
 
   probesymbol TOYBOX_FIFREEZE -c << EOF
@@ -49,11 +51,6 @@ EOF
   # Work around some uClibc limitations
   probesymbol TOYBOX_ICONV -c << EOF
     #include "iconv.h"
-EOF
-  probesymbol TOYBOX_FALLOCATE << EOF
-    #include <fcntl.h>
-
-    int main(int argc, char *argv[]) { return posix_fallocate(0,0,0); }
 EOF
   
   # Android and some other platforms miss utmpx
@@ -85,7 +82,7 @@ EOF
 EOF
 
   probesymbol TOYBOX_ANDROID_SCHEDPOLICY << EOF
-    #include <cutils/sched_policy.h>
+    #include <processgroup/sched_policy.h>
 
     int main(int argc,char *argv[]) { get_sched_policy_name(0); }
 EOF
@@ -95,7 +92,7 @@ EOF
     #include <unistd.h>
     int main(int argc, char *argv[]) { return fork(); }
 EOF
-  echo -e '\tdepends on !TOYBOX_MUSL_NOMMU_IS_BROKEN'
+  echo -e '\tdepends on !TOYBOX_FORCE_NOMMU'
 
   probesymbol TOYBOX_PRLIMIT << EOF
     #include <sys/types.h>
@@ -160,7 +157,7 @@ do
     PENDING="$PENDING $NAME" ||
     WORKING="$WORKING $NAME"
 done &&
-echo -e "clean::\n\trm -f $WORKING $PENDING" &&
+echo -e "clean::\n\t@rm -f $WORKING $PENDING" &&
 echo -e "list:\n\t@echo $(echo $WORKING | tr ' ' '\n' | sort | xargs)" &&
 echo -e "list_pending:\n\t@echo $(echo $PENDING | tr ' ' '\n' | sort | xargs)" &&
 echo -e ".PHONY: $WORKING $PENDING" | $SED 's/ \([^ ]\)/ test_\1/g'

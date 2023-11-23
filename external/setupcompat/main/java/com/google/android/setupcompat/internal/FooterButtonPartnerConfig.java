@@ -22,6 +22,8 @@ import com.google.android.setupcompat.template.FooterButton;
 /** Keep the partner configuration of a footer button. Used when the button is inflated. */
 public class FooterButtonPartnerConfig {
   private final PartnerConfig buttonBackgroundConfig;
+  private final PartnerConfig buttonDisableAlphaConfig;
+  private final PartnerConfig buttonDisableBackgroundConfig;
   private final PartnerConfig buttonIconConfig;
   private final PartnerConfig buttonTextColorConfig;
   private final PartnerConfig buttonTextSizeConfig;
@@ -33,6 +35,8 @@ public class FooterButtonPartnerConfig {
   private FooterButtonPartnerConfig(
       int partnerTheme,
       PartnerConfig buttonBackgroundConfig,
+      PartnerConfig buttonDisableAlphaConfig,
+      PartnerConfig buttonDisableBackgroundConfig,
       PartnerConfig buttonIconConfig,
       PartnerConfig buttonTextColorConfig,
       PartnerConfig buttonTextSizeConfig,
@@ -45,6 +49,8 @@ public class FooterButtonPartnerConfig {
     this.buttonTextSizeConfig = buttonTextSizeConfig;
     this.buttonTextTypeFaceConfig = buttonTextTypeFaceConfig;
     this.buttonBackgroundConfig = buttonBackgroundConfig;
+    this.buttonDisableAlphaConfig = buttonDisableAlphaConfig;
+    this.buttonDisableBackgroundConfig = buttonDisableBackgroundConfig;
     this.buttonRadiusConfig = buttonRadiusConfig;
     this.buttonIconConfig = buttonIconConfig;
     this.buttonRippleColorAlphaConfig = buttonRippleColorAlphaConfig;
@@ -56,6 +62,14 @@ public class FooterButtonPartnerConfig {
 
   public PartnerConfig getButtonBackgroundConfig() {
     return buttonBackgroundConfig;
+  }
+
+  public PartnerConfig getButtonDisableAlphaConfig() {
+    return buttonDisableAlphaConfig;
+  }
+
+  public PartnerConfig getButtonDisableBackgroundConfig() {
+    return buttonDisableBackgroundConfig;
   }
 
   public PartnerConfig getButtonIconConfig() {
@@ -86,6 +100,8 @@ public class FooterButtonPartnerConfig {
   public static class Builder {
     private final FooterButton footerButton;
     private PartnerConfig buttonBackgroundConfig = null;
+    private PartnerConfig buttonDisableAlphaConfig = null;
+    private PartnerConfig buttonDisableBackgroundConfig = null;
     private PartnerConfig buttonIconConfig = null;
     private PartnerConfig buttonTextColorConfig = null;
     private PartnerConfig buttonTextSizeConfig = null;
@@ -102,6 +118,16 @@ public class FooterButtonPartnerConfig {
 
     public Builder setButtonBackgroundConfig(PartnerConfig buttonBackgroundConfig) {
       this.buttonBackgroundConfig = buttonBackgroundConfig;
+      return this;
+    }
+
+    public Builder setButtonDisableAlphaConfig(PartnerConfig buttonDisableAlphaConfig) {
+      this.buttonDisableAlphaConfig = buttonDisableAlphaConfig;
+      return this;
+    }
+
+    public Builder setButtonDisableBackgroundConfig(PartnerConfig buttonDisableBackgroundConfig) {
+      this.buttonDisableBackgroundConfig = buttonDisableBackgroundConfig;
       return this;
     }
 
@@ -144,6 +170,8 @@ public class FooterButtonPartnerConfig {
       return new FooterButtonPartnerConfig(
           partnerTheme,
           buttonBackgroundConfig,
+          buttonDisableAlphaConfig,
+          buttonDisableBackgroundConfig,
           buttonIconConfig,
           buttonTextColorConfig,
           buttonTextSizeConfig,

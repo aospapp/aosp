@@ -14,17 +14,28 @@
 // limitations under the License.
 //
 
+package {
+    default_visibility: ["//visibility:private"],
+}
+
 // The source files that contribute to Android's core library APIs.
 filegroup {
     name: "okhttp_api_files",
+    visibility: ["//libcore"],
     // Use the repackaged version of android as that is what is used by Android core library
     // APIs.
     srcs: ["repackaged/android/src/main/java/com/android/okhttp/internalandroidapi/**/*.java"],
 }
 
+nojarjar_visibility = [
+    "//art/build/sdk",
+    "//cts/tests/libcore/okhttp",
+]
+
 // non-jarjar'd version of okhttp to compile the tests against
 java_library {
     name: "okhttp-nojarjar",
+    visibility: nojarjar_visibility,
     srcs: [
         "android/src/main/java/**/*.java",
         "okhttp/src/main/java/**/*.java",
@@ -36,18 +47,21 @@ java_library {
 
     hostdex: true,
 
-    no_standard_libs: true,
-    libs: [
-        "core-all",
-        // TODO(b/129126571): Depend on Conscrypt stubs instead
-        "conscrypt",
-    ],
+    sdk_version: "none",
     system_modules: "core-all-system-modules",
+    libs: [
+        "conscrypt.module.intra.core.api.stubs",
+    ],
     java_version: "1.7",
 }
 
 java_library {
     name: "okhttp",
+    visibility: [
+        "//art/build/apex",
+        "//external/robolectric-shadows",
+        "//libcore",
+    ],
     srcs: [
         // Although some of the classes in the android/ directory are already in the correct
         // package and do not need to be moved to another package they are transformed as they
@@ -62,14 +76,16 @@ java_library {
     hostdex: true,
     installable: true,
 
-    no_standard_libs: true,
-    libs: [
-        "core-all",
-        // TODO(b/129126571): Depend on Conscrypt stubs instead
-        "conscrypt",
-    ],
+    sdk_version: "none",
     system_modules: "core-all-system-modules",
+    libs: [
+        "conscrypt.module.intra.core.api.stubs",
+    ],
     java_version: "1.7",
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 // A guaranteed unstripped version of okhttp.
@@ -77,25 +93,27 @@ java_library {
 // not be stripped. See b/24535627.
 java_library {
     name: "okhttp-testdex",
+    visibility: [
+        "//art:__subpackages__",
+    ],
     static_libs: ["okhttp"],
 
     installable: true,
 
-    no_standard_libs: true,
+    sdk_version: "none",
+    system_modules: "core-all-system-modules",
     libs: [
-        "core-all",
-        // TODO(b/129126571): Depend on Conscrypt stubs instead
-        "conscrypt",
+        "conscrypt.module.intra.core.api.stubs",
     ],
     dex_preopt: {
         enabled: false,
     },
-    system_modules: "core-all-system-modules",
     java_version: "1.7",
 }
 
-java_library_static {
+java_library {
     name: "okhttp-tests-nojarjar",
+    visibility: nojarjar_visibility,
     srcs: [
         "android/test/java/**/*.java",
         "okhttp-android-support/src/test/java/**/*.java",
@@ -111,15 +129,14 @@ java_library_static {
     // Exclude test Android currently has problems with due to @Parameterized (requires JUnit 4.11).
     exclude_srcs: ["okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformUrlTest.java"],
 
-    no_standard_libs: true,
+    sdk_version: "none",
+    system_modules: "core-all-system-modules",
     libs: [
-        "core-all",
         "okhttp-nojarjar",
         "junit",
-        "conscrypt",
+        "conscrypt.module.intra.core.api.stubs",
         "bouncycastle-unbundled",
     ],
-    system_modules: "core-all-system-modules",
 
     java_version: "1.7",
 }

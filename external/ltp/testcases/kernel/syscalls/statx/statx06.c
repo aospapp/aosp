@@ -45,7 +45,6 @@
 #include "lapi/stat.h"
 #include "lapi/mount.h"
 #include "lapi/fcntl.h"
-#include "lapi/posix_clocks.h"
 
 #define MOUNT_POINT "mount_ext"
 #define TEST_FILE MOUNT_POINT"/test_file.txt"
@@ -170,7 +169,6 @@ static struct tst_test test = {
 	.test = test_statx,
 	.min_kver = "4.11",
 	.needs_root = 1,
-	.needs_tmpdir = 1,
 	.mntpoint = MOUNT_POINT,
 	.mount_device = 1,
 	.dev_fs_type = "ext4",

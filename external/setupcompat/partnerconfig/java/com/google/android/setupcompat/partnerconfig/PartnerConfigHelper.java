@@ -18,7 +18,6 @@ package com.google.android.setupcompat.partnerconfig;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.drawable.Drawable;
@@ -45,6 +44,9 @@ public class PartnerConfigHelper {
   public static final String SUW_AUTHORITY = "com.google.android.setupwizard.partner";
 
   @VisibleForTesting public static final String SUW_GET_PARTNER_CONFIG_METHOD = "getOverlayConfig";
+
+  @VisibleForTesting public static final String KEY_FALLBACK_CONFIG = "fallbackConfig";
+
   private static PartnerConfigHelper instance = null;
 
   @VisibleForTesting Bundle resultBundle = null;
@@ -92,16 +94,18 @@ public class PartnerConfigHelper {
 
     int result = 0;
     try {
-      String resourceName = resourceConfig.getResourceName();
-      ResourceEntry resourceEntry = getResourceEntryFromKey(resourceName);
-      Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
+      ResourceEntry resourceEntry =
+          getResourceEntryFromKey(context, resourceConfig.getResourceName());
+      Resources resource = resourceEntry.getResources();
+      int resId = resourceEntry.getResourceId();
+
       if (Build.VERSION.SDK_INT >= VERSION_CODES.M) {
-        result = resource.getColor(resourceEntry.getResourceId(), null);
+        result = resource.getColor(resId, null);
       } else {
-        result = resource.getColor(resourceEntry.getResourceId());
+        result = resource.getColor(resId);
       }
       partnerResourceCache.put(resourceConfig, result);
-    } catch (PackageManager.NameNotFoundException | NullPointerException exception) {
+    } catch (NullPointerException exception) {
       // fall through
     }
     return result;
@@ -127,25 +131,25 @@ public class PartnerConfigHelper {
 
     Drawable result = null;
     try {
-      ResourceEntry resourceEntry = getResourceEntryFromKey(resourceConfig.getResourceName());
-      Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
+      ResourceEntry resourceEntry =
+          getResourceEntryFromKey(context, resourceConfig.getResourceName());
+      Resources resource = resourceEntry.getResources();
+      int resId = resourceEntry.getResourceId();
 
       // for @null
       TypedValue outValue = new TypedValue();
-      resource.getValue(resourceEntry.getResourceId(), outValue, true);
+      resource.getValue(resId, outValue, true);
       if (outValue.type == TypedValue.TYPE_REFERENCE && outValue.data == 0) {
         return result;
       }
 
       if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
-        result = resource.getDrawable(resourceEntry.getResourceId(), null);
+        result = resource.getDrawable(resId, null);
       } else {
-        result = resource.getDrawable(resourceEntry.getResourceId());
+        result = resource.getDrawable(resId);
       }
       partnerResourceCache.put(resourceConfig, result);
-    } catch (PackageManager.NameNotFoundException
-        | NullPointerException
-        | NotFoundException exception) {
+    } catch (NullPointerException | NotFoundException exception) {
       // fall through
     }
     return result;
@@ -171,11 +175,14 @@ public class PartnerConfigHelper {
 
     String result = null;
     try {
-      ResourceEntry resourceEntry = getResourceEntryFromKey(resourceConfig.getResourceName());
-      Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
-      result = resource.getString(resourceEntry.getResourceId());
+      ResourceEntry resourceEntry =
+          getResourceEntryFromKey(context, resourceConfig.getResourceName());
+      Resources resource = resourceEntry.getResources();
+      int resId = resourceEntry.getResourceId();
+
+      result = resource.getString(resId);
       partnerResourceCache.put(resourceConfig, result);
-    } catch (PackageManager.NameNotFoundException | NullPointerException exception) {
+    } catch (NullPointerException exception) {
       // fall through
     }
     return result;
@@ -202,11 +209,14 @@ public class PartnerConfigHelper {
 
     boolean result = defaultValue;
     try {
-      ResourceEntry resourceEntry = getResourceEntryFromKey(resourceConfig.getResourceName());
-      Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
-      result = resource.getBoolean(resourceEntry.getResourceId());
+      ResourceEntry resourceEntry =
+          getResourceEntryFromKey(context, resourceConfig.getResourceName());
+      Resources resource = resourceEntry.getResources();
+      int resId = resourceEntry.getResourceId();
+
+      result = resource.getBoolean(resId);
       partnerResourceCache.put(resourceConfig, result);
-    } catch (PackageManager.NameNotFoundException | NullPointerException exception) {
+    } catch (NullPointerException exception) {
       // fall through
     }
     return result;
@@ -244,17 +254,18 @@ public class PartnerConfigHelper {
 
     float result = defaultValue;
     try {
-      ResourceEntry resourceEntry = getResourceEntryFromKey(resourceConfig.getResourceName());
-      Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
-      result = resource.getDimension(resourceEntry.getResourceId());
-      TypedValue value =
-          getTypedValueFromResource(
-              resource, resourceEntry.getResourceId(), TypedValue.TYPE_DIMENSION);
+      ResourceEntry resourceEntry =
+          getResourceEntryFromKey(context, resourceConfig.getResourceName());
+      Resources resource = resourceEntry.getResources();
+      int resId = resourceEntry.getResourceId();
+
+      result = resource.getDimension(resId);
+      TypedValue value = getTypedValueFromResource(resource, resId, TypedValue.TYPE_DIMENSION);
       partnerResourceCache.put(resourceConfig, value);
       result =
           getDimensionFromTypedValue(
               context, (TypedValue) partnerResourceCache.get(resourceConfig));
-    } catch (PackageManager.NameNotFoundException | NullPointerException exception) {
+    } catch (NullPointerException exception) {
       // fall through
     }
     return result;
@@ -291,14 +302,61 @@ public class PartnerConfigHelper {
 
     float result = defaultValue;
     try {
-      ResourceEntry resourceEntry = getResourceEntryFromKey(resourceConfig.getResourceName());
-      Resources resource = getResourcesByPackageName(context, resourceEntry.getPackageName());
-      result = resource.getFraction(resourceEntry.getResourceId(), 1, 1);
+      ResourceEntry resourceEntry =
+          getResourceEntryFromKey(context, resourceConfig.getResourceName());
+      Resources resource = resourceEntry.getResources();
+      int resId = resourceEntry.getResourceId();
+
+      result = resource.getFraction(resId, 1, 1);
       partnerResourceCache.put(resourceConfig, result);
-    } catch (PackageManager.NameNotFoundException | NullPointerException exception) {
+    } catch (NullPointerException exception) {
       // fall through
     }
     return result;
+  }
+
+  /**
+   * Returns the {@link ResourceEntry} of given {@code resourceConfig}, or {@code null} if the given
+   * {@code resourceConfig} is not found. If the {@link ResourceType} of the given {@code
+   * resourceConfig} is not illustration, IllegalArgumentException will be thrown.
+   *
+   * @param context The context of client activity
+   * @param resourceConfig The {@link PartnerConfig} of target resource
+   */
+  @Nullable
+  public ResourceEntry getIllustrationResourceEntry(
+      @NonNull Context context, PartnerConfig resourceConfig) {
+    if (resourceConfig.getResourceType() != ResourceType.ILLUSTRATION) {
+      throw new IllegalArgumentException("Not a illustration resource");
+    }
+
+    if (partnerResourceCache.containsKey(resourceConfig)) {
+      return (ResourceEntry) partnerResourceCache.get(resourceConfig);
+    }
+
+    try {
+      ResourceEntry resourceEntry =
+          getResourceEntryFromKey(context, resourceConfig.getResourceName());
+
+      Resources resource = resourceEntry.getResources();
+      int resId = resourceEntry.getResourceId();
+
+      // TODO: The illustration resource entry validation should validate is it a video
+      // resource or not?
+      // for @null
+      TypedValue outValue = new TypedValue();
+      resource.getValue(resId, outValue, true);
+      if (outValue.type == TypedValue.TYPE_REFERENCE && outValue.data == 0) {
+        return null;
+      }
+
+      partnerResourceCache.put(resourceConfig, resourceEntry);
+      return resourceEntry;
+    } catch (NullPointerException exception) {
+      // fall through
+    }
+
+    return null;
   }
 
   private void getPartnerConfigBundle(Context context) {
@@ -316,29 +374,20 @@ public class PartnerConfigHelper {
                 .call(
                     contentUri, SUW_GET_PARTNER_CONFIG_METHOD, /* arg= */ null, /* extras= */ null);
         partnerResourceCache.clear();
-      } catch (IllegalArgumentException exception) {
+      } catch (IllegalArgumentException | SecurityException exception) {
         Log.w(TAG, "Fail to get config from suw provider");
       }
     }
   }
 
-  private Resources getResourcesByPackageName(Context context, String packageName)
-      throws PackageManager.NameNotFoundException {
-    PackageManager manager = context.getPackageManager();
-    if (Build.VERSION.SDK_INT >= VERSION_CODES.N) {
-      return manager.getResourcesForApplication(
-          manager.getApplicationInfo(packageName, PackageManager.MATCH_DISABLED_COMPONENTS));
-    } else {
-      return manager.getResourcesForApplication(
-          manager.getApplicationInfo(packageName, PackageManager.GET_DISABLED_COMPONENTS));
+  @Nullable
+  private ResourceEntry getResourceEntryFromKey(Context context, String resourceName) {
+    Bundle resourceEntryBundle = resultBundle.getBundle(resourceName);
+    Bundle fallbackBundle = resultBundle.getBundle(KEY_FALLBACK_CONFIG);
+    if (fallbackBundle != null) {
+      resourceEntryBundle.putBundle(KEY_FALLBACK_CONFIG, fallbackBundle.getBundle(resourceName));
     }
-  }
-
-  private ResourceEntry getResourceEntryFromKey(String resourceName) {
-    if (resultBundle == null) {
-      return null;
-    }
-    return ResourceEntry.fromBundle(resultBundle.getBundle(resourceName));
+    return ResourceEntry.fromBundle(context, resourceEntryBundle);
   }
 
   @VisibleForTesting

@@ -4,7 +4,7 @@ to{
     Currencies{
         AUD{
             "AUD$",
-            "Australian Dollar",
+            "Tola fakaʻaositelēlia",
         }
         BRL{
             "R$",
@@ -12,19 +12,19 @@ to{
         }
         FJD{
             "FJD",
-            "FJD",
+            "Tola fakafisi",
         }
         NZD{
             "NZD$",
-            "NZD",
+            "Tola fakanuʻusila",
         }
         PGK{
             "PGK",
-            "PGK",
+            "Kina fakapapuaniukini",
         }
         SBD{
             "SBD",
-            "SBD",
+            "Tola fakaʻotusolomone",
         }
         TOP{
             "T$",
@@ -32,7 +32,7 @@ to{
         }
         VUV{
             "VUV",
-            "VUV",
+            "Vatu fakavanuatu",
         }
         WST{
             "WST",
@@ -40,7 +40,7 @@ to{
         }
         XPF{
             "CFPF",
-            "XPF",
+            "Falaniki fakapasifika",
         }
         XXX{
             "¤",
@@ -48,24 +48,42 @@ to{
         }
     }
     Currencies%narrow{
-        AUD{"$"}
-        FJD{"$"}
-        NZD{"$"}
-        SBD{"$"}
-        TWD{"$"}
+        AUD{"AU$"}
+        FJD{"F$"}
+        NZD{"NZ$"}
+        SBD{"S$"}
+        TOP{"T$"}
     }
     Currencies%variant{
         GEL{"₾"}
     }
     CurrencyPlurals{
         AUD{
-            other{"Australian Dollar"}
+            other{"Tola fakaʻaositelēlia"}
+        }
+        FJD{
+            other{"Tola fakafisi"}
+        }
+        NZD{
+            other{"Tola fakanuʻusila"}
+        }
+        PGK{
+            other{"Kina fakapapuaniukini"}
+        }
+        SBD{
+            other{"Tola fakaʻotusolomone"}
         }
         TOP{
             other{"Paʻanga fakatonga"}
         }
+        VUV{
+            other{"Vatu fakavanuatu"}
+        }
         WST{
             other{"Tala fakahaʻamoa"}
+        }
+        XPF{
+            other{"Falaniki fakapasifika"}
         }
         XXX{
             other{"Pa’anga Ta’e’ilo"}
@@ -74,5 +92,5 @@ to{
     CurrencyUnitPatterns{
         other{"{1} {0}"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
 }

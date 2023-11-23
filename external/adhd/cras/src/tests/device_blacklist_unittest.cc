@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <stdio.h>
 #include <gtest/gtest.h>
+#include <stdio.h>
 
 extern "C" {
 #include "cras_device_blacklist.h"
@@ -30,7 +30,7 @@ void CreateConfigFile(const char* config_text) {
 
 TEST(Blacklist, EmptyBlacklist) {
   static const char empty_config_text[] = "";
-  struct cras_device_blacklist *blacklist;
+  struct cras_device_blacklist* blacklist;
 
   CreateConfigFile(empty_config_text);
 
@@ -45,7 +45,7 @@ TEST(Blacklist, BlackListOneUsbOutput) {
   static const char usb_output_config_text[] =
       "[USB_Outputs]\n"
       "0d8c_0008_00000012_0 = 1\n";
-  struct cras_device_blacklist *blacklist;
+  struct cras_device_blacklist* blacklist;
 
   CreateConfigFile(usb_output_config_text);
 
@@ -66,7 +66,7 @@ TEST(Blacklist, BlackListTwoUsbOutput) {
       "[USB_Outputs]\n"
       "0d8c_0008_00000000_0 = 1\n"
       "0d8c_0009_00000000_0 = 1\n";
-  struct cras_device_blacklist *blacklist;
+  struct cras_device_blacklist* blacklist;
 
   CreateConfigFile(usb_output_config_text);
 
@@ -82,7 +82,7 @@ TEST(Blacklist, BlackListTwoUsbOutput) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

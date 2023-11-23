@@ -17,5 +17,5 @@ sr_Latn_ME{
         zgh{"standardni marokanski tamašek"}
         zu{"isizulu"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
 }

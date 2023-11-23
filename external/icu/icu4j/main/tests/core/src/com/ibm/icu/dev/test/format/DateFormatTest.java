@@ -3029,10 +3029,10 @@ public class DateFormatTest extends TestFmwk {
             String CA_DATA[] = {
                 "yyyy MM dd HH:mm:ss",
 
-                "h:mm a",     "2015 01 01 10:00:00", "10:00 a. m.",
-                "h:mm a",     "2015 01 01 22:00:00", "10:00 p. m.",
-                "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 a. m.",
-                "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 p. m.",
+                "h:mm a",     "2015 01 01 10:00:00", "10:00 a.\u00A0m.",
+                "h:mm a",     "2015 01 01 22:00:00", "10:00 p.\u00A0m.",
+                "h:mm aaaaa", "2015 01 01 10:00:00", "10:00 a.\u00A0m.",
+                "h:mm aaaaa", "2015 01 01 22:00:00", "10:00 p.\u00A0m.",
             };
 
             expectFormat(EN_DATA, new Locale("en", "", ""));

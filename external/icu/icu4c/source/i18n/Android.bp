@@ -29,6 +29,8 @@ cc_defaults {
         "-Wall",
         "-Werror",
         "-Wno-unused-parameter",
+        "-Wno-unused-const-variable",
+        "-Wno-unneeded-internal-declaration",
     ],
     cppflags: [
         "-std=c++11",
@@ -45,10 +47,6 @@ cc_defaults {
         },
         windows: {
             enabled: true,
-            cflags: [
-                "-Wno-ignored-attributes", // ICU-20356
-                "-Wno-missing-field-initializers", // ICU-20179
-            ],
         },
     },
 }
@@ -56,23 +54,46 @@ cc_defaults {
 cc_library_headers {
     name: "libicui18n_headers",
     host_supported: true,
+    native_bridge_supported: true,
     export_include_dirs: ["."],
     target: {
         windows: {
             enabled: true,
         },
     },
+
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art.release",
+    ],
 }
 
 //
 // Build for the host and target (device).
+// Allow static builds for host so that they can be statically
+// linked into libandroid_runtime. That enables libandroid_runtime to
+// be shipped on desktops as one file which saves space and complexity.
 //
-cc_library_shared {
+cc_library {
     name: "libicui18n",
     defaults: ["libicui18n_defaults"],
     host_supported: true,
+    native_bridge_supported: true,
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+        // b/133140750 Clean this up. This is due to the dependency to from libmedia
+        "//apex_available:platform",
+    ],
     unique_host_soname: true,
     shared_libs: ["libicuuc"],
-    header_libs: [ "libicui18n_headers" ],
-    export_header_lib_headers: [ "libicui18n_headers" ],
+    header_libs: ["libicui18n_headers"],
+    export_header_lib_headers: ["libicui18n_headers"],
+    target: {
+        android: {
+            static: {
+                enabled: false,
+            },
+        },
+    },
 }

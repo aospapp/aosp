@@ -8,10 +8,10 @@
 
 #include <vector>
 
-#include "fxjs/JS_Define.h"
 #include "fxjs/cjs_event_context.h"
-#include "fxjs/cjs_eventhandler.h"
+#include "fxjs/cjs_eventrecorder.h"
 #include "fxjs/cjs_object.h"
+#include "fxjs/js_define.h"
 
 const JSMethodSpec CJS_Console::MethodSpecs[] = {{"clear", clear_static},
                                                  {"hide", hide_static},
@@ -19,35 +19,42 @@ const JSMethodSpec CJS_Console::MethodSpecs[] = {{"clear", clear_static},
                                                  {"show", show_static}};
 
 int CJS_Console::ObjDefnID = -1;
+const char CJS_Console::kName[] = "console";
+
+// static
+int CJS_Console::GetObjDefnID() {
+  return ObjDefnID;
+}
 
 // static
 void CJS_Console::DefineJSObjects(CFXJS_Engine* pEngine) {
-  ObjDefnID = pEngine->DefineObj("console", FXJSOBJTYPE_STATIC,
-                                 JSConstructor<CJS_Console, console>,
-                                 JSDestructor<CJS_Console>);
-  DefineMethods(pEngine, ObjDefnID, MethodSpecs, FX_ArraySize(MethodSpecs));
+  ObjDefnID = pEngine->DefineObj(CJS_Console::kName, FXJSOBJTYPE_STATIC,
+                                 JSConstructor<CJS_Console>, JSDestructor);
+  DefineMethods(pEngine, ObjDefnID, MethodSpecs);
 }
 
-console::console(CJS_Object* pJSObject) : CJS_EmbedObj(pJSObject) {}
+CJS_Console::CJS_Console(v8::Local<v8::Object> pObject, CJS_Runtime* pRuntime)
+    : CJS_Object(pObject, pRuntime) {}
 
-console::~console() {}
+CJS_Console::~CJS_Console() = default;
 
-CJS_Return console::clear(CJS_Runtime* pRuntime,
-                          const std::vector<v8::Local<v8::Value>>& params) {
-  return CJS_Return(true);
+CJS_Result CJS_Console::clear(CJS_Runtime* pRuntime,
+                              const std::vector<v8::Local<v8::Value>>& params) {
+  return CJS_Result::Success();
 }
 
-CJS_Return console::hide(CJS_Runtime* pRuntime,
-                         const std::vector<v8::Local<v8::Value>>& params) {
-  return CJS_Return(true);
+CJS_Result CJS_Console::hide(CJS_Runtime* pRuntime,
+                             const std::vector<v8::Local<v8::Value>>& params) {
+  return CJS_Result::Success();
 }
 
-CJS_Return console::println(CJS_Runtime* pRuntime,
-                            const std::vector<v8::Local<v8::Value>>& params) {
-  return CJS_Return(params.size() > 0);
+CJS_Result CJS_Console::println(
+    CJS_Runtime* pRuntime,
+    const std::vector<v8::Local<v8::Value>>& params) {
+  return CJS_Result::Success();
 }
 
-CJS_Return console::show(CJS_Runtime* pRuntime,
-                         const std::vector<v8::Local<v8::Value>>& params) {
-  return CJS_Return(true);
+CJS_Result CJS_Console::show(CJS_Runtime* pRuntime,
+                             const std::vector<v8::Local<v8::Value>>& params) {
+  return CJS_Result::Success();
 }

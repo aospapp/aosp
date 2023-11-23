@@ -1,19 +1,8 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2018 SUSE Linux GmbH
 # Copyright (c) 2016 Oracle and/or its affiliates. All Rights Reserved.
-# Copyright (c) International Business Machines  Corp., 2000
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of
-# the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it would be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# Copyright (c) International Business Machines Corp., 2000
 #
 # Test basic functionality of 'arp' and 'ip neigh'.
 
@@ -38,14 +27,14 @@ do_setup()
 			tst_brk TCONF "'arp' doesn't support IPv6"
 		fi
 		SHOW_CMD="arp -a"
-		DEL_CMD="arp -d $(tst_ipaddr rhost)"
+		DEL_CMD="arp -d $(tst_ipaddr rhost) -i $(tst_iface)"
 		;;
 	*)
 		tst_brk TBROK "unknown or missing command, use -c [ arp | ip ]"
 		;;
 	esac
 
-	tst_test_cmds $CMD ping$TST_IPV6
+	tst_require_cmds $CMD ping$TST_IPV6
 }
 
 usage()
@@ -69,7 +58,7 @@ do_test()
 
 	for i in $(seq 1 $NUMLOOPS); do
 
-		ping$TST_IPV6 -q -c1 $(tst_ipaddr rhost) > /dev/null || \
+		ping$TST_IPV6 -q -c1 $(tst_ipaddr rhost) -I $(tst_iface) > /dev/null || \
 			tst_brk TFAIL "cannot ping $(tst_ipaddr rhost)"
 
 		local k

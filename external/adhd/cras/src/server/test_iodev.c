@@ -21,18 +21,11 @@
 
 #define TEST_BUFFER_SIZE (16 * 1024)
 
-static size_t test_supported_rates[] = {
-	16000, 0
-};
+static size_t test_supported_rates[] = { 16000, 0 };
 
-static size_t test_supported_channel_counts[] = {
-	1, 0
-};
+static size_t test_supported_channel_counts[] = { 1, 0 };
 
-static snd_pcm_format_t test_supported_formats[] = {
-	SND_PCM_FORMAT_S16_LE,
-	0
-};
+static snd_pcm_format_t test_supported_formats[] = { SND_PCM_FORMAT_S16_LE, 0 };
 
 struct test_iodev {
 	struct cras_iodev base;
@@ -82,14 +75,13 @@ static int configure_dev(struct cras_iodev *iodev)
 
 	cras_iodev_init_audio_area(iodev, iodev->format->num_channels);
 	testio->fmt_bytes = cras_get_format_bytes(iodev->format);
-	testio->audbuff = byte_buffer_create(TEST_BUFFER_SIZE *
-						testio->fmt_bytes);
+	testio->audbuff =
+		byte_buffer_create(TEST_BUFFER_SIZE * testio->fmt_bytes);
 
 	return 0;
 }
 
-static int get_buffer(struct cras_iodev *iodev,
-		      struct cras_audio_area **area,
+static int get_buffer(struct cras_iodev *iodev, struct cras_audio_area **area,
 		      unsigned *frames)
 {
 	struct test_iodev *testio = (struct test_iodev *)iodev;
@@ -116,8 +108,7 @@ static int put_buffer(struct cras_iodev *iodev, unsigned frames)
 }
 
 static int get_buffer_fd_read(struct cras_iodev *iodev,
-			      struct cras_audio_area **area,
-			      unsigned *frames)
+			      struct cras_audio_area **area, unsigned *frames)
 {
 	struct test_iodev *testio = (struct test_iodev *)iodev;
 	int nread;
@@ -158,8 +149,7 @@ static void play_file_as_hotword(struct test_iodev *testio, const char *path)
 	if (testio->fd >= 0) {
 		/* Remove audio thread callback from main thread. */
 		audio_thread_rm_callback_sync(
-				cras_iodev_list_get_audio_thread(),
-				testio->fd);
+			cras_iodev_list_get_audio_thread(), testio->fd);
 		close(testio->fd);
 	}
 
@@ -237,8 +227,7 @@ void test_iodev_destroy(struct cras_iodev *iodev)
 	free(testio);
 }
 
-unsigned int test_iodev_add_samples(struct test_iodev *testio,
-				    uint8_t *samples,
+unsigned int test_iodev_add_samples(struct test_iodev *testio, uint8_t *samples,
 				    unsigned int count)
 {
 	unsigned int avail;
@@ -252,8 +241,7 @@ unsigned int test_iodev_add_samples(struct test_iodev *testio,
 }
 
 void test_iodev_command(struct cras_iodev *iodev,
-			enum CRAS_TEST_IODEV_CMD command,
-			unsigned int data_len,
+			enum CRAS_TEST_IODEV_CMD command, unsigned int data_len,
 			const uint8_t *data)
 {
 	struct test_iodev *testio = (struct test_iodev *)iodev;

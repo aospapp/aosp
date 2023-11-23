@@ -5,17 +5,7 @@
 #ifndef TESTING_TEST_SUPPORT_H_
 #define TESTING_TEST_SUPPORT_H_
 
-#include <stdlib.h>
-
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "public/fpdfview.h"
-
-#if PDF_ENABLE_XFA
-#include "xfa/fgas/font/cfgas_fontmgr.h"
-#endif  // PDF_ENABLE_XFA
+#include <stdint.h>
 
 namespace pdfium {
 
@@ -54,69 +44,9 @@ struct NullTermWstrFuncTestData {
   const wchar_t* expected;
 };
 
-// Used with std::unique_ptr to free() objects that can't be deleted.
-struct FreeDeleter {
-  inline void operator()(void* ptr) const { free(ptr); }
-};
-
 }  // namespace pdfium
 
-// Reads the entire contents of a file into a newly alloc'd buffer.
-std::unique_ptr<char, pdfium::FreeDeleter> GetFileContents(const char* filename,
-                                                           size_t* retlen);
-
-std::vector<std::string> StringSplit(const std::string& str, char delimiter);
-
-// Converts a FPDF_WIDESTRING to a std::string.
-// Deals with differences between UTF16LE and UTF8.
-std::string GetPlatformString(FPDF_WIDESTRING wstr);
-
-// Converts a FPDF_WIDESTRING to a std::wstring.
-// Deals with differences between UTF16LE and wchar_t.
-std::wstring GetPlatformWString(FPDF_WIDESTRING wstr);
-
-// Returns a newly allocated FPDF_WIDESTRING.
-// Deals with differences between UTF16LE and wchar_t.
-std::unique_ptr<unsigned short, pdfium::FreeDeleter> GetFPDFWideString(
-    const std::wstring& wstr);
-
-std::string CryptToBase16(const uint8_t* digest);
-std::string GenerateMD5Base16(const uint8_t* data, uint32_t size);
-
-#ifdef PDF_ENABLE_V8
-namespace v8 {
-class Platform;
-}
-#ifdef V8_USE_EXTERNAL_STARTUP_DATA
-namespace v8 {
-class StartupData;
-}
-bool InitializeV8ForPDFium(const std::string& exe_path,
-                           const std::string& bin_dir,
-                           v8::StartupData* natives_blob,
-                           v8::StartupData* snapshot_blob,
-                           v8::Platform** platform);
-#else   // V8_USE_EXTERNAL_STARTUP_DATA
-bool InitializeV8ForPDFium(const std::string& exe_path,
-                           v8::Platform** platform);
-#endif  // V8_USE_EXTERNAL_STARTUP_DATA
-#endif  // PDF_ENABLE_V8
-
-class TestLoader {
- public:
-  TestLoader(const char* pBuf, size_t len);
-  static int GetBlock(void* param,
-                      unsigned long pos,
-                      unsigned char* pBuf,
-                      unsigned long size);
-
- private:
-  const char* const m_pBuf;
-  const size_t m_Len;
-};
-
-#if PDF_ENABLE_XFA
-CFGAS_FontMgr* GetGlobalFontManager();
-#endif  // PDF_ENABLE_XFA
+void InitializePDFTestEnvironment();
+void DestroyPDFTestEnvironment();
 
 #endif  // TESTING_TEST_SUPPORT_H_

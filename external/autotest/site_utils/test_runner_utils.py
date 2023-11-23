@@ -25,6 +25,8 @@ from autotest_lib.client.common_lib import logging_manager
 from autotest_lib.server.cros.dynamic_suite import suite, constants
 from autotest_lib.server.cros import provision
 from autotest_lib.server.hosts import factory
+from autotest_lib.server.hosts import file_store
+from autotest_lib.server.hosts import host_info
 from autotest_lib.server import autoserv_utils
 from autotest_lib.server import server_logging_config
 from autotest_lib.server import utils
@@ -44,6 +46,7 @@ TEST_KEY_PATH = ('/mnt/host/source/src/scripts/mod_for_test_scripts/'
                   'ssh_keys/%s' % _TEST_KEY_FILENAME)
 
 _LATEST_RESULTS_DIRECTORY = '/tmp/test_that_latest'
+_HOST_INFO_SUBDIR = 'host_info_store'
 
 
 class TestThatRunError(Exception):
@@ -125,6 +128,8 @@ class LocalSuite(suite.Suite):
         """
         logging.debug('Parsing test results for job %s',job_id)
         code = generate_report(results_dir, just_status_code=True)
+        if not self._retry_handler:
+            return None
         logging.debug('Handling result of job %s',job_id)
         logging.debug(self._retry_handler._retry_map)
         if code == 0:
@@ -170,7 +175,7 @@ class LocalSuite(suite.Suite):
 def fetch_local_suite(autotest_path, suite_predicate, afe, test_arg, remote,
                       build=NO_BUILD, board=NO_BOARD,
                       results_directory=None, no_experimental=False,
-                      ignore_deps=True):
+                      ignore_deps=True, job_retry=True):
     """Create a suite from the given suite predicate.
 
     Satisfaction of dependencies is enforced by Suite.schedule() if
@@ -194,6 +199,7 @@ def fetch_local_suite(autotest_path, suite_predicate, afe, test_arg, remote,
                               (results will be stored in subdirectory of this).
     @param no_experimental: Skip experimental tests when scheduling a suite.
     @param ignore_deps: If True, test dependencies will be ignored.
+    @param job_retry: If False, tests will not be retried at all.
 
     @returns: A LocalSuite object.
 
@@ -208,7 +214,7 @@ def fetch_local_suite(autotest_path, suite_predicate, afe, test_arg, remote,
         ignore_deps=ignore_deps,
         results_dir=results_directory,
         forgiving_parser=False,
-        job_retry=True
+        job_retry=job_retry
     )
     if len(my_suite.tests) == 0:
         (similarity_predicate, similarity_description) = (
@@ -256,7 +262,7 @@ def _run_autoserv(command, pretend=False):
         # so that autoserv output can be displayed to the user
         # immediately.
         for message in iter(_autoserv_proc.stdout.readline, b''):
-            logging.info('autoserv| %s', message.strip())
+            logging.info('autoserv| %s', message.rstrip())
 
         _autoserv_proc.wait()
         returncode = _autoserv_proc.returncode
@@ -268,7 +274,7 @@ def _run_autoserv(command, pretend=False):
     return returncode
 
 
-def run_provisioning_job(provision_label, host, autotest_path,
+def run_provisioning_job(provision_label, host, info, autotest_path,
                          results_directory, fast_mode,
                          ssh_verbosity=0, ssh_options=None,
                          pretend=False, autoserv_verbose=False):
@@ -276,6 +282,7 @@ def run_provisioning_job(provision_label, host, autotest_path,
 
     @param provision_label: Label to provision the machine to.
     @param host: Hostname of DUT.
+    @param info: A host_info.HostInfo for the remote host.
     @param autotest_path: Absolute path of autotest directory.
     @param results_directory: Absolute path of directory to store results in.
                               (results will be stored in subdirectory of this).
@@ -294,6 +301,7 @@ def run_provisioning_job(provision_label, host, autotest_path,
     # provision_AutoUpdate checks the current build of DUT by
     # retrieving build info from AFE. crosbug.com/295178
     results_directory = os.path.join(results_directory, 'results-provision')
+    _write_host_info(results_directory, _HOST_INFO_SUBDIR, host, info)
     command = autoserv_utils.autoserv_run_job_command(
             os.path.join(autotest_path, 'server'),
             machines=host, job=None, verbose=autoserv_verbose,
@@ -301,23 +309,25 @@ def run_provisioning_job(provision_label, host, autotest_path,
             fast_mode=fast_mode, ssh_verbosity=ssh_verbosity,
             ssh_options=ssh_options,
             extra_args=['--provision', '--job-labels', provision_label],
-            no_console_prefix=True)
+            no_console_prefix=True,
+            host_info_subdir=_HOST_INFO_SUBDIR)
     if _run_autoserv(command, pretend) != 0:
         raise TestThatProvisioningError('Command returns non-zero code: %s ' %
                                         command)
     return results_directory
 
 
-def run_job(job, host, autotest_path, results_directory, fast_mode,
+def run_job(job, host, info, autotest_path, results_directory, fast_mode,
             id_digits=1, ssh_verbosity=0, ssh_options=None,
             args=None, pretend=False,
-            autoserv_verbose=False, host_attributes={}):
+            autoserv_verbose=False):
     """
     Shell out to autoserv to run an individual test job.
 
     @param job: A Job object containing the control file contents and other
                 relevent metadata for this test.
     @param host: Hostname of DUT to run test against.
+    @param info: a host_info.HostInfo for the remote host.
     @param autotest_path: Absolute path of autotest directory.
     @param results_directory: Absolute path of directory to store results in.
                               (results will be stored in subdirectory of this).
@@ -332,7 +342,6 @@ def run_job(job, host, autotest_path, results_directory, fast_mode,
     @param pretend: If True, will print out autoserv commands rather than
                     running them.
     @param autoserv_verbose: If true, pass the --verbose flag to autoserv.
-    @param host_attributes: Dict of host attributes to pass into autoserv.
 
     @returns: a tuple, return code of the job and absolute path of directory
               where results were stored.
@@ -349,6 +358,7 @@ def run_job(job, host, autotest_path, results_directory, fast_mode,
         utils.write_keyval(results_directory,
                            {constants.JOB_EXPERIMENTAL_KEY: job.keyvals[
                                    constants.JOB_EXPERIMENTAL_KEY]})
+        _write_host_info(results_directory, _HOST_INFO_SUBDIR, host, info)
         extra_args = [temp_file.name]
         if args:
             extra_args.extend(['--args', args])
@@ -362,7 +372,8 @@ def run_job(job, host, autotest_path, results_directory, fast_mode,
                 extra_args=extra_args,
                 no_console_prefix=True,
                 use_packaging=False,
-                host_attributes=host_attributes)
+                host_attributes=info.attributes,
+                host_info_subdir=_HOST_INFO_SUBDIR)
 
         code = _run_autoserv(command, pretend)
         return code, results_directory
@@ -478,6 +489,7 @@ def _auto_detect_labels(afe, remote):
     @param afe: A direct_afe object used to interact with local afe database.
     @param remote: The hostname of the remote device.
 
+    @returns: the detected labels as a list of strings.
     """
     cros_host = factory.create_host(remote)
     labels_to_create = [label for label in cros_host.get_labels()
@@ -492,6 +504,7 @@ def _auto_detect_labels(afe, remote):
                                'been added to afe.' % remote)
     afe_host = hosts[0]
     afe_host.add_labels(labels_to_add_to_afe_host)
+    return labels_to_add_to_afe_host
 
 
 def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
@@ -502,7 +515,8 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
                       ssh_options=None,
                       autoserv_verbose=False,
                       iterations=1,
-                      host_attributes={}):
+                      host_attributes={},
+                      job_retry=True):
     """Perform local run of tests.
 
     This method enforces satisfaction of test dependencies for tests that are
@@ -532,6 +546,7 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
     @param autoserv_verbose: If true, pass the --verbose flag to autoserv.
     @param iterations: int number of times to schedule tests.
     @param host_attributes: Dict of host attributes to pass into autoserv.
+    @param job_retry: If False, tests will not be retried at all.
 
     @returns: A list of return codes each job that has run. Or [1] if
               provision failed prior to running any jobs.
@@ -543,19 +558,34 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
 
     build_label = afe.create_label(cros_version_label)
     board_label = afe.create_label(constants.BOARD_PREFIX + board)
+    labels = [build_label.name, board_label.name]
+
     new_host = afe.create_host(remote)
-    new_host.add_labels([build_label.name, board_label.name])
+    new_host.add_labels(labels)
     if not ignore_deps:
         logging.info('Auto-detecting labels for %s', remote)
-        _auto_detect_labels(afe, remote)
+        labels += _auto_detect_labels(afe, remote)
+        # Auto-detected labels may duplicate explicitly set ones.
+        labels = list(set(labels))
+
+    info = host_info.HostInfo(labels, host_attributes)
+
     # Provision the host to |build|.
     if build != NO_BUILD:
         logging.info('Provisioning %s...', cros_version_label)
         try:
-            run_provisioning_job(cros_version_label, remote, autotest_path,
-                                 results_directory, fast_mode,
-                                 ssh_verbosity, ssh_options,
-                                 pretend, autoserv_verbose)
+            run_provisioning_job(
+                cros_version_label,
+                remote,
+                info,
+                autotest_path,
+                results_directory,
+                fast_mode,
+                ssh_verbosity,
+                ssh_options,
+                pretend,
+                autoserv_verbose,
+            )
         except TestThatProvisioningError as e:
             logging.error('Provisioning %s to %s failed, tests are aborted, '
                           'failure reason: %s',
@@ -572,7 +602,8 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
                                   build=build, board=board,
                                   results_directory=results_directory,
                                   no_experimental=no_experimental,
-                                  ignore_deps=ignore_deps)
+                                  ignore_deps=ignore_deps,
+                                  job_retry=job_retry)
         suites_and_descriptions.append((suite, description))
 
     jobs_to_suites = {}
@@ -612,9 +643,19 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
               logging.debug('Running job %s of test %s',
                             job.id, suite.test_name_from_job(job.id))
               code, abs_dir = run_job(
-                  job, remote, autotest_path, results_directory,
-                  fast_mode, job_id_digits, ssh_verbosity, ssh_options, args,
-                  pretend, autoserv_verbose, host_attributes)
+                  job,
+                  remote,
+                  info,
+                  autotest_path,
+                  results_directory,
+                  fast_mode,
+                  job_id_digits,
+                  ssh_verbosity,
+                  ssh_options,
+                  args,
+                  pretend,
+                  autoserv_verbose,
+              )
               codes.append(code)
               logging.debug("Code: %s, Results in %s", code, abs_dir)
               new_id = suite.handle_local_result(job.id, abs_dir, null_logger)
@@ -763,7 +804,7 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
                                    ssh_options=None,
                                    iterations=1, fast_mode=False, debug=False,
                                    whitelist_chrome_crashes=False,
-                                   host_attributes={}):
+                                   host_attributes={}, job_retry=True):
     """
     Perform a test_that run, from the |autotest_path|.
 
@@ -796,8 +837,9 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
     @param debug: Logging and autoserv verbosity.
     @param whitelist_chrome_crashes: If True, whitelist chrome crashes.
     @param host_attributes: Dict of host attributes to pass into autoserv.
+    @param job_retry: If False, tests will not be retried at all.
 
-    @returns: A return code that test_that should exit with.
+    @return: A return code that test_that should exit with.
     """
     if results_directory is None or not os.path.exists(results_directory):
         raise ValueError('Expected valid results directory, got %s' %
@@ -828,7 +870,8 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
                       ssh_options=ssh_options,
                       autoserv_verbose=debug,
                       iterations=iterations,
-                      host_attributes=host_attributes)
+                      host_attributes=host_attributes,
+                      job_retry=job_retry)
     if pretend:
         logging.info('Finished pretend run. Exiting.')
         return 0
@@ -850,3 +893,17 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
     logging.info('Finished running tests. Results can be found in %s or %s',
                  results_directory, _LATEST_RESULTS_DIRECTORY)
     return final_result
+
+
+def _write_host_info(results_dir, host_info_subdir, hostname, info):
+    """ Write HostInfo to a FileStore to be used by autoserv.
+
+    @param results_dir: Path to he results directory.
+    @param host_info_subdir: Subdirectory of results directory for host info.
+    @param hostname: Hostname passed into autoserv.
+    @param info: hosts.HostInfo to write.
+    """
+    d = os.path.join(results_dir, host_info_subdir)
+    os.makedirs(d)
+    store = file_store.FileStore(os.path.join(d, '%s.store' % hostname))
+    store.commit(info)

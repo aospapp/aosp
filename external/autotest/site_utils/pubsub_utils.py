@@ -10,13 +10,13 @@ Upon successful copy, the local results directory is deleted.
 
 from __future__ import print_function
 
+import logging
 import os
 
 from apiclient import discovery
 from apiclient import errors
 from oauth2client.client import ApplicationDefaultCredentialsError
 from oauth2client.client import GoogleCredentials
-from chromite.lib import cros_logging as logging
 
 # Cloud service
 PUBSUB_SERVICE_NAME = 'pubsub'

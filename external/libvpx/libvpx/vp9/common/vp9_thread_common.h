@@ -40,7 +40,7 @@ typedef struct VP9LfSyncData {
   int num_active_workers;  // number of scheduled workers.
 
 #if CONFIG_MULTITHREAD
-  pthread_mutex_t lf_mutex;
+  pthread_mutex_t *lf_mutex;
   pthread_mutex_t *recon_done_mutex;
   pthread_cond_t *recon_done_cond;
 #endif
@@ -71,7 +71,7 @@ void vp9_loopfilter_rows(LFWorkerData *lf_data, VP9LfSync *lf_sync);
 void vp9_set_row(VP9LfSync *lf_sync, int num_tiles, int row, int is_last_row,
                  int corrupted);
 
-void vp9_set_last_decoded_row(struct VP9Common *cm, int tile_col, int mi_row);
+void vp9_loopfilter_job(LFWorkerData *lf_data, VP9LfSync *lf_sync);
 
 void vp9_accumulate_frame_counts(struct FRAME_COUNTS *accum,
                                  const struct FRAME_COUNTS *counts, int is_dec);

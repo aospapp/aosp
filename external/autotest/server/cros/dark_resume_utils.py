@@ -4,7 +4,6 @@
 
 import logging
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
 from autotest_lib.server import autotest
 
@@ -15,45 +14,7 @@ POWER_DEFAULTS = '/usr/share/power_manager/board_specific'
 RESUME_CTRL_RETRIES = 3
 RESUME_GRACE_PERIOD = 10
 XMLRPC_BRINGUP_TIMEOUT_SECONDS = 60
-
-
-class DarkResumeSuspend(object):
-    """Context manager which exposes the dark resume-specific suspend
-    functionality.
-
-    This is required because using the RTC for a dark resume test will
-    cause the system to wake up in dark resume and resuspend, which is
-    not what we want. Instead, we suspend indefinitely, but make sure we
-    don't leave the DUT asleep by always running code to wake it up via
-    servo.
-    """
-
-
-    def __init__(self, proxy, host, suspend_for):
-        """Set up for a dark-resume-ready suspend to be carried out using
-        |proxy| and for the subsequent wakeup to be carried out using
-        |host|.
-
-        @param proxy: a dark resume xmlrpc server proxy object for the DUT
-        @param host: a servo host connected to the DUT
-        @param suspend_for : If not 0, sets a rtc alarm to wake the system after
-            |suspend_for| secs.
-        """
-        self._client_proxy = proxy
-        self._host = host
-        self._suspend_for = suspend_for
-
-
-    def __enter__(self):
-        """Suspend the DUT."""
-        logging.info('Suspending DUT (in background)...')
-        self._client_proxy.suspend_bg_for_dark_resume(self._suspend_for)
-
-
-    def __exit__(self, exception, value, traceback):
-        """Wake up the DUT."""
-        logging.info('Waking DUT from server.')
-        _wake_dut(self._host)
+DARK_SUSPEND_MAX_DELAY_TIMEOUT_MILLISECONDS = 60000
 
 
 class DarkResumeUtils(object):
@@ -83,6 +44,10 @@ class DarkResumeUtils(object):
 
         logging.debug('Enabling dark resume')
         host.run('echo 0 > %s/disable_dark_resume' % TMP_POWER_DIR)
+        logging.debug('setting max dark suspend delay timeout to %d msecs',
+                  DARK_SUSPEND_MAX_DELAY_TIMEOUT_MILLISECONDS)
+        host.run('echo %d > %s/max_dark_suspend_delay_timeout_ms' %
+                 (DARK_SUSPEND_MAX_DELAY_TIMEOUT_MILLISECONDS, TMP_POWER_DIR))
 
         # bind the tmp directory to the power preference directory
         host.run('mount --bind %s %s' % (TMP_POWER_DIR, POWER_DIR))
@@ -106,14 +71,14 @@ class DarkResumeUtils(object):
         self._host.run('stop powerd; start powerd')
 
 
-    def suspend(self, suspend_for=0):
+    def suspend(self, suspend_secs):
+        """ Suspends the device for |suspend_secs| without blocking for resume.
+
+        @param suspend_secs : Sleep for seconds. Sets a RTC alarm to wake the
+                              system.
         """
-        Returns a DarkResumeSuspend context manager that allows safe
-        suspending of the DUT.
-        @param suspend_for : If not 0, sets a rtc alarm to wake the system after
-            |suspend_for| secs.
-        """
-        return DarkResumeSuspend(self._client_proxy, self._host, suspend_for)
+        logging.info('Suspending DUT (in background)...')
+        self._client_proxy.suspend_bg(suspend_secs)
 
 
     def stop_resuspend_on_dark_resume(self, stop_resuspend=True):
@@ -124,17 +89,13 @@ class DarkResumeUtils(object):
 
 
     def count_dark_resumes(self):
-        """Return the number of dark resumes that have occurred since the beginning
-        of the test. This will wake up the DUT, so make sure to put it back to
-        sleep if you need to keep it suspended for some reason.
+        """Return the number of dark resumes since the beginning of the test.
 
-        This method will raise an error if the DUT does not wake up.
+        This method will raise an error if the DUT is not reachable.
 
         @return the number of dark resumes counted by this DarkResumeUtils
 
         """
-        _wake_dut(self._host)
-
         return self._client_proxy.get_dark_resume_count()
 
 
@@ -170,25 +131,3 @@ class DarkResumeUtils(object):
                     constants.DARK_RESUME_XMLRPC_SERVER_READY_METHOD,
                 timeout_seconds=XMLRPC_BRINGUP_TIMEOUT_SECONDS)
         return proxy
-
-
-def _wake_dut(host):
-    """
-    Make sure |host| is up by pressing power button.
-
-    @raises error.TestFail: If we cannot wake the |host| up. This means the
-            DUT has to be woken up manually. Should not happen mostly.
-    """
-    woken = False
-    for i in range(RESUME_CTRL_RETRIES):
-        # Check before pressing the power button. Or you might suspend/shutdown
-        # the system if already in S0.
-        if host.wait_up(timeout=RESUME_GRACE_PERIOD):
-            woken = True
-            break
-        logging.debug('Wake attempt #%d ', i+1)
-        host.servo.power_short_press()
-
-    if not woken:
-        logging.warning('DUT did not wake -- trouble ahead')
-        raise error.TestFail('DUT did not wake')

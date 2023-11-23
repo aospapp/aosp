@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,11 +9,31 @@ Derived short names and annotations, using GenerateDerivedAnnotations.java. See 
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14212 $"/>
+		<version number="$Revision$"/>
 		<language type="de"/>
 		<territory type="CH"/>
 	</identity>
 	<annotations>
+		<annotation cp="🖖🏻">Finger | Hand | helle Hautfarbe | Spock | Vulkanier(in) | vulkanisch | Vulkanischer Gruss</annotation>
+		<annotation cp="🖖🏻" type="tts">Vulkanischer Gruss: helle Hautfarbe</annotation>
+		<annotation cp="🖖🏼">Finger | Hand | mittelhelle Hautfarbe | Spock | Vulkanier(in) | vulkanisch | Vulkanischer Gruss</annotation>
+		<annotation cp="🖖🏼" type="tts">Vulkanischer Gruss: mittelhelle Hautfarbe</annotation>
+		<annotation cp="🖖🏽">Finger | Hand | mittlere Hautfarbe | Spock | Vulkanier(in) | vulkanisch | Vulkanischer Gruss</annotation>
+		<annotation cp="🖖🏽" type="tts">Vulkanischer Gruss: mittlere Hautfarbe</annotation>
+		<annotation cp="🖖🏾">Finger | Hand | mitteldunkle Hautfarbe | Spock | Vulkanier(in) | vulkanisch | Vulkanischer Gruss</annotation>
+		<annotation cp="🖖🏾" type="tts">Vulkanischer Gruss: mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🖖🏿">dunkle Hautfarbe | Finger | Hand | Spock | Vulkanier(in) | vulkanisch | Vulkanischer Gruss</annotation>
+		<annotation cp="🖖🏿" type="tts">Vulkanischer Gruss: dunkle Hautfarbe</annotation>
+		<annotation cp="🤘🏻">Finger | Hand | helle Hautfarbe | Hörner | Rock | Teufel | Teufelsgruss</annotation>
+		<annotation cp="🤘🏻" type="tts">Teufelsgruss: helle Hautfarbe</annotation>
+		<annotation cp="🤘🏼">Finger | Hand | Hörner | mittelhelle Hautfarbe | Rock | Teufel | Teufelsgruss</annotation>
+		<annotation cp="🤘🏼" type="tts">Teufelsgruss: mittelhelle Hautfarbe</annotation>
+		<annotation cp="🤘🏽">Finger | Hand | Hörner | mittlere Hautfarbe | Rock | Teufel | Teufelsgruss</annotation>
+		<annotation cp="🤘🏽" type="tts">Teufelsgruss: mittlere Hautfarbe</annotation>
+		<annotation cp="🤘🏾">Finger | Hand | Hörner | mitteldunkle Hautfarbe | Rock | Teufel | Teufelsgruss</annotation>
+		<annotation cp="🤘🏾" type="tts">Teufelsgruss: mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🤘🏿">dunkle Hautfarbe | Finger | Hand | Hörner | Rock | Teufel | Teufelsgruss</annotation>
+		<annotation cp="🤘🏿" type="tts">Teufelsgruss: dunkle Hautfarbe</annotation>
 		<annotation cp="🦶🏻">Fuss | helle Hautfarbe</annotation>
 		<annotation cp="🦶🏻" type="tts">Fuss: helle Hautfarbe</annotation>
 		<annotation cp="🦶🏼">Fuss | mittelhelle Hautfarbe</annotation>
@@ -22,11 +42,23 @@ Derived short names and annotations, using GenerateDerivedAnnotations.java. See 
 		<annotation cp="🦶🏽" type="tts">Fuss: mittlere Hautfarbe</annotation>
 		<annotation cp="🦶🏾">Fuss | mitteldunkle Hautfarbe</annotation>
 		<annotation cp="🦶🏾" type="tts">Fuss: mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🦶🏿">Fuss | dunkle Hautfarbe</annotation>
+		<annotation cp="🦶🏿">dunkle Hautfarbe | Fuss</annotation>
 		<annotation cp="🦶🏿" type="tts">Fuss: dunkle Hautfarbe</annotation>
+		<annotation cp="🧑‍🦳">Erwachsener | geschlechtsneutral | weisses Haar</annotation>
+		<annotation cp="🧑‍🦳" type="tts">Erwachsener: weisses Haar</annotation>
+		<annotation cp="🧑🏻‍🦳">Erwachsener | geschlechtsneutral | helle Hautfarbe | weisses Haar</annotation>
+		<annotation cp="🧑🏻‍🦳" type="tts">Erwachsener: helle Hautfarbe, weisses Haar</annotation>
+		<annotation cp="🧑🏼‍🦳">Erwachsener | geschlechtsneutral | mittelhelle Hautfarbe | weisses Haar</annotation>
+		<annotation cp="🧑🏼‍🦳" type="tts">Erwachsener: mittelhelle Hautfarbe, weisses Haar</annotation>
+		<annotation cp="🧑🏽‍🦳">Erwachsener | geschlechtsneutral | mittlere Hautfarbe | weisses Haar</annotation>
+		<annotation cp="🧑🏽‍🦳" type="tts">Erwachsener: mittlere Hautfarbe, weisses Haar</annotation>
+		<annotation cp="🧑🏾‍🦳">Erwachsener | geschlechtsneutral | mitteldunkle Hautfarbe | weisses Haar</annotation>
+		<annotation cp="🧑🏾‍🦳" type="tts">Erwachsener: mitteldunkle Hautfarbe, weisses Haar</annotation>
+		<annotation cp="🧑🏿‍🦳">dunkle Hautfarbe | Erwachsener | geschlechtsneutral | weisses Haar</annotation>
+		<annotation cp="🧑🏿‍🦳" type="tts">Erwachsener: dunkle Hautfarbe, weisses Haar</annotation>
 		<annotation cp="👨‍🦳">Mann | weisses Haar</annotation>
 		<annotation cp="👨‍🦳" type="tts">Mann: weisses Haar</annotation>
-		<annotation cp="👨🏻‍🦳">Mann | helle Hautfarbe | weisses Haar</annotation>
+		<annotation cp="👨🏻‍🦳">helle Hautfarbe | Mann | weisses Haar</annotation>
 		<annotation cp="👨🏻‍🦳" type="tts">Mann: helle Hautfarbe, weisses Haar</annotation>
 		<annotation cp="👨🏼‍🦳">Mann | mittelhelle Hautfarbe | weisses Haar</annotation>
 		<annotation cp="👨🏼‍🦳" type="tts">Mann: mittelhelle Hautfarbe, weisses Haar</annotation>
@@ -34,7 +66,7 @@ Derived short names and annotations, using GenerateDerivedAnnotations.java. See 
 		<annotation cp="👨🏽‍🦳" type="tts">Mann: mittlere Hautfarbe, weisses Haar</annotation>
 		<annotation cp="👨🏾‍🦳">Mann | mitteldunkle Hautfarbe | weisses Haar</annotation>
 		<annotation cp="👨🏾‍🦳" type="tts">Mann: mitteldunkle Hautfarbe, weisses Haar</annotation>
-		<annotation cp="👨🏿‍🦳">Mann | dunkle Hautfarbe | weisses Haar</annotation>
+		<annotation cp="👨🏿‍🦳">dunkle Hautfarbe | Mann | weisses Haar</annotation>
 		<annotation cp="👨🏿‍🦳" type="tts">Mann: dunkle Hautfarbe, weisses Haar</annotation>
 		<annotation cp="👩‍🦳">Frau | weisses Haar</annotation>
 		<annotation cp="👩‍🦳" type="tts">Frau: weisses Haar</annotation>
@@ -46,58 +78,73 @@ Derived short names and annotations, using GenerateDerivedAnnotations.java. See 
 		<annotation cp="👩🏽‍🦳" type="tts">Frau: mittlere Hautfarbe, weisses Haar</annotation>
 		<annotation cp="👩🏾‍🦳">Frau | mitteldunkle Hautfarbe | weisses Haar</annotation>
 		<annotation cp="👩🏾‍🦳" type="tts">Frau: mitteldunkle Hautfarbe, weisses Haar</annotation>
-		<annotation cp="👩🏿‍🦳">Frau | dunkle Hautfarbe | weisses Haar</annotation>
+		<annotation cp="👩🏿‍🦳">dunkle Hautfarbe | Frau | weisses Haar</annotation>
 		<annotation cp="👩🏿‍🦳" type="tts">Frau: dunkle Hautfarbe, weisses Haar</annotation>
-		<annotation cp="🚶🏻">Fussgänger(in) | gehen | gehend | wandern | helle Hautfarbe</annotation>
+		<annotation cp="🧑🏻‍🔧">helle Hautfarbe | Mechaniker(in)</annotation>
+		<annotation cp="🧑🏼‍🔧">Mechaniker(in) | mittelhelle Hautfarbe</annotation>
+		<annotation cp="🧑🏽‍🔧">Mechaniker(in) | mittlere Hautfarbe</annotation>
+		<annotation cp="🧑🏾‍🔧">Mechaniker(in) | mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🧑🏿‍🔧">dunkle Hautfarbe | Mechaniker(in)</annotation>
+		<annotation cp="🧑🏻‍🏭">Fabrikarbeiter(in) | helle Hautfarbe</annotation>
+		<annotation cp="🧑🏼‍🏭">Fabrikarbeiter(in) | mittelhelle Hautfarbe</annotation>
+		<annotation cp="🧑🏽‍🏭">Fabrikarbeiter(in) | mittlere Hautfarbe</annotation>
+		<annotation cp="🧑🏾‍🏭">Fabrikarbeiter(in) | mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🧑🏿‍🏭">dunkle Hautfarbe | Fabrikarbeiter(in)</annotation>
+		<annotation cp="🧑🏻‍💼">Architekt | Büroangestellte(r) | Business | helle Hautfarbe | Manager</annotation>
+		<annotation cp="🧑🏼‍💼">Architekt | Büroangestellte(r) | Business | Manager | mittelhelle Hautfarbe</annotation>
+		<annotation cp="🧑🏽‍💼">Architekt | Büroangestellte(r) | Business | Manager | mittlere Hautfarbe</annotation>
+		<annotation cp="🧑🏾‍💼">Architekt | Büroangestellte(r) | Business | Manager | mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🧑🏿‍💼">Architekt | Büroangestellte(r) | Business | dunkle Hautfarbe | Manager</annotation>
+		<annotation cp="🧑🏻‍🔬">helle Hautfarbe | Wissenschaftler(in)</annotation>
+		<annotation cp="🧑🏼‍🔬">mittelhelle Hautfarbe | Wissenschaftler(in)</annotation>
+		<annotation cp="🧑🏽‍🔬">mittlere Hautfarbe | Wissenschaftler(in)</annotation>
+		<annotation cp="🧑🏾‍🔬">mitteldunkle Hautfarbe | Wissenschaftler(in)</annotation>
+		<annotation cp="🧑🏿‍🔬">dunkle Hautfarbe | Wissenschaftler(in)</annotation>
+		<annotation cp="🚶🏻">Fussgänger(in) | gehen | gehend | helle Hautfarbe | wandern</annotation>
 		<annotation cp="🚶🏻" type="tts">Fussgänger(in): helle Hautfarbe</annotation>
-		<annotation cp="🚶🏼">Fussgänger(in) | gehen | gehend | wandern | mittelhelle Hautfarbe</annotation>
+		<annotation cp="🚶🏼">Fussgänger(in) | gehen | gehend | mittelhelle Hautfarbe | wandern</annotation>
 		<annotation cp="🚶🏼" type="tts">Fussgänger(in): mittelhelle Hautfarbe</annotation>
-		<annotation cp="🚶🏽">Fussgänger(in) | gehen | gehend | wandern | mittlere Hautfarbe</annotation>
+		<annotation cp="🚶🏽">Fussgänger(in) | gehen | gehend | mittlere Hautfarbe | wandern</annotation>
 		<annotation cp="🚶🏽" type="tts">Fussgänger(in): mittlere Hautfarbe</annotation>
-		<annotation cp="🚶🏾">Fussgänger(in) | gehen | gehend | wandern | mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🚶🏾">Fussgänger(in) | gehen | gehend | mitteldunkle Hautfarbe | wandern</annotation>
 		<annotation cp="🚶🏾" type="tts">Fussgänger(in): mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🚶🏿">Fussgänger(in) | gehen | gehend | wandern | dunkle Hautfarbe</annotation>
+		<annotation cp="🚶🏿">dunkle Hautfarbe | Fussgänger(in) | gehen | gehend | wandern</annotation>
 		<annotation cp="🚶🏿" type="tts">Fussgänger(in): dunkle Hautfarbe</annotation>
-		<annotation cp="🚶🏻‍♂">Fussgänger | Mann | Spaziergang | gehen | helle Hautfarbe</annotation>
+		<annotation cp="🚶🏻‍♂">Fussgänger | gehen | helle Hautfarbe | Mann | Spaziergang</annotation>
 		<annotation cp="🚶🏻‍♂" type="tts">Fussgänger: helle Hautfarbe</annotation>
-		<annotation cp="🚶🏼‍♂">Fussgänger | Mann | Spaziergang | gehen | mittelhelle Hautfarbe</annotation>
+		<annotation cp="🚶🏼‍♂">Fussgänger | gehen | Mann | mittelhelle Hautfarbe | Spaziergang</annotation>
 		<annotation cp="🚶🏼‍♂" type="tts">Fussgänger: mittelhelle Hautfarbe</annotation>
-		<annotation cp="🚶🏽‍♂">Fussgänger | Mann | Spaziergang | gehen | mittlere Hautfarbe</annotation>
+		<annotation cp="🚶🏽‍♂">Fussgänger | gehen | Mann | mittlere Hautfarbe | Spaziergang</annotation>
 		<annotation cp="🚶🏽‍♂" type="tts">Fussgänger: mittlere Hautfarbe</annotation>
-		<annotation cp="🚶🏾‍♂">Fussgänger | Mann | Spaziergang | gehen | mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🚶🏾‍♂">Fussgänger | gehen | Mann | mitteldunkle Hautfarbe | Spaziergang</annotation>
 		<annotation cp="🚶🏾‍♂" type="tts">Fussgänger: mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🚶🏿‍♂">Fussgänger | Mann | Spaziergang | gehen | dunkle Hautfarbe</annotation>
+		<annotation cp="🚶🏿‍♂">dunkle Hautfarbe | Fussgänger | gehen | Mann | Spaziergang</annotation>
 		<annotation cp="🚶🏿‍♂" type="tts">Fussgänger: dunkle Hautfarbe</annotation>
-		<annotation cp="🚶🏻‍♀">Frau | Fussgängerin | Spaziergang | gehen | helle Hautfarbe</annotation>
+		<annotation cp="🚶🏻‍♀">Frau | Fussgängerin | gehen | helle Hautfarbe | Spaziergang</annotation>
 		<annotation cp="🚶🏻‍♀" type="tts">Fussgängerin: helle Hautfarbe</annotation>
-		<annotation cp="🚶🏼‍♀">Frau | Fussgängerin | Spaziergang | gehen | mittelhelle Hautfarbe</annotation>
+		<annotation cp="🚶🏼‍♀">Frau | Fussgängerin | gehen | mittelhelle Hautfarbe | Spaziergang</annotation>
 		<annotation cp="🚶🏼‍♀" type="tts">Fussgängerin: mittelhelle Hautfarbe</annotation>
-		<annotation cp="🚶🏽‍♀">Frau | Fussgängerin | Spaziergang | gehen | mittlere Hautfarbe</annotation>
+		<annotation cp="🚶🏽‍♀">Frau | Fussgängerin | gehen | mittlere Hautfarbe | Spaziergang</annotation>
 		<annotation cp="🚶🏽‍♀" type="tts">Fussgängerin: mittlere Hautfarbe</annotation>
-		<annotation cp="🚶🏾‍♀">Frau | Fussgängerin | Spaziergang | gehen | mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🚶🏾‍♀">Frau | Fussgängerin | gehen | mitteldunkle Hautfarbe | Spaziergang</annotation>
 		<annotation cp="🚶🏾‍♀" type="tts">Fussgängerin: mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🚶🏿‍♀">Frau | Fussgängerin | Spaziergang | gehen | dunkle Hautfarbe</annotation>
+		<annotation cp="🚶🏿‍♀">dunkle Hautfarbe | Frau | Fussgängerin | gehen | Spaziergang</annotation>
 		<annotation cp="🚶🏿‍♀" type="tts">Fussgängerin: dunkle Hautfarbe</annotation>
-		<annotation cp="🖖🏻">Finger | Hand | Spock | Vulkanier(in) | Vulkanischer Gruss | vulkanisch | helle Hautfarbe</annotation>
-		<annotation cp="🖖🏻" type="tts">Vulkanischer Gruss: helle Hautfarbe</annotation>
-		<annotation cp="🖖🏼">Finger | Hand | Spock | Vulkanier(in) | Vulkanischer Gruss | vulkanisch | mittelhelle Hautfarbe</annotation>
-		<annotation cp="🖖🏼" type="tts">Vulkanischer Gruss: mittelhelle Hautfarbe</annotation>
-		<annotation cp="🖖🏽">Finger | Hand | Spock | Vulkanier(in) | Vulkanischer Gruss | vulkanisch | mittlere Hautfarbe</annotation>
-		<annotation cp="🖖🏽" type="tts">Vulkanischer Gruss: mittlere Hautfarbe</annotation>
-		<annotation cp="🖖🏾">Finger | Hand | Spock | Vulkanier(in) | Vulkanischer Gruss | vulkanisch | mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🖖🏾" type="tts">Vulkanischer Gruss: mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🖖🏿">Finger | Hand | Spock | Vulkanier(in) | Vulkanischer Gruss | vulkanisch | dunkle Hautfarbe</annotation>
-		<annotation cp="🖖🏿" type="tts">Vulkanischer Gruss: dunkle Hautfarbe</annotation>
-		<annotation cp="🤘🏻">Finger | Hand | Hörner | Rock | Teufel | Teufelsgruss | helle Hautfarbe</annotation>
-		<annotation cp="🤘🏻" type="tts">Teufelsgruss: helle Hautfarbe</annotation>
-		<annotation cp="🤘🏼">Finger | Hand | Hörner | Rock | Teufel | Teufelsgruss | mittelhelle Hautfarbe</annotation>
-		<annotation cp="🤘🏼" type="tts">Teufelsgruss: mittelhelle Hautfarbe</annotation>
-		<annotation cp="🤘🏽">Finger | Hand | Hörner | Rock | Teufel | Teufelsgruss | mittlere Hautfarbe</annotation>
-		<annotation cp="🤘🏽" type="tts">Teufelsgruss: mittlere Hautfarbe</annotation>
-		<annotation cp="🤘🏾">Finger | Hand | Hörner | Rock | Teufel | Teufelsgruss | mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🤘🏾" type="tts">Teufelsgruss: mitteldunkle Hautfarbe</annotation>
-		<annotation cp="🤘🏿">Finger | Hand | Hörner | Rock | Teufel | Teufelsgruss | dunkle Hautfarbe</annotation>
-		<annotation cp="🤘🏿" type="tts">Teufelsgruss: dunkle Hautfarbe</annotation>
+		<annotation cp="🧑🏻‍🦯">Barrierefreiheit | blind | helle Hautfarbe | Person mit Langstock</annotation>
+		<annotation cp="🧑🏻‍🦯" type="tts">Person mit Langstock: helle Hautfarbe</annotation>
+		<annotation cp="🧑🏼‍🦯">Barrierefreiheit | blind | mittelhelle Hautfarbe | Person mit Langstock</annotation>
+		<annotation cp="🧑🏼‍🦯" type="tts">Person mit Langstock: mittelhelle Hautfarbe</annotation>
+		<annotation cp="🧑🏽‍🦯">Barrierefreiheit | blind | mittlere Hautfarbe | Person mit Langstock</annotation>
+		<annotation cp="🧑🏽‍🦯" type="tts">Person mit Langstock: mittlere Hautfarbe</annotation>
+		<annotation cp="🧑🏾‍🦯">Barrierefreiheit | blind | mitteldunkle Hautfarbe | Person mit Langstock</annotation>
+		<annotation cp="🧑🏾‍🦯" type="tts">Person mit Langstock: mitteldunkle Hautfarbe</annotation>
+		<annotation cp="🧑🏿‍🦯">Barrierefreiheit | blind | dunkle Hautfarbe | Person mit Langstock</annotation>
+		<annotation cp="🧑🏿‍🦯" type="tts">Person mit Langstock: dunkle Hautfarbe</annotation>
+		<annotation cp="👨🏻‍🦯">helle Hautfarbe | Mann mit Gehstock</annotation>
+		<annotation cp="👨🏼‍🦯">Mann mit Gehstock | mittelhelle Hautfarbe</annotation>
+		<annotation cp="👨🏽‍🦯">Mann mit Gehstock | mittlere Hautfarbe</annotation>
+		<annotation cp="👨🏾‍🦯">Mann mit Gehstock | mitteldunkle Hautfarbe</annotation>
+		<annotation cp="👨🏿‍🦯">dunkle Hautfarbe | Mann mit Gehstock</annotation>
 		<annotation cp="🇧🇳" type="tts">Flagge: Brunei</annotation>
 		<annotation cp="🇧🇼" type="tts">Flagge: Botswana</annotation>
 		<annotation cp="🇧🇾" type="tts">Flagge: Weissrussland</annotation>

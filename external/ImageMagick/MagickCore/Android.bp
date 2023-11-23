@@ -32,4 +32,5 @@ cc_library_static {
 
     header_libs: ["Magick_headers"],
     export_header_lib_headers: ["Magick_headers"],
+    visibility: ["//vendor:__subpackages__"],
 }

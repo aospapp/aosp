@@ -28,12 +28,11 @@
 
 package com.android.service.ims;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ComponentName;
 
 import com.android.ims.internal.Logger;
-import com.android.service.ims.RcsService;
 
 /**
  * Launcher utility functions

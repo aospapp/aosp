@@ -1,34 +1,35 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2009 IBM Corporation
-# Copyright (c) 2018 Petr Vorel <pvorel@suse.cz>
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
-# published by the Free Software Foundation; either version 2 of
-# the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it would be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-#
-# Author: Mimi Zohar, zohar@ibm.vnet.ibm.com
+# Copyright (c) 2018-2019 Petr Vorel <pvorel@suse.cz>
+# Author: Mimi Zohar <zohar@linux.ibm.com>
 
 TST_TESTFUNC="test"
 TST_SETUP_CALLER="$TST_SETUP"
 TST_SETUP="ima_setup"
+TST_CLEANUP_CALLER="$TST_CLEANUP"
 TST_CLEANUP="ima_cleanup"
-TST_NEEDS_TMPDIR=1
 TST_NEEDS_ROOT=1
 
 . tst_test.sh
 
 SYSFS="/sys"
 UMOUNT=
-FS_TYPE="ext3"
+TST_FS_TYPE="ext3"
+
+check_ima_policy()
+{
+	local policy="$1"
+	local i
+
+	grep -q "ima_$policy" /proc/cmdline && return
+	for i in $(cat /proc/cmdline); do
+		if echo "$i" | grep -q '^ima_policy='; then
+			echo "$i" | grep -q -e "|[ ]*$policy" -e "$policy[ ]*|" -e "=$policy" && return
+		fi
+	done
+	tst_brk TCONF "IMA measurement tests require builtin IMA $policy policy (e.g. ima_policy=$policy kernel parameter)"
+}
 
 mount_helper()
 {
@@ -53,15 +54,9 @@ mount_loop_device()
 {
 	local ret
 
-	tst_test_cmds mkfs.$FS_TYPE
-	tst_mkfs $FS_TYPE $TST_DEVICE
-	ROD_SILENT mkdir -p mntpoint
-	mount ${TST_DEVICE} mntpoint
-	ret=$?
-	if [ $ret -ne 0 ]; then
-		tst_brk TBROK "failed to mount device (mount exit = $ret)"
-	fi
-	cd mntpoint
+	tst_mkfs
+	tst_mount
+	cd $TST_MNTPOINT
 }
 
 print_ima_config()
@@ -69,14 +64,14 @@ print_ima_config()
 	local config="/boot/config-$(uname -r)"
 	local i
 
-	tst_res TINFO "/proc/cmdline: $(cat /proc/cmdline)"
-
 	if [ -r "$config" ]; then
 		tst_res TINFO "IMA kernel config:"
 		for i in $(grep ^CONFIG_IMA $config); do
 			tst_res TINFO "$i"
 		done
 	fi
+
+	tst_res TINFO "/proc/cmdline: $(cat /proc/cmdline)"
 }
 
 ima_setup()
@@ -101,13 +96,16 @@ ima_setup()
 ima_cleanup()
 {
 	local dir
+
+	[ -n "$TST_CLEANUP_CALLER" ] && $TST_CLEANUP_CALLER
+
 	for dir in $UMOUNT; do
 		umount $dir
 	done
 
 	if [ "$TST_NEEDS_DEVICE" = 1 ]; then
 		cd $TST_TMPDIR
-		tst_umount $TST_DEVICE
+		tst_umount
 	fi
 }
 

@@ -7,13 +7,12 @@
 #include "core/fxcodec/gif/cfx_lzwdecompressor.h"
 
 #include <algorithm>
+#include <cstring>
 #include <memory>
 #include <utility>
 
-#include "core/fxcodec/lbmp/fx_bmp.h"
+#include "core/fxcrt/fx_safe_types.h"
 #include "third_party/base/numerics/safe_math.h"
-#include "third_party/base/ptr_util.h"
-#include "third_party/base/stl_util.h"
 
 std::unique_ptr<CFX_LZWDecompressor> CFX_LZWDecompressor::Create(
     uint8_t color_exp,
@@ -42,14 +41,14 @@ CFX_LZWDecompressor::CFX_LZWDecompressor(uint8_t color_exp, uint8_t code_exp)
 
 CFX_LZWDecompressor::~CFX_LZWDecompressor() {}
 
-CFX_GifDecodeStatus CFX_LZWDecompressor::Decode(uint8_t* src_buf,
+CFX_GifDecodeStatus CFX_LZWDecompressor::Decode(const uint8_t* src_buf,
                                                 uint32_t src_size,
-                                                uint8_t* des_buf,
-                                                uint32_t* des_size) {
-  if (!src_buf || src_size == 0 || !des_buf || !des_size)
+                                                uint8_t* dest_buf,
+                                                uint32_t* dest_size) {
+  if (!src_buf || src_size == 0 || !dest_buf || !dest_size)
     return CFX_GifDecodeStatus::Error;
 
-  if (*des_size == 0)
+  if (*dest_size == 0)
     return CFX_GifDecodeStatus::InsufficientDestSize;
 
   next_in_ = src_buf;
@@ -59,15 +58,15 @@ CFX_GifDecodeStatus CFX_LZWDecompressor::Decode(uint8_t* src_buf,
 
   uint32_t i = 0;
   if (decompressed_next_ != 0) {
-    uint32_t extracted_size = ExtractData(des_buf, *des_size);
+    uint32_t extracted_size = ExtractData(dest_buf, *dest_size);
     if (decompressed_next_ != 0)
       return CFX_GifDecodeStatus::InsufficientDestSize;
 
-    des_buf += extracted_size;
+    dest_buf += extracted_size;
     i += extracted_size;
   }
 
-  while (i <= *des_size && (avail_in_ > 0 || bits_left_ >= code_size_cur_)) {
+  while (i <= *dest_size && (avail_in_ > 0 || bits_left_ >= code_size_cur_)) {
     if (code_size_cur_ > GIF_MAX_LZW_EXP)
       return CFX_GifDecodeStatus::Error;
 
@@ -75,7 +74,7 @@ CFX_GifDecodeStatus CFX_LZWDecompressor::Decode(uint8_t* src_buf,
       if (bits_left_ > 31)
         return CFX_GifDecodeStatus::Error;
 
-      pdfium::base::CheckedNumeric<uint32_t> safe_code = *next_in_++;
+      FX_SAFE_UINT32 safe_code = *next_in_++;
       safe_code <<= bits_left_;
       safe_code |= code_store_;
       if (!safe_code.IsValid())
@@ -96,7 +95,7 @@ CFX_GifDecodeStatus CFX_LZWDecompressor::Decode(uint8_t* src_buf,
         continue;
       }
       if (code == code_end_) {
-        *des_size = i;
+        *dest_size = i;
         return CFX_GifDecodeStatus::Success;
       }
 
@@ -122,11 +121,11 @@ CFX_GifDecodeStatus CFX_LZWDecompressor::Decode(uint8_t* src_buf,
       }
 
       code_old_ = code;
-      uint32_t extracted_size = ExtractData(des_buf, *des_size - i);
+      uint32_t extracted_size = ExtractData(dest_buf, *dest_size - i);
       if (decompressed_next_ != 0)
         return CFX_GifDecodeStatus::InsufficientDestSize;
 
-      des_buf += extracted_size;
+      dest_buf += extracted_size;
       i += extracted_size;
     }
   }
@@ -134,7 +133,7 @@ CFX_GifDecodeStatus CFX_LZWDecompressor::Decode(uint8_t* src_buf,
   if (avail_in_ != 0)
     return CFX_GifDecodeStatus::Error;
 
-  *des_size = i;
+  *dest_size = i;
   return CFX_GifDecodeStatus::Unfinished;
 }
 
@@ -182,15 +181,16 @@ bool CFX_LZWDecompressor::DecodeString(uint16_t code) {
   return true;
 }
 
-uint32_t CFX_LZWDecompressor::ExtractData(uint8_t* des_buf, uint32_t des_size) {
-  if (des_size == 0)
+uint32_t CFX_LZWDecompressor::ExtractData(uint8_t* dest_buf,
+                                          uint32_t dest_size) {
+  if (dest_size == 0)
     return 0;
 
-  uint32_t copy_size = des_size <= decompressed_next_
-                           ? des_size
+  uint32_t copy_size = dest_size <= decompressed_next_
+                           ? dest_size
                            : static_cast<uint32_t>(decompressed_next_);
   std::reverse_copy(decompressed_.data() + decompressed_next_ - copy_size,
-                    decompressed_.data() + decompressed_next_, des_buf);
+                    decompressed_.data() + decompressed_next_, dest_buf);
   decompressed_next_ -= copy_size;
   return copy_size;
 }

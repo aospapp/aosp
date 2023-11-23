@@ -7,6 +7,7 @@
 #include <common.h>
 #include <clk.h>
 #include <dm.h>
+#include <reset.h>
 #include <serial.h>
 #include <watchdog.h>
 #include <asm/io.h>
@@ -47,20 +48,28 @@ static int stm32_serial_setbrg(struct udevice *dev, int baudrate)
 	return 0;
 }
 
-static int stm32_serial_setparity(struct udevice *dev, enum serial_par parity)
+static int stm32_serial_setconfig(struct udevice *dev, uint serial_config)
 {
 	struct stm32x7_serial_platdata *plat = dev_get_platdata(dev);
 	bool stm32f4 = plat->uart_info->stm32f4;
 	u8 uart_enable_bit = plat->uart_info->uart_enable_bit;
 	u32 cr1 = plat->base + CR1_OFFSET(stm32f4);
 	u32 config = 0;
+	uint parity = SERIAL_GET_PARITY(serial_config);
+	uint bits = SERIAL_GET_BITS(serial_config);
+	uint stop = SERIAL_GET_STOP(serial_config);
 
-	if (stm32f4)
-		return -EINVAL; /* not supported in driver*/
+	/*
+	 * only parity config is implemented, check if other serial settings
+	 * are the default one.
+	 * (STM32F4 serial IP didn't support parity setting)
+	 */
+	if (bits != SERIAL_8_BITS || stop != SERIAL_ONE_STOP || stm32f4)
+		return -ENOTSUPP; /* not supported in driver*/
 
 	clrbits_le32(cr1, USART_CR1_RE | USART_CR1_TE | BIT(uart_enable_bit));
 	/* update usart configuration (uart need to be disable)
-	 * PCE: parity check control
+	 * PCE: parity check enable
 	 * PS : '0' : Even / '1' : Odd
 	 * M[1:0] = '00' : 8 Data bits
 	 * M[1:0] = '01' : 9 Data bits with parity
@@ -77,6 +86,7 @@ static int stm32_serial_setparity(struct udevice *dev, enum serial_par parity)
 		config = USART_CR1_PCE | USART_CR1_M0;
 		break;
 	}
+
 	clrsetbits_le32(cr1,
 			USART_CR1_PCE | USART_CR1_PS | USART_CR1_M1 |
 			USART_CR1_M0,
@@ -96,10 +106,11 @@ static int stm32_serial_getc(struct udevice *dev)
 	if ((isr & USART_ISR_RXNE) == 0)
 		return -EAGAIN;
 
-	if (isr & (USART_ISR_PE | USART_ISR_ORE)) {
+	if (isr & (USART_ISR_PE | USART_ISR_ORE | USART_ISR_FE)) {
 		if (!stm32f4)
 			setbits_le32(base + ICR_OFFSET,
-				     USART_ICR_PCECF | USART_ICR_ORECF);
+				     USART_ICR_PCECF | USART_ICR_ORECF |
+				     USART_ICR_FECF);
 		else
 			readl(base + RDR_OFFSET(stm32f4));
 		return -EIO;
@@ -162,6 +173,7 @@ static int stm32_serial_probe(struct udevice *dev)
 {
 	struct stm32x7_serial_platdata *plat = dev_get_platdata(dev);
 	struct clk clk;
+	struct reset_ctl reset;
 	int ret;
 
 	plat->uart_info = (struct stm32_uart_info *)dev_get_driver_data(dev);
@@ -176,10 +188,17 @@ static int stm32_serial_probe(struct udevice *dev)
 		return ret;
 	}
 
+	ret = reset_get_by_index(dev, 0, &reset);
+	if (!ret) {
+		reset_assert(&reset);
+		udelay(2);
+		reset_deassert(&reset);
+	}
+
 	plat->clock_rate = clk_get_rate(&clk);
-	if (plat->clock_rate < 0) {
+	if (!plat->clock_rate) {
 		clk_disable(&clk);
-		return plat->clock_rate;
+		return -EINVAL;
 	};
 
 	_stm32_serial_init(plat->base, plat->uart_info);
@@ -210,7 +229,7 @@ static const struct dm_serial_ops stm32_serial_ops = {
 	.pending = stm32_serial_pending,
 	.getc = stm32_serial_getc,
 	.setbrg = stm32_serial_setbrg,
-	.setparity = stm32_serial_setparity
+	.setconfig = stm32_serial_setconfig
 };
 
 U_BOOT_DRIVER(serial_stm32) = {
@@ -221,7 +240,9 @@ U_BOOT_DRIVER(serial_stm32) = {
 	.platdata_auto_alloc_size = sizeof(struct stm32x7_serial_platdata),
 	.ops = &stm32_serial_ops,
 	.probe = stm32_serial_probe,
+#if !CONFIG_IS_ENABLED(OF_CONTROL)
 	.flags = DM_FLAG_PRE_RELOC,
+#endif
 };
 
 #ifdef CONFIG_DEBUG_UART_STM32
@@ -249,7 +270,6 @@ static inline void _debug_uart_init(void)
 	_stm32_serial_setbrg(base, uart_info,
 			     CONFIG_DEBUG_UART_CLOCK,
 			     CONFIG_BAUDRATE);
-	printf("DEBUG done\n");
 }
 
 static inline void _debug_uart_putc(int c)
@@ -258,7 +278,7 @@ static inline void _debug_uart_putc(int c)
 	struct stm32_uart_info *uart_info = _debug_uart_info();
 
 	while (_stm32_serial_putc(base, uart_info, c) == -EAGAIN)
-		WATCHDOG_RESET();
+		;
 }
 
 DEBUG_UART_FUNCS

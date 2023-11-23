@@ -85,6 +85,42 @@ de::MovePtr<tcu::TextureLevel>	readColorAttachment			 (const vk::DeviceInterface
 															  vk::VkFormat					format,
 															  const tcu::UVec2&				renderSize);
 
+
+/*--------------------------------------------------------------------*//*!
+ * Gets a tcu::TextureLevel initialized with data from a VK depth
+ * attachment.
+ *
+ * The VkImage must be non-multisampled and able to be used as a source
+ * operand for transfer operations.
+ *//*--------------------------------------------------------------------*/
+de::MovePtr<tcu::TextureLevel>	readDepthAttachment			 (const vk::DeviceInterface&	vk,
+															  vk::VkDevice					device,
+															  vk::VkQueue					queue,
+															  deUint32						queueFamilyIndex,
+															  vk::Allocator&				allocator,
+															  vk::VkImage					image,
+															  vk::VkFormat					format,
+															  const tcu::UVec2&				renderSize,
+															  vk::VkImageLayout				currentLayout = vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+/*--------------------------------------------------------------------*//*!
+ * Gets a tcu::TextureLevel initialized with data from a VK stencil
+ * attachment.
+ *
+ * The VkImage must be non-multisampled and able to be used as a source
+ * operand for transfer operations.
+ *//*--------------------------------------------------------------------*/
+de::MovePtr<tcu::TextureLevel>	readStencilAttachment		 (const vk::DeviceInterface&	vk,
+															  vk::VkDevice					device,
+															  vk::VkQueue					queue,
+															  deUint32						queueFamilyIndex,
+															  vk::Allocator&				allocator,
+															  vk::VkImage					image,
+															  vk::VkFormat					format,
+															  const tcu::UVec2&				renderSize,
+															  vk::VkImageLayout				currentLayout = vk::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+
 /*--------------------------------------------------------------------*//*!
  * Uploads data from a test texture to a destination VK image.
  *

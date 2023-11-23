@@ -37,7 +37,7 @@ namespace sw
 
 	void SetupRoutine::generate()
 	{
-		Function<Bool(Pointer<Byte>, Pointer<Byte>, Pointer<Byte>, Pointer<Byte>)> function;
+		Function<Int(Pointer<Byte>, Pointer<Byte>, Pointer<Byte>, Pointer<Byte>)> function;
 		{
 			Pointer<Byte> primitive(function.Arg<0>());
 			Pointer<Byte> tri(function.Arg<1>());
@@ -90,7 +90,7 @@ namespace sw
 
 				If(A == 0.0f)
 				{
-					Return(false);
+					Return(0);
 				}
 
 				Int w0w1w2 = *Pointer<Int>(v0 + pos * 16 + 12) ^
@@ -101,11 +101,11 @@ namespace sw
 
 				if(state.cullMode == CULL_CLOCKWISE)
 				{
-					If(A >= 0.0f) Return(false);
+					If(A >= 0.0f) Return(0);
 				}
 				else if(state.cullMode == CULL_COUNTERCLOCKWISE)
 				{
-					If(A <= 0.0f) Return(false);
+					If(A <= 0.0f) Return(0);
 				}
 
 				d = IfThenElse(A < 0.0f, d, Int(0));
@@ -160,7 +160,7 @@ namespace sw
 
 					i++;
 				}
-				Until(i >= n)
+				Until(i >= n);
 			}
 
 			// Vertical range
@@ -176,7 +176,7 @@ namespace sw
 
 				i++;
 			}
-			Until(i >= n)
+			Until(i >= n);
 
 			if(state.multiSample > 1)
 			{
@@ -189,13 +189,16 @@ namespace sw
 				yMax = (yMax + 0x0F) >> 4;
 			}
 
-			If(yMin == yMax)
-			{
-				Return(false);
-			}
-
 			yMin = Max(yMin, *Pointer<Int>(data + OFFSET(DrawData,scissorY0)));
 			yMax = Min(yMax, *Pointer<Int>(data + OFFSET(DrawData,scissorY1)));
+
+			// If yMin and yMax are initially negative, the scissor clamping above will typically result
+			// in yMin == 0 and yMax unchanged. We bail as we don't need to rasterize this primitive, and
+			// code below assumes yMin < yMax.
+			If(yMin >= yMax)
+			{
+				Return(0);
+			}
 
 			For(Int q = 0, q < state.multiSample, q++)
 			{
@@ -217,7 +220,7 @@ namespace sw
 
 					i++;
 				}
-				Until(i >= n)
+				Until(i >= n);
 
 				Pointer<Byte> leftEdge = Pointer<Byte>(primitive + OFFSET(Primitive,outline->left)) + q * sizeof(Primitive);
 				Pointer<Byte> rightEdge = Pointer<Byte>(primitive + OFFSET(Primitive,outline->right)) + q * sizeof(Primitive);
@@ -248,7 +251,7 @@ namespace sw
 
 						i++;
 					}
-					Until(i >= n)
+					Until(i >= n);
 				}
 
 				if(state.multiSample == 1)
@@ -265,7 +268,7 @@ namespace sw
 
 					If(yMin == yMax)
 					{
-						Return(false);
+						Return(0);
 					}
 
 					*Pointer<Short>(leftEdge + (yMin - 1) * sizeof(Primitive::Span)) = *Pointer<Short>(leftEdge + yMin * sizeof(Primitive::Span));
@@ -473,7 +476,7 @@ namespace sw
 				setupGradient(primitive, tri, w012, M, v0, v1, v2, OFFSET(Vertex,f), OFFSET(Primitive,f), state.fog.flat, false, state.perspective, false, 0);
 			}
 
-			Return(true);
+			Return(1);
 		}
 
 		routine = function("SetupRoutine");
@@ -617,7 +620,7 @@ namespace sw
 
 					y++;
 				}
-				Until(y >= y2)
+				Until(y >= y2);
 			}
 		}
 	}
@@ -662,7 +665,7 @@ namespace sw
 		#endif
 	}
 
-	Routine *SetupRoutine::getRoutine()
+	std::shared_ptr<Routine> SetupRoutine::getRoutine()
 	{
 		return routine;
 	}

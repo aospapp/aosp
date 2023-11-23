@@ -34,9 +34,10 @@ class audio_CRASFormatConversion(audio_helper.cras_rms_test):
             sox_utils.generate_sine_tone_cmd(
                     filename='-', rate=rate, frequencies=frequency, gain=-6),
             stdout=subprocess.PIPE)
-        p2 = cmd_utils.popen(
-            cras_utils.playback_cmd(playback_file='-', rate=rate),
-            stdin=p1.stdout)
+        p2 = cras_utils.playback(blocking=False,
+                                 stdin=p1.stdout,
+                                 playback_file='-',
+                                 rate=rate)
         return [p1, p2]
 
 

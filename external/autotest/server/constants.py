@@ -1,5 +1,6 @@
-# Flag file to indicate the host is an adb tester.
-ANDROID_TESTER_FILEFLAG = '/mnt/stateful_partition/.android_tester'
+# Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 
 
 class Labels:
@@ -53,3 +54,4 @@ class Builds:
     FIRMWARE_RW = 'firmware_rw'
     FIRMWARE_RO = 'firmware_ro'
     CROS = 'cros'
+

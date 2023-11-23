@@ -17,7 +17,7 @@
 %                               December 2000                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -441,9 +441,6 @@ static void         ipa_udata_init(wmfAPI * API, wmfUserData_t * userdata);
 static void         ipa_udata_set(wmfAPI * API, wmfUserData_t * userdata);
 static int          magick_progress_callback(void* wand,float quantum);
 static void         util_draw_arc(wmfAPI * API, wmfDrawArc_t * draw_arc,magick_arc_t finish);
-#if defined(MAGICKCORE_WMF_DELEGATE)
-/*static int          util_font_weight( const char* font );*/
-#endif
 static double       util_pointsize( wmfAPI* API, wmfFont* font, char* str, double font_height, ExceptionInfo *);
 static void         util_set_brush(wmfAPI * API, wmfDC * dc, const BrushApply brush_apply);
 static void         util_set_pen(wmfAPI * API, wmfDC * dc);
@@ -831,8 +828,7 @@ static void ipa_device_close(wmfAPI * API)
 static void ipa_device_begin(wmfAPI * API)
 {
   char
-    comment[MagickPathExtent],
-    *url;
+    comment[MagickPathExtent];
 
   wmf_magick_t
     *ddata = WMF_MAGICK_GetData(API);
@@ -842,10 +838,8 @@ static void ipa_device_begin(wmfAPI * API)
 
   DrawSetViewbox(WmfDrawingWand,0,0,ddata->image->columns,ddata->image->rows);
 
-  url=GetMagickHomeURL();
-  (void) FormatLocaleString(comment,MagickPathExtent,
-    "Created by ImageMagick %s",url);
-  url=DestroyString(url);
+  (void) FormatLocaleString(comment,MagickPathExtent,"Created by %s",
+    GetMagickVersion((unsigned long *) NULL));
   DrawComment(WmfDrawingWand,comment);
 
   /* Scale width and height to image */
@@ -1440,8 +1434,6 @@ static void ipa_draw_text(wmfAPI * API, wmfDrawText_t * draw_text)
 {
   double
     angle = 0,      /* text rotation angle */
-    bbox_height,    /* bounding box height */
-    bbox_width,      /* bounding box width */
     pointsize = 0;    /* pointsize to output font with desired height */
 
   ExceptionInfo
@@ -1450,11 +1442,17 @@ static void ipa_draw_text(wmfAPI * API, wmfDrawText_t * draw_text)
   TypeMetric
     metrics;
 
+#if !defined(MAGICKCORE_WMF_DELEGATE)
+  double
+    bbox_height,    /* bounding box height */
+    bbox_width;      /* bounding box width */
+
   wmfD_Coord
     BL,        /* bottom left of bounding box */
     BR,        /* bottom right of bounding box */
     TL,        /* top left of bounding box */
     TR;        /* top right of bounding box */
+#endif
 
   wmfD_Coord
     point;      /* text placement point */
@@ -1468,6 +1466,7 @@ static void ipa_draw_text(wmfAPI * API, wmfDrawText_t * draw_text)
   point = draw_text->pt;
 
   /* Choose bounding box and calculate its width and height */
+#if !defined(MAGICKCORE_WMF_DELEGATE)
   {
     double dx,
       dy;
@@ -1495,6 +1494,7 @@ static void ipa_draw_text(wmfAPI * API, wmfDrawText_t * draw_text)
     dy = ((BL.y - TL.y) + (BR.y - TR.y)) / 2;
     bbox_height = hypot(dx,dy);
   }
+#endif
 
   font = WMF_DC_FONT(draw_text->dc);
 
@@ -1505,8 +1505,6 @@ static void ipa_draw_text(wmfAPI * API, wmfDrawText_t * draw_text)
   /* Save graphic wand */
   (void) PushDrawingWand(WmfDrawingWand);
 
-  (void) bbox_width;
-  (void) bbox_height;
 #if 0
   printf("\nipa_draw_text\n");
   printf("Text                    = \"%s\"\n", draw_text->str);
@@ -2169,17 +2167,17 @@ static double util_pointsize( wmfAPI* API, wmfFont* font, char* str, double font
       if (strlen(str) == 1)
         {
           pointsize = (font_height *
-                       ( font_height / (metrics.ascent + fabs(metrics.descent))));
+                       ( font_height * PerceptibleReciprocal(metrics.ascent + fabs(metrics.descent))));
           draw_info->pointsize = pointsize;
           if (GetTypeMetrics(image, draw_info, &metrics, exception) != MagickFalse)
-            pointsize *= (font_height / ( metrics.ascent + fabs(metrics.descent)));
+            pointsize *= (font_height * PerceptibleReciprocal( metrics.ascent + fabs(metrics.descent)));
         }
       else
         {
-          pointsize = (font_height * (font_height / (metrics.height)));
+          pointsize = (font_height * (font_height * PerceptibleReciprocal(metrics.height)));
           draw_info->pointsize = pointsize;
           if (GetTypeMetrics(image, draw_info, &metrics, exception) != MagickFalse)
-            pointsize *= (font_height / metrics.height);
+            pointsize *= (font_height * PerceptibleReciprocal((double) metrics.height));
 
         }
 #if 0
@@ -2208,38 +2206,6 @@ static double util_pointsize( wmfAPI* API, wmfFont* font, char* str, double font
 }
 
 #if defined(MAGICKCORE_WMF_DELEGATE)
-/* Estimate weight based on font name */
-/*
-static int util_font_weight( const char* font )
-{
-  int
-    weight;
-
-  weight = 400;
-  if ((strstr(font,"Normal") || strstr(font,"Regular")))
-    weight = 400;
-  else if ( strstr(font,"Bold") )
-    {
-      weight = 700;
-      if ((strstr(font,"Semi") || strstr(font,"Demi")))
-        weight = 600;
-      if ( (strstr(font,"Extra") || strstr(font,"Ultra")))
-        weight = 800;
-    }
-  else if ( strstr(font,"Light") )
-    {
-      weight = 300;
-      if ( (strstr(font,"Extra") || strstr(font,"Ultra")))
-        weight = 200;
-    }
-  else if ((strstr(font,"Heavy") || strstr(font,"Black")))
-    weight = 900;
-  else if ( strstr(font,"Thin") )
-    weight = 100;
-  return weight;
-}
-*/
-
 /*
  * Returns width of string in points, assuming (unstretched) font size of 1pt
  * (similar to wmf_ipa_font_stringwidth)
@@ -2408,7 +2374,7 @@ static void lite_font_map( wmfAPI* API, wmfFont* font)
   exception=ddata->exception;
   type_info_base=GetTypeInfo("*",exception);
   if (type_info_base == 0)
-     return;
+    return;
 
   /* Certain short-hand font names are not the proper Windows names
      and should be promoted to the proper names */
@@ -2423,15 +2389,28 @@ static void lite_font_map( wmfAPI* API, wmfFont* font)
       int
         target_weight;
 
+      StyleType 
+        style = AnyStyle;
+
       if (WMF_FONT_WEIGHT(font) == 0)
         target_weight = 400;
       else
         target_weight = WMF_FONT_WEIGHT(font);
-      type_info=GetTypeInfoByFamily(wmf_font_name,AnyStyle,AnyStretch,
+      if (WMF_FONT_ITALIC(font)) 
+        style=ItalicStyle;
+      type_info=GetTypeInfoByFamily(wmf_font_name,style,AnyStretch,
         target_weight,exception);
       if (type_info == (const TypeInfo *) NULL)
         type_info=GetTypeInfoByFamily(wmf_font_name,AnyStyle,AnyStretch,0,
           exception);
+      if (type_info != (const TypeInfo *) NULL)
+        CloneString(&magick_font->ps_name,type_info->name);
+    }
+
+  /* Look for exact full match */
+  if(!magick_font->ps_name)
+    {
+      type_info=GetTypeInfo(wmf_font_name,exception);
       if (type_info != (const TypeInfo *) NULL)
         CloneString(&magick_font->ps_name,type_info->name);
     }
@@ -2728,12 +2707,13 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "leave ReadWMFImage()");
         }
+      ipa_device_close(API);
       wmf_api_destroy(API);
       ThrowReaderException(DelegateError,"FailedToComputeOutputSize");
     }
 
   /* Obtain (or guess) metafile units */
-  if ((API)->File->placeable)
+  if ((API)->File->placeable && (API)->File->pmh->Inch)
     units_per_inch=(API)->File->pmh->Inch;
   else if ( (wmf_width*wmf_height) < 1024*1024)
     units_per_inch=POINTS_PER_INCH;  /* MM_TEXT */
@@ -2758,7 +2738,12 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   bounding_width  = bbox.BR.x - bbox.TL.x;
   bounding_height = bbox.BR.y - bbox.TL.y;
-
+  if ((bounding_width == 0) || (bounding_height == 0))
+    {
+      ipa_device_close(API);
+      (void) wmf_api_destroy(API);
+      ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+    }
   ddata->scale_x = image_width/bounding_width;
   ddata->translate_x = 0-bbox.TL.x;
   ddata->rotate = 0;
@@ -2856,6 +2841,7 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
 
   if (image_info->ping != MagickFalse)
     {
+      ipa_device_close(API);
       wmf_api_destroy(API);
       (void) CloseBlob(image);
       if (image->debug != MagickFalse)
@@ -2899,6 +2885,7 @@ static Image *ReadWMFImage(const ImageInfo *image_info,ExceptionInfo *exception)
           (void) LogMagickEvent(CoderEvent,GetMagickModule(),
             "leave ReadWMFImage()");
         }
+      ipa_device_close(API);
       wmf_api_destroy(API);
       ThrowReaderException(DelegateError,"FailedToRenderFile");
     }
@@ -2953,7 +2940,7 @@ ModuleExport size_t RegisterWMFImage(void)
   MagickInfo
     *entry;
 
-  entry = AcquireMagickInfo("WMF","WMZ","Compressed Windows Meta File");
+  entry=AcquireMagickInfo("WMF","WMZ","Compressed Windows Meta File");
 #if defined(MAGICKCORE_SANS_DELEGATE) || defined(MAGICKCORE_WMF_DELEGATE)
   entry->decoder=ReadWMFImage;
 #endif

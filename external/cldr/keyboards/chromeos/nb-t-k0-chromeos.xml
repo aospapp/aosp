@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE keyboard SYSTEM "../dtd/ldmlKeyboard.dtd">
 <keyboard locale="nb-t-k0-chromeos">
-	<version platform="33" number="$Revision: 11914 $"/>
+	<version platform="33" number="$Revision$"/>
 	<names>
 		<name value="Norway"/>
 	</names>

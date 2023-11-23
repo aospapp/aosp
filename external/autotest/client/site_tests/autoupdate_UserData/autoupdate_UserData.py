@@ -2,133 +2,132 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
 import os
-import time
 
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.update_engine import nebraska_wrapper
 from autotest_lib.client.cros.update_engine import update_engine_test
 
 class autoupdate_UserData(update_engine_test.UpdateEngineTest):
     """
-    Logs in, stats an update, waits for a while, then logs out.
+    Modifies some user settings and checks they were not reset by an update.
 
-    This test is used as part of the server test autoupdate_Interruptions.
+    This test is used as part of the server test autoupdate_DataPreserved.
+    This test will make use of several private Chrome APIs:
+    inputMethodPrivate: chrome/common/extensions/api/input_method_private.json
+    languageSettingsPrivate: chrome/common/extensions/api/
+                             language_settings_private.idl
+    settingsPrivate: chrome/common/extensions/api/settings_private.idl
 
     """
     version = 1
 
-    # Input method to change to.
-    _NEW_INPUT_METHOD = 'US International keyboard'
-
-    # Javascript code for interacting with chrome://settings.
-    _CLICK_TIMEZONE_BUTTON = "document.querySelector('* /deep/ #timeZoneButton').click()"
-    _CLICK_AUTODETECT_OFF = "document.querySelector('* /deep/ #timeZoneAutoDetectOff').click()"
-    _IS_AUTODETECT_OFF = "document.querySelector('* /deep/ #timeZoneAutoDetectOff').checked"
-    _CLICK_INPUT_METHOD_BUTTON = "document.querySelector('* /deep/ #manageInputMethodsSubpageTrigger').click()"
-    _CLICK_MANAGE_INPUT_METHODS_BUTTON =  "document.querySelector('* /deep/ #manageInputMethods').click()"
-    _CLICK_ADD_US_INTL_OPTION = "document.querySelectorAll('* /deep/ paper-checkbox')[1].click()"
-    _CLICK_MAKE_US_INTL_DEFAULT = "document.querySelector('* /deep/ #inputMethodsCollapse div.vertical-list').children[1].click()"
-    _GET_DEFAULT_INPUT_METHOD = "document.querySelector('* /deep/ #inputMethodsCollapse div.vertical-list').children[0].innerText"
     _TEST_FILE = '/home/chronos/user/Downloads/test.txt'
+    _US_IME = '_comp_ime_jkghodnilhceideoidjikpgommlajknkxkb:us::eng'
+    _US_INTL_IME = '_comp_ime_jkghodnilhceideoidjikpgommlajknkxkb:us:intl:eng'
+    _TIME_ZONE_PREF = 'generated.resolve_timezone_by_geolocation_on_off'
+
+    _GET_IME_JS = '''
+        new Promise(function(resolve, reject) {
+            chrome.inputMethodPrivate.getCurrentInputMethod(
+                function(id) {
+                    resolve(id);
+                });
+        })
+    '''
+    _GET_PREF_JS = '''
+        new Promise(function(resolve, reject) {
+            chrome.settingsPrivate.getPref("%s", function(pref) {
+                resolve(pref['value']);
+            });
+        })
+    '''
+    _SET_IME_JS = 'chrome.inputMethodPrivate.setCurrentInputMethod("%s")'
+    _SET_PREF_JS = ('chrome.settingsPrivate.setPref("%s", %s, '
+                    'x => console.log(x))')
 
 
-    def _execute_javascript(self, tab, code):
-        """
-        Exeutes javascript code in the tab provided.
-
-        @param tab: The chrome tab to run code in.
-        @param code: The javascript code to execute.
-
-        """
-        tab.ExecuteJavaScript(code)
-        time.sleep(5)
-
-
-    def _navigate(self, tab, url):
-        """
-        Navigate a chrome tab to a URL.
-
-        @param tab: The chrome tab.
-        @param url: The URL to navigate to.
-
-        """
-        tab.Navigate(url)
-        tab.WaitForDocumentReadyStateToBeComplete()
-        time.sleep(5)
+    def _modify_input_methods(self):
+        """ Change default Input Method to US International."""
+        current_ime = self._cr.autotest_ext.EvaluateJavaScript(
+            self._GET_IME_JS, promise=True)
+        logging.info('Current IME is %s', current_ime)
+        add_ime_js = ('chrome.languageSettingsPrivate.addInputMethod("%s")' %
+                      self._US_INTL_IME)
+        self._cr.autotest_ext.EvaluateJavaScript(add_ime_js)
+        self._cr.autotest_ext.EvaluateJavaScript(self._SET_IME_JS %
+                                                 self._US_INTL_IME)
+        new_ime = self._cr.autotest_ext.EvaluateJavaScript(self._GET_IME_JS)
+        if current_ime == new_ime:
+            raise error.TestFail('IME could not be changed before update.')
 
 
-    def _modify_input_methods(self, tab):
-        """
-        Change default input method to US International.
-
-        @param tab: The chrome tab to user.
-
-        """
-        # TODO(dhaddock): A better way to interact with chrome://settings.
-        self._navigate(tab, 'chrome://settings/languages')
-        self._execute_javascript(tab, self._CLICK_INPUT_METHOD_BUTTON)
-        self._execute_javascript(tab, self._CLICK_MANAGE_INPUT_METHODS_BUTTON)
-        self._execute_javascript(tab, self._CLICK_ADD_US_INTL_OPTION)
-        self._navigate(tab, 'chrome://settings/languages')
-        self._execute_javascript(tab, self._CLICK_INPUT_METHOD_BUTTON)
-        self._execute_javascript(tab, self._CLICK_MAKE_US_INTL_DEFAULT)
-
-
-    def _modify_time_zone(self, tab):
-        """
-        Change time zone to by user selected instead of automatic.
-
-        @param tab: The chrome tab to user.
-
-        """
-        # TODO(dhaddock): A better way to interact with chrome://settings.
-        self._navigate(tab, 'chrome://settings/dateTime')
-        self._execute_javascript(tab, self._CLICK_TIMEZONE_BUTTON)
-        self._execute_javascript(tab, self._CLICK_AUTODETECT_OFF)
+    def _modify_time_zone(self):
+        """Change time zone to be user selected instead of automatic by IP."""
+        current_time_zone = self._cr.autotest_ext.EvaluateJavaScript(
+            self._GET_PREF_JS % self._TIME_ZONE_PREF, promise=True)
+        logging.info('Calculating timezone by IP: %s', current_time_zone)
+        self._cr.autotest_ext.EvaluateJavaScript(
+            self._SET_PREF_JS % (self._TIME_ZONE_PREF, 'false'))
+        new_timezone = self._cr.autotest_ext.EvaluateJavaScript(
+            self._GET_PREF_JS % self._TIME_ZONE_PREF, promise=True)
+        if current_time_zone == new_timezone:
+            raise error.TestFail('Timezone detection could not be changed.')
 
 
     def _perform_after_update_checks(self):
         """Check the user preferences and files are the same."""
-        with chrome.Chrome(logged_in=True, dont_override_profile=True) as cr:
-            tab = cr.browser.tabs[0]
-
-            # Open input methods and ensure the default is the one
-            # we selected before the update.
-            self._navigate(tab, 'chrome://settings/languages')
-            self._execute_javascript(tab, self._CLICK_INPUT_METHOD_BUTTON)
-            result = tab.EvaluateJavaScript(self._GET_DEFAULT_INPUT_METHOD)
-            if self._NEW_INPUT_METHOD not in result:
-                raise error.TestFail('Input method was not preserved.')
-
-            # Make sure we are not autodetecting timezone.
-            self._navigate(tab, 'chrome://settings/dateTime')
-            self._execute_javascript(tab, self._CLICK_TIMEZONE_BUTTON)
-            result = tab.EvaluateJavaScript(self._IS_AUTODETECT_OFF)
-            if not result:
-                raise error.TestFail('Time zone is back to automatic.')
-
+        with chrome.Chrome(dont_override_profile=True,
+                           autotest_ext=True) as cr:
+            # Check test file is still present.
             if not os.path.exists(self._TEST_FILE):
-                raise error.TestFail('Test file is gone after update.')
-            utils.run('rm %s' % self._TEST_FILE)
+                raise error.TestFail('Test file was not present after update.')
+
+            # Check IME has not changed.
+            current_ime = cr.autotest_ext.EvaluateJavaScript(
+                self._GET_IME_JS, promise=True)
+            if current_ime != self._US_INTL_IME:
+                raise error.TestFail('Input method was not preserved after'
+                                     'update. Expected %s, Actual: %s' %
+                                     (self._US_INTL_IME, current_ime))
+
+            # Check that timezone is user selected.
+            current_time_zone = cr.autotest_ext.EvaluateJavaScript(
+                self._GET_PREF_JS % self._TIME_ZONE_PREF, promise=True)
+            if current_time_zone:
+                raise error.TestFail('Time zone detection was changed back to '
+                                     'automatic.')
 
 
-    def run_once(self, update_url=None, after_update=False):
+    def run_once(self, image_url=None):
         """
         Tests that user settings are not reset by update.
 
-        @param update_url: The update url to use.
-        @param after_update: True for post update checks.
+        @param image_url: The payload url to use.
 
         """
-        if after_update:
-            self._perform_after_update_checks()
+        if image_url:
+            metadata_dir = autotemp.tempdir()
+            self._get_payload_properties_file(image_url, metadata_dir.name)
+            base_url = ''.join(image_url.rpartition('/')[0:2])
+            with nebraska_wrapper.NebraskaWrapper(
+                    log_dir=self.resultsdir,
+                    update_metadata_dir=metadata_dir.name,
+                    update_payloads_address=base_url) as nebraska:
+                with chrome.Chrome(autotest_ext=True) as cr:
+                    self._cr = cr
+                    utils.run('echo hello > %s' % self._TEST_FILE)
+                    self._modify_input_methods()
+                    self._modify_time_zone()
+                    self._check_for_update(port=nebraska.get_port(),
+                                           critical_update=True)
+                # Sign out of Chrome and wait for the update to complete.
+                # If we waited for the update to complete and then logged out
+                # the DUT will auto-reboot and the client test cannot return.
+                self._wait_for_update_to_complete()
         else:
-            with chrome.Chrome(logged_in=True) as cr:
-                utils.run('echo hello > %s' % self._TEST_FILE)
-                tab = cr.browser.tabs[0]
-                self._modify_input_methods(tab)
-                self._modify_time_zone(tab)
-                self._check_for_update(update_url)
-                self._wait_for_progress(0.2)
+            self._perform_after_update_checks()

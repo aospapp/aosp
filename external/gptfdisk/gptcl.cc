@@ -63,7 +63,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
    GPTData secondDevice;
    int opt, numOptions = 0, saveData = 0, neverSaveData = 0;
    int partNum = 0, newPartNum = -1, saveNonGPT = 1, retval = 0, pretend = 0;
-   uint64_t low, high, startSector, endSector, sSize;
+   uint64_t low, high, startSector, endSector, sSize, mainTableLBA;
    uint64_t temp; // temporary variable; free to use in any case
    char *device;
    string cmd, typeGUID, name;
@@ -71,7 +71,8 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
 
    struct poptOption theOptions[] =
    {
-      {"attributes", 'A', POPT_ARG_STRING, &attributeOperation, 'A', "operate on partition attributes", "list|[partnum:show|or|nand|xor|=|set|clear|toggle|get[:bitnum|hexbitmask]]"},
+      {"attributes", 'A', POPT_ARG_STRING, &attributeOperation, 'A', "operate on partition attributes",
+          "list|[partnum:show|or|nand|xor|=|set|clear|toggle|get[:bitnum|hexbitmask]]"},
       {"set-alignment", 'a', POPT_ARG_INT, &alignment, 'a', "set sector alignment", "value"},
       {"backup", 'b', POPT_ARG_STRING, &backupFile, 'b', "backup GPT to file", "file"},
       {"change-name", 'c', POPT_ARG_STRING, &partName, 'c', "change partition's name", "partnum:name"},
@@ -84,15 +85,16 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
       {"first-aligned-in-largest", 'F', POPT_ARG_NONE, NULL, 'F', "show start of the largest free block, aligned", ""},
       {"mbrtogpt", 'g', POPT_ARG_NONE, NULL, 'g', "convert MBR to GPT", ""},
       {"randomize-guids", 'G', POPT_ARG_NONE, NULL, 'G', "randomize disk and partition GUIDs", ""},
-      {"hybrid", 'h', POPT_ARG_STRING, &hybrids, 'h', "create hybrid MBR", "partnum[:partnum...]"},
+      {"hybrid", 'h', POPT_ARG_STRING, &hybrids, 'h', "create hybrid MBR", "partnum[:partnum...][:EE]"},
       {"info", 'i', POPT_ARG_INT, &infoPartNum, 'i', "show detailed information on partition", "partnum"},
-      {"skip-sync", 'j', POPT_ARG_NONE, NULL, 'j', "Don't atempt to sync and update the parittion table", ""},
+      {"move-main-table", 'j', POPT_ARG_INT, &mainTableLBA, 'j', "adjust the location of the main partition table", "sector"},
       {"load-backup", 'l', POPT_ARG_STRING, &backupFile, 'l', "load GPT backup from file", "file"},
       {"list-types", 'L', POPT_ARG_NONE, NULL, 'L', "list known partition types", ""},
       {"gpttombr", 'm', POPT_ARG_STRING, &mbrParts, 'm', "convert GPT to MBR", "partnum[:partnum...]"},
       {"new", 'n', POPT_ARG_STRING, &newPartInfo, 'n', "create new partition", "partnum:start:end"},
       {"largest-new", 'N', POPT_ARG_INT, &largestPartNum, 'N', "create largest possible new partition", "partnum"},
       {"clear", 'o', POPT_ARG_NONE, NULL, 'o', "clear partition table", ""},
+      {"print-mbr", 'O', POPT_ARG_NONE, NULL, 'O', "print MBR partition table", ""},
       {"print", 'p', POPT_ARG_NONE, NULL, 'p', "print partition table", ""},
       {"pretend", 'P', POPT_ARG_NONE, NULL, 'P', "make changes in memory, but don't write them", ""},
       {"transpose", 'r', POPT_ARG_STRING, &twoParts, 'r', "transpose two partitions", "partnum:partnum"},
@@ -155,7 +157,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
       if (LoadPartitions((string) device)) {
          if ((WhichWasUsed() == use_mbr) || (WhichWasUsed() == use_bsd))
             saveNonGPT = 0; // flag so we don't overwrite unless directed to do so
-            sSize = GetBlockSize();
+         sSize = GetBlockSize();
          while ((opt = poptGetNextOpt(poptCon)) > 0) {
             switch (opt) {
                case 'A': {
@@ -200,7 +202,6 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                      partNum = newPartNum;
                   cout << "partNum is " << partNum << "\n";
                   if ((partNum >= 0) && (partNum < (int) GetNumParts())) {
-                     cout << "REALLY setting name!\n";
                      name = GetString(partName, 2);
                      if (SetName(partNum, (UnicodeString) name.c_str())) {
                         saveData = 1;
@@ -262,8 +263,13 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                   ShowPartDetails(infoPartNum - 1);
                   break;
                case 'j':
-                  TurnOffSyncing();
-                  break;
+                   if (MoveMainTable(mainTableLBA)) {
+                       JustLooking(0);
+                       saveData = 1;
+                   } else {
+                       neverSaveData = 1;
+                   } // if/else
+                   break;
                case 'l':
                   LoadBackupFile(backupFile, saveData, neverSaveData);
                   free(backupFile);
@@ -308,8 +314,8 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                   startSector = FindFirstInLargest();
                   Align(&startSector);
                   endSector = FindLastInFree(startSector);
-                  if (largestPartNum < 0)
-                     largestPartNum = FindFirstFreePart();
+                  if (largestPartNum <= 0)
+                     largestPartNum = FindFirstFreePart() + 1;
                   if (CreatePartition(largestPartNum - 1, startSector, endSector)) {
                      saveData = 1;
                   } else {
@@ -323,6 +329,9 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                   ClearGPTData();
                   saveData = 1;
                   break;
+               case 'O':
+                   DisplayMBRData();
+                   break;
                case 'p':
                   DisplayGPTData();
                   break;
@@ -408,7 +417,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                   if (!pretend) {
                      DestroyGPT();
                   } // if
-                  saveNonGPT = 0;
+                  saveNonGPT = 1;
                   saveData = 0;
                   break;
                case 'Z':
@@ -416,7 +425,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                      DestroyGPT();
                      DestroyMBR();
                   } // if
-                  saveNonGPT = 0;
+                  saveNonGPT = 1;
                   saveData = 0;
                   break;
                default:
@@ -450,7 +459,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                   if (!pretend) {
                      DestroyGPT();
                   } // if
-                  saveNonGPT = 0;
+                  saveNonGPT = 1;
                   saveData = 0;
                   break;
                case 'Z':
@@ -458,7 +467,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                      DestroyGPT();
                      DestroyMBR();
                   } // if
-                  saveNonGPT = 0;
+                  saveNonGPT = 1;
                   saveData = 0;
                   break;
             } // switch
@@ -466,7 +475,8 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
          retval = 2;
       } // if/else loaded OK
       if ((saveData) && (!neverSaveData) && (saveNonGPT) && (!pretend)) {
-         SaveGPTData(1);
+         if (!SaveGPTData(1))
+            retval = 4;
       }
       if (saveData && (!saveNonGPT)) {
          cout << "Non-GPT disk; not saving changes. Use -g to override.\n";
@@ -484,16 +494,25 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
 // Create a hybrid or regular MBR from GPT data structures
 int GPTDataCL::BuildMBR(char* argument, int isHybrid) {
    int numParts, allOK = 1, i, origPartNum;
+   int eeLast, mbrNum = 0;
    MBRPart newPart;
    BasicMBRData newMBR;
 
    if (argument != NULL) {
       numParts = CountColons(argument) + 1;
+      if (isHybrid) {
+         eeLast = GetString(argument, numParts) == "EE";
+         if (eeLast) {
+            numParts--;
+         }
+      }
+
       if (numParts <= (4 - isHybrid)) {
          newMBR.SetDisk(GetDisk());
          for (i = 0; i < numParts; i++) {
             origPartNum = GetInt(argument, i + 1) - 1;
             if (IsUsedPartNum(origPartNum) && (partitions[origPartNum].IsSizedForMBR() == MBR_SIZED_GOOD)) {
+               mbrNum = i + (isHybrid && ! eeLast);
                newPart.SetInclusion(PRIMARY);
                newPart.SetLocation(operator[](origPartNum).GetFirstLBA(),
                                    operator[](origPartNum).GetLengthLBA());
@@ -504,18 +523,23 @@ int GPTDataCL::BuildMBR(char* argument, int isHybrid) {
                if (typeRaw.count(origPartNum) == 1) {
                   newPart.SetType(typeRaw[origPartNum]);
                }
-               newMBR.AddPart(i + isHybrid, newPart);
+               newMBR.AddPart(mbrNum, newPart);
             } else {
                cerr << "Original partition " << origPartNum + 1 << " does not exist or is too big! Aborting operation!\n";
                allOK = 0;
             } // if/else
          } // for
          if (isHybrid) {
+            if (eeLast) {
+               mbrNum = i;
+            } else {
+               mbrNum = 0;
+            }
             newPart.SetInclusion(PRIMARY);
             newPart.SetLocation(1, newMBR.FindLastInFree(1));
             newPart.SetStatus(0);
             newPart.SetType(0xEE);
-            newMBR.AddPart(0, newPart);
+            newMBR.AddPart(mbrNum, newPart);
          } // if
          if (allOK)
             SetProtectiveMBR(newMBR);

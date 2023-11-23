@@ -18,7 +18,7 @@ nb{
         ms{"målesystem"}
         numbers{"tall"}
         timezone{"tidssone"}
-        va{"Språkvariant"}
+        va{"språkvariant"}
         x{"privat bruk"}
     }
     Languages{
@@ -109,6 +109,7 @@ nb{
         car{"karibisk"}
         cay{"cayuga"}
         cch{"atsam"}
+        ccp{"chakma"}
         ce{"tsjetsjensk"}
         ceb{"cebuansk"}
         cgg{"kiga"}
@@ -626,6 +627,13 @@ nb{
         zxx{"uten språklig innhold"}
         zza{"zazaisk"}
     }
+    Languages%long{
+        zh_Hans{"forenklet mandarinkinesisk"}
+        zh_Hant{"tradisjonell mandarinkinesisk"}
+    }
+    Languages%menu{
+        zh{"kinesisk, mandarin"}
+    }
     Languages%short{
         az{"azeri"}
     }
@@ -1049,7 +1057,7 @@ nb{
         VALLADER{"vallader"}
         WADEGILE{"Wade-Giles-romanisering"}
     }
-    Version{"2.1.44.2"}
+    Version{"36.1"}
     characterLabelPattern{
         all{"{0} – alt"}
         category-list{"{0}: {1}"}

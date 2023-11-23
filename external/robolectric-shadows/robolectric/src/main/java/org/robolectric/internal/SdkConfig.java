@@ -29,8 +29,9 @@ public class SdkConfig implements Comparable<SdkConfig> {
               addSdk(Build.VERSION_CODES.O, "8.0.0_r4", "r1", "REL");
               addSdk(Build.VERSION_CODES.O_MR1, "8.1.0", "4611349", "REL");
               addSdk(Build.VERSION_CODES.P, "9", "4913185-2", "REL");
+              addSdk(Build.VERSION_CODES.Q, "10", "5803371", "REL");
               // BEGIN-INTERNAL
-              addSdk(Build.VERSION_CODES.Q, "Q", "r0", "Q");
+              addSdk(Build.VERSION_CODES.R, "R", "r0", "R");
               // END-INTERNAL
             }
 

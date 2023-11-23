@@ -1,8 +1,0 @@
-#!/usr/bin/make -f
-
-export DH_VERBOSE=1
-
-include /usr/share/dpkg/default.mk
-
-%:
-	dh $@

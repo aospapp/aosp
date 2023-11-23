@@ -11,7 +11,7 @@ from autotest_lib.server.cros.servo import pd_device
 
 class firmware_PDConnect(FirmwareTest):
     """
-    Servo based USB PD connect/disconnect test. If Plankton is not one
+    Servo based USB PD connect/disconnect test. If PDTester is not one
     of the device pair elements, then this test requires that at least
     one of the devices support dual role mode in order to force a disconnect
     to connect sequence. The test does not depend on the DUT acting as source
@@ -38,8 +38,9 @@ class firmware_PDConnect(FirmwareTest):
                     logging.warn('Device does not support disconnect/connect')
                     break
 
-    def initialize(self, host, cmdline_args):
+    def initialize(self, host, cmdline_args, flip_cc=False):
         super(firmware_PDConnect, self).initialize(host, cmdline_args)
+        self.setup_pdtester(flip_cc)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.usbpd.enable_console_channel('usbpd')
@@ -56,7 +57,7 @@ class firmware_PDConnect(FirmwareTest):
         """
 
         # Create list of available UART consoles
-        consoles = [self.usbpd, self.plankton]
+        consoles = [self.usbpd, self.pdtester]
         port_partner = pd_device.PDPortPartner(consoles)
         # Identify a valid test port pair
         port_pair = port_partner.identify_pd_devices()
@@ -65,20 +66,28 @@ class firmware_PDConnect(FirmwareTest):
 
         # Test disconnect/connect sequences
         self._test_connect(port_pair)
+
         # Swap power roles (if possible). Note the pr swap is attempted
         # for both devices in the connection. This ensures that a device
         # such as Plankton, which is dualrole capable, but has this mode
         # disabled by default, won't prevent the device pair from role swapping.
-        swap = False;
+        swappable_dev = None;
         for dev in port_pair:
             try:
                 if dev.pr_swap():
-                    swap = True
+                    swappable_dev = dev
                     break
             except NotImplementedError:
-                logging.warn('device cant send power role swap command')
-        if swap == True:
-            # Power role has been swapped, retest.
-            self._test_connect(port_pair)
+                logging.warn('Power role swap not supported on the device')
+
+        if swappable_dev:
+            try:
+                # Power role has been swapped, retest.
+                self._test_connect(port_pair)
+            finally:
+                # Swap power role again, back to the original
+                if not swappable_dev.pr_swap():
+                    logging.error('Failed to swap power role to the original')
         else:
-            logging.warn('Device pair could not role swap, ending test')
+            logging.warn('Device pair could not perform power role swap, '
+                         'ending test')

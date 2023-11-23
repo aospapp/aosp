@@ -45,7 +45,8 @@ def connect_bluetooth_module_full_flow(bt_adapter, target_mac_address,
                 ' using bluetoothctl.')
 
     # Starts discovery mode of bluetooth adapter.
-    if not bt_adapter.start_discovery():
+    status, _ = bt_adapter.start_discovery()
+    if not status:
         raise ChameleonBluetoothAudioError(
                 'Failed to start discovery on bluetooth adapter on Cros host')
 
@@ -60,7 +61,8 @@ def connect_bluetooth_module_full_flow(bt_adapter, target_mac_address,
 
     # Searches for bluetooth module with given MAC address.
     found_device = utils.wait_for_value(_find_device, True, timeout_sec=timeout)
-    if not bt_adapter.stop_discovery():
+    status, _ =  bt_adapter.stop_discovery()
+    if not status:
         raise ChameleonBluetoothAudioError(
             'Failed to stop discovery on bluetooth adapter on Cros host')
 
@@ -159,7 +161,7 @@ class BluetoothRefController(object):
         @param chameleon_connection: A ChameleonConnection object.
 
         """
-        self._chameleond_proxy = chameleon_connection.chameleond_proxy
+        self._chameleond_proxy = chameleon_connection
 
 
     def reset(self):

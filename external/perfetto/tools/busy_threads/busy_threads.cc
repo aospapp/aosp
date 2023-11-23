@@ -15,6 +15,7 @@
  */
 
 #include <getopt.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -23,37 +24,88 @@
 #include "perfetto/base/logging.h"
 #include "perfetto/base/time.h"
 
+#define PERFETTO_HAVE_PTHREADS                \
+  (PERFETTO_BUILDFLAG(PERFETTO_OS_LINUX) ||   \
+   PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID) || \
+   PERFETTO_BUILDFLAG(PERFETTO_OS_MACOSX))
+
+#if PERFETTO_HAVE_PTHREADS
+#include <pthread.h>
+#endif
+
 // Spawns the requested number threads that alternate between busy-waiting and
 // sleeping.
 
 namespace perfetto {
 namespace {
 
-__attribute__((noreturn)) void BusyWait(long busy_us, long sleep_us) {
-  while (1) {
-    base::TimeNanos start = base::GetWallTimeNs();
-    while ((base::GetWallTimeNs() - start).count() < busy_us * 1000) {
+void SetRandomThreadName(uint32_t thread_name_count) {
+#if PERFETTO_HAVE_PTHREADS
+  char name[16] = {};
+  snprintf(name, sizeof(name), "busy-%" PRIu32,
+           static_cast<uint32_t>(rand()) % thread_name_count);
+  pthread_setname_np(pthread_self(), name);
+#endif
+}
+
+void PrintUsage(const char* bin_name) {
+#if PERFETTO_HAVE_PTHREADS
+  PERFETTO_ELOG(
+      "Usage: %s --threads=N --period_us=N --duty_cycle=[1-100] "
+      "[--thread_names=N]",
+      bin_name);
+#else
+  PERFETTO_ELOG("Usage: %s --threads=N --period_us=N --duty_cycle=[1-100]",
+                bin_name);
+#endif
+}
+
+__attribute__((noreturn)) void BusyWait(int64_t tstart,
+                                        int64_t period_us,
+                                        int64_t busy_us,
+                                        uint32_t thread_name_count) {
+  int64_t tbusy = tstart;
+  int64_t tnext = tstart;
+  for (;;) {
+    if (thread_name_count)
+      SetRandomThreadName(thread_name_count);
+
+    tbusy = tnext + busy_us * 1000;
+    tnext += period_us * 1000;
+    while (base::GetWallTimeNs().count() < tbusy) {
       for (int i = 0; i < 10000; i++) {
         asm volatile("" ::: "memory");
       }
     }
-    if (sleep_us > 0)
-      base::SleepMicroseconds(static_cast<unsigned>(sleep_us));
-    else
+    auto tnow = base::GetWallTimeNs().count();
+    if (tnow >= tnext) {
       std::this_thread::yield();
+      continue;
+    }
+
+    while (tnow < tnext) {
+      // +1 to prevent sleeping twice when there is truncation.
+      base::SleepMicroseconds(static_cast<uint32_t>((tnext - tnow) / 1000) + 1);
+      tnow = base::GetWallTimeNs().count();
+    }
   }
 }
 
 int BusyThreadsMain(int argc, char** argv) {
-  long num_threads = -1;
-  long period_us = -1;
-  long duty_cycle = -1;
+  int64_t num_threads = -1;
+  int64_t period_us = -1;
+  int64_t duty_cycle = -1;
+  uint32_t thread_name_count = 0;
 
   static struct option long_options[] = {
-      {"threads", required_argument, nullptr, 't'},
-      {"period_us", required_argument, nullptr, 'p'},
-      {"duty_cycle", required_argument, nullptr, 'd'},
-      {nullptr, 0, nullptr, 0}};
+    {"threads", required_argument, nullptr, 't'},
+    {"period_us", required_argument, nullptr, 'p'},
+    {"duty_cycle", required_argument, nullptr, 'd'},
+#if PERFETTO_HAVE_PTHREADS
+    {"thread_names", required_argument, nullptr, 'r'},
+#endif
+    {nullptr, 0, nullptr, 0}
+  };
   int option_index;
   int c;
   while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
@@ -67,24 +119,30 @@ int BusyThreadsMain(int argc, char** argv) {
       case 'd':
         duty_cycle = atol(optarg);
         break;
+#if PERFETTO_HAVE_PTHREADS
+      case 'r':
+        thread_name_count = static_cast<uint32_t>(atoi(optarg));
+        break;
+#endif
       default:
         break;
     }
   }
-  if (num_threads < 1 || period_us < 0 || duty_cycle < 1 || duty_cycle > 100) {
-    PERFETTO_ELOG("Usage: %s --threads=N --period_us=N --duty_cycle=[1-100]",
-                  argv[0]);
+  if (num_threads < 1 || period_us < 0 || duty_cycle < 1 || duty_cycle > 100 ||
+      thread_name_count > (1 << 20)) {
+    PrintUsage(argv[0]);
     return 1;
   }
 
-  long busy_us = period_us * duty_cycle / 100;
-  long sleep_us = period_us - busy_us;
+  int64_t busy_us = static_cast<int64_t>(period_us * (duty_cycle / 100.0));
 
-  PERFETTO_LOG(
-      "Spawning %ld threads; wait duration: %ldus; sleep duration: %ldus.",
-      num_threads, busy_us, sleep_us);
+  PERFETTO_LOG("Spawning %" PRId64 " threads; period duration: %" PRId64
+               "us; busy duration: %" PRId64 "us.",
+               num_threads, period_us, busy_us);
+
+  int64_t tstart = base::GetWallTimeNs().count();
   for (int i = 0; i < num_threads; i++) {
-    std::thread th(BusyWait, busy_us, sleep_us);
+    std::thread th(BusyWait, tstart, period_us, busy_us, thread_name_count);
     th.detach();
   }
   PERFETTO_LOG("Threads spawned, Ctrl-C to stop.");

@@ -149,6 +149,7 @@
 #include "ir_builder.h"
 #include "ir_optimization.h"
 #include "program/prog_instruction.h"
+#include "main/mtypes.h"
 
 using namespace ir_builder;
 
@@ -520,7 +521,7 @@ lower_packed_varyings_visitor::lower_rvalue(ir_rvalue *rvalue,
     */
    assert(!gs_input_toplevel || rvalue->type->is_array());
 
-   if (rvalue->type->is_record()) {
+   if (rvalue->type->is_struct()) {
       for (unsigned i = 0; i < rvalue->type->length; i++) {
          if (i != 0)
             rvalue = rvalue->clone(this->mem_ctx, NULL);
@@ -728,12 +729,17 @@ lower_packed_varyings_visitor::get_packed_varying_deref(
       unpacked_var->insert_before(packed_var);
       this->packed_varyings[slot] = packed_var;
    } else {
+      ir_variable *var = this->packed_varyings[slot];
+
+      /* The slot needs to be marked as always active if any variable that got
+       * packed there was.
+       */
+      var->data.always_active_io |= unpacked_var->data.always_active_io;
+
       /* For geometry shader inputs, only update the packed variable name the
        * first time we visit each component.
        */
       if (this->gs_input_vertices == 0 || vertex_index == 0) {
-         ir_variable *var = this->packed_varyings[slot];
-
          if (var->is_name_ralloced())
             ralloc_asprintf_append((char **) &var->name, ",%s", name);
          else
@@ -770,7 +776,7 @@ lower_packed_varyings_visitor::needs_lowering(ir_variable *var)
     */
    const glsl_type *type = var->type;
    if (disable_varying_packing && !var->data.is_xfb_only &&
-       !((type->is_array() || type->is_record() || type->is_matrix()) &&
+       !((type->is_array() || type->is_struct() || type->is_matrix()) &&
          xfb_enabled))
       return false;
 

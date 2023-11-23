@@ -2,6 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# Note: this test is ported to hardware.HighResTimer Tast test.
+# Any change made here should be applied to the one in Tast, too.
+
 import re
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, utils

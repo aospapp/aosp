@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -22,7 +22,8 @@
 #define MagickPDFAliases \
   MagickCoderAlias("PDF", "AI") \
   MagickCoderAlias("PDF", "EPDF") \
-  MagickCoderAlias("PDF", "PDFA")
+  MagickCoderAlias("PDF", "PDFA") \
+  MagickCoderAlias("PDF", "POCKETMOD")
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {

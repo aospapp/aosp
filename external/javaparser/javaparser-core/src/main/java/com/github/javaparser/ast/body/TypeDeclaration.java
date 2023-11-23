@@ -34,14 +34,13 @@ import com.github.javaparser.ast.observer.ObservableProperty;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.metamodel.TypeDeclarationMetaModel;
-import javax.annotation.Generated;
-import java.util.EnumSet;
+import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import static com.github.javaparser.utils.Utils.assertNotNull;
 import static java.util.stream.Collectors.toList;
 import com.github.javaparser.ast.Node;
-import java.util.Optional;
 
 /**
  * A base class for all types of type declarations.
@@ -52,20 +51,20 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
 
     private SimpleName name;
 
-    private EnumSet<Modifier> modifiers;
+    private NodeList<Modifier> modifiers;
 
     private NodeList<BodyDeclaration<?>> members;
 
     public TypeDeclaration() {
-        this(null, EnumSet.noneOf(Modifier.class), new NodeList<>(), new SimpleName(), new NodeList<>());
+        this(null, new NodeList<>(), new NodeList<>(), new SimpleName(), new NodeList<>());
     }
 
-    public TypeDeclaration(EnumSet<Modifier> modifiers, String name) {
+    public TypeDeclaration(NodeList<Modifier> modifiers, String name) {
         this(null, modifiers, new NodeList<>(), new SimpleName(name), new NodeList<>());
     }
 
     @AllFieldsConstructor
-    public TypeDeclaration(EnumSet<Modifier> modifiers, NodeList<AnnotationExpr> annotations, SimpleName name, NodeList<BodyDeclaration<?>> members) {
+    public TypeDeclaration(NodeList<Modifier> modifiers, NodeList<AnnotationExpr> annotations, SimpleName name, NodeList<BodyDeclaration<?>> members) {
         this(null, modifiers, annotations, name, members);
     }
 
@@ -73,7 +72,7 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
      * This constructor is used by the parser and is considered private.
      */
     @Generated("com.github.javaparser.generator.core.node.MainConstructorGenerator")
-    public TypeDeclaration(TokenRange tokenRange, EnumSet<Modifier> modifiers, NodeList<AnnotationExpr> annotations, SimpleName name, NodeList<BodyDeclaration<?>> members) {
+    public TypeDeclaration(TokenRange tokenRange, NodeList<Modifier> modifiers, NodeList<AnnotationExpr> annotations, SimpleName name, NodeList<BodyDeclaration<?>> members) {
         super(tokenRange, annotations);
         setModifiers(modifiers);
         setName(name);
@@ -104,7 +103,7 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
      * @see Modifier
      */
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
-    public EnumSet<Modifier> getModifiers() {
+    public NodeList<Modifier> getModifiers() {
         return modifiers;
     }
 
@@ -125,13 +124,16 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
 
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
     @SuppressWarnings("unchecked")
-    public T setModifiers(final EnumSet<Modifier> modifiers) {
+    public T setModifiers(final NodeList<Modifier> modifiers) {
         assertNotNull(modifiers);
         if (modifiers == this.modifiers) {
             return (T) this;
         }
         notifyPropertyChange(ObservableProperty.MODIFIERS, this.modifiers, modifiers);
+        if (this.modifiers != null)
+            this.modifiers.setParentNode(null);
         this.modifiers = modifiers;
+        setAsParentNodeOf(modifiers);
         return (T) this;
     }
 
@@ -166,6 +168,12 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
                 return true;
             }
         }
+        for (int i = 0; i < modifiers.size(); i++) {
+            if (modifiers.get(i) == node) {
+                modifiers.remove(i);
+                return true;
+            }
+        }
         return super.remove(node);
     }
 
@@ -181,6 +189,19 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
      */
     public List<CallableDeclaration<?>> getCallablesWithSignature(CallableDeclaration.Signature signature) {
         return getMembers().stream().filter(m -> m instanceof CallableDeclaration).map(m -> ((CallableDeclaration<?>) m)).filter(m -> m.getSignature().equals(signature)).collect(toList());
+    }
+
+    /**
+     * Returns the fully qualified name of this type, derived only from information available in this compilation unit. (So no symbol solving happens.)
+     * If the declared type is a local class declaration, it will return Optional.empty().
+     * If the declared type is not contained in a compilation unit, it will return Optional.empty().
+     * @see com.github.javaparser.ast.stmt.LocalClassDeclarationStmt
+     */
+    public Optional<String> getFullyQualifiedName() {
+        if (isTopLevelType()) {
+            return findCompilationUnit().map(cu -> cu.getPackageDeclaration().map(pd -> pd.getNameAsString()).map(pkg -> pkg + "." + getNameAsString()).orElse(getNameAsString()));
+        }
+        return findAncestor(TypeDeclaration.class).map(td -> (TypeDeclaration<?>) td).flatMap(td -> td.getFullyQualifiedName().map(fqn -> fqn + "." + getNameAsString()));
     }
 
     /**
@@ -214,6 +235,12 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
                 return true;
             }
         }
+        for (int i = 0; i < modifiers.size(); i++) {
+            if (modifiers.get(i) == node) {
+                modifiers.set(i, (Modifier) replacementNode);
+                return true;
+            }
+        }
         if (node == name) {
             setName((SimpleName) replacementNode);
             return true;
@@ -243,4 +270,6 @@ public abstract class TypeDeclaration<T extends TypeDeclaration<?>> extends Body
     public Optional<TypeDeclaration> toTypeDeclaration() {
         return Optional.of(this);
     }
+
+    public abstract ResolvedReferenceTypeDeclaration resolve();
 }

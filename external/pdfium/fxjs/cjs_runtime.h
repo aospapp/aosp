@@ -7,38 +7,39 @@
 #ifndef FXJS_CJS_RUNTIME_H_
 #define FXJS_CJS_RUNTIME_H_
 
-#include <map>
 #include <memory>
 #include <set>
 #include <utility>
 #include <vector>
 
-#include "core/fxcrt/observable.h"
-#include "fpdfsdk/cpdfsdk_formfillenvironment.h"
-#include "fxjs/cjs_eventhandler.h"
-#include "fxjs/fxjs_v8.h"
+#include "core/fxcrt/observed_ptr.h"
+#include "core/fxcrt/timerhandler_iface.h"
+#include "fxjs/cfxjs_engine.h"
+#include "fxjs/cjs_eventrecorder.h"
 #include "fxjs/ijs_runtime.h"
 
 class CJS_EventContext;
+class CPDFSDK_FormFillEnvironment;
 
-class CJS_Runtime : public IJS_Runtime,
-                    public CFXJS_Engine,
-                    public Observable<CJS_Runtime> {
+class CJS_Runtime final : public IJS_Runtime,
+                          public CFXJS_Engine,
+                          public Observable {
  public:
   using FieldEvent = std::pair<WideString, JS_EVENT_T>;
-
-  static CJS_Runtime* CurrentRuntimeFromIsolate(v8::Isolate* pIsolate);
 
   explicit CJS_Runtime(CPDFSDK_FormFillEnvironment* pFormFillEnv);
   ~CJS_Runtime() override;
 
-  // IJS_Runtime
+  // IJS_Runtime:
+  CJS_Runtime* AsCJSRuntime() override;
   IJS_EventContext* NewEventContext() override;
   void ReleaseEventContext(IJS_EventContext* pContext) override;
   CPDFSDK_FormFillEnvironment* GetFormFillEnv() const override;
-  int ExecuteScript(const WideString& script, WideString* info) override;
+  Optional<IJS_Runtime::JS_Error> ExecuteScript(
+      const WideString& script) override;
 
   CJS_EventContext* GetCurrentEventContext() const;
+  TimerHandlerIface* GetTimerHandler() const;
 
   // Returns true if the event isn't already found in the set.
   bool AddEventToSet(const FieldEvent& event);
@@ -52,21 +53,19 @@ class CJS_Runtime : public IJS_Runtime,
   // value will be returned, otherwise |value| is returned.
   v8::Local<v8::Value> MaybeCoerceToNumber(v8::Local<v8::Value> value);
 
-#ifdef PDF_ENABLE_XFA
-  bool GetValueByName(const ByteStringView& utf8Name,
-                      CFXJSE_Value* pValue) override;
-  bool SetValueByName(const ByteStringView& utf8Name,
-                      CFXJSE_Value* pValue) override;
-#endif  // PDF_ENABLE_XFA
+  bool GetValueByNameFromGlobalObject(ByteStringView utf8Name,
+                                      v8::Local<v8::Value>* pValue);
+  bool SetValueByNameInGlobalObject(ByteStringView utf8Name,
+                                    v8::Local<v8::Value> pValue);
 
  private:
   void DefineJSObjects();
   void SetFormFillEnvToDocument();
 
   std::vector<std::unique_ptr<CJS_EventContext>> m_EventContextArray;
-  CPDFSDK_FormFillEnvironment::ObservedPtr m_pFormFillEnv;
-  bool m_bBlocking;
-  bool m_isolateManaged;
+  ObservedPtr<CPDFSDK_FormFillEnvironment> m_pFormFillEnv;
+  bool m_bBlocking = false;
+  bool m_isolateManaged = false;
   std::set<FieldEvent> m_FieldEventSet;
 };
 

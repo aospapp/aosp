@@ -41,7 +41,6 @@ import android.net.wifi.aware.WifiAwareNetworkSpecifier;
 import android.net.wifi.aware.WifiAwareSession;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.os.Process;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -183,7 +182,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
         }
 
         return new WifiAwareNetworkSpecifier(type, role, clientId, sessionId, peerId, peerMac, pmk,
-                passphrase, port, transportProtocol, Process.myUid());
+                passphrase, port, transportProtocol);
     }
 
     private static String getStringOrNull(JSONObject j, String name) throws JSONException {
@@ -617,8 +616,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                 pmkDecoded,
                 passphrase,
                 port == null ? 0 : port.intValue(),
-                transportProtocol == null ? -1 : transportProtocol.intValue(),
-                Process.myUid());
+                transportProtocol == null ? -1 : transportProtocol.intValue());
 
         return getJsonString(ns);
     }
@@ -669,8 +667,7 @@ public class WifiAwareManagerFacade extends RpcReceiver {
                 pmkDecoded,
                 passphrase,
                 0, // no port for OOB
-                -1, // no transport protocol for OOB
-                Process.myUid());
+                -1); // no transport protocol for OOB
 
         return getJsonString(ns);
     }

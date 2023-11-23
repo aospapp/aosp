@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// For platform use, builds directly against core-libart to avoid circular
+// For platform use, builds against core_current to avoid circular
 // dependencies. *NOT* for unbundled use.
-java_library_static {
+java_library {
     name: "libphonenumber-platform",
 
     // For the platform, compile everything except the carrier to phone number
@@ -32,9 +32,12 @@ java_library_static {
         "repackaged/internal/prefixmapper/src/**/*.java",
     ],
 
-    no_framework_libs: true,
-}
+    libs: [
+        "unsupportedappusage",
+    ],
 
+    sdk_version: "core_current",
+}
 
 java_defaults {
     name: "libphonenumber-unbundled-defaults",
@@ -52,7 +55,7 @@ java_defaults {
 }
 
 // For unbundled use, supports gingerbread and up.
-java_library_static {
+java_library {
     name: "libphonenumber",
     defaults: ["libphonenumber-unbundled-defaults"],
 
@@ -64,7 +67,7 @@ java_library_static {
 }
 
 // For unbundled use - without geocoder
-java_library_static {
+java_library {
     name: "libphonenumber-nogeocoder",
     defaults: ["libphonenumber-unbundled-defaults"],
 

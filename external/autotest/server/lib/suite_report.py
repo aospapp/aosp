@@ -9,11 +9,11 @@ from __future__ import print_function
 import common
 import datetime
 import json
+import logging
 
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.server import frontend
 from autotest_lib.server.lib import status_history
-from chromite.lib import cros_logging as logging
 
 
 HostJobHistory = status_history.HostJobHistory

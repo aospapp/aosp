@@ -102,10 +102,10 @@ class base_test(object):
             new_dict[new_key] = value
         return new_dict
 
-
     def output_perf_value(self, description, value, units=None,
                           higher_is_better=None, graph=None,
-                          replacement='_', replace_existing_values=False):
+                          replacement='_', replace_existing_values=False,
+                          resultsdir=None):
         """
         Records a measured performance value in an output file.
 
@@ -141,6 +141,8 @@ class base_test(object):
                 |description| and |units| with.
         @param replace_existing_values: A boolean indicating whether or not a
                 new added perf value should replace existing perf.
+        @param resultsdir: An optional path to specify a custom output
+                directory.
         """
         if len(description) > 256:
             raise ValueError('The description must be at most 256 characters.')
@@ -158,7 +160,11 @@ class base_test(object):
         units = re.sub(string_regex, replacement, units) if units else None
 
         charts = {}
-        output_file = os.path.join(self.resultsdir, 'results-chart.json')
+        if not resultsdir:
+            resultsdir = self.resultsdir
+        if not os.path.exists(resultsdir):
+            os.makedirs(resultsdir)
+        output_file = os.path.join(resultsdir, 'results-chart.json')
         if os.path.isfile(output_file):
             with open(output_file, 'r') as fp:
                 contents = fp.read()
@@ -367,7 +373,7 @@ class base_test(object):
             else:
                 self.before_run_once()
                 logging.debug('starting test(run_once()), test details follow'
-                              '\n%r', args)
+                              '\nargs: %r\nkwargs: %r', args, dargs)
                 self.run_once(*args, **dargs)
                 logging.debug('The test has completed successfully')
                 self.after_run_once()

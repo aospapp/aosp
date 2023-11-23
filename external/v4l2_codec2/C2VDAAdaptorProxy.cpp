@@ -12,6 +12,7 @@
 #include <arc/MojoThread.h>
 #include <base/bind.h>
 #include <base/files/scoped_file.h>
+#include <ui/gfx/geometry/size.h>
 #include <mojo/public/cpp/platform/platform_handle.h>
 #include <mojo/public/cpp/system/platform_handle.h>
 
@@ -76,12 +77,21 @@ void C2VDAAdaptorProxy::onVersionReady(std::shared_ptr<::arc::Future<bool>> futu
     future->set(true);
 }
 
-void C2VDAAdaptorProxy::ProvidePictureBuffers(::arc::mojom::PictureBufferFormatPtr format) {
+void C2VDAAdaptorProxy::ProvidePictureBuffersDeprecated(::arc::mojom::PictureBufferFormatPtr format) {
+    ALOGV("ProvidePictureBuffersDeprecated");
+    mClient->providePictureBuffers(
+            format->min_num_buffers,
+            media::Size(format->coded_size.width(), format->coded_size.height()));
+}
+
+void C2VDAAdaptorProxy::ProvidePictureBuffers(::arc::mojom::PictureBufferFormatPtr format,
+                                              const gfx::Rect& visible_rect) {
     ALOGV("ProvidePictureBuffers");
     mClient->providePictureBuffers(
             format->min_num_buffers,
             media::Size(format->coded_size.width(), format->coded_size.height()));
 }
+
 void C2VDAAdaptorProxy::PictureReady(::arc::mojom::PicturePtr picture) {
     ALOGV("PictureReady");
     const auto& rect = picture->crop_rect;
@@ -236,32 +246,38 @@ void C2VDAAdaptorProxy::decodeOnMojoThread(int32_t bitstreamId, int handleFd, of
     mVDAPtr->Decode(std::move(bufferPtr));
 }
 
-void C2VDAAdaptorProxy::assignPictureBuffers(uint32_t numOutputBuffers) {
+void C2VDAAdaptorProxy::assignPictureBuffers(uint32_t numOutputBuffers,
+                                             const media::Size& size) {
     ALOGV("assignPictureBuffers: %d", numOutputBuffers);
     mMojoTaskRunner->PostTask(FROM_HERE,
                               ::base::Bind(&C2VDAAdaptorProxy::assignPictureBuffersOnMojoThread,
-                                         ::base::Unretained(this), numOutputBuffers));
+                                           ::base::Unretained(this), numOutputBuffers, size));
 }
 
-void C2VDAAdaptorProxy::assignPictureBuffersOnMojoThread(uint32_t numOutputBuffers) {
+void C2VDAAdaptorProxy::assignPictureBuffersOnMojoThread(uint32_t numOutputBuffers,
+                                                         const media::Size& size) {
+    // TODO(crbug.com/982172): Pass size to Chrome.
     mVDAPtr->AssignPictureBuffers(numOutputBuffers);
 }
 
 void C2VDAAdaptorProxy::importBufferForPicture(int32_t pictureBufferId, HalPixelFormat format,
-                                               int handleFd,
+                                               std::vector<::base::ScopedFD> handleFds,
                                                const std::vector<VideoFramePlane>& planes) {
     ALOGV("importBufferForPicture");
     mMojoTaskRunner->PostTask(
             FROM_HERE,
-            ::base::Bind(&C2VDAAdaptorProxy::importBufferForPictureOnMojoThread,
-                       ::base::Unretained(this), pictureBufferId, format, handleFd, planes));
+            ::base::BindOnce(&C2VDAAdaptorProxy::importBufferForPictureOnMojoThread,
+                             ::base::Unretained(this), pictureBufferId, format,
+                             std::move(handleFds), planes));
 }
 
 void C2VDAAdaptorProxy::importBufferForPictureOnMojoThread(
-        int32_t pictureBufferId, HalPixelFormat format, int handleFd,
+        int32_t pictureBufferId, HalPixelFormat format,
+        std::vector<::base::ScopedFD> handleFds,
         const std::vector<VideoFramePlane>& planes) {
+    // TODO(hiroh): Pass all the fds to Chrome.
     mojo::ScopedHandle wrappedHandle =
-            mojo::WrapPlatformHandle(mojo::PlatformHandle(::base::ScopedFD(handleFd)));
+        mojo::WrapPlatformHandle(mojo::PlatformHandle(std::move(handleFds[0])));
     if (!wrappedHandle.is_valid()) {
         ALOGE("failed to wrap handle");
         NotifyError(::arc::mojom::VideoDecodeAccelerator::Result::PLATFORM_FAILURE);

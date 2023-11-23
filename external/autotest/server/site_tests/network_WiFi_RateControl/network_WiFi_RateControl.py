@@ -5,7 +5,6 @@
 import logging
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import tcpdump_analyzer
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
@@ -133,7 +132,7 @@ class network_WiFi_RateControl(wifi_cell_test_base.WiFiCellTestBase):
             self.context.configure(ap_config)
             self.context.capture_host.start_capture(
                     ap_config.frequency,
-                    ht_type=ap_config.ht_packet_capture_mode,
+                    width_type=ap_config.packet_capture_mode,
                     snaplen=self.TEST_SNAPLEN)
             assoc_params = xmlrpc_datatypes.AssociationParameters(
                     ssid=self.context.router.get_ssid())

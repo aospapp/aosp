@@ -16,6 +16,10 @@
     "percentage_smooth__percentage_smooth",
     "percentage_smooth__summary"
   ],
+  "loading.desktop@@typical": [
+    "timeToFirstContentfulPaint__cache_temperature:cold",
+    "timeToFirstContentfulPaint__cache_temperature:warm"
+  ],
   "page_cycler_v2.intl_es_fr_pt-BR": [
     "cold_times__page_load_time",
     "warm_times__page_load_time",
@@ -64,14 +68,15 @@
     "warm@@timeToOnload_avg__summary"
   ],
   "speedometer": [
-    "Total__Total",
-    "Total__summary"
+    "RunsPerMinute",
+    "Total"
   ],
   "speedometer2": [
-    "Total__summary"
+    "RunsPerMinute",
+    "Total"
   ],
   "octane": [
-    "Total__Score"
+    "Total.Score"
   ],
   "jsgamebench": [
     "Score__Score"
@@ -143,13 +148,26 @@
     "warm@@timeToOnload_avg__summary"
   ],
   "kraken": [
-    "Total__Total",
-    "Total__summary"
+    "Total"
   ],
   "jetstream": [
-    "Score__summary"
+    "Score"
+  ],
+  "jetstream2": [
+    "Score"
   ],
   "cros_ui_smoothness": [
-    "ui_percentage_smooth__summary"
+    "ui_percentage_smooth"
+  ],
+  "rendering.desktop": [
+    "Event.Latency.ScrollUpdate.Touch.TimeToScrollUpdateSwapBegin4_avg"
+  ],
+  "rendering.desktop@@aquarium$": [
+    "avg_surface_fps",
+    "exp_avg_surface_fps"
+  ],
+  "rendering.desktop@@aquarium_20k$": [
+    "avg_surface_fps",
+    "exp_avg_surface_fps"
   ]
 }

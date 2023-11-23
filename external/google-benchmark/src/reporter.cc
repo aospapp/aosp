@@ -49,7 +49,7 @@ void BenchmarkReporter::PrintBasicContext(std::ostream *out,
     Out << "CPU Caches:\n";
     for (auto &CInfo : info.caches) {
       Out << "  L" << CInfo.level << " " << CInfo.type << " "
-          << (CInfo.size / 1000) << "K";
+          << (CInfo.size / 1024) << " KiB";
       if (CInfo.num_sharing != 0)
         Out << " (x" << (info.num_cpus / CInfo.num_sharing) << ")";
       Out << "\n";
@@ -83,7 +83,7 @@ BenchmarkReporter::Context::Context()
     : cpu_info(CPUInfo::Get()), sys_info(SystemInfo::Get()) {}
 
 std::string BenchmarkReporter::Run::benchmark_name() const {
-  std::string name = run_name;
+  std::string name = run_name.str();
   if (run_type == RT_Aggregate) {
     name += "_" + aggregate_name;
   }

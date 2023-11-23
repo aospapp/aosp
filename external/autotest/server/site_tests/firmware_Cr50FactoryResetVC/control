@@ -7,6 +7,7 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50FactoryResetVC"
 PURPOSE = "Verify factory mode vendor command"
+ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"

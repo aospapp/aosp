@@ -23,9 +23,9 @@
 #include "libEGL/Context.hpp"
 #include "common/Image.hpp"
 #include "common/debug.h"
-#include "Common/MutexLock.hpp"
+#include "Common/RecursiveLock.hpp"
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) && !defined(ANDROID_NDK_BUILD)
 #include <system/window.h>
 #include <sys/ioctl.h>
 #include <linux/fb.h>
@@ -279,6 +279,7 @@ bool Display::getConfigAttrib(EGLConfig config, EGLint attribute, EGLint *value)
 	case EGL_MAX_PBUFFER_PIXELS:         *value = configuration->mMaxPBufferPixels;         break;
 	case EGL_RECORDABLE_ANDROID:         *value = configuration->mRecordableAndroid;        break;
 	case EGL_FRAMEBUFFER_TARGET_ANDROID: *value = configuration->mFramebufferTargetAndroid; break;
+	case EGL_BIND_TO_TEXTURE_TARGET_ANGLE: *value = configuration->mBindToTextureTargetANGLE; break;
 	default:
 		return false;
 	}
@@ -381,6 +382,7 @@ EGLSurface Display::createPBufferSurface(EGLConfig config, const EGLint *attribL
 				case GL_RED:
 				case GL_R16UI:
 				case GL_RG:
+				case GL_RGB:
 				case GL_BGRA_EXT:
 				case GL_RGBA:
 					clientBufferFormat = attribList[1];
@@ -470,6 +472,7 @@ EGLSurface Display::createPBufferSurface(EGLConfig config, const EGLint *attribL
 			{
 			case GL_RED:
 			case GL_RG:
+			case GL_RGB:
 			case GL_BGRA_EXT:
 				break;
 			case GL_R16UI:
@@ -600,7 +603,6 @@ EGLContext Display::createContext(EGLConfig configHandle, const egl::Context *sh
 EGLSyncKHR Display::createSync(Context *context)
 {
 	FenceSync *fenceSync = new egl::FenceSync(context);
-	LockGuard lock(mSyncSetMutex);
 	mSyncSet.insert(fenceSync);
 	return fenceSync;
 }
@@ -637,7 +639,6 @@ void Display::destroyContext(egl::Context *context)
 void Display::destroySync(FenceSync *sync)
 {
 	{
-		LockGuard lock(mSyncSetMutex);
 		mSyncSet.erase(sync);
 	}
 	delete sync;
@@ -673,11 +674,13 @@ bool Display::isValidWindow(EGLNativeWindowType window)
 			ERR("%s called with window==NULL %s:%d", __FUNCTION__, __FILE__, __LINE__);
 			return false;
 		}
+	#if !defined(ANDROID_NDK_BUILD)
 		if(static_cast<ANativeWindow*>(window)->common.magic != ANDROID_NATIVE_WINDOW_MAGIC)
 		{
 			ERR("%s called with window==%p bad magic %s:%d", __FUNCTION__, window, __FILE__, __LINE__);
 			return false;
 		}
+	#endif // !defined(ANDROID_NDK_BUILD)
 		return true;
 	#elif defined(USE_X11)
 		if(nativeDisplay)
@@ -719,7 +722,6 @@ bool Display::hasExistingWindowSurface(EGLNativeWindowType window)
 
 bool Display::isValidSync(FenceSync *sync)
 {
-	LockGuard lock(mSyncSetMutex);
 	return mSyncSet.find(sync) != mSyncSet.end();
 }
 
@@ -785,6 +787,7 @@ sw::Format Display::getDisplayFormat() const
 		default: UNREACHABLE(bpp);   // Unexpected display mode color depth
 		}
 	#elif defined(__ANDROID__)
+	#if !defined(ANDROID_NDK_BUILD)
 		static const char *const framebuffer[] =
 		{
 			"/dev/graphics/fb0",
@@ -844,6 +847,7 @@ sw::Format Display::getDisplayFormat() const
 				}
 			}
 		}
+	#endif // !defined_ANDROID_NDK_BUILD)
 
 		// No framebuffer device found, or we're in user space
 		return sw::FORMAT_X8B8G8R8;

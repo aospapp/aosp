@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -18,6 +18,7 @@ from autotest_lib.server.hosts import repair_utils
 
 CROS_VERIFY_DAG = (
     (repair_utils.SshVerifier, 'ssh', ()),
+    (cros_repair.ServoTypeVerifier, 'servo_type', ()),
     (cros_repair.DevModeVerifier, 'devmode', ('ssh',)),
     (cros_repair.HWIDVerifier,    'hwid',    ('ssh',)),
     (cros_repair.ACPowerVerifier, 'power', ('ssh',)),
@@ -30,6 +31,7 @@ CROS_VERIFY_DAG = (
     (cros_repair.PythonVerifier, 'python', ('ssh',)),
     (repair_utils.LegacyHostVerifier, 'cros', ('ssh',)),
     (cros_repair.KvmExistsVerifier, 'ec_reset', ('ssh',)),
+    (cros_repair.StopStartUIVerifier, 'stop_start_ui', ('ssh',)),
 )
 
 CROS_REPAIR_ACTIONS = (
@@ -44,23 +46,22 @@ CROS_REPAIR_ACTIONS = (
      'coldboot', ('ssh',), ('ec_reset',)),
     (cros_repair.AutoUpdateRepair,
      'au',
-     ('ssh', 'writable', 'tpm', 'good_au', 'ext4'),
-     ('power', 'rwfw', 'python', 'cros')),
+     ('ssh', 'writable', 'stop_start_ui', 'tpm', 'good_au', 'ext4'),
+     ('power', 'rwfw', 'python', 'cros', 'ec_reset')),
     (cros_repair.PowerWashRepair,
      'powerwash',
-     ('ssh', 'writable'),
-     ('tpm', 'good_au', 'ext4', 'power', 'rwfw', 'python', 'cros')),
+     ('ssh', 'writable', 'stop_start_ui'),
+     ('tpm', 'good_au', 'ext4', 'power', 'rwfw', 'python', 'cros', 'ec_reset')),
     (cros_repair.ServoInstallRepair,
      'usb',
      (),
-     ('ssh', 'writable', 'tpm', 'good_au', 'ext4', 'power', 'rwfw',
-      'python', 'cros')),
+     ('ssh', 'writable', 'stop_start_ui', 'tpm', 'good_au', 'ext4', 'power',
+      'rwfw', 'python', 'cros', 'ec_reset')),
 )
 
 MOBLAB_VERIFY_DAG = (
     (repair_utils.SshVerifier, 'ssh', ()),
     (cros_repair.ACPowerVerifier, 'power', ('ssh',)),
-    (cros_firmware.FirmwareVersionVerifier, 'rwfw', ('ssh',)),
     (cros_repair.PythonVerifier, 'python', ('ssh',)),
     (repair_utils.LegacyHostVerifier, 'cros', ('ssh',)),
 )
@@ -68,11 +69,12 @@ MOBLAB_VERIFY_DAG = (
 MOBLAB_REPAIR_ACTIONS = (
     (repair_utils.RPMCycleRepair, 'rpm', (), ('ssh', 'power',)),
     (cros_repair.AutoUpdateRepair,
-     'au', ('ssh',), ('power', 'rwfw', 'python', 'cros',)),
+     'au', ('ssh',), ('power', 'python', 'cros',)),
 )
 
 JETSTREAM_VERIFY_DAG = (
     (repair_utils.SshVerifier, 'ssh', ()),
+    (cros_repair.ServoTypeVerifier, 'servo_type', ()),
     (cros_repair.DevModeVerifier, 'devmode', ('ssh',)),
     (cros_repair.HWIDVerifier,    'hwid',    ('ssh',)),
     (cros_repair.ACPowerVerifier, 'power', ('ssh',)),

@@ -61,6 +61,8 @@ const char kUpdateStatusAttemptingRollback[] =
 const char kUpdateStatusDisabled[] = "UPDATE_STATUS_DISABLED";
 const char kUpdateStatusNeedPermissionToUpdate[] =
     "UPDATE_STATUS_NEED_PERMISSION_TO_UPDATE";
+const char kUpdateStatusCleanupPreviousUpdate[] =
+    "UPDATE_STATUS_CLEANUP_PREVIOUS_UPDATE";
 }  // namespace update_engine
 
 #endif  // SYSTEM_API_DBUS_UPDATE_ENGINE_DBUS_CONSTANTS_H_

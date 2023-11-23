@@ -17,7 +17,7 @@ fi{
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p q r s š t u v w x y z ž å ä ö]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Å Ä Ö]"}
     ExemplarCharactersNumbers{"[  , % ‰ + − 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – , ; \\: ! ? . … ’ ” » ( ) \\[ \\] § @ * / \\\\ \\& #]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – , ; \\: ! ? . … ’ ” » ( ) \\[ \\] § @ * / \\\\ \\& #]"}
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -216,7 +216,7 @@ fi{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -240,14 +240,11 @@ fi{
                 GyMMM{"LLL y G"}
                 GyMMMEd{"E d. MMM y G"}
                 GyMMMd{"d. MMM y G"}
-                M{"L"}
                 MEd{"E d.M."}
-                MMM{"LLL"}
                 MMMEd{"ccc d. MMM"}
                 MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}
                 Md{"d.M."}
-                d{"d"}
                 y{"y G"}
                 yyyy{"y G"}
                 yyyyM{"L.y G"}
@@ -263,12 +260,6 @@ fi{
                 yyyyQQQQ{"QQQQ y G"}
             }
             eras{
-                abbreviated{
-                    "BE",
-                }
-                narrow{
-                    "BE",
-                }
                 wide{
                     "buddhalainen aika",
                 }
@@ -310,20 +301,6 @@ fi{
             }
         }
         coptic{
-            eras{
-                abbreviated{
-                    "ERA0",
-                    "ERA1",
-                }
-                narrow{
-                    "ERA0",
-                    "ERA1",
-                }
-                wide{
-                    "ERA0",
-                    "ERA1",
-                }
-            }
             monthNames{
                 format{
                     abbreviated{
@@ -392,20 +369,6 @@ fi{
             }
         }
         ethiopic{
-            eras{
-                abbreviated{
-                    "ERA0",
-                    "ERA1",
-                }
-                narrow{
-                    "ERA0",
-                    "ERA1",
-                }
-                wide{
-                    "ERA0",
-                    "ERA1",
-                }
-            }
             monthNames{
                 format{
                     abbreviated{
@@ -535,6 +498,49 @@ fi{
                 yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
+                Bhm{
+                    B{"h.mm B – h.mm B"}
+                    h{"h.mm–h.mm B"}
+                    m{"h.mm–h.mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y–M/y GGGGG"}
+                    y{"M/y–M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E d.M.y GGGGG – E d.M.y GGGGG"}
+                    M{"E d.M.y – E d.M.y GGGGG"}
+                    d{"E d.M.y – E d.M.y GGGGG"}
+                    y{"E d.M.y – E d.M.y GGGGG"}
+                }
+                GyMMM{
+                    G{"M.y G – M.y G"}
+                    M{"M.–M.y G"}
+                    y{"M.y–M.y G"}
+                }
+                GyMMMEd{
+                    G{"E d.M.y – E d.M.y G"}
+                    M{"E d.M. – E d.M.y G"}
+                    d{"E d.M. – E d.M.y G"}
+                    y{"E d.M.y – E d.M.y G"}
+                }
+                GyMMMd{
+                    G{"d.M.y G – d.M.y G"}
+                    M{"d.M.–d.M.y G"}
+                    d{"d.–d.M.y G"}
+                    y{"d.M.y – d.M.y G"}
+                }
+                GyMd{
+                    G{"d.M.y GGGGG – d.M.y GGGGG"}
+                    M{"d.M.y–d.M.y GGGGG"}
+                    d{"d.M.y–d.M.y GGGGG"}
+                    y{"d.M.y–d.M.y GGGGG"}
+                }
                 H{
                     H{"H–H"}
                 }
@@ -896,6 +902,49 @@ fi{
                 }
             }
             intervalFormats{
+                Bhm{
+                    B{"h.mm B – h.mm B"}
+                    h{"h.mm–h.mm B"}
+                    m{"h.mm–h.mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y–M/y GGGGG"}
+                    y{"M/y–M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E d.M.y GGGGG – E d.M.y GGGGG"}
+                    M{"E d.M.y – E d.M.y GGGGG"}
+                    d{"E d.M.y – E d.M.y GGGGG"}
+                    y{"E d.M.y – E d.M.y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM–MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E d.M.y – E d.M.y G"}
+                    M{"E d.M. – E d.M.y G"}
+                    d{"E d.M – E d.M.y G"}
+                    y{"E d.M.y – E d.M.y G"}
+                }
+                GyMMMd{
+                    G{"d.M.y. G – d.M.y G"}
+                    M{"d.M–d.M.y G"}
+                    d{"d.–d.M.y G"}
+                    y{"d.M.y–d.M.y G"}
+                }
+                GyMd{
+                    G{"d.M.y GGGGG – d.M.y GGGGG"}
+                    M{"d.M.y–d.M.y GGGGG"}
+                    d{"d.M.y–d.M.y GGGGG"}
+                    y{"d.M.y–d.M.y GGGGG"}
+                }
                 H{
                     H{"H–H"}
                 }
@@ -1146,12 +1195,6 @@ fi{
         }
         hebrew{
             eras{
-                abbreviated{
-                    "AM",
-                }
-                narrow{
-                    "AM",
-                }
                 wide{
                     "Anno Mundi",
                 }
@@ -1245,12 +1288,6 @@ fi{
         }
         indian{
             eras{
-                abbreviated{
-                    "Saka",
-                }
-                narrow{
-                    "Saka",
-                }
                 wide{
                     "Saka-ajanlaskua",
                 }
@@ -1320,12 +1357,6 @@ fi{
         }
         islamic{
             eras{
-                abbreviated{
-                    "AH",
-                }
-                narrow{
-                    "AH",
-                }
                 wide{
                     "hidžran jälkeen",
                 }
@@ -1384,12 +1415,6 @@ fi{
         }
         persian{
             eras{
-                abbreviated{
-                    "AP",
-                }
-                narrow{
-                    "AP",
-                }
                 wide{
                     "Anno Persico",
                 }

@@ -1,12 +1,16 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ig{
+    AuxExemplarCharacters{
+        "[á à ā c é è ē í ì ī {ị\u0301} {ị\u0300} ḿ {m\u0300} ń ǹ ó ò ō {ọ\u0301} {ọ"
+        "\u0300} q ú ù ū {ụ\u0301} {ụ\u0300} x]"
+    }
     ExemplarCharacters{
         "[a b {ch} d e ẹ f g {gb} {gh} {gw} h i ị j k {kp} {kw} l m n ṅ {nw} {ny} o ọ"
         " p r s {sh} t u ụ v w y z]"
     }
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{"[\\- ‑ , ; \\: ! ? . ‘ ’ “ ” ( ) \\[ \\] \\{ \\}]"}
     NumberElements{
         arab{
             patterns{
@@ -64,14 +68,13 @@ ig{
         }
         latn{
             miscPatterns{
+                atLeast{"{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
-                decimalFormat{"#,##0.###"}
-                percentFormat{"#,##0%"}
-                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{"."}
@@ -88,9 +91,17 @@ ig{
                 timeSeparator{":"}
             }
         }
+        minimalPairs{
+            ordinal{
+                other{"Si uzo aka nri {0}"}
+            }
+            plural{
+                other{"ubochi {0}"}
+            }
+        }
         minimumGroupingDigits{"1"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -102,11 +113,11 @@ ig{
                 "d MMMM y G",
                 "d MMM y G",
                 "dd/MM/y GGGGG",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1} 'na' {0}",
+                "{1} 'na' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
             availableFormats{
                 Hm{"HH:mm"}
@@ -134,8 +145,8 @@ ig{
         }
         gregorian{
             AmPmMarkers{
-                "A.M.",
-                "P.M.",
+                "N’ụtụtụ",
+                "N’abali",
             }
             AmPmMarkersAbbr{
                 "A.M.",
@@ -153,62 +164,40 @@ ig{
                 "EEEE, d MMMM y",
                 "d MMMM y",
                 "d MMM y",
-                "dd/MM/y",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "d/M/yy",
+                "{1}, {0}",
+                "{1} 'na' {0}",
+                "{1} 'na' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
             }
             appendItems{
                 Timezone{"{0} {1}"}
             }
             availableFormats{
-                E{"ccc"}
-                EHm{"E HH:mm"}
-                EHms{"E HH:mm:ss"}
-                Ed{"d, E"}
-                Ehm{"E h:mm a"}
-                Ehms{"E h:mm:ss a"}
-                Gy{"y G"}
-                GyMMM{"MMM y G"}
-                GyMMMEd{"E, MMM d, y G"}
-                GyMMMd{"MMM d, y G"}
-                H{"HH"}
-                Hm{"HH:mm"}
-                Hms{"HH:mm:ss"}
-                Hmsv{"HH:mm:ss v"}
-                Hmv{"HH:mm v"}
-                M{"L"}
-                MEd{"E, M/d"}
-                MMM{"LLL"}
-                MMMEd{"E, MMM d"}
-                MMMMEd{"E, MMMM d"}
+                GyMMM{"MMM G y"}
+                GyMMMEd{"E, d MMM, G y"}
+                GyMMMd{"d MMM, G y"}
+                MEd{"E, d/M"}
+                MMMEd{"E, d MMM"}
+                MMMMEd{"E, d MMMM"}
                 MMMMW{
-                    other{"'week' W 'of' MMM"}
+                    other{"'Izu' W 'n'‘'ime' MMMM"}
                 }
-                MMMMd{"MMMM d"}
-                MMMd{"MMM d"}
-                Md{"M/d"}
-                d{"d"}
-                h{"h a"}
-                hm{"h:mm a"}
-                hms{"h:mm:ss a"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
-                ms{"mm:ss"}
-                y{"y"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"d/M"}
                 yM{"M/y"}
-                yMEd{"E, M/d/y"}
+                yMEd{"E, d/M/y"}
                 yMMM{"MMM y"}
-                yMMMEd{"E, MMM d, y"}
+                yMMMEd{"E, d MMM y"}
                 yMMMM{"MMMM y"}
-                yMMMd{"MMM d, y"}
-                yMd{"y-MM-dd"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/y"}
                 yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}
                 yw{
-                    other{"'week' w 'of' Y"}
+                    other{"'Izu' w 'n' 'ime' Y"}
                 }
             }
             dayNames{
@@ -222,17 +211,8 @@ ig{
                         "Fraị",
                         "Sat",
                     }
-                    narrow{
-                        "S",
-                        "M",
-                        "T",
-                        "W",
-                        "T",
-                        "F",
-                        "S",
-                    }
                     short{
-                        "Ụka",
+                        "Sọn",
                         "Mọn",
                         "Tiu",
                         "Wen",
@@ -241,7 +221,7 @@ ig{
                         "Sat",
                     }
                     wide{
-                        "Mbọsị Ụka",
+                        "Sọndee",
                         "Mọnde",
                         "Tiuzdee",
                         "Wenezdee",
@@ -260,17 +240,8 @@ ig{
                         "Fraị",
                         "Sat",
                     }
-                    narrow{
-                        "S",
-                        "M",
-                        "T",
-                        "W",
-                        "T",
-                        "F",
-                        "S",
-                    }
                     short{
-                        "Ụka",
+                        "Sọn",
                         "Mọn",
                         "Tiu",
                         "Wen",
@@ -279,7 +250,7 @@ ig{
                         "Sat",
                     }
                     wide{
-                        "Mbọsị Ụka",
+                        "Sọndee",
                         "Mọnde",
                         "Tiuzdee",
                         "Wenezdee",
@@ -311,8 +282,8 @@ ig{
                     "A.K.",
                 }
                 abbreviated%variant{
-                    "BCE",
-                    "CE",
+                    "TOA",
+                    "OA",
                 }
                 narrow{
                     "T.K.",
@@ -323,12 +294,12 @@ ig{
                     "CE",
                 }
                 wide{
-                    "Tupu Kristi",
-                    "Afọ Kristi",
+                    "Tupu Kraist",
+                    "Afọ Kraịst",
                 }
                 wide%variant{
-                    "BCE",
-                    "CE",
+                    "Tupu Oge Afọ",
+                    "Oge Afọ",
                 }
             }
             intervalFormats{
@@ -371,7 +342,6 @@ ig{
                 d{
                     d{"d–d"}
                 }
-                fallback{"{0} – {1}"}
                 h{
                     a{"h a – h a"}
                     h{"h–h a"}
@@ -443,24 +413,24 @@ ig{
                         "Dis",
                     }
                     narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
+                        "J",
+                        "F",
+                        "M",
+                        "E",
+                        "M",
+                        "J",
+                        "J",
+                        "Ọ",
+                        "S",
+                        "Ọ",
+                        "N",
+                        "D",
                     }
                     wide{
                         "Jenụwarị",
                         "Febrụwarị",
                         "Maachị",
-                        "Eprel",
+                        "Epreel",
                         "Mee",
                         "Juun",
                         "Julaị",
@@ -487,24 +457,24 @@ ig{
                         "Dis",
                     }
                     narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
+                        "J",
+                        "F",
+                        "M",
+                        "E",
+                        "M",
+                        "J",
+                        "J",
+                        "Ọ",
+                        "S",
+                        "Ọ",
+                        "N",
+                        "D",
                     }
                     wide{
                         "Jenụwarị",
                         "Febrụwarị",
                         "Maachị",
-                        "Eprel",
+                        "Epreel",
                         "Mee",
                         "Juun",
                         "Julaị",
@@ -560,23 +530,31 @@ ig{
             }
         }
     }
-    delimiters{
-        alternateQuotationEnd{"’"}
-        alternateQuotationStart{"‘"}
-        quotationEnd{"”"}
-        quotationStart{"“"}
-    }
     fields{
         day{
             dn{"Ụbọchị"}
             relative{
-                "-1"{"Nnyaafụ"}
+                "-1"{"Ụnyaahụ"}
+                "0"{"Taa"}
+                "1"{"Echi"}
+            }
+        }
+        day-narrow{
+            relative{
+                "-1"{"Ụnyaahụ"}
+                "0"{"Taata"}
+                "1"{"Echi"}
+            }
+        }
+        day-short{
+            relative{
+                "-1"{"Ụnyaahụ"}
                 "0"{"Taata"}
                 "1"{"Echi"}
             }
         }
         dayperiod{
-            dn{"N’ụtụtụ/N’anyasị"}
+            dn{"N’ụtụtụ/N’abalị"}
         }
         era{
             dn{"Agba"}
@@ -589,21 +567,109 @@ ig{
         }
         month{
             dn{"Ọnwa"}
+            relative{
+                "-1"{"Ọnwa gara aga"}
+                "0"{"Ọnwa a"}
+                "1"{"Ọnwa ọzọ"}
+            }
+        }
+        month-narrow{
+            relative{
+                "-1"{"Ọnwa gara aga"}
+                "0"{"Ọnwa a"}
+                "1"{"Ọnwa ọzọ"}
+            }
+        }
+        month-short{
+            relative{
+                "-1"{"Ọnwa gara aga"}
+                "0"{"Ọnwa a"}
+                "1"{"Ọnwa ọzọ"}
+            }
+        }
+        quarter{
+            dn{"Ọnwa atọ n’afọ"}
+        }
+        quarter-narrow{
+            dn{"Ọnwa atọ n’afọ"}
+        }
+        quarter-short{
+            dn{"Ọnwa atọ n’afọ"}
         }
         second{
-            dn{"Nkejinta"}
+            dn{"Tịm kọm"}
+        }
+        second-narrow{
+            dn{"Tịm kọm"}
+        }
+        second-short{
+            dn{"Tịm kọm"}
         }
         week{
             dn{"Izu"}
+            relative{
+                "-1"{"Izu gara aga"}
+                "0"{"Izu a"}
+                "1"{"Izu na-esote"}
+            }
+            relativePeriod{"Izu nke{0}"}
+        }
+        week-narrow{
+            relative{
+                "-1"{"Izu gara aga"}
+                "0"{"Izu a"}
+                "1"{"Izu na-esote"}
+            }
+            relativePeriod{"Izu nke{0}"}
+        }
+        week-short{
+            relative{
+                "-1"{"Izu gara aga"}
+                "0"{"Izu a"}
+                "1"{"Izu na-esote"}
+            }
+            relativePeriod{"Izu nke{0}"}
         }
         weekday{
             dn{"Ụbọchị izu"}
         }
         year{
             dn{"Afọ"}
+            relative{
+                "-1"{"Afọ gara aga"}
+                "0"{"Afọ a"}
+                "1"{"Afọ ọzọ"}
+            }
+        }
+        year-narrow{
+            relative{
+                "-1"{"Afọ gara aga"}
+                "0"{"Afọ a"}
+                "1"{"Afọ ọzọ"}
+            }
+        }
+        year-short{
+            relative{
+                "-1"{"Afọ gara aga"}
+                "0"{"Afọ a"}
+                "1"{"Afọ ọzọ"}
+            }
         }
         zone{
             dn{"Mpaghara oge"}
         }
+    }
+    listPattern{
+        standard{
+            2{"{0} na {1}"}
+            end{"{0}, na {1}"}
+            middle{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+        }
+    }
+    measurementSystemNames{
+        metric{"Metriik"}
     }
 }

@@ -27,6 +27,7 @@
 #include "compiler/nir/nir_builder.h"
 #include "compiler/glsl/list.h"
 #include "main/imports.h"
+#include "main/mtypes.h"
 #include "util/ralloc.h"
 
 #include "prog_to_nir.h"
@@ -51,6 +52,8 @@ struct ptn_compile {
    nir_variable *parameters;
    nir_variable *input_vars[VARYING_SLOT_MAX];
    nir_variable *output_vars[VARYING_SLOT_MAX];
+   nir_variable *sysval_vars[SYSTEM_VALUE_MAX];
+   nir_variable *sampler_vars[32]; /* matches number of bits in TexSrcUnit */
    nir_register **output_regs;
    nir_register **temp_regs;
 
@@ -136,15 +139,17 @@ ptn_get_src(struct ptn_compile *c, const struct prog_src_register *prog_src)
 
       assert(prog_src->Index >= 0 && prog_src->Index < VARYING_SLOT_MAX);
 
-      nir_intrinsic_instr *load =
-         nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_var);
-      load->num_components = 4;
-      load->variables[0] = nir_deref_var_create(load, c->input_vars[prog_src->Index]);
+      nir_variable *var = c->input_vars[prog_src->Index];
+      src.src = nir_src_for_ssa(nir_load_var(b, var));
+      break;
+   }
+   case PROGRAM_SYSTEM_VALUE: {
+      assert(!prog_src->RelAddr);
 
-      nir_ssa_dest_init(&load->instr, &load->dest, 4, 32, NULL);
-      nir_builder_instr_insert(b, &load->instr);
+      assert(prog_src->Index >= 0 && prog_src->Index < SYSTEM_VALUE_MAX);
 
-      src.src = nir_src_for_ssa(&load->dest.ssa);
+      nir_variable *var = c->sysval_vars[prog_src->Index];
+      src.src = nir_src_for_ssa(nir_load_var(b, var));
       break;
    }
    case PROGRAM_STATE_VAR:
@@ -161,7 +166,8 @@ ptn_get_src(struct ptn_compile *c, const struct prog_src_register *prog_src)
       case PROGRAM_CONSTANT:
          if ((c->prog->arb.IndirectRegisterFiles &
               (1 << PROGRAM_CONSTANT)) == 0) {
-            float *v = (float *) plist->ParameterValues[prog_src->Index];
+            unsigned pvo = plist->ParameterValueOffset[prog_src->Index];
+            float *v = (float *) plist->ParameterValues + pvo;
             src.src = nir_src_for_ssa(nir_imm_vec4(b, v[0], v[1], v[2], v[3]));
             break;
          }
@@ -169,43 +175,14 @@ ptn_get_src(struct ptn_compile *c, const struct prog_src_register *prog_src)
       case PROGRAM_STATE_VAR: {
          assert(c->parameters != NULL);
 
-         nir_intrinsic_instr *load =
-            nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_var);
-         nir_ssa_dest_init(&load->instr, &load->dest, 4, 32, NULL);
-         load->num_components = 4;
+         nir_deref_instr *deref = nir_build_deref_var(b, c->parameters);
 
-         load->variables[0] = nir_deref_var_create(load, c->parameters);
-         nir_deref_array *deref_arr =
-            nir_deref_array_create(load->variables[0]);
-         deref_arr->deref.type = glsl_vec4_type();
-         load->variables[0]->deref.child = &deref_arr->deref;
+         nir_ssa_def *index = nir_imm_int(b, prog_src->Index);
+         if (prog_src->RelAddr)
+            index = nir_iadd(b, index, nir_load_reg(b, c->addr_reg));
+         deref = nir_build_deref_array(b, deref, nir_channel(b, index, 0));
 
-         if (prog_src->RelAddr) {
-            deref_arr->deref_array_type = nir_deref_array_type_indirect;
-
-            nir_alu_src addr_src = { NIR_SRC_INIT };
-            addr_src.src = nir_src_for_reg(c->addr_reg);
-            nir_ssa_def *reladdr = nir_imov_alu(b, addr_src, 1);
-
-            if (prog_src->Index < 0) {
-               /* This is a negative offset which should be added to the address
-                * register's value.
-                */
-               reladdr = nir_iadd(b, reladdr, nir_imm_int(b, prog_src->Index));
-
-               deref_arr->base_offset = 0;
-            } else {
-               deref_arr->base_offset = prog_src->Index;
-            }
-            deref_arr->indirect = nir_src_for_ssa(reladdr);
-         } else {
-            deref_arr->deref_array_type = nir_deref_array_type_direct;
-            deref_arr->base_offset = prog_src->Index;
-         }
-
-         nir_builder_instr_insert(b, &load->instr);
-
-         src.src = nir_src_for_ssa(&load->dest.ssa);
+         src.src = nir_src_for_ssa(nir_load_deref(b, deref));
          break;
       }
       default:
@@ -426,7 +403,7 @@ static void
 ptn_slt(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src)
 {
    if (b->shader->options->native_integers) {
-      ptn_move_dest(b, dest, nir_b2f(b, nir_flt(b, src[0], src[1])));
+      ptn_move_dest(b, dest, nir_b2f32(b, nir_flt(b, src[0], src[1])));
    } else {
       ptn_move_dest(b, dest, nir_slt(b, src[0], src[1]));
    }
@@ -439,7 +416,7 @@ static void
 ptn_sge(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src)
 {
    if (b->shader->options->native_integers) {
-      ptn_move_dest(b, dest, nir_b2f(b, nir_fge(b, src[0], src[1])));
+      ptn_move_dest(b, dest, nir_b2f32(b, nir_fge(b, src[0], src[1])));
    } else {
       ptn_move_dest(b, dest, nir_sge(b, src[0], src[1]));
    }
@@ -508,7 +485,7 @@ static void
 ptn_kil(nir_builder *b, nir_ssa_def **src)
 {
    nir_ssa_def *cmp = b->shader->options->native_integers ?
-      nir_bany_inequal4(b, nir_flt(b, src[0], nir_imm_float(b, 0.0)), nir_imm_int(b, 0)) :
+      nir_bany(b, nir_flt(b, src[0], nir_imm_float(b, 0.0))) :
       nir_fany_nequal4(b, nir_slt(b, src[0], nir_imm_float(b, 0.0)), nir_imm_float(b, 0.0));
 
    nir_intrinsic_instr *discard =
@@ -518,9 +495,10 @@ ptn_kil(nir_builder *b, nir_ssa_def **src)
 }
 
 static void
-ptn_tex(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src,
+ptn_tex(struct ptn_compile *c, nir_alu_dest dest, nir_ssa_def **src,
         struct prog_instruction *prog_inst)
 {
+   nir_builder *b = &c->build;
    nir_tex_instr *instr;
    nir_texop op;
    unsigned num_srcs;
@@ -551,6 +529,9 @@ ptn_tex(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src,
       abort();
    }
 
+   /* Deref sources */
+   num_srcs += 2;
+
    if (prog_inst->TexShadow)
       num_srcs++;
 
@@ -558,8 +539,6 @@ ptn_tex(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src,
    instr->op = op;
    instr->dest_type = nir_type_float;
    instr->is_shadow = prog_inst->TexShadow;
-   instr->texture_index = prog_inst->TexSrcUnit;
-   instr->sampler_index = prog_inst->TexSrcUnit;
 
    switch (prog_inst->TexSrcTarget) {
    case TEXTURE_1D_INDEX:
@@ -602,7 +581,26 @@ ptn_tex(nir_builder *b, nir_alu_dest dest, nir_ssa_def **src,
       unreachable("can't reach");
    }
 
+   nir_variable *var = c->sampler_vars[prog_inst->TexSrcUnit];
+   if (!var) {
+      const struct glsl_type *type =
+         glsl_sampler_type(instr->sampler_dim, false, false, GLSL_TYPE_FLOAT);
+      var = nir_variable_create(b->shader, nir_var_uniform, type, "sampler");
+      var->data.binding = prog_inst->TexSrcUnit;
+      var->data.explicit_binding = true;
+      c->sampler_vars[prog_inst->TexSrcUnit] = var;
+   }
+
+   nir_deref_instr *deref = nir_build_deref_var(b, var);
+
    unsigned src_number = 0;
+
+   instr->src[src_number].src = nir_src_for_ssa(&deref->dest.ssa);
+   instr->src[src_number].src_type = nir_tex_src_texture_deref;
+   src_number++;
+   instr->src[src_number].src = nir_src_for_ssa(&deref->dest.ssa);
+   instr->src[src_number].src_type = nir_tex_src_sampler_deref;
+   src_number++;
 
    instr->src[src_number].src =
       nir_src_for_ssa(nir_swizzle(b, src[0], SWIZ(X, Y, Z, W),
@@ -818,7 +816,7 @@ ptn_emit_instruction(struct ptn_compile *c, struct prog_instruction *prog_inst)
    case OPCODE_TXD:
    case OPCODE_TXL:
    case OPCODE_TXP:
-      ptn_tex(b, dest, src, prog_inst);
+      ptn_tex(c, dest, src, prog_inst);
       break;
 
    case OPCODE_SWZ:
@@ -860,27 +858,22 @@ ptn_add_output_stores(struct ptn_compile *c)
    nir_builder *b = &c->build;
 
    nir_foreach_variable(var, &b->shader->outputs) {
-      nir_intrinsic_instr *store =
-         nir_intrinsic_instr_create(b->shader, nir_intrinsic_store_var);
-      store->num_components = glsl_get_vector_elements(var->type);
-      nir_intrinsic_set_write_mask(store, (1 << store->num_components) - 1);
-      store->variables[0] =
-         nir_deref_var_create(store, c->output_vars[var->data.location]);
-
+      nir_ssa_def *src = nir_load_reg(b, c->output_regs[var->data.location]);
       if (c->prog->Target == GL_FRAGMENT_PROGRAM_ARB &&
           var->data.location == FRAG_RESULT_DEPTH) {
          /* result.depth has this strange convention of being the .z component of
           * a vec4 with undefined .xyw components.  We resolve it to a scalar, to
           * match GLSL's gl_FragDepth and the expectations of most backends.
           */
-         nir_alu_src alu_src = { NIR_SRC_INIT };
-         alu_src.src = nir_src_for_reg(c->output_regs[FRAG_RESULT_DEPTH]);
-         alu_src.swizzle[0] = SWIZZLE_Z;
-         store->src[0] = nir_src_for_ssa(nir_fmov_alu(b, alu_src, 1));
-      } else {
-         store->src[0].reg.reg = c->output_regs[var->data.location];
+         src = nir_channel(b, src, 2);
       }
-      nir_builder_instr_insert(b, &store->instr);
+      if (c->prog->Target == GL_VERTEX_PROGRAM_ARB &&
+          var->data.location == VARYING_SLOT_FOGC) {
+         /* result.fogcoord is a single component value */
+         src = nir_channel(b, src, 0);
+      }
+      unsigned num_components = glsl_get_vector_elements(var->type);
+      nir_store_var(b, var, src, (1 << num_components) - 1);
    }
 }
 
@@ -891,10 +884,9 @@ setup_registers_and_variables(struct ptn_compile *c)
    struct nir_shader *shader = b->shader;
 
    /* Create input variables. */
-   const int num_inputs = util_last_bit64(c->prog->info.inputs_read);
-   for (int i = 0; i < num_inputs; i++) {
-      if (!(c->prog->info.inputs_read & BITFIELD64_BIT(i)))
-         continue;
+   uint64_t inputs_read = c->prog->info.inputs_read;
+   while (inputs_read) {
+      const int i = u_bit_scan64(&inputs_read);
 
       nir_variable *var =
          nir_variable_create(shader, nir_var_shader_in, glsl_vec4_type(),
@@ -903,36 +895,23 @@ setup_registers_and_variables(struct ptn_compile *c)
       var->data.index = 0;
 
       if (c->prog->Target == GL_FRAGMENT_PROGRAM_ARB) {
-         if (i == VARYING_SLOT_POS) {
-            var->data.origin_upper_left = c->prog->OriginUpperLeft;
-            var->data.pixel_center_integer = c->prog->PixelCenterInteger;
-         } else if (i == VARYING_SLOT_FOGC) {
+         if (i == VARYING_SLOT_FOGC) {
             /* fogcoord is defined as <f, 0.0, 0.0, 1.0>.  Make the actual
              * input variable a float, and create a local containing the
              * full vec4 value.
              */
             var->type = glsl_float_type();
 
-            nir_intrinsic_instr *load_x =
-               nir_intrinsic_instr_create(shader, nir_intrinsic_load_var);
-            load_x->num_components = 1;
-            load_x->variables[0] = nir_deref_var_create(load_x, var);
-            nir_ssa_dest_init(&load_x->instr, &load_x->dest, 1, 32, NULL);
-            nir_builder_instr_insert(b, &load_x->instr);
-
-            nir_ssa_def *f001 = nir_vec4(b, &load_x->dest.ssa, nir_imm_float(b, 0.0),
-                                         nir_imm_float(b, 0.0), nir_imm_float(b, 1.0));
-
             nir_variable *fullvar =
                nir_local_variable_create(b->impl, glsl_vec4_type(),
                                          "fogcoord_tmp");
-            nir_intrinsic_instr *store =
-               nir_intrinsic_instr_create(shader, nir_intrinsic_store_var);
-            store->num_components = 4;
-            nir_intrinsic_set_write_mask(store, WRITEMASK_XYZW);
-            store->variables[0] = nir_deref_var_create(store, fullvar);
-            store->src[0] = nir_src_for_ssa(f001);
-            nir_builder_instr_insert(b, &store->instr);
+
+            nir_store_var(b, fullvar,
+                          nir_vec4(b, nir_load_var(b, var),
+                                   nir_imm_float(b, 0.0),
+                                   nir_imm_float(b, 0.0),
+                                   nir_imm_float(b, 1.0)),
+                          WRITEMASK_XYZW);
 
             /* We inserted the real input into the list so the driver has real
              * inputs, but we set c->input_vars[i] to the temporary so we use
@@ -946,13 +925,27 @@ setup_registers_and_variables(struct ptn_compile *c)
       c->input_vars[i] = var;
    }
 
+   /* Create system value variables */
+   uint64_t system_values_read = c->prog->info.system_values_read;
+   while (system_values_read) {
+      const int i = u_bit_scan64(&system_values_read);
+
+      nir_variable *var =
+         nir_variable_create(shader, nir_var_system_value, glsl_vec4_type(),
+                             ralloc_asprintf(shader, "sv_%d", i));
+      var->data.location = i;
+      var->data.index = 0;
+
+      c->sysval_vars[i] = var;
+   }
+
    /* Create output registers and variables. */
    int max_outputs = util_last_bit(c->prog->info.outputs_written);
    c->output_regs = rzalloc_array(c, nir_register *, max_outputs);
 
-   for (int i = 0; i < max_outputs; i++) {
-      if (!(c->prog->info.outputs_written & BITFIELD64_BIT(i)))
-         continue;
+   uint64_t outputs_written = c->prog->info.outputs_written;
+   while (outputs_written) {
+      const int i = u_bit_scan64(&outputs_written);
 
       /* Since we can't load from outputs in the IR, we make temporaries
        * for the outputs and emit stores to the real outputs at the end of
@@ -962,7 +955,8 @@ setup_registers_and_variables(struct ptn_compile *c)
       reg->num_components = 4;
 
       nir_variable *var = rzalloc(shader, nir_variable);
-      if (c->prog->Target == GL_FRAGMENT_PROGRAM_ARB && i == FRAG_RESULT_DEPTH)
+      if ((c->prog->Target == GL_FRAGMENT_PROGRAM_ARB && i == FRAG_RESULT_DEPTH) ||
+          (c->prog->Target == GL_VERTEX_PROGRAM_ARB && i == VARYING_SLOT_FOGC))
          var->type = glsl_float_type();
       else
          var->type = glsl_vec4_type();
@@ -1024,13 +1018,11 @@ prog_to_nir(const struct gl_program *prog,
    s = c->build.shader;
 
    if (prog->Parameters->NumParameters > 0) {
-      c->parameters = rzalloc(s, nir_variable);
-      c->parameters->type =
-         glsl_array_type(glsl_vec4_type(), prog->Parameters->NumParameters);
-      c->parameters->name = "parameters";
-      c->parameters->data.read_only = true;
-      c->parameters->data.mode = nir_var_uniform;
-      exec_list_push_tail(&s->uniforms, &c->parameters->node);
+      const struct glsl_type *type =
+         glsl_array_type(glsl_vec4_type(), prog->Parameters->NumParameters, 0);
+      c->parameters =
+         nir_variable_create(s, nir_var_uniform, type,
+                             prog->Parameters->Parameters[0].Name);
    }
 
    setup_registers_and_variables(c);

@@ -71,7 +71,7 @@ public class X509Name
      * common name - StringType(SIZE(1..64))
      * @deprecated use a X500NameStyle
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public static final ASN1ObjectIdentifier CN = new ASN1ObjectIdentifier("2.5.4.3");
 
@@ -411,7 +411,7 @@ public class X509Name
      * the principal will be a list of constructed sets, each containing an (OID, String) pair.
      * @deprecated use X500Name.getInstance()
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public X509Name(
         ASN1Sequence  seq)
     {
@@ -600,7 +600,7 @@ public class X509Name
      * some such, converting it into an ordered set of name attributes.
      * @deprecated use X500Name, X500NameBuilder
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public X509Name(
         String  dirName)
@@ -873,7 +873,7 @@ public class X509Name
     /**
      * return a vector of the oids in the name, in the order they were found.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public Vector getOIDs()
     {
@@ -891,7 +891,7 @@ public class X509Name
      * return a vector of the values found in the name, in the order they
      * were found.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public Vector getValues()
     {

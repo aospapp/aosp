@@ -27,10 +27,10 @@ import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
 import com.github.javaparser.metamodel.DoubleLiteralExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
 import java.util.Optional;
+import com.github.javaparser.ast.Generated;
 
 /**
  * A float or a double constant. This value is stored exactly as found in the source.
@@ -40,7 +40,7 @@ import java.util.Optional;
  *
  * @author Julio Vilmar Gesser
  */
-public final class DoubleLiteralExpr extends LiteralStringValueExpr {
+public class DoubleLiteralExpr extends LiteralStringValueExpr {
 
     public DoubleLiteralExpr() {
         this(null, "0");
@@ -88,7 +88,11 @@ public final class DoubleLiteralExpr extends LiteralStringValueExpr {
      * @return the literal value as a double
      */
     public double asDouble() {
-        return Double.parseDouble(value);
+        // Underscores are allowed in number literals for readability reasons but cause a NumberFormatException if
+        // passed along to Double#parseDouble. Hence, we apply a simple filter to remove all underscores.
+        // See https://github.com/javaparser/javaparser/issues/1980 for more information.
+        String noUnderscoreValue = value.replaceAll("_", "");
+        return Double.parseDouble(noUnderscoreValue);
     }
 
     public DoubleLiteralExpr setDouble(double value) {

@@ -1,26 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2008 Parallels.  All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it would be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- *
- * Further, this software is distributed without any warranty that it is
- * free of the rightful claim of any third person regarding infringement
- * or the like.  Any license provided herein, whether implied or
- * otherwise, applies only to this software file.  Patent licenses, if
- * any, provided herein do not apply to combinations of this program with
- * other software, or any other product whatsoever.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Started by Andrew Vagin <avagin@gmail.com>
+ * Author: Andrew Vagin <avagin@gmail.com>
  *
  * DESCRIPTION
  *	Check that inotify get IN_UNMOUNT event and
@@ -28,8 +9,8 @@
  *
  * ALGORITHM
  *	Execute sequence file's operation and check return events
- *
  */
+
 #include "config.h"
 
 #include <stdio.h>
@@ -77,12 +58,7 @@ void verify_inotify(void)
 	SAFE_MOUNT(tst_device->dev, mntpoint, tst_device->fs_type, 0, NULL);
 	mount_flag = 1;
 
-	wd = myinotify_add_watch(fd_notify, fname, IN_ALL_EVENTS);
-	if (wd < 0) {
-		tst_brk(TBROK | TERRNO,
-			"inotify_add_watch (%d, %s, IN_ALL_EVENTS) failed.",
-			fd_notify, fname);
-	}
+	wd = SAFE_MYINOTIFY_ADD_WATCH(fd_notify, fname, IN_ALL_EVENTS);
 
 	event_set[test_cnt] = IN_UNMOUNT;
 	test_cnt++;
@@ -171,15 +147,7 @@ static void setup(void)
 	/* close the file we have open */
 	SAFE_CLOSE(fd);
 
-	fd_notify = myinotify_init();
-	if (fd_notify < 0) {
-		if (errno == ENOSYS)
-			tst_brk(TCONF,
-				"inotify is not configured in this kernel.");
-		else
-			tst_brk(TBROK | TERRNO,
-				"inotify_init failed");
-	}
+	fd_notify = SAFE_MYINOTIFY_INIT();
 
 	tst_umount(mntpoint);
 	mount_flag = 0;
@@ -200,7 +168,6 @@ static void cleanup(void)
 
 static struct tst_test test = {
 	.needs_root = 1,
-	.needs_tmpdir = 1,
 	.format_device = 1,
 	.setup = setup,
 	.cleanup = cleanup,

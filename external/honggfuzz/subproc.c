@@ -177,9 +177,8 @@ bool subproc_persistentModeStateMachine(run_t* run) {
                 /* The current persistent round is done */
                 return true;
             }; break;
-            default: {
+            default:
                 LOG_F("Unknown runState: %d", run->runState);
-            }; break;
         }
     }
 }
@@ -252,20 +251,22 @@ static bool subproc_PrepareExecv(run_t* run) {
         /* close_stderr= */ run->global->exe.nullifyStdio);
 
     /* The bitmap structure */
-    if (run->global->feedback.bbFd != -1 && dup2(run->global->feedback.bbFd, _HF_BITMAP_FD) == -1) {
+    if (run->global->feedback.bbFd != -1 &&
+        TEMP_FAILURE_RETRY(dup2(run->global->feedback.bbFd, _HF_BITMAP_FD)) == -1) {
         PLOG_E("dup2(%d, _HF_BITMAP_FD=%d)", run->global->feedback.bbFd, _HF_BITMAP_FD);
         return false;
     }
 
     /* The input file to _HF_INPUT_FD */
-    if (run->global->exe.persistent && dup2(run->dynamicFileFd, _HF_INPUT_FD) == -1) {
+    if (run->global->exe.persistent &&
+        TEMP_FAILURE_RETRY(dup2(run->dynamicFileFd, _HF_INPUT_FD)) == -1) {
         PLOG_E("dup2('%d', _HF_INPUT_FD='%d')", run->dynamicFileFd, _HF_INPUT_FD);
         return false;
     }
 
     /* The log FD */
     if ((run->global->exe.netDriver || run->global->exe.persistent)) {
-        if (dup2(logFd(), _HF_LOG_FD) == -1) {
+        if (TEMP_FAILURE_RETRY(dup2(logFd(), _HF_LOG_FD)) == -1) {
             PLOG_E("dup2(%d, _HF_LOG_FD=%d)", logFd(), _HF_LOG_FD);
             return false;
         }
@@ -286,7 +287,8 @@ static bool subproc_PrepareExecv(run_t* run) {
             LOG_E("Couldn't save data to a temporary file");
             return false;
         }
-        if (run->global->exe.fuzzStdin && dup2(run->dynamicFileCopyFd, STDIN_FILENO) == -1) {
+        if (run->global->exe.fuzzStdin &&
+            TEMP_FAILURE_RETRY(dup2(run->dynamicFileCopyFd, STDIN_FILENO)) == -1) {
             PLOG_E("dup2(_HF_INPUT_FD=%d, STDIN_FILENO=%d)", run->dynamicFileCopyFd, STDIN_FILENO);
             return false;
         }
@@ -342,7 +344,7 @@ static bool subproc_New(run_t* run) {
         signal(SIGALRM, SIG_DFL);
 
         if (run->global->exe.persistent) {
-            if (dup2(sv[1], _HF_PERSISTENT_FD) == -1) {
+            if (TEMP_FAILURE_RETRY(dup2(sv[1], _HF_PERSISTENT_FD)) == -1) {
                 PLOG_F("dup2('%d', '%d')", sv[1], _HF_PERSISTENT_FD);
             }
             close(sv[0]);
@@ -424,10 +426,7 @@ uint8_t subproc_System(run_t* run, const char* const argv[]) {
 
     for (;;) {
         int status;
-        int ret = wait4(pid, &status, flags, NULL);
-        if (ret == -1 && errno == EINTR) {
-            continue;
-        }
+        int ret = TEMP_FAILURE_RETRY(wait4(pid, &status, flags, NULL));
         if (ret == -1) {
             PLOG_E("wait4() for process pid=%d", (int)pid);
             return 255;
@@ -488,11 +487,13 @@ void subproc_checkTermination(run_t* run) {
     }
 }
 
-bool subproc_runThread(honggfuzz_t* hfuzz, pthread_t* thread, void* (*thread_func)(void*)) {
+bool subproc_runThread(
+    honggfuzz_t* hfuzz, pthread_t* thread, void* (*thread_func)(void*), bool joinable) {
     pthread_attr_t attr;
 
     pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_setdetachstate(
+        &attr, joinable ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&attr, _HF_PTHREAD_STACKSIZE);
     pthread_attr_setguardsize(&attr, (size_t)sysconf(_SC_PAGESIZE));
 

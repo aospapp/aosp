@@ -1,7 +1,11 @@
 # pylint: disable=missing-docstring
 
-import logging
+import contextlib
 from datetime import datetime
+from datetime import timedelta
+import logging
+import os
+
 import django.core
 try:
     from django.db import models as dbmodels, connection
@@ -1391,27 +1395,28 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
                                          'jobkeyval_set',
                                          'shard'])
 
-    # SQL for selecting jobs that should be sent to shard.
-    # We use raw sql as django filters were not optimized.
-    # The following jobs are excluded by the SQL.
-    #     - Non-aborted jobs known to shard as specified in |known_ids|.
-    #       Note for jobs aborted on master, even if already known to shard,
-    #       will be sent to shard again so that shard can abort them.
-    #     - Completed jobs
-    #     - Active jobs
-    #     - Jobs without host_queue_entries
-    NON_ABORTED_KNOWN_JOBS = '(t2.aborted = 0 AND t1.id IN (%(known_ids)s))'
+    EXCLUDE_KNOWN_JOBS_CLAUSE = '''
+        AND NOT (afe_host_queue_entries.aborted = 0
+                 AND afe_jobs.id IN (%(known_ids)s))
+    '''
 
-    SQL_SHARD_JOBS = (
-        'SELECT DISTINCT(t1.id) FROM afe_jobs t1 '
-        'INNER JOIN afe_host_queue_entries t2  ON '
-        '  (t1.id = t2.job_id AND t2.complete != 1 AND t2.active != 1 '
-        '   %(check_known_jobs)s) '
-        'LEFT OUTER JOIN afe_jobs_dependency_labels t3 ON (t1.id = t3.job_id) '
-        'JOIN afe_shards_labels t4 '
-        '  ON (t4.label_id = t3.label_id OR t4.label_id = t2.meta_host) '
-        'WHERE t4.shard_id = %(shard_id)s'
-        )
+    EXCLUDE_OLD_JOBS_CLAUSE = 'AND (afe_jobs.created_on > "%(cutoff)s")'
+
+    SQL_SHARD_JOBS = '''
+        SELECT DISTINCT(afe_jobs.id) FROM afe_jobs
+        INNER JOIN afe_host_queue_entries
+          ON (afe_jobs.id = afe_host_queue_entries.job_id)
+        LEFT OUTER JOIN afe_jobs_dependency_labels
+          ON (afe_jobs.id = afe_jobs_dependency_labels.job_id)
+        JOIN afe_shards_labels
+          ON (afe_shards_labels.label_id = afe_jobs_dependency_labels.label_id
+              OR afe_shards_labels.label_id = afe_host_queue_entries.meta_host)
+        WHERE (afe_shards_labels.shard_id = %(shard_id)s
+               AND afe_host_queue_entries.complete != 1
+               AND afe_host_queue_entries.active != 1
+               %(exclude_known_jobs)s
+               %(exclude_old_jobs)s)
+    '''
 
     # Jobs can be created with assigned hosts and have no dependency
     # labels nor meta_host.
@@ -1421,31 +1426,36 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
     #     - one of the host's labels matches the shard's label.
     # Non-aborted known jobs, completed jobs, active jobs, jobs
     # without hqe are exluded as we do with SQL_SHARD_JOBS.
-    SQL_SHARD_JOBS_WITH_HOSTS = (
-        'SELECT DISTINCT(t1.id) FROM afe_jobs t1 '
-        'INNER JOIN afe_host_queue_entries t2 ON '
-        '  (t1.id = t2.job_id AND t2.complete != 1 AND t2.active != 1 '
-        '   AND t2.meta_host IS NULL AND t2.host_id IS NOT NULL '
-        '   %(check_known_jobs)s) '
-        'LEFT OUTER JOIN %(host_label_table)s t3 ON (t2.host_id = t3.host_id) '
-        'WHERE (t3.%(host_label_column)s IN %(label_ids)s)'
-        )
+    SQL_SHARD_JOBS_WITH_HOSTS = '''
+        SELECT DISTINCT(afe_jobs.id) FROM afe_jobs
+        INNER JOIN afe_host_queue_entries
+          ON (afe_jobs.id = afe_host_queue_entries.job_id)
+        LEFT OUTER JOIN %(host_label_table)s
+          ON (afe_host_queue_entries.host_id = %(host_label_table)s.host_id)
+        WHERE (%(host_label_table)s.%(host_label_column)s IN %(label_ids)s
+               AND afe_host_queue_entries.complete != 1
+               AND afe_host_queue_entries.active != 1
+               AND afe_host_queue_entries.meta_host IS NULL
+               AND afe_host_queue_entries.host_id IS NOT NULL
+               %(exclude_known_jobs)s
+               %(exclude_old_jobs)s)
+    '''
 
     # Even if we had filters about complete, active and aborted
     # bits in the above two SQLs, there is a chance that
     # the result may still contain a job with an hqe with 'complete=1'
-    # or 'active=1' or 'aborted=0 and afe_job.id in known jobs.'
+    # or 'active=1'.'
     # This happens when a job has two (or more) hqes and at least
     # one hqe has different bits than others.
     # We use a second sql to ensure we exclude all un-desired jobs.
-    SQL_JOBS_TO_EXCLUDE =(
-        'SELECT t1.id FROM afe_jobs t1 '
-        'INNER JOIN afe_host_queue_entries t2 ON '
-        '  (t1.id = t2.job_id) '
-        'WHERE (t1.id in (%(candidates)s) '
-        '  AND (t2.complete=1 OR t2.active=1 '
-        '  %(check_known_jobs)s))'
-        )
+    SQL_JOBS_TO_EXCLUDE = '''
+        SELECT afe_jobs.id FROM afe_jobs
+        INNER JOIN afe_host_queue_entries
+          ON (afe_jobs.id = afe_host_queue_entries.job_id)
+        WHERE (afe_jobs.id in (%(candidates)s)
+               AND (afe_host_queue_entries.complete=1
+                    OR afe_host_queue_entries.active=1))
+    '''
 
     def _deserialize_relation(self, link, data):
         if link in ['hostqueueentry_set', 'jobkeyval_set']:
@@ -1494,9 +1504,9 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         'AUTOTEST_WEB', 'parse_failed_repair_default', type=bool, default=False)
     FETCH_READONLY_JOBS = global_config.global_config.get_config_value(
         'AUTOTEST_WEB','readonly_heartbeat', type=bool, default=False)
-    CHECK_MASTER_IF_EMPTY = global_config.global_config.get_config_value(
-        'AUTOTEST_WEB','heartbeat_fall_back_to_master',
-        type=bool, default=False)
+    SKIP_JOBS_CREATED_BEFORE = global_config.global_config.get_config_value(
+        'SHARD', 'skip_jobs_created_before', type=int, default=0)
+
 
 
     owner = dbmodels.CharField(max_length=255)
@@ -1627,7 +1637,10 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
 
         if options.get('keyvals'):
             for key, value in options['keyvals'].iteritems():
-                JobKeyval.objects.create(job=job, key=key, value=value)
+                # None (or NULL) is not acceptable by DB, so change it to an
+                # empty string in case.
+                JobKeyval.objects.create(job=job, key=key,
+                                         value='' if value is None else value)
 
         return job
 
@@ -1637,92 +1650,122 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         """Assigns unassigned jobs to a shard.
 
         For all labels that have been assigned to this shard, all jobs that
-        have this label, are assigned to this shard.
-
-        Jobs that are assigned to the shard but aren't already present on the
-        shard are returned.
+        have this label are assigned to this shard.
 
         @param shard: The shard to assign jobs to.
-        @param known_ids: List of all ids of incomplete jobs, the shard already
+        @param known_ids: List of all ids of incomplete jobs the shard already
                           knows about.
-                          This is used to figure out which jobs should be sent
-                          to the shard. If shard_ids were used instead, jobs
-                          would only be transferred once, even if the client
-                          failed persisting them.
-                          The number of unfinished jobs usually lies in O(1000).
-                          Assuming one id takes 8 chars in the json, this means
-                          overhead that lies in the lower kilobyte range.
-                          A not in query with 5000 id's takes about 30ms.
 
         @returns The job objects that should be sent to the shard.
         """
-        # Disclaimer: Concurrent heartbeats should not occur in today's setup.
-        # If this changes or they are triggered manually, this applies:
-        # Jobs may be returned more than once by concurrent calls of this
-        # function, as there is a race condition between SELECT and UPDATE.
-        job_ids = set([])
-        check_known_jobs_exclude = ''
-        check_known_jobs_include = ''
+        with cls._readonly_job_query_context():
+            job_ids = cls._get_new_jobs_for_shard(shard, known_ids)
+        if not job_ids:
+            return []
+        cls._assign_jobs_to_shard(job_ids, shard)
+        return cls._jobs_with_ids(job_ids)
 
-        if known_ids:
-            check_known_jobs = (
-                    cls.NON_ABORTED_KNOWN_JOBS %
-                    {'known_ids': ','.join([str(i) for i in known_ids])})
-            check_known_jobs_exclude = 'AND NOT ' + check_known_jobs
-            check_known_jobs_include = 'OR ' + check_known_jobs
 
+    @classmethod
+    @contextlib.contextmanager
+    def _readonly_job_query_context(cls):
+        #TODO(jkop): Get rid of this kludge when we update Django to >=1.7
+        #correct usage would be .raw(..., using='readonly')
+        old_db = Job.objects._db
+        try:
+            if cls.FETCH_READONLY_JOBS:
+                Job.objects._db = 'readonly'
+            yield
+        finally:
+            Job.objects._db = old_db
+
+
+    @classmethod
+    def _assign_jobs_to_shard(cls, job_ids, shard):
+        Job.objects.filter(pk__in=job_ids).update(shard=shard)
+
+
+    @classmethod
+    def _jobs_with_ids(cls, job_ids):
+        return list(Job.objects.filter(pk__in=job_ids).all())
+
+
+    @classmethod
+    def _get_new_jobs_for_shard(cls, shard, known_ids):
+        job_ids = cls._get_jobs_without_hosts(shard, known_ids)
+        job_ids |= cls._get_jobs_with_hosts(shard, known_ids)
+        if job_ids:
+            job_ids -= cls._filter_finished_jobs(job_ids)
+        return job_ids
+
+
+    @classmethod
+    def _filter_finished_jobs(cls, job_ids):
+        query = Job.objects.raw(
+                cls.SQL_JOBS_TO_EXCLUDE %
+                {'candidates': ','.join([str(i) for i in job_ids])})
+        return set([j.id for j in query])
+
+
+    @classmethod
+    def _get_jobs_without_hosts(cls, shard, known_ids):
         raw_sql = cls.SQL_SHARD_JOBS % {
-            'check_known_jobs': check_known_jobs_exclude,
+            'exclude_known_jobs': cls._exclude_known_jobs_clause(known_ids),
+            'exclude_old_jobs': cls._exclude_old_jobs_clause(),
             'shard_id': shard.id
         }
+        return set([j.id for j in Job.objects.raw(raw_sql)])
 
 
-        if cls.FETCH_READONLY_JOBS:
-            #TODO(jkop): Get rid of this kludge when we update Django to >=1.7
-            #correct usage would be .raw(..., using='readonly')
-            old_db = Job.objects._db
-            try:
-                Job.objects._db = 'readonly'
-                job_ids = set([j.id for j in Job.objects.raw(raw_sql)])
-            except django_utils.DatabaseError:
-                logging.exception(
-                    'Error attempting to query slave db, will retry on master')
-            finally:
-                Job.objects._db = old_db
-        else:
-            job_ids = set([j.id for j in Job.objects.raw(raw_sql)])
-
+    @classmethod
+    def _get_jobs_with_hosts(cls, shard, known_ids):
+        job_ids = set([])
         static_labels, non_static_labels = Host.classify_label_objects(
                 shard.labels.all())
         if static_labels:
             label_ids = [str(l.id) for l in static_labels]
             query = Job.objects.raw(cls.SQL_SHARD_JOBS_WITH_HOSTS % {
-                'check_known_jobs': check_known_jobs_exclude,
+                'exclude_known_jobs': cls._exclude_known_jobs_clause(known_ids),
+                'exclude_old_jobs': cls._exclude_old_jobs_clause(),
                 'host_label_table': 'afe_static_hosts_labels',
                 'host_label_column': 'staticlabel_id',
                 'label_ids': '(%s)' % ','.join(label_ids)})
             job_ids |= set([j.id for j in query])
-
         if non_static_labels:
             label_ids = [str(l.id) for l in non_static_labels]
             query = Job.objects.raw(cls.SQL_SHARD_JOBS_WITH_HOSTS % {
-                'check_known_jobs': check_known_jobs_exclude,
+                'exclude_known_jobs': cls._exclude_known_jobs_clause(known_ids),
+                'exclude_old_jobs': cls._exclude_old_jobs_clause(),
                 'host_label_table': 'afe_hosts_labels',
                 'host_label_column': 'label_id',
                 'label_ids': '(%s)' % ','.join(label_ids)})
             job_ids |= set([j.id for j in query])
+        return job_ids
 
-        if job_ids:
-            query = Job.objects.raw(
-                    cls.SQL_JOBS_TO_EXCLUDE %
-                    {'check_known_jobs': check_known_jobs_include,
-                     'candidates': ','.join([str(i) for i in job_ids])})
-            job_ids -= set([j.id for j in query])
 
-        if job_ids:
-            Job.objects.filter(pk__in=job_ids).update(shard=shard)
-            return list(Job.objects.filter(pk__in=job_ids).all())
-        return []
+    @classmethod
+    def _exclude_known_jobs_clause(cls, known_ids):
+        if not known_ids:
+            return ''
+        return (cls.EXCLUDE_KNOWN_JOBS_CLAUSE %
+                {'known_ids': ','.join([str(i) for i in known_ids])})
+
+
+    @classmethod
+    def _exclude_old_jobs_clause(cls):
+        """Filter queried jobs to be created within a few hours in the past.
+
+        With this clause, any jobs older than a configurable number of hours are
+        skipped in the jobs query.
+        The job creation window affects the overall query performance. Longer
+        creation windows require a range query over more Job table rows using
+        the created_on column index. c.f. http://crbug.com/966872#c35
+        """
+        if cls.SKIP_JOBS_CREATED_BEFORE <= 0:
+            return ''
+        cutoff = datetime.now()- timedelta(hours=cls.SKIP_JOBS_CREATED_BEFORE)
+        return (cls.EXCLUDE_OLD_JOBS_CLAUSE %
+                {'cutoff': cutoff.strftime('%Y-%m-%d %H:%M:%S')})
 
 
     def queue(self, hosts, is_template=False):
@@ -2025,13 +2068,19 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
 
         # Associate a user with the host queue entries that we're about
         # to abort so that we can look up who to blame for the aborts.
+        child_ids = [hqe.id for hqe in children]
+        # Get a list of hqe ids that already exists, so we can exclude them when
+        # we do bulk_create later to avoid IntegrityError.
+        existing_hqe_ids = set(AbortedHostQueueEntry.objects.
+                               filter(queue_entry_id__in=child_ids).
+                               values_list('queue_entry_id', flat=True))
         now = datetime.now()
         user = User.current_user()
         aborted_hqes = [AbortedHostQueueEntry(queue_entry=hqe,
-                aborted_by=user, aborted_on=now) for hqe in children]
+                aborted_by=user, aborted_on=now) for hqe in children
+                        if hqe.id not in existing_hqe_ids]
         AbortedHostQueueEntry.objects.bulk_create(aborted_hqes)
         # Bulk update all of the HQEs to set the abort bit.
-        child_ids = [hqe.id for hqe in children]
         HostQueueEntry.objects.filter(id__in=child_ids).update(aborted=True)
 
 
@@ -2249,3 +2298,15 @@ class StableVersion(dbmodels.Model, model_logic.ModelExtensions):
     class Meta:
         """Metadata for class StableVersion."""
         db_table = 'afe_stable_versions'
+
+    def save(self, *args, **kwargs):
+        if os.getenv("OVERRIDE_STABLE_VERSION_BAN"):
+            super(StableVersion, self).save(*args, **kwargs)
+        else:
+            raise RuntimeError("the ability to save StableVersions has been intentionally removed")
+
+    def delete(self):
+        if os.getenv("OVERRIDE_STABLE_VERSION_BAN"):
+            super(StableVersion, self).delete(*args, **kwargs)
+        else:
+            raise RuntimeError("the ability to delete StableVersions has been intentionally removed")

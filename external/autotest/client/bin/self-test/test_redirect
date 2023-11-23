@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 import os
 
 stdout = fd_stack(1, sys.stdout)

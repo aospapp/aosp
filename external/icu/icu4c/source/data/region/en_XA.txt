@@ -183,11 +183,11 @@ en_XA{
         MF{"[Šţ· Ṁåŕţîñ one two]"}
         MG{"[Ṁåðåĝåšçåŕ one two]"}
         MH{"[Ṁåŕšĥåļļ Îšļåñðš one two]"}
-        MK{"[Ṁåçéðöñîå (ƑÝŔÖṀ) one two three]"}
+        MK{"[Ñöŕţĥ Ṁåçéðöñîå one two]"}
         ML{"[Ṁåļî one]"}
         MM{"[Ṁýåñɱåŕ (Ɓûŕɱå) one two]"}
         MN{"[Ṁöñĝöļîå one]"}
-        MO{"[Ṁåçåû one]"}
+        MO{"[Ṁåçåö one]"}
         MP{"[Ñöŕţĥéŕñ Ṁåŕîåñå Îšļåñðš one two three]"}
         MQ{"[Ṁåŕţîñîǫûé one two]"}
         MR{"[Ṁåûŕîţåñîå one two]"}
@@ -253,7 +253,7 @@ en_XA{
         SV{"[Éļ Šåļṽåðöŕ one two]"}
         SX{"[Šîñţ Ṁååŕţéñ one two]"}
         SY{"[Šýŕîå one]"}
-        SZ{"[Šŵåžîļåñð one two]"}
+        SZ{"[Éšŵåţîñî one]"}
         TA{"[Ţŕîšţåñ ðå Çûñĥå one two]"}
         TC{"[Ţûŕķš ⅋ Çåîçöš Îšļåñðš one two three]"}
         TD{"[Çĥåð one]"}
@@ -309,7 +309,8 @@ en_XA{
         CG{"[Çöñĝö (Ŕéþûƀļîç) one two]"}
         CI{"[Îṽöŕý Çöåšţ one two]"}
         CZ{"[Çžéçĥ Ŕéþûƀļîç one two]"}
+        SZ{"[Šŵåžîļåñð one two]"}
         TL{"[Éåšţ Ţîɱöŕ one two]"}
     }
-    Version{"2.0"}
+    Version{"36.1"}
 }

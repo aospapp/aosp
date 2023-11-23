@@ -131,25 +131,25 @@ private:
 	{
 		enum State
 		{
-			STATE_INIT = 0,
-			STATE_ENTER,
-			STATE_TRAVERSE_CHILDREN,
-			STATE_LEAVE,
+			NISTATE_INIT = 0,
+			NISTATE_ENTER,
+			NISTATE_TRAVERSE_CHILDREN,
+			NISTATE_LEAVE,
 
-			STATE_LAST
+			NISTATE_LAST
 		};
 
 		NodeIter (void)
 			: node			(DE_NULL)
 			, curChildNdx	(-1)
-			, m_state		(STATE_LAST)
+			, m_state		(NISTATE_LAST)
 		{
 		}
 
 		NodeIter (TestNode* node_)
 			: node			(node_)
 			, curChildNdx	(-1)
-			, m_state		(STATE_INIT)
+			, m_state		(NISTATE_INIT)
 		{
 		}
 
@@ -162,7 +162,7 @@ private:
 		{
 			switch (newState)
 			{
-				case STATE_TRAVERSE_CHILDREN:
+				case NISTATE_TRAVERSE_CHILDREN:
 					curChildNdx = -1;
 					break;
 
@@ -195,6 +195,9 @@ private:
 	// Current session state.
 	std::vector<NodeIter>	m_sessionStack;
 	std::string				m_nodePath;
+
+	// Counter that increments by one for each bottom-level test group
+	int						m_groupNumber;
 };
 
 } // tcu

@@ -21,7 +21,6 @@ static inline struct id_offset *find_unused(const struct buffer_share *mix)
 	return NULL;
 }
 
-
 static inline struct id_offset *find_id(const struct buffer_share *mix,
 					unsigned int id)
 {
@@ -40,7 +39,8 @@ static void alloc_more_ids(struct buffer_share *mix)
 	unsigned int new_size = mix->id_sz * 2;
 	unsigned int i;
 
-	mix->wr_idx = realloc(mix->wr_idx, sizeof(mix->wr_idx[0]) * new_size);
+	mix->wr_idx = (struct id_offset *)realloc(
+		mix->wr_idx, sizeof(mix->wr_idx[0]) * new_size);
 
 	for (i = mix->id_sz; i < new_size; i++)
 		mix->wr_idx[i].used = 0;
@@ -52,9 +52,10 @@ struct buffer_share *buffer_share_create(unsigned int buf_sz)
 {
 	struct buffer_share *mix;
 
-	mix = calloc(1, sizeof(*mix));
+	mix = (struct buffer_share *)calloc(1, sizeof(*mix));
 	mix->id_sz = INITIAL_ID_SIZE;
-	mix->wr_idx = calloc(mix->id_sz, sizeof(mix->wr_idx[0]));
+	mix->wr_idx =
+		(struct id_offset *)calloc(mix->id_sz, sizeof(mix->wr_idx[0]));
 	mix->buf_sz = buf_sz;
 
 	return mix;
@@ -163,8 +164,7 @@ unsigned int buffer_share_id_offset(const struct buffer_share *mix,
 	return o ? o->offset : 0;
 }
 
-void *buffer_share_get_data(const struct buffer_share *mix,
-			    unsigned int id)
+void *buffer_share_get_data(const struct buffer_share *mix, unsigned int id)
 {
 	struct id_offset *o = get_id_offset(mix, id);
 	return o ? o->data : NULL;

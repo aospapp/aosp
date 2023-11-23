@@ -19,10 +19,10 @@ or{
         "[ଅ ଆ ଇ ଈ ଉ ଊ ଋ ଏ ଐ ଓ ଔ କ ଖ ଗ ଘ ଙ ଚ ଛ ଜ ଝ ଞ ଟ ଠ ଡ ଢ ଣ ତ ଥ ଦ ଧ ନ ପ ଫ ବ ଭ ମ ଯ ର"
         " ଲ ଳ ଶ ଷ ସ ହ {କ\u0B4Dଷ}]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0୦ 1୧ 2୨ 3୩ 4୪ 5୫ 6୬ 7୭ 8୮ 9୯]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0୦ 1୧ 2୨ 3୩ 4୪ 5୫ 6୬ 7୭ 8୮ 9୯]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -240,7 +240,7 @@ or{
             }
         }
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -306,6 +306,9 @@ or{
                 yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                }
                 M{
                     M{"M – M"}
                 }
@@ -1676,10 +1679,7 @@ or{
             start{"{0}, {1}"}
         }
         standard-short{
-            2{"{0} ଓ {1}"}
             end{"{0}, ଓ {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
         }
         unit{
             2{"{0}, {1}"}

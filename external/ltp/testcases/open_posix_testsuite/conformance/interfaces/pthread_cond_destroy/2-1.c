@@ -208,7 +208,7 @@ typedef struct {
 testdata_t *td;
 
 /* Child function (either in a thread or in a process) */
-void *child(void *arg)
+void *child(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	int ret = 0;
 	struct timespec ts;
@@ -437,7 +437,7 @@ int main(void)
 	}
 
 	/* Do the test for each test scenario */
-	for (scenar = 0; scenar < NSCENAR; scenar++) {
+	for (scenar = 0; scenar < (int)NSCENAR; scenar++) {
 		/* set / reset everything */
 		td->fork = 0;
 		ret = pthread_mutexattr_init(&ma);

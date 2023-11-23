@@ -210,6 +210,9 @@ ReferenceRenderer::ReferenceRenderer(int						surfaceWidth,
 			m_depthStencilBuffer.setStorage(m_depthStencilFormat, actualSamples, surfaceWidth, surfaceHeight);
 			tcu::clearDepth(m_depthStencilBuffer.getAccess(), defaultClearDepth());
 
+			m_resolveDepthStencilBuffer.setStorage(m_depthStencilFormat, surfaceWidth, surfaceHeight);
+			tcu::clearDepth(m_resolveDepthStencilBuffer.getAccess(), defaultClearDepth());
+
 			m_renderTarget = new rr::RenderTarget(rr::MultisamplePixelBufferAccess::fromMultisampleAccess(m_colorBuffer.getAccess()),
 												  rr::MultisamplePixelBufferAccess::fromMultisampleAccess(m_depthStencilBuffer.getAccess()));
 		}
@@ -217,6 +220,9 @@ ReferenceRenderer::ReferenceRenderer(int						surfaceWidth,
 		{
 			m_depthStencilBuffer.setStorage(m_depthStencilFormat, actualSamples, surfaceWidth, surfaceHeight);
 			tcu::clearStencil(m_depthStencilBuffer.getAccess(), defaultClearStencil());
+
+			m_resolveDepthStencilBuffer.setStorage(m_depthStencilFormat, surfaceWidth, surfaceHeight);
+			tcu::clearStencil(m_resolveDepthStencilBuffer.getAccess(), defaultClearStencil());
 
 			m_renderTarget = new rr::RenderTarget(rr::MultisamplePixelBufferAccess::fromMultisampleAccess(m_colorBuffer.getAccess()),
 												  rr::MultisamplePixelBufferAccess(),
@@ -228,6 +234,9 @@ ReferenceRenderer::ReferenceRenderer(int						surfaceWidth,
 
 			tcu::clearDepth(m_depthStencilBuffer.getAccess(), defaultClearDepth());
 			tcu::clearStencil(m_depthStencilBuffer.getAccess(), defaultClearStencil());
+
+			m_resolveDepthStencilBuffer.setStorage(m_depthStencilFormat, surfaceWidth, surfaceHeight);
+			tcu::clearDepth(m_resolveDepthStencilBuffer.getAccess(), defaultClearDepth());
 
 			m_renderTarget = new rr::RenderTarget(rr::MultisamplePixelBufferAccess::fromMultisampleAccess(m_colorBuffer.getAccess()),
 												  rr::MultisamplePixelBufferAccess::fromMultisampleAccess(m_depthStencilBuffer.getAccess()),
@@ -321,6 +330,14 @@ tcu::PixelBufferAccess ReferenceRenderer::getAccess (void)
 	rr::resolveMultisampleColorBuffer(m_resolveColorBuffer.getAccess(), multiSampleAccess);
 
 	return m_resolveColorBuffer.getAccess();
+}
+
+tcu::PixelBufferAccess ReferenceRenderer::getDepthStencilAccess (void)
+{
+	rr::MultisampleConstPixelBufferAccess multiSampleAccess = rr::MultisampleConstPixelBufferAccess::fromMultisampleAccess(m_depthStencilBuffer.getAccess());
+	rr::resolveMultisampleColorBuffer(m_resolveDepthStencilBuffer.getAccess(), multiSampleAccess);
+
+	return m_resolveDepthStencilBuffer.getAccess();
 }
 
 const rr::ViewportState ReferenceRenderer::getViewportState (void) const

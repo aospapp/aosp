@@ -18,8 +18,8 @@ package com.googlecode.android_scripting.facade.telephony;
 
 import android.app.Service;
 import android.content.Context;
-import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
@@ -66,11 +66,16 @@ public class SubscriptionManagerFacade extends RpcReceiver {
         return SubscriptionManager.getDefaultVoiceSubscriptionId();
     }
 
+    @Rpc(description = "Returns active data subscription ID")
+    public Integer subscriptionGetActiveDataSubscriptionId() {
+        return SubscriptionManager.getActiveDataSubscriptionId();
+    }
+
     @Rpc(description = "Set the default voice subscription ID")
     public void subscriptionSetDefaultVoiceSubId(
             @RpcParameter(name = "subId")
             Integer subId) {
-        mSubscriptionManager.setDefaultVoiceSubId(subId);
+        mSubscriptionManager.setDefaultVoiceSubscriptionId(subId);
     }
 
     @Rpc(description = "Return the default sms subscription ID")
@@ -85,9 +90,13 @@ public class SubscriptionManagerFacade extends RpcReceiver {
         mSubscriptionManager.setDefaultSmsSubId(subId);
     }
 
-    @Rpc(description = "Return a List of all Subscription Info Records")
+    /**
+     * Get list of all available subscriptions details
+     *
+     */
+    @Rpc(description = "Return a List of available Subscription Info Records")
     public List<SubscriptionInfo> subscriptionGetAllSubInfoList() {
-        return mSubscriptionManager.getAllSubscriptionInfoList();
+        return mSubscriptionManager.getAvailableSubscriptionInfoList();
     }
 
     @Rpc(description = "Return a List of all Active Subscription Info Records")
@@ -100,13 +109,6 @@ public class SubscriptionManagerFacade extends RpcReceiver {
             @RpcParameter(name = "subId")
             Integer subId) {
         return mSubscriptionManager.getActiveSubscriptionInfo(subId);
-    }
-
-    @Rpc(description = "Return if AlwaysAllowMMSData is set correctly")
-    public boolean subscriptionSetAlwaysAllowMmsData(
-            @RpcParameter(name = "subId") Integer subId,
-            @RpcParameter(name = "alwaysAllow") Boolean alwaysAllow) {
-        return mSubscriptionManager.setAlwaysAllowMmsData(subId, alwaysAllow);
     }
 
     @Rpc(description = "Set Data Roaming Enabled or Disabled for a particular Subscription ID")

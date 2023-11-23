@@ -149,6 +149,11 @@ usage(int exitcode, char* program)
     /*NOTREACHED*/
 }
 
+// TODO(b/141583221): stop leaks
+const char *__asan_default_options() {
+    return "detect_leaks=0";
+}
+
 static void RunStartupFile(PyCompilerFlags *cf)
 {
     char *startup = Py_GETENV("PYTHONSTARTUP");

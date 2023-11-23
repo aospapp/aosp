@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -130,11 +130,11 @@ static Image *ReadNULLImage(const ImageInfo *image_info,
     image->columns=1;
   if (image->rows == 0)
     image->rows=1;
+  image->alpha_trait=BlendPixelTrait;
   status=SetImageExtent(image,image->columns,image->rows,exception);
   if (status == MagickFalse)
     return(DestroyImageList(image));
   ConformPixelInfo(image,&image->background_color,&background,exception);
-  image->alpha_trait=BlendPixelTrait;
   background.alpha=(double) TransparentAlpha;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
@@ -249,6 +249,7 @@ static MagickBooleanType WriteNULLImage(const ImageInfo *image_info,
   assert(image != (Image *) NULL);
   assert(image->signature == MagickCoreSignature);
   assert(exception != (ExceptionInfo *) NULL);
+  (void) image_info;
   (void) exception;
   if (image->debug != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);

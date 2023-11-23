@@ -71,6 +71,7 @@ public class ShadowActivity extends ShadowContextThemeWrapper {
   private boolean mIsTaskRoot = true;
   private Menu optionsMenu;
   private ComponentName callingActivity;
+  private String callingPackage;
   private boolean isLockTask;
   private PermissionsRequest lastRequestedPermission;
 
@@ -261,6 +262,15 @@ public class ShadowActivity extends ShadowContextThemeWrapper {
   @Implementation
   protected ComponentName getCallingActivity() {
     return callingActivity;
+  }
+
+  public void setCallingPackage(String packageName) {
+    callingPackage = packageName;
+  }
+
+  @Implementation
+  protected String getCallingPackage() {
+    return callingPackage;
   }
 
   @Implementation

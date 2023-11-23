@@ -22,7 +22,6 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 args_dict['name'] = 'ent-wificell'
 args_dict['add_experimental'] = True
 args_dict['max_runtime_mins'] = 60
-args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX
 args_dict['job'] = job
 
 dynamic_suite.reimage_and_run(**args_dict)

@@ -17,13 +17,6 @@
 /* Configuration for environment
  * Environment is embedded in u-boot in the second sector of the flash
  */
-#ifdef CONFIG_MONITOR_IS_IN_RAM
-#	define CONFIG_ENV_OFFSET		0x4000
-#	define CONFIG_ENV_SECT_SIZE	0x1000
-#else
-#	define CONFIG_ENV_ADDR		(CONFIG_SYS_FLASH_BASE + 0x4000)
-#	define CONFIG_ENV_SECT_SIZE	0x1000
-#endif
 
 #define LDS_BOARD_TEXT \
 	. = DEFINED(env_offset) ? env_offset : .; \
@@ -156,14 +149,12 @@
 #define FLASH_SST6401B		0x200
 #define SST_ID_xF6401B		0x236D236D
 
-#undef CONFIG_SYS_FLASH_CFI
 #ifdef CONFIG_SYS_FLASH_CFI
 /*
  * Unable to use CFI driver, due to incompatible sector erase command by SST.
  * Amd/Atmel use 0x30 for sector erase, SST use 0x50.
  * 0x30 is block erase in SST
  */
-#	define CONFIG_FLASH_CFI_DRIVER	1
 #	define CONFIG_SYS_FLASH_SIZE		0x800000
 #	define CONFIG_SYS_FLASH_CFI_WIDTH	FLASH_CFI_16BIT
 #	define CONFIG_FLASH_CFI_LEGACY

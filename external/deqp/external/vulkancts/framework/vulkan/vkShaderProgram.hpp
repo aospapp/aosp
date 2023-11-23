@@ -43,23 +43,27 @@ struct ShaderBuildOptions
 	{
 		FLAG_USE_STORAGE_BUFFER_STORAGE_CLASS	= (1u<<0),
 		FLAG_ALLOW_RELAXED_OFFSETS				= (1u<<1),	// allow block offsets to follow VK_KHR_relaxed_block_layout
-		FLAG_ALLOW_SCALAR_OFFSETS				= (1u<<2)	// allow block offsets to follow VK_EXT_scalar_block_layout
+		FLAG_ALLOW_SCALAR_OFFSETS				= (1u<<2),	// allow block offsets to follow VK_EXT_scalar_block_layout
+		FLAG_ALLOW_STD430_UBOS					= (1u<<3)	// allow block offsets to follow VK_EXT_uniform_buffer_standard_layout
 	};
 
 	deUint32		vulkanVersion;
 	SpirvVersion	targetVersion;
 	deUint32		flags;
+	bool			supports_VK_KHR_spirv_1_4;
 
-	ShaderBuildOptions (deUint32 vulkanVersion_, SpirvVersion targetVersion_, deUint32 flags_)
+	ShaderBuildOptions (deUint32 vulkanVersion_, SpirvVersion targetVersion_, deUint32 flags_, bool allowSpirv14 = false)
 		: vulkanVersion	(vulkanVersion_)
 		, targetVersion	(targetVersion_)
 		, flags			(flags_)
+		, supports_VK_KHR_spirv_1_4(allowSpirv14)
 	{}
 
 	ShaderBuildOptions (void)
 		: vulkanVersion	(VK_MAKE_VERSION(1, 0, 0))
 		, targetVersion	(SPIRV_VERSION_1_0)
 		, flags			(0u)
+		, supports_VK_KHR_spirv_1_4 (false)
 	{}
 
 	SpirvValidatorOptions getSpirvValidatorOptions() const
@@ -70,12 +74,16 @@ struct ShaderBuildOptions
 		{
 			rules = SpirvValidatorOptions::kScalarBlockLayout;
 		}
+		else if (flags & FLAG_ALLOW_STD430_UBOS)
+		{
+			rules = SpirvValidatorOptions::kUniformStandardLayout;
+		}
 		else if (flags & FLAG_ALLOW_RELAXED_OFFSETS)
 		{
 			rules = SpirvValidatorOptions::kRelaxedBlockLayout;
 		}
 
-		return SpirvValidatorOptions(vulkanVersion, rules);
+		return SpirvValidatorOptions(vulkanVersion, rules, supports_VK_KHR_spirv_1_4);
 	}
 };
 

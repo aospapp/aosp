@@ -201,6 +201,8 @@ def _is_permute(node):
       'VecPermuteNCHWToNHWC-LayoutOptimizer')
 
 
+@test_util.for_all_test_methods(test_util.no_xla_auto_jit,
+                                'Test does not apply in XLA setting')
 class LayoutOptimizerTest(test.TestCase):
   """Tests the Grappler layout optimizer."""
 
@@ -1473,7 +1475,7 @@ class LayoutOptimizerTest(test.TestCase):
 
       expected_num_transposes = 2
       self.assertEqual(expected_num_transposes, num_transposes)
-      self._assert_trans_nhwc_to_nchw('FusedBatchNorm-0', nodes)
+      self._assert_trans_nhwc_to_nchw('FusedBatchNormV3-0', nodes)
       self._assert_trans_nchw_to_nhwc('Add-0-0', nodes)
       self.assertAllClose(output_val_ref, output_val, atol=1e-3)
 

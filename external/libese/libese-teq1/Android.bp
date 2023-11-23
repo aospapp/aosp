@@ -21,6 +21,7 @@ cc_library {
     srcs: ["teq1.c"],
     cflags: ["-Wall", "-Werror"],
     shared_libs: ["liblog", "libese", "libese-sysdeps"],
+    export_include_dirs: ["include"],
 }
 
 cc_library {
@@ -35,6 +36,7 @@ cc_library {
     // Ensure that only explicitly exported symbols are visible.
     shared_libs: ["liblog", "libese", "libese-sysdeps"],
     export_include_dirs: [".", "include"],
+    visibility: ["//external/libese:__subpackages__"],
 }
 
 subdirs = ["tests"]

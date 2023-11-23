@@ -5,6 +5,7 @@
 
 #include <common.h>
 #include <command.h>
+#include <env.h>
 #include <netdev.h>
 #include <asm/io.h>
 #include <asm/arch/fsl_serdes.h>
@@ -80,11 +81,16 @@ struct ls1088a_qds_mdio {
 	struct mii_dev *realbus;
 };
 
+struct reg_pair {
+	uint addr;
+	u8 *val;
+};
+
 static void sgmii_configure_repeater(int dpmac)
 {
 	struct mii_dev *bus;
 	uint8_t a = 0xf;
-	int i, j, ret;
+	int i, j, k, ret;
 	unsigned short value;
 	const char *dev = "LS1088A_QDS_MDIO2";
 	int i2c_addr[] = {0x58, 0x59, 0x5a, 0x5b};
@@ -96,8 +102,28 @@ static void sgmii_configure_repeater(int dpmac)
 	uint8_t ch_b_eq[] = {0x1, 0x2, 0x3, 0x7};
 	uint8_t ch_b_ctl2[] = {0x81, 0x82, 0x83, 0x84};
 
+	u8 reg_val[6] = {0x18, 0x38, 0x4, 0x14, 0xb5, 0x20};
+	struct reg_pair reg_pair[10] = {
+		{6, &reg_val[0]}, {4, &reg_val[1]},
+		{8, &reg_val[2]}, {0xf, NULL},
+		{0x11, NULL}, {0x16, NULL},
+		{0x18, NULL}, {0x23, &reg_val[3]},
+		{0x2d, &reg_val[4]}, {4, &reg_val[5]},
+	};
+#ifdef CONFIG_DM_I2C
+	struct udevice *udev;
+#endif
+
 	/* Set I2c to Slot 1 */
-	i2c_write(0x77, 0, 0, &a, 1);
+#ifndef CONFIG_DM_I2C
+	ret = i2c_write(0x77, 0, 0, &a, 1);
+#else
+	ret = i2c_get_chip_for_busnum(0, 0x77, 1, &udev);
+	if (!ret)
+		ret = dm_i2c_write(udev, 0, &a, 1);
+#endif
+	if (ret)
+		goto error;
 
 	switch (dpmac) {
 	case 1:
@@ -143,31 +169,34 @@ static void sgmii_configure_repeater(int dpmac)
 		return;
 	}
 
+#ifdef CONFIG_DM_I2C
+	i2c_get_chip_for_busnum(0, i2c_phy_addr, 1, &udev);
+#endif
+
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
-			a = 0x18;
-			i2c_write(i2c_phy_addr, 6, 1, &a, 1);
-			a = 0x38;
-			i2c_write(i2c_phy_addr, 4, 1, &a, 1);
-			a = 0x4;
-			i2c_write(i2c_phy_addr, 8, 1, &a, 1);
+			reg_pair[3].val = &ch_a_eq[i];
+			reg_pair[4].val = &ch_a_ctl2[j];
+			reg_pair[5].val = &ch_b_eq[i];
+			reg_pair[6].val = &ch_b_ctl2[j];
+			for (k = 0; k < 10; k++) {
+#ifndef CONFIG_DM_I2C
+				ret = i2c_write(i2c_phy_addr,
+						reg_pair[k].addr,
+						1, reg_pair[k].val, 1);
+#else
+				ret = i2c_get_chip_for_busnum(0,
+							      i2c_phy_addr,
+							      1, &udev);
+				if (!ret)
+					ret = dm_i2c_write(udev,
+							   reg_pair[k].addr,
+							   reg_pair[k].val, 1);
+#endif
+				if (ret)
+					goto error;
+			}
 
-			i2c_write(i2c_phy_addr, 0xf, 1,
-				  &ch_a_eq[i], 1);
-			i2c_write(i2c_phy_addr, 0x11, 1,
-				  &ch_a_ctl2[j], 1);
-
-			i2c_write(i2c_phy_addr, 0x16, 1,
-				  &ch_b_eq[i], 1);
-			i2c_write(i2c_phy_addr, 0x18, 1,
-				  &ch_b_ctl2[j], 1);
-
-			a = 0x14;
-			i2c_write(i2c_phy_addr, 0x23, 1, &a, 1);
-			a = 0xb5;
-			i2c_write(i2c_phy_addr, 0x2d, 1, &a, 1);
-			a = 0x20;
-			i2c_write(i2c_phy_addr, 4, 1, &a, 1);
 			mdelay(100);
 			ret = miiphy_read(dev, phy_addr, 0x11, &value);
 			if (ret > 0)
@@ -202,7 +231,7 @@ error:
 static void qsgmii_configure_repeater(int dpmac)
 {
 	uint8_t a = 0xf;
-	int i, j;
+	int i, j, k;
 	int i2c_phy_addr = 0;
 	int phy_addr = 0;
 	int i2c_addr[] = {0x58, 0x59, 0x5a, 0x5b};
@@ -212,12 +241,32 @@ static void qsgmii_configure_repeater(int dpmac)
 	uint8_t ch_b_eq[] = {0x1, 0x2, 0x3, 0x7};
 	uint8_t ch_b_ctl2[] = {0x81, 0x82, 0x83, 0x84};
 
+	u8 reg_val[6] = {0x18, 0x38, 0x4, 0x14, 0xb5, 0x20};
+	struct reg_pair reg_pair[10] = {
+		{6, &reg_val[0]}, {4, &reg_val[1]},
+		{8, &reg_val[2]}, {0xf, NULL},
+		{0x11, NULL}, {0x16, NULL},
+		{0x18, NULL}, {0x23, &reg_val[3]},
+		{0x2d, &reg_val[4]}, {4, &reg_val[5]},
+	};
+
 	const char *dev = mdio_names[EMI1_SLOT1];
 	int ret = 0;
 	unsigned short value;
+#ifdef CONFIG_DM_I2C
+	struct udevice *udev;
+#endif
 
 	/* Set I2c to Slot 1 */
-	i2c_write(0x77, 0, 0, &a, 1);
+#ifndef CONFIG_DM_I2C
+	ret = i2c_write(0x77, 0, 0, &a, 1);
+#else
+	ret = i2c_get_chip_for_busnum(0, 0x77, 1, &udev);
+	if (!ret)
+		ret = dm_i2c_write(udev, 0, &a, 1);
+#endif
+	if (ret)
+		goto error;
 
 	switch (dpmac) {
 	case 7:
@@ -251,28 +300,35 @@ static void qsgmii_configure_repeater(int dpmac)
 		return;
 	}
 
+#ifdef CONFIG_DM_I2C
+	i2c_get_chip_for_busnum(0, i2c_phy_addr, 1, &udev);
+#endif
+
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
-			a = 0x18;
-			i2c_write(i2c_phy_addr, 6, 1, &a, 1);
-			a = 0x38;
-			i2c_write(i2c_phy_addr, 4, 1, &a, 1);
-			a = 0x4;
-			i2c_write(i2c_phy_addr, 8, 1, &a, 1);
+			reg_pair[3].val = &ch_a_eq[i];
+			reg_pair[4].val = &ch_a_ctl2[j];
+			reg_pair[5].val = &ch_b_eq[i];
+			reg_pair[6].val = &ch_b_ctl2[j];
 
-			i2c_write(i2c_phy_addr, 0xf, 1, &ch_a_eq[i], 1);
-			i2c_write(i2c_phy_addr, 0x11, 1, &ch_a_ctl2[j], 1);
+			for (k = 0; k < 10; k++) {
+#ifndef CONFIG_DM_I2C
+				ret = i2c_write(i2c_phy_addr,
+						reg_pair[k].addr,
+						1, reg_pair[k].val, 1);
+#else
+				ret = i2c_get_chip_for_busnum(0,
+							      i2c_addr[dpmac],
+							      1, &udev);
+				if (!ret)
+					ret = dm_i2c_write(udev,
+							   reg_pair[k].addr,
+							   reg_pair[k].val, 1);
+#endif
+				if (ret)
+					goto error;
+			}
 
-			i2c_write(i2c_phy_addr, 0x16, 1, &ch_b_eq[i], 1);
-			i2c_write(i2c_phy_addr, 0x18, 1, &ch_b_ctl2[j], 1);
-
-			a = 0x14;
-			i2c_write(i2c_phy_addr, 0x23, 1, &a, 1);
-			a = 0xb5;
-			i2c_write(i2c_phy_addr, 0x2d, 1, &a, 1);
-			a = 0x20;
-			i2c_write(i2c_phy_addr, 4, 1, &a, 1);
-			mdelay(100);
 			ret = miiphy_read(dev, phy_addr, 0x11, &value);
 			if (ret > 0)
 				goto error;
@@ -487,16 +543,16 @@ void ls1088a_handle_phy_interface_sgmii(int dpmac_id)
 	case 0x3A:
 		switch (dpmac_id) {
 		case 1:
-			wriop_set_phy_address(dpmac_id, riser_phy_addr[1]);
+			wriop_set_phy_address(dpmac_id, 0, riser_phy_addr[1]);
 			break;
 		case 2:
-			wriop_set_phy_address(dpmac_id, riser_phy_addr[0]);
+			wriop_set_phy_address(dpmac_id, 0, riser_phy_addr[0]);
 			break;
 		case 3:
-			wriop_set_phy_address(dpmac_id, riser_phy_addr[3]);
+			wriop_set_phy_address(dpmac_id, 0, riser_phy_addr[3]);
 			break;
 		case 7:
-			wriop_set_phy_address(dpmac_id, riser_phy_addr[2]);
+			wriop_set_phy_address(dpmac_id, 0, riser_phy_addr[2]);
 			break;
 		default:
 			printf("WRIOP: Wrong DPMAC%d set to SGMII", dpmac_id);
@@ -532,13 +588,13 @@ void ls1088a_handle_phy_interface_qsgmii(int dpmac_id)
 		case 4:
 		case 5:
 		case 6:
-			wriop_set_phy_address(dpmac_id, dpmac_id + 9);
+			wriop_set_phy_address(dpmac_id, 0, dpmac_id + 9);
 			break;
 		case 7:
 		case 8:
 		case 9:
 		case 10:
-			wriop_set_phy_address(dpmac_id, dpmac_id + 1);
+			wriop_set_phy_address(dpmac_id, 0, dpmac_id + 1);
 			break;
 		}
 
@@ -567,7 +623,7 @@ void ls1088a_handle_phy_interface_xsgmii(int i)
 	case 0x15:
 	case 0x1D:
 	case 0x1E:
-		wriop_set_phy_address(i, i + 26);
+		wriop_set_phy_address(i, 0, i + 26);
 		ls1088a_qds_enable_SFP_TX(SFP_TX);
 		break;
 	default:
@@ -590,13 +646,13 @@ static void ls1088a_handle_phy_interface_rgmii(int dpmac_id)
 
 	switch (dpmac_id) {
 	case 4:
-		wriop_set_phy_address(dpmac_id, RGMII_PHY1_ADDR);
+		wriop_set_phy_address(dpmac_id, 0, RGMII_PHY1_ADDR);
 		dpmac_info[dpmac_id].board_mux = EMI1_RGMII1;
 		bus = mii_dev_for_muxval(EMI1_RGMII1);
 		wriop_set_mdio(dpmac_id, bus);
 		break;
 	case 5:
-		wriop_set_phy_address(dpmac_id, RGMII_PHY2_ADDR);
+		wriop_set_phy_address(dpmac_id, 0, RGMII_PHY2_ADDR);
 		dpmac_info[dpmac_id].board_mux = EMI1_RGMII2;
 		bus = mii_dev_for_muxval(EMI1_RGMII2);
 		wriop_set_mdio(dpmac_id, bus);

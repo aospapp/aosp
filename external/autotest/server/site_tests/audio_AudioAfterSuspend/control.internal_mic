@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.cros.audio import audio_test_data
-from autotest_lib.client.cros.audio import cras_configs
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server import utils
@@ -16,8 +15,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:chameleon_audio_perbuild"
-DEPENDENCIES = "chameleon, audio_board, audio_box"
+ATTRIBUTES = "suite:chameleon_audio_unstable"
+DEPENDENCIES = "audio_box"
 JOB_RETRIES = 2
 
 DOC = """
@@ -34,8 +33,7 @@ chameleon_args = hosts.CrosHost.get_chameleon_arguments(args_dict)
 
 def run(machine):
     host = hosts.create_host(machine, chameleon_args=chameleon_args)
-    expected_internal_mic_node = cras_configs.get_internal_mic_node(
-            audio_test_utils.get_board_name(host), host.get_platform())
+    expected_internal_mic_node = audio_test_utils.get_internal_mic_node(host)
     job.run_test("audio_AudioAfterSuspend", host=host,
                  golden_data=(audio_test_data.SIMPLE_FREQUENCY_TEST_FILE, 1500),
                  bind_from=chameleon_audio_ids.ChameleonIds.LINEOUT,

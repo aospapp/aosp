@@ -161,6 +161,7 @@ enum IndexExprType
 enum TextureType
 {
 	TEXTURE_TYPE_1D = 0,
+	TEXTURE_TYPE_1D_ARRAY,
 	TEXTURE_TYPE_2D,
 	TEXTURE_TYPE_CUBE,
 	TEXTURE_TYPE_2D_ARRAY,
@@ -297,6 +298,12 @@ static TextureType getTextureType (glu::DataType samplerType)
 		case glu::TYPE_SAMPLER_1D_SHADOW:
 			return TEXTURE_TYPE_1D;
 
+		case glu::TYPE_SAMPLER_1D_ARRAY:
+		case glu::TYPE_INT_SAMPLER_1D_ARRAY:
+		case glu::TYPE_UINT_SAMPLER_1D_ARRAY:
+		case glu::TYPE_SAMPLER_1D_ARRAY_SHADOW:
+			return TEXTURE_TYPE_1D_ARRAY;
+
 		case glu::TYPE_SAMPLER_2D:
 		case glu::TYPE_INT_SAMPLER_2D:
 		case glu::TYPE_UINT_SAMPLER_2D:
@@ -327,10 +334,11 @@ static TextureType getTextureType (glu::DataType samplerType)
 
 static bool isShadowSampler (glu::DataType samplerType)
 {
-	return samplerType == glu::TYPE_SAMPLER_1D_SHADOW		||
-		   samplerType == glu::TYPE_SAMPLER_2D_SHADOW		||
-		   samplerType == glu::TYPE_SAMPLER_2D_ARRAY_SHADOW	||
-		   samplerType == glu::TYPE_SAMPLER_CUBE_SHADOW;
+	return	samplerType == glu::TYPE_SAMPLER_1D_SHADOW			||
+			samplerType == glu::TYPE_SAMPLER_1D_ARRAY_SHADOW	||
+			samplerType == glu::TYPE_SAMPLER_2D_SHADOW			||
+			samplerType == glu::TYPE_SAMPLER_2D_ARRAY_SHADOW	||
+			samplerType == glu::TYPE_SAMPLER_CUBE_SHADOW;
 }
 
 static glu::DataType getSamplerOutputType (glu::DataType samplerType)
@@ -338,6 +346,7 @@ static glu::DataType getSamplerOutputType (glu::DataType samplerType)
 	switch (samplerType)
 	{
 		case glu::TYPE_SAMPLER_1D:
+		case glu::TYPE_SAMPLER_1D_ARRAY:
 		case glu::TYPE_SAMPLER_2D:
 		case glu::TYPE_SAMPLER_CUBE:
 		case glu::TYPE_SAMPLER_2D_ARRAY:
@@ -345,12 +354,14 @@ static glu::DataType getSamplerOutputType (glu::DataType samplerType)
 			return glu::TYPE_FLOAT_VEC4;
 
 		case glu::TYPE_SAMPLER_1D_SHADOW:
+		case glu::TYPE_SAMPLER_1D_ARRAY_SHADOW:
 		case glu::TYPE_SAMPLER_2D_SHADOW:
 		case glu::TYPE_SAMPLER_CUBE_SHADOW:
 		case glu::TYPE_SAMPLER_2D_ARRAY_SHADOW:
 			return glu::TYPE_FLOAT;
 
 		case glu::TYPE_INT_SAMPLER_1D:
+		case glu::TYPE_INT_SAMPLER_1D_ARRAY:
 		case glu::TYPE_INT_SAMPLER_2D:
 		case glu::TYPE_INT_SAMPLER_CUBE:
 		case glu::TYPE_INT_SAMPLER_2D_ARRAY:
@@ -358,6 +369,7 @@ static glu::DataType getSamplerOutputType (glu::DataType samplerType)
 			return glu::TYPE_INT_VEC4;
 
 		case glu::TYPE_UINT_SAMPLER_1D:
+		case glu::TYPE_UINT_SAMPLER_1D_ARRAY:
 		case glu::TYPE_UINT_SAMPLER_2D:
 		case glu::TYPE_UINT_SAMPLER_CUBE:
 		case glu::TYPE_UINT_SAMPLER_2D_ARRAY:
@@ -398,6 +410,7 @@ static glu::DataType getSamplerCoordType (glu::DataType samplerType)
 	switch (texType)
 	{
 		case TEXTURE_TYPE_1D:		numCoords = 1;	break;
+		case TEXTURE_TYPE_1D_ARRAY:	numCoords = 2;	break;
 		case TEXTURE_TYPE_2D:		numCoords = 2;	break;
 		case TEXTURE_TYPE_2D_ARRAY:	numCoords = 3;	break;
 		case TEXTURE_TYPE_CUBE:		numCoords = 3;	break;
@@ -406,7 +419,9 @@ static glu::DataType getSamplerCoordType (glu::DataType samplerType)
 			DE_ASSERT(false);
 	}
 
-	if (isShadowSampler(samplerType))
+	if (samplerType == glu::TYPE_SAMPLER_1D_SHADOW)
+		numCoords = 3;
+	else if (isShadowSampler(samplerType))
 		numCoords += 1;
 
 	DE_ASSERT(de::inRange(numCoords, 1, 4));
@@ -439,7 +454,8 @@ static vk::VkImageType getVkImageType (TextureType texType)
 {
 	switch (texType)
 	{
-		case TEXTURE_TYPE_1D:			return vk::VK_IMAGE_TYPE_1D;
+		case TEXTURE_TYPE_1D:
+		case TEXTURE_TYPE_1D_ARRAY:		return vk::VK_IMAGE_TYPE_1D;
 		case TEXTURE_TYPE_2D:
 		case TEXTURE_TYPE_2D_ARRAY:		return vk::VK_IMAGE_TYPE_2D;
 		case TEXTURE_TYPE_CUBE:			return vk::VK_IMAGE_TYPE_2D;
@@ -455,6 +471,7 @@ static vk::VkImageViewType getVkImageViewType (TextureType texType)
 	switch (texType)
 	{
 		case TEXTURE_TYPE_1D:			return vk::VK_IMAGE_VIEW_TYPE_1D;
+		case TEXTURE_TYPE_1D_ARRAY:		return vk::VK_IMAGE_VIEW_TYPE_1D_ARRAY;
 		case TEXTURE_TYPE_2D:			return vk::VK_IMAGE_VIEW_TYPE_2D;
 		case TEXTURE_TYPE_2D_ARRAY:		return vk::VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 		case TEXTURE_TYPE_CUBE:			return vk::VK_IMAGE_VIEW_TYPE_CUBE;
@@ -1192,7 +1209,7 @@ tcu::TestStatus BlockArrayIndexingCaseInstance::iterate (void)
 
 	if ((m_flags & FLAG_USE_STORAGE_BUFFER) != 0)
 	{
-		if (!isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), "VK_KHR_storage_buffer_storage_class"))
+		if (!m_context.isDeviceFunctionalitySupported("VK_KHR_storage_buffer_storage_class"))
 			TCU_THROW(NotSupportedError, "VK_KHR_storage_buffer_storage_class is not supported");
 	}
 
@@ -1422,7 +1439,7 @@ void BlockArrayIndexingCase::createShaderSpec (void)
 	const char*			instanceName	= "block";
 	const char*			indicesPrefix	= "index";
 	const char*			resultPrefix	= "result";
-	const char*			interfaceName	= m_blockType == BLOCKTYPE_UNIFORM ? "uniform" : "buffer";
+	const char*			interfaceName	= m_blockType == BLOCKTYPE_UNIFORM ? "uniform" : "readonly buffer";
 	std::ostringstream	global, code;
 
 	for (int readNdx = 0; readNdx < numReads; readNdx++)
@@ -1694,11 +1711,12 @@ tcu::TestStatus AtomicCounterIndexingCaseInstance::iterate (void)
 	}
 
 	{
-		tcu::TestLog&					log				= m_context.getTestContext().getLog();
-		tcu::TestStatus					testResult		= tcu::TestStatus::pass("Pass");
-		std::vector<int>				numHits			(numCounters, 0);	// Number of hits per counter.
-		std::vector<deUint32>			counterValues	(numCounters);
-		std::vector<std::vector<bool> >	counterMasks	(numCounters);
+		tcu::TestLog&						  log						= m_context.getTestContext().getLog();
+		tcu::TestStatus						  testResult					= tcu::TestStatus::pass("Pass");
+		std::vector<int>					  numHits					(numCounters, 0);	// Number of hits per counter.
+		std::vector<deUint32>				  counterValues				(numCounters);
+		std::vector<std::map<deUint32, int> > resultValueHitCountMaps	(numCounters);
+
 
 		for (int opNdx = 0; opNdx < numOps; opNdx++)
 			numHits[m_opIndices[opNdx]] += 1;
@@ -1717,22 +1735,30 @@ tcu::TestStatus AtomicCounterIndexingCaseInstance::iterate (void)
 			const deUint32		refCount	= (deUint32)(numHits[counterNdx]*numInvocations);
 			const deUint32		resCount	= counterValues[counterNdx];
 
-			if (refCount != resCount)
+			bool foundInvalidCtrValue = false;
+
+			if(resCount < refCount)
+			{
+				log << tcu::TestLog::Message << "ERROR: atomic counter " << counterNdx << " has value " << resCount
+					<< ", expected value greater than or equal to " << refCount
+					<< tcu::TestLog::EndMessage;
+
+				foundInvalidCtrValue = true;
+			}
+			else if (refCount == 0 && resCount != 0)
 			{
 				log << tcu::TestLog::Message << "ERROR: atomic counter " << counterNdx << " has value " << resCount
 					<< ", expected " << refCount
 					<< tcu::TestLog::EndMessage;
 
+				foundInvalidCtrValue = true;
+			}
+
+			if (foundInvalidCtrValue == true)
+			{
 				if (testResult.getCode() == QP_TEST_RESULT_PASS)
 					testResult = tcu::TestStatus::fail("Invalid atomic counter value");
 			}
-		}
-
-		// Allocate bitmasks - one bit per each valid result value
-		for (int counterNdx = 0; counterNdx < numCounters; counterNdx++)
-		{
-			const int	counterValue	= numHits[counterNdx]*numInvocations;
-			counterMasks[counterNdx].resize(counterValue, false);
 		}
 
 		// Verify result values from shaders
@@ -1742,11 +1768,14 @@ tcu::TestStatus AtomicCounterIndexingCaseInstance::iterate (void)
 			{
 				const int		counterNdx	= m_opIndices[opNdx];
 				const deUint32	resValue	= outValues[opNdx*numInvocations + invocationNdx];
-				const bool		rangeOk		= de::inBounds(resValue, 0u, (deUint32)counterMasks[counterNdx].size());
-				const bool		notSeen		= rangeOk && !counterMasks[counterNdx][resValue];
-				const bool		isOk		= rangeOk && notSeen;
+				const bool		rangeOk		= de::inBounds(resValue, 0u, counterValues[counterNdx]);
 
-				if (!isOk)
+				if (resultValueHitCountMaps[counterNdx].count(resValue) == 0)
+					resultValueHitCountMaps[counterNdx][resValue] = 1;
+				else
+					resultValueHitCountMaps[counterNdx][resValue] += 1;
+
+				if (!rangeOk)
 				{
 					log << tcu::TestLog::Message << "ERROR: at invocation " << invocationNdx
 						<< ", op " << opNdx << ": got invalid result value "
@@ -1756,21 +1785,23 @@ tcu::TestStatus AtomicCounterIndexingCaseInstance::iterate (void)
 					if (testResult.getCode() == QP_TEST_RESULT_PASS)
 						testResult = tcu::TestStatus::fail("Invalid result value");
 				}
-				else
-				{
-					// Mark as used - no other invocation should see this value from same counter.
-					counterMasks[counterNdx][resValue] = true;
-				}
 			}
 		}
 
-		if (testResult.getCode() == QP_TEST_RESULT_PASS)
+		for (int ctrIdx = 0; ctrIdx < numCounters; ctrIdx++)
 		{
-			// Consistency check - all masks should be 1 now
-			for (int counterNdx = 0; counterNdx < numCounters; counterNdx++)
+			std::map<deUint32, int>::iterator hitCountItr;
+			for (hitCountItr = resultValueHitCountMaps[ctrIdx].begin(); hitCountItr != resultValueHitCountMaps[ctrIdx].end(); hitCountItr++)
 			{
-				for (std::vector<bool>::const_iterator i = counterMasks[counterNdx].begin(); i != counterMasks[counterNdx].end(); i++)
-					TCU_CHECK_INTERNAL(*i);
+				if(hitCountItr->second > 1)
+				{
+					log << tcu::TestLog::Message << "ERROR: Duplicate result value from counter " << ctrIdx << "."
+						<<" Value " << hitCountItr->first << " found " << hitCountItr->second << " times."
+						<< tcu::TestLog::EndMessage;
+
+					if (testResult.getCode() == QP_TEST_RESULT_PASS)
+						testResult = tcu::TestStatus::fail("Invalid result value");
+				}
 			}
 		}
 
@@ -1939,22 +1970,25 @@ void OpaqueTypeIndexingTests::init (void)
 	{
 		static const glu::DataType samplerTypes[] =
 		{
-			// \note 1D images will be added by a later extension.
-//			glu::TYPE_SAMPLER_1D,
+			glu::TYPE_SAMPLER_1D,
+			glu::TYPE_SAMPLER_1D_ARRAY,
+			glu::TYPE_SAMPLER_1D_ARRAY_SHADOW,
 			glu::TYPE_SAMPLER_2D,
 			glu::TYPE_SAMPLER_CUBE,
 			glu::TYPE_SAMPLER_2D_ARRAY,
 			glu::TYPE_SAMPLER_3D,
-//			glu::TYPE_SAMPLER_1D_SHADOW,
+			glu::TYPE_SAMPLER_1D_SHADOW,
 			glu::TYPE_SAMPLER_2D_SHADOW,
 			glu::TYPE_SAMPLER_CUBE_SHADOW,
 			glu::TYPE_SAMPLER_2D_ARRAY_SHADOW,
-//			glu::TYPE_INT_SAMPLER_1D,
+			glu::TYPE_INT_SAMPLER_1D,
+			glu::TYPE_INT_SAMPLER_1D_ARRAY,
 			glu::TYPE_INT_SAMPLER_2D,
 			glu::TYPE_INT_SAMPLER_CUBE,
 			glu::TYPE_INT_SAMPLER_2D_ARRAY,
 			glu::TYPE_INT_SAMPLER_3D,
-//			glu::TYPE_UINT_SAMPLER_1D,
+			glu::TYPE_UINT_SAMPLER_1D,
+			glu::TYPE_UINT_SAMPLER_1D_ARRAY,
 			glu::TYPE_UINT_SAMPLER_2D,
 			glu::TYPE_UINT_SAMPLER_CUBE,
 			glu::TYPE_UINT_SAMPLER_2D_ARRAY,
@@ -2016,20 +2050,10 @@ void OpaqueTypeIndexingTests::init (void)
 				const glu::ShaderType	shaderType		= shaderTypes[shaderTypeNdx].type;
 				const std::string		name			= std::string(indexExprName) + "_" + shaderTypes[shaderTypeNdx].name;
 
-				// \note [pyry] In Vulkan CTS 1.0.2 ubo/ssbo/atomic_counter groups should not cover tess/geom stages
-				if ((shaderType == glu::SHADERTYPE_VERTEX)		||
-					(shaderType == glu::SHADERTYPE_FRAGMENT)	||
-					(shaderType == glu::SHADERTYPE_COMPUTE))
-				{
-					uboGroup->addChild	(new BlockArrayIndexingCase		(m_testCtx, name.c_str(), indexExprDesc, BLOCKTYPE_UNIFORM,	indexExprType, shaderType));
-					acGroup->addChild	(new AtomicCounterIndexingCase	(m_testCtx, name.c_str(), indexExprDesc, indexExprType, shaderType));
-
-					if (indexExprType == INDEX_EXPR_TYPE_CONST_LITERAL || indexExprType == INDEX_EXPR_TYPE_CONST_EXPRESSION)
-						ssboGroup->addChild	(new BlockArrayIndexingCase	(m_testCtx, name.c_str(), indexExprDesc, BLOCKTYPE_BUFFER, indexExprType, shaderType));
-				}
-
-				if (indexExprType == INDEX_EXPR_TYPE_CONST_LITERAL || indexExprType == INDEX_EXPR_TYPE_CONST_EXPRESSION)
-					ssboStorageBufGroup->addChild	(new BlockArrayIndexingCase	(m_testCtx, name.c_str(), indexExprDesc, BLOCKTYPE_BUFFER, indexExprType, shaderType, (deUint32)BlockArrayIndexingCaseInstance::FLAG_USE_STORAGE_BUFFER));
+				uboGroup->addChild	(new BlockArrayIndexingCase		(m_testCtx, name.c_str(), indexExprDesc, BLOCKTYPE_UNIFORM,	indexExprType, shaderType));
+				acGroup->addChild	(new AtomicCounterIndexingCase	(m_testCtx, name.c_str(), indexExprDesc, indexExprType, shaderType));
+				ssboGroup->addChild	(new BlockArrayIndexingCase	(m_testCtx, name.c_str(), indexExprDesc, BLOCKTYPE_BUFFER, indexExprType, shaderType));
+				ssboStorageBufGroup->addChild	(new BlockArrayIndexingCase	(m_testCtx, name.c_str(), indexExprDesc, BLOCKTYPE_BUFFER, indexExprType, shaderType, (deUint32)BlockArrayIndexingCaseInstance::FLAG_USE_STORAGE_BUFFER));
 			}
 		}
 	}

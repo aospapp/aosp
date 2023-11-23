@@ -38,7 +38,7 @@ typedef vpx_codec_stream_info_t vp8_stream_info_t;
 
 /* Structures for handling memory allocations */
 typedef enum { VP8_SEG_ALG_PRIV = 256, VP8_SEG_MAX } mem_seg_id_t;
-#define NELEMENTS(x) ((int)(sizeof(x) / sizeof(x[0])))
+#define NELEMENTS(x) ((int)(sizeof(x) / sizeof((x)[0])))
 
 struct vpx_codec_alg_priv {
   vpx_codec_priv_t base;
@@ -456,6 +456,7 @@ static vpx_codec_err_t vp8_decode(vpx_codec_alg_priv_t *ctx,
     }
 
     if (setjmp(pbi->common.error.jmp)) {
+      vpx_clear_system_state();
       /* We do not know if the missing frame(s) was supposed to update
        * any of the reference buffers, but we act conservative and
        * mark only the last buffer as corrupted.
@@ -485,7 +486,7 @@ static vpx_codec_err_t vp8_decode(vpx_codec_alg_priv_t *ctx,
     pbi->restart_threads = 0;
 #endif
     ctx->user_priv = user_priv;
-    if (vp8dx_receive_compressed_data(pbi, data_sz, data, deadline)) {
+    if (vp8dx_receive_compressed_data(pbi, deadline)) {
       res = update_error_state(ctx, &pbi->common.error);
     }
 

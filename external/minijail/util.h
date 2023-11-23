@@ -9,6 +9,7 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -105,12 +106,40 @@ static inline int is_android(void)
 #endif
 }
 
+static inline bool compiled_with_asan(void)
+{
+#if defined(__SANITIZE_ADDRESS__)
+	/* For gcc. */
+	return true;
+#elif defined(__has_feature)
+	/* For clang. */
+	return __has_feature(address_sanitizer) ||
+	       __has_feature(hwaddress_sanitizer);
+#else
+	return false;
+#endif
+}
+
 void __asan_init(void) attribute_weak;
 void __hwasan_init(void) attribute_weak;
 
-static inline int running_with_asan(void)
+static inline bool running_with_asan(void)
 {
-	return &__asan_init != 0 || &__hwasan_init != 0;
+	/*
+	 * There are some configurations under which ASan needs a dynamic (as
+	 * opposed to compile-time) test. Some Android processes that start
+	 * before /data is mounted run with non-instrumented libminijail.so, so
+	 * the symbol-sniffing code must be present to make the right decision.
+	 */
+	return compiled_with_asan() || &__asan_init != 0 || &__hwasan_init != 0;
+}
+
+static inline bool debug_logging_allowed(void) {
+#if defined(ALLOW_DEBUG_LOGGING)
+	return true;
+#else
+	return false;
+#endif
 }
 
 int lookup_syscall(const char *name);
@@ -165,6 +194,46 @@ char *consumestr(char **buf, size_t *buflength);
                  priority parameter. Ignored unless @logger = LOG_TO_FD.
  */
 void init_logging(enum logging_system_t logger, int fd, int min_priority);
+
+/*
+ * minjail_free_env: Frees an environment array plus the environment strings it
+ * points to. The environment and its constituent strings must have been
+ * allocated (as opposed to pointing to static data), e.g. by using
+ * minijail_copy_env() and minijail_setenv().
+ *
+ * @env The environment to free.
+ */
+void minijail_free_env(char **env);
+
+/*
+ * minjail_copy_env: Copy an environment array (such as passed to execve),
+ * duplicating the environment strings and the array pointing at them.
+ *
+ * @env The environment to copy.
+ *
+ * Returns a pointer to the copied environment or NULL on memory allocation
+ * failure.
+ */
+char **minijail_copy_env(char *const *env);
+
+/*
+ * minjail_setenv: Set an environment variable in @env. Semantics match the
+ * standard setenv() function, but this operates on @env, not the global
+ * environment. @env must be dynamically allocated (as opposed to pointing to
+ * static data), e.g. via minijail_copy_env(). @name and @value get copied into
+ * newly-allocated memory.
+ *
+ * @env       Address of the environment to modify. Might be re-allocated to
+ *            make room for the new entry.
+ * @name      Name of the key to set.
+ * @value     The value to set.
+ * @overwrite Whether to replace the existing value for @name. If non-zero and
+ *            the entry is already present, no changes will be made.
+ *
+ * Returns 0 and modifies *@env on success, returns an error code otherwise.
+ */
+int minijail_setenv(char ***env, const char *name, const char *value,
+		    int overwrite);
 
 #ifdef __cplusplus
 }; /* extern "C" */

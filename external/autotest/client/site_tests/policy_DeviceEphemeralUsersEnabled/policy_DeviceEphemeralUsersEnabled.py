@@ -2,9 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import retry
+
 from autotest_lib.client.cros import cryptohome
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
+from py_utils import TimeoutException
 
 class policy_DeviceEphemeralUsersEnabled(
         enterprise_policy_base.EnterprisePolicyTest):
@@ -23,6 +26,11 @@ class policy_DeviceEphemeralUsersEnabled(
             cryptohome.is_permanent_vault_mounted(
                 user=enterprise_policy_base.USERNAME, allow_fail=True)
 
+    # Prevents client tests that are kicked off via server tests from flaking.
+    @retry.retry(TimeoutException, timeout_min=5, delay_sec=10)
+    def _run_setup_case(self, case):
+        self.setup_case(device_policies={self._POLICY: case}, enroll=True)
+
     def run_once(self, case):
         """
         Entry point of this test.
@@ -30,5 +38,5 @@ class policy_DeviceEphemeralUsersEnabled(
         @param case: True, False, or None for the value of the policy.
 
         """
-        self.setup_case(device_policies={self._POLICY: case}, enroll=True)
+        self._run_setup_case(case)
         self.verify_permanent_vault(case)

@@ -1,7 +1,6 @@
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """A module containing rootfs handler class."""
 
 import os
@@ -32,15 +31,16 @@ class RootfsHandler(object):
         @param section: The rootfs to verify. May be A or B.
         """
         kernel_path = self.os_if.join_part(self.root_dev,
-                _KERNEL_MAP[section.upper()])
+                                           _KERNEL_MAP[section.upper()])
         rootfs_path = self.os_if.join_part(self.root_dev,
-                _ROOTFS_MAP[section.upper()])
+                                           _ROOTFS_MAP[section.upper()])
         # vbutil_kernel won't operate on a device, only a file.
         self.os_if.run_shell_command(
                 'dd if=%s of=%s' % (kernel_path, self.kernel_dump_file))
         vbutil_kernel = self.os_if.run_shell_command_get_output(
                 'vbutil_kernel --verify %s --verbose' % self.kernel_dump_file)
-        DM_REGEXP = re.compile(r'dm="(?:1 )?vroot none ro(?: 1)?,(0 (\d+) .+)"')
+        DM_REGEXP = re.compile(
+                r'dm="(?:1 )?vroot none ro(?: 1)?,(0 (\d+) .+)"')
         match = DM_REGEXP.search('\n'.join(vbutil_kernel))
         if not match:
             return False

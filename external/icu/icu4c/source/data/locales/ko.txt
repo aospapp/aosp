@@ -34,11 +34,11 @@ ko{
     }
     ExemplarCharacters{"[가-힣]"}
     ExemplarCharactersIndex{"[ㄱ ㄴ ㄷ ㄹ ㅁ ㅂ ㅅ ㅇ ㅈ ㅊ ㅋ ㅌ ㅍ ㅎ]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[‾ _ ＿ \\- － ‐ — ― 〜 ・ , ， 、 ; ； \\: ： ! ！ ¡ ? ？ ¿ . ． ‥ … 。 · ＇ ‘ ’ \u0022 "
-        "＂ “ ” ( （ ) ） \\[ ［ \\] ］ \\{ ｛ \\} ｝ 〈 〉 《 》 「 」 『 』 【 】 〔 〕 § ¶ @ ＠ * ＊ / "
-        "／ \\\\ ＼ \\& ＆ # ＃ % ％ ‰ † ‡ ′ ″ 〃 ※]"
+        "[‾ _ ＿ \\- － ‐ ‑ — ― 〜 ・ , ， 、 ; ； \\: ： ! ！ ¡ ? ？ ¿ . ． ‥ … 。 · ＇ ‘ ’ "
+        "\u0022 ＂ “ ” ( （ ) ） \\[ ［ \\] ］ \\{ ｛ \\} ｝ 〈 〉 《 》 「 」 『 』 【 】 〔 〕 § ¶ @ ＠"
+        " * ＊ / ／ \\\\ ＼ \\& ＆ # ＃ % ％ ‰ † ‡ ′ ″ 〃 ※]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -207,7 +207,7 @@ ko{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         buddhist{
             availableFormats{
@@ -228,9 +228,6 @@ ko{
             eras{
                 abbreviated{
                     "불기",
-                }
-                narrow{
-                    "BE",
                 }
                 wide{
                     "불기",
@@ -956,6 +953,53 @@ ko{
                 yyyyQQQQ{"G y년 QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"B h시 ~ B h시"}
+                    h{"B h시 ~ h시"}
+                }
+                Bhm{
+                    B{"B h:mm ~ B h:mm"}
+                    h{"B h:mm ~ h:mm"}
+                    m{"B h:mm ~ h:mm"}
+                }
+                Gy{
+                    G{"G y년 ~ G y년"}
+                    y{"G y년~y년"}
+                }
+                GyM{
+                    G{"GGGGG y년 M월 ~ GGGGG y년 M월"}
+                    M{"GGGGG y년 M월 ~ y년 M월"}
+                    y{"GGGGG y년 M월 ~ y년 M월"}
+                }
+                GyMEd{
+                    G{"GGGGG y년 M월 d일 E요일 ~ GGGGG y년 M월 d일 E요일"}
+                    M{"GGGGG y년 M월 d일 E요일 ~ y년 M월 d일 E요일"}
+                    d{"GGGGG y년 M월 d일 E요일 ~ y년 M월 d일 E요일"}
+                    y{"GGGGG y년 M월 d일 E요일 ~ y년 M월 d일 E요일"}
+                }
+                GyMMM{
+                    G{"G y년 MMM ~ G y년 MMM"}
+                    M{"G y년 MMM ~ y년 MMM"}
+                    y{"G y년 MMM ~ y년 MMM"}
+                }
+                GyMMMEd{
+                    G{"G y년 MMM d일 E요일 ~ G y년 MMM d일 E요일"}
+                    M{"G y년 MMM d일 E요일 ~ MMM d일 E요일"}
+                    d{"G y년 MMM d일 e요일 – MMM d일 e요일"}
+                    y{"G y년 MMM d일 E요일 ~ y년 MMM d일 E요일"}
+                }
+                GyMMMd{
+                    G{"G y년 MMM d일 ~ y년 MMM d일"}
+                    M{"G y년 MMM d일 ~ MMM d일"}
+                    d{"G y년 MMM d일 ~ d일"}
+                    y{"G y년 MMM d일 ~ MMM y년 d일"}
+                }
+                GyMd{
+                    G{"GGGGG y년 M월 d일 ~ GGGGG y년 M월 d일"}
+                    M{"GGGGG y년 M월 d일 ~ y년 M월 d일"}
+                    d{"GGGGG y년 M월 d일 ~ y년 M월 d일"}
+                    y{"GGGGG y년 M월 d일 ~ y년 M월 d일"}
+                }
                 H{
                     H{"HH ~ HH시"}
                 }
@@ -1125,7 +1169,7 @@ ko{
                 MMMEEEEd{"MMM d일 EEEE"}
                 MMMEd{"MMM d일 (E)"}
                 MMMMW{
-                    other{"MMM W번째 주"}
+                    other{"MMMM W번째 주"}
                 }
                 MMMMd{"MMMM d일"}
                 MMMd{"MMM d일"}
@@ -1318,6 +1362,53 @@ ko{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"B h시 ~ B h시"}
+                    h{"B h시~h시"}
+                }
+                Bhm{
+                    B{"B h:mm~B h:mm"}
+                    h{"B h:mm ~ h:mm"}
+                    m{"B h:mm ~ h:mm"}
+                }
+                Gy{
+                    G{"G y년 ~ G y년"}
+                    y{"G y년~y년"}
+                }
+                GyM{
+                    G{"GGGGG y년 M월 ~ GGGGG y년 M월"}
+                    M{"GGGGG y년 M월 ~ GGGGG y년 M월"}
+                    y{"GGGGG y년 M월 ~ y년 M월"}
+                }
+                GyMEd{
+                    G{"GGGGG y년 M월 d일 E요일 ~ GGGGG y년 M월 d일 E요일"}
+                    M{"GGGGG y년 M월 d일 E요일 ~ y년 M월 d일 E요일"}
+                    d{"GGGGG y년 M월 d일 E요일 ~ y년 M월 d일 E요일"}
+                    y{"GGGGG y년 M월 d일 E요일 ~ y년 M월 d일 E요일"}
+                }
+                GyMMM{
+                    G{"G y년 MMM ~ G y년 MMM"}
+                    M{"G y년 MMM ~ MMM"}
+                    y{"G y년 MMM ~ y년 MMM"}
+                }
+                GyMMMEd{
+                    G{"G y년 MMM d일 E요일 ~ G y년 MMM d일 E요일"}
+                    M{"G y년 MMM d일 E요일 ~ MMM d일 E요일"}
+                    d{"G y년 MMM d일 E요일 ~ MMM d일 E요일"}
+                    y{"G y년 MMM d일 E요일 ~ y년 MMM d일 E요일"}
+                }
+                GyMMMd{
+                    G{"G y년 MMM d일 ~ G y년 MMM d일"}
+                    M{"G y년 MMM d일 ~ MMM d일"}
+                    d{"G y년 MMM d일 ~ d일"}
+                    y{"G y년 MMM d일 ~ y년 MMM d일"}
+                }
+                GyMd{
+                    G{"GGGGG y년 M월 d일 ~ GGGGG y년 M월 d일"}
+                    M{"GGGGG y년 M월 d일 ~ y년 M월 d일"}
+                    d{"GGGGG y년 M월 d일 ~ y년 M월 d일"}
+                    y{"GGGGG y년 M월 d일 ~ y년 M월 d일"}
+                }
                 H{
                     H{"H ~ H시"}
                 }

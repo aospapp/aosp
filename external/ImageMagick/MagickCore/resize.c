@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -156,7 +156,7 @@ static double Blackman(const double x,
     Refactored by Chantal Racette and Nicolas Robidoux to one trig call and
     five flops.
   */
-  const double cosine=cos((double) (MagickPI*x));
+  const double cosine = cos((double) (MagickPI*x));
   magick_unreferenced(resize_filter);
   return(0.34+cosine*(0.5+cosine*0.16));
 }
@@ -172,7 +172,7 @@ static double Bohman(const double x,
     taking advantage of the fact that the support of Bohman is 1.0 (so that we
     know that sin(pi x) >= 0).
   */
-  const double cosine=cos((double) (MagickPI*x));
+  const double cosine = cos((double) (MagickPI*x));
   const double sine=sqrt(1.0-cosine*cosine);
   magick_unreferenced(resize_filter);
   return((1.0-x)*cosine+(1.0/MagickPI)*sine);
@@ -201,7 +201,7 @@ static double Cosine(const double x,
     Cosine window function:
       cos((pi/2)*x).
   */
-  return((double)cos((double) (MagickPI2*x)));
+  return(cos((double) (MagickPI2*x)));
 }
 
 static double CubicBC(const double x,const ResizeFilter *resize_filter)
@@ -326,7 +326,7 @@ static double Hann(const double x,
     Cosine window function:
       0.5+0.5*cos(pi*x).
   */
-  const double cosine=cos((double) (MagickPI*x));
+  const double cosine = cos((double) (MagickPI*x));
   magick_unreferenced(resize_filter);
   return(0.5+0.5*cosine);
 }
@@ -338,7 +338,7 @@ static double Hamming(const double x,
     Offset cosine window function:
      .54 + .46 cos(pi x).
   */
-  const double cosine=cos((double) (MagickPI*x));
+  const double cosine = cos((double) (MagickPI*x));
   magick_unreferenced(resize_filter);
   return(0.54+0.46*cosine);
 }
@@ -1124,9 +1124,9 @@ MagickPrivate ResizeFilter *AcquireResizeFilter(const Image *image,
     Adjust window function scaling to match windowing support for weighting
     function.  This avoids a division on every filter call.
   */
-  resize_filter->scale/=resize_filter->window_support;
+  resize_filter->scale*=PerceptibleReciprocal(resize_filter->window_support);
   /*
-   * Set Cubic Spline B,C values, calculate Cubic coefficients.
+    Set Cubic Spline B,C values, calculate Cubic coefficients.
   */
   B=0.0;
   C=0.0;
@@ -1501,9 +1501,8 @@ static double BesselOrderOne(double x)
     x=(-x);
   if (x < 8.0)
     return(p*J1(x));
-  q=sqrt((double) (2.0/(MagickPI*x)))*(P1(x)*(1.0/sqrt(2.0)*(sin((double) x)-
-    cos((double) x)))-8.0/x*Q1(x)*(-1.0/sqrt(2.0)*(sin((double) x)+
-    cos((double) x))));
+  q=sqrt((double) (2.0/(MagickPI*x)))*(P1(x)*(1.0/sqrt(2.0)*(sin(x)-
+    cos(x)))-8.0/x*Q1(x)*(-1.0/sqrt(2.0)*(sin(x)+cos(x))));
   if (p < 0.0)
     q=(-q);
   return(q);
@@ -2060,6 +2059,769 @@ MagickExport Image *LiquidRescaleImage(const Image *image,
 %    o exception: return any errors or warnings in this structure.
 %
 */
+
+static inline void CopyPixels(const Quantum *source,const ssize_t source_offset,
+  Quantum *destination,const ssize_t destination_offset,const size_t channels)
+{
+  register ssize_t
+    i;
+
+  for (i=0; i < (ssize_t) channels; i++)
+    destination[channels*destination_offset+i]=source[source_offset*channels+i];
+}
+
+static inline void MixPixels(const Quantum *source,const ssize_t *source_offset,
+  const size_t source_size,Quantum *destination,
+  const ssize_t destination_offset,const size_t channels)
+{
+  ssize_t
+    sum;
+
+  register ssize_t
+    i;
+
+  for (i=0; i < (ssize_t) channels; i++)
+  {
+    register ssize_t
+      j;
+
+    sum=0;
+    for (j=0; j < (ssize_t) source_size; j++)
+      sum+=source[source_offset[j]*channels+i];
+    destination[channels*destination_offset+i]=(Quantum) (sum/source_size);
+  }
+}
+
+static inline void Mix2Pixels(const Quantum *source,
+  const ssize_t source_offset1,const ssize_t source_offset2,
+  Quantum *destination,const ssize_t destination_offset,const size_t channels)
+{
+  const ssize_t
+    offsets[2] = { source_offset1, source_offset2 };
+
+  MixPixels(source,offsets,2,destination,destination_offset,channels);
+}
+
+static inline int PixelsEqual(const Quantum *source1,ssize_t offset1,
+  const Quantum *source2,ssize_t offset2,const size_t channels)
+{
+  register ssize_t
+    i;
+
+  offset1*=channels;
+  offset2*=channels;
+  for (i=0; i < (ssize_t) channels; i++)
+    if (source1[offset1+i] != source2[offset2+i])
+      return(0);
+  return(1);
+}
+
+static inline void Eagle2X(const Image *source,const Quantum *pixels,
+  Quantum *result,const size_t channels)
+{
+  ssize_t
+    i;
+
+  (void) source;
+  for (i=0; i < 4; i++)
+    CopyPixels(pixels,4,result,i,channels);
+  if (PixelsEqual(pixels,0,pixels,1,channels) &&
+      PixelsEqual(pixels,1,pixels,3,channels))
+    CopyPixels(pixels,0,result,0,channels);
+  if (PixelsEqual(pixels,1,pixels,2,channels) &&
+      PixelsEqual(pixels,2,pixels,5,channels))
+    CopyPixels(pixels,2,result,1,channels);
+  if (PixelsEqual(pixels,3,pixels,6,channels) &&
+      PixelsEqual(pixels,6,pixels,7,channels))
+    CopyPixels(pixels,6,result,2,channels);
+  if (PixelsEqual(pixels,5,pixels,8,channels) &&
+      PixelsEqual(pixels,8,pixels,7,channels))
+    CopyPixels(pixels,8,result,3,channels);
+}
+
+static void Hq2XHelper(const unsigned int rule,const Quantum *source,
+  Quantum *destination,const ssize_t destination_offset,const size_t channels,
+  const ssize_t e,const ssize_t a,const ssize_t b,const ssize_t d,
+  const ssize_t f,const ssize_t h)
+{
+#define caseA(N,A,B,C,D) \
+  case N: \
+  { \
+    const ssize_t \
+      offsets[4] = { A, B, C, D }; \
+ \
+    MixPixels(source,offsets,4,destination,destination_offset,channels);\
+    break; \
+  }
+#define caseB(N,A,B,C,D,E,F,G,H) \
+  case N: \
+  { \
+    const ssize_t \
+      offsets[8] = { A, B, C, D, E, F, G, H }; \
+ \
+    MixPixels(source,offsets,8,destination,destination_offset,channels);\
+    break; \
+  }
+
+  switch (rule)
+  {
+    case 0:
+    {
+      CopyPixels(source,e,destination,destination_offset,channels);
+      break;
+    }
+    caseA(1,e,e,e,a)
+    caseA(2,e,e,e,d)
+    caseA(3,e,e,e,b)
+    caseA(4,e,e,d,b)
+    caseA(5,e,e,a,b)
+    caseA(6,e,e,a,d)
+    caseB(7,e,e,e,e,e,b,b,d)
+    caseB(8,e,e,e,e,e,d,d,b)
+    caseB(9,e,e,e,e,e,e,d,b)
+    caseB(10,e,e,d,d,d,b,b,b)
+    case 11:
+    {
+      const ssize_t
+        offsets[16] = { e, e, e, e, e, e, e, e, e, e, e, e, e, e, d, b };
+
+      MixPixels(source,offsets,16,destination,destination_offset,channels);
+      break;
+    }
+    case 12:
+    {
+      if (PixelsEqual(source,b,source,d,channels))
+        {
+          const ssize_t
+            offsets[4] = { e, e, d, b };
+
+          MixPixels(source,offsets,4,destination,destination_offset,channels);
+        }
+      else
+        CopyPixels(source,e,destination,destination_offset,channels);
+      break;
+    }
+    case 13:
+    {
+      if (PixelsEqual(source,b,source,d,channels))
+        {
+          const ssize_t
+            offsets[8] = { e, e, d, d, d, b, b, b };
+
+          MixPixels(source,offsets,8,destination,destination_offset,channels);
+        }
+      else
+        CopyPixels(source,e,destination,destination_offset,channels);
+      break;
+    }
+    case 14:
+    {
+      if (PixelsEqual(source,b,source,d,channels))
+        {
+          const ssize_t
+            offsets[16] = { e, e, e, e, e, e, e, e, e, e, e, e, e, e, d, b };
+
+          MixPixels(source,offsets,16,destination,destination_offset,channels);
+        }
+      else
+        CopyPixels(source,e,destination,destination_offset,channels);
+      break;
+    }
+    case 15:
+    {
+      if (PixelsEqual(source,b,source,d,channels))
+        {
+          const ssize_t
+            offsets[4] = { e, e, d, b };
+
+          MixPixels(source,offsets,4,destination,destination_offset,channels);
+        }
+      else
+        {
+          const ssize_t
+            offsets[4] = { e, e, e, a };
+
+          MixPixels(source,offsets,4,destination,destination_offset,channels);
+        }
+      break;
+    }
+    case 16:
+    {
+      if (PixelsEqual(source,b,source,d,channels))
+        {
+          const ssize_t
+            offsets[8] = { e, e, e, e, e, e, d, b };
+
+          MixPixels(source,offsets,8,destination,destination_offset,channels);
+        }
+      else
+        {
+          const ssize_t
+            offsets[4] = { e, e, e, a };
+
+          MixPixels(source,offsets,4,destination,destination_offset,channels);
+        }
+      break;
+    }
+    case 17:
+    {
+      if (PixelsEqual(source,b,source,d,channels))
+        {
+          const ssize_t
+            offsets[8] = { e, e, d, d, d, b, b, b };
+
+          MixPixels(source,offsets,8,destination,destination_offset,channels);
+        }
+      else
+        {
+          const ssize_t
+            offsets[4] = { e, e, e, a };
+
+          MixPixels(source,offsets,4,destination,destination_offset,channels);
+        }
+      break;
+    }
+    case 18:
+    {
+      if (PixelsEqual(source,b,source,f,channels))
+        {
+          const ssize_t
+            offsets[8] = { e, e, e, e, e, b, b, d };
+
+          MixPixels(source,offsets,8,destination,destination_offset,channels);
+        }
+      else
+        {
+          const ssize_t
+            offsets[4] = { e, e, e, d };
+
+          MixPixels(source,offsets,4,destination,destination_offset,channels);
+        }
+      break;
+    }
+    default:
+    {
+      if (PixelsEqual(source,d,source,h,channels))
+        {
+          const ssize_t
+            offsets[8] = { e, e, e, e, e, d, d, b };
+
+          MixPixels(source,offsets,8,destination,destination_offset,channels);
+        }
+      else
+        {
+          const ssize_t
+            offsets[4] = { e, e, e, b };
+
+          MixPixels(source,offsets,4,destination,destination_offset,channels);
+        }
+      break;
+    }
+  }
+  #undef caseA
+  #undef caseB
+}
+
+static inline unsigned int Hq2XPatternToNumber(const int *pattern)
+{
+  ssize_t
+    i;
+
+  unsigned int
+    result,
+    order;
+
+  result=0;
+  order=1;
+  for (i=7; i >= 0; i--)
+  {
+    result+=order*pattern[i];
+    order*=2;
+  }
+  return(result);
+}
+
+static inline void Hq2X(const Image *source,const Quantum *pixels,
+  Quantum *result,const size_t channels)
+{
+  static const unsigned int
+    Hq2XTable[] =
+    {
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 15, 12, 5,  3, 17, 13,
+      4, 4, 6, 18, 4, 4, 6, 18, 5,  3, 12, 12, 5,  3,  1, 12,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 17, 13, 5,  3, 16, 14,
+      4, 4, 6, 18, 4, 4, 6, 18, 5,  3, 16, 12, 5,  3,  1, 14,
+      4, 4, 6,  2, 4, 4, 6,  2, 5, 19, 12, 12, 5, 19, 16, 12,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 16, 12, 5,  3, 16, 12,
+      4, 4, 6,  2, 4, 4, 6,  2, 5, 19,  1, 12, 5, 19,  1, 14,
+      4, 4, 6,  2, 4, 4, 6, 18, 5,  3, 16, 12, 5, 19,  1, 14,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 15, 12, 5,  3, 17, 13,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 16, 12, 5,  3, 16, 12,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 17, 13, 5,  3, 16, 14,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 16, 13, 5,  3,  1, 14,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 16, 12, 5,  3, 16, 13,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 16, 12, 5,  3,  1, 12,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3, 16, 12, 5,  3,  1, 14,
+      4, 4, 6,  2, 4, 4, 6,  2, 5,  3,  1, 12, 5,  3,  1, 14
+    };
+
+  const int
+    pattern1[] =
+    {
+      !PixelsEqual(pixels,4,pixels,8,channels),
+      !PixelsEqual(pixels,4,pixels,7,channels),
+      !PixelsEqual(pixels,4,pixels,6,channels),
+      !PixelsEqual(pixels,4,pixels,5,channels),
+      !PixelsEqual(pixels,4,pixels,3,channels),
+      !PixelsEqual(pixels,4,pixels,2,channels),
+      !PixelsEqual(pixels,4,pixels,1,channels),
+      !PixelsEqual(pixels,4,pixels,0,channels)
+    };
+
+#define Rotated(p) p[2], p[4], p[7], p[1], p[6], p[0], p[3], p[5]
+  const int pattern2[] = { Rotated(pattern1) };
+  const int pattern3[] = { Rotated(pattern2) };
+  const int pattern4[] = { Rotated(pattern3) };
+#undef Rotated
+
+  Hq2XHelper(Hq2XTable[Hq2XPatternToNumber(pattern1)],pixels,result,0,
+    channels,4,0,1,3,5,7);
+  Hq2XHelper(Hq2XTable[Hq2XPatternToNumber(pattern2)],pixels,result,1,
+    channels,4,2,5,1,7,3);
+  Hq2XHelper(Hq2XTable[Hq2XPatternToNumber(pattern3)],pixels,result,3,
+    channels,4,8,7,5,3,1);
+  Hq2XHelper(Hq2XTable[Hq2XPatternToNumber(pattern4)],pixels,result,2,
+    channels,4,6,3,7,1,5);
+}
+
+static void Fish2X(const Image *source,const Quantum *pixels,Quantum *result,
+  const size_t channels)
+{
+#define Corner(A,B,C,D) \
+  { \
+    if (intensities[B] > intensities[A]) \
+      { \
+        ssize_t    \
+          offsets[3] = { B, C, D }; \
+ \
+        MixPixels(pixels,offsets,3,result,3,channels); \
+      } \
+    else \
+      { \
+        ssize_t    \
+          offsets[3] = { A, B, C }; \
+ \
+        MixPixels(pixels,offsets,3,result,3,channels); \
+      } \
+  }
+
+#define Line(A,B,C,D) \
+  { \
+    if (intensities[C] > intensities[A]) \
+      Mix2Pixels(pixels,C,D,result,3,channels); \
+    else \
+      Mix2Pixels(pixels,A,B,result,3,channels); \
+  }
+
+  MagickFloatType
+    intensities[9];
+
+  int
+    ae,
+    bd,
+    ab,
+    ad,
+    be,
+    de;
+
+  register ssize_t
+    i;
+
+  ssize_t
+    offsets[4] = { 0, 1, 3, 4 };
+
+  for (i=0; i < 9; i++)
+    intensities[i]=GetPixelIntensity(source,pixels + i*channels);
+  CopyPixels(pixels,0,result,0,channels);
+  CopyPixels(pixels,(ssize_t) (intensities[0] > intensities[1] ? 0 : 1),result,
+    1,channels);
+  CopyPixels(pixels,(ssize_t) (intensities[0] > intensities[3] ? 0 : 3),result,
+    2,channels);
+  ae=PixelsEqual(pixels,0,pixels,4,channels);
+  bd=PixelsEqual(pixels,1,pixels,3,channels);
+  ab=PixelsEqual(pixels,0,pixels,1,channels);
+  de=PixelsEqual(pixels,3,pixels,4,channels);
+  ad=PixelsEqual(pixels,0,pixels,3,channels);
+  be=PixelsEqual(pixels,1,pixels,4,channels);
+  if (ae && bd && ab)
+    {
+      CopyPixels(pixels,0,result,3,channels);
+      return;
+    }
+  if (ad && de && !ab)
+    {
+      Corner(1,0,4,3)
+      return;
+    }
+  if (be && de && !ab)
+    {
+      Corner(0,1,3,4)
+      return;
+    }
+  if (ad && ab && !be)
+    {
+      Corner(4,3,1,0)
+      return;
+    }
+  if (ab && be && !ad)
+    {
+      Corner(3,0,4,1)
+      return;
+    }
+  if (ae && (!bd || intensities[1] > intensities[0]))
+    {
+      Mix2Pixels(pixels,0,4,result,3,channels);
+      return;
+    }
+  if (bd && (!ae || intensities[0] > intensities[1]))
+    {
+      Mix2Pixels(pixels,1,3,result,3,channels);
+      return;
+    }
+  if (ab)
+    {
+      Line(0,1,3,4)
+      return;
+    }
+  if (de)
+    {
+      Line(3,4,0,1)
+      return;
+    }
+  if (ad)
+    {
+      Line(0,3,1,4)
+      return;
+    }
+  if (be)
+    {
+      Line(1,4,0,3)
+      return;
+    }
+  MixPixels(pixels,offsets,4,result,3,channels);
+#undef Corner
+#undef Line
+}
+
+static void Xbr2X(const Image *source,const Quantum *pixels,Quantum *result,
+  const size_t channels)
+{
+#define WeightVar(M,N) const int w_##M##_##N = \
+  PixelsEqual(pixels,M,pixels,N,channels) ? 0 : 1;
+
+  WeightVar(12,11)
+  WeightVar(12,7)
+  WeightVar(12,13)
+  WeightVar(12,17)
+  WeightVar(12,16)
+  WeightVar(12,8)
+  WeightVar(6,10)
+  WeightVar(6,2)
+  WeightVar(11,7)
+  WeightVar(11,17)
+  WeightVar(11,5)
+  WeightVar(7,13)
+  WeightVar(7,1)
+  WeightVar(12,6)
+  WeightVar(12,18)
+  WeightVar(8,14)
+  WeightVar(8,2)
+  WeightVar(13,17)
+  WeightVar(13,9)
+  WeightVar(7,3)
+  WeightVar(16,10)
+  WeightVar(16,22)
+  WeightVar(17,21)
+  WeightVar(11,15)
+  WeightVar(18,14)
+  WeightVar(18,22)
+  WeightVar(17,23)
+  WeightVar(17,19)
+#undef WeightVar
+
+  if (
+    w_12_16 + w_12_8 + w_6_10 + w_6_2 + (4 * w_11_7) <
+    w_11_17 + w_11_5 + w_7_13 + w_7_1 + (4 * w_12_6)
+  )
+    Mix2Pixels(pixels,(ssize_t) (w_12_11 <= w_12_7 ? 11 : 7),12,result,0,
+      channels);
+  else
+    CopyPixels(pixels,12,result,0,channels);
+  if (
+    w_12_18 + w_12_6 + w_8_14 + w_8_2 + (4 * w_7_13) <
+    w_13_17 + w_13_9 + w_11_7 + w_7_3 + (4 * w_12_8)
+  )
+    Mix2Pixels(pixels,(ssize_t) (w_12_7 <= w_12_13 ? 7 : 13),12,result,1,
+      channels);
+  else
+    CopyPixels(pixels,12,result,1,channels);
+  if (
+    w_12_6 + w_12_18 + w_16_10 + w_16_22 + (4 * w_11_17) <
+    w_11_7 + w_11_15 + w_13_17 + w_17_21 + (4 * w_12_16)
+  )
+    Mix2Pixels(pixels,(ssize_t) (w_12_11 <= w_12_17 ? 11 : 17),12,result,2,
+      channels);
+  else
+    CopyPixels(pixels,12,result,2,channels);
+  if (
+    w_12_8 + w_12_16 + w_18_14 + w_18_22 + (4 * w_13_17) <
+    w_11_17 + w_17_23 + w_17_19 + w_7_13 + (4 * w_12_18)
+  )
+    Mix2Pixels(pixels,(ssize_t) (w_12_13 <= w_12_17 ? 13 : 17),12,result,3,
+      channels);
+  else
+    CopyPixels(pixels,12,result,3,channels);
+}
+
+static void Scale2X(const Image *source,const Quantum *pixels,Quantum *result,
+  const size_t channels)
+{
+  if (PixelsEqual(pixels,1,pixels,7,channels) ||
+      PixelsEqual(pixels,3,pixels,5,channels))
+    {
+      register ssize_t
+        i;
+
+      for (i=0; i < 4; i++)
+        CopyPixels(pixels,4,result,i,channels);
+      return;
+    }
+    if (PixelsEqual(pixels,1,pixels,3,channels))
+      CopyPixels(pixels,3,result,0,channels);
+    else
+      CopyPixels(pixels,4,result,0,channels);
+    if (PixelsEqual(pixels,1,pixels,5,channels))
+      CopyPixels(pixels,5,result,1,channels);
+    else
+      CopyPixels(pixels,4,result,1,channels);
+    if (PixelsEqual(pixels,3,pixels,7,channels))
+      CopyPixels(pixels,3,result,2,channels);
+    else
+      CopyPixels(pixels,4,result,2,channels);
+    if (PixelsEqual(pixels,5,pixels,7,channels))
+      CopyPixels(pixels,5,result,3,channels);
+    else
+      CopyPixels(pixels,4,result,3,channels);
+}
+
+static void Epbx2X(const Image *source,const Quantum *pixels,
+  Quantum *result,const size_t channels)
+{
+#define HelperCond(a,b,c,d,e,f,g) ( \
+  PixelsEqual(pixels,a,pixels,b,channels) && ( \
+    PixelsEqual(pixels,c,pixels,d,channels) || \
+    PixelsEqual(pixels,c,pixels,e,channels) || \
+    PixelsEqual(pixels,a,pixels,f,channels) || \
+    PixelsEqual(pixels,b,pixels,g,channels) \
+    ) \
+  )
+
+  register ssize_t
+    i;
+
+  for (i=0; i < 4; i++)
+    CopyPixels(pixels,4,result,i,channels);
+  if (
+    !PixelsEqual(pixels,3,pixels,5,channels) &&
+    !PixelsEqual(pixels,1,pixels,7,channels) &&
+    (
+      PixelsEqual(pixels,4,pixels,3,channels) ||
+      PixelsEqual(pixels,4,pixels,7,channels) ||
+      PixelsEqual(pixels,4,pixels,5,channels) ||
+      PixelsEqual(pixels,4,pixels,1,channels) ||
+      (
+        (
+          !PixelsEqual(pixels,0,pixels,8,channels) ||
+           PixelsEqual(pixels,4,pixels,6,channels) ||
+           PixelsEqual(pixels,3,pixels,2,channels)
+        ) &&
+        (
+          !PixelsEqual(pixels,6,pixels,2,channels) ||
+           PixelsEqual(pixels,4,pixels,0,channels) ||
+           PixelsEqual(pixels,4,pixels,8,channels)
+        )
+      )
+    )
+  )
+    {
+      if (HelperCond(1,3,4,0,8,2,6))
+        Mix2Pixels(pixels,1,3,result,0,channels);
+      if (HelperCond(5,1,4,2,6,8,0))
+        Mix2Pixels(pixels,5,1,result,1,channels);
+      if (HelperCond(3,7,4,6,2,0,8))
+        Mix2Pixels(pixels,3,7,result,2,channels);
+      if (HelperCond(7,5,4,8,0,6,2))
+        Mix2Pixels(pixels,7,5,result,3,channels);
+    }
+
+#undef HelperCond
+}
+
+static inline void Eagle3X(const Image *source,const Quantum *pixels,
+  Quantum *result,const size_t channels)
+{
+  ssize_t
+    corner_tl,
+    corner_tr,
+    corner_bl,
+    corner_br;
+
+  corner_tl=PixelsEqual(pixels,0,pixels,1,channels) &&
+    PixelsEqual(pixels,0,pixels,3,channels);
+  corner_tr=PixelsEqual(pixels,1,pixels,2,channels) &&
+    PixelsEqual(pixels,2,pixels,5,channels);
+  corner_bl=PixelsEqual(pixels,3,pixels,6,channels) &&
+    PixelsEqual(pixels,6,pixels,7,channels);
+  corner_br=PixelsEqual(pixels,5,pixels,7,channels) &&
+    PixelsEqual(pixels,7,pixels,8,channels);
+  CopyPixels(pixels,(ssize_t) (corner_tl ? 0 : 4),result,0,channels);
+  if (corner_tl && corner_tr)
+    Mix2Pixels(pixels,0,2,result,1,channels);
+  else
+    CopyPixels(pixels,4,result,1,channels);
+  CopyPixels(pixels,(ssize_t) (corner_tr ? 1 : 4),result,2,channels);
+  if (corner_tl && corner_bl)
+    Mix2Pixels(pixels,0,6,result,3,channels);
+  else
+    CopyPixels(pixels,4,result,3,channels);
+  CopyPixels(pixels,4,result,4,channels);
+  if (corner_tr && corner_br)
+    Mix2Pixels(pixels,2,8,result,5,channels);
+  else
+    CopyPixels(pixels,4,result,5,channels);
+  CopyPixels(pixels,(ssize_t) (corner_bl ? 3 : 4),result,6,channels);
+  if (corner_bl && corner_br)
+    Mix2Pixels(pixels,6,8,result,7,channels);
+  else
+    CopyPixels(pixels,4,result,7,channels);
+  CopyPixels(pixels,(ssize_t) (corner_br ? 5 : 4),result,8,channels);
+}
+
+static inline void Eagle3XB(const Image *source,const Quantum *pixels,
+  Quantum *result,const size_t channels)
+{
+  ssize_t
+    corner_tl,
+    corner_tr,
+    corner_bl,
+    corner_br;
+
+  corner_tl=PixelsEqual(pixels,0,pixels,1,channels) &&
+    PixelsEqual(pixels,0,pixels,3,channels);
+  corner_tr=PixelsEqual(pixels,1,pixels,2,channels) &&
+    PixelsEqual(pixels,2,pixels,5,channels);
+  corner_bl=PixelsEqual(pixels,3,pixels,6,channels) &&
+    PixelsEqual(pixels,6,pixels,7,channels);
+  corner_br=PixelsEqual(pixels,5,pixels,7,channels) &&
+    PixelsEqual(pixels,7,pixels,8,channels);
+  CopyPixels(pixels,(ssize_t) (corner_tl ? 0 : 4),result,0,channels);
+  CopyPixels(pixels,4,result,1,channels);
+  CopyPixels(pixels,(ssize_t) (corner_tr ? 1 : 4),result,2,channels);
+  CopyPixels(pixels,4,result,3,channels);
+  CopyPixels(pixels,4,result,4,channels);
+  CopyPixels(pixels,4,result,5,channels);
+  CopyPixels(pixels,(ssize_t) (corner_bl ? 3 : 4),result,6,channels);
+  CopyPixels(pixels,4,result,7,channels);
+  CopyPixels(pixels,(ssize_t) (corner_br ? 5 : 4),result,8,channels);
+}
+
+static inline void Scale3X(const Image *source,const Quantum *pixels,
+  Quantum *result,const size_t channels)
+{
+  if (!PixelsEqual(pixels,1,pixels,7,channels) &&
+      !PixelsEqual(pixels,3,pixels,5,channels))
+    {
+      if (PixelsEqual(pixels,3,pixels,1,channels))
+        CopyPixels(pixels,3,result,0,channels);
+      else
+        CopyPixels(pixels,4,result,0,channels);
+
+      if (
+        (
+          PixelsEqual(pixels,3,pixels,1,channels) &&
+          !PixelsEqual(pixels,4,pixels,2,channels)
+        ) ||
+        (
+          PixelsEqual(pixels,5,pixels,1,channels) &&
+          !PixelsEqual(pixels,4,pixels,0,channels)
+        )
+      )
+        CopyPixels(pixels,1,result,1,channels);
+      else
+        CopyPixels(pixels,4,result,1,channels);
+      if (PixelsEqual(pixels,5,pixels,1,channels))
+        CopyPixels(pixels,5,result,2,channels);
+      else
+        CopyPixels(pixels,4,result,2,channels);
+      if (
+        (
+          PixelsEqual(pixels,3,pixels,1,channels) &&
+          !PixelsEqual(pixels,4,pixels,6,channels)
+        ) ||
+        (
+          PixelsEqual(pixels,3,pixels,7,channels) &&
+          !PixelsEqual(pixels,4,pixels,0,channels)
+        )
+      )
+        CopyPixels(pixels,3,result,3,channels);
+      else
+        CopyPixels(pixels,4,result,3,channels);
+      CopyPixels(pixels,4,result,4,channels);
+      if (
+        (
+          PixelsEqual(pixels,5,pixels,1,channels) &&
+          !PixelsEqual(pixels,4,pixels,8,channels)
+        ) ||
+        (
+          PixelsEqual(pixels,5,pixels,7,channels) &&
+          !PixelsEqual(pixels,4,pixels,2,channels)
+        )
+      )
+        CopyPixels(pixels,5,result,5,channels);
+      else
+        CopyPixels(pixels,4,result,5,channels);
+      if (PixelsEqual(pixels,3,pixels,7,channels))
+        CopyPixels(pixels,3,result,6,channels);
+      else
+        CopyPixels(pixels,4,result,6,channels);
+      if (
+        (
+          PixelsEqual(pixels,3,pixels,7,channels) &&
+          !PixelsEqual(pixels,4,pixels,8,channels)
+        ) ||
+        (
+          PixelsEqual(pixels,5,pixels,7,channels) &&
+          !PixelsEqual(pixels,4,pixels,6,channels)
+        )
+      )
+        CopyPixels(pixels,7,result,7,channels);
+      else
+        CopyPixels(pixels,4,result,7,channels);
+      if (PixelsEqual(pixels,5,pixels,7,channels))
+        CopyPixels(pixels,5,result,8,channels);
+      else
+        CopyPixels(pixels,4,result,8,channels);
+    }
+  else
+    {
+      register ssize_t
+        i;
+
+      for (i=0; i < 9; i++)
+        CopyPixels(pixels,4,result,i,channels);
+    }
+}
+
 MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
 {
 #define MagnifyImageTag  "Magnify/Image"
@@ -2068,7 +2830,11 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
     *image_view,
     *magnify_view;
 
+  const char
+    *option;
+
   Image
+    *source_image,
     *magnify_image;
 
   MagickBooleanType
@@ -2077,8 +2843,21 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
   MagickOffsetType
     progress;
 
+  OffsetInfo
+    offset;
+
+  RectangleInfo
+    rectangle;
+
   ssize_t
     y;
+
+  unsigned char
+    magnification,
+    width;
+
+  void
+    (*scaling_method)(const Image *,const Quantum *,Quantum *,size_t);
 
   /*
     Initialize magnified image attributes.
@@ -2089,23 +2868,137 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
-  magnify_image=CloneImage(image,2*image->columns,2*image->rows,MagickTrue,
-    exception);
-  if (magnify_image == (Image *) NULL)
-    return((Image *) NULL);
+  option=GetImageOption(image->image_info,"magnify:method");
+  if (option == (char *) NULL)
+    option="scale2x";
+  scaling_method=Scale2X;
+  magnification=1;
+  width=1;
+  switch (*option)
+  {
+    case 'e':
+    {
+      if (LocaleCompare(option,"eagle2x") == 0)
+        {
+          scaling_method=Eagle2X;
+          magnification=2;
+          width=3;
+          break;
+        }
+      if (LocaleCompare(option,"eagle3x") == 0)
+        {
+          scaling_method=Eagle3X;
+          magnification=3;
+          width=3;
+          break;
+        }
+      if (LocaleCompare(option,"eagle3xb") == 0)
+        {
+          scaling_method=Eagle3XB;
+          magnification=3;
+          width=3;
+          break;
+        }
+      if (LocaleCompare(option,"epbx2x") == 0)
+        {
+          scaling_method=Epbx2X;
+          magnification=2;
+          width=3;
+          break;
+        }
+      break;
+    }
+    case 'f':
+    {
+      if (LocaleCompare(option,"fish2x") == 0)
+        {
+          scaling_method=Fish2X;
+          magnification=2;
+          width=3;
+          break;
+        }
+      break;
+    }
+    case 'h':
+    {
+      if (LocaleCompare(option,"hq2x") == 0)
+        {
+          scaling_method=Hq2X;
+          magnification=2;
+          width=3;
+          break;
+        }
+      break;
+    }
+    case 's':
+    {
+      if (LocaleCompare(option,"scale2x") == 0)
+        {
+          scaling_method=Scale2X;
+          magnification=2;
+          width=3;
+          break;
+        }
+      if (LocaleCompare(option,"scale3x") == 0)
+        {
+          scaling_method=Scale3X;
+          magnification=3;
+          width=3;
+          break;
+        }
+      break;
+    }
+    case 'x':
+    {
+      if (LocaleCompare(option,"xbr2x") == 0)
+        {
+          scaling_method=Xbr2X;
+          magnification=2;
+          width=5;
+        }
+      break;
+    }
+    default:
+      break;
+  }
   /*
-    Magnify image.
+    Make a working copy of the source image and convert it to RGB colorspace.
+  */
+  source_image=CloneImage(image,image->columns,image->rows,MagickTrue,
+    exception);
+  if (source_image == (Image *) NULL)
+    return((Image *) NULL);
+  offset.x=0;
+  offset.y=0;
+  rectangle.x=0;
+  rectangle.y=0;
+  rectangle.width=image->columns;
+  rectangle.height=image->rows;
+  (void) CopyImagePixels(source_image,image,&rectangle,&offset,exception);
+  (void) SetImageColorspace(source_image,RGBColorspace,exception);
+  magnify_image=CloneImage(source_image,magnification*source_image->columns,
+    magnification*source_image->rows,MagickTrue,exception);
+  if (magnify_image == (Image *) NULL)
+    {
+      source_image=DestroyImage(source_image);
+      return((Image *) NULL);
+    }
+  /*
+    Magnify the image.
   */
   status=MagickTrue;
   progress=0;
-  image_view=AcquireVirtualCacheView(image,exception);
+  image_view=AcquireVirtualCacheView(source_image,exception);
   magnify_view=AcquireAuthenticCacheView(magnify_image,exception);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static) shared(progress,status) \
-    magick_number_threads(image,magnify_image,image->rows,1)
+    magick_number_threads(source_image,magnify_image,source_image->rows,1)
 #endif
-  for (y=0; y < (ssize_t) image->rows; y++)
+  for (y=0; y < (ssize_t) source_image->rows; y++)
   {
+    Quantum
+      r[128]; /* to hold result pixels */
+
     register Quantum
       *magick_restrict q;
 
@@ -2114,8 +3007,8 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
 
     if (status == MagickFalse)
       continue;
-    q=QueueCacheViewAuthenticPixels(magnify_view,0,2*y,magnify_image->columns,2,
-      exception);
+    q=QueueCacheViewAuthenticPixels(magnify_view,0,magnification*y,
+      magnify_image->columns,magnification,exception);
     if (q == (Quantum *) NULL)
       {
         status=MagickFalse;
@@ -2124,85 +3017,31 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
     /*
       Magnify this row of pixels.
     */
-    for (x=0; x < (ssize_t) image->columns; x++)
+    for (x=0; x < (ssize_t) source_image->columns; x++)
     {
-      MagickRealType
-        intensity[9];
-
       register const Quantum
         *magick_restrict p;
-
-      register Quantum
-        *magick_restrict r;
-
-      register ssize_t
-        i;
 
       size_t
         channels;
 
-      p=GetCacheViewVirtualPixels(image_view,x-1,y-1,3,3,exception);
-      if (p == (const Quantum *) NULL)
-        {
-          status=MagickFalse;
-          continue;
-        }
-      channels=GetPixelChannels(image);
-      for (i=0; i < 9; i++)
-        intensity[i]=GetPixelIntensity(image,p+i*channels);
-      r=q;
-      if ((fabs(intensity[1]-intensity[7]) < MagickEpsilon) ||
-          (fabs(intensity[3]-intensity[5]) < MagickEpsilon))
-        {
-          /*
-            Clone center pixel.
-          */
-          for (i=0; i < (ssize_t) channels; i++)
-            r[i]=p[4*channels+i];
-          r+=GetPixelChannels(magnify_image);
-          for (i=0; i < (ssize_t) channels; i++)
-            r[i]=p[4*channels+i];
-          r+=GetPixelChannels(magnify_image)*(magnify_image->columns-1);
-          for (i=0; i < (ssize_t) channels; i++)
-            r[i]=p[4*channels+i];
-          r+=GetPixelChannels(magnify_image);
-          for (i=0; i < (ssize_t) channels; i++)
-            r[i]=p[4*channels+i];
-        }
-      else
-        {
-          /*
-            Selectively clone pixel.
-          */
-          if (fabs(intensity[1]-intensity[3]) < MagickEpsilon)
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[3*channels+i];
-          else
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[4*channels+i];
-          r+=GetPixelChannels(magnify_image);
-          if (fabs(intensity[1]-intensity[5]) < MagickEpsilon)
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[5*channels+i];
-          else
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[4*channels+i];
-          r+=GetPixelChannels(magnify_image)*(magnify_image->columns-1);
-          if (fabs(intensity[3]-intensity[7]) < MagickEpsilon)
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[3*channels+i];
-          else
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[4*channels+i];
-          r+=GetPixelChannels(magnify_image);
-          if (fabs(intensity[5]-intensity[7]) < MagickEpsilon)
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[5*channels+i];
-          else
-            for (i=0; i < (ssize_t) channels; i++)
-              r[i]=p[4*channels+i];
-        }
-      q+=2*GetPixelChannels(magnify_image);
+      register ssize_t
+        i;
+
+      ssize_t
+        j;
+
+      p=GetCacheViewVirtualPixels(image_view,x-width/2,y-width/2,width,width,
+        exception);
+      channels=GetPixelChannels(source_image);
+      scaling_method(source_image,p,r,channels);
+      /*
+        Copy the result pixels into the final image.
+      */
+      for (j=0; j < (ssize_t) magnification; j++)
+        for (i=0; i < (ssize_t) (channels*magnification); i++)
+          q[j*channels*magnify_image->columns+i]=r[j*magnification*channels+i];
+      q+=magnification*GetPixelChannels(magnify_image);
     }
     if (SyncCacheViewAuthenticPixels(magnify_view,exception) == MagickFalse)
       status=MagickFalse;
@@ -2222,6 +3061,7 @@ MagickExport Image *MagnifyImage(const Image *image,ExceptionInfo *exception)
   }
   magnify_view=DestroyCacheView(magnify_view);
   image_view=DestroyCacheView(image_view);
+  source_image=DestroyImage(source_image);
   if (status == MagickFalse)
     magnify_image=DestroyImage(magnify_image);
   return(magnify_image);
@@ -3569,8 +4409,7 @@ MagickExport Image *ScaleImage(const Image *image,const size_t columns,
           for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
             pixel[i]+=span.x*scanline[(x-1)*GetPixelChannels(image)+i];
         }
-      if ((next_column == MagickFalse) &&
-          (t < (ssize_t) scale_image->columns))
+      if ((next_column == MagickFalse) && (t < (ssize_t) scale_image->columns))
         for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
           scale_scanline[t*GetPixelChannels(image)+i]=pixel[i];
       /*

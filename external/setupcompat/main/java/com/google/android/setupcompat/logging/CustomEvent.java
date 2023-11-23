@@ -25,6 +25,7 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import com.google.android.setupcompat.internal.ClockProvider;
 import com.google.android.setupcompat.internal.PersistableBundles;
@@ -198,6 +199,19 @@ public final class CustomEvent implements Parcelable {
                 "Maximum length of string value for key='%s' cannot exceed %s.",
                 key, MAX_STR_LENGTH));
       }
+    }
+  }
+
+  /**
+   * Trims the string longer than {@code MAX_STR_LENGTH} character, only keep the first {@code
+   * MAX_STR_LENGTH} - 1 characters and attached … in the end.
+   */
+  @NonNull
+  public static String trimsStringOverMaxLength(@NonNull String str) {
+    if (str.length() <= MAX_STR_LENGTH) {
+      return str;
+    } else {
+      return String.format("%s…", str.substring(0, MAX_STR_LENGTH - 1));
     }
   }
 

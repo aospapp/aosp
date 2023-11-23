@@ -37,10 +37,12 @@
 #include "vktWsiDisplayTimingTests.hpp"
 #include "vktTestCaseUtil.hpp"
 #include "vktTestGroupUtil.hpp"
+#include "vktCustomInstancesDevices.hpp"
 
 #include "tcuPlatform.hpp"
 #include "tcuResultCollector.hpp"
 #include "tcuTestLog.hpp"
+#include "tcuCommandLine.hpp"
 
 #include "deClock.h"
 
@@ -76,10 +78,9 @@ void checkAllSupported (const Extensions& supportedExtensions, const vector<stri
 	}
 }
 
-vk::Move<vk::VkInstance> createInstanceWithWsi (const vk::PlatformInterface&		vkp,
-												deUint32							version,
-												const Extensions&					supportedExtensions,
-												vk::wsi::Type						wsiType)
+CustomInstance createInstanceWithWsi (Context&							context,
+									  const Extensions&					supportedExtensions,
+									  vk::wsi::Type						wsiType)
 {
 	vector<string>	extensions;
 
@@ -88,7 +89,7 @@ vk::Move<vk::VkInstance> createInstanceWithWsi (const vk::PlatformInterface&		vk
 
 	checkAllSupported(supportedExtensions, extensions);
 
-	return vk::createDefaultInstance(vkp, version, vector<string>(), extensions);
+	return vkt::createCustomInstanceWithExtensions(context, extensions);
 }
 
 vk::VkPhysicalDeviceFeatures getDeviceNullFeatures (void)
@@ -98,39 +99,6 @@ vk::VkPhysicalDeviceFeatures getDeviceNullFeatures (void)
 	return features;
 }
 
-deUint32 getNumQueueFamilyIndices (const vk::InstanceInterface& vki, vk::VkPhysicalDevice physicalDevice)
-{
-	deUint32	numFamilies		= 0;
-
-	vki.getPhysicalDeviceQueueFamilyProperties(physicalDevice, &numFamilies, DE_NULL);
-
-	return numFamilies;
-}
-
-vector<deUint32> getSupportedQueueFamilyIndices (const vk::InstanceInterface& vki, vk::VkPhysicalDevice physicalDevice, vk::VkSurfaceKHR surface)
-{
-	const deUint32		numTotalFamilyIndices	= getNumQueueFamilyIndices(vki, physicalDevice);
-	vector<deUint32>	supportedFamilyIndices;
-
-	for (deUint32 queueFamilyNdx = 0; queueFamilyNdx < numTotalFamilyIndices; ++queueFamilyNdx)
-	{
-		if (vk::wsi::getPhysicalDeviceSurfaceSupport(vki, physicalDevice, queueFamilyNdx, surface) == VK_TRUE)
-			supportedFamilyIndices.push_back(queueFamilyNdx);
-	}
-
-	return supportedFamilyIndices;
-}
-
-deUint32 chooseQueueFamilyIndex (const vk::InstanceInterface& vki, vk::VkPhysicalDevice physicalDevice, vk::VkSurfaceKHR surface)
-{
-	const vector<deUint32>	supportedFamilyIndices	= getSupportedQueueFamilyIndices(vki, physicalDevice, surface);
-
-	if (supportedFamilyIndices.empty())
-		TCU_THROW(NotSupportedError, "Device doesn't support presentation");
-
-	return supportedFamilyIndices[0];
-}
-
 vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
 											const vk::VkInstance				instance,
 											const vk::InstanceInterface&		vki,
@@ -138,6 +106,7 @@ vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
 											const Extensions&					supportedExtensions,
 											const deUint32						queueFamilyIndex,
 											bool								requiresDisplayTiming,
+											bool								validationEnabled,
 											const vk::VkAllocationCallbacks*	pAllocator = DE_NULL)
 {
 	const float							queuePriorities[]	= { 1.0f };
@@ -179,7 +148,7 @@ vk::Move<vk::VkDevice> createDeviceWithWsi (const vk::PlatformInterface&		vkp,
 			TCU_THROW(NotSupportedError, (string(extensions[ndx]) + " is not supported").c_str());
 	}
 
-	return createDevice(vkp, instance, vki, physicalDevice, &deviceParams, pAllocator);
+	return createCustomDevice(validationEnabled, vkp, instance, vki, physicalDevice, &deviceParams, pAllocator);
 }
 
 de::MovePtr<vk::wsi::Display> createDisplay (const vk::Platform&	platform,
@@ -285,6 +254,8 @@ vk::Move<vk::VkCommandBuffer> createCommandBuffer (const vk::DeviceInterface&	vk
 												   vk::VkRenderPass				renderPass,
 												   vk::VkFramebuffer			framebuffer,
 												   vk::VkPipeline				pipeline,
+												   vk::VkImage					image,
+												   bool							isFirst,
 												   size_t						frameNdx,
 												   deUint32						quadCount,
 												   deUint32						imageWidth,
@@ -303,7 +274,32 @@ vk::Move<vk::VkCommandBuffer> createCommandBuffer (const vk::DeviceInterface&	vk
 	vk::Move<vk::VkCommandBuffer>	commandBuffer	(vk::allocateCommandBuffer(vkd, device, &allocateInfo));
 	beginCommandBuffer(vkd, *commandBuffer, 0u);
 
-	beginRenderPass(vkd, *commandBuffer, renderPass, framebuffer, vk::makeRect2D(0, 0, imageWidth, imageHeight), tcu::Vec4(0.25f, 0.5f, 0.75f, 1.0f));
+	{
+		const vk::VkImageSubresourceRange subRange =
+		{
+			vk::VK_IMAGE_ASPECT_COLOR_BIT,
+			0,
+			1,
+			0,
+			1
+		};
+		const vk::VkImageMemoryBarrier barrier =
+		{
+			vk::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			DE_NULL,
+			vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			vk::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			isFirst ? vk::VK_IMAGE_LAYOUT_UNDEFINED : vk::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			vk::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_QUEUE_FAMILY_IGNORED,
+			VK_QUEUE_FAMILY_IGNORED,
+			image,
+			subRange
+		};
+		vkd.cmdPipelineBarrier(*commandBuffer, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, DE_NULL, 0, DE_NULL, 1, &barrier);
+	}
+
+	beginRenderPass(vkd, *commandBuffer, renderPass, framebuffer, vk::makeRect2D(imageWidth, imageHeight), tcu::Vec4(0.25f, 0.5f, 0.75f, 1.0f));
 
 	cmdRenderFrame(vkd, *commandBuffer, pipelineLayout, pipeline, frameNdx, quadCount);
 
@@ -544,8 +540,8 @@ private:
 	const deUint32							m_quadCount;
 	const vk::PlatformInterface&			m_vkp;
 	const Extensions						m_instanceExtensions;
-	const vk::Unique<vk::VkInstance>		m_instance;
-	const vk::InstanceDriver				m_vki;
+	const CustomInstance					m_instance;
+	const vk::InstanceDriver&				m_vki;
 	const vk::VkPhysicalDevice				m_physicalDevice;
 	const de::UniquePtr<vk::wsi::Display>	m_nativeDisplay;
 	const de::UniquePtr<vk::wsi::Window>	m_nativeWindow;
@@ -570,6 +566,7 @@ private:
 
 	vk::Move<vk::VkSwapchainKHR>			m_swapchain;
 	std::vector<vk::VkImage>				m_swapchainImages;
+	std::vector<bool>						m_isFirst;
 
 	vk::Move<vk::VkRenderPass>				m_renderPass;
 	vk::Move<vk::VkPipeline>				m_pipeline;
@@ -691,17 +688,17 @@ DisplayTimingTestInstance::DisplayTimingTestInstance (Context& context, const Te
 	, m_quadCount				(16u)
 	, m_vkp						(context.getPlatformInterface())
 	, m_instanceExtensions		(vk::enumerateInstanceExtensionProperties(m_vkp, DE_NULL))
-	, m_instance				(createInstanceWithWsi(m_vkp, context.getUsedApiVersion(), m_instanceExtensions, testConfig.wsiType))
-	, m_vki						(m_vkp, *m_instance)
-	, m_physicalDevice			(vk::chooseDevice(m_vki, *m_instance, context.getTestContext().getCommandLine()))
+	, m_instance				(createInstanceWithWsi(context, m_instanceExtensions, testConfig.wsiType))
+	, m_vki						(m_instance.getDriver())
+	, m_physicalDevice			(vk::chooseDevice(m_vki, m_instance, context.getTestContext().getCommandLine()))
 	, m_nativeDisplay			(createDisplay(context.getTestContext().getPlatform().getVulkanPlatform(), m_instanceExtensions, testConfig.wsiType))
 	, m_nativeWindow			(createWindow(*m_nativeDisplay, tcu::nothing<UVec2>()))
-	, m_surface					(vk::wsi::createSurface(m_vki, *m_instance, testConfig.wsiType, *m_nativeDisplay, *m_nativeWindow))
+	, m_surface					(vk::wsi::createSurface(m_vki, m_instance, testConfig.wsiType, *m_nativeDisplay, *m_nativeWindow))
 
-	, m_queueFamilyIndex		(chooseQueueFamilyIndex(m_vki, m_physicalDevice, *m_surface))
+	, m_queueFamilyIndex		(vk::wsi::chooseQueueFamilyIndex(m_vki, m_physicalDevice, *m_surface))
 	, m_deviceExtensions		(vk::enumerateDeviceExtensionProperties(m_vki, m_physicalDevice, DE_NULL))
-	, m_device					(createDeviceWithWsi(m_vkp, *m_instance, m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useDisplayTiming))
-	, m_vkd						(m_vkp, *m_instance, *m_device)
+	, m_device					(createDeviceWithWsi(m_vkp, m_instance, m_vki, m_physicalDevice, m_deviceExtensions, m_queueFamilyIndex, testConfig.useDisplayTiming, context.getTestContext().getCommandLine().isValidationEnabled()))
+	, m_vkd						(m_vkp, m_instance, *m_device)
 	, m_queue					(getDeviceQueue(m_vkd, *m_device, m_queueFamilyIndex, 0u))
 
 	, m_commandPool				(createCommandPool(m_vkd, *m_device, m_queueFamilyIndex))
@@ -745,6 +742,7 @@ void DisplayTimingTestInstance::initSwapchainResources (void)
 
 	m_swapchain				= vk::createSwapchainKHR(m_vkd, *m_device, &m_swapchainConfig);
 	m_swapchainImages		= vk::wsi::getSwapchainImages(m_vkd, *m_device, *m_swapchain);
+	m_isFirst.resize(m_swapchainImages.size(), true);
 
 	m_renderPass			= createRenderPass(m_vkd, *m_device, imageFormat);
 	m_pipeline				= createPipeline(m_vkd, *m_device, *m_renderPass, *m_pipelineLayout, *m_vertexShaderModule, *m_fragmentShaderModule, imageWidth, imageHeight);
@@ -809,6 +807,7 @@ void DisplayTimingTestInstance::deinitSwapchainResources (void)
 	deinitImageViews(m_vkd, *m_device, m_swapchainImageViews);
 
 	m_swapchainImages.clear();
+	m_isFirst.clear();
 
 	m_swapchain		= vk::Move<vk::VkSwapchainKHR>();
 	m_renderPass	= vk::Move<vk::VkRenderPass>();
@@ -859,7 +858,9 @@ void DisplayTimingTestInstance::render (void)
 	VK_CHECK(m_vkd.acquireNextImageKHR(*m_device, *m_swapchain, foreverNs, currentAcquireSemaphore, (vk::VkFence)0, &imageIndex));
 
 	// Create command buffer
-	m_commandBuffers[m_frameNdx % m_commandBuffers.size()] = createCommandBuffer(m_vkd, *m_device, *m_commandPool, *m_pipelineLayout, *m_renderPass, m_framebuffers[imageIndex], *m_pipeline, m_frameNdx, m_quadCount, width, height).disown();
+	m_commandBuffers[m_frameNdx % m_commandBuffers.size()] = createCommandBuffer(m_vkd, *m_device, *m_commandPool, *m_pipelineLayout, *m_renderPass, m_framebuffers[imageIndex], *m_pipeline,
+																				 m_swapchainImages[imageIndex], m_isFirst[imageIndex], m_frameNdx, m_quadCount, width, height).disown();
+	m_isFirst[imageIndex] = false;
 
 	// Obtain timing data from previous frames
 	if (m_useDisplayTiming)

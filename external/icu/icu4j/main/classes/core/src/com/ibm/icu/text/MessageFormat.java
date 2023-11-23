@@ -183,7 +183,7 @@ import com.ibm.icu.util.ULocale.Category;
  *       <td><i>argSkeletonText</i>
  *       <td><code>NumberFormatter.forSkeleton(argSkeletonText).locale(getLocale()).toFormat()</code>
  *    <tr>
- *       <td rowspan=6><code>date</code>
+ *       <td rowspan=7><code>date</code>
  *       <td><i>(none)</i>
  *       <td><code>DateFormat.getDateInstance(DateFormat.DEFAULT, getLocale())</code>
  *    <tr>
@@ -201,6 +201,9 @@ import com.ibm.icu.util.ULocale.Category;
  *    <tr>
  *       <td><i>argStyleText</i>
  *       <td><code>new SimpleDateFormat(argStyleText, getLocale())</code>
+ *    <tr>
+ *       <td><i>argSkeletonText</i>
+ *       <td><code>DateFormat.getInstanceForSkeleton(argSkeletonText, getLocale())</code>
  *    <tr>
  *       <td rowspan=6><code>time</code>
  *       <td><i>(none)</i>
@@ -256,6 +259,28 @@ import com.ibm.icu.util.ULocale.Category;
  * The JDK MessageFormat does create and use a ChoiceFormat object
  * (<code>new ChoiceFormat(argStyleText)</code>).
  * The JDK does not support plural and select arguments at all.
+
+ * <p>Both the ICU and the JDK <code>MessageFormat</code> can control the argument
+ * formats by using <code>argStyle</code>. But the JDK <code>MessageFormat</code> only
+ * supports predefined formats and number / date / time pattern strings (which would need
+ * to be localized).<br>
+ * ICU supports everything the JDK does, and also number / date / time <b>skeletons</b> using the
+ * <code>::</code> prefix (which automatically yield output appropriate for the
+ * <code>MessageFormat</code> locale).</p>
+ *
+ * <h4>Argument formatting</h4>
+ *
+ * <p>Arguments are formatted according to their type, using the default
+ * ICU formatters for those types, unless otherwise specified.
+ * For unknown types, <code>MessageFormat</code> will call <code>toString()</code>.</p>
+ *
+ * <p>There are also several ways to control the formatting.</p>
+ *
+ * <p>We recommend you use default styles, predefined style values, skeletons,
+ * or preformatted values, but not pattern strings or custom format objects.</p>
+ *
+ * <p>For more details, see the
+ * <a href="http://userguide.icu-project.org/formatparse/messages">ICU User Guide</a>.</p>
  *
  * <h4>Usage Information</h4>
  *
@@ -269,10 +294,10 @@ import com.ibm.icu.util.ULocale.Category;
  * };
  *
  * String result = MessageFormat.format(
- *     "At {1,time} on {1,date}, there was {2} on planet {0,number,integer}.",
+ *     "At {1,time,::jmm} on {1,date,::dMMMM}, there was {2} on planet {0,number,integer}.",
  *     arguments);
  *
- * <em>output</em>: At 12:30 PM on Jul 3, 2053, there was a disturbance
+ * <em>output</em>: At 4:34 PM on March 23, there was a disturbance
  *           in the Force on planet 7.
  *
  * </pre>
@@ -2188,6 +2213,16 @@ public class MessageFormat extends UFormat {
         DATE_MODIFIER_LONG = 3,
         DATE_MODIFIER_FULL = 4;
 
+    Format dateTimeFormatForPatternOrSkeleton(String style) {
+        // Ignore leading whitespace when looking for "::", the skeleton signal sequence
+        int i = PatternProps.skipWhiteSpace(style, 0);
+        if (style.regionMatches(i, "::", 0, 2)) { // Skeleton
+            return DateFormat.getInstanceForSkeleton(style.substring(i + 2), ulocale);
+        } else { // Pattern
+            return new SimpleDateFormat(style, ulocale);
+        }
+    }
+
     // Creates an appropriate Format object for the type and style passed.
     // Both arguments cannot be null.
     private Format createAppropriateFormat(String type, String style) {
@@ -2210,8 +2245,7 @@ public class MessageFormat extends UFormat {
                 break;
             default: // pattern or skeleton
                 // Ignore leading whitespace when looking for "::", the skeleton signal sequence
-                int i = 0;
-                for (; PatternProps.isWhiteSpace(style.charAt(i)); i++);
+                int i = PatternProps.skipWhiteSpace(style, 0);
                 if (style.regionMatches(i, "::", 0, 2)) {
                     // Skeleton
                     newFormat = NumberFormatter.forSkeleton(style.substring(i + 2)).locale(ulocale).toFormat();
@@ -2239,8 +2273,8 @@ public class MessageFormat extends UFormat {
             case DATE_MODIFIER_FULL:
                 newFormat = DateFormat.getDateInstance(DateFormat.FULL, ulocale);
                 break;
-            default:
-                newFormat = new SimpleDateFormat(style, ulocale);
+            default: // pattern or skeleton
+                newFormat = dateTimeFormatForPatternOrSkeleton(style);
                 break;
             }
             break;
@@ -2261,8 +2295,8 @@ public class MessageFormat extends UFormat {
             case DATE_MODIFIER_FULL:
                 newFormat = DateFormat.getTimeInstance(DateFormat.FULL, ulocale);
                 break;
-            default:
-                newFormat = new SimpleDateFormat(style, ulocale);
+            default: // pattern or skeleton
+                newFormat = dateTimeFormatForPatternOrSkeleton(style);
                 break;
             }
             break;

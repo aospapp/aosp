@@ -11,8 +11,8 @@
 
 #include "core/fxcrt/fx_coordinates.h"
 #include "core/fxcrt/unowned_ptr.h"
-#include "core/fxge/cfx_defaultrenderdevice.h"
 
+class CFX_DefaultRenderDevice;
 class CFX_RenderDevice;
 class CPDF_PageObject;
 class CPDF_RenderContext;
@@ -25,15 +25,13 @@ class CPDF_ScaledRenderBuffer {
 
   bool Initialize(CPDF_RenderContext* pContext,
                   CFX_RenderDevice* pDevice,
-                  const FX_RECT& pRect,
+                  const FX_RECT& rect,
                   const CPDF_PageObject* pObj,
                   const CPDF_RenderOptions* pOptions,
                   int max_dpi);
 
-  CFX_RenderDevice* GetDevice() const {
-    return m_pBitmapDevice ? m_pBitmapDevice.get() : m_pDevice.Get();
-  }
-  CFX_Matrix* GetMatrix() { return &m_Matrix; }
+  CFX_RenderDevice* GetDevice() const;
+  const CFX_Matrix& GetMatrix() const { return m_Matrix; }
   void OutputToDevice();
 
  private:

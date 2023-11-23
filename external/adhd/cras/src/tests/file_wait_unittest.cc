@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <gtest/gtest.h>
 #include <fcntl.h>
+#include <gtest/gtest.h>
 #include <stdlib.h>
+
 #include <string>
 
-#include "cras_util.h"
 #include "cras_file_wait.h"
+#include "cras_util.h"
 
 extern "C" {
 // This function is not exported in cras_util.h.
-void cras_file_wait_mock_race_condition(struct cras_file_wait *file_wait);
+void cras_file_wait_mock_race_condition(struct cras_file_wait* file_wait);
 }
 
 namespace {
@@ -38,18 +39,17 @@ struct FileWaitResult {
 };
 
 // Called by the file wait code for an event.
-static void FileWaitCallback(void *context,
-			     cras_file_wait_event_t event,
-			     const char *filename)
-{
-  FileWaitResult *result = reinterpret_cast<FileWaitResult*>(context);
+static void FileWaitCallback(void* context,
+                             cras_file_wait_event_t event,
+                             const char* filename) {
+  FileWaitResult* result = reinterpret_cast<FileWaitResult*>(context);
   result->called++;
   result->event = event;
 }
 
 // Do all of the EXPECTed steps for a simple wait for one file.
-static void SimpleFileWait(const char *file_path) {
-  struct cras_file_wait *file_wait;
+static void SimpleFileWait(const char* file_path) {
+  struct cras_file_wait* file_wait;
   FileWaitResult file_wait_result;
   struct pollfd poll_fd;
   struct timespec timeout = {0, 100000000};
@@ -64,7 +64,7 @@ static void SimpleFileWait(const char *file_path) {
   EXPECT_EQ(0, cras_file_wait_create(file_path, CRAS_FILE_WAIT_FLAG_NONE,
                                      FileWaitCallback, &file_wait_result,
                                      &file_wait));
-  EXPECT_NE(reinterpret_cast<struct cras_file_wait *>(NULL), file_wait);
+  EXPECT_NE(reinterpret_cast<struct cras_file_wait*>(NULL), file_wait);
   if (stat_rc == 0) {
     EXPECT_EQ(1, file_wait_result.called);
     EXPECT_EQ(CRAS_FILE_WAIT_EVENT_CREATED, file_wait_result.event);
@@ -93,7 +93,7 @@ static void SimpleFileWait(const char *file_path) {
 // Test the cras_file_wait functions including multiple path components
 // missing and path components deleted and recreated.
 TEST(Util, FileWait) {
-  struct cras_file_wait *file_wait;
+  struct cras_file_wait* file_wait;
   FileWaitResult file_wait_result;
   pid_t pid = getpid();
   struct pollfd poll_fd;
@@ -112,21 +112,20 @@ TEST(Util, FileWait) {
 
   // Test arguments.
   // Null file path.
-  EXPECT_EQ(-EINVAL, cras_file_wait_create(
-                         NULL, CRAS_FILE_WAIT_FLAG_NONE,
-                         FileWaitCallback, &file_wait_result, &file_wait));
+  EXPECT_EQ(-EINVAL, cras_file_wait_create(NULL, CRAS_FILE_WAIT_FLAG_NONE,
+                                           FileWaitCallback, &file_wait_result,
+                                           &file_wait));
   // Empty file path.
-  EXPECT_EQ(-EINVAL, cras_file_wait_create(
-                         "", CRAS_FILE_WAIT_FLAG_NONE,
-                         FileWaitCallback, &file_wait_result, &file_wait));
+  EXPECT_EQ(-EINVAL, cras_file_wait_create("", CRAS_FILE_WAIT_FLAG_NONE,
+                                           FileWaitCallback, &file_wait_result,
+                                           &file_wait));
   // No callback structure.
-  EXPECT_EQ(-EINVAL, cras_file_wait_create(
-                         ".", CRAS_FILE_WAIT_FLAG_NONE,
-                         NULL, NULL, &file_wait));
+  EXPECT_EQ(-EINVAL, cras_file_wait_create(".", CRAS_FILE_WAIT_FLAG_NONE, NULL,
+                                           NULL, &file_wait));
   // No file wait structure.
-  EXPECT_EQ(-EINVAL, cras_file_wait_create(
-                         ".", CRAS_FILE_WAIT_FLAG_NONE,
-                         FileWaitCallback, &file_wait_result, NULL));
+  EXPECT_EQ(-EINVAL,
+            cras_file_wait_create(".", CRAS_FILE_WAIT_FLAG_NONE,
+                                  FileWaitCallback, &file_wait_result, NULL));
   EXPECT_EQ(-EINVAL, cras_file_wait_dispatch(NULL));
   EXPECT_EQ(-EINVAL, cras_file_wait_get_fd(NULL));
 
@@ -135,7 +134,7 @@ TEST(Util, FileWait) {
   EXPECT_EQ(0, cras_file_wait_create(CRAS_UT_TMPDIR, CRAS_FILE_WAIT_FLAG_NONE,
                                      FileWaitCallback, &file_wait_result,
                                      &file_wait));
-  EXPECT_NE(reinterpret_cast<struct cras_file_wait *>(NULL), file_wait);
+  EXPECT_NE(reinterpret_cast<struct cras_file_wait*>(NULL), file_wait);
   EXPECT_EQ(file_wait_result.called, 1);
   ASSERT_EQ(file_wait_result.event, CRAS_FILE_WAIT_EVENT_CREATED);
   cras_file_wait_destroy(file_wait);
@@ -146,10 +145,9 @@ TEST(Util, FileWait) {
 
   // Start looking for our file '.../does_not_exist'.
   EXPECT_EQ(0, cras_file_wait_create(file_path.c_str(),
-                                     CRAS_FILE_WAIT_FLAG_NONE,
-                                     FileWaitCallback, &file_wait_result,
-                                     &file_wait));
-  EXPECT_NE(reinterpret_cast<struct cras_file_wait *>(NULL), file_wait);
+                                     CRAS_FILE_WAIT_FLAG_NONE, FileWaitCallback,
+                                     &file_wait_result, &file_wait));
+  EXPECT_NE(reinterpret_cast<struct cras_file_wait*>(NULL), file_wait);
   poll_fd.events = POLLIN;
   poll_fd.fd = cras_file_wait_get_fd(file_wait);
   EXPECT_NE(0, poll_fd.fd >= 0);
@@ -251,7 +249,7 @@ TEST(Util, FileWait) {
   SimpleFileWait(file_path.c_str());
 
   // Stash the current directory.
-  current_dir = open(".", O_RDONLY|O_PATH|O_DIRECTORY);
+  current_dir = open(".", O_RDONLY | O_PATH | O_DIRECTORY);
   ASSERT_NE(0, current_dir >= 0);
 
   // Search for a file in the current directory.
@@ -273,7 +271,7 @@ TEST(Util, FileWait) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -43,16 +43,17 @@
 #include <signal.h>
 #include <string.h>
 #include <sys/param.h>
+#include <sys/types.h>
+#include <sys/time.h>
 
 #include "test.h"
-#include "select.h"
 
-#define FILENAME	SELECT_TEST_FILENAME("select01")
+#define FILENAME	"select01"
 
 static void setup(void);
 static void cleanup(void);
 
-char *TCID = FILENAME;
+char *TCID = "select01";
 int TST_TOTAL = 1;
 
 int Fd = -1;

@@ -12,12 +12,12 @@
 
 #include "third_party/base/ptr_util.h"
 #include "third_party/base/stl_util.h"
+#include "xfa/fwl/cfwl_app.h"
 #include "xfa/fwl/cfwl_messagemouse.h"
 #include "xfa/fwl/cfwl_messagemousewheel.h"
 #include "xfa/fwl/cfwl_notedriver.h"
 #include "xfa/fwl/cfwl_themebackground.h"
 #include "xfa/fwl/cfwl_themepart.h"
-#include "xfa/fwl/cfwl_timerinfo.h"
 #include "xfa/fwl/ifwl_themeprovider.h"
 
 #define FWL_SCROLLBAR_Elapse 500
@@ -32,34 +32,9 @@ CFWL_ScrollBar::CFWL_ScrollBar(
     const CFWL_App* app,
     std::unique_ptr<CFWL_WidgetProperties> properties,
     CFWL_Widget* pOuter)
-    : CFWL_Widget(app, std::move(properties), pOuter),
-      m_pTimerInfo(nullptr),
-      m_fRangeMin(0),
-      m_fRangeMax(-1),
-      m_fPageSize(0),
-      m_fStepSize(0),
-      m_fPos(0),
-      m_fTrackPos(0),
-      m_iMinButtonState(CFWL_PartState_Normal),
-      m_iMaxButtonState(CFWL_PartState_Normal),
-      m_iThumbButtonState(CFWL_PartState_Normal),
-      m_iMinTrackState(CFWL_PartState_Normal),
-      m_iMaxTrackState(CFWL_PartState_Normal),
-      m_fLastTrackPos(0),
-      m_iMouseWheel(0),
-      m_bMouseDown(false),
-      m_fButtonLen(0),
-      m_bMinSize(false),
-      m_Timer(this) {
-  m_rtClient.Reset();
-  m_rtThumb.Reset();
-  m_rtMinBtn.Reset();
-  m_rtMaxBtn.Reset();
-  m_rtMinTrack.Reset();
-  m_rtMaxTrack.Reset();
-}
+    : CFWL_Widget(app, std::move(properties), pOuter) {}
 
-CFWL_ScrollBar::~CFWL_ScrollBar() {}
+CFWL_ScrollBar::~CFWL_ScrollBar() = default;
 
 FWL_Type CFWL_ScrollBar::GetClassID() const {
   return FWL_Type::ScrollBar;
@@ -81,7 +56,7 @@ void CFWL_ScrollBar::DrawWidget(CXFA_Graphics* pGraphics,
   if (!m_pProperties->m_pThemeProvider)
     return;
 
-  IFWL_ThemeProvider* pTheme = m_pProperties->m_pThemeProvider;
+  IFWL_ThemeProvider* pTheme = m_pProperties->m_pThemeProvider.Get();
   if (HasBorder())
     DrawBorder(pGraphics, CFWL_Part::Border, pTheme, matrix);
   DrawTrack(pGraphics, pTheme, true, &matrix);
@@ -117,7 +92,7 @@ void CFWL_ScrollBar::DrawTrack(CXFA_Graphics* pGraphics,
   param.m_pGraphics = pGraphics;
   param.m_matrix.Concat(*pMatrix);
   param.m_rtPart = bLower ? m_rtMinTrack : m_rtMaxTrack;
-  pTheme->DrawBackground(&param);
+  pTheme->DrawBackground(param);
 }
 
 void CFWL_ScrollBar::DrawArrowBtn(CXFA_Graphics* pGraphics,
@@ -134,7 +109,7 @@ void CFWL_ScrollBar::DrawArrowBtn(CXFA_Graphics* pGraphics,
   param.m_matrix.Concat(*pMatrix);
   param.m_rtPart = bMinBtn ? m_rtMinBtn : m_rtMaxBtn;
   if (param.m_rtPart.height > 0 && param.m_rtPart.width > 0)
-    pTheme->DrawBackground(&param);
+    pTheme->DrawBackground(param);
 }
 
 void CFWL_ScrollBar::DrawThumb(CXFA_Graphics* pGraphics,
@@ -149,7 +124,7 @@ void CFWL_ScrollBar::DrawThumb(CXFA_Graphics* pGraphics,
   param.m_pGraphics = pGraphics;
   param.m_matrix.Concat(*pMatrix);
   param.m_rtPart = m_rtThumb;
-  pTheme->DrawBackground(&param);
+  pTheme->DrawBackground(param);
 }
 
 void CFWL_ScrollBar::Layout() {
@@ -380,12 +355,15 @@ void CFWL_ScrollBar::OnLButtonDown(const CFX_PointF& point) {
   else
     DoMouseDown(4, m_rtMaxTrack, m_iMaxTrackState, point);
 
-  if (!SendEvent())
-    m_pTimerInfo = m_Timer.StartTimer(FWL_SCROLLBAR_Elapse, true);
+  if (!SendEvent()) {
+    m_pTimer = pdfium::MakeUnique<CFX_Timer>(
+        GetOwnerApp()->GetAdapterNative()->GetTimerHandler(), this,
+        FWL_SCROLLBAR_Elapse);
+  }
 }
 
 void CFWL_ScrollBar::OnLButtonUp(const CFX_PointF& point) {
-  m_pTimerInfo->StopTimer();
+  m_pTimer.reset();
   m_bMouseDown = false;
   DoMouseUp(0, m_rtMinBtn, m_iMinButtonState, point);
   DoMouseUp(1, m_rtThumb, m_iThumbButtonState, point);
@@ -482,13 +460,10 @@ void CFWL_ScrollBar::DoMouseHover(int32_t iItem,
   RepaintRect(rtItem);
 }
 
-CFWL_ScrollBar::Timer::Timer(CFWL_ScrollBar* pToolTip) : CFWL_Timer(pToolTip) {}
-
-void CFWL_ScrollBar::Timer::Run(CFWL_TimerInfo* pTimerInfo) {
-  CFWL_ScrollBar* pButton = static_cast<CFWL_ScrollBar*>(m_pWidget.Get());
-  if (pButton->m_pTimerInfo)
-    pButton->m_pTimerInfo->StopTimer();
-
-  if (!pButton->SendEvent())
-    pButton->m_pTimerInfo = StartTimer(0, true);
+void CFWL_ScrollBar::OnTimerFired() {
+  m_pTimer.reset();
+  if (!SendEvent()) {
+    m_pTimer = pdfium::MakeUnique<CFX_Timer>(
+        GetOwnerApp()->GetAdapterNative()->GetTimerHandler(), this, 0);
+  }
 }

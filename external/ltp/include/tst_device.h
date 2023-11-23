@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Cyril Hrubis <chrubis@suse.cz>
+ * Copyright (c) 2016-2019 Cyril Hrubis <chrubis@suse.cz>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,8 @@
 
 #ifndef TST_DEVICE_H__
 #define TST_DEVICE_H__
+
+#include <unistd.h>
 
 struct tst_device {
 	const char *dev;
@@ -43,6 +45,37 @@ int tst_umount(const char *path);
  * not need to use this from the test yourself.
  */
 int tst_clear_device(const char *dev);
+
+/*
+ * Finds a free loop device for use and returns the free loopdev minor(-1 for no
+ * free loopdev). If path is non-NULL, it will be filled with free loopdev path.
+ *
+ */
+int tst_find_free_loopdev(const char *path, size_t path_len);
+
+/*
+ * Attaches a file to a loop device.
+ *
+ * @dev_path Path to the loop device e.g. /dev/loop0
+ * @file_path Path to a file e.g. disk.img
+ * @return Zero on success, non-zero otherwise.
+ */
+int tst_attach_device(const char *dev_path, const char *file_path);
+
+/*
+ * Detaches a file from a loop device.
+ *
+ * @dev_path Path to the loop device e.g. /dev/loop0
+ * @return Zero on succes, non-zero otherwise.
+ */
+int tst_detach_device(const char *dev_path);
+
+/*
+ * To avoid FS deferred IO metadata/cache interference, so we do syncfs
+ * simply before the tst_dev_bytes_written invocation. For easy to use,
+ * we create this inline function tst_dev_sync.
+ */
+int tst_dev_sync(int fd);
 
 /*
  * Reads test block device stat file and returns the bytes written since the

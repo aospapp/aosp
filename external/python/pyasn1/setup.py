@@ -2,7 +2,7 @@
 #
 # This file is part of pyasn1 software.
 #
-# Copyright (c) 2005-2018, Ilya Etingof <etingof@gmail.com>
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
 # License: http://snmplabs.com/pyasn1/license.html
 #
 import os
@@ -30,6 +30,7 @@ Programming Language :: Python :: 3.3
 Programming Language :: Python :: 3.4
 Programming Language :: Python :: 3.5
 Programming Language :: Python :: 3.6
+Programming Language :: Python :: 3.7
 Topic :: Communications
 Topic :: Software Development :: Libraries :: Python Modules
 """

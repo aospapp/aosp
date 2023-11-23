@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,6 +23,6 @@ interface IProbeInserter {
 	 * @param id
 	 *            id of the probe to insert
 	 */
-	public void insertProbe(final int id);
+	void insertProbe(int id);
 
 }

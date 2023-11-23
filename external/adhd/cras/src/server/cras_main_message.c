@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Chromium OS Authors. All rights reserved.
+/* Copyright 2015 The Chromium OS Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -11,7 +11,6 @@
 #include "cras_main_message.h"
 #include "cras_system_state.h"
 #include "cras_util.h"
-
 
 /* Callback to handle specific type of main thread message. */
 struct cras_main_msg_callback {
@@ -30,7 +29,7 @@ int cras_main_message_add_handler(enum CRAS_MAIN_MESSAGE_TYPE type,
 {
 	struct cras_main_msg_callback *msg_cb;
 
-	DL_FOREACH(main_msg_callbacks, msg_cb) {
+	DL_FOREACH (main_msg_callbacks, msg_cb) {
 		if (msg_cb->type == type) {
 			syslog(LOG_ERR, "Main message type %u already exists",
 			       type);
@@ -60,7 +59,8 @@ int cras_main_message_send(struct cras_main_message *msg)
 	return 0;
 }
 
-static int read_main_message(int msg_fd, uint8_t *buf, size_t max_len) {
+static int read_main_message(int msg_fd, uint8_t *buf, size_t max_len)
+{
 	int to_read, nread, rc;
 	struct cras_main_message *msg = (struct cras_main_message *)buf;
 
@@ -90,7 +90,7 @@ static void handle_main_messages(void *arg)
 		return;
 	}
 
-	DL_FOREACH(main_msg_callbacks, main_msg_cb) {
+	DL_FOREACH (main_msg_callbacks, main_msg_cb) {
 		if (main_msg_cb->type == msg->type) {
 			main_msg_cb->callback(msg, main_msg_cb->callback_data);
 			break;
@@ -98,7 +98,8 @@ static void handle_main_messages(void *arg)
 	}
 }
 
-void cras_main_message_init() {
+void cras_main_message_init()
+{
 	int rc;
 
 	rc = pipe(main_msg_fds);
@@ -111,7 +112,5 @@ void cras_main_message_init() {
 	cras_make_fd_nonblocking(main_msg_fds[0]);
 	cras_make_fd_nonblocking(main_msg_fds[1]);
 
-	cras_system_add_select_fd(main_msg_fds[0],
-				  handle_main_messages,
-				  NULL);
+	cras_system_add_select_fd(main_msg_fds[0], handle_main_messages, NULL);
 }

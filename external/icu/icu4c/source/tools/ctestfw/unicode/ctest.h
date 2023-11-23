@@ -311,4 +311,45 @@ T_CTEST_API int32_t
 T_CTEST_EXPORT2
 ctest_xml_testcase(const char *classname, const char *name, const char *time, const char *failMsg);
 
+/**
+ * Returns the path to icu4c/source/data.
+ *
+ * @return The path to icu4c/source/data. Do not free this pointer.
+ */
+T_CTEST_API const char* T_CTEST_EXPORT2
+ctest_dataSrcDir(void);
+
+/**
+ * Returns the path to the ICU data.
+ *
+ * Uses, in order of preference:
+ *
+ * 1. The path in the ICU_DATA environment variable.
+ * 2. icu4c/source/data/out.
+ *
+ * @return The path to the ICU data. Do not free this pointer.
+ */
+T_CTEST_API const char* T_CTEST_EXPORT2
+ctest_dataOutDir(void);
+
+/**
+ * Returns the path to icu4c/source/test/testdata.
+ *
+ * @return The path to icu4c/source/test/testdata. Do not free this pointer.
+ */
+T_CTEST_API const char* T_CTEST_EXPORT2
+ctest_testDataDir(void);
+
+/**
+ * Returns the path to icu4c/source/test/testdata/out/testdata if it is
+ * loadable.
+ *
+ * @param err Out parameter for any errors.
+ * @return The path to icu4c/source/test/testdata/out/testdata if it can be
+ *         loaded, or the empty string if it could not be loaded. Do not free
+ *         this pointer.
+ */
+T_CTEST_API const char* T_CTEST_EXPORT2
+ctest_loadTestData(UErrorCode* err);
+
 #endif

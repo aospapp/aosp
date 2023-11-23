@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <gtest/gtest.h>
-
 #include "float_buffer.h"
+
+#include <gtest/gtest.h>
 
 namespace {
 TEST(FloatBuffer, ReadWrite) {
   unsigned int readable = 10;
-  struct float_buffer *b = float_buffer_create(10, 2);
+  struct float_buffer* b = float_buffer_create(10, 2);
   EXPECT_EQ(10, float_buffer_writable(b));
 
   // (w, r)=(8, 0)
@@ -45,9 +45,9 @@ TEST(FloatBuffer, ReadWrite) {
   float_buffer_destroy(&b);
 }
 
-} // namespace
+}  // namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

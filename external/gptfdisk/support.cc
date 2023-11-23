@@ -3,7 +3,7 @@
 // Primarily by Rod Smith, February 2009, but with a few functions
 // copied from other sources (see attributions below).
 
-/* This program is copyright (c) 2009-2013 by Roderick W. Smith. It is distributed
+/* This program is copyright (c) 2009-2018 by Roderick W. Smith. It is distributed
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
 
 #define __STDC_LIMIT_MACROS
@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <string>
 #include <iostream>
+#include <inttypes.h>
 #include <sstream>
 #include "support.h"
 
@@ -36,31 +37,51 @@ using namespace std;
 // Reads a string from stdin, returning it as a C++-style string.
 // Note that the returned string will NOT include the carriage return
 // entered by the user.
+#ifdef EFI
+extern int __sscanf( const char * str , const char * format , ... ) ;
+string ReadString(void) {
+   string inString;
+   char efiString[256];
+   int stringLength;
+
+   if (fgets(efiString, 255, stdin) != NULL) {
+      stringLength = strlen(efiString);
+      if ((stringLength > 0) && (efiString[stringLength - 1] == '\n'))
+          efiString[stringLength - 1] = '\0';
+      inString = efiString;
+   } else {
+      inString = "";
+   }
+   return inString;
+} // ReadString()
+#else
 string ReadString(void) {
    string inString;
 
+   cout << flush;
    getline(cin, inString);
    if (!cin.good())
       exit(5);
    return inString;
 } // ReadString()
+#endif
 
 // Get a numeric value from the user, between low and high (inclusive).
 // Keeps looping until the user enters a value within that range.
 // If user provides no input, def (default value) is returned.
 // (If def is outside of the low-high range, an explicit response
 // is required.)
-int GetNumber(int low, int high, int def, const string & prompt) {
-   int response, num;
+uint64_t GetNumber(uint64_t low, uint64_t high, uint64_t def, const string & prompt) {
+   uint64_t response, num;
    char line[255];
 
    if (low != high) { // bother only if low and high differ...
       do {
-         cout << prompt;
+         cout << prompt << flush;
          cin.getline(line, 255);
          if (!cin.good())
             exit(5);
-         num = sscanf(line, "%d", &response);
+         num = sscanf(line, "%" SCNu64, &response);
          if (num == 1) { // user provided a response
             if ((response < low) || (response > high))
                cout << "Value out of range\n";
@@ -84,7 +105,7 @@ char GetYN(void) {
    do {
       if ( again ) { cout << "Your option? " ; }
       again = 1 ;
-      cout << "(Y/N): ";
+      cout << "(Y/N): " << flush;
       line = ReadString();
       response = toupper(line[0]);
    } while ((response != 'Y') && (response != 'N'));
@@ -134,7 +155,7 @@ uint64_t GetSectorNum(uint64_t low, uint64_t high, uint64_t def, uint64_t sSize,
 uint64_t IeeeToInt(string inValue, uint64_t sSize, uint64_t low, uint64_t high, uint64_t def) {
    uint64_t response = def, bytesPerUnit = 1, mult = 1, divide = 1;
    size_t foundAt = 0;
-   char suffix, plusFlag = ' ';
+   char suffix = ' ', plusFlag = ' ';
    string suffixes = "KMGTPE";
    int badInput = 0; // flag bad input; once this goes to 1, other values are irrelevant
 
@@ -227,7 +248,7 @@ string BytesToIeee(uint64_t size, uint32_t sectorSize) {
    uint64_t sizeInIeee;
    uint64_t previousIeee;
    float decimalIeee;
-   uint index = 0;
+   uint64_t index = 0;
    string units, prefixes = " KMGTPEZ";
    ostringstream theValue;
 

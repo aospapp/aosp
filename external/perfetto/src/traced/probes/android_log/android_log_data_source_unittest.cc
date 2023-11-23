@@ -19,13 +19,14 @@
 #include "perfetto/tracing/core/data_source_config.h"
 #include "src/base/test/test_task_runner.h"
 #include "src/tracing/core/trace_writer_for_testing.h"
+#include "test/gtest_and_gmock.h"
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include "protos/perfetto/common/android_log_constants.gen.h"
+#include "protos/perfetto/config/android/android_log_config.gen.h"
+#include "protos/perfetto/trace/android/android_log.gen.h"
 
-#include "perfetto/trace/trace_packet.pb.h"
-#include "perfetto/trace/trace_packet.pbzero.h"
-
+using ::perfetto::protos::gen::AndroidLogConfig;
+using ::perfetto::protos::gen::AndroidLogId;
 using ::testing::Invoke;
 using ::testing::Return;
 
@@ -62,8 +63,8 @@ class AndroidLogDataSourceTest : public ::testing::Test {
     base::UnixSocketRaw recv_sock;
     // In theory this should be a kSeqPacket. We use kDgram here so that the
     // test can run also on MacOS (which doesn't support SOCK_SEQPACKET).
-    const auto kSockType = base::SockType::kDgram;
-    std::tie(send_sock, recv_sock) = base::UnixSocketRaw::CreatePair(kSockType);
+    std::tie(send_sock, recv_sock) = base::UnixSocketRaw::CreatePair(
+        base::SockFamily::kUnix, base::SockType::kDgram);
     ASSERT_TRUE(send_sock);
     ASSERT_TRUE(recv_sock);
 
@@ -180,18 +181,18 @@ invalid_line (
   auto* fmt = data_source_->GetEventFormat(42);
   ASSERT_NE(fmt, nullptr);
   ASSERT_EQ(fmt->name, "answer");
-  ASSERT_EQ(fmt->fields.size(), 1);
+  ASSERT_EQ(fmt->fields.size(), 1u);
   ASSERT_EQ(fmt->fields[0], "to life the universe etc");
 
   fmt = data_source_->GetEventFormat(314);
   ASSERT_NE(fmt, nullptr);
   ASSERT_EQ(fmt->name, "pi");
-  ASSERT_EQ(fmt->fields.size(), 0);
+  ASSERT_EQ(fmt->fields.size(), 0u);
 
   fmt = data_source_->GetEventFormat(1005);
   ASSERT_NE(fmt, nullptr);
   ASSERT_EQ(fmt->name, "tag_def");
-  ASSERT_EQ(fmt->fields.size(), 3);
+  ASSERT_EQ(fmt->fields.size(), 3u);
   ASSERT_EQ(fmt->fields[0], "tag");
   ASSERT_EQ(fmt->fields[1], "name");
   ASSERT_EQ(fmt->fields[2], "format");
@@ -199,7 +200,7 @@ invalid_line (
   fmt = data_source_->GetEventFormat(1937006964);
   ASSERT_NE(fmt, nullptr);
   ASSERT_EQ(fmt->name, "stats_log");
-  ASSERT_EQ(fmt->fields.size(), 2);
+  ASSERT_EQ(fmt->fields.size(), 2u);
   ASSERT_EQ(fmt->fields[0], "atom_id");
   ASSERT_EQ(fmt->fields[1], "data");
 }
@@ -210,83 +211,91 @@ TEST_F(AndroidLogDataSourceTest, TextEvents) {
   EXPECT_CALL(*data_source_, ReadEventLogDefinitions()).WillOnce(Return(""));
   StartAndSimulateLogd(kValidTextEvents);
 
-  // Read back the data that would have been written into the trace.
+  // Read back the data that would have been written into the trace. One packet
+  // with the events, one with stats.
+  auto packets = writer_raw_->GetAllTracePackets();
+  ASSERT_TRUE(packets.size() == 2);
+  auto event_packet = packets[0];
+  auto stats_packet = packets[1];
+  EXPECT_TRUE(stats_packet.android_log().has_stats());
 
-  auto packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet);
-  ASSERT_TRUE(packet->has_android_log());
-  EXPECT_EQ(packet->android_log().events_size(), 3);
+  EXPECT_EQ(event_packet.android_log().events_size(), 3);
+  const auto& decoded = event_packet.android_log().events();
 
-  const auto& decoded = packet->android_log().events();
-
-  EXPECT_EQ(decoded.Get(0).log_id(), protos::AndroidLogId::LID_SYSTEM);
-  EXPECT_EQ(decoded.Get(0).pid(), 7546);
-  EXPECT_EQ(decoded.Get(0).tid(), 8991);
-  EXPECT_EQ(decoded.Get(0).uid(), 1000);
-  EXPECT_EQ(decoded.Get(0).prio(), protos::AndroidLogPriority::PRIO_INFO);
-  EXPECT_EQ(decoded.Get(0).timestamp(), 1546125239679172326LL);
-  EXPECT_EQ(decoded.Get(0).tag(), "ActivityManager");
+  EXPECT_EQ(decoded[0].log_id(), protos::gen::AndroidLogId::LID_SYSTEM);
+  EXPECT_EQ(decoded[0].pid(), 7546);
+  EXPECT_EQ(decoded[0].tid(), 8991);
+  EXPECT_EQ(decoded[0].uid(), 1000);
+  EXPECT_EQ(decoded[0].prio(), protos::gen::AndroidLogPriority::PRIO_INFO);
+  EXPECT_EQ(decoded[0].timestamp(), 1546125239679172326ULL);
+  EXPECT_EQ(decoded[0].tag(), "ActivityManager");
   EXPECT_EQ(
-      decoded.Get(0).message(),
+      decoded[0].message(),
       "Killing 11660:com.google.android.videos/u0a168 (adj 985): empty #17");
 
-  EXPECT_EQ(decoded.Get(1).log_id(), protos::AndroidLogId::LID_DEFAULT);
-  EXPECT_EQ(decoded.Get(1).pid(), 7546);
-  EXPECT_EQ(decoded.Get(1).tid(), 7570);
-  EXPECT_EQ(decoded.Get(1).uid(), 1000);
-  EXPECT_EQ(decoded.Get(1).prio(), protos::AndroidLogPriority::PRIO_WARN);
-  EXPECT_EQ(decoded.Get(1).timestamp(), 1546125239683537170LL);
-  EXPECT_EQ(decoded.Get(1).tag(), "libprocessgroup");
-  EXPECT_EQ(decoded.Get(1).message(),
-            "kill(-11660, 9) failed: No such process");
+  EXPECT_EQ(decoded[1].log_id(), protos::gen::AndroidLogId::LID_DEFAULT);
+  EXPECT_EQ(decoded[1].pid(), 7546);
+  EXPECT_EQ(decoded[1].tid(), 7570);
+  EXPECT_EQ(decoded[1].uid(), 1000);
+  EXPECT_EQ(decoded[1].prio(), protos::gen::AndroidLogPriority::PRIO_WARN);
+  EXPECT_EQ(decoded[1].timestamp(), 1546125239683537170ULL);
+  EXPECT_EQ(decoded[1].tag(), "libprocessgroup");
+  EXPECT_EQ(decoded[1].message(), "kill(-11660, 9) failed: No such process");
 
-  EXPECT_EQ(decoded.Get(2).log_id(), protos::AndroidLogId::LID_DEFAULT);
-  EXPECT_EQ(decoded.Get(2).pid(), 7415);
-  EXPECT_EQ(decoded.Get(2).tid(), 7415);
-  EXPECT_EQ(decoded.Get(2).uid(), 0);
-  EXPECT_EQ(decoded.Get(2).prio(), protos::AndroidLogPriority::PRIO_INFO);
-  EXPECT_EQ(decoded.Get(2).timestamp(), 1546125239719458684LL);
-  EXPECT_EQ(decoded.Get(2).tag(), "Zygote");
-  EXPECT_EQ(decoded.Get(2).message(), "Process 11660 exited due to signal (9)");
+  EXPECT_EQ(decoded[2].log_id(), protos::gen::AndroidLogId::LID_DEFAULT);
+  EXPECT_EQ(decoded[2].pid(), 7415);
+  EXPECT_EQ(decoded[2].tid(), 7415);
+  EXPECT_EQ(decoded[2].uid(), 0);
+  EXPECT_EQ(decoded[2].prio(), protos::gen::AndroidLogPriority::PRIO_INFO);
+  EXPECT_EQ(decoded[2].timestamp(), 1546125239719458684ULL);
+  EXPECT_EQ(decoded[2].tag(), "Zygote");
+  EXPECT_EQ(decoded[2].message(), "Process 11660 exited due to signal (9)");
 }
 
 TEST_F(AndroidLogDataSourceTest, TextEventsWithTagFiltering) {
   DataSourceConfig cfg;
-  *cfg.mutable_android_log_config()->add_filter_tags() = "Zygote";
-  *cfg.mutable_android_log_config()->add_filter_tags() = "ActivityManager";
-  *cfg.mutable_android_log_config()->add_filter_tags() = "Unmatched";
-  *cfg.mutable_android_log_config()->add_filter_tags() = "libprocessgroupZZ";
+  AndroidLogConfig acfg;
+  acfg.add_filter_tags("Zygote");
+  acfg.add_filter_tags("ActivityManager");
+  acfg.add_filter_tags("Unmatched");
+  acfg.add_filter_tags("libprocessgroupZZ");
+  cfg.set_android_log_config_raw(acfg.SerializeAsString());
 
   CreateInstance(cfg);
   EXPECT_CALL(*data_source_, ReadEventLogDefinitions()).WillOnce(Return(""));
   StartAndSimulateLogd(kValidTextEvents);
 
-  auto packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet);
-  ASSERT_TRUE(packet->has_android_log());
-  EXPECT_EQ(packet->android_log().events_size(), 2);
+  auto packets = writer_raw_->GetAllTracePackets();
+  ASSERT_TRUE(packets.size() == 2);
+  auto event_packet = packets[0];
+  auto stats_packet = packets[1];
+  EXPECT_TRUE(stats_packet.android_log().has_stats());
 
-  const auto& decoded = packet->android_log().events();
-  EXPECT_EQ(decoded.Get(0).tag(), "ActivityManager");
-  EXPECT_EQ(decoded.Get(1).tag(), "Zygote");
+  EXPECT_EQ(event_packet.android_log().events_size(), 2);
+  const auto& decoded = event_packet.android_log().events();
+  EXPECT_EQ(decoded[0].tag(), "ActivityManager");
+  EXPECT_EQ(decoded[1].tag(), "Zygote");
 }
 
 TEST_F(AndroidLogDataSourceTest, TextEventsWithPrioFiltering) {
   DataSourceConfig cfg;
-  cfg.mutable_android_log_config()->set_min_prio(
-      AndroidLogConfig::AndroidLogPriority::PRIO_WARN);
+  AndroidLogConfig acfg;
+  acfg.set_min_prio(protos::gen::AndroidLogPriority::PRIO_WARN);
+  cfg.set_android_log_config_raw(acfg.SerializeAsString());
 
   CreateInstance(cfg);
   EXPECT_CALL(*data_source_, ReadEventLogDefinitions()).WillOnce(Return(""));
   StartAndSimulateLogd(kValidTextEvents);
 
-  auto packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet);
-  ASSERT_TRUE(packet->has_android_log());
-  EXPECT_EQ(packet->android_log().events_size(), 1);
+  auto packets = writer_raw_->GetAllTracePackets();
+  ASSERT_TRUE(packets.size() == 2);
+  auto event_packet = packets[0];
+  auto stats_packet = packets[1];
+  EXPECT_TRUE(stats_packet.android_log().has_stats());
 
-  const auto& decoded = packet->android_log().events();
-  EXPECT_EQ(decoded.Get(0).tag(), "libprocessgroup");
+  EXPECT_EQ(event_packet.android_log().events_size(), 1);
+  const auto& decoded = event_packet.android_log().events();
+  EXPECT_EQ(decoded[0].tag(), "libprocessgroup");
 }
 
 TEST_F(AndroidLogDataSourceTest, BinaryEvents) {
@@ -300,77 +309,81 @@ TEST_F(AndroidLogDataSourceTest, BinaryEvents) {
   EXPECT_CALL(*data_source_, ReadEventLogDefinitions()).WillOnce(Return(kDefs));
   StartAndSimulateLogd(kValidBinaryEvents);
 
-  // Read back the data that would have been written into the trace.
+  // Read back the data that would have been written into the trace. One packet
+  // with the events, one with stats.
+  auto packets = writer_raw_->GetAllTracePackets();
+  ASSERT_TRUE(packets.size() == 2);
+  auto event_packet = packets[0];
+  auto stats_packet = packets[1];
+  EXPECT_TRUE(stats_packet.android_log().has_stats());
 
-  auto packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet);
-  ASSERT_TRUE(packet->has_android_log());
-  EXPECT_EQ(packet->android_log().events_size(), 3);
+  EXPECT_EQ(event_packet.android_log().events_size(), 3);
+  const auto& decoded = event_packet.android_log().events();
 
-  const auto& decoded = packet->android_log().events();
+  EXPECT_EQ(decoded[0].log_id(), protos::gen::AndroidLogId::LID_EVENTS);
+  EXPECT_EQ(decoded[0].pid(), 29981);
+  EXPECT_EQ(decoded[0].tid(), 30962);
+  EXPECT_EQ(decoded[0].uid(), 1000);
+  EXPECT_EQ(decoded[0].timestamp(), 1546165328914257883ULL);
+  EXPECT_EQ(decoded[0].tag(), "am_kill");
+  ASSERT_EQ(decoded[0].args_size(), 5);
+  EXPECT_EQ(decoded[0].args()[0].name(), "User");
+  EXPECT_EQ(decoded[0].args()[0].int_value(), 0);
+  EXPECT_EQ(decoded[0].args()[1].name(), "PID");
+  EXPECT_EQ(decoded[0].args()[1].int_value(), 31730);
+  EXPECT_EQ(decoded[0].args()[2].name(), "Process Name");
+  EXPECT_EQ(decoded[0].args()[2].string_value(), "android.process.acore");
+  EXPECT_EQ(decoded[0].args()[3].name(), "OomAdj");
+  EXPECT_EQ(decoded[0].args()[3].int_value(), 985);
+  EXPECT_EQ(decoded[0].args()[4].name(), "Reason");
+  EXPECT_EQ(decoded[0].args()[4].string_value(), "empty #17");
 
-  EXPECT_EQ(decoded.Get(0).log_id(), protos::AndroidLogId::LID_EVENTS);
-  EXPECT_EQ(decoded.Get(0).pid(), 29981);
-  EXPECT_EQ(decoded.Get(0).tid(), 30962);
-  EXPECT_EQ(decoded.Get(0).uid(), 1000);
-  EXPECT_EQ(decoded.Get(0).timestamp(), 1546165328914257883LL);
-  EXPECT_EQ(decoded.Get(0).tag(), "am_kill");
-  ASSERT_EQ(decoded.Get(0).args_size(), 5);
-  EXPECT_EQ(decoded.Get(0).args(0).name(), "User");
-  EXPECT_EQ(decoded.Get(0).args(0).int_value(), 0);
-  EXPECT_EQ(decoded.Get(0).args(1).name(), "PID");
-  EXPECT_EQ(decoded.Get(0).args(1).int_value(), 31730);
-  EXPECT_EQ(decoded.Get(0).args(2).name(), "Process Name");
-  EXPECT_EQ(decoded.Get(0).args(2).string_value(), "android.process.acore");
-  EXPECT_EQ(decoded.Get(0).args(3).name(), "OomAdj");
-  EXPECT_EQ(decoded.Get(0).args(3).int_value(), 985);
-  EXPECT_EQ(decoded.Get(0).args(4).name(), "Reason");
-  EXPECT_EQ(decoded.Get(0).args(4).string_value(), "empty #17");
+  EXPECT_EQ(decoded[1].log_id(), protos::gen::AndroidLogId::LID_EVENTS);
+  EXPECT_EQ(decoded[1].pid(), 29981);
+  EXPECT_EQ(decoded[1].tid(), 30962);
+  EXPECT_EQ(decoded[1].uid(), 1000);
+  EXPECT_EQ(decoded[1].timestamp(), 1546165328946231844ULL);
+  EXPECT_EQ(decoded[1].tag(), "am_uid_stopped");
+  ASSERT_EQ(decoded[1].args_size(), 1);
+  EXPECT_EQ(decoded[1].args()[0].name(), "UID");
+  EXPECT_EQ(decoded[1].args()[0].int_value(), 10018);
 
-  EXPECT_EQ(decoded.Get(1).log_id(), protos::AndroidLogId::LID_EVENTS);
-  EXPECT_EQ(decoded.Get(1).pid(), 29981);
-  EXPECT_EQ(decoded.Get(1).tid(), 30962);
-  EXPECT_EQ(decoded.Get(1).uid(), 1000);
-  EXPECT_EQ(decoded.Get(1).timestamp(), 1546165328946231844LL);
-  EXPECT_EQ(decoded.Get(1).tag(), "am_uid_stopped");
-  ASSERT_EQ(decoded.Get(1).args_size(), 1);
-  EXPECT_EQ(decoded.Get(1).args(0).name(), "UID");
-  EXPECT_EQ(decoded.Get(1).args(0).int_value(), 10018);
-
-  EXPECT_EQ(decoded.Get(2).log_id(), protos::AndroidLogId::LID_EVENTS);
-  EXPECT_EQ(decoded.Get(2).pid(), 29981);
-  EXPECT_EQ(decoded.Get(2).tid(), 29998);
-  EXPECT_EQ(decoded.Get(2).uid(), 1000);
-  EXPECT_EQ(decoded.Get(2).timestamp(), 1546165328960813044LL);
-  EXPECT_EQ(decoded.Get(2).tag(), "am_pss");
-  ASSERT_EQ(decoded.Get(2).args_size(), 10);
-  EXPECT_EQ(decoded.Get(2).args(0).name(), "Pid");
-  EXPECT_EQ(decoded.Get(2).args(0).int_value(), 1417);
-  EXPECT_EQ(decoded.Get(2).args(1).name(), "UID");
-  EXPECT_EQ(decoded.Get(2).args(1).int_value(), 10098);
-  EXPECT_EQ(decoded.Get(2).args(2).name(), "Process Name");
-  EXPECT_EQ(decoded.Get(2).args(2).string_value(),
+  EXPECT_EQ(decoded[2].log_id(), protos::gen::AndroidLogId::LID_EVENTS);
+  EXPECT_EQ(decoded[2].pid(), 29981);
+  EXPECT_EQ(decoded[2].tid(), 29998);
+  EXPECT_EQ(decoded[2].uid(), 1000);
+  EXPECT_EQ(decoded[2].timestamp(), 1546165328960813044ULL);
+  EXPECT_EQ(decoded[2].tag(), "am_pss");
+  ASSERT_EQ(decoded[2].args_size(), 10);
+  EXPECT_EQ(decoded[2].args()[0].name(), "Pid");
+  EXPECT_EQ(decoded[2].args()[0].int_value(), 1417);
+  EXPECT_EQ(decoded[2].args()[1].name(), "UID");
+  EXPECT_EQ(decoded[2].args()[1].int_value(), 10098);
+  EXPECT_EQ(decoded[2].args()[2].name(), "Process Name");
+  EXPECT_EQ(decoded[2].args()[2].string_value(),
             "com.google.android.connectivitymonitor");
-  EXPECT_EQ(decoded.Get(2).args(3).name(), "Pss");
-  EXPECT_EQ(decoded.Get(2).args(3).int_value(), 4831232);
-  EXPECT_EQ(decoded.Get(2).args(4).name(), "Uss");
-  EXPECT_EQ(decoded.Get(2).args(4).int_value(), 3723264);
-  EXPECT_EQ(decoded.Get(2).args(5).name(), "SwapPss");
-  EXPECT_EQ(decoded.Get(2).args(5).int_value(), 0);
-  EXPECT_EQ(decoded.Get(2).args(6).name(), "Rss");
-  EXPECT_EQ(decoded.Get(2).args(6).int_value(), 56053760);
-  EXPECT_EQ(decoded.Get(2).args(7).name(), "StatType");
-  EXPECT_EQ(decoded.Get(2).args(7).int_value(), 0);
-  EXPECT_EQ(decoded.Get(2).args(8).name(), "ProcState");
-  EXPECT_EQ(decoded.Get(2).args(8).int_value(), 9);
-  EXPECT_EQ(decoded.Get(2).args(9).name(), "TimeToCollect");
-  EXPECT_EQ(decoded.Get(2).args(9).int_value(), 39);
+  EXPECT_EQ(decoded[2].args()[3].name(), "Pss");
+  EXPECT_EQ(decoded[2].args()[3].int_value(), 4831232);
+  EXPECT_EQ(decoded[2].args()[4].name(), "Uss");
+  EXPECT_EQ(decoded[2].args()[4].int_value(), 3723264);
+  EXPECT_EQ(decoded[2].args()[5].name(), "SwapPss");
+  EXPECT_EQ(decoded[2].args()[5].int_value(), 0);
+  EXPECT_EQ(decoded[2].args()[6].name(), "Rss");
+  EXPECT_EQ(decoded[2].args()[6].int_value(), 56053760);
+  EXPECT_EQ(decoded[2].args()[7].name(), "StatType");
+  EXPECT_EQ(decoded[2].args()[7].int_value(), 0);
+  EXPECT_EQ(decoded[2].args()[8].name(), "ProcState");
+  EXPECT_EQ(decoded[2].args()[8].int_value(), 9);
+  EXPECT_EQ(decoded[2].args()[9].name(), "TimeToCollect");
+  EXPECT_EQ(decoded[2].args()[9].int_value(), 39);
 }
 
 TEST_F(AndroidLogDataSourceTest, BinaryEventsWithTagFiltering) {
   DataSourceConfig cfg;
-  *cfg.mutable_android_log_config()->add_filter_tags() = "not mached";
-  *cfg.mutable_android_log_config()->add_filter_tags() = "am_uid_stopped";
+  AndroidLogConfig acfg;
+  acfg.add_filter_tags("not mached");
+  acfg.add_filter_tags("am_uid_stopped");
+  cfg.set_android_log_config_raw(acfg.SerializeAsString());
   CreateInstance(cfg);
   static const char kDefs[] = R"(
 30023 am_kill (User|1|5),(PID|1|5),(Process Name|3),(OomAdj|1|5),(Reason|3)
@@ -380,16 +393,18 @@ TEST_F(AndroidLogDataSourceTest, BinaryEventsWithTagFiltering) {
   EXPECT_CALL(*data_source_, ReadEventLogDefinitions()).WillOnce(Return(kDefs));
   StartAndSimulateLogd(kValidBinaryEvents);
 
-  // Read back the data that would have been written into the trace.
+  // Read back the data that would have been written into the trace. One packet
+  // with the events, one with stats.
+  auto packets = writer_raw_->GetAllTracePackets();
+  ASSERT_TRUE(packets.size() == 2);
+  auto event_packet = packets[0];
+  auto stats_packet = packets[1];
+  EXPECT_TRUE(stats_packet.android_log().has_stats());
 
-  auto packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet);
-  ASSERT_TRUE(packet->has_android_log());
-  EXPECT_EQ(packet->android_log().events_size(), 1);
-
-  const auto& decoded = packet->android_log().events();
-  EXPECT_EQ(decoded.Get(0).timestamp(), 1546165328946231844LL);
-  EXPECT_EQ(decoded.Get(0).tag(), "am_uid_stopped");
+  EXPECT_EQ(event_packet.android_log().events_size(), 1);
+  const auto& decoded = event_packet.android_log().events();
+  EXPECT_EQ(decoded[0].timestamp(), 1546165328946231844ULL);
+  EXPECT_EQ(decoded[0].tag(), "am_uid_stopped");
 }
 
 }  // namespace

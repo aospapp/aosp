@@ -21,3 +21,103 @@ filegroup {
         "*.ttf",
     ],
 }
+
+prebuilt_font {
+    name: "Roboto-Regular.ttf",
+    src: "Roboto-Regular.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-Bold.ttf",
+    src: "Roboto-Bold.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-Italic.ttf",
+    src: "Roboto-Italic.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-BoldItalic.ttf",
+    src: "Roboto-BoldItalic.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-Black.ttf",
+    src: "Roboto-Black.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-BlackItalic.ttf",
+    src: "Roboto-BlackItalic.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-Light.ttf",
+    src: "Roboto-Light.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-LightItalic.ttf",
+    src: "Roboto-LightItalic.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-Medium.ttf",
+    src: "Roboto-Medium.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-MediumItalic.ttf",
+    src: "Roboto-MediumItalic.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-Thin.ttf",
+    src: "Roboto-Thin.ttf",
+}
+
+prebuilt_font {
+    name: "Roboto-ThinItalic.ttf",
+    src: "Roboto-ThinItalic.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-Regular.ttf",
+    src: "RobotoCondensed-Regular.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-Bold.ttf",
+    src: "RobotoCondensed-Bold.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-Italic.ttf",
+    src: "RobotoCondensed-Italic.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-BoldItalic.ttf",
+    src: "RobotoCondensed-BoldItalic.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-Light.ttf",
+    src: "RobotoCondensed-Light.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-LightItalic.ttf",
+    src: "RobotoCondensed-LightItalic.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-Medium.ttf",
+    src: "RobotoCondensed-Medium.ttf",
+}
+
+prebuilt_font {
+    name: "RobotoCondensed-MediumItalic.ttf",
+    src: "RobotoCondensed-MediumItalic.ttf",
+}

@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include <sys/stat.h>
+#include <sys/xattr.h>
 
 /*
  * regex.h/c were introduced to hold all dependencies on the regular
@@ -31,6 +32,9 @@
 #define SELINUX_COMPILED_FCONTEXT_MAX_VERS \
 	SELINUX_COMPILED_FCONTEXT_REGEX_ARCH
 
+/* Required selinux_restorecon and selabel_get_digests_all_partial_matches() */
+#define RESTORECON_PARTIAL_MATCH_DIGEST  "security.sehash"
+
 struct selabel_sub {
 	char *src;
 	int slen;
@@ -41,7 +45,7 @@ struct selabel_sub {
 /* A file security context specification. */
 struct spec {
 	struct selabel_lookup_rec lr;	/* holds contexts for lookup result */
-	char *regex_str;	/* regular expession string for diagnostics */
+	char *regex_str;	/* regular expression string for diagnostics */
 	char *type_str;		/* type string for diagnostic messages */
 	struct regex_data * regex; /* backend dependent regular expression data */
 	bool regex_compiled; /* bool to indicate if the regex is compiled */

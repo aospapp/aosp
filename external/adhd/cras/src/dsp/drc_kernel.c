@@ -22,8 +22,8 @@
 #define DIVISION_FRAMES_MASK (DIVISION_FRAMES - 1)
 
 #define assert_on_compile(e) ((void)sizeof(char[1 - 2 * !(e)]))
-#define assert_on_compile_is_power_of_2(n) \
-	assert_on_compile((n) != 0 && (((n) & ((n) - 1)) == 0))
+#define assert_on_compile_is_power_of_2(n)                                     \
+	assert_on_compile((n) != 0 && (((n) & ((n)-1)) == 0))
 
 const float uninitialized_value = -1;
 static int drc_math_initialized;
@@ -117,7 +117,7 @@ static float knee_curve(struct drc_kernel *dk, float x, float k)
 		return x;
 
 	return dk->linear_threshold +
-		(1 - knee_expf(-k * (x - dk->linear_threshold))) / k;
+	       (1 - knee_expf(-k * (x - dk->linear_threshold))) / k;
 }
 
 /* Approximate 1st derivative with input and output expressed in dB.  This slope
@@ -174,8 +174,8 @@ static float k_at_slope(struct drc_kernel *dk, float desired_slope)
 }
 
 static void update_static_curve_parameters(struct drc_kernel *dk,
-					   float db_threshold,
-					   float db_knee, float ratio)
+					   float db_threshold, float db_knee,
+					   float ratio)
 {
 	if (db_threshold != dk->db_threshold || db_knee != dk->db_knee ||
 	    ratio != dk->ratio) {
@@ -240,18 +240,11 @@ static float volume_gain(struct drc_kernel *dk, float x)
 	return y;
 }
 
-void dk_set_parameters(struct drc_kernel *dk,
-		       float db_threshold,
-		       float db_knee,
-		       float ratio,
-		       float attack_time,
-		       float release_time,
-		       float pre_delay_time,
-		       float db_post_gain,
-		       float releaseZone1,
-		       float releaseZone2,
-		       float releaseZone3,
-		       float releaseZone4)
+void dk_set_parameters(struct drc_kernel *dk, float db_threshold, float db_knee,
+		       float ratio, float attack_time, float release_time,
+		       float pre_delay_time, float db_post_gain,
+		       float releaseZone1, float releaseZone2,
+		       float releaseZone3, float releaseZone4)
 {
 	float sample_rate = dk->sample_rate;
 
@@ -264,8 +257,8 @@ void dk_set_parameters(struct drc_kernel *dk,
 	/* Empirical/perceptual tuning. */
 	full_range_makeup_gain = powf(full_range_makeup_gain, 0.6f);
 
-	dk->master_linear_gain = decibels_to_linear(db_post_gain) *
-		full_range_makeup_gain;
+	dk->master_linear_gain =
+		decibels_to_linear(db_post_gain) * full_range_makeup_gain;
 
 	/* Attack parameters. */
 	attack_time = max(0.001f, attack_time);
@@ -293,16 +286,16 @@ void dk_set_parameters(struct drc_kernel *dk,
 	 * fitting where the y values match the evenly spaced x values as
 	 * follows: (y1 : x == 0, y2 : x == 1, y3 : x == 2, y4 : x == 3)
 	 */
-	dk->kA = 0.9999999999999998f*y1 + 1.8432219684323923e-16f*y2
-		- 1.9373394351676423e-16f*y3 + 8.824516011816245e-18f*y4;
-	dk->kB = -1.5788320352845888f*y1 + 2.3305837032074286f*y2
-		- 0.9141194204840429f*y3 + 0.1623677525612032f*y4;
-	dk->kC = 0.5334142869106424f*y1 - 1.272736789213631f*y2
-		+ 0.9258856042207512f*y3 - 0.18656310191776226f*y4;
-	dk->kD = 0.08783463138207234f*y1 - 0.1694162967925622f*y2
-		+ 0.08588057951595272f*y3 - 0.00429891410546283f*y4;
-	dk->kE = -0.042416883008123074f*y1 + 0.1115693827987602f*y2
-		- 0.09764676325265872f*y3 + 0.028494263462021576f*y4;
+	dk->kA = 0.9999999999999998f * y1 + 1.8432219684323923e-16f * y2 -
+		 1.9373394351676423e-16f * y3 + 8.824516011816245e-18f * y4;
+	dk->kB = -1.5788320352845888f * y1 + 2.3305837032074286f * y2 -
+		 0.9141194204840429f * y3 + 0.1623677525612032f * y4;
+	dk->kC = 0.5334142869106424f * y1 - 1.272736789213631f * y2 +
+		 0.9258856042207512f * y3 - 0.18656310191776226f * y4;
+	dk->kD = 0.08783463138207234f * y1 - 0.1694162967925622f * y2 +
+		 0.08588057951595272f * y3 - 0.00429891410546283f * y4;
+	dk->kE = -0.042416883008123074f * y1 + 0.1115693827987602f * y2 -
+		 0.09764676325265872f * y3 + 0.028494263462021576f * y4;
 
 	/* x ranges from 0 -> 3	      0	   1	2   3
 	 *			     -15  -10  -5   0db
@@ -346,8 +339,8 @@ static void dk_update_envelope(struct drc_kernel *dk)
 
 	/* compression_diff_db is the difference between current compression
 	 * level and the desired level. */
-	float compression_diff_db = linear_to_decibels(
-		dk->compressor_gain / scaled_desired_gain);
+	float compression_diff_db =
+		linear_to_decibels(dk->compressor_gain / scaled_desired_gain);
 
 	if (is_releasing) {
 		/* Release mode - compression_diff_db should be negative dB */
@@ -373,8 +366,8 @@ static void dk_update_envelope(struct drc_kernel *dk)
 		float x2 = x * x;
 		float x3 = x2 * x;
 		float x4 = x2 * x2;
-		float release_frames = kA + kB * x + kC * x2 + kD * x3 +
-			kE * x4;
+		float release_frames =
+			kA + kB * x + kC * x2 + kD * x3 + kE * x4;
 
 #define kSpacingDb 5
 		float db_per_frame = kSpacingDb / release_frames;
@@ -389,9 +382,9 @@ static void dk_update_envelope(struct drc_kernel *dk)
 		/* As long as we're still in attack mode, use a rate based off
 		 * the largest compression_diff_db we've encountered so far.
 		 */
-		dk->max_attack_compression_diff_db = max(
-			dk->max_attack_compression_diff_db,
-			compression_diff_db);
+		dk->max_attack_compression_diff_db =
+			max(dk->max_attack_compression_diff_db,
+			    compression_diff_db);
 
 		float eff_atten_diff_db =
 			max(0.5f, dk->max_attack_compression_diff_db);
@@ -407,11 +400,12 @@ static void dk_update_envelope(struct drc_kernel *dk)
 /* For a division of frames, take the absolute values of left channel and right
  * channel, store the maximum of them in output. */
 #if defined(__aarch64__)
-static inline void max_abs_division(float *output,
-				    const float *data0, const float *data1)
+static inline void max_abs_division(float *output, const float *data0,
+				    const float *data1)
 {
 	int count = DIVISION_FRAMES / 4;
 
+	// clang-format off
 	__asm__ __volatile__(
 		"1:                                     \n"
 		"ld1 {v0.4s}, [%[data0]], #16           \n"
@@ -429,15 +423,16 @@ static inline void max_abs_division(float *output,
 		  [count]"+r"(count)
 		: /* input */
 		: /* clobber */
-		  "v0", "v1", "memory", "cc"
-		);
+		  "v0", "v1", "memory", "cc");
+	// clang-format on
 }
 #elif defined(__ARM_NEON__)
-static inline void max_abs_division(float *output,
-				    const float *data0, const float *data1)
+static inline void max_abs_division(float *output, const float *data0,
+				    const float *data1)
 {
 	int count = DIVISION_FRAMES / 4;
 
+	// clang-format off
 	__asm__ __volatile__(
 		"1:                                     \n"
 		"vld1.32 {q0}, [%[data0]]!              \n"
@@ -455,17 +450,17 @@ static inline void max_abs_division(float *output,
 		  [count]"+r"(count)
 		: /* input */
 		: /* clobber */
-		  "q0", "q1", "memory", "cc"
-		);
+		  "q0", "q1", "memory", "cc");
+	// clang-format on
 }
 #elif defined(__SSE3__)
 #include <emmintrin.h>
-static inline void max_abs_division(float *output,
-				    const float *data0, const float *data1)
+static inline void max_abs_division(float *output, const float *data0,
+				    const float *data1)
 {
 	__m128 x, y;
 	int count = DIVISION_FRAMES / 4;
-
+	// clang-format off
 	__asm__ __volatile__(
 		"1:                                     \n"
 		"lddqu (%[data0]), %[x]                 \n"
@@ -489,12 +484,12 @@ static inline void max_abs_division(float *output,
 		: /* input */
 		  [mask]"x"(_mm_set1_epi32(0x7fffffff))
 		: /* clobber */
-		  "memory", "cc"
-		);
+		  "memory", "cc");
+	// clang-format on
 }
 #else
-static inline void max_abs_division(float *output,
-				    const float *data0, const float *data1)
+static inline void max_abs_division(float *output, const float *data0,
+				    const float *data1)
 {
 	int i;
 	for (i = 0; i < DIVISION_FRAMES; i++)
@@ -520,8 +515,7 @@ static void dk_update_detector_average(struct drc_kernel *dk)
 	}
 
 	/* The max abs value across all channels for this frame */
-	max_abs_division(abs_input_array,
-			 &dk->pre_delay_buffers[0][div_start],
+	max_abs_division(abs_input_array, &dk->pre_delay_buffers[0][div_start],
 			 &dk->pre_delay_buffers[1][div_start]);
 
 	for (i = 0; i < DIVISION_FRAMES; i++) {
@@ -539,16 +533,17 @@ static void dk_update_detector_average(struct drc_kernel *dk)
 		int is_release = (gain > detector_average);
 		if (is_release) {
 			if (gain > NEG_TWO_DB) {
-				detector_average += (gain - detector_average) *
+				detector_average +=
+					(gain - detector_average) *
 					sat_release_rate_at_neg_two_db;
 			} else {
 				float gain_db = linear_to_decibels(gain);
-				float db_per_frame = gain_db *
-					sat_release_frames_inv_neg;
+				float db_per_frame =
+					gain_db * sat_release_frames_inv_neg;
 				float sat_release_rate =
 					decibels_to_linear(db_per_frame) - 1;
 				detector_average += (gain - detector_average) *
-					sat_release_rate;
+						    sat_release_rate;
 			}
 		} else {
 			detector_average = gain;
@@ -590,9 +585,11 @@ static void dk_compress_output(struct drc_kernel *dk)
 	if (envelope_rate < 1) {
 		float c = compressor_gain - scaled_desired_gain;
 		float r = 1 - envelope_rate;
-		float32x4_t x0 = {c*r, c*r*r, c*r*r*r, c*r*r*r*r};
+		float32x4_t x0 = { c * r, c * r * r, c * r * r * r,
+				   c * r * r * r * r };
 		float32x4_t x, x2, x4, left, right, tmp1, tmp2;
 
+		// clang-format off
 		__asm__ __volatile(
 			"b 2f                                               \n"
 			"1:                                                 \n"
@@ -643,15 +640,17 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [r4]"w"(vdupq_n_f32(r*r*r*r)),
 			  [g]"w"(vdupq_n_f32(master_linear_gain))
 			: /* clobber */
-			  "memory", "cc"
-			);
+			  "memory", "cc");
+		// clang-format on
 		dk->compressor_gain = x[3];
 	} else {
 		float c = compressor_gain;
 		float r = envelope_rate;
-		float32x4_t x = {c*r, c*r*r, c*r*r*r, c*r*r*r*r};
+		float32x4_t x = { c * r, c * r * r, c * r * r * r,
+				  c * r * r * r * r };
 		float32x4_t x2, x4, left, right, tmp1, tmp2;
 
+		// clang-format off
 		__asm__ __volatile(
 			"b 2f                                               \n"
 			"1:                                                 \n"
@@ -701,8 +700,8 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [r4]"w"(vdupq_n_f32(r*r*r*r)),
 			  [g]"w"(vdupq_n_f32(master_linear_gain))
 			: /* clobber */
-			  "memory", "cc"
-			);
+			  "memory", "cc");
+		// clang-format on
 		dk->compressor_gain = x[3];
 	}
 }
@@ -729,9 +728,11 @@ static void dk_compress_output(struct drc_kernel *dk)
 	if (envelope_rate < 1) {
 		float c = compressor_gain - scaled_desired_gain;
 		float r = 1 - envelope_rate;
-		__m128 x0 = {c*r, c*r*r, c*r*r*r, c*r*r*r*r};
+		__m128 x0 = { c * r, c * r * r, c * r * r * r,
+			      c * r * r * r * r };
 		__m128 x, x2, x4, left, right, tmp1, tmp2;
 
+		// clang-format off
 		__asm__ __volatile(
 			"jmp 2f                                     \n"
 			"1:                                         \n"
@@ -790,8 +791,8 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [r4]"x"(_mm_set1_ps(r*r*r*r)),
 			  [g]"x"(_mm_set1_ps(master_linear_gain))
 			: /* clobber */
-			  "memory", "cc"
-			);
+			  "memory", "cc");
+		// clang-format on
 		dk->compressor_gain = x[3];
 	} else {
 		/* See warp_sinf() for the details for the constants. */
@@ -802,9 +803,11 @@ static void dk_compress_output(struct drc_kernel *dk)
 
 		float c = compressor_gain;
 		float r = envelope_rate;
-		__m128 x = {c*r, c*r*r, c*r*r*r, c*r*r*r*r};
+		__m128 x = { c * r, c * r * r, c * r * r * r,
+			     c * r * r * r * r };
 		__m128 x2, x4, left, right, tmp1, tmp2;
 
+		// clang-format off
 		__asm__ __volatile(
 			"jmp 2f                                     \n"
 			"1:                                         \n"
@@ -861,8 +864,8 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [r4]"x"(_mm_set1_ps(r*r*r*r)),
 			  [g]"x"(_mm_set1_ps(master_linear_gain))
 			: /* clobber */
-			  "memory", "cc"
-			);
+			  "memory", "cc");
+		// clang-format on
 		dk->compressor_gain = x[3];
 	}
 }
@@ -886,8 +889,9 @@ static void dk_compress_output(struct drc_kernel *dk)
 		float c = compressor_gain - scaled_desired_gain;
 		float base = scaled_desired_gain;
 		float r = 1 - envelope_rate;
-		float x[4] = {c*r, c*r*r, c*r*r*r, c*r*r*r*r};
-		float r4 = r*r*r*r;
+		float x[4] = { c * r, c * r * r, c * r * r * r,
+			       c * r * r * r * r };
+		float r4 = r * r * r * r;
 
 		i = 0;
 		while (1) {
@@ -900,7 +904,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 
 				/* Calculate total gain using master gain. */
 				float total_gain = master_linear_gain *
-					post_warp_compressor_gain;
+						   post_warp_compressor_gain;
 
 				/* Apply final gain. */
 				*ptr_left++ *= total_gain;
@@ -919,8 +923,9 @@ static void dk_compress_output(struct drc_kernel *dk)
 		/* Release - exponentially increase gain to 1.0 */
 		float c = compressor_gain;
 		float r = envelope_rate;
-		float x[4] = {c*r, c*r*r, c*r*r*r, c*r*r*r*r};
-		float r4 = r*r*r*r;
+		float x[4] = { c * r, c * r * r, c * r * r * r,
+			       c * r * r * r * r };
+		float r4 = r * r * r * r;
 
 		i = 0;
 		while (1) {
@@ -933,7 +938,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 
 				/* Calculate total gain using master gain. */
 				float total_gain = master_linear_gain *
-					post_warp_compressor_gain;
+						   post_warp_compressor_gain;
 
 				/* Apply final gain. */
 				*ptr_left++ *= total_gain;
@@ -983,10 +988,10 @@ static void dk_copy_fragment(struct drc_kernel *dk, float *data_channels[],
 		       frames_to_process * sizeof(float));
 	}
 
-	dk->pre_delay_write_index = (write_index + frames_to_process) &
-		MAX_PRE_DELAY_FRAMES_MASK;
-	dk->pre_delay_read_index = (read_index + frames_to_process) &
-		MAX_PRE_DELAY_FRAMES_MASK;
+	dk->pre_delay_write_index =
+		(write_index + frames_to_process) & MAX_PRE_DELAY_FRAMES_MASK;
+	dk->pre_delay_read_index =
+		(read_index + frames_to_process) & MAX_PRE_DELAY_FRAMES_MASK;
 }
 
 /* Delay the input sample only and don't do other processing. This is used when
@@ -1011,8 +1016,7 @@ static void dk_process_delay_only(struct drc_kernel *dk, float *data_channels[],
 		chunk = min(chunk, count - i);
 		for (j = 0; j < DRC_NUM_CHANNELS; ++j) {
 			memcpy(&dk->pre_delay_buffers[j][write_index],
-			       &data_channels[j][i],
-			       chunk * sizeof(float));
+			       &data_channels[j][i], chunk * sizeof(float));
 			memcpy(&data_channels[j][i],
 			       &dk->pre_delay_buffers[j][read_index],
 			       chunk * sizeof(float));

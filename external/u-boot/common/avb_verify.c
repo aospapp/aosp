@@ -5,12 +5,16 @@
  */
 
 #include <avb_verify.h>
+#include <blk.h>
+#include <cpu_func.h>
 #include <fastboot.h>
 #include <image.h>
 #include <malloc.h>
 #include <part.h>
+#include <tee.h>
+#include <tee/optee_ta_avb.h>
 
-const unsigned char avb_root_pub[1032] = {
+static const unsigned char avb_root_pub[1032] = {
 	0x0, 0x0, 0x10, 0x0, 0x55, 0xd9, 0x4, 0xad, 0xd8, 0x4,
 	0xaf, 0xe3, 0xd3, 0x84, 0x6c, 0x7e, 0xd, 0x89, 0x3d, 0xc2,
 	0x8c, 0xd3, 0x12, 0x55, 0xe9, 0x62, 0xc9, 0xf1, 0xf, 0x5e,
@@ -175,7 +179,7 @@ static int avb_find_dm_args(char **args, char *str)
 	if (!str)
 		return -1;
 
-	for (i = 0; i < AVB_MAX_ARGS, args[i]; ++i) {
+	for (i = 0; i < AVB_MAX_ARGS && args[i]; ++i) {
 		if (strstr(args[i], str))
 			return i;
 	}
@@ -288,8 +292,8 @@ static unsigned long mmc_read_and_flush(struct mmc_part *part,
 		tmp_buf = buffer;
 	}
 
-	blks = part->mmc->block_dev.block_read(part->mmc_blk,
-				start, sectors, tmp_buf);
+	blks = blk_dread(part->mmc_blk,
+			 start, sectors, tmp_buf);
 	/* flush cache after read */
 	flush_cache((ulong)tmp_buf, sectors * part->info.blksz);
 
@@ -327,8 +331,8 @@ static unsigned long mmc_write(struct mmc_part *part, lbaint_t start,
 		tmp_buf = buffer;
 	}
 
-	return part->mmc->block_dev.block_write(part->mmc_blk,
-				start, sectors, tmp_buf);
+	return blk_dwrite(part->mmc_blk,
+			  start, sectors, tmp_buf);
 }
 
 static struct mmc_part *get_partition(AvbOps *ops, const char *partition)
@@ -347,34 +351,37 @@ static struct mmc_part *get_partition(AvbOps *ops, const char *partition)
 	part->mmc = find_mmc_device(dev_num);
 	if (!part->mmc) {
 		printf("No MMC device at slot %x\n", dev_num);
-		return NULL;
+		goto err;
 	}
 
 	if (mmc_init(part->mmc)) {
 		printf("MMC initialization failed\n");
-		return NULL;
+		goto err;
 	}
 
 	ret = mmc_switch_part(part->mmc, part_num);
 	if (ret)
-		return NULL;
+		goto err;
 
 	mmc_blk = mmc_get_blk_desc(part->mmc);
 	if (!mmc_blk) {
 		printf("Error - failed to obtain block descriptor\n");
-		return NULL;
+		goto err;
 	}
 
 	ret = part_get_info_by_name(mmc_blk, partition, &part->info);
 	if (!ret) {
 		printf("Can't find partition '%s'\n", partition);
-		return NULL;
+		goto err;
 	}
 
 	part->dev_num = dev_num;
 	part->mmc_blk = mmc_blk;
 
 	return part;
+err:
+	free(part);
+	return NULL;
 }
 
 static AvbIOResult mmc_byte_io(AvbOps *ops,
@@ -397,6 +404,9 @@ static AvbIOResult mmc_byte_io(AvbOps *ops,
 	part = get_partition(ops, partition);
 	if (!part)
 		return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+
+	if (!part->info.blksz)
+		return AVB_IO_RESULT_ERROR_IO;
 
 	start_offset = calc_offset(part, offset);
 	while (num_bytes) {
@@ -593,6 +603,69 @@ static AvbIOResult validate_vbmeta_public_key(AvbOps *ops,
 	return AVB_IO_RESULT_OK;
 }
 
+#ifdef CONFIG_OPTEE_TA_AVB
+static int get_open_session(struct AvbOpsData *ops_data)
+{
+	struct udevice *tee = NULL;
+
+	while (!ops_data->tee) {
+		const struct tee_optee_ta_uuid uuid = TA_AVB_UUID;
+		struct tee_open_session_arg arg;
+		int rc;
+
+		tee = tee_find_device(tee, NULL, NULL, NULL);
+		if (!tee)
+			return -ENODEV;
+
+		memset(&arg, 0, sizeof(arg));
+		tee_optee_ta_uuid_to_octets(arg.uuid, &uuid);
+		rc = tee_open_session(tee, &arg, 0, NULL);
+		if (!rc) {
+			ops_data->tee = tee;
+			ops_data->session = arg.session;
+		}
+	}
+
+	return 0;
+}
+
+static AvbIOResult invoke_func(struct AvbOpsData *ops_data, u32 func,
+			       ulong num_param, struct tee_param *param)
+{
+	struct tee_invoke_arg arg;
+
+	if (get_open_session(ops_data))
+		return AVB_IO_RESULT_ERROR_IO;
+
+	memset(&arg, 0, sizeof(arg));
+	arg.func = func;
+	arg.session = ops_data->session;
+
+	if (tee_invoke_func(ops_data->tee, &arg, num_param, param))
+		return AVB_IO_RESULT_ERROR_IO;
+	switch (arg.ret) {
+	case TEE_SUCCESS:
+		return AVB_IO_RESULT_OK;
+	case TEE_ERROR_OUT_OF_MEMORY:
+		return AVB_IO_RESULT_ERROR_OOM;
+	case TEE_ERROR_STORAGE_NO_SPACE:
+		return AVB_IO_RESULT_ERROR_INSUFFICIENT_SPACE;
+	case TEE_ERROR_ITEM_NOT_FOUND:
+		return AVB_IO_RESULT_ERROR_NO_SUCH_VALUE;
+	case TEE_ERROR_TARGET_DEAD:
+		/*
+		 * The TA has paniced, close the session to reload the TA
+		 * for the next request.
+		 */
+		tee_close_session(ops_data->tee, ops_data->session);
+		ops_data->tee = NULL;
+		return AVB_IO_RESULT_ERROR_IO;
+	default:
+		return AVB_IO_RESULT_ERROR_IO;
+	}
+}
+#endif
+
 /**
  * read_rollback_index() - gets the rollback index corresponding to the
  * location of given by @out_rollback_index.
@@ -608,6 +681,7 @@ static AvbIOResult read_rollback_index(AvbOps *ops,
 				       size_t rollback_index_slot,
 				       u64 *out_rollback_index)
 {
+#ifndef CONFIG_OPTEE_TA_AVB
 	/* For now we always return 0 as the stored rollback index. */
 	printf("%s not supported yet\n", __func__);
 
@@ -615,6 +689,27 @@ static AvbIOResult read_rollback_index(AvbOps *ops,
 		*out_rollback_index = 0;
 
 	return AVB_IO_RESULT_OK;
+#else
+	AvbIOResult rc;
+	struct tee_param param[2];
+
+	if (rollback_index_slot >= TA_AVB_MAX_ROLLBACK_LOCATIONS)
+		return AVB_IO_RESULT_ERROR_NO_SUCH_VALUE;
+
+	memset(param, 0, sizeof(param));
+	param[0].attr = TEE_PARAM_ATTR_TYPE_VALUE_INPUT;
+	param[0].u.value.a = rollback_index_slot;
+	param[1].attr = TEE_PARAM_ATTR_TYPE_VALUE_OUTPUT;
+
+	rc = invoke_func(ops->user_data, TA_AVB_CMD_READ_ROLLBACK_INDEX,
+			 ARRAY_SIZE(param), param);
+	if (rc)
+		return rc;
+
+	*out_rollback_index = (u64)param[1].u.value.a << 32 |
+			      (u32)param[1].u.value.b;
+	return AVB_IO_RESULT_OK;
+#endif
 }
 
 /**
@@ -632,10 +727,27 @@ static AvbIOResult write_rollback_index(AvbOps *ops,
 					size_t rollback_index_slot,
 					u64 rollback_index)
 {
+#ifndef CONFIG_OPTEE_TA_AVB
 	/* For now this is a no-op. */
 	printf("%s not supported yet\n", __func__);
 
 	return AVB_IO_RESULT_OK;
+#else
+	struct tee_param param[2];
+
+	if (rollback_index_slot >= TA_AVB_MAX_ROLLBACK_LOCATIONS)
+		return AVB_IO_RESULT_ERROR_NO_SUCH_VALUE;
+
+	memset(param, 0, sizeof(param));
+	param[0].attr = TEE_PARAM_ATTR_TYPE_VALUE_INPUT;
+	param[0].u.value.a = rollback_index_slot;
+	param[1].attr = TEE_PARAM_ATTR_TYPE_VALUE_INPUT;
+	param[1].u.value.a = (u32)(rollback_index >> 32);
+	param[1].u.value.b = (u32)rollback_index;
+
+	return invoke_func(ops->user_data, TA_AVB_CMD_WRITE_ROLLBACK_INDEX,
+			   ARRAY_SIZE(param), param);
+#endif
 }
 
 /**
@@ -651,6 +763,7 @@ static AvbIOResult write_rollback_index(AvbOps *ops,
  */
 static AvbIOResult read_is_device_unlocked(AvbOps *ops, bool *out_is_unlocked)
 {
+#ifndef CONFIG_OPTEE_TA_AVB
 	/* For now we always return that the device is unlocked. */
 
 	printf("%s not supported yet\n", __func__);
@@ -658,6 +771,16 @@ static AvbIOResult read_is_device_unlocked(AvbOps *ops, bool *out_is_unlocked)
 	*out_is_unlocked = true;
 
 	return AVB_IO_RESULT_OK;
+#else
+	AvbIOResult rc;
+	struct tee_param param = { .attr = TEE_PARAM_ATTR_TYPE_VALUE_OUTPUT };
+
+	rc = invoke_func(ops->user_data, TA_AVB_CMD_READ_LOCK_STATE, 1, &param);
+	if (rc)
+		return rc;
+	*out_is_unlocked = !param.u.value.a;
+	return AVB_IO_RESULT_OK;
+#endif
 }
 
 /**
@@ -699,6 +822,157 @@ static AvbIOResult get_unique_guid_for_partition(AvbOps *ops,
 }
 
 /**
+ * get_size_of_partition() - gets the size of a partition identified
+ * by a string name
+ *
+ * @ops: contains AVB ops handlers
+ * @partition: partition name (NUL-terminated UTF-8 string)
+ * @out_size_num_bytes: returns the value of a partition size
+ *
+ * @return:
+ *      AVB_IO_RESULT_OK, on success (GUID found)
+ *      AVB_IO_RESULT_ERROR_INSUFFICIENT_SPACE, out_size_num_bytes is NULL
+ *      AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION, if partition was not found
+ */
+static AvbIOResult get_size_of_partition(AvbOps *ops,
+					 const char *partition,
+					 u64 *out_size_num_bytes)
+{
+	struct mmc_part *part;
+
+	if (!out_size_num_bytes)
+		return AVB_IO_RESULT_ERROR_INSUFFICIENT_SPACE;
+
+	part = get_partition(ops, partition);
+	if (!part)
+		return AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION;
+
+	*out_size_num_bytes = part->info.blksz * part->info.size;
+
+	return AVB_IO_RESULT_OK;
+}
+
+#ifdef CONFIG_OPTEE_TA_AVB
+static AvbIOResult read_persistent_value(AvbOps *ops,
+					 const char *name,
+					 size_t buffer_size,
+					 u8 *out_buffer,
+					 size_t *out_num_bytes_read)
+{
+	AvbIOResult rc;
+	struct tee_shm *shm_name;
+	struct tee_shm *shm_buf;
+	struct tee_param param[2];
+	struct udevice *tee;
+	size_t name_size = strlen(name) + 1;
+
+	if (get_open_session(ops->user_data))
+		return AVB_IO_RESULT_ERROR_IO;
+
+	tee = ((struct AvbOpsData *)ops->user_data)->tee;
+
+	rc = tee_shm_alloc(tee, name_size,
+			   TEE_SHM_ALLOC, &shm_name);
+	if (rc)
+		return AVB_IO_RESULT_ERROR_OOM;
+
+	rc = tee_shm_alloc(tee, buffer_size,
+			   TEE_SHM_ALLOC, &shm_buf);
+	if (rc) {
+		rc = AVB_IO_RESULT_ERROR_OOM;
+		goto free_name;
+	}
+
+	memcpy(shm_name->addr, name, name_size);
+
+	memset(param, 0, sizeof(param));
+	param[0].attr = TEE_PARAM_ATTR_TYPE_MEMREF_INPUT;
+	param[0].u.memref.shm = shm_name;
+	param[0].u.memref.size = name_size;
+	param[1].attr = TEE_PARAM_ATTR_TYPE_MEMREF_INOUT;
+	param[1].u.memref.shm = shm_buf;
+	param[1].u.memref.size = buffer_size;
+
+	rc = invoke_func(ops->user_data, TA_AVB_CMD_READ_PERSIST_VALUE,
+			 2, param);
+	if (rc)
+		goto out;
+
+	if (param[1].u.memref.size > buffer_size) {
+		rc = AVB_IO_RESULT_ERROR_NO_SUCH_VALUE;
+		goto out;
+	}
+
+	*out_num_bytes_read = param[1].u.memref.size;
+
+	memcpy(out_buffer, shm_buf->addr, *out_num_bytes_read);
+
+out:
+	tee_shm_free(shm_buf);
+free_name:
+	tee_shm_free(shm_name);
+
+	return rc;
+}
+
+static AvbIOResult write_persistent_value(AvbOps *ops,
+					  const char *name,
+					  size_t value_size,
+					  const u8 *value)
+{
+	AvbIOResult rc;
+	struct tee_shm *shm_name;
+	struct tee_shm *shm_buf;
+	struct tee_param param[2];
+	struct udevice *tee;
+	size_t name_size = strlen(name) + 1;
+
+	if (get_open_session(ops->user_data))
+		return AVB_IO_RESULT_ERROR_IO;
+
+	tee = ((struct AvbOpsData *)ops->user_data)->tee;
+
+	if (!value_size)
+		return AVB_IO_RESULT_ERROR_NO_SUCH_VALUE;
+
+	rc = tee_shm_alloc(tee, name_size,
+			   TEE_SHM_ALLOC, &shm_name);
+	if (rc)
+		return AVB_IO_RESULT_ERROR_OOM;
+
+	rc = tee_shm_alloc(tee, value_size,
+			   TEE_SHM_ALLOC, &shm_buf);
+	if (rc) {
+		rc = AVB_IO_RESULT_ERROR_OOM;
+		goto free_name;
+	}
+
+	memcpy(shm_name->addr, name, name_size);
+	memcpy(shm_buf->addr, value, value_size);
+
+	memset(param, 0, sizeof(param));
+	param[0].attr = TEE_PARAM_ATTR_TYPE_MEMREF_INPUT;
+	param[0].u.memref.shm = shm_name;
+	param[0].u.memref.size = name_size;
+	param[1].attr = TEE_PARAM_ATTR_TYPE_MEMREF_INPUT;
+	param[1].u.memref.shm = shm_buf;
+	param[1].u.memref.size = value_size;
+
+	rc = invoke_func(ops->user_data, TA_AVB_CMD_WRITE_PERSIST_VALUE,
+			 2, param);
+	if (rc)
+		goto out;
+
+out:
+	tee_shm_free(shm_buf);
+free_name:
+	tee_shm_free(shm_name);
+
+	return rc;
+}
+#endif
+
+/**
  * ============================================================================
  * AVB2.0 AvbOps alloc/initialisation/free
  * ============================================================================
@@ -721,7 +995,11 @@ AvbOps *avb_ops_alloc(int boot_device)
 	ops_data->ops.read_is_device_unlocked = read_is_device_unlocked;
 	ops_data->ops.get_unique_guid_for_partition =
 		get_unique_guid_for_partition;
-
+#ifdef CONFIG_OPTEE_TA_AVB
+	ops_data->ops.write_persistent_value = write_persistent_value;
+	ops_data->ops.read_persistent_value = read_persistent_value;
+#endif
+	ops_data->ops.get_size_of_partition = get_size_of_partition;
 	ops_data->mmc_dev = boot_device;
 
 	return &ops_data->ops;
@@ -731,11 +1009,16 @@ void avb_ops_free(AvbOps *ops)
 {
 	struct AvbOpsData *ops_data;
 
-	if (ops)
+	if (!ops)
 		return;
 
 	ops_data = ops->user_data;
 
-	if (ops_data)
+	if (ops_data) {
+#ifdef CONFIG_OPTEE_TA_AVB
+		if (ops_data->tee)
+			tee_close_session(ops_data->tee, ops_data->session);
+#endif
 		avb_free(ops_data);
+	}
 }

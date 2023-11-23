@@ -173,9 +173,9 @@ class BgscanConfiguration(xmlrpc_types.XmlRpcStruct):
 
     # These three parameters come out shill's wifi.cc.
     # and refer to inputs to the simple scanning method.
-    DEFAULT_SHORT_INTERVAL_SECONDS = 30
-    DEFAULT_LONG_INTERVAL_SECONDS = 180
-    DEFAULT_SIGNAL_THRESHOLD = -50
+    DEFAULT_SHORT_INTERVAL_SECONDS = 64
+    DEFAULT_LONG_INTERVAL_SECONDS = 60
+    DEFAULT_SIGNAL_THRESHOLD = -72
 
     def __init__(self, interface=None, signal=DEFAULT_SIGNAL_THRESHOLD,
                  short_interval=DEFAULT_SHORT_INTERVAL_SECONDS,

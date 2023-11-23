@@ -17,7 +17,8 @@ class logging_FeedbackReport(test.test):
     version = 1
     _FEEDBACK_ID = 'gfdkimpbcpahaombhbimeihdjnejgicl'
     _FEEDBACK_STATE_TIMEOUT = 40
-    _WAIT = 10
+    _WAIT = 2
+    _FEEDBACK_SENT_URL = 'support.google.com/chromebook/answer/3142217'
 
     def warmup(self):
         """Test setup."""
@@ -67,14 +68,51 @@ class logging_FeedbackReport(test.test):
                 exception=error.TestFail('Feedback elements not enabled.'),
                 timeout=self._FEEDBACK_STATE_TIMEOUT)
 
+    def _enter_feedback_text(self):
+        """Enter Feedback message in the Text field"""
+        time.sleep(self._WAIT)
+        self._player.blocking_playback_of_default_file(
+               input_type='keyboard', filename='keyboard_T+e+s+t')
+
+    def _press_enter(self):
+        """Use keyboard shortcut to press Enter."""
+        self._player.blocking_playback_of_default_file(
+            input_type='keyboard', filename='keyboard_enter')
+
+    def _press_shift_tab(self):
+        """Use keyboard shortcut to press Shift-Tab."""
+        self._player.blocking_playback_of_default_file(
+            input_type='keyboard', filename='keyboard_shift+tab')
+
+    def _submit_feedback(self):
+        """Click on Send button to submit Feedback Report using keyboard input"""
+        self._enter_feedback_text()
+        self._press_shift_tab()
+        self._press_enter()
+
+    def _is_feedback_sent(self, start_time, timeout):
+        """Checks feedback is sent within timeout
+
+        @param start_time: beginning timestamp
+        @param timeout: duration of URL checks
+
+        @returns: True if feedback sent page is present
+        """
+        while True:
+            time.sleep(self._WAIT)
+            for tab in self.cr.browser.tabs:
+                if self._FEEDBACK_SENT_URL in tab.url:
+                    return True
+            if time.time() - start_time >= timeout:
+                break;
+        return False
+
     def run_once(self):
         """Run the test."""
-        with chrome.Chrome(disable_default_apps=False) as cr:
+        with chrome.Chrome(disable_default_apps=False) as self.cr:
             # Open and confirm feedback app is working.
-            time.sleep(self._WAIT)
             self._open_feedback()
-            time.sleep(self._WAIT)
-            cr_exts = cr.browser.extensions
+            cr_exts = self.cr.browser.extensions
             self.feedback_app = None
             for extension in cr_exts.GetByExtensionId(self._FEEDBACK_ID):
                 url = extension.EvaluateJavaScript('location.href;')
@@ -85,6 +123,11 @@ class logging_FeedbackReport(test.test):
             if self.feedback_app is None:
                 raise error.TestError("Incorrect feedback id list.")
             self._confirm_feedback_state()
+            self._submit_feedback()
+
+            start_time = time.time()
+            if not self._is_feedback_sent(start_time, self._WAIT * 30):
+                raise error.TestFail("Feedback NOT sent!")
 
     def cleanup(self):
         """Test cleanup."""

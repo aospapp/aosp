@@ -6,8 +6,6 @@
 
 #include "core/fxcodec/jbig2/JBig2_Segment.h"
 
-#include "core/fxcrt/fx_memory.h"
-
 CJBig2_Segment::CJBig2_Segment()
     : m_dwNumber(0),
       m_nReferred_to_segment_count(0),

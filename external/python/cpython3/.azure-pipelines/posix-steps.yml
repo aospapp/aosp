@@ -10,6 +10,10 @@ steps:
   clean: true
   fetchDepth: 5
 
+# Work around a known issue affecting Ubuntu VMs on Pipelines
+- script: sudo setfacl -Rb /home/vsts
+  displayName: 'Workaround ACL issue'
+
 - script: ${{ parameters.sudo_dependencies }} ./.azure-pipelines/posix-deps-${{ parameters.dependencies }}.sh $(openssl_version)
   displayName: 'Install dependencies'
 
@@ -30,7 +34,7 @@ steps:
       $COMMAND -m coverage run --pylib -m test \
                 --fail-env-changed \
                 -uall,-cpu \
-                --junit-xml=$(build.binariesDirectory)/test-results.xml" \
+                --junit-xml=$(build.binariesDirectory)/test-results.xml \
                 -x test_multiprocessing_fork \
                 -x test_multiprocessing_forkserver \
                 -x test_multiprocessing_spawn \

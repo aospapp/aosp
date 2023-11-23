@@ -25,6 +25,7 @@
 #include "vktDrawTests.hpp"
 
 #include "vktDrawSimpleTest.hpp"
+#include "vktDrawConcurrentTests.hpp"
 #include "vktDrawIndexedTest.hpp"
 #include "vktDrawIndirectTest.hpp"
 #include "vktDrawInstancedTests.hpp"
@@ -36,6 +37,9 @@
 #include "vktDrawDifferingInterpolationTests.hpp"
 #include "vktDrawShaderLayerTests.hpp"
 #include "vktDrawShaderViewportIndexTests.hpp"
+#include "vktDrawScissorTests.hpp"
+#include "vktDrawMultipleInterpolationTests.hpp"
+#include "vktDrawDiscardRectanglesTests.hpp"
 
 namespace vkt
 {
@@ -49,6 +53,7 @@ void createChildren (tcu::TestCaseGroup* group)
 {
 	tcu::TestContext&	testCtx		= group->getTestContext();
 
+	group->addChild(new ConcurrentDrawTests				(testCtx));
 	group->addChild(new SimpleDrawTests					(testCtx));
 	group->addChild(new DrawIndexedTests				(testCtx));
 	group->addChild(new IndirectDrawTests				(testCtx));
@@ -61,6 +66,9 @@ void createChildren (tcu::TestCaseGroup* group)
 	group->addChild(createDifferingInterpolationTests	(testCtx));
 	group->addChild(createShaderLayerTests				(testCtx));
 	group->addChild(createShaderViewportIndexTests		(testCtx));
+	group->addChild(createScissorTests					(testCtx));
+	group->addChild(createMultipleInterpolationTests	(testCtx));
+	group->addChild(createDiscardRectanglesTests		(testCtx));
 }
 
 } // anonymous

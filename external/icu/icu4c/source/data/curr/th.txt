@@ -1273,6 +1273,7 @@ th{
         SSP{"£"}
         STN{"Db"}
         SYP{"£"}
+        THB{"฿"}
         TOP{"T$"}
         TRY{"₺"}
         TTD{"$"}
@@ -1791,5 +1792,5 @@ th{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.43.89"}
+    Version{"36.1"}
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,6 +24,9 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
+/**
+ * Unit tests for {@link FinallyFilter}.
+ */
 public class FinallyFilterTest implements IFilterOutput {
 
 	private final IFilter filter = new FinallyFilter();
@@ -383,7 +386,7 @@ public class FinallyFilterTest implements IFilterOutput {
 	}
 
 	private void execute() {
-		filter.filter("", "", m, this);
+		filter.filter(m, new FilterContextMock(), this);
 		assertEquals("ignored", toIndexes(expectedIgnored),
 				toIndexes(actualIgnored));
 		assertEquals("merged", toIndexes(expectedMerged),
@@ -416,6 +419,11 @@ public class FinallyFilterTest implements IFilterOutput {
 		} else {
 			fail();
 		}
+	}
+
+	public void replaceBranches(final AbstractInsnNode source,
+			final Set<AbstractInsnNode> newTargets) {
+		fail();
 	}
 
 }

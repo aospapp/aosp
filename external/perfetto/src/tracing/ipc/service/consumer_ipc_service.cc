@@ -19,16 +19,18 @@
 #include <inttypes.h>
 
 #include "perfetto/base/logging.h"
-#include "perfetto/base/scoped_file.h"
 #include "perfetto/base/task_runner.h"
-#include "perfetto/ipc/basic_types.h"
-#include "perfetto/ipc/host.h"
-#include "perfetto/tracing/core/shared_memory_abi.h"
-#include "perfetto/tracing/core/slice.h"
+#include "perfetto/ext/base/scoped_file.h"
+#include "perfetto/ext/ipc/basic_types.h"
+#include "perfetto/ext/ipc/host.h"
+#include "perfetto/ext/tracing/core/shared_memory_abi.h"
+#include "perfetto/ext/tracing/core/slice.h"
+#include "perfetto/ext/tracing/core/trace_packet.h"
+#include "perfetto/ext/tracing/core/trace_stats.h"
+#include "perfetto/ext/tracing/core/tracing_service.h"
 #include "perfetto/tracing/core/trace_config.h"
-#include "perfetto/tracing/core/trace_packet.h"
-#include "perfetto/tracing/core/trace_stats.h"
-#include "perfetto/tracing/core/tracing_service.h"
+#include "perfetto/tracing/core/tracing_service_capabilities.h"
+#include "perfetto/tracing/core/tracing_service_state.h"
 
 namespace perfetto {
 
@@ -60,50 +62,50 @@ void ConsumerIPCService::OnClientDisconnected() {
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::EnableTracing(const protos::EnableTracingRequest& req,
-                                       DeferredEnableTracingResponse resp) {
+void ConsumerIPCService::EnableTracing(
+    const protos::gen::EnableTracingRequest& req,
+    DeferredEnableTracingResponse resp) {
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
   if (req.attach_notification_only()) {
     remote_consumer->enable_tracing_response = std::move(resp);
     return;
   }
-  TraceConfig trace_config;
-  trace_config.FromProto(req.trace_config());
+  const TraceConfig& trace_config = req.trace_config();
   base::ScopedFile fd;
-  if (trace_config.write_into_file())
+  if (trace_config.write_into_file() && trace_config.output_path().empty())
     fd = ipc::Service::TakeReceivedFD();
   remote_consumer->service_endpoint->EnableTracing(trace_config, std::move(fd));
   remote_consumer->enable_tracing_response = std::move(resp);
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::StartTracing(const protos::StartTracingRequest&,
+void ConsumerIPCService::StartTracing(const protos::gen::StartTracingRequest&,
                                       DeferredStartTracingResponse resp) {
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
   remote_consumer->service_endpoint->StartTracing();
-  resp.Resolve(ipc::AsyncResult<protos::StartTracingResponse>::Create());
+  resp.Resolve(ipc::AsyncResult<protos::gen::StartTracingResponse>::Create());
 }
 
 // Called by the IPC layer.
 void ConsumerIPCService::ChangeTraceConfig(
-    const protos::ChangeTraceConfigRequest& req,
+    const protos::gen::ChangeTraceConfigRequest& req,
     DeferredChangeTraceConfigResponse resp) {
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
-  TraceConfig trace_config;
-  trace_config.FromProto(req.trace_config());
-  remote_consumer->service_endpoint->ChangeTraceConfig(trace_config);
-  resp.Resolve(ipc::AsyncResult<protos::ChangeTraceConfigResponse>::Create());
+  remote_consumer->service_endpoint->ChangeTraceConfig(req.trace_config());
+  resp.Resolve(
+      ipc::AsyncResult<protos::gen::ChangeTraceConfigResponse>::Create());
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::DisableTracing(const protos::DisableTracingRequest&,
-                                        DeferredDisableTracingResponse resp) {
+void ConsumerIPCService::DisableTracing(
+    const protos::gen::DisableTracingRequest&,
+    DeferredDisableTracingResponse resp) {
   GetConsumerForCurrentRequest()->service_endpoint->DisableTracing();
-  resp.Resolve(ipc::AsyncResult<protos::DisableTracingResponse>::Create());
+  resp.Resolve(ipc::AsyncResult<protos::gen::DisableTracingResponse>::Create());
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::ReadBuffers(const protos::ReadBuffersRequest&,
+void ConsumerIPCService::ReadBuffers(const protos::gen::ReadBuffersRequest&,
                                      DeferredReadBuffersResponse resp) {
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
   remote_consumer->read_buffers_response = std::move(resp);
@@ -111,14 +113,14 @@ void ConsumerIPCService::ReadBuffers(const protos::ReadBuffersRequest&,
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::FreeBuffers(const protos::FreeBuffersRequest&,
+void ConsumerIPCService::FreeBuffers(const protos::gen::FreeBuffersRequest&,
                                      DeferredFreeBuffersResponse resp) {
   GetConsumerForCurrentRequest()->service_endpoint->FreeBuffers();
-  resp.Resolve(ipc::AsyncResult<protos::FreeBuffersResponse>::Create());
+  resp.Resolve(ipc::AsyncResult<protos::gen::FreeBuffersResponse>::Create());
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::Flush(const protos::FlushRequest& req,
+void ConsumerIPCService::Flush(const protos::gen::FlushRequest& req,
                                DeferredFlushResponse resp) {
   auto it = pending_flush_responses_.insert(pending_flush_responses_.end(),
                                             std::move(resp));
@@ -132,7 +134,7 @@ void ConsumerIPCService::Flush(const protos::FlushRequest& req,
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::Detach(const protos::DetachRequest& req,
+void ConsumerIPCService::Detach(const protos::gen::DetachRequest& req,
                                 DeferredDetachResponse resp) {
   // OnDetach() will resolve the |detach_response|.
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
@@ -141,7 +143,7 @@ void ConsumerIPCService::Detach(const protos::DetachRequest& req,
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::Attach(const protos::AttachRequest& req,
+void ConsumerIPCService::Attach(const protos::gen::AttachRequest& req,
                                 DeferredAttachResponse resp) {
   // OnAttach() will resolve the |attach_response|.
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
@@ -150,7 +152,7 @@ void ConsumerIPCService::Attach(const protos::AttachRequest& req,
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::GetTraceStats(const protos::GetTraceStatsRequest&,
+void ConsumerIPCService::GetTraceStats(const protos::gen::GetTraceStatsRequest&,
                                        DeferredGetTraceStatsResponse resp) {
   // OnTraceStats() will resolve the |get_trace_stats_response|.
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
@@ -159,8 +161,9 @@ void ConsumerIPCService::GetTraceStats(const protos::GetTraceStatsRequest&,
 }
 
 // Called by the IPC layer.
-void ConsumerIPCService::ObserveEvents(const protos::ObserveEventsRequest& req,
-                                       DeferredObserveEventsResponse resp) {
+void ConsumerIPCService::ObserveEvents(
+    const protos::gen::ObserveEventsRequest& req,
+    DeferredObserveEventsResponse resp) {
   RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
 
   // If there's a prior stream, close it so that client can clean it up.
@@ -168,23 +171,102 @@ void ConsumerIPCService::ObserveEvents(const protos::ObserveEventsRequest& req,
 
   remote_consumer->observe_events_response = std::move(resp);
 
-  bool observe_instances = false;
+  uint32_t events_mask = 0;
   for (const auto& type : req.events_to_observe()) {
-    switch (type) {
-      case protos::ObservableEvents::TYPE_DATA_SOURCES_INSTANCES:
-        observe_instances = true;
-        break;
-      default:
-        PERFETTO_DFATAL("Unknown ObservableEvent type: %d", type);
-        break;
-    }
+    events_mask |= static_cast<uint32_t>(type);
   }
-  remote_consumer->service_endpoint->ObserveEvents(observe_instances);
+  remote_consumer->service_endpoint->ObserveEvents(events_mask);
 
   // If no events are to be observed, close the stream immediately so that the
   // client can clean up.
-  if (req.events_to_observe().size() == 0)
+  if (events_mask == 0)
     remote_consumer->CloseObserveEventsResponseStream();
+}
+
+// Called by the IPC layer.
+void ConsumerIPCService::QueryServiceState(
+    const protos::gen::QueryServiceStateRequest&,
+    DeferredQueryServiceStateResponse resp) {
+  RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
+  auto it = pending_query_service_responses_.insert(
+      pending_query_service_responses_.end(), std::move(resp));
+  auto weak_this = weak_ptr_factory_.GetWeakPtr();
+  auto callback = [weak_this, it](bool success,
+                                  const TracingServiceState& svc_state) {
+    if (weak_this)
+      weak_this->OnQueryServiceCallback(success, svc_state, std::move(it));
+  };
+  remote_consumer->service_endpoint->QueryServiceState(callback);
+}
+
+// Called by the service in response to service_endpoint->QueryServiceState().
+void ConsumerIPCService::OnQueryServiceCallback(
+    bool success,
+    const TracingServiceState& svc_state,
+    PendingQuerySvcResponses::iterator pending_response_it) {
+  DeferredQueryServiceStateResponse response(std::move(*pending_response_it));
+  pending_query_service_responses_.erase(pending_response_it);
+  if (!success) {
+    response.Reject();
+    return;
+  }
+
+  // The TracingServiceState object might be too big to fit into a single IPC
+  // message because it contains the DataSourceDescriptor of each data source.
+  // Here we split it in chunks to fit in the IPC limit, observing the
+  // following rule: each chunk must be invididually a valid TracingServiceState
+  // message; all the chunks concatenated together must form the original
+  // message. This is to deal with the legacy API that was just sending one
+  // whole message (failing in presence of too many data sources, b/153142114).
+  // The message is split as follows: we take the whole TracingServiceState,
+  // take out the data sources section (which is a top-level repeated field)
+  // and re-add them one-by-one. If, in the process of appending, the IPC msg
+  // size is reached, a new chunk is created. This assumes that the rest of
+  // TracingServiceState fits in one IPC message and each DataSourceDescriptor
+  // fits in the worst case in a dedicated message (which is true, because
+  // otherwise the RegisterDataSource() which passes the descriptor in the first
+  // place would fail).
+
+  std::vector<uint8_t> chunked_reply;
+
+  // Transmits the current chunk and starts a new one.
+  bool sent_eof = false;
+  auto send_chunked_reply = [&chunked_reply, &response,
+                             &sent_eof](bool has_more) {
+    PERFETTO_CHECK(!sent_eof);
+    sent_eof = !has_more;
+    auto resp =
+        ipc::AsyncResult<protos::gen::QueryServiceStateResponse>::Create();
+    resp.set_has_more(has_more);
+    PERFETTO_CHECK(resp->mutable_service_state()->ParseFromArray(
+        chunked_reply.data(), chunked_reply.size()));
+    chunked_reply.clear();
+    response.Resolve(std::move(resp));
+  };
+
+  // Create a copy of the whole response and cut away the data_sources section.
+  protos::gen::TracingServiceState svc_state_copy = svc_state;
+  auto data_sources = std::move(*svc_state_copy.mutable_data_sources());
+  chunked_reply = svc_state_copy.SerializeAsArray();
+
+  // Now re-add them fitting within the IPC message limits (- some margin for
+  // the outer IPC frame).
+  constexpr size_t kMaxMsgSize = ipc::kIPCBufferSize - 128;
+  for (const auto& data_source : data_sources) {
+    protos::gen::TracingServiceState tmp;
+    tmp.mutable_data_sources()->emplace_back(std::move(data_source));
+    std::vector<uint8_t> chunk = tmp.SerializeAsArray();
+    if (chunked_reply.size() + chunk.size() < kMaxMsgSize) {
+      chunked_reply.insert(chunked_reply.end(), chunk.begin(), chunk.end());
+    } else {
+      send_chunked_reply(/*has_more=*/true);
+      chunked_reply = std::move(chunk);
+    }
+  }
+
+  PERFETTO_DCHECK(!chunked_reply.empty());
+  send_chunked_reply(/*has_more=*/false);
+  PERFETTO_CHECK(sent_eof);
 }
 
 // Called by the service in response to a service_endpoint->Flush() request.
@@ -194,10 +276,36 @@ void ConsumerIPCService::OnFlushCallback(
   DeferredFlushResponse response(std::move(*pending_response_it));
   pending_flush_responses_.erase(pending_response_it);
   if (success) {
-    response.Resolve(ipc::AsyncResult<protos::FlushResponse>::Create());
+    response.Resolve(ipc::AsyncResult<protos::gen::FlushResponse>::Create());
   } else {
     response.Reject();
   }
+}
+
+void ConsumerIPCService::QueryCapabilities(
+    const protos::gen::QueryCapabilitiesRequest&,
+    DeferredQueryCapabilitiesResponse resp) {
+  RemoteConsumer* remote_consumer = GetConsumerForCurrentRequest();
+  auto it = pending_query_capabilities_responses_.insert(
+      pending_query_capabilities_responses_.end(), std::move(resp));
+  auto weak_this = weak_ptr_factory_.GetWeakPtr();
+  auto callback = [weak_this, it](const TracingServiceCapabilities& caps) {
+    if (weak_this)
+      weak_this->OnQueryCapabilitiesCallback(caps, std::move(it));
+  };
+  remote_consumer->service_endpoint->QueryCapabilities(callback);
+}
+
+// Called by the service in response to service_endpoint->QueryCapabilities().
+void ConsumerIPCService::OnQueryCapabilitiesCallback(
+    const TracingServiceCapabilities& caps,
+    PendingQueryCapabilitiesResponses::iterator pending_response_it) {
+  DeferredQueryCapabilitiesResponse response(std::move(*pending_response_it));
+  pending_query_capabilities_responses_.erase(pending_response_it);
+  auto resp =
+      ipc::AsyncResult<protos::gen::QueryCapabilitiesResponse>::Create();
+  *resp->mutable_capabilities() = caps;
+  response.Resolve(std::move(resp));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -218,7 +326,8 @@ void ConsumerIPCService::RemoteConsumer::OnDisconnect() {}
 
 void ConsumerIPCService::RemoteConsumer::OnTracingDisabled() {
   if (enable_tracing_response.IsBound()) {
-    auto result = ipc::AsyncResult<protos::EnableTracingResponse>::Create();
+    auto result =
+        ipc::AsyncResult<protos::gen::EnableTracingResponse>::Create();
     result->set_disabled(true);
     enable_tracing_response.Resolve(std::move(result));
   }
@@ -230,7 +339,7 @@ void ConsumerIPCService::RemoteConsumer::OnTraceData(
   if (!read_buffers_response.IsBound())
     return;
 
-  auto result = ipc::AsyncResult<protos::ReadBuffersResponse>::Create();
+  auto result = ipc::AsyncResult<protos::gen::ReadBuffersResponse>::Create();
 
   // A TracePacket might be too big to fit into a single IPC message (max
   // kIPCBufferSize). However a TracePacket is made of slices and each slice
@@ -244,7 +353,7 @@ void ConsumerIPCService::RemoteConsumer::OnTraceData(
   auto send_ipc_reply = [this, &result](bool more) {
     result.set_has_more(more);
     read_buffers_response.Resolve(std::move(result));
-    result = ipc::AsyncResult<protos::ReadBuffersResponse>::Create();
+    result = ipc::AsyncResult<protos::gen::ReadBuffersResponse>::Create();
   };
 
   size_t approx_reply_size = 0;
@@ -281,7 +390,7 @@ void ConsumerIPCService::RemoteConsumer::OnDetach(bool success) {
     std::move(detach_response).Reject();
     return;
   }
-  auto resp = ipc::AsyncResult<protos::DetachResponse>::Create();
+  auto resp = ipc::AsyncResult<protos::gen::DetachResponse>::Create();
   std::move(detach_response).Resolve(std::move(resp));
 }
 
@@ -292,8 +401,8 @@ void ConsumerIPCService::RemoteConsumer::OnAttach(
     std::move(attach_response).Reject();
     return;
   }
-  auto response = ipc::AsyncResult<protos::AttachResponse>::Create();
-  trace_config.ToProto(response->mutable_trace_config());
+  auto response = ipc::AsyncResult<protos::gen::AttachResponse>::Create();
+  *response->mutable_trace_config() = trace_config;
   std::move(attach_response).Resolve(std::move(response));
 }
 
@@ -303,8 +412,9 @@ void ConsumerIPCService::RemoteConsumer::OnTraceStats(bool success,
     std::move(get_trace_stats_response).Reject();
     return;
   }
-  auto response = ipc::AsyncResult<protos::GetTraceStatsResponse>::Create();
-  stats.ToProto(response->mutable_trace_stats());
+  auto response =
+      ipc::AsyncResult<protos::gen::GetTraceStatsResponse>::Create();
+  *response->mutable_trace_stats() = stats;
   std::move(get_trace_stats_response).Resolve(std::move(response));
 }
 
@@ -313,9 +423,9 @@ void ConsumerIPCService::RemoteConsumer::OnObservableEvents(
   if (!observe_events_response.IsBound())
     return;
 
-  auto result = ipc::AsyncResult<protos::ObserveEventsResponse>::Create();
+  auto result = ipc::AsyncResult<protos::gen::ObserveEventsResponse>::Create();
   result.set_has_more(true);
-  events.ToProto(result->mutable_events());
+  *result->mutable_events() = events;
   observe_events_response.Resolve(std::move(result));
 }
 
@@ -323,7 +433,7 @@ void ConsumerIPCService::RemoteConsumer::CloseObserveEventsResponseStream() {
   if (!observe_events_response.IsBound())
     return;
 
-  auto result = ipc::AsyncResult<protos::ObserveEventsResponse>::Create();
+  auto result = ipc::AsyncResult<protos::gen::ObserveEventsResponse>::Create();
   result.set_has_more(false);
   observe_events_response.Resolve(std::move(result));
 }

@@ -44,17 +44,18 @@ static void mkfs_usage()
 	MSG(0, "\nUsage: mkfs.f2fs [options] device [sectors]\n");
 	MSG(0, "[options]:\n");
 	MSG(0, "  -a heap-based allocation [default:0]\n");
-	MSG(0, "  -c [device path] up to 7 devices excepts meta device\n");
+	MSG(0, "  -c device1[,device2,...] up to 7 additional devices, except meta device\n");
 	MSG(0, "  -d debug level [default:0]\n");
 	MSG(0, "  -e [cold file ext list] e.g. \"mp3,gif,mov\"\n");
 	MSG(0, "  -E [hot file ext list] e.g. \"db\"\n");
-	MSG(0, "  -f force overwrite the exist filesystem\n");
+	MSG(0, "  -f force overwrite of the existing filesystem\n");
 	MSG(0, "  -g add default options\n");
 	MSG(0, "  -i extended node bitmap, node ratio is 20%% by default\n");
 	MSG(0, "  -l label\n");
 	MSG(0, "  -m support zoned block device [default:0]\n");
-	MSG(0, "  -o overprovision ratio [default:5]\n");
-	MSG(0, "  -O feature1[feature2,feature3,...] e.g. \"encrypt\"\n");
+	MSG(0, "  -o overprovision percentage [default:auto]\n");
+	MSG(0, "  -O feature1[,feature2,...] e.g. \"encrypt\"\n");
+	MSG(0, "  -C [encoding[:flag1,...]] Support casefolding with optional flags\n");
 	MSG(0, "  -q quiet mode\n");
 	MSG(0, "  -R root_owner [default: 0:0]\n");
 	MSG(0, "  -s # of segments per section [default:1]\n");
@@ -63,7 +64,7 @@ static void mkfs_usage()
 	MSG(0, "  -w wanted sector size\n");
 	MSG(0, "  -z # of sections per zone [default:1]\n");
 	MSG(0, "  -V print the version number and exit\n");
-	MSG(0, "sectors: number of sectors. [default: determined by device size]\n");
+	MSG(0, "sectors: number of sectors [default: determined by device size]\n");
 	exit(1);
 }
 
@@ -107,8 +108,10 @@ static void add_default_options(void)
 
 static void f2fs_parse_options(int argc, char *argv[])
 {
-	static const char *option_string = "qa:c:d:e:E:g:il:mo:O:R:s:S:z:t:fw:V";
+	static const char *option_string = "qa:c:C:d:e:E:g:il:mo:O:R:s:S:z:t:Vfw:";
 	int32_t option=0;
+	int val;
+	char *token;
 
 	while ((option = getopt(argc,argv,option_string)) != EOF) {
 		switch (option) {
@@ -192,6 +195,22 @@ static void f2fs_parse_options(int argc, char *argv[])
 		case 'V':
 			show_version("mkfs.f2fs");
 			exit(0);
+		case 'C':
+			token = strtok(optarg, ":");
+			val = f2fs_str2encoding(token);
+			if (val < 0) {
+				MSG(0, "\tError: Unknown encoding %s\n", token);
+				mkfs_usage();
+			}
+			c.s_encoding = val;
+			token = strtok(NULL, "");
+			val = f2fs_str2encoding_flags(&token, &c.s_encoding_flags);
+			if (val) {
+				MSG(0, "\tError: Unknown flag %s\n",token);
+				mkfs_usage();
+			}
+			c.feature |= cpu_to_le32(F2FS_FEATURE_CASEFOLD);
+			break;
 		default:
 			MSG(0, "\tError: Unknown option %c\n",option);
 			mkfs_usage();
@@ -219,6 +238,11 @@ static void f2fs_parse_options(int argc, char *argv[])
 		}
 		if (c.feature & cpu_to_le32(F2FS_FEATURE_INODE_CRTIME)) {
 			MSG(0, "\tInfo: inode crtime feature should always be "
+				"enabled with extra attr feature\n");
+			exit(1);
+		}
+		if (c.feature & cpu_to_le32(F2FS_FEATURE_COMPRESSION)) {
+			MSG(0, "\tInfo: compression feature should always be "
 				"enabled with extra attr feature\n");
 			exit(1);
 		}
@@ -342,7 +366,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (f2fs_get_device_info() < 0)
-		return -1;
+		goto err_format;
 
 	/*
 	 * Some options are mandatory for host-managed
@@ -350,26 +374,25 @@ int main(int argc, char *argv[])
 	 */
 	if (c.zoned_model == F2FS_ZONED_HM && !c.zoned_mode) {
 		MSG(0, "\tError: zoned block device feature is required\n");
-		return -1;
+		goto err_format;
 	}
 
 	if (c.zoned_mode && !c.trim) {
 		MSG(0, "\tError: Trim is required for zoned block devices\n");
-		return -1;
-	}
-
-	if (c.sparse_mode) {
-		if (f2fs_init_sparse_file())
-			return -1;
+		goto err_format;
 	}
 
 	if (f2fs_format_device() < 0)
-		return -1;
+		goto err_format;
 
 	if (f2fs_finalize_device() < 0)
-		return -1;
+		goto err_format;
 
 	MSG(0, "Info: format successful\n");
 
 	return 0;
+
+err_format:
+	f2fs_release_sparse_resource();
+	return -1;
 }

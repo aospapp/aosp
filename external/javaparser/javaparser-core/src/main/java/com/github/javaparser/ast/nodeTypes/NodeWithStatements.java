@@ -29,7 +29,7 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.Statement;
 
-import static com.github.javaparser.JavaParser.*;
+import static com.github.javaparser.StaticJavaParser.parseStatement;
 
 /**
  * A node that contains a list of statements.
@@ -66,7 +66,7 @@ public interface NodeWithStatements<N extends Node> {
     }
 
     /**
-     * It will use {@link JavaParser#parseStatement(String)} inside, so it should end with a semi column
+     * It will use {@link JavaParser#parseStatement(String)} inside, so it should end with a semicolon
      */
     default N addStatement(String statement) {
         return addStatement(parseStatement(statement));
@@ -96,6 +96,9 @@ public interface NodeWithStatements<N extends Node> {
         return addAndGetStatement(new NameExpr(statement));
     }
 
+    /**
+     * @return true if there are no statements contained in this node.
+     */
     default boolean isEmpty() {
         return getStatements().isEmpty();
     }

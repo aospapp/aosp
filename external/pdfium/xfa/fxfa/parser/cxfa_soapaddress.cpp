@@ -6,19 +6,17 @@
 
 #include "xfa/fxfa/parser/cxfa_soapaddress.h"
 
-#include "fxjs/xfa/cjx_soapaddress.h"
+#include "fxjs/xfa/cjx_textnode.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kSoapAddressAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"soapAddress";
+};
 
 }  // namespace
 
@@ -28,9 +26,8 @@ CXFA_SoapAddress::CXFA_SoapAddress(CXFA_Document* doc, XFA_PacketType packet)
                 XFA_XDPPACKET_ConnectionSet,
                 XFA_ObjectType::TextNode,
                 XFA_Element::SoapAddress,
-                nullptr,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_SoapAddress>(this)) {}
+                {},
+                kSoapAddressAttributeData,
+                pdfium::MakeUnique<CJX_TextNode>(this)) {}
 
-CXFA_SoapAddress::~CXFA_SoapAddress() {}
+CXFA_SoapAddress::~CXFA_SoapAddress() = default;

@@ -22,6 +22,10 @@ yo_BJ{
             "BIF",
             "Faransi ti Orílɛ́ède Bùùrúndì",
         }
+        BRL{
+            "R$",
+            "Owó ti Orílɛ̀-èdè Brazil",
+        }
         BWP{
             "BWP",
             "Pula ti Orílɛ́ède Bɔ̀tìsúwánà",
@@ -68,7 +72,7 @@ yo_BJ{
         }
         GBP{
             "£",
-            "Pɔɔn ti Orílɛ́ède Bírítísì",
+            "Pɔ́n-ùn ti Orilɛ̀-èdè Gɛ̀ɛ́sì",
         }
         GHC{
             "GHC",
@@ -144,7 +148,11 @@ yo_BJ{
         }
         NGN{
             "₦",
-            "Naira ti Orílɛ́ède Nàìjíríà",
+            "Náìrà ti Orílɛ̀-èdè Nàìjíríà",
+        }
+        RUB{
+            "₽",
+            "Owó ruble ti ilɛ̀ Rɔ́shíà",
         }
         RWF{
             "RWF",
@@ -195,8 +203,8 @@ yo_BJ{
             "Siile ti Orílɛ́ède Uganda",
         }
         USD{
-            "US$",
-            "Dɔla ti Orílɛ́ède Amerika",
+            "$",
+            "Dɔ́là",
         }
         XAF{
             "FCFA",
@@ -205,6 +213,10 @@ yo_BJ{
         XOF{
             "CFA",
             "Faransi ti Orílɛ́ède BIKEAO",
+        }
+        XXX{
+            "¤",
+            "owóníná àìmɔ̀",
         }
         ZAR{
             "ZAR",
@@ -223,5 +235,22 @@ yo_BJ{
             "Dɔla ti Orílɛ́ède Siibabuwe",
         }
     }
-    Version{"2.1.44.53"}
+    CurrencyPlurals{
+        BRL{
+            other{"Awon owó ti Orílɛ̀-èdè Brazil"}
+        }
+        EGP{
+            other{"pɔ́nùn"}
+        }
+        RUB{
+            other{"Owó ruble ti ilɛ̀ Rɔ́shíà"}
+        }
+        USD{
+            other{"Dɔ́là ti Orílɛ̀-Èdè Amɛ́ríkà"}
+        }
+        XXX{
+            other{"owóníná àìmɔ̀"}
+        }
+    }
+    Version{"36.1"}
 }

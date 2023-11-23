@@ -53,7 +53,7 @@ VALID_SECURITIES = [SECURITY_TYPE_DISABLED,
 
 # List of valid channels.
 VALID_2GHZ_CHANNELS = range(1,15)
-VALID_5GHZ_CHANNELS = [36, 40, 44, 48, 149, 153, 157, 161, 165]
+VALID_5GHZ_CHANNELS = [36, 40, 44, 48, 128, 149, 153, 157, 161, 165]
 
 # Frequency to channel conversion table
 CHANNEL_TABLE = {2412: 1, 2417: 2, 2422: 3,
@@ -62,8 +62,8 @@ CHANNEL_TABLE = {2412: 1, 2417: 2, 2422: 3,
                  2457: 10, 2462: 11, 2467: 12,
                  2472: 13, 2484: 14, 5180: 36,
                  5200: 40, 5220: 44, 5240: 48,
-                 5745: 149, 5765: 153, 5785: 157,
-                 5805: 161, 5825: 165}
+                 5640: 128, 5745: 149, 5765: 153,
+                 5785: 157, 5805: 161, 5825: 165}
 
 # This only works because the frequency table is one to one
 # for channels/frequencies.

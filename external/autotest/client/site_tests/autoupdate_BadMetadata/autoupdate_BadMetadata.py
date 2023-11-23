@@ -4,8 +4,9 @@
 
 import logging
 
+from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros.update_engine import nano_omaha_devserver
+from autotest_lib.client.cros.update_engine import nebraska_wrapper
 from autotest_lib.client.cros.update_engine import update_engine_test
 
 class autoupdate_BadMetadata(update_engine_test.UpdateEngineTest):
@@ -18,75 +19,43 @@ class autoupdate_BadMetadata(update_engine_test.UpdateEngineTest):
                            'ErrorCode::kDownloadInvalidMetadataSize)'
 
 
-    def _setup_bad_metadata_response(self, image_url, image_size, sha256,
-                                     metadata_size):
-        """
-        Sets nano_omaha_devserver to return invalid metadata_size value.
-
-        @param image_url: The payload url.
-        @param image_size: The payload size.
-        @param sha256: The payloads SHA256 value.
-        @param metadata_size: An invalid metadata_size.
-
-        """
-        logging.info('Setting up bad metadata response: %s', metadata_size)
-        self._omaha.set_image_params(image_url, image_size, sha256,
-                                     metadata_size,
-                                     public_key=self._IMAGE_PUBLIC_KEY)
-
-
-    def _setup_bad_sha256_response(self, image_url, image_size, sha256):
-        """
-        Sets nano_omaha_devserver to return invalid SHA256 value.
-
-        @param image_url: The payload url.
-        @param image_size: The payload size.
-        @param sha256: An invalid SHA256 value.
-
-        """
-        logging.info('Setting up bad SHA256 response: %s', sha256)
-        self._omaha.set_image_params(image_url, image_size, sha256)
-
-
-    def _test_update_fails_as_expected(self, error_string):
-        """
-        Tests that the update fails.
-
-        @param error_string: The error to look for in update_engine logs.
-
-        """
-        self._omaha.start()
-        try:
-            self._check_for_update(port=self._omaha.get_port(),
-                                   wait_for_completion=True)
-        except error.CmdError as e:
-            logging.error(e)
-            self._check_update_engine_log_for_entry(error_string,
-                                                    raise_error=True)
-            return
-
-        raise error.TestFail('Update completed when it should have failed. '
-                             'Check the update_engine log.')
-
-
-    def run_once(self, image_url, image_size, sha256, metadata_size=None):
+    def run_once(self, image_url, bad_metadata_size=False, bad_sha256=False):
         """
         Tests update_engine can deal with invalid data in the omaha response.
 
         @param image_url: The payload url.
-        @param image_size: The payload size.
-        @param sha256: The payloads SHA256 value.
-        @param metadata_size: The payloads metadata_size.
+        @param bad_metadata_size: True if we want to test bad metadata size.
+        @param bad_sha256: True if we want to test bad sha256.
 
         """
-        self._omaha = nano_omaha_devserver.NanoOmahaDevserver()
+        props_to_override = {}
+        error_string = None
+        if bad_sha256:
+            props_to_override[nebraska_wrapper.KEY_SHA256] = 'blahblah'
+            error_string = self._SHA256_ERROR
+        if bad_metadata_size:
+            props_to_override[nebraska_wrapper.KEY_METADATA_SIZE] = 123
+            props_to_override[
+                nebraska_wrapper.KEY_PUBLIC_KEY] = self._IMAGE_PUBLIC_KEY
+            error_string = self._METADATA_SIZE_ERROR
 
-        # Setup an omaha response with a bad metadata size.
-        if metadata_size is not None:
-            self._setup_bad_metadata_response(image_url, image_size, sha256,
-                                              metadata_size)
-            self._test_update_fails_as_expected(self._METADATA_SIZE_ERROR)
-        # Setup an omaha response with a bad SHA256 value.
-        else:
-            self._setup_bad_sha256_response(image_url, image_size, sha256)
-            self._test_update_fails_as_expected(self._SHA256_ERROR)
+        metadata_dir = autotemp.tempdir()
+        self._get_payload_properties_file(image_url,
+                                          metadata_dir.name,
+                                          **props_to_override)
+        base_url = ''.join(image_url.rpartition('/')[0:2])
+        with nebraska_wrapper.NebraskaWrapper(
+                log_dir=self.resultsdir,
+                update_metadata_dir=metadata_dir.name,
+                update_payloads_address=base_url) as nebraska:
+
+            try:
+                self._check_for_update(port=nebraska.get_port(),
+                                       wait_for_completion=True,
+                                       critical_update=True)
+                raise error.TestFail('Update completed when it should have '
+                                     'failed. Check the update_engine log.')
+            except error.CmdError as e:
+                logging.error(e)
+                self._check_update_engine_log_for_entry(error_string,
+                                                        raise_error=True)

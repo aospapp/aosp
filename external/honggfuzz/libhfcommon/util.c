@@ -24,6 +24,7 @@
 #include "libhfcommon/util.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <math.h>
@@ -180,6 +181,13 @@ int util_ssnprintf(char* str, size_t size, const char* format, ...) {
     return ret;
 }
 
+bool util_strStartsWith(const char* str, const char* tofind) {
+    if (strncmp(str, tofind, strlen(tofind)) == 0) {
+        return true;
+    }
+    return false;
+}
+
 void util_getLocalTime(const char* fmt, char* buf, size_t len, time_t tm) {
     struct tm ltime;
     localtime_r(&tm, &ltime);
@@ -197,13 +205,13 @@ void util_closeStdio(bool close_stdin, bool close_stdout, bool close_stderr) {
     }
 
     if (close_stdin) {
-        dup2(fd, STDIN_FILENO);
+        TEMP_FAILURE_RETRY(dup2(fd, STDIN_FILENO));
     }
     if (close_stdout) {
-        dup2(fd, STDOUT_FILENO);
+        TEMP_FAILURE_RETRY(dup2(fd, STDOUT_FILENO));
     }
     if (close_stderr) {
-        dup2(fd, STDERR_FILENO);
+        TEMP_FAILURE_RETRY(dup2(fd, STDERR_FILENO));
     }
 
     if (fd > STDERR_FILENO) {
@@ -233,6 +241,17 @@ int64_t util_timeNowMillis(void) {
     }
 
     return (((int64_t)tv.tv_sec * 1000LL) + ((int64_t)tv.tv_usec / 1000LL));
+}
+
+void util_sleepForMSec(uint64_t msec) {
+    if (msec == 0) {
+        return;
+    }
+    struct timespec ts = {
+        .tv_sec = msec / 1000U,
+        .tv_nsec = (msec % 1000U) * 1000000U,
+    };
+    TEMP_FAILURE_RETRY(nanosleep(&ts, &ts));
 }
 
 uint64_t util_getUINT32(const uint8_t* buf) {

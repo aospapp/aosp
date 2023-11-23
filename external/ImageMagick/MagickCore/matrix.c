@@ -17,7 +17,7 @@
 %                              August 2007                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -878,8 +878,7 @@ MagickExport Image *MatrixToImage(const MatrixInfo *matrix_info,
   double
     max_value,
     min_value,
-    scale_factor,
-    value;
+    scale_factor;
 
   Image
     *image;
@@ -899,9 +898,8 @@ MagickExport Image *MatrixToImage(const MatrixInfo *matrix_info,
   /*
     Determine range of matrix.
   */
-  (void) GetMatrixElement(matrix_info,0,0,&value);
-  min_value=value;
-  max_value=value;
+  (void) GetMatrixElement(matrix_info,0,0,&min_value);
+  max_value=min_value;
   for (y=0; y < (ssize_t) matrix_info->rows; y++)
   {
     register ssize_t
@@ -909,6 +907,9 @@ MagickExport Image *MatrixToImage(const MatrixInfo *matrix_info,
 
     for (x=0; x < (ssize_t) matrix_info->columns; x++)
     {
+      double
+        value;
+
       if (GetMatrixElement(matrix_info,x,y,&value) == MagickFalse)
         continue;
       if (value < min_value)

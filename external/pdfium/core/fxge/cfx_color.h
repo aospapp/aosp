@@ -7,13 +7,10 @@
 #ifndef CORE_FXGE_CFX_COLOR_H_
 #define CORE_FXGE_CFX_COLOR_H_
 
-#include "core/fpdfdoc/cpdf_formcontrol.h"
 #include "core/fxge/fx_dib.h"
 
 struct CFX_Color {
-  static CFX_Color ParseColor(const CPDF_Array& array);
-  static CFX_Color ParseColor(const ByteString& str);
-
+  // Ordered by increasing number of components.
   enum Type { kTransparent = 0, kGray, kRGB, kCMYK };
 
   explicit CFX_Color(FX_COLORREF ref)
@@ -42,7 +39,7 @@ struct CFX_Color {
   CFX_Color operator/(float fColorDivide) const;
   CFX_Color operator-(float fColorSub) const;
 
-  CFX_Color ConvertColorType(int32_t other_nColorType) const;
+  CFX_Color ConvertColorType(int32_t nConvertColorType) const;
 
   FX_COLORREF ToFXColor(int32_t nTransparency) const;
 
@@ -60,5 +57,19 @@ struct CFX_Color {
   float fColor3;
   float fColor4;
 };
+
+inline bool operator==(const CFX_Color& c1, const CFX_Color& c2) {
+  return c1.nColorType == c2.nColorType && c1.fColor1 - c2.fColor1 < 0.0001 &&
+         c1.fColor1 - c2.fColor1 > -0.0001 &&
+         c1.fColor2 - c2.fColor2 < 0.0001 &&
+         c1.fColor2 - c2.fColor2 > -0.0001 &&
+         c1.fColor3 - c2.fColor3 < 0.0001 &&
+         c1.fColor3 - c2.fColor3 > -0.0001 &&
+         c1.fColor4 - c2.fColor4 < 0.0001 && c1.fColor4 - c2.fColor4 > -0.0001;
+}
+
+inline bool operator!=(const CFX_Color& c1, const CFX_Color& c2) {
+  return !(c1 == c2);
+}
 
 #endif  // CORE_FXGE_CFX_COLOR_H_

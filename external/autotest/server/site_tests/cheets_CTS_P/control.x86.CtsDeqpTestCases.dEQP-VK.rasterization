@@ -15,13 +15,12 @@ MAX_RESULT_SIZE_KB = 512000
 PRIORITY = 50
 DOC = 'Run module CtsDeqpTestCases.dEQP-VK.rasterization of the Android Compatibility Test Suite (CTS) using x86 ABI in the ARC++ container.'
 
-def run_CTS(machine):
+def run_TS(machine):
     host_list = [hosts.create_host(machine)]
     job.run_test(
         'cheets_CTS_P',
         hosts=host_list,
         iterations=1,
-        needs_push_media=False,
         tag='x86.CtsDeqpTestCases.dEQP-VK.rasterization',
         test_name='cheets_CTS_P.x86.CtsDeqpTestCases.dEQP-VK.rasterization',
         run_template=['run', 'commandAndExit', 'cts', '--include-filter', 'CtsDeqpTestCases', '--module', 'CtsDeqpTestCases', '--test', 'dEQP-VK.rasterization.*'],
@@ -33,4 +32,4 @@ def run_CTS(machine):
         warn_on_test_retry=False,
         timeout=43200)
 
-parallel_simple(run_CTS, machines)
+parallel_simple(run_TS, machines)

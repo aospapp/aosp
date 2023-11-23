@@ -460,6 +460,7 @@ void InternalformatCaseBase::generateTextureData(GLuint width, GLuint height, GL
 		colorConversionMap[GL_BYTE]						   = &convertByte;
 		colorConversionMap[GL_UNSIGNED_BYTE]			   = &convertUByte;
 		colorConversionMap[GL_HALF_FLOAT]				   = &convertHFloat;
+		colorConversionMap[GL_HALF_FLOAT_OES]			   = &convertHFloat;
 		colorConversionMap[GL_FLOAT]					   = &convertFloat;
 		colorConversionMap[GL_SHORT]					   = &convertShort;
 		colorConversionMap[GL_UNSIGNED_SHORT]			   = &convertUShort;
@@ -693,6 +694,9 @@ tcu::TestNode::IterateResult Texture2DCase::iterate(void)
 	if (!requiredExtensionsSupported(m_testFormat.requiredExtension, m_testFormat.secondReqiredExtension))
 		return STOP;
 
+	glu::RenderContext&  renderContext   = m_context.getRenderContext();
+	const Functions&	 gl				 = renderContext.getFunctions();
+
 	typedef std::map<GLenum, TextureFormat> ReferenceFormatMap;
 	static ReferenceFormatMap formatMap;
 	if (formatMap.empty())
@@ -707,7 +711,12 @@ tcu::TestNode::IterateResult Texture2DCase::iterate(void)
 		formatMap[GL_LUMINANCE]		  = TextureFormat(GL_LUMINANCE, GL_UNSIGNED_BYTE, GL_LUMINANCE);
 		formatMap[GL_LUMINANCE_ALPHA] = TextureFormat(GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, GL_LUMINANCE_ALPHA);
 		formatMap[GL_DEPTH_COMPONENT] = TextureFormat(GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, GL_DEPTH_COMPONENT);
-		formatMap[GL_DEPTH_STENCIL]   = TextureFormat(GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_DEPTH24_STENCIL8);
+		formatMap[GL_DEPTH_STENCIL] = TextureFormat(GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_DEPTH_STENCIL);
+
+		if (glu::IsES3Compatible(gl))
+		{
+			formatMap[GL_DEPTH_STENCIL] = TextureFormat(GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_DEPTH24_STENCIL8_OES);
+		}
 	}
 
 	ReferenceFormatMap::iterator formatIterator = formatMap.find(m_testFormat.format);
@@ -720,8 +729,6 @@ tcu::TestNode::IterateResult Texture2DCase::iterate(void)
 	}
 
 	const TextureFormat& referenceFormat = formatIterator->second;
-	glu::RenderContext&  renderContext   = m_context.getRenderContext();
-	const Functions&	 gl				 = renderContext.getFunctions();
 
 	if (m_renderWidth > m_context.getRenderTarget().getWidth())
 		m_renderWidth = m_context.getRenderTarget().getWidth();
@@ -1417,10 +1424,10 @@ void InternalformatTests::getESTestData(TestData& testData, glu::ContextType& co
 		TF(GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, GL_DEPTH_COMPONENT, OES_depth_texture),
 		TF(GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, GL_DEPTH_COMPONENT, OES_depth_texture),
 		TF(GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_DEPTH_STENCIL, OES_packed_depth_stencil, OES_depth_texture),
-		TF(GL_RGB, GL_HALF_FLOAT, GL_RGB16F, OES_texture_half_float),
-		TF(GL_RGBA, GL_HALF_FLOAT, GL_RGBA16F, OES_texture_half_float),
-		TF(GL_RGB, GL_HALF_FLOAT, GL_RGB16F, OES_texture_half_float_linear, DE_NULL, GL_LINEAR, GL_LINEAR),
-		TF(GL_RGBA, GL_HALF_FLOAT, GL_RGBA16F, OES_texture_half_float_linear, DE_NULL, GL_LINEAR, GL_LINEAR),
+		TF(GL_RGB, GL_HALF_FLOAT_OES, GL_RGB, OES_texture_half_float),
+		TF(GL_RGBA, GL_HALF_FLOAT_OES, GL_RGBA, OES_texture_half_float),
+		TF(GL_RGB, GL_HALF_FLOAT_OES, GL_RGB, OES_texture_half_float_linear, DE_NULL, GL_LINEAR, GL_LINEAR),
+		TF(GL_RGBA, GL_HALF_FLOAT_OES, GL_RGBA, OES_texture_half_float_linear, DE_NULL, GL_LINEAR, GL_LINEAR),
 		TF(GL_RGB, GL_FLOAT, GL_RGB32F, OES_texture_float),
 		TF(GL_RGBA, GL_FLOAT, GL_RGBA32F, OES_texture_float),
 		TF(GL_RGB, GL_FLOAT, GL_RGB32F, OES_texture_float_linear, DE_NULL, GL_LINEAR, GL_LINEAR),
@@ -1457,6 +1464,8 @@ void InternalformatTests::getESTestData(TestData& testData, glu::ContextType& co
 			TF(GL_RGB, GL_UNSIGNED_SHORT_5_6_5, GL_RGB565),
 			TF(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB8),
 			TF(GL_RGBA, GL_UNSIGNED_BYTE, GL_RGBA8),
+			TF(GL_RGB, GL_HALF_FLOAT, GL_RGB16F),
+			TF(GL_RGBA, GL_HALF_FLOAT, GL_RGBA16F),
 			TF(GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_DEPTH24_STENCIL8),
 		};
 

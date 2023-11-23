@@ -4,7 +4,8 @@
  * Vulkan CTS Framework
  * --------------------
  *
- * Copyright (c) 2015 Google Inc.
+ * Copyright (c) 2019 Google Inc.
+ * Copyright (c) 2019 The Khronos Group Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +26,8 @@
 
 #include "vkDefs.hpp"
 #include "deUniquePtr.hpp"
+#include "deSharedPtr.hpp"
+#include <vector>
 
 namespace vk
 {
@@ -86,6 +89,7 @@ public:
 	static const MemoryRequirement	Local;
 	static const MemoryRequirement	Cached;
 	static const MemoryRequirement	NonLocal;
+	static const MemoryRequirement	DeviceAddress;
 
 	inline MemoryRequirement		operator|			(MemoryRequirement requirement) const
 	{
@@ -115,6 +119,7 @@ private:
 		FLAG_LOCAL				= 1u << 4u,
 		FLAG_CACHED				= 1u << 5u,
 		FLAG_NON_LOCAL			= 1u << 6u,
+		FLAG_DEVICE_ADDRESS		= 1u << 7u,
 	};
 };
 
@@ -144,6 +149,7 @@ private:
 	const VkPhysicalDeviceMemoryProperties	m_memProps;
 };
 
+de::MovePtr<Allocation>	allocateExtended			(const InstanceInterface& vki, const DeviceInterface& vkd, const VkPhysicalDevice& physDevice, const VkDevice device, const VkMemoryRequirements& memReqs, const MemoryRequirement requirement, const void* pNext);
 de::MovePtr<Allocation>	allocateDedicated			(const InstanceInterface& vki, const DeviceInterface& vkd, const VkPhysicalDevice& physDevice, const VkDevice device, const VkBuffer buffer, MemoryRequirement requirement);
 de::MovePtr<Allocation>	allocateDedicated			(const InstanceInterface& vki, const DeviceInterface& vkd, const VkPhysicalDevice& physDevice, const VkDevice device, const VkImage image, MemoryRequirement requirement);
 
@@ -152,7 +158,30 @@ void					flushMappedMemoryRange		(const DeviceInterface& vkd, VkDevice device, V
 void					invalidateMappedMemoryRange	(const DeviceInterface& vkd, VkDevice device, VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size);
 
 deUint32				getCompatibleMemoryTypes	(const VkPhysicalDeviceMemoryProperties& deviceMemProps, MemoryRequirement requirement);
-void					bindImagePlaneMemory		(const DeviceInterface&	vkd, VkDevice device, VkImage image, VkDeviceMemory memory, VkDeviceSize memoryOffset, VkImageAspectFlagBits planeAspect);
+void					bindImagePlanesMemory		(const vk::DeviceInterface&					vkd,
+													 const vk::VkDevice							device,
+													 const vk::VkImage							image,
+													 const deUint32								numPlanes,
+													 std::vector<de::SharedPtr<Allocation> >&	allocations,
+													 vk::Allocator&								allocator,
+													 const vk::MemoryRequirement				requirement);
+
+de::MovePtr<Allocation>	bindImage					(const DeviceInterface&		vk,
+													 const VkDevice				device,
+													 Allocator&					allocator,
+													 const VkImage				image,
+													 const MemoryRequirement	requirement);
+
+de::MovePtr<Allocation>	bindBuffer					(const DeviceInterface&		vk,
+													 const VkDevice				device,
+													 Allocator&					allocator,
+													 const VkBuffer				buffer,
+													 const MemoryRequirement	requirement);
+
+void					zeroBuffer					(const DeviceInterface&	vk,
+													 const VkDevice			device,
+													 const Allocation&		alloc,
+													 const VkDeviceSize		size);
 
 } // vk
 

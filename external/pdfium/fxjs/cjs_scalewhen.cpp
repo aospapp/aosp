@@ -18,5 +18,5 @@ int CJS_ScaleWhen::ObjDefnID = -1;
 void CJS_ScaleWhen::DefineJSObjects(CFXJS_Engine* pEngine) {
   ObjDefnID =
       pEngine->DefineObj("scaleWhen", FXJSOBJTYPE_STATIC, nullptr, nullptr);
-  DefineConsts(pEngine, ObjDefnID, ConstSpecs, FX_ArraySize(ConstSpecs));
+  DefineConsts(pEngine, ObjDefnID, ConstSpecs);
 }

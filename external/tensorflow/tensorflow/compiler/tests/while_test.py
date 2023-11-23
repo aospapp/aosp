@@ -19,6 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+
 import numpy as np
 
 from tensorflow.compiler.tests import xla_test
@@ -49,7 +50,7 @@ class WhileTest(xla_test.XLATestCase):
     def loop_cond(step):
       return step < 10
 
-    with self.cached_session() as sess:
+    with self.session() as sess:
       init_index = array_ops.placeholder(dtypes.int32, [])
       with self.test_scope():
         loop_outputs = xla.while_loop([init_index], loop_cond, loop_body)
@@ -71,7 +72,7 @@ class WhileTest(xla_test.XLATestCase):
       del rsum
       return step < 10
 
-    with self.cached_session() as sess:
+    with self.session() as sess:
       init_index = array_ops.placeholder(dtypes.int32, [])
       init_sum = array_ops.placeholder(dtypes.float32, [])
       with self.test_scope():
@@ -97,7 +98,7 @@ class WhileTest(xla_test.XLATestCase):
       del rsum
       return step < 10
 
-    with self.cached_session() as sess:
+    with self.session() as sess:
       init_index = array_ops.placeholder(dtypes.int32, [])
       init_sum = array_ops.placeholder(dtypes.complex64, [])
       with self.test_scope():
@@ -123,7 +124,7 @@ class WhileTest(xla_test.XLATestCase):
       del x
       return step < 10
 
-    with self.cached_session() as sess:
+    with self.session() as sess:
       init_index = array_ops.placeholder(dtypes.int32, [])
       with self.test_scope():
         loop_outputs = xla.while_loop([init_index, 42], loop_cond, loop_body)
@@ -134,7 +135,7 @@ class WhileTest(xla_test.XLATestCase):
   def _testMaxItersSimple(self):
     if is_compile_on_demand():
       self.skipTest("list_ops are not supported in cpu_ondemand")
-    with self.cached_session() as sess, self.test_scope():
+    with self.session() as sess, self.test_scope():
       xla_context = control_flow_ops.XLAControlFlowContext()
       xla_context.Enter()
       v = constant_op.constant(1.0)
@@ -168,7 +169,7 @@ class WhileTest(xla_test.XLATestCase):
   def _testNestedWhileLoopWithMaxItersFromOuterContext(self):
     if is_compile_on_demand():
       self.skipTest("list_ops are not supported in cpu_ondemand")
-    with self.cached_session() as sess, self.test_scope():
+    with self.session() as sess, self.test_scope():
       xla_context = control_flow_ops.XLAControlFlowContext()
       xla_context.Enter()
       v = constant_op.constant(1.0)
@@ -229,7 +230,7 @@ class WhileTest(xla_test.XLATestCase):
   def testMap(self):
     if is_compile_on_demand():
       self.skipTest("list_ops are not supported in cpu_ondemand")
-    with self.cached_session(), self.test_scope():
+    with self.session(), self.test_scope():
       xla_context = control_flow_ops.XLAControlFlowContext()
       xla_context.Enter()
       nums = [1, 2, 3, 4, 5, 6]

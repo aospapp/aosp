@@ -39,7 +39,8 @@ _BUG_TEMPLATE = {
     'cc': ['lafeenstra@chromium.org']
 }
 
-args_dict['timeout_mins'] = 480
+args_dict['max_runtime_mins'] = 1440
+args_dict['timeout_mins'] = 2880
 args_dict['name'] = 'crosbolt_perf_nightly'
 args_dict['job'] = job
 args_dict['add_experimental'] = True

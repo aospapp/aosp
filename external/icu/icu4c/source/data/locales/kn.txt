@@ -19,8 +19,8 @@ kn{
         "[ಅ ಆ ಇ ಈ ಉ ಊ ಋ ೠ ಌ ೡ ಎ ಏ ಐ ಒ ಓ ಔ ಕ ಖ ಗ ಘ ಙ ಚ ಛ ಜ ಝ ಞ ಟ ಠ ಡ ಢ ಣ ತ ಥ ದ ಧ ನ ಪ ಫ"
         " ಬ ಭ ಮ ಯ ರ ಱ ಲ ವ ಶ ಷ ಸ ಹ ಳ ೞ]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0೦ 1೧ 2೨ 3೩ 4೪ 5೫ 6೬ 7೭ 8೮ 9೯]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] @ * / \\& # ′ ″]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0೦ 1೧ 2೨ 3೩ 4೪ 5೫ 6೬ 7೭ 8೮ 9೯]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] @ * / \\& # ′ ″]"}
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -240,7 +240,7 @@ kn{
         minimumGroupingDigits{"1"}
         native{"knda"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -693,7 +693,7 @@ kn{
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMW{
-                    one{"'week' W 'of' MMM"}
+                    one{"'week' W 'of' MMMM"}
                     other{"'week' W 'of' MMMM"}
                 }
                 MMMMd{"d MMMM"}
@@ -874,6 +874,15 @@ kn{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -2475,6 +2484,10 @@ kn{
             end{"{0}, ಮತ್ತು {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
         }
         standard-short{
             2{"{0} ಮತ್ತು {1}"}

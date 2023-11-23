@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -135,6 +135,9 @@ extern WandExport size_t
 extern WandExport unsigned char
   *MagickGetImageProfile(MagickWand *,const char *,size_t *),
   *MagickRemoveImageProfile(MagickWand *,const char *,size_t *);
+
+extern WandExport void
+  MagickSetSeed(const unsigned long);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

@@ -943,39 +943,6 @@ void generateCompareFuncs (std::ostream& str, const ShaderInterface& interface)
 	}
 }
 
-bool uses16BitStorage (const ShaderInterface& interface)
-{
-	// If any of blocks has LAYOUT_16BIT_STORAGE flag
-	for (int ndx = 0; ndx < interface.getNumUniformBlocks(); ++ndx)
-	{
-		if (interface.getUniformBlock(ndx).getFlags() & LAYOUT_16BIT_STORAGE)
-			return true;
-	}
-	return false;
-}
-
-bool uses8BitStorage (const ShaderInterface& interface)
-{
-	// If any of blocks has LAYOUT_8BIT_STORAGE flag
-	for (int ndx = 0; ndx < interface.getNumUniformBlocks(); ++ndx)
-	{
-		if (interface.getUniformBlock(ndx).getFlags() & LAYOUT_8BIT_STORAGE)
-			return true;
-	}
-	return false;
-}
-
-bool usesScalarOrStd430Layout (const ShaderInterface& interface)
-{
-	// If any of blocks has LAYOUT_SCALAR or LAYOUT_STD430 flags
-	for (int ndx = 0; ndx < interface.getNumUniformBlocks(); ++ndx)
-	{
-		if (interface.getUniformBlock(ndx).getFlags() & (LAYOUT_SCALAR | LAYOUT_STD430))
-			return true;
-	}
-	return false;
-}
-
 struct Indent
 {
 	int level;
@@ -1220,7 +1187,12 @@ void generateDeclaration (std::ostringstream& src, int blockNdx, const UniformBl
 	{
 		src << " " << block.getInstanceName();
 		if (block.isArray())
-			src << "[" << block.getArraySize() << "]";
+		{
+			if (block.getFlags() & LAYOUT_DESCRIPTOR_INDEXING)
+				src << "[]";
+			else
+				src << "[" << block.getArraySize() << "]";
+		}
 	}
 	else
 		DE_ASSERT(!block.isArray());
@@ -1580,7 +1552,15 @@ void generateCompareSrc (std::ostringstream& src,
 
 		for (int instanceNdx = 0; instanceNdx < numInstances; instanceNdx++)
 		{
-			std::string		instancePostfix		= isArray ? std::string("[") + de::toString(instanceNdx) + "]" : std::string("");
+			std::string instancePostfix = "";
+			if (isArray)
+			{
+				std::string indexStr = de::toString(instanceNdx);
+				if (interface.usesBlockLayout(LAYOUT_DESCRIPTOR_INDEXING))
+					indexStr = std::string("nonuniformEXT(") + indexStr + ")";
+				instancePostfix = std::string("[") + indexStr + "]";
+			}
+
 			std::string		blockInstanceName	= block.getBlockName() + instancePostfix;
 			std::string		srcPrefix			= hasInstanceName ? block.getInstanceName() + instancePostfix + "." : std::string("");
 			int				blockLayoutNdx		= layout.getBlockLayoutIndex(blockNdx, instanceNdx);
@@ -1608,6 +1588,7 @@ std::string generateVertexShader (const ShaderInterface& interface, const Unifor
 	src << "#extension GL_EXT_shader_16bit_storage : enable\n";
 	src << "#extension GL_EXT_shader_8bit_storage : enable\n";
 	src << "#extension GL_EXT_scalar_block_layout : enable\n";
+	src << "#extension GL_EXT_nonuniform_qualifier : enable\n";
 
 	src << "layout(location = 0) in highp vec4 a_position;\n";
 	src << "layout(location = 0) out mediump float v_vtxResult;\n";
@@ -1651,6 +1632,7 @@ std::string generateFragmentShader (const ShaderInterface& interface, const Unif
 	src << "#extension GL_EXT_shader_16bit_storage : enable\n";
 	src << "#extension GL_EXT_shader_8bit_storage : enable\n";
 	src << "#extension GL_EXT_scalar_block_layout : enable\n";
+	src << "#extension GL_EXT_nonuniform_qualifier : enable\n";
 
 	src << "layout(location = 0) in mediump float v_vtxResult;\n";
 	src << "layout(location = 0) out mediump vec4 dEQP_FragColor;\n";
@@ -2233,10 +2215,10 @@ void UniformBlockCase::initPrograms (vk::SourceCollections& programCollection) c
 	vk::ShaderBuildOptions::Flags flags = vk::ShaderBuildOptions::Flags(0);
 	// TODO(dneto): If these tests ever use LAYOUT_RELAXED, then add support
 	// here as well.
-	if (usesBlockLayout(UniformFlags(LAYOUT_SCALAR | LAYOUT_STD430)))
-	{
+	if (usesBlockLayout(LAYOUT_SCALAR))
 		flags = vk::ShaderBuildOptions::FLAG_ALLOW_SCALAR_OFFSETS;
-	}
+	else if (usesBlockLayout(LAYOUT_STD430))
+		flags = vk::ShaderBuildOptions::FLAG_ALLOW_STD430_UBOS;
 
 	programCollection.glslSources.add("vert") << glu::VertexSource(m_vertShaderSource)
 	<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::getBaselineSpirvVersion(programCollection.usedVulkanVersion), flags);
@@ -2247,17 +2229,21 @@ void UniformBlockCase::initPrograms (vk::SourceCollections& programCollection) c
 
 TestInstance* UniformBlockCase::createInstance (Context& context) const
 {
-	if (!context.get16BitStorageFeatures().uniformAndStorageBuffer16BitAccess && uses16BitStorage(m_interface))
+	if (!context.get16BitStorageFeatures().uniformAndStorageBuffer16BitAccess && usesBlockLayout(LAYOUT_16BIT_STORAGE))
 		TCU_THROW(NotSupportedError, "uniformAndStorageBuffer16BitAccess not supported");
-	if (!context.get8BitStorageFeatures().uniformAndStorageBuffer8BitAccess && uses8BitStorage(m_interface))
+	if (!context.get8BitStorageFeatures().uniformAndStorageBuffer8BitAccess && usesBlockLayout(LAYOUT_8BIT_STORAGE))
 		TCU_THROW(NotSupportedError, "uniformAndStorageBuffer8BitAccess not supported");
-	if (!context.getScalarBlockLayoutFeatures().scalarBlockLayout && usesScalarOrStd430Layout(m_interface))
+	if (!context.getScalarBlockLayoutFeatures().scalarBlockLayout && !context.getUniformBufferStandardLayoutFeatures().uniformBufferStandardLayout && usesBlockLayout(LAYOUT_STD430))
+		TCU_THROW(NotSupportedError, "std430 not supported");
+	if (!context.getScalarBlockLayoutFeatures().scalarBlockLayout && usesBlockLayout(LAYOUT_SCALAR))
 		TCU_THROW(NotSupportedError, "scalarBlockLayout not supported");
+	if (!context.getDescriptorIndexingFeatures().shaderUniformBufferArrayNonUniformIndexing && usesBlockLayout(LAYOUT_DESCRIPTOR_INDEXING))
+		TCU_THROW(NotSupportedError, "Descriptor indexing over uniform buffer not supported");
 
 	return new UniformBlockCaseInstance(context, m_bufferMode, m_uniformLayout, m_blockPointers);
 }
 
-void UniformBlockCase::init (void)
+void UniformBlockCase::delayedInit (void)
 {
 	const int vec4Alignment = (int)sizeof(deUint32)*4;
 

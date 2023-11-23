@@ -16,22 +16,12 @@
 
 package com.google.common.collect;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Maps.EntryTransformer;
-
-import java.io.Serializable;
-import java.util.AbstractSet;
-import java.util.Collection;
-import java.util.Iterator;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.SortedSet;
-
-import javax.annotation.Nullable;
+import jsinterop.annotations.JsPackage;
+import jsinterop.annotations.JsProperty;
+import jsinterop.annotations.JsType;
 
 /**
  * Minimal GWT emulation of {@code com.google.common.collect.Platform}.
@@ -41,104 +31,72 @@ import javax.annotation.Nullable;
  * @author Hayward Chan
  */
 final class Platform {
+  static <K, V> Map<K, V> newHashMapWithExpectedSize(int expectedSize) {
+    return Maps.newHashMapWithExpectedSize(expectedSize);
+  }
+
+  static <K, V> Map<K, V> newLinkedHashMapWithExpectedSize(int expectedSize) {
+    return Maps.newLinkedHashMapWithExpectedSize(expectedSize);
+  }
+
+  static <E> Set<E> newHashSetWithExpectedSize(int expectedSize) {
+    return Sets.newHashSetWithExpectedSize(expectedSize);
+  }
+
+  static <E> Set<E> newLinkedHashSetWithExpectedSize(int expectedSize) {
+    return Sets.newLinkedHashSetWithExpectedSize(expectedSize);
+  }
+
+  /**
+   * Returns the platform preferred map implementation that preserves insertion order when used only
+   * for insertions.
+   */
+  static <K, V> Map<K, V> preservesInsertionOrderOnPutsMap() {
+    return Maps.newLinkedHashMap();
+  }
+
+  /**
+   * Returns the platform preferred set implementation that preserves insertion order when used only
+   * for insertions.
+   */
+  static <E> Set<E> preservesInsertionOrderOnAddsSet() {
+    return Sets.newLinkedHashSet();
+  }
 
   static <T> T[] newArray(T[] reference, int length) {
-    return GwtPlatform.newArray(reference, length);
-  }
-  
-  /*
-   * Regarding newSetForMap() and SetFromMap:
-   *
-   * Written by Doug Lea with assistance from members of JCP JSR-166
-   * Expert Group and released to the public domain, as explained at
-   * http://creativecommons.org/licenses/publicdomain
-   */
-  
-  static <E> Set<E> newSetFromMap(Map<E, Boolean> map) {
-    return new SetFromMap<E>(map);
+    T[] clone = Arrays.copyOf(reference, 0);
+    resizeArray(clone, length);
+    return clone;
   }
 
-  private static class SetFromMap<E> extends AbstractSet<E>
-      implements Set<E>, Serializable {
-    private final Map<E, Boolean> m; // The backing map
-    private transient Set<E> s; // Its keySet
+  private static void resizeArray(Object array, int newSize) {
+    ((NativeArray) array).setLength(newSize);
+  }
 
-    SetFromMap(Map<E, Boolean> map) {
-      checkArgument(map.isEmpty(), "Map is non-empty");
-      m = map;
-      s = map.keySet();
-    }
+  /** Equivalent to Arrays.copyOfRange(source, from, to, arrayOfType.getClass()). */
+  static <T> T[] copy(Object[] source, int from, int to, T[] arrayOfType) {
+    T[] result = newArray(arrayOfType, to - from);
+    System.arraycopy(source, from, result, 0, to - from);
+    return result;
+  }
 
-    @Override public void clear() {
-      m.clear();
-    }
-    @Override public int size() {
-      return m.size();
-    }
-    @Override public boolean isEmpty() {
-      return m.isEmpty();
-    }
-    @Override public boolean contains(Object o) {
-      return m.containsKey(o);
-    }
-    @Override public boolean remove(Object o) {
-      return m.remove(o) != null;
-    }
-    @Override public boolean add(E e) {
-      return m.put(e, Boolean.TRUE) == null;
-    }
-    @Override public Iterator<E> iterator() {
-      return s.iterator();
-    }
-    @Override public Object[] toArray() {
-      return s.toArray();
-    }
-    @Override public <T> T[] toArray(T[] a) {
-      return s.toArray(a);
-    }
-    @Override public String toString() {
-      return s.toString();
-    }
-    @Override public int hashCode() {
-      return s.hashCode();
-    }
-    @Override public boolean equals(@Nullable Object object) {
-      return this == object || this.s.equals(object);
-    }
-    @Override public boolean containsAll(Collection<?> c) {
-      return s.containsAll(c);
-    }
-    @Override public boolean removeAll(Collection<?> c) {
-      return s.removeAll(c);
-    }
-    @Override public boolean retainAll(Collection<?> c) {
-      return s.retainAll(c);
-    }
+  // TODO(user): Move this logic to a utility class.
+  @JsType(isNative = true, name = "Array", namespace = JsPackage.GLOBAL)
+  private interface NativeArray {
+    @JsProperty
+    void setLength(int length);
   }
 
   static MapMaker tryWeakKeys(MapMaker mapMaker) {
     return mapMaker;
   }
 
-  static <K, V1, V2> SortedMap<K, V2> mapsTransformEntriesSortedMap(
-      SortedMap<K, V1> fromMap,
-      EntryTransformer<? super K, ? super V1, V2> transformer) {
-    return Maps.transformEntriesIgnoreNavigable(fromMap, transformer);
+  static int reduceIterationsIfGwt(int iterations) {
+    return iterations / 10;
   }
 
-  static <K, V> SortedMap<K, V> mapsAsMapSortedSet(
-      SortedSet<K> set, Function<? super K, V> function) {
-    return Maps.asMapSortedIgnoreNavigable(set, function);
-  }
-
-  static <E> SortedSet<E> setsFilterSortedSet(
-      SortedSet<E> unfiltered, Predicate<? super E> predicate) {
-    return Sets.filterSortedIgnoreNavigable(unfiltered, predicate);
-  }
-  
-  static <K, V> SortedMap<K, V> mapsFilterSortedMap(
-      SortedMap<K, V> unfiltered, Predicate<? super Map.Entry<K, V>> predicate) {
-    return Maps.filterSortedIgnoreNavigable(unfiltered, predicate);
+  static int reduceExponentIfGwt(int exponent) {
+    return exponent / 2;
   }
 
   private Platform() {}

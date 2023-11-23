@@ -2,7 +2,8 @@
  * Vulkan Conformance Tests
  * ------------------------
  *
- * Copyright (c) 2017 The Khronos Group Inc.
+ * Copyright (c) 2019 The Khronos Group Inc.
+ * Copyright (c) 2019 Google Inc.
  * Copyright (c) 2017 Codeplay Software Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -88,6 +89,7 @@ struct CaseDefinition
 {
 	int					opType;
 	VkShaderStageFlags	shaderStage;
+	de::SharedPtr<bool>	geometryPointSizeSupported;
 };
 
 std::string getBodySource(CaseDefinition caseDef)
@@ -101,12 +103,12 @@ std::string getBodySource(CaseDefinition caseDef)
 		<< "i >= 32 ? 0 : (0xFFFFFFFF << i), "
 		<< "i >= 64 ? 0 : (0xFFFFFFFF << ((i < 32) ? 0 : (i - 32))), "
 		<< "i >= 96 ? 0 : (0xFFFFFFFF << ((i < 64) ? 0 : (i - 64))), "
-		<< " 0xFFFFFFFF << ((i < 96) ? 0 : (i - 96)))\n"
+		<< "i >= 128 ? 0 : (0xFFFFFFFF << ((i < 96) ? 0 : (i - 96))))\n"
 		<< "#define MAKE_SINGLE_BIT_BALLOT_RESULT(i) uvec4("
 		<< "i >= 32 ? 0 : 0x1 << i, "
 		<< "i < 32 || i >= 64 ? 0 : 0x1 << (i - 32), "
 		<< "i < 64 || i >= 96 ? 0 : 0x1 << (i - 64), "
-		<< "i < 96 ? 0 : 0x1 << (i - 96))\n";
+		<< "i < 96 || i >= 128 ? 0 : 0x1 << (i - 96))\n";
 
 	switch (caseDef.opType)
 	{
@@ -133,10 +135,12 @@ std::string getBodySource(CaseDefinition caseDef)
 				<< "  }\n";
 			break;
 		case OPTYPE_BALLOT_BIT_COUNT:
-			bdy << "  tempResult |= gl_SubgroupSize == subgroupBallotBitCount(allOnes) ? 0x1 : 0;\n"
+			bdy << "  /* To ensure a 32-bit computation, use a variable with default highp precision. */\n"
+				<< "  uint SubgroupSize = gl_SubgroupSize;\n"
+				<< "  tempResult |= SubgroupSize == subgroupBallotBitCount(allOnes) ? 0x1 : 0;\n"
 				<< "  tempResult |= 0 == subgroupBallotBitCount(allZeros) ? 0x2 : 0;\n"
 				<< "  tempResult |= 0 < subgroupBallotBitCount(subgroupBallot(true)) ? 0x4 : 0;\n"
-				<< "  tempResult |= 0 == subgroupBallotBitCount(MAKE_HIGH_BALLOT_RESULT(gl_SubgroupSize)) ? 0x8 : 0;\n";
+				<< "  tempResult |= 0 == subgroupBallotBitCount(MAKE_HIGH_BALLOT_RESULT(SubgroupSize)) ? 0x8 : 0;\n";
 			break;
 		case OPTYPE_BALLOT_INCLUSIVE_BIT_COUNT:
 			bdy << "  uint inclusiveOffset = gl_SubgroupInvocationID + 1;\n"
@@ -277,6 +281,7 @@ void initFrameBufferPrograms(SourceCollections& programCollection, CaseDefinitio
 			<< bdyStr
 			<< "  out_color = float(tempResult);\n"
 			<< "  gl_Position = gl_in[0].gl_Position;\n"
+			<< (*caseDef.geometryPointSizeSupported ? "  gl_PointSize = gl_in[0].gl_PointSize;\n" : "")
 			<< "  EmitVertex();\n"
 			<< "  EndPrimitive();\n"
 			<< "}\n";
@@ -444,6 +449,7 @@ void initPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
 			"#version 450\n"
 			"#extension GL_KHR_shader_subgroup_ballot: enable\n"
 			"layout(location = 0) out uint result;\n"
+			"precision highp int;\n"
 			"void main (void)\n"
 			"{\n"
 			+ bdyStr +
@@ -475,6 +481,8 @@ void supportedCheck (Context& context, CaseDefinition caseDef)
 	{
 		TCU_THROW(NotSupportedError, "Device does not support subgroup ballot operations");
 	}
+
+	*caseDef.geometryPointSizeSupported = subgroups::isTessellationAndGeometryPointSizeSupported(context);
 }
 
 tcu::TestStatus noSSBOtest (Context& context, const CaseDefinition caseDef)
@@ -572,20 +580,20 @@ tcu::TestCaseGroup* createSubgroupsBallotOtherTests(tcu::TestContext& testCtx)
 
 	for (int opTypeIndex = 0; opTypeIndex < OPTYPE_LAST; ++opTypeIndex)
 	{
-		const string	op		= de::toLower(getOpTypeName(opTypeIndex));
+		const string op = de::toLower(getOpTypeName(opTypeIndex));
 		{
-			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_COMPUTE_BIT};
+			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_COMPUTE_BIT, de::SharedPtr<bool>(new bool)};
 			addFunctionCaseWithPrograms(computeGroup.get(), op, "", supportedCheck, initPrograms, test, caseDef);
 		}
 
 		{
-			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_ALL_GRAPHICS};
+			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_ALL_GRAPHICS, de::SharedPtr<bool>(new bool)};
 			addFunctionCaseWithPrograms(graphicGroup.get(), op, "", supportedCheck, initPrograms, test, caseDef);
 		}
 
 		for (int stageIndex = 0; stageIndex < DE_LENGTH_OF_ARRAY(stages); ++stageIndex)
 		{
-			const CaseDefinition caseDef = {opTypeIndex, stages[stageIndex]};
+			const CaseDefinition caseDef = {opTypeIndex, stages[stageIndex], de::SharedPtr<bool>(new bool)};
 			addFunctionCaseWithPrograms(framebufferGroup.get(), op + "_" + getShaderStageName(caseDef.shaderStage), "", supportedCheck, initFrameBufferPrograms, noSSBOtest, caseDef);
 		}
 	}

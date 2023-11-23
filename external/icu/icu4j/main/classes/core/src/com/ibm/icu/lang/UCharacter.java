@@ -1202,6 +1202,46 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         /** @stable ICU 62 */
         public static final int SOGDIAN_ID = 291; /*[10F30]*/
 
+        // New blocks in Unicode 12.0
+
+        /** @stable ICU 64 */
+        public static final int EGYPTIAN_HIEROGLYPH_FORMAT_CONTROLS_ID = 292; /*[13430]*/
+        /** @stable ICU 64 */
+        public static final int ELYMAIC_ID = 293; /*[10FE0]*/
+        /** @stable ICU 64 */
+        public static final int NANDINAGARI_ID = 294; /*[119A0]*/
+        /** @stable ICU 64 */
+        public static final int NYIAKENG_PUACHUE_HMONG_ID = 295; /*[1E100]*/
+        /** @stable ICU 64 */
+        public static final int OTTOMAN_SIYAQ_NUMBERS_ID = 296; /*[1ED00]*/
+        /** @stable ICU 64 */
+        public static final int SMALL_KANA_EXTENSION_ID = 297; /*[1B130]*/
+        /** @stable ICU 64 */
+        public static final int SYMBOLS_AND_PICTOGRAPHS_EXTENDED_A_ID = 298; /*[1FA70]*/
+        /** @stable ICU 64 */
+        public static final int TAMIL_SUPPLEMENT_ID = 299; /*[11FC0]*/
+        /** @stable ICU 64 */
+        public static final int WANCHO_ID = 300; /*[1E2C0]*/
+
+        // New blocks in Unicode 13.0
+
+        /** @stable ICU 66 */
+        public static final int CHORASMIAN_ID = 301; /*[10FB0]*/
+        /** @stable ICU 66 */
+        public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G_ID = 302; /*[30000]*/
+        /** @stable ICU 66 */
+        public static final int DIVES_AKURU_ID = 303; /*[11900]*/
+        /** @stable ICU 66 */
+        public static final int KHITAN_SMALL_SCRIPT_ID = 304; /*[18B00]*/
+        /** @stable ICU 66 */
+        public static final int LISU_SUPPLEMENT_ID = 305; /*[11FB0]*/
+        /** @stable ICU 66 */
+        public static final int SYMBOLS_FOR_LEGACY_COMPUTING_ID = 306; /*[1FB00]*/
+        /** @stable ICU 66 */
+        public static final int TANGUT_SUPPLEMENT_ID = 307; /*[18D00]*/
+        /** @stable ICU 66 */
+        public static final int YEZIDI_ID = 308; /*[10E80]*/
+
         /**
          * One more than the highest normal UnicodeBlock value.
          * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.BLOCK).
@@ -1209,7 +1249,7 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
          * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
          */
         @Deprecated
-        public static final int COUNT = 292;
+        public static final int COUNT = 309;
 
         // blocks objects ---------------------------------------------------
 
@@ -2522,6 +2562,61 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         /** @stable ICU 62 */
         public static final UnicodeBlock SOGDIAN = new UnicodeBlock("SOGDIAN", SOGDIAN_ID); /*[10F30]*/
 
+        // New blocks in Unicode 12.0
+
+        /** @stable ICU 64 */
+        public static final UnicodeBlock EGYPTIAN_HIEROGLYPH_FORMAT_CONTROLS =
+                new UnicodeBlock("EGYPTIAN_HIEROGLYPH_FORMAT_CONTROLS", EGYPTIAN_HIEROGLYPH_FORMAT_CONTROLS_ID); /*[13430]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock ELYMAIC = new UnicodeBlock("ELYMAIC", ELYMAIC_ID); /*[10FE0]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock NANDINAGARI =
+                new UnicodeBlock("NANDINAGARI", NANDINAGARI_ID); /*[119A0]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock NYIAKENG_PUACHUE_HMONG =
+                new UnicodeBlock("NYIAKENG_PUACHUE_HMONG", NYIAKENG_PUACHUE_HMONG_ID); /*[1E100]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock OTTOMAN_SIYAQ_NUMBERS =
+                new UnicodeBlock("OTTOMAN_SIYAQ_NUMBERS", OTTOMAN_SIYAQ_NUMBERS_ID); /*[1ED00]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock SMALL_KANA_EXTENSION =
+                new UnicodeBlock("SMALL_KANA_EXTENSION", SMALL_KANA_EXTENSION_ID); /*[1B130]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock SYMBOLS_AND_PICTOGRAPHS_EXTENDED_A =
+                new UnicodeBlock("SYMBOLS_AND_PICTOGRAPHS_EXTENDED_A", SYMBOLS_AND_PICTOGRAPHS_EXTENDED_A_ID); /*[1FA70]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock TAMIL_SUPPLEMENT =
+                new UnicodeBlock("TAMIL_SUPPLEMENT", TAMIL_SUPPLEMENT_ID); /*[11FC0]*/
+        /** @stable ICU 64 */
+        public static final UnicodeBlock WANCHO = new UnicodeBlock("WANCHO", WANCHO_ID); /*[1E2C0]*/
+
+        // New blocks in Unicode 13.0
+
+        /** @stable ICU 66 */
+        public static final UnicodeBlock CHORASMIAN =
+                new UnicodeBlock("CHORASMIAN", CHORASMIAN_ID); /*[10FB0]*/
+        /** @stable ICU 66 */
+        public static final UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G =
+                new UnicodeBlock("CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G",
+                        CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G_ID); /*[30000]*/
+        /** @stable ICU 66 */
+        public static final UnicodeBlock DIVES_AKURU =
+                new UnicodeBlock("DIVES_AKURU", DIVES_AKURU_ID); /*[11900]*/
+        /** @stable ICU 66 */
+        public static final UnicodeBlock KHITAN_SMALL_SCRIPT =
+                new UnicodeBlock("KHITAN_SMALL_SCRIPT", KHITAN_SMALL_SCRIPT_ID); /*[18B00]*/
+        /** @stable ICU 66 */
+        public static final UnicodeBlock LISU_SUPPLEMENT =
+                new UnicodeBlock("LISU_SUPPLEMENT", LISU_SUPPLEMENT_ID); /*[11FB0]*/
+        /** @stable ICU 66 */
+        public static final UnicodeBlock SYMBOLS_FOR_LEGACY_COMPUTING =
+                new UnicodeBlock("SYMBOLS_FOR_LEGACY_COMPUTING", SYMBOLS_FOR_LEGACY_COMPUTING_ID); /*[1FB00]*/
+        /** @stable ICU 66 */
+        public static final UnicodeBlock TANGUT_SUPPLEMENT =
+                new UnicodeBlock("TANGUT_SUPPLEMENT", TANGUT_SUPPLEMENT_ID); /*[18D00]*/
+        /** @stable ICU 66 */
+        public static final UnicodeBlock YEZIDI = new UnicodeBlock("YEZIDI", YEZIDI_ID); /*[10E80]*/
+
         /**
          * @stable ICU 2.4
          */
@@ -3731,6 +3826,8 @@ public final class UCharacter implements ECharacterCategory, ECharacterDirection
         public static final int TOP_AND_RIGHT = 13;
         /** @stable ICU 63 */
         public static final int VISUAL_ORDER_LEFT = 14;
+        /** @stable ICU 66 */
+        public static final int TOP_AND_BOTTOM_AND_LEFT = 15;
     }
 
     /**

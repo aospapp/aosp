@@ -1,7 +1,14 @@
-cc_library_shared {
+cc_library {
     name: "libvpx",
     vendor_available: true,
+    host_supported: true,
     version_script: "exports.lds",
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
 
     arch: {
         // configured to require the neon unit
@@ -23,11 +30,17 @@ cc_library_shared {
         x86: {
             srcs: libvpx_x86_c_srcs + libvpx_x86_asm_srcs,
             local_include_dirs: ["config/x86"],
+            cflags: [
+                "-mssse3",
+            ],
         },
 
         x86_64: {
             srcs: libvpx_x86_64_c_srcs + libvpx_x86_64_asm_srcs,
             local_include_dirs: ["config/x86_64"],
+            cflags: [
+                "-mssse3",
+            ],
         },
     },
 
@@ -45,4 +58,77 @@ cc_library_shared {
         // cfi: true,
         blacklist: "libvpx_blacklist.txt",
     },
+}
+
+cc_fuzz {
+    name: "vp9_dec_fuzzer",
+    host_supported: true,
+    srcs: [
+        "libvpx/examples/vpx_dec_fuzzer.cc",
+    ],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    arch: {
+        arm: {
+            neon: {
+                local_include_dirs: ["config/arm-neon"],
+            },
+        },
+
+        arm64: {
+            local_include_dirs: ["config/arm64"],
+        },
+
+        x86: {
+            local_include_dirs: ["config/x86"],
+        },
+
+        x86_64: {
+            local_include_dirs: ["config/x86_64"],
+        },
+    },
+    cflags: ["-DDECODER=vp9"],
+    static_libs: [
+        "libvpx",
+    ],
+}
+
+cc_fuzz {
+    name: "vp8_dec_fuzzer",
+    host_supported: true,
+    srcs: [
+        "libvpx/examples/vpx_dec_fuzzer.cc",
+    ],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    arch: {
+        arm: {
+            neon: {
+                local_include_dirs: ["config/arm-neon"],
+            },
+        },
+
+        arm64: {
+            local_include_dirs: ["config/arm64"],
+        },
+
+        x86: {
+            local_include_dirs: ["config/x86"],
+        },
+
+        x86_64: {
+            local_include_dirs: ["config/x86_64"],
+        },
+    },
+
+    cflags: ["-DDECODER=vp8"],
+    static_libs: [
+        "libvpx",
+    ],
 }

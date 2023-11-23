@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -328,6 +328,7 @@ extern MagickExport void
   NTErrorHandler(const ExceptionType,const char *,const char *),
   NTGhostscriptUnLoadDLL(void),
   NTWarningHandler(const ExceptionType,const char *,const char *);
+
 #endif
 
 #if defined(__cplusplus) || defined(c_plusplus)

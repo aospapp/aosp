@@ -7,14 +7,16 @@ import android.icu.lang.UCharacter;
 import android.icu.text.UnicodeSet;
 
 /**
- * A mutable String wrapper with a variable offset and length and support for case folding.
- * <p>
- * The charAt, length, and subSequence methods all operate relative to the fixed offset into the String.
- * <p>
- * CAUTION: Since this class is mutable, it must not be used anywhere that an immutable object is
- * required, like in a cache or as the key of a hash map.
+ * A mutable String wrapper with a variable offset and length and
+ * support for case folding. The charAt, length, and subSequence methods all
+ * operate relative to the fixed offset into the String.
  *
- * @author sffc
+ * Intended to be useful for parsing.
+ *
+ * CAUTION: Since this class is mutable, it must not be used anywhere that an
+ * immutable object is required, like in a cache or as the key of a hash map.
+ *
+ * @author sffc (Shane Carr)
  * @hide Only a subset of ICU is exposed in Android
  */
 public class StringSegment implements CharSequence {

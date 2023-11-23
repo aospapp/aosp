@@ -36,6 +36,7 @@
 #include <stdbool.h>
 #include "main/macros.h"
 #include "main/mtypes.h"
+#include "main/errors.h"
 #include "brw_structs.h"
 #include "brw_pipe_control.h"
 #include "compiler/brw_compiler.h"
@@ -45,7 +46,8 @@
 
 #include <brw_bufmgr.h>
 
-#include "common/gen_debug.h"
+#include "dev/gen_debug.h"
+#include "common/gen_decoder.h"
 #include "intel_screen.h"
 #include "intel_tex_obj.h"
 
@@ -164,6 +166,11 @@ enum brw_cache_id {
    BRW_CACHE_CS_PROG,
 
    BRW_MAX_CACHE
+};
+
+enum gen9_astc5x5_wa_tex_type {
+   GEN9_ASTC5X5_WA_TEX_TYPE_ASTC5x5 = 1 << 0,
+   GEN9_ASTC5X5_WA_TEX_TYPE_AUX     = 1 << 1,
 };
 
 enum brw_state_id {
@@ -381,11 +388,11 @@ struct brw_cache {
    if (unlikely(INTEL_DEBUG & DEBUG_PERF))                      \
       dbg_printf(__VA_ARGS__);                                  \
    if (brw->perf_debug)                                         \
-      _mesa_gl_debug(&brw->ctx, &msg_id,                        \
-                     MESA_DEBUG_SOURCE_API,                     \
-                     MESA_DEBUG_TYPE_PERFORMANCE,               \
-                     MESA_DEBUG_SEVERITY_MEDIUM,                \
-                     __VA_ARGS__);                              \
+      _mesa_gl_debugf(&brw->ctx, &msg_id,                       \
+                      MESA_DEBUG_SOURCE_API,                    \
+                      MESA_DEBUG_TYPE_PERFORMANCE,              \
+                      MESA_DEBUG_SEVERITY_MEDIUM,               \
+                      __VA_ARGS__);                             \
 } while(0)
 
 #define WARN_ONCE(cond, fmt...) do {                            \
@@ -397,10 +404,10 @@ struct brw_cache {
          fprintf(stderr, fmt);                                  \
          _warned = true;                                        \
                                                                 \
-         _mesa_gl_debug(ctx, &msg_id,                           \
-                        MESA_DEBUG_SOURCE_API,                  \
-                        MESA_DEBUG_TYPE_OTHER,                  \
-                        MESA_DEBUG_SEVERITY_HIGH, fmt);         \
+         _mesa_gl_debugf(ctx, &msg_id,                          \
+                         MESA_DEBUG_SOURCE_API,                 \
+                         MESA_DEBUG_TYPE_OTHER,                 \
+                         MESA_DEBUG_SEVERITY_HIGH, fmt);        \
       }                                                         \
    }                                                            \
 } while (0)
@@ -424,6 +431,7 @@ enum shader_time_shader_type {
    ST_GS,
    ST_FS8,
    ST_FS16,
+   ST_FS32,
    ST_CS,
 };
 
@@ -437,7 +445,8 @@ struct brw_vertex_buffer {
    GLuint step_rate;
 };
 struct brw_vertex_element {
-   const struct gl_vertex_array *glarray;
+   const struct gl_array_attributes *glattrib;
+   const struct gl_vertex_buffer_binding *glbinding;
 
    int buffer;
    bool is_dual_slot;
@@ -458,12 +467,6 @@ struct brw_query_object {
    bool flushed;
 };
 
-enum brw_gpu_ring {
-   UNKNOWN_RING,
-   RENDER_RING,
-   BLT_RING,
-};
-
 struct brw_reloc_list {
    struct drm_i915_gem_relocation_entry *relocs;
    int reloc_count;
@@ -476,6 +479,7 @@ struct brw_growing_bo {
    struct brw_bo *partial_bo;
    uint32_t *partial_bo_map;
    unsigned partial_bytes;
+   enum brw_memory_zone memzone;
 };
 
 struct intel_batchbuffer {
@@ -493,7 +497,6 @@ struct intel_batchbuffer {
    uint32_t *map_next;
    uint32_t state_used;
 
-   enum brw_gpu_ring ring;
    bool use_shadow_copy;
    bool use_batch_first;
    bool needs_sol_reset;
@@ -511,7 +514,7 @@ struct intel_batchbuffer {
    int exec_array_size;
 
    /** The amount of aperture space (in bytes) used by all exec_bos */
-   int aperture_space;
+   uint64_t aperture_space;
 
    struct {
       uint32_t *map_next;
@@ -522,6 +525,8 @@ struct intel_batchbuffer {
 
    /** Map from batch offset to brw_state_batch data (with DEBUG_BATCH) */
    struct hash_table *state_batch_sizes;
+
+   struct gen_batch_decode_ctx decoder;
 };
 
 #define BRW_MAX_XFB_STREAMS 4
@@ -676,46 +681,14 @@ enum brw_predicate_state {
 struct shader_times;
 
 struct gen_l3_config;
+struct gen_perf;
 
-enum brw_query_kind {
-   OA_COUNTERS,
-   PIPELINE_STATS
-};
-
-struct brw_perf_query_register_prog {
-   uint32_t reg;
-   uint32_t val;
-};
-
-struct brw_perf_query_info
-{
-   enum brw_query_kind kind;
-   const char *name;
-   const char *guid;
-   struct brw_perf_query_counter *counters;
-   int n_counters;
-   size_t data_size;
-
-   /* OA specific */
-   uint64_t oa_metrics_set_id;
-   int oa_format;
-
-   /* For indexing into the accumulator[] ... */
-   int gpu_time_offset;
-   int gpu_clock_offset;
-   int a_offset;
-   int b_offset;
-   int c_offset;
-
-   /* Register programming for a given query */
-   struct brw_perf_query_register_prog *flex_regs;
-   uint32_t n_flex_regs;
-
-   struct brw_perf_query_register_prog *mux_regs;
-   uint32_t n_mux_regs;
-
-   struct brw_perf_query_register_prog *b_counter_regs;
-   uint32_t n_b_counter_regs;
+struct brw_uploader {
+   struct brw_bufmgr *bufmgr;
+   struct brw_bo *bo;
+   void *map;
+   uint32_t next_offset;
+   unsigned default_size;
 };
 
 /**
@@ -728,20 +701,6 @@ struct brw_context
    struct
    {
       /**
-       * Send the appropriate state packets to configure depth, stencil, and
-       * HiZ buffers (i965+ only)
-       */
-      void (*emit_depth_stencil_hiz)(struct brw_context *brw,
-                                     struct intel_mipmap_tree *depth_mt,
-                                     uint32_t depth_offset,
-                                     uint32_t depthbuffer_format,
-                                     uint32_t depth_surface_type,
-                                     struct intel_mipmap_tree *stencil_mt,
-                                     bool hiz, bool separate_stencil,
-                                     uint32_t width, uint32_t height,
-                                     uint32_t tile_x, uint32_t tile_y);
-
-      /**
        * Emit an MI_REPORT_PERF_COUNT command packet.
        *
        * This asks the GPU to write a report of the current OA counter values
@@ -752,6 +711,11 @@ struct brw_context
                                         struct brw_bo *bo,
                                         uint32_t offset_in_bytes,
                                         uint32_t report_id);
+
+      void (*emit_compute_walker)(struct brw_context *brw);
+      void (*emit_raw_pipe_control)(struct brw_context *brw, uint32_t flags,
+                                    struct brw_bo *bo, uint32_t offset,
+                                    uint64_t imm);
    } vtbl;
 
    struct brw_bufmgr *bufmgr;
@@ -786,11 +750,7 @@ struct brw_context
 
    struct intel_batchbuffer batch;
 
-   struct {
-      struct brw_bo *bo;
-      void *map;
-      uint32_t next_offset;
-   } upload;
+   struct brw_uploader upload;
 
    /**
     * Set if rendering has occurred to the drawable's front buffer.
@@ -799,6 +759,18 @@ struct brw_context
     * the contents of the fake front buffer to the real front buffer.
     */
    bool front_buffer_dirty;
+
+   /**
+    * True if the __DRIdrawable's current __DRIimageBufferMask is
+    * __DRI_IMAGE_BUFFER_SHARED.
+    */
+   bool is_shared_buffer_bound;
+
+   /**
+    * True if a shared buffer is bound and it has received any rendering since
+    * the previous __DRImutableRenderBufferLoaderExtension::displaySharedBuffer().
+    */
+   bool is_shared_buffer_dirty;
 
    /** Framerate throttling: @{ */
    struct brw_bo *throttle_batch[2];
@@ -823,7 +795,6 @@ struct brw_context
     * drirc options:
     * @{
     */
-   bool no_rast;
    bool always_flush_batch;
    bool always_flush_cache;
    bool disable_throttling;
@@ -834,6 +805,8 @@ struct brw_context
    /** @} */
 
    GLuint primitive; /**< Hardware primitive, such as _3DPRIM_TRILIST. */
+
+   bool object_preemption; /**< Object level preemption enabled. */
 
    GLenum reduced_primitive;
 
@@ -881,28 +854,47 @@ struct brw_context
 
    struct {
       struct {
-         /** The value of gl_BaseVertex for the current _mesa_prim. */
-         int gl_basevertex;
+         /**
+          * Either the value of gl_BaseVertex for indexed draw calls or the
+          * value of the argument <first> for non-indexed draw calls for the
+          * current _mesa_prim.
+          */
+         int firstvertex;
 
          /** The value of gl_BaseInstance for the current _mesa_prim. */
          int gl_baseinstance;
       } params;
 
       /**
-       * Buffer and offset used for GL_ARB_shader_draw_parameters
-       * (for now, only gl_BaseVertex).
+       * Buffer and offset used for GL_ARB_shader_draw_parameters which will
+       * point to the indirect buffer for indirect draw calls.
        */
       struct brw_bo *draw_params_bo;
       uint32_t draw_params_offset;
 
+      struct {
+         /**
+          * The value of gl_DrawID for the current _mesa_prim. This always comes
+          * in from it's own vertex buffer since it's not part of the indirect
+          * draw parameters.
+          */
+         int gl_drawid;
+
+         /**
+          * Stores if the current _mesa_prim is an indexed or non-indexed draw
+          * (~0/0). Useful to calculate gl_BaseVertex as an AND of firstvertex
+          * and is_indexed_draw.
+          */
+         int is_indexed_draw;
+      } derived_params;
+
       /**
-       * The value of gl_DrawID for the current _mesa_prim. This always comes
-       * in from it's own vertex buffer since it's not part of the indirect
-       * draw parameters.
+       * Buffer and offset used for GL_ARB_shader_draw_parameters which contains
+       * parameters that are not present in the indirect buffer. They will go in
+       * their own vertex element.
        */
-      int gl_drawid;
-      struct brw_bo *draw_id_bo;
-      uint32_t draw_id_offset;
+      struct brw_bo *derived_draw_params_bo;
+      uint32_t derived_draw_params_offset;
 
       /**
        * Pointer to the the buffer storing the indirect draw parameters. It
@@ -950,6 +942,9 @@ struct brw_context
        * These bitfields indicate which workarounds are needed.
        */
       uint8_t attrib_wa_flags[VERT_ATTRIB_MAX];
+
+      /* High bits of the last seen vertex buffer address (for workarounds). */
+      uint16_t last_bo_high_bits[33];
    } vb;
 
    struct {
@@ -970,6 +965,12 @@ struct brw_context
        * referencing the same index buffer.
        */
       unsigned int start_vertex_offset;
+
+      /* High bits of the last seen index buffer address (for workarounds). */
+      uint16_t last_bo_high_bits;
+
+      /* Used to understand is GPU state of primitive restart is up to date */
+      bool enable_cut_index;
    } ib;
 
    /* Active vertex program:
@@ -1161,32 +1162,7 @@ struct brw_context
    } predicate;
 
    struct {
-      /* Variables referenced in the XML meta data for OA performance
-       * counters, e.g in the normalization equations.
-       *
-       * All uint64_t for consistent operand types in generated code
-       */
-      struct {
-         uint64_t timestamp_frequency; /** $GpuTimestampFrequency */
-         uint64_t n_eus;               /** $EuCoresTotalCount */
-         uint64_t n_eu_slices;         /** $EuSlicesTotalCount */
-         uint64_t n_eu_sub_slices;     /** $EuSubslicesTotalCount */
-         uint64_t eu_threads_count;    /** $EuThreadsCount */
-         uint64_t slice_mask;          /** $SliceMask */
-         uint64_t subslice_mask;       /** $SubsliceMask */
-         uint64_t gt_min_freq;         /** $GpuMinFrequency */
-         uint64_t gt_max_freq;         /** $GpuMaxFrequency */
-         uint64_t revision;            /** $SkuRevisionId */
-      } sys_vars;
-
-      /* OA metric sets, indexed by GUID, as know by Mesa at build time,
-       * to cross-reference with the GUIDs of configs advertised by the
-       * kernel at runtime
-       */
-      struct hash_table *oa_metrics_table;
-
-      struct brw_perf_query_info *queries;
-      int n_queries;
+      struct gen_perf *perf;
 
       /* The i915 perf stream we open to setup + enable the OA counters */
       int oa_stream_fd;
@@ -1296,6 +1272,8 @@ struct brw_context
     */
    enum isl_aux_usage draw_aux_usage[MAX_DRAW_BUFFERS];
 
+   enum gen9_astc5x5_wa_tex_type gen9_astc5x5_wa_tex_mask;
+
    __DRIcontext *driContext;
    struct intel_screen *screen;
 };
@@ -1320,6 +1298,10 @@ void intel_update_renderbuffers(__DRIcontext *context,
                                 __DRIdrawable *drawable);
 void intel_prepare_render(struct brw_context *brw);
 
+void gen9_apply_single_tex_astc5x5_wa(struct brw_context *brw,
+                                      mesa_format format,
+                                      enum isl_aux_usage aux_usage);
+
 void brw_predraw_resolve_inputs(struct brw_context *brw, bool rendering,
                                 bool *draw_aux_buffer_disabled);
 
@@ -1332,13 +1314,6 @@ GLboolean brwCreateContext(gl_api api,
                            const struct __DriverContextConfig *ctx_config,
                            unsigned *error,
                            void *sharedContextPrivate);
-
-/*======================================================================
- * brw_misc_state.c
- */
-void
-brw_meta_resolve_color(struct brw_context *brw,
-                       struct intel_mipmap_tree *mt);
 
 /*======================================================================
  * brw_misc_state.c
@@ -1358,7 +1333,6 @@ void brw_emit_query_begin(struct brw_context *brw);
 void brw_emit_query_end(struct brw_context *brw);
 void brw_query_counter(struct gl_context *ctx, struct gl_query_object *q);
 bool brw_is_query_pipelined(struct brw_query_object *query);
-uint64_t brw_timebase_scale(struct brw_context *brw, uint64_t gpu_timestamp);
 uint64_t brw_raw_timestamp_delta(struct brw_context *brw,
                                  uint64_t time0, uint64_t time1);
 
@@ -1394,10 +1368,10 @@ void brw_load_register_imm32(struct brw_context *brw,
                              uint32_t reg, uint32_t imm);
 void brw_load_register_imm64(struct brw_context *brw,
                              uint32_t reg, uint64_t imm);
-void brw_load_register_reg(struct brw_context *brw, uint32_t src,
-                           uint32_t dest);
-void brw_load_register_reg64(struct brw_context *brw, uint32_t src,
-                             uint32_t dest);
+void brw_load_register_reg(struct brw_context *brw, uint32_t dst,
+                           uint32_t src);
+void brw_load_register_reg64(struct brw_context *brw, uint32_t dst,
+                             uint32_t src);
 void brw_store_data_imm32(struct brw_context *brw, struct brw_bo *bo,
                           uint32_t offset, uint32_t imm);
 void brw_store_data_imm64(struct brw_context *brw, struct brw_bo *bo,
@@ -1412,16 +1386,6 @@ void brw_validate_textures( struct brw_context *brw );
 /*======================================================================
  * brw_program.c
  */
-static inline bool
-key_debug(struct brw_context *brw, const char *name, int a, int b)
-{
-   if (a != b) {
-      perf_debug("  %s %d->%d\n", name, a, b);
-      return true;
-   }
-   return false;
-}
-
 void brwInitFragProgFuncs( struct dd_function_table *functions );
 
 void brw_get_scratch_bo(struct brw_context *brw,
@@ -1452,7 +1416,7 @@ gl_clip_plane *brw_select_clip_planes(struct gl_context *ctx);
 
 /* brw_draw_upload.c */
 unsigned brw_get_vertex_surface_type(struct brw_context *brw,
-                                     const struct gl_vertex_array *glarray);
+                                     const struct gl_vertex_format *glformat);
 
 static inline unsigned
 brw_get_index_type(unsigned index_size)
@@ -1499,7 +1463,6 @@ extern void intelInitExtensions(struct gl_context *ctx);
 extern int intel_translate_shadow_compare_func(GLenum func);
 extern int intel_translate_compare_func(GLenum func);
 extern int intel_translate_stencil_op(GLenum op);
-extern int intel_translate_logic_op(GLenum opcode);
 
 /* brw_sync.c */
 void brw_init_syncobj_functions(struct dd_function_table *functions);
@@ -1576,6 +1539,10 @@ brw_blorp_copytexsubimage(struct brw_context *brw,
                           int dstX0, int dstY0,
                           int width, int height);
 
+/* brw_generate_mipmap.c */
+void brw_generate_mipmap(struct gl_context *ctx, GLenum target,
+                         struct gl_texture_object *tex_obj);
+
 void
 gen6_get_sample_position(struct gl_context *ctx,
                          struct gl_framebuffer *fb,
@@ -1615,6 +1582,9 @@ extern void
 brw_program_binary_init(unsigned device_id);
 extern void
 brw_get_program_binary_driver_sha1(struct gl_context *ctx, uint8_t *sha1);
+void brw_serialize_program_binary(struct gl_context *ctx,
+                                  struct gl_shader_program *sh_prog,
+                                  struct gl_program *prog);
 extern void
 brw_deserialize_program_binary(struct gl_context *ctx,
                                struct gl_shader_program *shProg,
@@ -1622,8 +1592,9 @@ brw_deserialize_program_binary(struct gl_context *ctx,
 void
 brw_program_serialize_nir(struct gl_context *ctx, struct gl_program *prog);
 void
-brw_program_deserialize_nir(struct gl_context *ctx, struct gl_program *prog,
-                            gl_shader_stage stage);
+brw_program_deserialize_driver_blob(struct gl_context *ctx,
+                                    struct gl_program *prog,
+                                    gl_shader_stage stage);
 
 /*======================================================================
  * Inline conversion functions.  These are better-typed than the
@@ -1669,45 +1640,6 @@ brw_depth_writes_enabled(const struct brw_context *brw)
 
 void
 brw_emit_depthbuffer(struct brw_context *brw);
-
-void
-brw_emit_depth_stencil_hiz(struct brw_context *brw,
-                           struct intel_mipmap_tree *depth_mt,
-                           uint32_t depth_offset, uint32_t depthbuffer_format,
-                           uint32_t depth_surface_type,
-                           struct intel_mipmap_tree *stencil_mt,
-                           bool hiz, bool separate_stencil,
-                           uint32_t width, uint32_t height,
-                           uint32_t tile_x, uint32_t tile_y);
-
-void
-gen6_emit_depth_stencil_hiz(struct brw_context *brw,
-                            struct intel_mipmap_tree *depth_mt,
-                            uint32_t depth_offset, uint32_t depthbuffer_format,
-                            uint32_t depth_surface_type,
-                            struct intel_mipmap_tree *stencil_mt,
-                            bool hiz, bool separate_stencil,
-                            uint32_t width, uint32_t height,
-                            uint32_t tile_x, uint32_t tile_y);
-
-void
-gen7_emit_depth_stencil_hiz(struct brw_context *brw,
-                            struct intel_mipmap_tree *depth_mt,
-                            uint32_t depth_offset, uint32_t depthbuffer_format,
-                            uint32_t depth_surface_type,
-                            struct intel_mipmap_tree *stencil_mt,
-                            bool hiz, bool separate_stencil,
-                            uint32_t width, uint32_t height,
-                            uint32_t tile_x, uint32_t tile_y);
-void
-gen8_emit_depth_stencil_hiz(struct brw_context *brw,
-                            struct intel_mipmap_tree *depth_mt,
-                            uint32_t depth_offset, uint32_t depthbuffer_format,
-                            uint32_t depth_surface_type,
-                            struct intel_mipmap_tree *stencil_mt,
-                            bool hiz, bool separate_stencil,
-                            uint32_t width, uint32_t height,
-                            uint32_t tile_x, uint32_t tile_y);
 
 uint32_t get_hw_prim_for_gl_prim(int mode);
 

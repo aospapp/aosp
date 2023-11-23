@@ -1,7 +1,13 @@
+# -*- coding: utf-8 -*-
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """MachineImageManager allocates images to duts."""
+
+from __future__ import print_function
+
+import functools
 
 
 class MachineImageManager(object):
@@ -143,8 +149,9 @@ class MachineImageManager(object):
       self.dut_name_ordinal_[dut.name] = idx
 
     # Generate initial matrix containg 'X' or ' '.
-    self.matrix_ = [['X' if (l.remote and len(l.remote)) else ' ' \
-                     for _ in range(self.n_duts_)] for l in self.labels_]
+    self.matrix_ = [['X' if l.remote else ' '
+                     for _ in range(self.n_duts_)]
+                    for l in self.labels_]
     for ol, l in enumerate(self.labels_):
       if l.remote:
         for r in l.remote:
@@ -291,8 +298,8 @@ class MachineImageManager(object):
       if v == ' ':
         # Before we put a 'Y', we check how many Y column 'j' has.
         # Note y[0] is row idx, y[1] is the cell value.
-        ny = reduce(lambda x, y: x + 1 if (y[1] == 'Y') else x,
-                    self.matrix_vertical_generator(j), 0)
+        ny = functools.reduce(lambda x, y: x + 1 if (y[1] == 'Y') else x,
+                              self.matrix_vertical_generator(j), 0)
         if ny < N:
           self.matrix_[level][j] = 'Y'
           if self._compute_initial_allocation_internal(level + 1, N):

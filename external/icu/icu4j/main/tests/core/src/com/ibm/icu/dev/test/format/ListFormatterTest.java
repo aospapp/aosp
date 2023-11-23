@@ -148,7 +148,7 @@ public class ListFormatterTest extends TestFmwk {
     @Test
     public void TestFromList() {
         ListFormatter listFormatter = ListFormatter.getInstance(ULocale.ENGLISH);
-        ArrayList<String> list = new ArrayList<String>();
+        ArrayList<String> list = new ArrayList<>();
         list.add("A");
         list.add("B");
         list.add("C");
@@ -185,6 +185,24 @@ public class ListFormatterTest extends TestFmwk {
     public void Test9946() {
         ListFormatter listFormatter = ListFormatter.getInstance(ULocale.ENGLISH);
         assertEquals("bug 9946", "{0}, {1}, and {2}", listFormatter.format("{0}", "{1}", "{2}"));
+    }
+
+
+    void DoTheRealListStyleTesting(ULocale locale, String items[], ListFormatter.Style style, String expected) {
+        ListFormatter listFormatter = ListFormatter.getInstance(locale, style);
+        assertEquals("Style \"" + style + "\"", expected, listFormatter.format((Object[])items));
+    }
+
+    @Test
+    public void TestDifferentStyles() {
+        ULocale locale = ULocale.FRENCH;
+        String[] input = { "rouge", "jaune", "bleu", "vert" };
+
+        DoTheRealListStyleTesting(locale, input, ListFormatter.Style.STANDARD, "rouge, jaune, bleu et vert");
+        DoTheRealListStyleTesting(locale, input, ListFormatter.Style.OR, "rouge, jaune, bleu ou vert");
+        DoTheRealListStyleTesting(locale, input, ListFormatter.Style.UNIT, "rouge, jaune, bleu et vert");
+        DoTheRealListStyleTesting(locale, input, ListFormatter.Style.UNIT_NARROW, "rouge jaune bleu vert");
+        DoTheRealListStyleTesting(locale, input, ListFormatter.Style.UNIT_SHORT, "rouge, jaune, bleu et vert");
     }
 
     private boolean isDefaultLocaleEnglishLike() {

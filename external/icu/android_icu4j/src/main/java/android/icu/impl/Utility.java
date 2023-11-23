@@ -18,6 +18,7 @@ import android.icu.lang.UCharacter;
 import android.icu.text.Replaceable;
 import android.icu.text.UTF16;
 import android.icu.text.UnicodeMatcher;
+import android.icu.util.ICUUncheckedIOException;
 
 /**
  * @hide Only a subset of ICU is exposed in Android
@@ -1848,5 +1849,17 @@ public final class Utility {
             hash = hash * 31 + value.charAt(i);
         }
         return hash;
+    }
+
+    /**
+     * Appends a CharSequence to an Appendable, converting IOException to ICUUncheckedIOException.
+     */
+    public static <A extends Appendable> A appendTo(CharSequence string, A appendable) {
+        try {
+            appendable.append(string);
+            return appendable;
+        } catch (IOException e) {
+            throw new ICUUncheckedIOException(e);
+        }
     }
 }

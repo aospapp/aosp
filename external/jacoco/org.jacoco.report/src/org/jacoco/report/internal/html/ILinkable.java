@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -26,20 +26,20 @@ public interface ILinkable {
 	 *            folder where the link should be inserted
 	 * @return relative link or <code>null</code> if the target does not exist
 	 */
-	public String getLink(final ReportOutputFolder base);
+	String getLink(ReportOutputFolder base);
 
 	/**
 	 * Returns the display label used for the link.
 	 * 
 	 * @return display label
 	 */
-	public String getLinkLabel();
+	String getLinkLabel();
 
 	/**
 	 * Optional style class to be associated with the link.
 	 * 
 	 * @return link style class or <code>null</code>
 	 */
-	public String getLinkStyle();
+	String getLinkStyle();
 
 }

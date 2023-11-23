@@ -10,20 +10,22 @@
 #include <vector>
 
 #include "core/fxcrt/fx_system.h"
-#include "core/fxge/cfx_renderdevice.h"
 
 class CPDF_Font;
+class TextCharPos;
 
 class CPDF_CharPosList {
  public:
-  CPDF_CharPosList();
+  CPDF_CharPosList(const std::vector<uint32_t>& charCodes,
+                   const std::vector<float>& charPos,
+                   CPDF_Font* pFont,
+                   float font_size);
   ~CPDF_CharPosList();
-  void Load(const std::vector<uint32_t>& charCodes,
-            const std::vector<float>& charPos,
-            CPDF_Font* pFont,
-            float font_size);
-  FXTEXT_CHARPOS* m_pCharPos;
-  uint32_t m_nChars;
+
+  const std::vector<TextCharPos>& Get() const { return m_CharPos; }
+
+ private:
+  std::vector<TextCharPos> m_CharPos;
 };
 
 #endif  // CORE_FPDFAPI_RENDER_CPDF_CHARPOSLIST_H_

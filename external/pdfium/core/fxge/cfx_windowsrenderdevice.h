@@ -7,10 +7,7 @@
 #ifndef CORE_FXGE_CFX_WINDOWSRENDERDEVICE_H_
 #define CORE_FXGE_CFX_WINDOWSRENDERDEVICE_H_
 
-#ifdef _WIN32
-#ifndef _WINDOWS_
 #include <windows.h>
-#endif
 
 #include "core/fxge/cfx_renderdevice.h"
 
@@ -19,9 +16,12 @@ enum WindowsPrintMode {
   kModeTextOnly = 1,
   kModePostScript2 = 2,
   kModePostScript3 = 3,
+  kModePostScript2PassThrough = 4,
+  kModePostScript3PassThrough = 5,
 };
 
-class IFX_RenderDeviceDriver;
+class RenderDeviceDriverIface;
+struct EncoderIface;
 
 #if defined(PDFIUM_PRINT_TEXT_WITH_GDI)
 typedef void (*PDFiumEnsureTypefaceCharactersAccessible)(const LOGFONT* font,
@@ -32,16 +32,17 @@ extern bool g_pdfium_print_text_with_gdi;
 extern PDFiumEnsureTypefaceCharactersAccessible
     g_pdfium_typeface_accessible_func;
 #endif
-extern int g_pdfium_print_mode;
+extern WindowsPrintMode g_pdfium_print_mode;
 
 class CFX_WindowsRenderDevice : public CFX_RenderDevice {
  public:
-  static IFX_RenderDeviceDriver* CreateDriver(HDC hDC);
-
-  explicit CFX_WindowsRenderDevice(HDC hDC);
+  CFX_WindowsRenderDevice(HDC hDC, const EncoderIface* pEncoderIface);
   ~CFX_WindowsRenderDevice() override;
-};
 
-#endif  // _WIN32
+ private:
+  static RenderDeviceDriverIface* CreateDriver(
+      HDC hDC,
+      const EncoderIface* pEncoderIface);
+};
 
 #endif  // CORE_FXGE_CFX_WINDOWSRENDERDEVICE_H_

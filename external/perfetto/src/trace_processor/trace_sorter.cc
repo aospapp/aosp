@@ -17,14 +17,16 @@
 #include <algorithm>
 #include <utility>
 
-#include "src/trace_processor/proto_trace_parser.h"
+#include "perfetto/ext/base/utils.h"
+#include "src/trace_processor/importers/proto/proto_trace_parser.h"
 #include "src/trace_processor/trace_sorter.h"
 
 namespace perfetto {
 namespace trace_processor {
 
-TraceSorter::TraceSorter(TraceProcessorContext* context, int64_t window_size_ns)
-    : context_(context), window_size_ns_(window_size_ns) {
+TraceSorter::TraceSorter(std::unique_ptr<TraceParser> parser,
+                         int64_t window_size_ns)
+    : parser_(std::move(parser)), window_size_ns_(window_size_ns) {
   const char* env = getenv("TRACE_PROCESSOR_SORT_ONLY");
   bypass_next_stage_for_testing_ = env && !strcmp(env, "1");
   if (bypass_next_stage_for_testing_)
@@ -39,7 +41,7 @@ void TraceSorter::Queue::Sort() {
   // smaller than max_ts_.
   PERFETTO_DCHECK(sort_min_ts_ < max_ts_);
 
-  // We know that all events between [0, sort_start_idx_] are sorted. Witin
+  // We know that all events between [0, sort_start_idx_] are sorted. Within
   // this range, perform a bound search and find the iterator for the min
   // timestamp that broke the monotonicity. Re-sort from there to the end.
   auto sort_end = events_.begin() + static_cast<ssize_t>(sort_start_idx_);
@@ -76,10 +78,10 @@ void TraceSorter::Queue::Sort() {
 // time in a profiler.
 void TraceSorter::SortAndExtractEventsBeyondWindow(int64_t window_size_ns) {
   DCHECK_ftrace_batch_cpu(kNoBatch);
+
   constexpr int64_t kTsMax = std::numeric_limits<int64_t>::max();
   const bool was_empty = global_min_ts_ == kTsMax && global_max_ts_ == 0;
   int64_t extract_end_ts = global_max_ts_ - window_size_ns;
-  auto* next_stage = context_->parser.get();
   size_t iterations = 0;
   for (;; iterations++) {
     size_t min_queue_idx = 0;  // The index of the queue with the min(ts).
@@ -135,11 +137,11 @@ void TraceSorter::SortAndExtractEventsBeyondWindow(int64_t window_size_ns) {
 
       if (min_queue_idx == 0) {
         // queues_[0] is for non-ftrace packets.
-        next_stage->ParseTracePacket(timestamp, std::move(event));
+        parser_->ParseTracePacket(timestamp, std::move(event));
       } else {
         // Ftrace queues start at offset 1. So queues_[1] = cpu[0] and so on.
         uint32_t cpu = static_cast<uint32_t>(min_queue_idx - 1);
-        next_stage->ParseFtracePacket(cpu, timestamp, std::move(event));
+        parser_->ParseFtracePacket(cpu, timestamp, std::move(event));
       }
     }  // for (event: events)
 

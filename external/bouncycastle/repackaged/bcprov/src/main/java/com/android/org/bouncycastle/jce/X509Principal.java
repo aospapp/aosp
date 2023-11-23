@@ -45,7 +45,7 @@ public class X509Principal
     /**
      * Constructor from an encoded byte array.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public X509Principal(
         byte[]  bytes)

@@ -63,6 +63,15 @@ class AlgebraicSimplifierOptions {
     return enable_dot_strength_reduction_;
   }
 
+  // Enable dot->multiple rewrite for dot as an outer-product
+  void set_enable_dot_to_multiply_rewrite(bool enable_dot_to_multiply_rewrite) {
+    enable_dot_to_multiply_rewrite_ = enable_dot_to_multiply_rewrite;
+  }
+
+  bool enable_dot_to_multiply_rewrite() const {
+    return enable_dot_to_multiply_rewrite_;
+  }
+
   // Enable convolution simplification on platforms where it is profitable.
   void set_enable_conv_simplification(bool enable_conv_simplification) {
     enable_conv_simplification_ = enable_conv_simplification;
@@ -83,12 +92,42 @@ class AlgebraicSimplifierOptions {
     return enable_window_reduce_to_reduce_replacement_;
   }
 
+  // Sets the size of a gather operand that can be unrolled into many selects.
+  void set_very_small_gather_size(int64 size) {
+    very_small_gather_size_ = size;
+  }
+
+  int64 very_small_gather_size() const { return very_small_gather_size_; }
+
+  void set_cudnn_batchnorm_forward_training_metadata(const string& c) {
+    metadata_.cudnn_batchnorm_forward_training_metadata = c;
+  }
+
+  const string& get_cudnn_batchnorm_forward_training_metadata() const {
+    return metadata_.cudnn_batchnorm_forward_training_metadata;
+  }
+
  private:
+  // Metadata struct can be used to store any metadata information encapsulated
+  // with the AlgebraicSimplierOptions that can be later used in an
+  // AlgebraicSimplifier pass. For example,
+  // cudnn_batchnorm_forward_training_metadata can be used to store the name of
+  // a custom call. If the custom call is
+  // __cudnn$batchNormalizationForwardTraining, the output with index 2 is
+  // guaranteed to be postive. This property has been used to recursively
+  // determine if the operand of an instruction is always positive.
+  struct Metadata {
+    string cudnn_batchnorm_forward_training_metadata{""};
+    Metadata() {}
+  };
   ReshapeIsBitcastCallback reshape_is_bitcast_callback_;
   bool is_layout_sensitive_{false};
   bool enable_dot_strength_reduction_{true};
+  bool enable_dot_to_multiply_rewrite_{true};
   bool enable_conv_simplification_{true};
   bool enable_window_reduce_to_reduce_replacement_{true};
+  int64 very_small_gather_size_{4};
+  Metadata metadata_;
 };
 
 // A pass which performs algebraic simplifications.
@@ -104,6 +143,15 @@ class AlgebraicSimplifier : public HloModulePass {
   // Run algebraic simplification on the given computation. Returns whether the
   // computation was changed.
   StatusOr<bool> Run(HloModule* module) override;
+
+  // Create constant from literal with tiles and element size updated in the
+  // constant's layout.
+  std::unique_ptr<HloInstruction> CreateConstantWithLayoutUpdated(
+      Literal literal) {
+    auto constant = HloInstruction::CreateConstant(std::move(literal));
+    UpdateLayout(constant->mutable_shape());
+    return constant;
+  }
 
  private:
   AlgebraicSimplifierOptions options_;

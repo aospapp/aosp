@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python2 -u
 
 import os, sys, re, tempfile
 from optparse import OptionParser

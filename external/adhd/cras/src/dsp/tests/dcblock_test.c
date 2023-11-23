@@ -13,15 +13,18 @@
 #include "raw.h"
 
 #ifndef min
-#define min(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a < _b ? _a : _b; })
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a < _b ? _a : _b;                                             \
+	})
 #endif
 
 static double tp_diff(struct timespec *tp2, struct timespec *tp1)
 {
-	return (tp2->tv_sec - tp1->tv_sec)
-		+ (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
+	return (tp2->tv_sec - tp1->tv_sec) +
+	       (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
 }
 
 /* Processes a buffer of data chunk by chunk using the filter */
@@ -29,9 +32,7 @@ static void process(struct dcblock *dcblock, float *data, int count)
 {
 	int start;
 	for (start = 0; start < count; start += 128)
-		dcblock_process(dcblock,
-                                data + start,
-                                min(128, count - start));
+		dcblock_process(dcblock, data + start, min(128, count - start));
 }
 
 /* Runs the filters on an input file */
@@ -44,11 +45,11 @@ static void test_file(const char *input_filename, const char *output_filename)
 
 	float *data = read_raw(input_filename, &frames);
 
-	dcblockl = dcblock_new(0.995);
-	dcblockr = dcblock_new(0.995);
+	dcblockl = dcblock_new(0.995, 48000);
+	dcblockr = dcblock_new(0.995, 48000);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp1);
 	process(dcblockl, data, frames);
-	process(dcblockr, data+frames, frames);
+	process(dcblockr, data + frames, frames);
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tp2);
 	printf("processing takes %g seconds for %zu samples\n",
 	       tp_diff(&tp2, &tp1), frames);

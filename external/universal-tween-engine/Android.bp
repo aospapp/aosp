@@ -15,4 +15,5 @@
 java_library {
     name: "universal-tween-engine",
     srcs: ["java/api/src/**/*.java"],
+    sdk_version: "current",
 }

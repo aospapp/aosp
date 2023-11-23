@@ -5,7 +5,7 @@
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50Update"
 PURPOSE = "Verify Cr50 update"
-ATTRIBUTES = "suite:cr50_stress_experimental"
+ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"
@@ -38,14 +38,15 @@ contain the epoch, major, and minor versions separated by '.' and the image
 board id. The image board id is optional. The tests can be run against all
 versions since '0.0.13'.
 
-If dev_path is not specified, then the test will get the cr50 devids and
-attempt to get the debug image from gs://.
+If cr50_dbg_image_path is not specified, then the test will get the cr50
+devids and attempt to get the debug image from gs://.
 
 After the test is complete the original Cr50 image will be reflashed onto the
 device.
 
 @param iterations: the number of iterations to run
-@param dev_path: the location of the dev image. Must be built with CR50_DEV=1
+@param cr50_dbg_image_path: the location of the DBG image. Must be built with
+                            CR50_DEV=1
 @param release_path: the location of the release image
 @param release_ver: RW and BID version string used to fetch the image from gs
 @param old_release_path: the location of the old release image.
@@ -69,7 +70,6 @@ old_release_path = args_dict.get("old_release_path", "")
 old_release_ver = args_dict.get("old_release_ver", "")
 release_path = args_dict.get("release_path", "")
 release_ver = args_dict.get("release_ver", "")
-dev_path = args_dict.get("dev_path", "")
 test = args_dict.get("test", "")
 
 def run(machine):
@@ -78,7 +78,7 @@ def run(machine):
     job.run_test("firmware_Cr50Update", host=host, cmdline_args=args,
                  release_path=release_path, release_ver=release_ver,
                  old_release_path=old_release_path,
-                 old_release_ver=old_release_ver, dev_path=dev_path,
-                 test=test, iterations=iterations, full_args=args_dict)
+                 old_release_ver=old_release_ver, test=test,
+                 iterations=iterations, full_args=args_dict)
 
 parallel_simple(run, machines)

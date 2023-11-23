@@ -7,18 +7,22 @@
 #ifndef XFA_FXFA_CXFA_FFCHECKBUTTON_H_
 #define XFA_FXFA_CXFA_FFCHECKBUTTON_H_
 
+#include "core/fxcrt/unowned_ptr.h"
 #include "xfa/fxfa/cxfa_fffield.h"
 #include "xfa/fxfa/cxfa_ffpageview.h"
+#include "xfa/fxfa/parser/cxfa_node.h"
 
-class CXFA_FFCheckButton : public CXFA_FFField {
+class CXFA_CheckButton;
+
+class CXFA_FFCheckButton final : public CXFA_FFField {
  public:
-  explicit CXFA_FFCheckButton(CXFA_Node* pNode);
+  CXFA_FFCheckButton(CXFA_Node* pNode, CXFA_CheckButton* button);
   ~CXFA_FFCheckButton() override;
 
   // CXFA_FFField
   void RenderWidget(CXFA_Graphics* pGS,
                     const CFX_Matrix& matrix,
-                    uint32_t dwStatus) override;
+                    HighlightOption highlight) override;
 
   bool LoadWidget() override;
   bool PerformLayout() override;
@@ -37,11 +41,12 @@ class CXFA_FFCheckButton : public CXFA_FFField {
   bool CommitData() override;
   bool IsDataChanged() override;
   void CapLeftRightPlacement(const CXFA_Margin* captionMargin);
-  void AddUIMargin(XFA_AttributeEnum iCapPlacement);
+  void AddUIMargin(XFA_AttributeValue iCapPlacement);
   XFA_CHECKSTATE FWLState2XFAState();
 
-  IFWL_WidgetDelegate* m_pOldDelegate;
+  UnownedPtr<IFWL_WidgetDelegate> m_pOldDelegate;
   CFX_RectF m_rtCheckBox;
+  UnownedPtr<CXFA_CheckButton> const button_;
 };
 
 #endif  // XFA_FXFA_CXFA_FFCHECKBUTTON_H_

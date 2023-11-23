@@ -80,3 +80,7 @@ sysinfo: 1
 uname: 1
 unlinkat: 1
 getpid: 1
+prlimit64: 1
+tgkill: 1
+mremap: 1
+dup: 1

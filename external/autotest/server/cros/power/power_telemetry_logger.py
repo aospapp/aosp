@@ -22,9 +22,26 @@ from servo import measure_power
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.power import power_status
-from autotest_lib.client.cros.power import power_telemetry_utils
+from autotest_lib.client.cros.power import power_telemetry_utils as utils
 from autotest_lib.server.cros.power import power_dashboard
 
+
+# If a sample has over 10% NaN values, the data might be very unreliable if
+# interpolation is applied.
+ACCEPTABLE_NAN_RATIO = 0.1
+
+# If a sample has more than these NaN values in sequence, the data is also not
+# reliable.
+MAX_CONSECUTIVE_NAN_READINGS = 5
+
+# If for over a second no values can be read, the data is also not reliable.
+MAX_NAN_GAP_S = 1
+
+# Dictionary to make passing the default arguments for loggers to the NaN
+# interpolation utility easy.
+INTERPOLATION_ARGS = {'max_nan_ratio': ACCEPTABLE_NAN_RATIO,
+                      'max_sample_gap': MAX_CONSECUTIVE_NAN_READINGS,
+                      'max_sample_time_gap': MAX_NAN_GAP_S}
 
 def ts_processing(ts_str):
     """Parse autotest log timestamp into local time seconds since epoch.
@@ -100,6 +117,8 @@ class PowerTelemetryLogger(object):
         logging.info('%s finishes.', self.__class__.__name__)
         start_ts, end_ts = self._get_client_test_ts(client_test_dir)
         loggers = self._load_and_trim_data(start_ts, end_ts)
+        # Call export after trimming to only export trimmed data.
+        self._export_data_locally(client_test_dir)
         checkpoint_logger = self._get_client_test_checkpoint_logger(
                 client_test_dir)
         self._upload_data(loggers, checkpoint_logger)
@@ -107,6 +126,11 @@ class PowerTelemetryLogger(object):
     def _end_measurement(self):
         """End power telemetry devices."""
         raise NotImplementedError('Subclasses must implement _end_measurement.')
+
+    def _export_data_locally(self, client_test_dir):
+        """Slot for the logger to export measurements locally."""
+        raise NotImplementedError('Subclasses must implement '
+                                  '_export_data_locally.')
 
     def _get_client_test_ts(self, client_test_dir):
         """Determine the start and end timestamp for the telemetry data.
@@ -161,8 +185,8 @@ class PowerTelemetryLogger(object):
         custom_test_events = collections.defaultdict(dict)
         default_test_events['start']['str'] = self.DEFAULT_START
         default_test_events['end']['str'] = self.DEFAULT_END
-        custom_test_events['start']['str'] = power_telemetry_utils.CUSTOM_START
-        custom_test_events['end']['str'] = power_telemetry_utils.CUSTOM_END
+        custom_test_events['start']['str'] = utils.CUSTOM_START
+        custom_test_events['end']['str'] = utils.CUSTOM_END
         for event in default_test_events:
             default_test_events[event]['re'] = re.compile(r'([\d\s\./:]+).+' +
                     default_test_events[event]['str'])
@@ -332,8 +356,8 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
         """
         super(ServodTelemetryLogger, self).__init__(config, resultsdir, host)
 
-        self._servo_host = config['servo_host']
-        self._servo_port = config['servo_port']
+        self._servo_host = host.servo._servo_host.hostname
+        self._servo_port = host.servo._servo_host.servo_port
         self._ina_rate = float(config.get('ina_rate', self.DEFAULT_INA_RATE))
         self._vbat_rate = float(config.get('vbat_rate', self.DEFAULT_VBAT_RATE))
         self._pm = measure_power.PowerMeasurement(host=self._servo_host,
@@ -351,6 +375,13 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
         """End querying servod."""
         self._pm.FinishMeasurement()
 
+    def _export_data_locally(self, client_test_dir):
+        """Output formatted text summaries locally."""
+        # At this point the PowerMeasurement unit has been processed. Dump its
+        # formatted summaries into the results directory.
+        power_summaries_dir = os.path.join(self._resultsdir, 'power_summaries')
+        self._pm.SaveSummary(outdir=power_summaries_dir)
+
     def _load_and_trim_data(self, start_ts, end_ts):
         """Load data and trim data.
 
@@ -361,19 +392,56 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
         summary = self._pm.GetSummary()
         raw_data = self._pm.GetRawData()
 
-        sample_duration = {'Onboard INA': self._ina_rate, 'EC': self._vbat_rate}
         loggers = list()
 
+        # Domains in summary/raw_data that carry no power-data.
+        metadata_domains = ['Sample_msecs', 'time', 'timeline']
+
         for source in summary:
-            data = {k: v for k, v in raw_data[source].iteritems()
-                    if k not in ['Sample_msecs', 'time', 'timeline']}
-            ave = {k: v['mean'] for k, v in summary[source].iteritems()
-                   if k not in ['Sample_msecs', 'time', 'timeline']}
+            tl = raw_data[source]['timeline']
+            samples = len(tl)
+            data = {
+                k[:-3] if k.endswith('_mw') else k: v
+                for k, v in raw_data[source].iteritems()
+                if k not in metadata_domains
+            }
+
+            # Add the timeline of this measurement to the interpolation
+            # arguments. This is to detect and reject large measurement gaps.
+            # See above for details or in power_telemetry_utils.
+            INTERPOLATION_ARGS['timeline'] = tl
+
+            try:
+                # Smoothen out data to remove any NaN values by interpolating
+                # the missing values. If too many values are NaN, or too many
+                # values are NaN consecutively, fail the test.
+                # Here r stands for rail and d stands for data.
+                data = {r: utils.interpolate_missing_data(d,
+                                                          **INTERPOLATION_ARGS)
+                        for r, d in data.iteritems()}
+            except utils.TelemetryUtilsError as e:
+                raise error.TestFail('Issue at source %s: %s' % (source,
+                                                                 str(e)))
+
+            ave = {
+                k[:-3] if k.endswith('_mw') else k: v['mean']
+                for k, v in summary[source].iteritems()
+                if k not in metadata_domains
+            }
+            if samples > 1:
+                # Having more than one sample allows the code to properly set a
+                # sample duration.
+                sample_duration = (tl[-1] - tl[0]) / (samples - 1)
+            else:
+                # In thise case, it seems that there is only one sample as the
+                # difference between start and end is 0. Use the entire duration
+                # of the test as the sample start/end
+                sample_duration = end_ts - start_ts
 
             logger = {
                 # All data domains should have same sample count.
                 'sample_count': summary[source]['time']['count'],
-                'sample_duration': sample_duration[source],
+                'sample_duration': sample_duration,
                 'data': data,
                 'average': ave,
                 # TODO(mqg): hard code the units for now because we are only
@@ -387,19 +455,6 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
 
         return loggers
 
-    def end_measurement(self, client_test_dir):
-      """In addition to the common end_measurement flow dump summaries.
-
-      @param client_test_dir: directory of the client side test.
-      """
-      # Run the shared end_measurement logic first.
-      super(ServodTelemetryLogger, self).end_measurement(client_test_dir)
-      # At this point the PowerMeasurement unit has been processed. Dump its
-      # formatted summaries into the results directory.
-      power_summaries_dir = os.path.join(self._resultsdir, 'power_summaries')
-      if not os.path.exists(power_summaries_dir):
-        os.makedirs(power_summaries_dir)
-      self._pm.SaveSummary(outdir=power_summaries_dir)
 
 class PowerlogTelemetryLogger(PowerTelemetryLogger):
     """This logger class measures power with Sweetberry via powerlog tool.
@@ -448,6 +503,11 @@ class PowerlogTelemetryLogger(PowerTelemetryLogger):
     def _start_measurement(self):
         """Start power measurement with Sweetberry via powerlog tool."""
         self._sweetberry_thread.start()
+
+    def _export_data_locally(self, client_test_dir):
+        """Output formatted text summaries locally."""
+        #TODO(crbug.com/978665): implement this.
+        pass
 
     def _end_measurement(self):
         """End querying Sweetberry."""

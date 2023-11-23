@@ -41,6 +41,67 @@
 namespace vixl {
 namespace aarch64 {
 
+// Check compiler intrinsics helpers.
+
+TEST(count_leading_sign_bits) {
+  class Helper {
+   public:
+    static void Check(int64_t value, int non_sign_bits) {
+      VIXL_ASSERT((0 <= non_sign_bits) && (non_sign_bits < 64));
+
+      for (int width = 1; width <= 64; width *= 2) {
+        // Note that leading_sign_bits does not include the topmost bit.
+        int leading_sign_bits = width - non_sign_bits - 1;
+        if (leading_sign_bits < 0) continue;
+
+        int64_t result = CountLeadingSignBits(value, width);
+        int64_t fallback_result = CountLeadingSignBitsFallBack(value, width);
+        VIXL_CHECK(result == leading_sign_bits);
+        VIXL_CHECK(fallback_result == leading_sign_bits);
+      }
+    }
+  };
+
+  // Basic positive (and zero) cases. Sign bits are all zeroes.
+  Helper::Check(0, 0);  // 0b++++
+  Helper::Check(1, 1);  // 0b+++1
+  Helper::Check(2, 2);  // 0b++10
+  Helper::Check(3, 2);  // 0b++11
+  Helper::Check(4, 3);  // 0b+100
+
+  // Basic negative cases. Sign bits are all ones.
+  Helper::Check(-1, 0);  // 0b----
+  Helper::Check(-2, 1);  // 0b---0
+  Helper::Check(-3, 2);  // 0b--01
+  Helper::Check(-4, 2);  // 0b--00
+  Helper::Check(-5, 3);  // 0b-011
+
+  // Boundary conditions.
+  Helper::Check(INT8_MAX, 7);
+  Helper::Check(INT8_MIN, 7);
+  Helper::Check(static_cast<int64_t>(INT8_MAX) + 1, 8);
+  Helper::Check(static_cast<int64_t>(INT8_MIN) - 1, 8);
+
+  Helper::Check(INT16_MAX, 15);
+  Helper::Check(INT16_MIN, 15);
+  Helper::Check(static_cast<int64_t>(INT16_MAX) + 1, 16);
+  Helper::Check(static_cast<int64_t>(INT16_MIN) - 1, 16);
+
+  Helper::Check(INT32_MAX, 31);
+  Helper::Check(INT32_MIN, 31);
+  Helper::Check(static_cast<int64_t>(INT32_MAX) + 1, 32);
+  Helper::Check(static_cast<int64_t>(INT32_MIN) - 1, 32);
+
+  Helper::Check(INT64_MAX, 63);
+  Helper::Check(INT64_MIN, 63);
+
+  // Check automatic width detection.
+  VIXL_CHECK(CountLeadingSignBits(static_cast<int8_t>(42)) == 1);  // 0b00101010
+  VIXL_CHECK(CountLeadingSignBits(static_cast<int16_t>(42)) == 9);
+  VIXL_CHECK(CountLeadingSignBits(static_cast<int32_t>(42)) == 25);
+  VIXL_CHECK(CountLeadingSignBits(static_cast<int64_t>(42)) == 57);
+}
+
 // Check SimFloat16 class mechanics.
 TEST(float16_operators) {
   ::vixl::internal::SimFloat16 f1 = kFP16DefaultNaN;
@@ -111,8 +172,8 @@ TEST(register_bit) {
 
 
 TEST(noreg) {
-  VIXL_CHECK(NoReg.Is(NoFPReg));
-  VIXL_CHECK(NoFPReg.Is(NoReg));
+  VIXL_CHECK(NoReg.Is(NoVReg));
+  VIXL_CHECK(NoVReg.Is(NoReg));
 
   VIXL_CHECK(NoVReg.Is(NoReg));
   VIXL_CHECK(NoReg.Is(NoVReg));
@@ -120,14 +181,13 @@ TEST(noreg) {
   VIXL_CHECK(NoReg.Is(NoCPUReg));
   VIXL_CHECK(NoCPUReg.Is(NoReg));
 
-  VIXL_CHECK(NoFPReg.Is(NoCPUReg));
-  VIXL_CHECK(NoCPUReg.Is(NoFPReg));
+  VIXL_CHECK(NoVReg.Is(NoCPUReg));
+  VIXL_CHECK(NoCPUReg.Is(NoVReg));
 
   VIXL_CHECK(NoVReg.Is(NoCPUReg));
   VIXL_CHECK(NoCPUReg.Is(NoVReg));
 
   VIXL_CHECK(NoReg.IsNone());
-  VIXL_CHECK(NoFPReg.IsNone());
   VIXL_CHECK(NoVReg.IsNone());
   VIXL_CHECK(NoCPUReg.IsNone());
 }
@@ -135,7 +195,6 @@ TEST(noreg) {
 
 TEST(isvalid) {
   VIXL_CHECK(!NoReg.IsValid());
-  VIXL_CHECK(!NoFPReg.IsValid());
   VIXL_CHECK(!NoVReg.IsValid());
   VIXL_CHECK(!NoCPUReg.IsValid());
 
@@ -160,6 +219,12 @@ TEST(isvalid) {
   VIXL_CHECK(wzr.IsValidRegister());
   VIXL_CHECK(sp.IsValidRegister());
   VIXL_CHECK(wsp.IsValidRegister());
+  VIXL_CHECK(!x0.IsValidVRegister());
+  VIXL_CHECK(!w0.IsValidVRegister());
+  VIXL_CHECK(!xzr.IsValidVRegister());
+  VIXL_CHECK(!wzr.IsValidVRegister());
+  VIXL_CHECK(!sp.IsValidVRegister());
+  VIXL_CHECK(!wsp.IsValidVRegister());
   VIXL_CHECK(!x0.IsValidFPRegister());
   VIXL_CHECK(!w0.IsValidFPRegister());
   VIXL_CHECK(!xzr.IsValidFPRegister());
@@ -167,13 +232,43 @@ TEST(isvalid) {
   VIXL_CHECK(!sp.IsValidFPRegister());
   VIXL_CHECK(!wsp.IsValidFPRegister());
 
+  VIXL_CHECK(q0.IsValidVRegister());
+  VIXL_CHECK(!q0.IsValidFPRegister());
+  VIXL_CHECK(!q0.IsValidRegister());
+
+  VIXL_CHECK(d0.IsValidVRegister());
   VIXL_CHECK(d0.IsValidFPRegister());
-  VIXL_CHECK(s0.IsValidFPRegister());
   VIXL_CHECK(!d0.IsValidRegister());
+
+  VIXL_CHECK(s0.IsValidVRegister());
+  VIXL_CHECK(s0.IsValidFPRegister());
   VIXL_CHECK(!s0.IsValidRegister());
 
-  // Test the same as before, but using CPURegister types. This shouldn't make
-  // any difference.
+  VIXL_CHECK(h0.IsValidVRegister());
+  VIXL_CHECK(h0.IsValidFPRegister());
+  VIXL_CHECK(!h0.IsValidRegister());
+
+  VIXL_CHECK(b0.IsValidVRegister());
+  VIXL_CHECK(!b0.IsValidFPRegister());
+  VIXL_CHECK(!b0.IsValidRegister());
+
+  // IsValidFPRegister() is only true for scalar types.
+  VIXL_CHECK(q0.V2D().IsValidVRegister());
+  VIXL_CHECK(!q0.V2D().IsValidFPRegister());
+  VIXL_CHECK(d0.V2S().IsValidVRegister());
+  VIXL_CHECK(!d0.V2S().IsValidFPRegister());
+  VIXL_CHECK(s0.V2H().IsValidVRegister());
+  VIXL_CHECK(!s0.V2H().IsValidFPRegister());
+}
+
+
+TEST(isvalid_cpu) {
+  // As 'isvalid', but using CPURegister types where possible. This shouldn't
+  // make any difference.
+  VIXL_CHECK(!static_cast<CPURegister>(NoReg).IsValid());
+  VIXL_CHECK(!static_cast<CPURegister>(NoVReg).IsValid());
+  VIXL_CHECK(!static_cast<CPURegister>(NoCPUReg).IsValid());
+
   VIXL_CHECK(static_cast<CPURegister>(x0).IsValid());
   VIXL_CHECK(static_cast<CPURegister>(w0).IsValid());
   VIXL_CHECK(static_cast<CPURegister>(x30).IsValid());
@@ -195,6 +290,12 @@ TEST(isvalid) {
   VIXL_CHECK(static_cast<CPURegister>(wzr).IsValidRegister());
   VIXL_CHECK(static_cast<CPURegister>(sp).IsValidRegister());
   VIXL_CHECK(static_cast<CPURegister>(wsp).IsValidRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(x0).IsValidVRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(w0).IsValidVRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(xzr).IsValidVRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(wzr).IsValidVRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(sp).IsValidVRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(wsp).IsValidVRegister());
   VIXL_CHECK(!static_cast<CPURegister>(x0).IsValidFPRegister());
   VIXL_CHECK(!static_cast<CPURegister>(w0).IsValidFPRegister());
   VIXL_CHECK(!static_cast<CPURegister>(xzr).IsValidFPRegister());
@@ -202,10 +303,25 @@ TEST(isvalid) {
   VIXL_CHECK(!static_cast<CPURegister>(sp).IsValidFPRegister());
   VIXL_CHECK(!static_cast<CPURegister>(wsp).IsValidFPRegister());
 
+  VIXL_CHECK(static_cast<CPURegister>(q0).IsValidVRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(q0).IsValidFPRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(q0).IsValidRegister());
+
+  VIXL_CHECK(static_cast<CPURegister>(d0).IsValidVRegister());
   VIXL_CHECK(static_cast<CPURegister>(d0).IsValidFPRegister());
-  VIXL_CHECK(static_cast<CPURegister>(s0).IsValidFPRegister());
   VIXL_CHECK(!static_cast<CPURegister>(d0).IsValidRegister());
+
+  VIXL_CHECK(static_cast<CPURegister>(s0).IsValidVRegister());
+  VIXL_CHECK(static_cast<CPURegister>(s0).IsValidFPRegister());
   VIXL_CHECK(!static_cast<CPURegister>(s0).IsValidRegister());
+
+  VIXL_CHECK(static_cast<CPURegister>(h0).IsValidVRegister());
+  VIXL_CHECK(static_cast<CPURegister>(h0).IsValidFPRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(h0).IsValidRegister());
+
+  VIXL_CHECK(static_cast<CPURegister>(b0).IsValidVRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(b0).IsValidFPRegister());
+  VIXL_CHECK(!static_cast<CPURegister>(b0).IsValidRegister());
 }
 
 

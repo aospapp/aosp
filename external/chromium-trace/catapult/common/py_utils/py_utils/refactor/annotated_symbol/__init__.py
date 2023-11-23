@@ -6,7 +6,7 @@
 from py_utils.refactor.annotated_symbol.class_definition import *
 from py_utils.refactor.annotated_symbol.function_definition import *
 from py_utils.refactor.annotated_symbol.import_statement import *
-from py_utils.refactor.annotated_symbol.reference import *
+from py_utils.refactor.annotated_symbol.reference import *  # pylint: disable=redefined-builtin
 from py_utils.refactor import snippet
 
 
@@ -55,7 +55,7 @@ def _AnnotateNode(node):
   if not isinstance(node, snippet.Symbol):
     return node
 
-  children = map(_AnnotateNode, node.children)
+  children = [_AnnotateNode(c) for c in node.children]
 
   for symbol_type in ANNOTATED_GROUPINGS:
     annotated_grouping = symbol_type.Annotate(children)

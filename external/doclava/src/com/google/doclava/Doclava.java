@@ -127,6 +127,7 @@ public class Doclava {
   public static Linter linter = new EmptyLinter();
   public static boolean android = false;
   public static String manifestFile = null;
+  public static String compatConfig = null;
   public static Map<String, String> manifestPermissions = new HashMap<>();
 
   public static JSilver jSilver = null;
@@ -403,6 +404,8 @@ public class Doclava {
         android = true;
       } else if (a[0].equals("-manifest")) {
         manifestFile = a[1];
+      } else if (a[0].equals("-compatconfig")) {
+        compatConfig = a[1];
       }
     }
 
@@ -538,6 +541,7 @@ public class Doclava {
         writeClassLists();
         writeClasses();
         writeHierarchy();
+        writeCompatConfig();
         // writeKeywords();
 
         // Write yaml tree.
@@ -960,6 +964,9 @@ public class Doclava {
       return 1;
     }
     if (option.equals("-manifest")) {
+      return 2;
+    }
+    if (option.equals("-compatconfig")) {
       return 2;
     }
     return 0;
@@ -2171,8 +2178,8 @@ public class Doclava {
   public static String getDocumentationStringForAnnotation(String annotationName) {
     if (!documentAnnotations) return null;
     if (annotationDocumentationMap == null) {
-      // parse the file for map
       annotationDocumentationMap = new HashMap<String, String>();
+      // parse the file for map
       try {
         BufferedReader in = new BufferedReader(
             new FileReader(documentAnnotationsPath));
@@ -2193,6 +2200,19 @@ public class Doclava {
       }
     }
     return annotationDocumentationMap.get(annotationName);
+  }
+
+  public static void writeCompatConfig() {
+    if (compatConfig == null) {
+      return;
+    }
+    CompatInfo config = CompatInfo.readCompatConfig(compatConfig);
+    Data data = makeHDF();
+    config.makeHDF(data);
+    setPageTitle(data, "Compatibility changes");
+    // TODO - should we write the output to some other path?
+    String outfile = "compatchanges.html";
+    ClearPage.write(data, "compatchanges.cs", outfile);
   }
 
 }

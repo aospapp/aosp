@@ -30,7 +30,7 @@ package com.android.service.ims.presence;
 
 import android.net.Uri;
 import android.provider.BaseColumns;
-import android.text.format.Time;
+import android.text.format.TimeMigrationUtils;
 import com.android.ims.internal.EABContract;
 
 import com.android.ims.internal.ContactNumberUtils;
@@ -297,9 +297,8 @@ public final class Contacts {
                 time = System.currentTimeMillis();
             }
 
-            Time tobj = new Time();
-            tobj.set(time);
-            return String.format("%s.%s", tobj.format("%m-%d %H:%M:%S"), time % 1000);
+            String timeString = TimeMigrationUtils.formatMillisWithFixedFormat(time);
+            return String.format("%s.%s", timeString, time % 1000);
         }
 
         private long mId;

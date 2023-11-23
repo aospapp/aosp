@@ -439,7 +439,7 @@ static PyMethodDef fcntl_methods[] = {
 
 
 PyDoc_STRVAR(module_doc,
-"This module performs file control and I/O control on file \n\
+"This module performs file control and I/O control on file\n\
 descriptors.  It is an interface to the fcntl() and ioctl() Unix\n\
 routines.  File descriptors can be obtained with the fileno() method of\n\
 a file or socket object.");
@@ -620,7 +620,15 @@ all_ins(PyObject* m)
     if (PyModule_AddIntMacro(m, I_PLINK)) return -1;
     if (PyModule_AddIntMacro(m, I_PUNLINK)) return -1;
 #endif
-
+#ifdef F_ADD_SEALS
+    /* Linux: file sealing for memfd_create() */
+    if (PyModule_AddIntMacro(m, F_ADD_SEALS)) return -1;
+    if (PyModule_AddIntMacro(m, F_GET_SEALS)) return -1;
+    if (PyModule_AddIntMacro(m, F_SEAL_SEAL)) return -1;
+    if (PyModule_AddIntMacro(m, F_SEAL_SHRINK)) return -1;
+    if (PyModule_AddIntMacro(m, F_SEAL_GROW)) return -1;
+    if (PyModule_AddIntMacro(m, F_SEAL_WRITE)) return -1;
+#endif
     return 0;
 }
 

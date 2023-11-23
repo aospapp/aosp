@@ -24,6 +24,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "vkDefs.hpp"
+#include "vkObjUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkRefUtil.hpp"
@@ -175,14 +176,14 @@ enum FeatureFlagBits
 	FEATURE_VERTEX_PIPELINE_STORES_AND_ATOMICS			= 1u << 3,
 	FEATURE_FRAGMENT_STORES_AND_ATOMICS					= 1u << 4,
 	FEATURE_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE	= 1u << 5,
-	FEATURE_SHADER_STORAGE_IMAGE_EXTENDED_FORMATS		= 1u << 6,
 };
 typedef deUint32 FeatureFlags;
 
 enum SyncPrimitive
 {
 	SYNC_PRIMITIVE_FENCE,
-	SYNC_PRIMITIVE_SEMAPHORE,
+	SYNC_PRIMITIVE_BINARY_SEMAPHORE,
+	SYNC_PRIMITIVE_TIMELINE_SEMAPHORE,
 	SYNC_PRIMITIVE_BARRIER,
 	SYNC_PRIMITIVE_EVENT,
 };
@@ -222,19 +223,12 @@ struct ImageResource
 	vk::VkImageSubresourceLayers	subresourceLayers;
 };
 
-vk::VkBufferCreateInfo			makeBufferCreateInfo						(const vk::VkDeviceSize bufferSize, const vk::VkBufferUsageFlags usage);
 vk::VkImageCreateInfo			makeImageCreateInfo							(const vk::VkImageType imageType, const vk::VkExtent3D& extent, const vk::VkFormat format, const vk::VkImageUsageFlags usage);
 vk::Move<vk::VkCommandBuffer>	makeCommandBuffer							(const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkCommandPool commandPool);
-vk::Move<vk::VkDescriptorSet>	makeDescriptorSet							(const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkDescriptorPool descriptorPool, const vk::VkDescriptorSetLayout setLayout);
-vk::Move<vk::VkPipelineLayout>	makePipelineLayout							(const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkDescriptorSetLayout descriptorSetLayout);
-vk::Move<vk::VkPipelineLayout>	makePipelineLayoutWithoutDescriptors		(const vk::DeviceInterface& vk, const vk::VkDevice device);
 vk::Move<vk::VkPipeline>		makeComputePipeline							(const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkPipelineLayout pipelineLayout, const vk::VkShaderModule shaderModule, const vk::VkSpecializationInfo* specInfo, PipelineCacheData& pipelineCacheData);
-vk::Move<vk::VkFramebuffer>		makeFramebuffer								(const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkRenderPass renderPass, const vk::VkImageView colorAttachment, const deUint32 width, const deUint32 height, const deUint32 layers);
-vk::Move<vk::VkImageView>		makeImageView								(const vk::DeviceInterface& vk, const vk::VkDevice device, const vk::VkImage image, const vk::VkImageViewType viewType, const vk::VkFormat format, const vk::VkImageSubresourceRange subresourceRange);
-vk::VkBufferImageCopy			makeBufferImageCopy							(const vk::VkImageSubresourceLayers subresourceLayers, const vk::VkExtent3D extent);
-vk::VkMemoryBarrier				makeMemoryBarrier							(const vk::VkAccessFlags srcAccessMask, const vk::VkAccessFlags dstAccessMask);
 void							beginRenderPassWithRasterizationDisabled	(const vk::DeviceInterface& vk, const vk::VkCommandBuffer commandBuffer, const vk::VkRenderPass renderPass, const vk::VkFramebuffer framebuffer);
 void							requireFeatures								(const vk::InstanceInterface& vki, const vk::VkPhysicalDevice physDevice, const FeatureFlags flags);
+void							requireStorageImageSupport					(const vk::InstanceInterface& vki, const vk::VkPhysicalDevice physDevice, const vk::VkFormat fmt);
 std::string						getResourceName								(const ResourceDescription& resource);
 bool							isIndirectBuffer							(const ResourceType type);
 

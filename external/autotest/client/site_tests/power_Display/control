@@ -6,7 +6,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:power_daily, suite:power_sanity"
+ATTRIBUTES = "suite:power_daily, suite:power_sanity, suite:power_monitoring"
 
 DOC = """
 This test records power related statistics while displaying different static

@@ -1,6 +1,6 @@
 ## Process this file with automake to create Makefile.in
 ##
-## Copyright (C) 1996-2018 Red Hat, Inc.
+## Copyright (C) 1996-2019 Red Hat, Inc.
 ## This file is part of elfutils.
 ##
 ## This file is free software; you can redistribute it and/or modify
@@ -60,7 +60,8 @@ check_PROGRAMS = arextract arsymtest newfile saridx scnnames sectiondump \
 		  fillfile dwarf_default_lower_bound dwarf-die-addr-die \
 		  get-units-invalid get-units-split attr-integrate-skel \
 		  all-dwarf-ranges unit-info next_cfi \
-		  elfcopy addsections
+		  elfcopy addsections xlate_notes elfrdwrnop \
+		  dwelf_elf_e_machine_string
 
 asm_TESTS = asm-tst1 asm-tst2 asm-tst3 asm-tst4 asm-tst5 \
 	    asm-tst6 asm-tst7 asm-tst8 asm-tst9
@@ -83,6 +84,7 @@ TESTS = run-arextract.sh run-arsymtest.sh run-ar.sh newfile test-nlist \
 	run-next-files.sh run-next-lines.sh \
 	run-get-pubnames.sh run-get-aranges.sh run-allfcts.sh \
 	run-show-abbrev.sh run-line2addr.sh hash \
+	run-large-elf-file.sh \
 	newscn run-strip-test.sh run-strip-test2.sh \
 	run-strip-test3.sh run-strip-test4.sh run-strip-test5.sh \
 	run-strip-test6.sh run-strip-test7.sh run-strip-test8.sh \
@@ -157,9 +159,14 @@ TESTS = run-arextract.sh run-arsymtest.sh run-ar.sh newfile test-nlist \
 	run-all-dwarf-ranges.sh run-unit-info.sh \
 	run-reloc-bpf.sh \
 	run-next-cfi.sh run-next-cfi-self.sh \
+	run-reverse-sections.sh run-reverse-sections-self.sh \
 	run-copyadd-sections.sh run-copymany-sections.sh \
 	run-typeiter-many.sh run-strip-test-many.sh \
-	run-strip-version.sh
+	run-strip-version.sh run-xlate-note.sh \
+	run-readelf-discr.sh \
+	run-dwelf_elf_e_machine_string.sh \
+	run-elfclassify.sh run-elfclassify-self.sh \
+	run-disasm-riscv64.sh
 
 if !BIARCH
 export ELFUTILS_DISABLE_BIARCH = 1
@@ -181,6 +188,11 @@ endif
 if HAVE_LIBASM
 check_PROGRAMS += $(asm_TESTS)
 TESTS += $(asm_TESTS) run-disasm-bpf.sh
+endif
+
+if DEBUGINFOD
+check_PROGRAMS += debuginfod_build_id_find
+TESTS += run-debuginfod-find.sh
 endif
 
 EXTRA_DIST = run-arextract.sh run-arsymtest.sh run-ar.sh \
@@ -207,7 +219,7 @@ EXTRA_DIST = run-arextract.sh run-arsymtest.sh run-ar.sh \
 	     testfile-nobitsalign.bz2 testfile-nobitsalign.strip.bz2 \
 	     run-strip-reloc.sh hello_i386.ko.bz2 hello_x86_64.ko.bz2 \
 	     hello_ppc64.ko.bz2 hello_s390.ko.bz2 hello_aarch64.ko.bz2 \
-	     hello_m68k.ko.bz2 hello_riscv64.ko.bz2 \
+	     hello_m68k.ko.bz2 hello_riscv64.ko.bz2 hello_csky.ko.bz2 \
 	     run-unstrip-test.sh run-unstrip-test2.sh \
 	     testfile-info-link.bz2 testfile-info-link.debuginfo.bz2 \
 	     testfile-info-link.stripped.bz2 run-unstrip-test3.sh \
@@ -224,6 +236,7 @@ EXTRA_DIST = run-arextract.sh run-arsymtest.sh run-ar.sh \
 	     testfile11-debugframe.bz2 testfile12-debugframe.bz2 \
 	     testfileaarch64-debugframe.bz2 testfilearm-debugframe.bz2 \
 	     testfileppc32-debugframe.bz2 testfileppc64-debugframe.bz2 \
+	     testfilecsky.bz2 \
 	     run-varlocs-self.sh run-exprlocs-self.sh \
 	     run-find-prologues.sh run-allregs.sh run-native-test.sh \
 	     run-addrname-test.sh run-dwfl-bug-offline-rel.sh \
@@ -418,12 +431,39 @@ EXTRA_DIST = run-arextract.sh run-arsymtest.sh run-ar.sh \
 	     run-unit-info.sh run-next-cfi.sh run-next-cfi-self.sh \
 	     testfile-riscv64.bz2 testfile-riscv64-s.bz2 \
 	     testfile-riscv64-core.bz2 \
+	     run-reverse-sections.sh run-reverse-sections-self.sh \
 	     run-copyadd-sections.sh run-copymany-sections.sh \
+	     run-large-elf-file.sh \
 	     run-typeiter-many.sh run-strip-test-many.sh \
 	     testfile-debug-rel-ppc64-g.o.bz2 \
 	     testfile-debug-rel-ppc64-z.o.bz2 \
 	     testfile-debug-rel-ppc64.o.bz2 \
-	     run-strip-version.sh testfile-version.bz2
+	     run-strip-version.sh testfile-version.bz2 \
+	     run-xlate-note.sh \
+	     run-readelf-discr.sh \
+	     testfile-rng.debug.bz2 testfile-urng.debug.bz2 \
+	     run-dwelf_elf_e_machine_string.sh \
+	     run-elfclassify.sh run-elfclassify-self.sh \
+	     run-disasm-riscv64.sh \
+	     testfile-riscv64-dis1.o.bz2 testfile-riscv64-dis1.expect.bz2 \
+             run-debuginfod-find.sh \
+	     debuginfod-rpms/fedora30/hello2-1.0-2.src.rpm \
+	     debuginfod-rpms/fedora30/hello2-1.0-2.x86_64.rpm \
+	     debuginfod-rpms/fedora30/hello2-debuginfo-1.0-2.x86_64.rpm \
+	     debuginfod-rpms/fedora30/hello2-debugsource-1.0-2.x86_64.rpm \
+	     debuginfod-rpms/fedora30/hello2-two-1.0-2.x86_64.rpm \
+	     debuginfod-rpms/fedora30/hello2-two-debuginfo-1.0-2.x86_64.rpm \
+	     debuginfod-rpms/hello2.spec. \
+	     debuginfod-rpms/rhel6/hello2-1.0-2.i686.rpm \
+	     debuginfod-rpms/rhel6/hello2-1.0-2.src.rpm \
+	     debuginfod-rpms/rhel6/hello2-debuginfo-1.0-2.i686.rpm \
+	     debuginfod-rpms/rhel6/hello2-two-1.0-2.i686.rpm \
+	     debuginfod-rpms/rhel7/hello2-1.0-2.src.rpm \
+	     debuginfod-rpms/rhel7/hello2-1.0-2.x86_64.rpm \
+	     debuginfod-rpms/rhel7/hello2-debuginfo-1.0-2.x86_64.rpm \
+	     debuginfod-rpms/rhel7/hello2-two-1.0-2.x86_64.rpm
+
+
 
 if USE_VALGRIND
 valgrind_cmd='valgrind -q --leak-check=full --error-exitcode=1'
@@ -457,7 +497,7 @@ TESTS_ENVIRONMENT = LC_ALL=C; LANG=C; VALGRIND_CMD=$(valgrind_cmd); \
 		    export LC_ALL; export LANG; export VALGRIND_CMD; \
 		    NM=$(NM); export NM;
 LOG_COMPILER = $(abs_srcdir)/test-wrapper.sh \
-	       $(abs_top_builddir)/libdw:$(abs_top_builddir)/backends:$(abs_top_builddir)/libelf:$(abs_top_builddir)/libasm
+	       $(abs_top_builddir)/libdw:$(abs_top_builddir)/backends:$(abs_top_builddir)/libelf:$(abs_top_builddir)/libasm:$(abs_top_builddir)/debuginfod
 
 installcheck-local:
 	$(MAKE) $(AM_MAKEFLAGS) \
@@ -472,7 +512,7 @@ libasm = -lasm
 libebl = -lebl
 else !STANDALONE
 if BUILD_STATIC
-libdw = ../libdw/libdw.a -lz $(zip_LIBS) $(libelf) $(libebl) -ldl
+libdw = ../libdw/libdw.a -lz $(zip_LIBS) $(libelf) $(libebl) -ldl -lpthread
 libelf = ../libelf/libelf.a -lz
 libasm = ../libasm/libasm.a
 else
@@ -480,7 +520,7 @@ libdw = ../libdw/libdw.so
 libelf = ../libelf/libelf.so
 libasm = ../libasm/libasm.so
 endif
-libebl = ../libebl/libebl.a
+libebl = ../libebl/libebl.a ../backends/libebl_backends.a ../libcpu/libcpu.a
 libeu = ../lib/libeu.a
 endif !STANDALONE
 
@@ -517,27 +557,27 @@ funcretval_LDADD = $(libdw) $(argp_LDADD)
 allregs_LDADD = $(libdw) $(argp_LDADD)
 find_prologues_LDADD = $(libdw) $(argp_LDADD)
 #show_ciefde_LDADD = ../libdwarf/libdwarf.so $(libelf)
-asm_tst1_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst2_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst3_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst4_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst5_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst6_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst7_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst8_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-asm_tst9_LDADD = $(libasm) $(libebl) $(libelf) $(libdw) -ldl
-dwflmodtest_LDADD = $(libdw) $(libebl) $(libelf) $(argp_LDADD) -ldl
+asm_tst1_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst2_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst3_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst4_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst5_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst6_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst7_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst8_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+asm_tst9_LDADD = $(libasm) $(libebl) $(libelf) $(libdw)
+dwflmodtest_LDADD = $(libdw) $(libebl) $(libelf) $(argp_LDADD)
 rdwrmmap_LDADD = $(libelf)
-dwfl_bug_addr_overflow_LDADD = $(libdw) $(libebl) $(libelf) -ldl
+dwfl_bug_addr_overflow_LDADD = $(libdw) $(libebl) $(libelf)
 arls_LDADD = $(libelf)
-dwfl_bug_fd_leak_LDADD = $(libdw) $(libebl) $(libelf) -ldl
-dwfl_bug_report_LDADD = $(libdw) $(libebl) $(libelf) -ldl
-dwfl_bug_getmodules_LDADD = $(libdw) $(libebl) $(libelf) -ldl
-dwfl_addr_sect_LDADD = $(libdw) $(libebl) $(libelf) $(argp_LDADD) -ldl
+dwfl_bug_fd_leak_LDADD = $(libdw) $(libebl) $(libelf)
+dwfl_bug_report_LDADD = $(libdw) $(libebl) $(libelf)
+dwfl_bug_getmodules_LDADD = $(libdw) $(libebl) $(libelf)
+dwfl_addr_sect_LDADD = $(libdw) $(libebl) $(libelf) $(argp_LDADD)
 dwarf_getmacros_LDADD = $(libdw)
 dwarf_ranges_LDADD = $(libdw)
 dwarf_getstring_LDADD = $(libdw)
-addrcfi_LDADD = $(libdw) $(libebl) $(libelf) $(argp_LDADD) -ldl
+addrcfi_LDADD = $(libdw) $(libebl) $(libelf) $(argp_LDADD)
 dwarfcfi_LDADD = $(libdw) $(libelf)
 test_flag_nobits_LDADD = $(libelf)
 rerequest_tag_LDADD = $(libdw)
@@ -593,6 +633,10 @@ unit_info_LDADD = $(libdw)
 next_cfi_LDADD = $(libelf) $(libdw)
 elfcopy_LDADD = $(libelf)
 addsections_LDADD = $(libelf)
+debuginfod_build_id_find_LDADD = $(libelf) $(libdw)
+xlate_notes_LDADD = $(libelf)
+elfrdwrnop_LDADD = $(libelf)
+dwelf_elf_e_machine_string_LDADD = $(libelf) $(libdw)
 
 # We want to test the libelf header against the system elf.h header.
 # Don't include any -I CPPFLAGS. Except when we install our own elf.h.

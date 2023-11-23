@@ -32,16 +32,16 @@ import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.OptionalProperty;
 import com.github.javaparser.metamodel.ReturnStmtMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
+import com.github.javaparser.ast.Generated;
 
 /**
  * The return statement, with an optional expression to return.
  * <br/><code>return 5 * 5;</code>
  * @author Julio Vilmar Gesser
  */
-public final class ReturnStmt extends Statement {
+public class ReturnStmt extends Statement {
 
     @OptionalProperty
     private Expression expression;

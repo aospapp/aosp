@@ -16,6 +16,7 @@
 #define SRC_LIBFUZZER_LIBFUZZER_MACRO_H_
 
 #include <stddef.h>
+
 #include <cstdint>
 #include <functional>
 #include <type_traits>
@@ -32,6 +33,21 @@
 // serialization. This makes mutations faster. However often test function is
 // significantly slower than mutator, so fuzzing rate may stay unchanged.
 #define DEFINE_BINARY_PROTO_FUZZER(arg) DEFINE_PROTO_FUZZER_IMPL(true, arg)
+
+// Registers the callback as a potential mutation performed on the parent
+// message of a field. This must be called inside an initialization code block.
+// libFuzzer suggests putting one-time-initialization in a function used to
+// initialize a static variable inside the fuzzer target. For example:
+//
+// static bool Modify(
+//     SomeMessage* message /* Fix or additionally modify the message */,
+//     unsigned int seed /* If random generator is needed use this seed */) {
+//   ...
+// }
+//
+// DEFINE_PROTO_FUZZER(const SomeMessage& msg) {
+//   static PostProcessorRegistration reg(&Modify);
+// }
 
 // Implementation of macros above.
 #define DEFINE_CUSTOM_PROTO_MUTATOR_IMPL(use_binary, Proto)                    \
@@ -62,6 +78,10 @@
     return 0;                                                               \
   }
 
+#define DEFINE_POST_PROCESS_PROTO_MUTATION_IMPL(Proto) \
+  using PostProcessorRegistration =                    \
+      protobuf_mutator::libfuzzer::PostProcessorRegistration<Proto>;
+
 #define DEFINE_PROTO_FUZZER_IMPL(use_binary, arg)                              \
   static void TestOneProtoInput(arg);                                          \
   using FuzzerProtoType = std::remove_const<std::remove_reference<             \
@@ -69,6 +89,7 @@
   DEFINE_CUSTOM_PROTO_MUTATOR_IMPL(use_binary, FuzzerProtoType)                \
   DEFINE_CUSTOM_PROTO_CROSSOVER_IMPL(use_binary, FuzzerProtoType)              \
   DEFINE_TEST_ONE_PROTO_INPUT_IMPL(use_binary, FuzzerProtoType)                \
+  DEFINE_POST_PROCESS_PROTO_MUTATION_IMPL(FuzzerProtoType)                     \
   static void TestOneProtoInput(arg)
 
 namespace protobuf_mutator {
@@ -84,6 +105,23 @@ size_t CustomProtoCrossOver(bool binary, const uint8_t* data1, size_t size1,
                             protobuf::Message* input2);
 bool LoadProtoInput(bool binary, const uint8_t* data, size_t size,
                     protobuf::Message* input);
+
+void RegisterPostProcessor(
+    const protobuf::Descriptor* desc,
+    std::function<void(protobuf::Message* message, unsigned int seed)>
+        callback);
+
+template <class Proto>
+struct PostProcessorRegistration {
+  PostProcessorRegistration(
+      const std::function<void(Proto* message, unsigned int seed)>& callback) {
+    RegisterPostProcessor(
+        Proto::descriptor(),
+        [callback](protobuf::Message* message, unsigned int seed) {
+          callback(static_cast<Proto*>(message), seed);
+        });
+  }
+};
 
 }  // namespace libfuzzer
 }  // namespace protobuf_mutator

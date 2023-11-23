@@ -6,21 +6,20 @@
 
 #include "xfa/fxfa/parser/cxfa_xsdconnection.h"
 
-#include "fxjs/xfa/cjx_xsdconnection.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kXsdConnectionPropertyData[] = {
     {XFA_Element::Uri, 1, 0},
     {XFA_Element::RootElement, 1, 0},
-    {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+};
+
+const CXFA_Node::AttributeData kXsdConnectionAttributeData[] = {
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::DataDescription, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"xsdConnection";
+};
 
 }  // namespace
 
@@ -31,9 +30,8 @@ CXFA_XsdConnection::CXFA_XsdConnection(CXFA_Document* doc,
                 XFA_XDPPACKET_ConnectionSet,
                 XFA_ObjectType::Node,
                 XFA_Element::XsdConnection,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_XsdConnection>(this)) {}
+                kXsdConnectionPropertyData,
+                kXsdConnectionAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_XsdConnection::~CXFA_XsdConnection() {}
+CXFA_XsdConnection::~CXFA_XsdConnection() = default;

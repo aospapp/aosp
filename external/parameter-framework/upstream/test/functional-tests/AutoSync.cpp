@@ -46,7 +46,8 @@ namespace parameterFramework
 
 struct BoolPF : public ParameterFramework
 {
-    BoolPF() : ParameterFramework{createConfig()} {
+    BoolPF() : ParameterFramework{createConfig()}
+    {
 
         mDynamicLibrary = ::utility::make_unique<DynamicLibrary>(mSubsystemPath);
         REQUIRE(mDynamicLibrary != nullptr);
@@ -62,10 +63,7 @@ struct BoolPF : public ParameterFramework
         setConfigurationParameter("Domain", "Conf", "/test/test/param", valueStr);
     }
 
-    bool getParameterValue()
-    {
-        return mGetParamFunc();
-    }
+    bool getParameterValue() { return mGetParamFunc(); }
 
 private:
     static Config createConfig()
@@ -98,7 +96,7 @@ private:
     }
 
     using GetParamFunc = bool (*)();
-    std::string mSubsystemPath = std::string(PLUGIN_PATH) + (*PLUGIN_PATH ? "/":"") + PLUGIN_NAME;
+    std::string mSubsystemPath = std::string(PLUGIN_PATH) + (*PLUGIN_PATH ? "/" : "") + PLUGIN_NAME;
     std::unique_ptr<DynamicLibrary> mDynamicLibrary;
     bool (*mGetParamFunc)();
 };

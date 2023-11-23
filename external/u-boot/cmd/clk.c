@@ -5,12 +5,72 @@
 #include <common.h>
 #include <command.h>
 #include <clk.h>
+#if defined(CONFIG_DM) && defined(CONFIG_CLK)
+#include <dm.h>
+#include <dm/device.h>
+#include <dm/root.h>
+#include <dm/device-internal.h>
+#include <linux/clk-provider.h>
+#endif
 
+#if defined(CONFIG_DM) && defined(CONFIG_CLK)
+static void show_clks(struct udevice *dev, int depth, int last_flag)
+{
+	int i, is_last;
+	struct udevice *child;
+	struct clk *clkp;
+	u32 rate;
+
+	clkp = dev_get_clk_ptr(dev);
+	if (device_get_uclass_id(dev) == UCLASS_CLK && clkp) {
+		rate = clk_get_rate(clkp);
+
+	printf(" %-12u  %8d        ", rate, clkp->enable_count);
+
+	for (i = depth; i >= 0; i--) {
+		is_last = (last_flag >> i) & 1;
+		if (i) {
+			if (is_last)
+				printf("    ");
+			else
+				printf("|   ");
+		} else {
+			if (is_last)
+				printf("`-- ");
+			else
+				printf("|-- ");
+		}
+	}
+
+	printf("%s\n", dev->name);
+	}
+
+	list_for_each_entry(child, &dev->child_head, sibling_node) {
+		is_last = list_is_last(&child->sibling_node, &dev->child_head);
+		show_clks(child, depth + 1, (last_flag << 1) | is_last);
+	}
+}
+
+int __weak soc_clk_dump(void)
+{
+	struct udevice *root;
+
+	root = dm_root();
+	if (root) {
+		printf(" Rate               Usecnt      Name\n");
+		printf("------------------------------------------\n");
+		show_clks(root, -1, 0);
+	}
+
+	return 0;
+}
+#else
 int __weak soc_clk_dump(void)
 {
 	puts("Not implemented\n");
 	return 1;
 }
+#endif
 
 static int do_clk_dump(cmd_tbl_t *cmdtp, int flag, int argc,
 		       char *const argv[])

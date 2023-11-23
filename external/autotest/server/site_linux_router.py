@@ -5,6 +5,7 @@
 import collections
 import copy
 import logging
+import os
 import random
 import string
 import tempfile
@@ -19,7 +20,6 @@ from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.server import hosts
 from autotest_lib.server import site_linux_system
 from autotest_lib.server.cros import dnsname_mangler
-from autotest_lib.server.cros.network import hostap_config
 
 
 StationInstance = collections.namedtuple('StationInstance',
@@ -102,17 +102,13 @@ class LinuxRouter(site_linux_system.LinuxSystem):
     SUFFIX_LETTERS = string.ascii_lowercase + string.digits
     SUBNET_PREFIX_OCTETS = (192, 168)
 
-    HOSTAPD_CONF_FILE_PATTERN = '/tmp/hostapd-test-%s.conf'
-    HOSTAPD_LOG_FILE_PATTERN = '/tmp/hostapd-test-%s.log'
-    HOSTAPD_STDERR_LOG_FILE_PATTERN = '/tmp/hostapd-stderr-test-%s.log'
-    HOSTAPD_CONTROL_INTERFACE_PATTERN = '/tmp/hostapd-test-%s.ctrl'
+    HOSTAPD_CONF_FILE_PATTERN = 'hostapd-test-%s.conf'
+    HOSTAPD_LOG_FILE_PATTERN = 'hostapd-test-%s.log'
+    HOSTAPD_STDERR_LOG_FILE_PATTERN = 'hostapd-stderr-test-%s.log'
+    HOSTAPD_CONTROL_INTERFACE_PATTERN = 'hostapd-test-%s.ctrl'
     HOSTAPD_DRIVER_NAME = 'nl80211'
 
-    STATION_CONF_FILE_PATTERN = '/tmp/wpa-supplicant-test-%s.conf'
-    STATION_LOG_FILE_PATTERN = '/tmp/wpa-supplicant-test-%s.log'
-    STATION_PID_FILE_PATTERN = '/tmp/wpa-supplicant-test-%s.pid'
-
-    MGMT_FRAME_SENDER_LOG_FILE = '/tmp/send_management_frame-test.log'
+    MGMT_FRAME_SENDER_LOG_FILE = 'send_management_frame-test.log'
 
     PROBE_RESPONSE_FOOTER_FILE = '/tmp/autotest-probe_response_footer'
 
@@ -183,12 +179,8 @@ class LinuxRouter(site_linux_system.LinuxSystem):
                 '/usr/sbin/hostapd_cli', host=self.host)
         self.cmd_wpa_supplicant = path_utils.must_be_installed(
                 '/usr/sbin/wpa_supplicant', host=self.host)
-        self.dhcpd_conf = '/tmp/dhcpd.%s.conf'
-        self.dhcpd_leases = '/tmp/dhcpd.leases'
-
-        # TODO(crbug.com/839164): some routers fill their stateful partition
-        # with uncollected metrics.
-        self.host.run('rm -f /var/lib/metrics/uma-events', ignore_status=True)
+        self.dhcpd_conf = os.path.join(self.logdir, 'dhcpd.%s.conf')
+        self.dhcpd_leases = os.path.join(self.logdir, 'dhcpd.leases')
 
         # Log the most recent message on the router so that we can rebuild the
         # suffix relevant to us when debugging failures.
@@ -222,13 +214,15 @@ class LinuxRouter(site_linux_system.LinuxSystem):
         self.dhcp_low = 1
         self.dhcp_high = 128
 
-        # Tear down hostapbr bridge interfaces
-        result = self.host.run('ls -d /sys/class/net/%s*' %
-                               self.HOSTAP_BRIDGE_INTERFACE_PREFIX,
+        # Tear down hostapbr bridge and intermediate functional block
+        # interfaces.
+        result = self.host.run('ls -d /sys/class/net/%s* /sys/class/net/%s*'
+                               ' 2>/dev/null' %
+                               (self.HOSTAP_BRIDGE_INTERFACE_PREFIX,
+                                self.IFB_INTERFACE_PREFIX),
                                ignore_status=True)
-        if result.exit_status == 0:
-            for path in result.stdout.splitlines():
-                self.delete_link(path.split('/')[-1])
+        for path in result.stdout.splitlines():
+            self.delete_link(path.split('/')[-1])
 
         # Kill hostapd and dhcp server if already running.
         self._kill_process_instance('hostapd', timeout_seconds=30)
@@ -251,13 +245,15 @@ class LinuxRouter(site_linux_system.LinuxSystem):
 
     def close(self):
         """Close global resources held by this system."""
+        router_log = os.path.join(self.logdir, 'router_log')
         self.deconfig()
         # dnsmasq and hostapd cause interesting events to go to system logs.
         # Retrieve only the suffix of the logs after the timestamp we stored on
         # router creation.
-        self.host.run("sed -n -e '/%s/,$p' /var/log/messages >/tmp/router_log" %
-                      self._log_start_timestamp, ignore_status=True)
-        self.host.get_file('/tmp/router_log', 'debug/router_host_messages')
+        self.host.run("sed -n -e '/%s/,$p' /var/log/messages >%s" %
+                      (self._log_start_timestamp, router_log),
+                      ignore_status=True)
+        self.host.get_file(router_log, 'debug/router_host_messages')
         super(LinuxRouter, self).close()
 
 
@@ -287,10 +283,14 @@ class LinuxRouter(site_linux_system.LinuxSystem):
                                     configuration.min_streams)
         phy_name = self.iw_runner.get_interface(interface).phy
 
-        conf_file = self.HOSTAPD_CONF_FILE_PATTERN % interface
-        log_file = self.HOSTAPD_LOG_FILE_PATTERN % interface
-        stderr_log_file = self.HOSTAPD_STDERR_LOG_FILE_PATTERN % interface
-        control_interface = self.HOSTAPD_CONTROL_INTERFACE_PATTERN % interface
+        conf_file = os.path.join(self.logdir,
+                self.HOSTAPD_CONF_FILE_PATTERN % interface)
+        log_file = os.path.join(self.logdir,
+                self.HOSTAPD_LOG_FILE_PATTERN % interface)
+        stderr_log_file = os.path.join(self.logdir,
+                self.HOSTAPD_STDERR_LOG_FILE_PATTERN % interface)
+        control_interface = os.path.join(self.logdir,
+                self.HOSTAPD_CONTROL_INTERFACE_PATTERN % interface)
         hostapd_conf_dict = configuration.generate_dict(
                 interface, control_interface,
                 self.build_unique_ssid(suffix=configuration.ssid_suffix))
@@ -528,7 +528,6 @@ class LinuxRouter(site_linux_system.LinuxSystem):
         self.start_hostapd(configuration)
         interface = self.hostapd_instances[-1].interface
         self.iw_runner.set_tx_power(interface, 'auto')
-        self.set_beacon_footer(interface, configuration.beacon_footer)
         self.start_local_server(interface, bridge=configuration.bridge)
         logging.info('AP configured.')
 
@@ -973,7 +972,7 @@ class LinuxRouter(site_linux_system.LinuxSystem):
         @param client_mac string containing the mac address of the client.
         @param neighbor_list list of strings containing mac addresses of
                candidate APs.
-        @return bool True if BSS_TM_REQ is sent successfully.
+        @return string reply received from command
 
         """
         control_if = self.hostapd_instances[0].config_dict['ctrl_interface']
@@ -981,9 +980,7 @@ class LinuxRouter(site_linux_system.LinuxSystem):
                    (self.cmd_hostapd_cli, control_if, client_mac,
                     ',0,0,0,0 neighbor='.join(neighbor_list)))
         ret = self.router.run(command).stdout
-        if ret.splitlines()[-1] != 'OK':
-            return False
-        return True
+        return ret.splitlines()[-1]
 
     def _prep_probe_response_footer(self, footer):
         """Write probe response footer temporarily to a local file and copy
@@ -1058,7 +1055,8 @@ class LinuxRouter(site_linux_system.LinuxSystem):
         if probe_resp_footer is not None:
             self._prep_probe_response_footer(footer=probe_resp_footer)
             command += ' -f %s' % (self.PROBE_RESPONSE_FOOTER_FILE)
-        command += ' > %s 2>&1 & echo $!' % (self.MGMT_FRAME_SENDER_LOG_FILE)
+        command += ' > %s 2>&1 & echo $!' % (os.path.join(self.logdir,
+            self.MGMT_FRAME_SENDER_LOG_FILE))
         pid = int(self.router.run(command).stdout)
         return pid
 
@@ -1097,92 +1095,6 @@ class LinuxRouter(site_linux_system.LinuxSystem):
         return result.exit_status == 0
 
 
-    def add_connected_peer(self, instance=0):
-        """Configure a station connected to a running AP instance.
-
-        Extract relevant configuration objects from the hostap
-        configuration for |instance| and generate a wpa_supplicant
-        instance that connects to it.  This allows the DUT to interact
-        with a client entity that is also connected to the same AP.  A
-        full wpa_supplicant instance is necessary here (instead of just
-        using the "iw" command to connect) since we want to enable
-        advanced features such as TDLS.
-
-        @param instance int indicating which hostapd instance to connect to.
-
-        """
-        if not self.hostapd_instances:
-            raise error.TestFail('Hostapd is not configured.')
-
-        if self.station_instances:
-            raise error.TestFail('Station is already configured.')
-
-        ssid = self.get_ssid(instance)
-        hostap_conf = self.hostapd_instances[instance].config_dict
-        frequency = hostap_config.HostapConfig.get_frequency_for_channel(
-                hostap_conf['channel'])
-        self.configure_managed_station(
-                ssid, frequency, self.local_peer_ip_address(instance))
-        interface = self.station_instances[0].interface
-        # Since we now have two network interfaces connected to the same
-        # network, we need to disable the kernel's protection against
-        # incoming packets to an "unexpected" interface.
-        self.router.run('echo 2 > /proc/sys/net/ipv4/conf/%s/rp_filter' %
-                        interface)
-
-        # Similarly, we'd like to prevent the hostap interface from
-        # replying to ARP requests for the peer IP address and vice
-        # versa.
-        self.router.run('echo 1 > /proc/sys/net/ipv4/conf/%s/arp_ignore' %
-                        interface)
-        self.router.run('echo 1 > /proc/sys/net/ipv4/conf/%s/arp_ignore' %
-                        hostap_conf['interface'])
-
-
-    def configure_managed_station(self, ssid, frequency, ip_addr):
-        """Configure a router interface to connect as a client to a network.
-
-        @param ssid: string SSID of network to join.
-        @param frequency: int frequency required to join the network.
-        @param ip_addr: IP address to assign to this interface
-                        (e.g. '192.168.1.200').
-
-        """
-        interface = self.get_wlanif(frequency, 'managed')
-
-        # TODO(pstew): Configure other bits like PSK, 802.11n if tests
-        # require them...
-        supplicant_config = (
-                'network={\n'
-                '  ssid="%(ssid)s"\n'
-                '  key_mgmt=NONE\n'
-                '}\n' % {'ssid': ssid}
-        )
-
-        conf_file = self.STATION_CONF_FILE_PATTERN % interface
-        log_file = self.STATION_LOG_FILE_PATTERN % interface
-        pid_file = self.STATION_PID_FILE_PATTERN % interface
-
-        self.router.run('cat <<EOF >%s\n%s\nEOF\n' %
-            (conf_file, supplicant_config))
-
-        # Connect the station.
-        self.router.run('%s link set %s up' % (self.cmd_ip, interface))
-        start_command = ('%s -dd -t -i%s -P%s -c%s -D%s >%s 2>&1 &' %
-                         (self.cmd_wpa_supplicant,
-                         interface, pid_file, conf_file,
-                         self.HOSTAPD_DRIVER_NAME, log_file))
-        self.router.run(start_command)
-        self.iw_runner.wait_for_link(interface)
-
-        # Assign an IP address to this interface.
-        self.router.run('%s addr add %s/24 dev %s' %
-                        (self.cmd_ip, ip_addr, interface))
-        self.station_instances.append(
-                StationInstance(ssid=ssid, interface=interface,
-                                dev_type='managed'))
-
-
     def send_magic_packet(self, dest_ip, dest_mac):
         """Sends a magic packet to the NIC with the given IP and MAC addresses.
 
@@ -1201,22 +1113,6 @@ class LinuxRouter(site_linux_system.LinuxSystem):
                       's.sendto(sys.stdin.read(), (\'%s\', %d))"' %
                       (dest_ip, UDP_DISCARD_PORT),
                       stdin=magic_packet)
-
-
-    def set_beacon_footer(self, interface, footer=''):
-        """Sets the beacon footer (appended IE information) for this interface.
-
-        @param interface string interface to set the footer on.
-        @param footer string footer to be set on the interface.
-
-        """
-        footer_file = ('/sys/kernel/debug/ieee80211/%s/beacon_footer' %
-                       self.iw_runner.get_interface(interface).phy)
-        if self.router.run('test -e %s' % footer_file,
-                           ignore_status=True).exit_status != 0:
-            logging.info('Beacon footer file does not exist.  Ignoring.')
-            return
-        self.host.run('echo -ne %s > %s' % ('%r' % footer, footer_file))
 
 
     def setup_bridge_mode_dhcp_server(self):

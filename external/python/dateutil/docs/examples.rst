@@ -138,7 +138,7 @@ Next wednesday, but not today.
     datetime.date(2003, 9, 24)
 
 Following
-[http://www.cl.cam.ac.uk/~mgk25/iso-time.html ISO year week number notation]
+`ISO year week number notation <https://www.cl.cam.ac.uk/~mgk25/iso-time.html>`_
 find the first day of the 15th week of 1997.
 
 .. doctest:: relativedelta
@@ -1188,6 +1188,19 @@ Other random formats:
 
     >>> parse("5:50 A.M. on June 13, 1990")
     datetime.datetime(1990, 6, 13, 5, 50)
+
+
+Override parserinfo with a custom parserinfo
+
+.. doctest:: tz
+
+   >>> from dateutil.parser import parse, parserinfo
+   >>> class CustomParserInfo(parserinfo):
+   ...     # e.g. edit a property of parserinfo to allow a custom 12 hour format
+   ...     AMPM = [("am", "a", "xm"), ("pm", "p")]
+   >>> parse('2018-06-08 12:06:58 XM', parserinfo=CustomParserInfo())
+   datetime.datetime(2018, 6, 8, 0, 6, 58)
+
 
 
 tzutc examples

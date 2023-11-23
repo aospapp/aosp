@@ -11,18 +11,24 @@ import android.content.Context;
 import android.os.Build;
 import android.provider.Settings;
 import android.text.TextUtils;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
+import android.util.ArrayMap;
+
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.Resetter;
 import org.robolectric.shadow.api.Shadow;
 import org.robolectric.util.ReflectionHelpers.ClassParameter;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.stream.Collectors;
 
 @SuppressWarnings({"UnusedDeclaration"})
 @Implements(Settings.class)
@@ -244,7 +250,6 @@ public class ShadowSettings {
     }
   }
 
-  // BEGIN-INTERNAL
   @Implements(value = Settings.Config.class, minSdk = Build.VERSION_CODES.Q)
   public static class ShadowConfig {
     private static final Map<ContentResolver, Map<String, String>> dataMap = new WeakHashMap<>();
@@ -265,6 +270,26 @@ public class ShadowSettings {
       return get(cr).get(name);
     }
 
+    // BEGIN-INTERNAL
+    @Implementation(minSdk = Build.VERSION_CODES.R)
+    protected static Map<String, String> getStrings(ContentResolver cr, String prefix,
+            List<String> names) {
+      List<String> concatNames = new ArrayList<>();
+      for (String name : names) {
+        concatNames.add(prefix + "/" + name);
+      }
+
+      Map<String, String> values = get(cr);
+      Map<String, String> arrayMap = new ArrayMap<>();
+      for (String name : concatNames) {
+        if (values.containsKey(name)) {
+          arrayMap.put(name, values.get(name));
+        }
+      }
+      return arrayMap;
+    }
+    // END-INTERNAL
+
     private static Map<String, String> get(ContentResolver cr) {
       Map<String, String> map = dataMap.get(cr);
       if (map == null) {
@@ -274,7 +299,6 @@ public class ShadowSettings {
       return map;
     }
   }
-  // END-INTERNAL
 
   /**
    * Sets the value of the {@link Settings.System#AIRPLANE_MODE_ON} setting.

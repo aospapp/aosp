@@ -35,6 +35,7 @@
 #include "vkBuilderUtil.hpp"
 #include "vkImageUtil.hpp"
 #include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuVector.hpp"
@@ -261,6 +262,10 @@ public:
 									return new ImageAccessTestInstance(ctx, m_validator, m_params);
 								}
 	virtual void				initPrograms			(vk::SourceCollections& programCollection) const;
+	virtual void				checkSupport			(Context& context) const
+								{
+									checkProtectedQueueSupport(context);
+								}
 
 private:
 	ImageValidator				m_validator;

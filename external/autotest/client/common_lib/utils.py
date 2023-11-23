@@ -720,6 +720,7 @@ def run(command, timeout=None, ignore_status=False, stdout_tee=None,
 
     @return a CmdResult object or None if the command timed out and
             ignore_timeout is True
+    @rtype: CmdResult
 
     @raise CmdError: the exit code of the command execution was not 0
     @raise CmdTimeoutError: the command timed out and ignore_timeout is False.
@@ -1174,9 +1175,8 @@ def get_num_logical_cpus_per_socket(run_function=run):
     throw a CmdError exception.
     """
     siblings = run_function('grep "^siblings" /proc/cpuinfo').stdout.rstrip()
-    num_siblings = map(int,
-                       re.findall(r'^siblings\s*:\s*(\d+)\s*$',
-                                  siblings, re.M))
+    num_siblings = [int(x) for x in
+                    re.findall(r'^siblings\s*:\s*(\d+)\s*$', siblings, re.M)]
     if len(num_siblings) == 0:
         raise error.TestError('Unable to find siblings info in /proc/cpuinfo')
     if min(num_siblings) != max(num_siblings):
@@ -1971,10 +1971,36 @@ def ping(host, deadline=None, tries=None, timeout=60, user=None):
         args = [user, '-c', ' '.join([cmd] + args)]
         cmd = 'su'
 
-    return run(cmd, args=args, verbose=True,
-                          ignore_status=True, timeout=timeout,
-                          stdout_tee=TEE_TO_LOGS,
-                          stderr_tee=TEE_TO_LOGS).exit_status
+    result = run(cmd, args=args, verbose=True,
+                 ignore_status=True, timeout=timeout,
+                 stderr_tee=TEE_TO_LOGS)
+
+    rc = result.exit_status
+    lines = result.stdout.splitlines()
+
+    # rc=0: host reachable
+    # rc=1: host unreachable
+    # other: an error (do not abbreviate)
+    if rc in (0, 1):
+        # Report the two stats lines, as a single line.
+        # [-2]: packets transmitted, 1 received, 0% packet loss, time 0ms
+        # [-1]: rtt min/avg/max/mdev = 0.497/0.497/0.497/0.000 ms
+        stats = lines[-2:]
+        while '' in stats:
+            stats.remove('')
+
+        if stats or len(lines) < 2:
+            logging.debug('[rc=%s] %s', rc, '; '.join(stats))
+        else:
+            logging.debug('[rc=%s] Ping output:\n%s',
+                          rc, result.stdout)
+    else:
+        output = result.stdout.rstrip()
+        if output:
+            logging.debug('Unusual ping result (rc=%s):\n%s', rc, output)
+        else:
+            logging.debug('Unusual ping result (rc=%s).', rc)
+    return rc
 
 
 def host_is_in_lab_zone(hostname):
@@ -1992,6 +2018,31 @@ def host_is_in_lab_zone(hostname):
         return True
     except socket.gaierror:
         return False
+
+
+def host_is_in_power_lab(hostname):
+    """Check if the hostname is in power lab.
+
+    Example: chromeos1-power-host2.cros
+
+    @param hostname: The hostname to check.
+    @returns True if hostname match power lab hostname, otherwise False.
+    """
+    pattern = r'chromeos\d+-power-host\d+(\.cros(\.corp(\.google\.com)?)?)?$'
+    return re.match(pattern, hostname) is not None
+
+
+def get_power_lab_wlan_hostname(hostname):
+    """Return wlan hostname for host in power lab.
+
+    Example: chromeos1-power-host2.cros -> chromeos1-power-host2-wlan.cros
+
+    @param hostname: The hostname in power lab.
+    @returns wlan hostname.
+    """
+    split_host = hostname.split('.')
+    split_host[0] += '-wlan'
+    return '.'.join(split_host)
 
 
 def in_moblab_ssp():
@@ -2263,6 +2314,41 @@ def parse_chrome_version(version_string):
     return ver, milestone
 
 
+def parse_gs_uri_version(uri):
+    """Pull out major.minor.sub from image URI
+
+    @param uri: A GS URI for a bucket containing ChromeOS build artifacts
+    @return: The build version as a string in the form 'major.minor.sub'
+
+    """
+    return re.sub('.*(R[0-9]+|LATEST)-', '', uri).strip('/')
+
+
+def compare_gs_uri_build_versions(x, y):
+    """Compares two bucket URIs by their version string
+
+    @param x: A GS URI for a bucket containing ChromeOS build artifacts
+    @param y: Another GS URI for a bucket containing ChromeOS build artifacts
+    @return: 1 if x > y, -1 if x < y, and 0 if x == y
+
+    """
+    # Converts a gs uri 'gs://.../R75-<major>.<minor>.<sub>' to
+    # [major, minor, sub]
+    split_version = lambda v: [int(x) for x in
+                               parse_gs_uri_version(v).split('.')]
+
+    x_version = split_version(x)
+    y_version = split_version(y)
+
+    for a, b in zip(x_version, y_version):
+        if a > b:
+            return 1
+        elif b > a:
+            return -1
+
+    return 0
+
+
 def is_localhost(server):
     """Check if server is equivalent to localhost.
 
@@ -2484,19 +2570,27 @@ def is_in_same_subnet(ip_1, ip_2, mask_bits=24):
     return ip_1_num & mask == ip_2_num & mask
 
 
-def get_ip_address(hostname):
-    """Get the IP address of given hostname.
+def get_ip_address(hostname=None):
+    """Get the IP address of given hostname or current machine.
 
-    @param hostname: Hostname of a DUT.
+    @param hostname: Hostname of a DUT, default value is None.
 
-    @return: The IP address of given hostname. None if failed to resolve
-             hostname.
+    @return: The IP address of given hostname. If hostname is not given then
+             we'll try to query the IP address of the current machine and
+             return.
     """
-    try:
-        if hostname:
+    if hostname:
+        try:
             return socket.gethostbyname(hostname)
-    except socket.gaierror as e:
-        logging.error('Failed to get IP address of %s, error: %s.', hostname, e)
+        except socket.gaierror as e:
+            logging.error(
+                'Failed to get IP address of %s, error: %s.', hostname, e)
+    else:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
 
 
 def get_servers_in_same_subnet(host_ip, mask_bits, servers=None,
@@ -2818,6 +2912,101 @@ def poll_for_condition_ex(condition, timeout=10, sleep_interval=0.1, desc=None):
                             reason=reason)
     logging.error(str(to_raise))
     raise to_raise
+
+
+def poll_till_condition_holds(condition,
+                              exception=None,
+                              timeout=10,
+                              sleep_interval=0.1,
+                              hold_interval=5,
+                              desc=None):
+    """Polls until a condition is evaluated to true for a period of time
+
+    This function checks that a condition remains true for the 'hold_interval'
+    seconds after it first becomes true. If the condition becomes false
+    subsequently, the timer is reset. This function will not detect if
+    condition becomes false for any period of time less than the sleep_interval.
+
+    @param condition: function taking no args and returning anything that will
+                      evaluate to True in a conditional check
+    @param exception: exception to throw if condition doesn't evaluate to true
+    @param timeout: maximum number of seconds to wait
+    @param sleep_interval: time to sleep between polls
+    @param hold_interval: time period for which the condition should hold true
+    @param desc: description of default TimeoutError used if 'exception' is
+                 None
+
+    @return The evaluated value that caused the poll loop to terminate.
+
+    @raise 'exception' arg if supplied; TimeoutError otherwise
+    """
+    start_time = time.time()
+    cond_is_held = False
+    cond_hold_start_time = None
+
+    while True:
+        value = condition()
+        if value:
+            if cond_is_held:
+                if time.time() - cond_hold_start_time > hold_interval:
+                    return value
+            else:
+                cond_is_held = True
+                cond_hold_start_time = time.time()
+        else:
+            cond_is_held = False
+
+        time_remaining = timeout - (time.time() - start_time)
+        if time_remaining < hold_interval:
+            if exception:
+                logging.error('Will raise error %r due to unexpected return: '
+                              '%r', exception, value)
+                raise exception # pylint: disable=raising-bad-type
+
+            if desc:
+                desc = 'Timed out waiting for condition: ' + desc
+            else:
+                desc = 'Timed out waiting for unnamed condition'
+            logging.error(desc)
+            raise TimeoutError(message=desc)
+
+        time.sleep(sleep_interval)
+
+
+def shadowroot_query(element, action):
+    """Recursively queries shadowRoot.
+
+    @param element: element to query for.
+    @param action: action to be performed on the element.
+
+    @return JS functions to execute.
+
+    """
+    # /deep/ CSS query has been removed from ShadowDOM. The only way to access
+    # elements now is to recursively query in each shadowRoot.
+    shadowroot_script = """
+    function deepQuerySelectorAll(root, targetQuery) {
+        const elems = Array.prototype.slice.call(
+            root.querySelectorAll(targetQuery[0]));
+        const remaining = targetQuery.slice(1);
+        if (remaining.length === 0) {
+            return elems;
+        }
+
+        let res = [];
+        for (let i = 0; i < elems.length; i++) {
+            if (elems[i].shadowRoot) {
+                res = res.concat(
+                    deepQuerySelectorAll(elems[i].shadowRoot, remaining));
+            }
+        }
+        return res;
+    };
+    var testing_element = deepQuerySelectorAll(document, %s);
+    testing_element[0].%s;
+    """
+    script_to_execute = shadowroot_script % (element, action)
+    return script_to_execute
 
 
 def threaded_return(function):

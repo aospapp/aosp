@@ -48,7 +48,7 @@ class RunSession
 public:
 	RunSession(tcu::Platform& platform, tcu::Archive& archive, const int numArgs, const char* const* args)
 		: m_cmdLine(numArgs, args)
-		, m_log(m_cmdLine.getLogFileName(), m_cmdLine.getLogFlags())
+		, m_log(m_cmdLine.getLogFileName(), (numArgs - 1), (char**)(args + 1), m_cmdLine.getLogFlags())
 		, m_app(platform, archive, m_log, m_cmdLine)
 	{
 	}
@@ -402,11 +402,48 @@ static void getTestRunsForNoContextES(glu::ApiType type, vector<TestRunParams>& 
 							DE_LENGTH_OF_ARRAY(khronos_mustpass_es_nocontext_first_cfg), mustpassDir);
 }
 
+static void getTestRunsForSingleConfig(glu::ApiType type, vector<TestRunParams>& runs, const ConfigList& configs, const RunParams* runParams,
+									const int numRunParams, const char* mustpassDir)
+{
+	vector<Config>::const_iterator cfgIter = configs.configs.begin();
+
+	for (int i = 0; i < numRunParams; ++i)
+	{
+		if (type != runParams[i].apiType)
+			continue;
+
+		const char* apiName = getApiName(runParams[i].apiType);
+
+		const int width  = runParams[i].surfaceWidth;
+		const int height = runParams[i].surfaceHeight;
+		const int seed   = runParams[i].baseSeed;
+
+		TestRunParams params;
+		params.logFilename = getLogFileName(apiName, runParams[i].configName, 1, i, width, height, seed);
+
+		getBaseOptions(params.args, mustpassDir, apiName, runParams[i].configName, runParams[i].screenRotation, width,
+					   height);
+
+		params.args.push_back(string("--deqp-base-seed=") + de::toString(seed));
+
+		appendConfigArgs(*cfgIter, params.args, runParams[i].fboConfig);
+
+		runs.push_back(params);
+	}
+}
+static void getTestRunsForSingleConfigES(glu::ApiType type, vector<TestRunParams>& runs, const ConfigList& configs)
+{
+#include "glcKhronosMustpassEsSingleConfig.hpp"
+	getTestRunsForSingleConfig(type, runs, configs, khronos_mustpass_es_single_config_first_cfg,
+							   DE_LENGTH_OF_ARRAY(khronos_mustpass_es_single_config_first_cfg), mustpassDir);
+}
+
 static void getTestRunsForES(glu::ApiType type, const ConfigList& configs, vector<TestRunParams>& runs)
 {
 	getTestRunsForAOSPEGL(runs, configs);
 	getTestRunsForAOSPES(runs, configs, type);
 	getTestRunsForNoContextES(type, runs, configs);
+	getTestRunsForSingleConfigES(type, runs, configs);
 
 #include "glcKhronosMustpassEs.hpp"
 
@@ -450,10 +487,17 @@ static void getTestRunsForNoContextGL(glu::ApiType type, vector<TestRunParams>& 
 	getTestRunsForNoContext(type, runs, configs, khronos_mustpass_gl_nocontext_first_cfg,
 							DE_LENGTH_OF_ARRAY(khronos_mustpass_gl_nocontext_first_cfg), mustpassDir);
 }
+static void getTestRunsForSingleConfigGL(glu::ApiType type, vector<TestRunParams>& runs, const ConfigList& configs)
+{
+#include "glcKhronosMustpassGlSingleConfig.hpp"
+	getTestRunsForSingleConfig(type, runs, configs, khronos_mustpass_gl_single_config_first_cfg,
+							   DE_LENGTH_OF_ARRAY(khronos_mustpass_gl_single_config_first_cfg), mustpassDir);
+}
 
 static void getTestRunsForGL(glu::ApiType type, const ConfigList& configs, vector<TestRunParams>& runs)
 {
 	getTestRunsForNoContextGL(type, runs, configs);
+	getTestRunsForSingleConfigGL(type, runs, configs);
 #include "glcKhronosMustpassGl.hpp"
 
 	for (vector<Config>::const_iterator cfgIter = configs.configs.begin(); cfgIter != configs.configs.end(); ++cfgIter)
@@ -721,12 +765,12 @@ void TestRunner::init(void)
 void TestRunner::deinit(void)
 {
 	// Print out totals.
-	bool isConformant = m_sessionsExecuted == m_sessionsPassed;
+	bool isConformant_ = m_sessionsExecuted == m_sessionsPassed;
 	DE_ASSERT(m_sessionsExecuted == m_sessionsPassed + m_sessionsFailed);
 	tcu::print("\n%d/%d sessions passed, conformance test %s\n", m_sessionsPassed, m_sessionsExecuted,
-			   isConformant ? "PASSED" : "FAILED");
+			   isConformant_ ? "PASSED" : "FAILED");
 
-	m_summary.isConformant = isConformant;
+	m_summary.isConformant = isConformant_;
 
 	// Write out summary.
 	writeRunSummary(m_summary, de::FilePath::join(m_logDirPath, "cts-run-summary.xml").getPath());

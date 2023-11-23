@@ -15,6 +15,7 @@
 #include "fsverity_uapi.h"
 #include "hash_algs.h"
 
+/* Display the measurement of the given verity file(s). */
 int fsverity_cmd_measure(const struct fsverity_command *cmd,
 			 int argc, char *argv[])
 {

@@ -15,6 +15,8 @@
 #ifndef sw_FrameBufferAndroid_hpp
 #define sw_FrameBufferAndroid_hpp
 
+#include <cutils/native_handle.h>
+
 #include "Main/FrameBuffer.hpp"
 #include "Common/Debug.hpp"
 
@@ -30,7 +32,7 @@ namespace sw
 
 		~FrameBufferAndroid() override;
 
-		void flip(sw::Surface *source) override {blit(source, nullptr, nullptr);};
+		void flip(sw::Surface *source) override {blit(source, nullptr, nullptr);}
 		void blit(sw::Surface *source, const Rect *sourceRect, const Rect *destRect) override;
 
 		void *lock() override;
@@ -41,6 +43,7 @@ namespace sw
 	private:
 		ANativeWindow *nativeWindow;
 		ANativeWindowBuffer *buffer;
+		buffer_handle_t bufferImportedHandle;
 	};
 }
 

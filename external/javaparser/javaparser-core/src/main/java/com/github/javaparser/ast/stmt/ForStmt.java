@@ -34,10 +34,10 @@ import com.github.javaparser.ast.visitor.VoidVisitor;
 import com.github.javaparser.metamodel.ForStmtMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.metamodel.OptionalProperty;
-import javax.annotation.Generated;
 import java.util.Optional;
 import java.util.function.Consumer;
 import static com.github.javaparser.utils.Utils.assertNotNull;
+import com.github.javaparser.ast.Generated;
 
 /**
  * <h1>The classic for statement</h1>
@@ -66,7 +66,7 @@ import static com.github.javaparser.utils.Utils.assertNotNull;
  * @author Julio Vilmar Gesser
  * @see com.github.javaparser.ast.expr.VariableDeclarationExpr
  */
-public final class ForStmt extends Statement implements NodeWithBody<ForStmt> {
+public class ForStmt extends Statement implements NodeWithBody<ForStmt> {
 
     private NodeList<Expression> initialization;
 

@@ -68,7 +68,7 @@ public class NumberParseException extends Exception {
   /**
    * Returns the error type of the exception that has been thrown.
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public ErrorType getErrorType() {
     return errorType;
   }

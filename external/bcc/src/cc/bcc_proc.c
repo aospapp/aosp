@@ -99,7 +99,7 @@ int bcc_procutils_each_module(int pid, bcc_procutils_modulecb callback,
   while (true) {
     buf[0] = '\0';
     // From fs/proc/task_mmu.c:show_map_vma
-    if (fscanf(procmap, "%lx-%lx %s %llx %s %lu%[^\n]", &begin, &end, perm,
+    if (fscanf(procmap, "%lx-%lx %4s %llx %7s %lu%[^\n]", &begin, &end, perm,
                &offset, dev, &inode, buf) != 7)
       break;
 

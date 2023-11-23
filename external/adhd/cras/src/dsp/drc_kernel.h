@@ -85,19 +85,11 @@ void dk_init(struct drc_kernel *dk, float sample_rate);
 void dk_free(struct drc_kernel *dk);
 
 /* Sets the parameters of a drc kernel. See drc.h for details */
-void dk_set_parameters(struct drc_kernel *dk,
-		       float db_threshold,
-		       float db_knee,
-		       float ratio,
-		       float attack_time,
-		       float release_time,
-		       float pre_delay_time,
-		       float db_post_gain,
-		       float releaseZone1,
-		       float releaseZone2,
-		       float releaseZone3,
-		       float releaseZone4
-		       );
+void dk_set_parameters(struct drc_kernel *dk, float db_threshold, float db_knee,
+		       float ratio, float attack_time, float release_time,
+		       float pre_delay_time, float db_post_gain,
+		       float releaseZone1, float releaseZone2,
+		       float releaseZone3, float releaseZone4);
 
 /* Enables or disables a drc kernel */
 void dk_set_enabled(struct drc_kernel *dk, int enabled);

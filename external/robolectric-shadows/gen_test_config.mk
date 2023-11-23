@@ -12,7 +12,7 @@ LOCAL_JAVA_RESOURCE_FILES += $(test_config_dir):com/android/tools/test_config.pr
 
 # Define variables to be written into the generated test_config.properties file.
 android_merged_manifest := $(strip $(call intermediates-dir-for,APPS,$(LOCAL_INSTRUMENTATION_FOR),,COMMON)/manifest/AndroidManifest.xml)
-android_resource_apk := $(strip $(call apk-location-for,$(LOCAL_INSTRUMENTATION_FOR)))
+android_resource_apk := $(strip $(call intermediates-dir-for,APPS,$(LOCAL_INSTRUMENTATION_FOR))/package.apk)
 
 # Snapshot the written variables so they cannot be polluted before the module is built.
 $(test_config_file): private_android_merged_manifest := $(android_merged_manifest)

@@ -178,4 +178,9 @@ class Java7ExtendedSSLSession extends ExtendedSSLSession implements ConscryptSes
     public final int getApplicationBufferSize() {
         return delegate.getApplicationBufferSize();
     }
+
+    @Override
+    public String getApplicationProtocol() {
+        return delegate.getApplicationProtocol();
+    }
 }

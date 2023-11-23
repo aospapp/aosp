@@ -29,7 +29,7 @@ class RemoteHost(base_classes.Host):
     _DETECTABLE_LABELS = []
 
     VAR_LOG_MESSAGES_COPY_PATH = "/var/tmp/messages.autotest_start"
-    TMP_DIR_TEMPLATE = 'autoserv-XXXXXX'
+    TMP_DIR_TEMPLATE = '/usr/local/tmp/autoserv-XXXXXX'
 
 
     def _initialize(self, hostname, autodir=None, *args, **dargs):

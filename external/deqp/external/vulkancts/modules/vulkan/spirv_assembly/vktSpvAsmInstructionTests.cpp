@@ -48,6 +48,7 @@
 #include "deStringUtil.hpp"
 #include "deUniquePtr.hpp"
 #include "deMath.h"
+#include "deRandom.hpp"
 #include "tcuStringTemplate.hpp"
 
 #include "vktSpvAsmCrossStageInterfaceTests.hpp"
@@ -60,10 +61,12 @@
 #include "vktSpvAsmComputeShaderCase.hpp"
 #include "vktSpvAsmComputeShaderTestUtil.hpp"
 #include "vktSpvAsmFloatControlsTests.hpp"
+#include "vktSpvAsmFromHlslTests.hpp"
 #include "vktSpvAsmGraphicsShaderTestUtil.hpp"
 #include "vktSpvAsmVariablePointersTests.hpp"
 #include "vktSpvAsmVariableInitTests.hpp"
 #include "vktSpvAsmPointerParameterTests.hpp"
+#include "vktSpvAsmSpirvVersion1p4Tests.hpp"
 #include "vktSpvAsmSpirvVersionTests.hpp"
 #include "vktTestCaseUtil.hpp"
 #include "vktSpvAsmLoopDepLenTests.hpp"
@@ -71,6 +74,11 @@
 #include "vktSpvAsmCompositeInsertTests.hpp"
 #include "vktSpvAsmVaryingNameTests.hpp"
 #include "vktSpvAsmWorkgroupMemoryTests.hpp"
+#include "vktSpvAsmSignedIntCompareTests.hpp"
+#include "vktSpvAsmPtrAccessChainTests.hpp"
+#include "vktSpvAsmFloatControlsExtensionlessTests.hpp"
+#include "vktSpvAsmNonSemanticInfoTests.hpp"
+#include "vktSpvAsm64bitCompareTests.hpp"
 
 #include <cmath>
 #include <limits>
@@ -105,12 +113,635 @@ using tcu::Vec4;
 const bool TEST_WITH_NAN	= true;
 const bool TEST_WITHOUT_NAN	= false;
 
+const string loadScalarF16FromUint =
+	"%ld_arg_${var} = OpFunction %f16 None %f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_conv = OpBitcast %u32 %ld_arg_${var}_param\n"
+	"%ld_arg_${var}_div = OpUDiv %u32 %ld_arg_${var}_conv %c_u32_2\n"
+	"%ld_arg_${var}_and_low = OpBitwiseAnd %u32 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_div\n"
+	"%ld_arg_${var}_ld = OpLoad %u32 %ld_arg_${var}_gep\n"
+	"%ld_arg_${var}_unpack = OpBitcast %v2f16 %ld_arg_${var}_ld\n"
+	"%ld_arg_${var}_ex = OpVectorExtractDynamic %f16 %ld_arg_${var}_unpack %ld_arg_${var}_and_low\n"
+	"OpReturnValue %ld_arg_${var}_ex\n"
+	"OpFunctionEnd\n";
+
+const string loadV2F16FromUint =
+	"%ld_arg_${var} = OpFunction %v2f16 None %v2f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param\n"
+	"%ld_arg_${var}_ld = OpLoad %u32 %ld_arg_${var}_gep\n"
+	"%ld_arg_${var}_cast = OpBitcast %v2f16 %ld_arg_${var}_ld\n"
+	"OpReturnValue %ld_arg_${var}_cast\n"
+	"OpFunctionEnd\n";
+
+const string loadV3F16FromUints =
+	// Since we allocate a vec4 worth of values, this case is almost the
+	// same as that case.
+	"%ld_arg_${var} = OpFunction %v3f16 None %v3f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_ld0 = OpLoad %u32 %ld_arg_${var}_gep0\n"
+	"%ld_arg_${var}_bc0 = OpBitcast %v2f16 %ld_arg_${var}_ld0\n"
+	"%ld_arg_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_ld1 = OpLoad %u32 %ld_arg_${var}_gep1\n"
+	"%ld_arg_${var}_bc1 = OpBitcast %v2f16 %ld_arg_${var}_ld1\n"
+	"%ld_arg_${var}_shuffle = OpVectorShuffle %v3f16 %ld_arg_${var}_bc0 %ld_arg_${var}_bc1 0 1 2\n"
+	"OpReturnValue %ld_arg_${var}_shuffle\n"
+	"OpFunctionEnd\n";
+
+const string loadV4F16FromUints =
+	"%ld_arg_${var} = OpFunction %v4f16 None %v4f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_ld0 = OpLoad %u32 %ld_arg_${var}_gep0\n"
+	"%ld_arg_${var}_bc0 = OpBitcast %v2f16 %ld_arg_${var}_ld0\n"
+	"%ld_arg_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_ld1 = OpLoad %u32 %ld_arg_${var}_gep1\n"
+	"%ld_arg_${var}_bc1 = OpBitcast %v2f16 %ld_arg_${var}_ld1\n"
+	"%ld_arg_${var}_shuffle = OpVectorShuffle %v4f16 %ld_arg_${var}_bc0 %ld_arg_${var}_bc1 0 1 2 3\n"
+	"OpReturnValue %ld_arg_${var}_shuffle\n"
+	"OpFunctionEnd\n";
+
+const string loadM2x2F16FromUints =
+	"%ld_arg_${var} = OpFunction %m2x2f16 None %m2x2f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_ld0 = OpLoad %u32 %ld_arg_${var}_gep0\n"
+	"%ld_arg_${var}_bc0 = OpBitcast %v2f16 %ld_arg_${var}_ld0\n"
+	"%ld_arg_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_ld1 = OpLoad %u32 %ld_arg_${var}_gep1\n"
+	"%ld_arg_${var}_bc1 = OpBitcast %v2f16 %ld_arg_${var}_ld1\n"
+	"%ld_arg_${var}_cons = OpCompositeConstruct %m2x2f16 %ld_arg_${var}_bc0 %ld_arg_${var}_bc1\n"
+	"OpReturnValue %ld_arg_${var}_cons\n"
+	"OpFunctionEnd\n";
+
+const string loadM2x3F16FromUints =
+	"%ld_arg_${var} = OpFunction %m2x3f16 None %m2x3f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_3\n"
+	"%ld_arg_${var}_ld00 = OpLoad %u32 %ld_arg_${var}_gep00\n"
+	"%ld_arg_${var}_ld01 = OpLoad %u32 %ld_arg_${var}_gep01\n"
+	"%ld_arg_${var}_ld10 = OpLoad %u32 %ld_arg_${var}_gep10\n"
+	"%ld_arg_${var}_ld11 = OpLoad %u32 %ld_arg_${var}_gep11\n"
+	"%ld_arg_${var}_bc00 = OpBitcast %v2f16 %ld_arg_${var}_ld00\n"
+	"%ld_arg_${var}_bc01 = OpBitcast %v2f16 %ld_arg_${var}_ld01\n"
+	"%ld_arg_${var}_bc10 = OpBitcast %v2f16 %ld_arg_${var}_ld10\n"
+	"%ld_arg_${var}_bc11 = OpBitcast %v2f16 %ld_arg_${var}_ld11\n"
+	"%ld_arg_${var}_vec0 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc00 %ld_arg_${var}_bc01 0 1 2\n"
+	"%ld_arg_${var}_vec1 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc10 %ld_arg_${var}_bc11 0 1 2\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m2x3f16 %ld_arg_${var}_vec0 %ld_arg_${var}_vec1\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string loadM2x4F16FromUints =
+	"%ld_arg_${var} = OpFunction %m2x4f16 None %m2x4f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_3\n"
+	"%ld_arg_${var}_ld00 = OpLoad %u32 %ld_arg_${var}_gep00\n"
+	"%ld_arg_${var}_ld01 = OpLoad %u32 %ld_arg_${var}_gep01\n"
+	"%ld_arg_${var}_ld10 = OpLoad %u32 %ld_arg_${var}_gep10\n"
+	"%ld_arg_${var}_ld11 = OpLoad %u32 %ld_arg_${var}_gep11\n"
+	"%ld_arg_${var}_bc00 = OpBitcast %v2f16 %ld_arg_${var}_ld00\n"
+	"%ld_arg_${var}_bc01 = OpBitcast %v2f16 %ld_arg_${var}_ld01\n"
+	"%ld_arg_${var}_bc10 = OpBitcast %v2f16 %ld_arg_${var}_ld10\n"
+	"%ld_arg_${var}_bc11 = OpBitcast %v2f16 %ld_arg_${var}_ld11\n"
+	"%ld_arg_${var}_vec0 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc00 %ld_arg_${var}_bc01 0 1 2 3\n"
+	"%ld_arg_${var}_vec1 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc10 %ld_arg_${var}_bc11 0 1 2 3\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m2x4f16 %ld_arg_${var}_vec0 %ld_arg_${var}_vec1\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string loadM3x2F16FromUints =
+	"%ld_arg_${var} = OpFunction %m3x2f16 None %m3x2f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep2 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_ld0 = OpLoad %u32 %ld_arg_${var}_gep0\n"
+	"%ld_arg_${var}_ld1 = OpLoad %u32 %ld_arg_${var}_gep1\n"
+	"%ld_arg_${var}_ld2 = OpLoad %u32 %ld_arg_${var}_gep2\n"
+	"%ld_arg_${var}_bc0 = OpBitcast %v2f16 %ld_arg_${var}_ld0\n"
+	"%ld_arg_${var}_bc1 = OpBitcast %v2f16 %ld_arg_${var}_ld1\n"
+	"%ld_arg_${var}_bc2 = OpBitcast %v2f16 %ld_arg_${var}_ld2\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m3x2f16 %ld_arg_${var}_bc0 %ld_arg_${var}_bc1 %ld_arg_${var}_bc2\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string loadM3x3F16FromUints =
+	"%ld_arg_${var} = OpFunction %m3x3f16 None %m3x3f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_3\n"
+	"%ld_arg_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_4\n"
+	"%ld_arg_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_5\n"
+	"%ld_arg_${var}_ld00 = OpLoad %u32 %ld_arg_${var}_gep00\n"
+	"%ld_arg_${var}_ld01 = OpLoad %u32 %ld_arg_${var}_gep01\n"
+	"%ld_arg_${var}_ld10 = OpLoad %u32 %ld_arg_${var}_gep10\n"
+	"%ld_arg_${var}_ld11 = OpLoad %u32 %ld_arg_${var}_gep11\n"
+	"%ld_arg_${var}_ld20 = OpLoad %u32 %ld_arg_${var}_gep20\n"
+	"%ld_arg_${var}_ld21 = OpLoad %u32 %ld_arg_${var}_gep21\n"
+	"%ld_arg_${var}_bc00 = OpBitcast %v2f16 %ld_arg_${var}_ld00\n"
+	"%ld_arg_${var}_bc01 = OpBitcast %v2f16 %ld_arg_${var}_ld01\n"
+	"%ld_arg_${var}_bc10 = OpBitcast %v2f16 %ld_arg_${var}_ld10\n"
+	"%ld_arg_${var}_bc11 = OpBitcast %v2f16 %ld_arg_${var}_ld11\n"
+	"%ld_arg_${var}_bc20 = OpBitcast %v2f16 %ld_arg_${var}_ld20\n"
+	"%ld_arg_${var}_bc21 = OpBitcast %v2f16 %ld_arg_${var}_ld21\n"
+	"%ld_arg_${var}_vec0 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc00 %ld_arg_${var}_bc01 0 1 2\n"
+	"%ld_arg_${var}_vec1 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc10 %ld_arg_${var}_bc11 0 1 2\n"
+	"%ld_arg_${var}_vec2 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc20 %ld_arg_${var}_bc21 0 1 2\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m3x3f16 %ld_arg_${var}_vec0 %ld_arg_${var}_vec1 %ld_arg_${var}_vec2\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string loadM3x4F16FromUints =
+	"%ld_arg_${var} = OpFunction %m3x4f16 None %m3x4f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_3\n"
+	"%ld_arg_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_4\n"
+	"%ld_arg_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_5\n"
+	"%ld_arg_${var}_ld00 = OpLoad %u32 %ld_arg_${var}_gep00\n"
+	"%ld_arg_${var}_ld01 = OpLoad %u32 %ld_arg_${var}_gep01\n"
+	"%ld_arg_${var}_ld10 = OpLoad %u32 %ld_arg_${var}_gep10\n"
+	"%ld_arg_${var}_ld11 = OpLoad %u32 %ld_arg_${var}_gep11\n"
+	"%ld_arg_${var}_ld20 = OpLoad %u32 %ld_arg_${var}_gep20\n"
+	"%ld_arg_${var}_ld21 = OpLoad %u32 %ld_arg_${var}_gep21\n"
+	"%ld_arg_${var}_bc00 = OpBitcast %v2f16 %ld_arg_${var}_ld00\n"
+	"%ld_arg_${var}_bc01 = OpBitcast %v2f16 %ld_arg_${var}_ld01\n"
+	"%ld_arg_${var}_bc10 = OpBitcast %v2f16 %ld_arg_${var}_ld10\n"
+	"%ld_arg_${var}_bc11 = OpBitcast %v2f16 %ld_arg_${var}_ld11\n"
+	"%ld_arg_${var}_bc20 = OpBitcast %v2f16 %ld_arg_${var}_ld20\n"
+	"%ld_arg_${var}_bc21 = OpBitcast %v2f16 %ld_arg_${var}_ld21\n"
+	"%ld_arg_${var}_vec0 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc00 %ld_arg_${var}_bc01 0 1 2 3\n"
+	"%ld_arg_${var}_vec1 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc10 %ld_arg_${var}_bc11 0 1 2 3\n"
+	"%ld_arg_${var}_vec2 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc20 %ld_arg_${var}_bc21 0 1 2 3\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m3x4f16 %ld_arg_${var}_vec0 %ld_arg_${var}_vec1 %ld_arg_${var}_vec2\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string loadM4x2F16FromUints =
+	"%ld_arg_${var} = OpFunction %m4x2f16 None %m4x2f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep2 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_gep3 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_3\n"
+	"%ld_arg_${var}_ld0 = OpLoad %u32 %ld_arg_${var}_gep0\n"
+	"%ld_arg_${var}_ld1 = OpLoad %u32 %ld_arg_${var}_gep1\n"
+	"%ld_arg_${var}_ld2 = OpLoad %u32 %ld_arg_${var}_gep2\n"
+	"%ld_arg_${var}_ld3 = OpLoad %u32 %ld_arg_${var}_gep3\n"
+	"%ld_arg_${var}_bc0 = OpBitcast %v2f16 %ld_arg_${var}_ld0\n"
+	"%ld_arg_${var}_bc1 = OpBitcast %v2f16 %ld_arg_${var}_ld1\n"
+	"%ld_arg_${var}_bc2 = OpBitcast %v2f16 %ld_arg_${var}_ld2\n"
+	"%ld_arg_${var}_bc3 = OpBitcast %v2f16 %ld_arg_${var}_ld3\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m4x2f16 %ld_arg_${var}_bc0 %ld_arg_${var}_bc1 %ld_arg_${var}_bc2 %ld_arg_${var}_bc3\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string loadM4x3F16FromUints =
+	"%ld_arg_${var} = OpFunction %m4x3f16 None %m4x3f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_3\n"
+	"%ld_arg_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_4\n"
+	"%ld_arg_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_5\n"
+	"%ld_arg_${var}_gep30 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_6\n"
+	"%ld_arg_${var}_gep31 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_7\n"
+	"%ld_arg_${var}_ld00 = OpLoad %u32 %ld_arg_${var}_gep00\n"
+	"%ld_arg_${var}_ld01 = OpLoad %u32 %ld_arg_${var}_gep01\n"
+	"%ld_arg_${var}_ld10 = OpLoad %u32 %ld_arg_${var}_gep10\n"
+	"%ld_arg_${var}_ld11 = OpLoad %u32 %ld_arg_${var}_gep11\n"
+	"%ld_arg_${var}_ld20 = OpLoad %u32 %ld_arg_${var}_gep20\n"
+	"%ld_arg_${var}_ld21 = OpLoad %u32 %ld_arg_${var}_gep21\n"
+	"%ld_arg_${var}_ld30 = OpLoad %u32 %ld_arg_${var}_gep30\n"
+	"%ld_arg_${var}_ld31 = OpLoad %u32 %ld_arg_${var}_gep31\n"
+	"%ld_arg_${var}_bc00 = OpBitcast %v2f16 %ld_arg_${var}_ld00\n"
+	"%ld_arg_${var}_bc01 = OpBitcast %v2f16 %ld_arg_${var}_ld01\n"
+	"%ld_arg_${var}_bc10 = OpBitcast %v2f16 %ld_arg_${var}_ld10\n"
+	"%ld_arg_${var}_bc11 = OpBitcast %v2f16 %ld_arg_${var}_ld11\n"
+	"%ld_arg_${var}_bc20 = OpBitcast %v2f16 %ld_arg_${var}_ld20\n"
+	"%ld_arg_${var}_bc21 = OpBitcast %v2f16 %ld_arg_${var}_ld21\n"
+	"%ld_arg_${var}_bc30 = OpBitcast %v2f16 %ld_arg_${var}_ld30\n"
+	"%ld_arg_${var}_bc31 = OpBitcast %v2f16 %ld_arg_${var}_ld31\n"
+	"%ld_arg_${var}_vec0 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc00 %ld_arg_${var}_bc01 0 1 2\n"
+	"%ld_arg_${var}_vec1 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc10 %ld_arg_${var}_bc11 0 1 2\n"
+	"%ld_arg_${var}_vec2 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc20 %ld_arg_${var}_bc21 0 1 2\n"
+	"%ld_arg_${var}_vec3 = OpVectorShuffle %v3f16 %ld_arg_${var}_bc30 %ld_arg_${var}_bc31 0 1 2\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m4x3f16 %ld_arg_${var}_vec0 %ld_arg_${var}_vec1 %ld_arg_${var}_vec2 %ld_arg_${var}_vec3\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string loadM4x4F16FromUints =
+	"%ld_arg_${var} = OpFunction %m4x4f16 None %m4x4f16_i32_fn\n"
+	"%ld_arg_${var}_param = OpFunctionParameter %i32\n"
+	"%ld_arg_${var}_entry = OpLabel\n"
+	"%ld_arg_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_0\n"
+	"%ld_arg_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_1\n"
+	"%ld_arg_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_2\n"
+	"%ld_arg_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_3\n"
+	"%ld_arg_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_4\n"
+	"%ld_arg_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_5\n"
+	"%ld_arg_${var}_gep30 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_6\n"
+	"%ld_arg_${var}_gep31 = OpAccessChain %up_u32 %${var} %c_u32_0 %ld_arg_${var}_param %c_u32_7\n"
+	"%ld_arg_${var}_ld00 = OpLoad %u32 %ld_arg_${var}_gep00\n"
+	"%ld_arg_${var}_ld01 = OpLoad %u32 %ld_arg_${var}_gep01\n"
+	"%ld_arg_${var}_ld10 = OpLoad %u32 %ld_arg_${var}_gep10\n"
+	"%ld_arg_${var}_ld11 = OpLoad %u32 %ld_arg_${var}_gep11\n"
+	"%ld_arg_${var}_ld20 = OpLoad %u32 %ld_arg_${var}_gep20\n"
+	"%ld_arg_${var}_ld21 = OpLoad %u32 %ld_arg_${var}_gep21\n"
+	"%ld_arg_${var}_ld30 = OpLoad %u32 %ld_arg_${var}_gep30\n"
+	"%ld_arg_${var}_ld31 = OpLoad %u32 %ld_arg_${var}_gep31\n"
+	"%ld_arg_${var}_bc00 = OpBitcast %v2f16 %ld_arg_${var}_ld00\n"
+	"%ld_arg_${var}_bc01 = OpBitcast %v2f16 %ld_arg_${var}_ld01\n"
+	"%ld_arg_${var}_bc10 = OpBitcast %v2f16 %ld_arg_${var}_ld10\n"
+	"%ld_arg_${var}_bc11 = OpBitcast %v2f16 %ld_arg_${var}_ld11\n"
+	"%ld_arg_${var}_bc20 = OpBitcast %v2f16 %ld_arg_${var}_ld20\n"
+	"%ld_arg_${var}_bc21 = OpBitcast %v2f16 %ld_arg_${var}_ld21\n"
+	"%ld_arg_${var}_bc30 = OpBitcast %v2f16 %ld_arg_${var}_ld30\n"
+	"%ld_arg_${var}_bc31 = OpBitcast %v2f16 %ld_arg_${var}_ld31\n"
+	"%ld_arg_${var}_vec0 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc00 %ld_arg_${var}_bc01 0 1 2 3\n"
+	"%ld_arg_${var}_vec1 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc10 %ld_arg_${var}_bc11 0 1 2 3\n"
+	"%ld_arg_${var}_vec2 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc20 %ld_arg_${var}_bc21 0 1 2 3\n"
+	"%ld_arg_${var}_vec3 = OpVectorShuffle %v4f16 %ld_arg_${var}_bc30 %ld_arg_${var}_bc31 0 1 2 3\n"
+	"%ld_arg_${var}_mat = OpCompositeConstruct %m4x4f16 %ld_arg_${var}_vec0 %ld_arg_${var}_vec1 %ld_arg_${var}_vec2 %ld_arg_${var}_vec3\n"
+	"OpReturnValue %ld_arg_${var}_mat\n"
+	"OpFunctionEnd\n";
+
+const string storeScalarF16AsUint =
+	// This version is sensitive to the initial value in the output buffer.
+	// The infrastructure sets all output buffer bits to one before invoking
+	// the shader so this version uses an atomic and to generate the correct
+	// zeroes.
+	"%st_fn_${var} = OpFunction %void None %void_f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_and_low = OpBitwiseAnd %u32 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_zero_vec = OpBitcast %v2f16 %c_u32_0\n"
+	"%st_fn_${var}_insert = OpVectorInsertDynamic %v2f16 %st_fn_${var}_zero_vec %st_fn_${var}_param1 %st_fn_${var}_and_low\n"
+	"%st_fn_${var}_odd = OpIEqual %bool %st_fn_${var}_and_low %c_u32_1\n"
+	// Or 16 bits of ones into the half that was not populated with the result.
+	"%st_fn_${var}_sel = OpSelect %u32 %st_fn_${var}_odd %c_u32_low_ones %c_u32_high_ones\n"
+	"%st_fn_${var}_cast = OpBitcast %u32 %st_fn_${var}_insert\n"
+	"%st_fn_${var}_or = OpBitwiseOr %u32 %st_fn_${var}_cast %st_fn_${var}_sel\n"
+	"%st_fn_${var}_conv = OpBitcast %u32 %st_fn_${var}_param2\n"
+	"%st_fn_${var}_div = OpUDiv %u32 %st_fn_${var}_conv %c_u32_2\n"
+	"%st_fn_${var}_gep = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_div\n"
+	"%st_fn_${var}_and = OpAtomicAnd %u32 %st_fn_${var}_gep %c_u32_1 %c_u32_0 %st_fn_${var}_or\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeV2F16AsUint =
+	"%st_fn_${var} = OpFunction %void None %void_v2f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %v2f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_cast = OpBitcast %u32 %st_fn_${var}_param1\n"
+	"%st_fn_${var}_gep = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2\n"
+	"OpStore %st_fn_${var}_gep %st_fn_${var}_cast\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeV3F16AsUints =
+	// Since we allocate a vec4 worth of values, this case can be treated
+	// almost the same as a vec4 case. We will store some extra data that
+	// should not be compared.
+	"%st_fn_${var} = OpFunction %void None %void_v3f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %v3f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_shuffle0 = OpVectorShuffle %v2f16 %st_fn_${var}_param1 %st_fn_${var}_param1 0 1\n"
+	"%st_fn_${var}_shuffle1 = OpVectorShuffle %v2f16 %st_fn_${var}_param1 %st_fn_${var}_param1 2 3\n"
+	"%st_fn_${var}_bc0 = OpBitcast %u32 %st_fn_${var}_shuffle0\n"
+	"%st_fn_${var}_bc1 = OpBitcast %u32 %st_fn_${var}_shuffle1\n"
+	"%st_fn_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"OpStore %st_fn_${var}_gep0 %st_fn_${var}_bc0\n"
+	"OpStore %st_fn_${var}_gep1 %st_fn_${var}_bc1\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeV4F16AsUints =
+	"%st_fn_${var} = OpFunction %void None %void_v4f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %v4f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_shuffle0 = OpVectorShuffle %v2f16 %st_fn_${var}_param1 %st_fn_${var}_param1 0 1\n"
+	"%st_fn_${var}_shuffle1 = OpVectorShuffle %v2f16 %st_fn_${var}_param1 %st_fn_${var}_param1 2 3\n"
+	"%st_fn_${var}_bc0 = OpBitcast %u32 %st_fn_${var}_shuffle0\n"
+	"%st_fn_${var}_bc1 = OpBitcast %u32 %st_fn_${var}_shuffle1\n"
+	"%st_fn_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"OpStore %st_fn_${var}_gep0 %st_fn_${var}_bc0\n"
+	"OpStore %st_fn_${var}_gep1 %st_fn_${var}_bc1\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM2x2F16AsUints =
+	"%st_fn_${var} = OpFunction %void None %void_m2x2f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m2x2f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_bc0 = OpBitcast %u32 %st_fn_${var}_ex0\n"
+	"%st_fn_${var}_bc1 = OpBitcast %u32 %st_fn_${var}_ex1\n"
+	"%st_fn_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"OpStore %st_fn_${var}_gep0 %st_fn_${var}_bc0\n"
+	"OpStore %st_fn_${var}_gep1 %st_fn_${var}_bc1\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM2x3F16AsUints =
+	// In the extracted elements for 01 and 11 the second element doesn't
+	// matter.
+	"%st_fn_${var} = OpFunction %void None %void_m2x3f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m2x3f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ele00 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 0 1\n"
+	"%st_fn_${var}_ele01 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 2 3\n"
+	"%st_fn_${var}_ele10 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 0 1\n"
+	"%st_fn_${var}_ele11 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 2 3\n"
+	"%st_fn_${var}_bc00 = OpBitcast %u32 %st_fn_${var}_ele00\n"
+	"%st_fn_${var}_bc01 = OpBitcast %u32 %st_fn_${var}_ele01\n"
+	"%st_fn_${var}_bc10 = OpBitcast %u32 %st_fn_${var}_ele10\n"
+	"%st_fn_${var}_bc11 = OpBitcast %u32 %st_fn_${var}_ele11\n"
+	"%st_fn_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"%st_fn_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_3\n"
+	"OpStore %st_fn_${var}_gep00 %st_fn_${var}_bc00\n"
+	"OpStore %st_fn_${var}_gep01 %st_fn_${var}_bc01\n"
+	"OpStore %st_fn_${var}_gep10 %st_fn_${var}_bc10\n"
+	"OpStore %st_fn_${var}_gep11 %st_fn_${var}_bc11\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM2x4F16AsUints =
+	"%st_fn_${var} = OpFunction %void None %void_m2x4f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m2x4f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ele00 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 0 1\n"
+	"%st_fn_${var}_ele01 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 2 3\n"
+	"%st_fn_${var}_ele10 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 0 1\n"
+	"%st_fn_${var}_ele11 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 2 3\n"
+	"%st_fn_${var}_bc00 = OpBitcast %u32 %st_fn_${var}_ele00\n"
+	"%st_fn_${var}_bc01 = OpBitcast %u32 %st_fn_${var}_ele01\n"
+	"%st_fn_${var}_bc10 = OpBitcast %u32 %st_fn_${var}_ele10\n"
+	"%st_fn_${var}_bc11 = OpBitcast %u32 %st_fn_${var}_ele11\n"
+	"%st_fn_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"%st_fn_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_3\n"
+	"OpStore %st_fn_${var}_gep00 %st_fn_${var}_bc00\n"
+	"OpStore %st_fn_${var}_gep01 %st_fn_${var}_bc01\n"
+	"OpStore %st_fn_${var}_gep10 %st_fn_${var}_bc10\n"
+	"OpStore %st_fn_${var}_gep11 %st_fn_${var}_bc11\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM3x2F16AsUints =
+	"%st_fn_${var} = OpFunction %void None %void_m3x2f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m3x2f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ex2 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 2\n"
+	"%st_fn_${var}_bc0 = OpBitcast %u32 %st_fn_${var}_ex0\n"
+	"%st_fn_${var}_bc1 = OpBitcast %u32 %st_fn_${var}_ex1\n"
+	"%st_fn_${var}_bc2 = OpBitcast %u32 %st_fn_${var}_ex2\n"
+	"%st_fn_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep2 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"OpStore %st_fn_${var}_gep0 %st_fn_${var}_bc0\n"
+	"OpStore %st_fn_${var}_gep1 %st_fn_${var}_bc1\n"
+	"OpStore %st_fn_${var}_gep2 %st_fn_${var}_bc2\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM3x3F16AsUints =
+	// The second element of the each broken down vec3 doesn't matter.
+	"%st_fn_${var} = OpFunction %void None %void_m3x3f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m3x3f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ex2 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 2\n"
+	"%st_fn_${var}_ele00 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 0 1\n"
+	"%st_fn_${var}_ele01 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 2 3\n"
+	"%st_fn_${var}_ele10 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 0 1\n"
+	"%st_fn_${var}_ele11 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 2 3\n"
+	"%st_fn_${var}_ele20 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 0 1\n"
+	"%st_fn_${var}_ele21 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 2 3\n"
+	"%st_fn_${var}_bc00 = OpBitcast %u32 %st_fn_${var}_ele00\n"
+	"%st_fn_${var}_bc01 = OpBitcast %u32 %st_fn_${var}_ele01\n"
+	"%st_fn_${var}_bc10 = OpBitcast %u32 %st_fn_${var}_ele10\n"
+	"%st_fn_${var}_bc11 = OpBitcast %u32 %st_fn_${var}_ele11\n"
+	"%st_fn_${var}_bc20 = OpBitcast %u32 %st_fn_${var}_ele20\n"
+	"%st_fn_${var}_bc21 = OpBitcast %u32 %st_fn_${var}_ele21\n"
+	"%st_fn_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"%st_fn_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_3\n"
+	"%st_fn_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_4\n"
+	"%st_fn_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_5\n"
+	"OpStore %st_fn_${var}_gep00 %st_fn_${var}_bc00\n"
+	"OpStore %st_fn_${var}_gep01 %st_fn_${var}_bc01\n"
+	"OpStore %st_fn_${var}_gep10 %st_fn_${var}_bc10\n"
+	"OpStore %st_fn_${var}_gep11 %st_fn_${var}_bc11\n"
+	"OpStore %st_fn_${var}_gep20 %st_fn_${var}_bc20\n"
+	"OpStore %st_fn_${var}_gep21 %st_fn_${var}_bc21\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM3x4F16AsUints =
+	"%st_fn_${var} = OpFunction %void None %void_m3x4f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m3x4f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ex2 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 2\n"
+	"%st_fn_${var}_ele00 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 0 1\n"
+	"%st_fn_${var}_ele01 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 2 3\n"
+	"%st_fn_${var}_ele10 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 0 1\n"
+	"%st_fn_${var}_ele11 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 2 3\n"
+	"%st_fn_${var}_ele20 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 0 1\n"
+	"%st_fn_${var}_ele21 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 2 3\n"
+	"%st_fn_${var}_bc00 = OpBitcast %u32 %st_fn_${var}_ele00\n"
+	"%st_fn_${var}_bc01 = OpBitcast %u32 %st_fn_${var}_ele01\n"
+	"%st_fn_${var}_bc10 = OpBitcast %u32 %st_fn_${var}_ele10\n"
+	"%st_fn_${var}_bc11 = OpBitcast %u32 %st_fn_${var}_ele11\n"
+	"%st_fn_${var}_bc20 = OpBitcast %u32 %st_fn_${var}_ele20\n"
+	"%st_fn_${var}_bc21 = OpBitcast %u32 %st_fn_${var}_ele21\n"
+	"%st_fn_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"%st_fn_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_3\n"
+	"%st_fn_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_4\n"
+	"%st_fn_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_5\n"
+	"OpStore %st_fn_${var}_gep00 %st_fn_${var}_bc00\n"
+	"OpStore %st_fn_${var}_gep01 %st_fn_${var}_bc01\n"
+	"OpStore %st_fn_${var}_gep10 %st_fn_${var}_bc10\n"
+	"OpStore %st_fn_${var}_gep11 %st_fn_${var}_bc11\n"
+	"OpStore %st_fn_${var}_gep20 %st_fn_${var}_bc20\n"
+	"OpStore %st_fn_${var}_gep21 %st_fn_${var}_bc21\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM4x2F16AsUints =
+	"%st_fn_${var} = OpFunction %void None %void_m4x2f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m4x2f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ex2 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 2\n"
+	"%st_fn_${var}_ex3 = OpCompositeExtract %v2f16 %st_fn_${var}_param1 3\n"
+	"%st_fn_${var}_bc0 = OpBitcast %u32 %st_fn_${var}_ex0\n"
+	"%st_fn_${var}_bc1 = OpBitcast %u32 %st_fn_${var}_ex1\n"
+	"%st_fn_${var}_bc2 = OpBitcast %u32 %st_fn_${var}_ex2\n"
+	"%st_fn_${var}_bc3 = OpBitcast %u32 %st_fn_${var}_ex3\n"
+	"%st_fn_${var}_gep0 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep1 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep2 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"%st_fn_${var}_gep3 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_3\n"
+	"OpStore %st_fn_${var}_gep0 %st_fn_${var}_bc0\n"
+	"OpStore %st_fn_${var}_gep1 %st_fn_${var}_bc1\n"
+	"OpStore %st_fn_${var}_gep2 %st_fn_${var}_bc2\n"
+	"OpStore %st_fn_${var}_gep3 %st_fn_${var}_bc3\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM4x3F16AsUints =
+	// The last element of each decomposed vec3 doesn't matter.
+	"%st_fn_${var} = OpFunction %void None %void_m4x3f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m4x3f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ex2 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 2\n"
+	"%st_fn_${var}_ex3 = OpCompositeExtract %v3f16 %st_fn_${var}_param1 3\n"
+	"%st_fn_${var}_ele00 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 0 1\n"
+	"%st_fn_${var}_ele01 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 2 3\n"
+	"%st_fn_${var}_ele10 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 0 1\n"
+	"%st_fn_${var}_ele11 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 2 3\n"
+	"%st_fn_${var}_ele20 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 0 1\n"
+	"%st_fn_${var}_ele21 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 2 3\n"
+	"%st_fn_${var}_ele30 = OpVectorShuffle %v2f16 %st_fn_${var}_ex3 %st_fn_${var}_ex3 0 1\n"
+	"%st_fn_${var}_ele31 = OpVectorShuffle %v2f16 %st_fn_${var}_ex3 %st_fn_${var}_ex3 2 3\n"
+	"%st_fn_${var}_bc00 = OpBitcast %u32 %st_fn_${var}_ele00\n"
+	"%st_fn_${var}_bc01 = OpBitcast %u32 %st_fn_${var}_ele01\n"
+	"%st_fn_${var}_bc10 = OpBitcast %u32 %st_fn_${var}_ele10\n"
+	"%st_fn_${var}_bc11 = OpBitcast %u32 %st_fn_${var}_ele11\n"
+	"%st_fn_${var}_bc20 = OpBitcast %u32 %st_fn_${var}_ele20\n"
+	"%st_fn_${var}_bc21 = OpBitcast %u32 %st_fn_${var}_ele21\n"
+	"%st_fn_${var}_bc30 = OpBitcast %u32 %st_fn_${var}_ele30\n"
+	"%st_fn_${var}_bc31 = OpBitcast %u32 %st_fn_${var}_ele31\n"
+	"%st_fn_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"%st_fn_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_3\n"
+	"%st_fn_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_4\n"
+	"%st_fn_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_5\n"
+	"%st_fn_${var}_gep30 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_6\n"
+	"%st_fn_${var}_gep31 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_7\n"
+	"OpStore %st_fn_${var}_gep00 %st_fn_${var}_bc00\n"
+	"OpStore %st_fn_${var}_gep01 %st_fn_${var}_bc01\n"
+	"OpStore %st_fn_${var}_gep10 %st_fn_${var}_bc10\n"
+	"OpStore %st_fn_${var}_gep11 %st_fn_${var}_bc11\n"
+	"OpStore %st_fn_${var}_gep20 %st_fn_${var}_bc20\n"
+	"OpStore %st_fn_${var}_gep21 %st_fn_${var}_bc21\n"
+	"OpStore %st_fn_${var}_gep30 %st_fn_${var}_bc30\n"
+	"OpStore %st_fn_${var}_gep31 %st_fn_${var}_bc31\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
+const string storeM4x4F16AsUints =
+	"%st_fn_${var} = OpFunction %void None %void_m4x4f16_i32_fn\n"
+	"%st_fn_${var}_param1 = OpFunctionParameter %m4x4f16\n"
+	"%st_fn_${var}_param2 = OpFunctionParameter %i32\n"
+	"%st_fn_${var}_entry = OpLabel\n"
+	"%st_fn_${var}_ex0 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 0\n"
+	"%st_fn_${var}_ex1 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 1\n"
+	"%st_fn_${var}_ex2 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 2\n"
+	"%st_fn_${var}_ex3 = OpCompositeExtract %v4f16 %st_fn_${var}_param1 3\n"
+	"%st_fn_${var}_ele00 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 0 1\n"
+	"%st_fn_${var}_ele01 = OpVectorShuffle %v2f16 %st_fn_${var}_ex0 %st_fn_${var}_ex0 2 3\n"
+	"%st_fn_${var}_ele10 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 0 1\n"
+	"%st_fn_${var}_ele11 = OpVectorShuffle %v2f16 %st_fn_${var}_ex1 %st_fn_${var}_ex1 2 3\n"
+	"%st_fn_${var}_ele20 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 0 1\n"
+	"%st_fn_${var}_ele21 = OpVectorShuffle %v2f16 %st_fn_${var}_ex2 %st_fn_${var}_ex2 2 3\n"
+	"%st_fn_${var}_ele30 = OpVectorShuffle %v2f16 %st_fn_${var}_ex3 %st_fn_${var}_ex3 0 1\n"
+	"%st_fn_${var}_ele31 = OpVectorShuffle %v2f16 %st_fn_${var}_ex3 %st_fn_${var}_ex3 2 3\n"
+	"%st_fn_${var}_bc00 = OpBitcast %u32 %st_fn_${var}_ele00\n"
+	"%st_fn_${var}_bc01 = OpBitcast %u32 %st_fn_${var}_ele01\n"
+	"%st_fn_${var}_bc10 = OpBitcast %u32 %st_fn_${var}_ele10\n"
+	"%st_fn_${var}_bc11 = OpBitcast %u32 %st_fn_${var}_ele11\n"
+	"%st_fn_${var}_bc20 = OpBitcast %u32 %st_fn_${var}_ele20\n"
+	"%st_fn_${var}_bc21 = OpBitcast %u32 %st_fn_${var}_ele21\n"
+	"%st_fn_${var}_bc30 = OpBitcast %u32 %st_fn_${var}_ele30\n"
+	"%st_fn_${var}_bc31 = OpBitcast %u32 %st_fn_${var}_ele31\n"
+	"%st_fn_${var}_gep00 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_0\n"
+	"%st_fn_${var}_gep01 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_1\n"
+	"%st_fn_${var}_gep10 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_2\n"
+	"%st_fn_${var}_gep11 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_3\n"
+	"%st_fn_${var}_gep20 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_4\n"
+	"%st_fn_${var}_gep21 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_5\n"
+	"%st_fn_${var}_gep30 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_6\n"
+	"%st_fn_${var}_gep31 = OpAccessChain %up_u32 %${var} %c_u32_0 %st_fn_${var}_param2 %c_u32_7\n"
+	"OpStore %st_fn_${var}_gep00 %st_fn_${var}_bc00\n"
+	"OpStore %st_fn_${var}_gep01 %st_fn_${var}_bc01\n"
+	"OpStore %st_fn_${var}_gep10 %st_fn_${var}_bc10\n"
+	"OpStore %st_fn_${var}_gep11 %st_fn_${var}_bc11\n"
+	"OpStore %st_fn_${var}_gep20 %st_fn_${var}_bc20\n"
+	"OpStore %st_fn_${var}_gep21 %st_fn_${var}_bc21\n"
+	"OpStore %st_fn_${var}_gep30 %st_fn_${var}_bc30\n"
+	"OpStore %st_fn_${var}_gep31 %st_fn_${var}_bc31\n"
+	"OpReturn\n"
+	"OpFunctionEnd\n";
+
 template<typename T>
 static void fillRandomScalars (de::Random& rnd, T minValue, T maxValue, void* dst, int numValues, int offset = 0)
 {
 	T* const typedPtr = (T*)dst;
 	for (int ndx = 0; ndx < numValues; ndx++)
-		typedPtr[offset + ndx] = randomScalar<T>(rnd, minValue, maxValue);
+		typedPtr[offset + ndx] = de::randomScalar<T>(rnd, minValue, maxValue);
 }
 
 // Filter is a function that returns true if a value should pass, false otherwise.
@@ -122,7 +753,7 @@ static void fillRandomScalars (de::Random& rnd, T minValue, T maxValue, void* ds
 	for (int ndx = 0; ndx < numValues; ndx++)
 	{
 		do
-			value = randomScalar<T>(rnd, minValue, maxValue);
+			value = de::randomScalar<T>(rnd, minValue, maxValue);
 		while (!filter(value));
 
 		typedPtr[offset + ndx] = value;
@@ -377,6 +1008,128 @@ tcu::TestCaseGroup* createOpNopGroup (tcu::TestContext& testCtx)
 	return group.release();
 }
 
+tcu::TestCaseGroup* createUnusedVariableComputeTests (tcu::TestContext& testCtx)
+{
+	de::MovePtr<tcu::TestCaseGroup>	group			(new tcu::TestCaseGroup(testCtx, "unused_variables", "Compute shaders with unused variables"));
+	de::Random						rnd				(deStringHash(group->getName()));
+	const int						numElements		= 100;
+	vector<float>					positiveFloats	(numElements, 0);
+	vector<float>					negativeFloats	(numElements, 0);
+
+	fillRandomScalars(rnd, 1.f, 100.f, &positiveFloats[0], numElements);
+
+	for (size_t ndx = 0; ndx < numElements; ++ndx)
+		negativeFloats[ndx] = -positiveFloats[ndx];
+
+	const VariableLocation			testLocations[] =
+	{
+		// Set		Binding
+		{ 0,		5			},
+		{ 5,		5			},
+	};
+
+	for (size_t locationNdx = 0; locationNdx < DE_LENGTH_OF_ARRAY(testLocations); ++locationNdx)
+	{
+		const VariableLocation& location = testLocations[locationNdx];
+
+		// Unused variable.
+		{
+			ComputeShaderSpec				spec;
+
+			spec.assembly =
+				string(getComputeAsmShaderPreamble()) +
+
+				"OpDecorate %id BuiltIn GlobalInvocationId\n"
+
+				+ getUnusedDecorations(location)
+
+				+ string(getComputeAsmInputOutputBufferTraits()) + string(getComputeAsmCommonTypes())
+
+				+ getUnusedTypesAndConstants()
+
+				+ string(getComputeAsmInputOutputBuffer())
+
+				+ getUnusedBuffer() +
+
+				"%id        = OpVariable %uvec3ptr Input\n"
+				"%zero      = OpConstant %i32 0\n"
+
+				"%main      = OpFunction %void None %voidf\n"
+				"%label     = OpLabel\n"
+				"%idval     = OpLoad %uvec3 %id\n"
+				"%x         = OpCompositeExtract %u32 %idval 0\n"
+
+				"%inloc     = OpAccessChain %f32ptr %indata %zero %x\n"
+				"%inval     = OpLoad %f32 %inloc\n"
+				"%neg       = OpFNegate %f32 %inval\n"
+				"%outloc    = OpAccessChain %f32ptr %outdata %zero %x\n"
+				"             OpStore %outloc %neg\n"
+				"             OpReturn\n"
+				"             OpFunctionEnd\n";
+			spec.inputs.push_back(BufferSp(new Float32Buffer(positiveFloats)));
+			spec.outputs.push_back(BufferSp(new Float32Buffer(negativeFloats)));
+			spec.numWorkGroups = IVec3(numElements, 1, 1);
+
+			std::string testName		= "variable_" + location.toString();
+			std::string testDescription	= "Unused variable test with " + location.toDescription();
+
+			group->addChild(new SpvAsmComputeShaderCase(testCtx, testName.c_str(), testDescription.c_str(), spec));
+		}
+
+		// Unused function.
+		{
+			ComputeShaderSpec				spec;
+
+			spec.assembly =
+				string(getComputeAsmShaderPreamble("", "", "", getUnusedEntryPoint())) +
+
+				"OpDecorate %id BuiltIn GlobalInvocationId\n"
+
+				+ getUnusedDecorations(location)
+
+				+ string(getComputeAsmInputOutputBufferTraits()) + string(getComputeAsmCommonTypes())
+
+				+ getUnusedTypesAndConstants() +
+
+				"%c_i32_0 = OpConstant %i32 0\n"
+				"%c_i32_1 = OpConstant %i32 1\n"
+
+				+ string(getComputeAsmInputOutputBuffer())
+
+				+ getUnusedBuffer() +
+
+				"%id        = OpVariable %uvec3ptr Input\n"
+				"%zero      = OpConstant %i32 0\n"
+
+				"%main      = OpFunction %void None %voidf\n"
+				"%label     = OpLabel\n"
+				"%idval     = OpLoad %uvec3 %id\n"
+				"%x         = OpCompositeExtract %u32 %idval 0\n"
+
+				"%inloc     = OpAccessChain %f32ptr %indata %zero %x\n"
+				"%inval     = OpLoad %f32 %inloc\n"
+				"%neg       = OpFNegate %f32 %inval\n"
+				"%outloc    = OpAccessChain %f32ptr %outdata %zero %x\n"
+				"             OpStore %outloc %neg\n"
+				"             OpReturn\n"
+				"             OpFunctionEnd\n"
+
+				+ getUnusedFunctionBody();
+
+			spec.inputs.push_back(BufferSp(new Float32Buffer(positiveFloats)));
+			spec.outputs.push_back(BufferSp(new Float32Buffer(negativeFloats)));
+			spec.numWorkGroups = IVec3(numElements, 1, 1);
+
+			std::string testName		= "function_" + location.toString();
+			std::string testDescription	= "Unused function test with " + location.toDescription();
+
+			group->addChild(new SpvAsmComputeShaderCase(testCtx, testName.c_str(), testDescription.c_str(), spec));
+		}
+	}
+
+	return group.release();
+}
+
 template<bool nanSupported>
 bool compareFUnord (const std::vector<Resource>& inputs, const vector<AllocationSp>& outputAllocs, const std::vector<Resource>& expectedOutputs, TestLog& log)
 {
@@ -431,17 +1184,17 @@ do { \
 	cases.push_back(OpFUnordCase(#NAME, OPCODE, compare_##NAME::compare)); \
 } while (deGetFalse())
 
-tcu::TestCaseGroup* createOpFUnordGroup (tcu::TestContext& testCtx, const bool nanSupported)
+tcu::TestCaseGroup* createOpFUnordGroup (tcu::TestContext& testCtx, const bool testWithNan)
 {
-	const string					nan				= nanSupported ? "_nan" : "";
+	const string					nan				= testWithNan ? "_nan" : "";
 	const string					groupName		= "opfunord" + nan;
 	de::MovePtr<tcu::TestCaseGroup>	group			(new tcu::TestCaseGroup(testCtx, groupName.c_str(), "Test the OpFUnord* opcodes"));
 	de::Random						rnd				(deStringHash(group->getName()));
 	const int						numElements		= 100;
 	vector<OpFUnordCase>			cases;
-	string							extensions		= nanSupported ? "OpExtension \"SPV_KHR_float_controls\"\n" : "";
-	string							capabilities	= nanSupported ? "OpCapability SignedZeroInfNanPreserve\n" : "";
-	string                          exeModes        = nanSupported ? "OpExecutionMode %main SignedZeroInfNanPreserve 32\n" : "";
+	string							extensions		= testWithNan ? "OpExtension \"SPV_KHR_float_controls\"\n" : "";
+	string							capabilities	= testWithNan ? "OpCapability SignedZeroInfNanPreserve\n" : "";
+	string							exeModes		= testWithNan ? "OpExecutionMode %main SignedZeroInfNanPreserve 32\n" : "";
 	const StringTemplate			shaderTemplate	(
 		string(getComputeAsmShaderPreamble(capabilities, extensions, exeModes)) +
 		"OpSource GLSL 430\n"
@@ -534,13 +1287,15 @@ tcu::TestCaseGroup* createOpFUnordGroup (tcu::TestContext& testCtx, const bool n
 		spec.inputs.push_back(BufferSp(new Float32Buffer(inputFloats1)));
 		spec.inputs.push_back(BufferSp(new Float32Buffer(inputFloats2)));
 		spec.outputs.push_back(BufferSp(new Int32Buffer(expectedInts)));
-		spec.numWorkGroups = IVec3(numElements, 1, 1);
-		spec.verifyIO = nanSupported ? &compareFUnord<true> : &compareFUnord<false>;
-		if (nanSupported)
+		spec.numWorkGroups	= IVec3(numElements, 1, 1);
+		spec.verifyIO		= testWithNan ? &compareFUnord<true> : &compareFUnord<false>;
+
+		if (testWithNan)
 		{
 			spec.extensions.push_back("VK_KHR_shader_float_controls");
 			spec.requestedVulkanFeatures.floatControlsProperties.shaderSignedZeroInfNanPreserveFloat32 = DE_TRUE;
 		}
+
 		group->addChild(new SpvAsmComputeShaderCase(testCtx, cases[caseNdx].name, cases[caseNdx].name, spec));
 	}
 
@@ -563,21 +1318,25 @@ struct OpAtomicCase
 						, numOutputElements	(_numOutputElements) {}
 };
 
-tcu::TestCaseGroup* createOpAtomicGroup (tcu::TestContext& testCtx, bool useStorageBuffer, int numElements = 65535, bool verifyReturnValues = false)
+tcu::TestCaseGroup* createOpAtomicGroup (tcu::TestContext& testCtx, bool useStorageBuffer, int numElements = 65535, bool verifyReturnValues = false, bool volatileAtomic = false)
 {
 	std::string						groupName			("opatomic");
 	if (useStorageBuffer)
 		groupName += "_storage_buffer";
 	if (verifyReturnValues)
 		groupName += "_return_values";
+	if (volatileAtomic)
+		groupName += "_volatile";
 	de::MovePtr<tcu::TestCaseGroup>	group				(new tcu::TestCaseGroup(testCtx, groupName.c_str(), "Test the OpAtomic* opcodes"));
 	vector<OpAtomicCase>			cases;
 
 	const StringTemplate			shaderTemplate	(
 
 		string("OpCapability Shader\n") +
+		(volatileAtomic ? "OpCapability VulkanMemoryModelKHR\n" : "") +
 		(useStorageBuffer ? "OpExtension \"SPV_KHR_storage_buffer_storage_class\"\n" : "") +
-		"OpMemoryModel Logical GLSL450\n"
+		(volatileAtomic ? "OpExtension \"SPV_KHR_vulkan_memory_model\"\n" : "") +
+		(volatileAtomic ? "OpMemoryModel Logical VulkanKHR\n" : "OpMemoryModel Logical GLSL450\n") +
 		"OpEntryPoint GLCompute %main \"main\" %id\n"
 		"OpExecutionMode %main LocalSize 1 1 1\n" +
 
@@ -596,7 +1355,6 @@ tcu::TestCaseGroup* createOpAtomicGroup (tcu::TestContext& testCtx, bool useStor
 		"OpDecorate %sumbuf ${BLOCK_DECORATION}\n"
 		"OpDecorate %sum DescriptorSet 0\n"
 		"OpDecorate %sum Binding 1\n"
-		"OpMemberDecorate %sumbuf 0 Coherent\n"
 		"OpMemberDecorate %sumbuf 0 Offset 0\n"
 
 		"${RETVAL_BUF_DECORATE}"
@@ -618,6 +1376,8 @@ tcu::TestCaseGroup* createOpAtomicGroup (tcu::TestContext& testCtx, bool useStor
 		"%zero      = OpConstant %i32 0\n"
 		"%one       = OpConstant %u32 1\n"
 		"%two       = OpConstant %i32 2\n"
+		"%five      = OpConstant %i32 5\n"
+		"%volbit    = OpConstant %i32 32768\n"
 
 		"%main      = OpFunction %void None %voidf\n"
 		"%label     = OpLabel\n"
@@ -642,24 +1402,24 @@ tcu::TestCaseGroup* createOpAtomicGroup (tcu::TestContext& testCtx, bool useStor
 	#define ADD_OPATOMIC_CASE_1(NAME, ASSEMBLY, RETVAL_ASSEMBLY, OPATOMIC) ADD_OPATOMIC_CASE(NAME, ASSEMBLY, RETVAL_ASSEMBLY, OPATOMIC, 1)
 	#define ADD_OPATOMIC_CASE_N(NAME, ASSEMBLY, RETVAL_ASSEMBLY, OPATOMIC) ADD_OPATOMIC_CASE(NAME, ASSEMBLY, RETVAL_ASSEMBLY, OPATOMIC, numElements)
 
-	ADD_OPATOMIC_CASE_1(iadd,	"%retv      = OpAtomicIAdd %i32 %outloc %one %zero %inval\n",
+	ADD_OPATOMIC_CASE_1(iadd,	"%retv      = OpAtomicIAdd %i32 %outloc ${SCOPE} ${SEMANTICS} %inval\n",
 								"             OpStore %retloc %retv\n", OPATOMIC_IADD );
-	ADD_OPATOMIC_CASE_1(isub,	"%retv      = OpAtomicISub %i32 %outloc %one %zero %inval\n",
+	ADD_OPATOMIC_CASE_1(isub,	"%retv      = OpAtomicISub %i32 %outloc ${SCOPE} ${SEMANTICS} %inval\n",
 								"             OpStore %retloc %retv\n", OPATOMIC_ISUB );
-	ADD_OPATOMIC_CASE_1(iinc,	"%retv      = OpAtomicIIncrement %i32 %outloc %one %zero\n",
+	ADD_OPATOMIC_CASE_1(iinc,	"%retv      = OpAtomicIIncrement %i32 %outloc ${SCOPE} ${SEMANTICS}\n",
 								"             OpStore %retloc %retv\n", OPATOMIC_IINC );
-	ADD_OPATOMIC_CASE_1(idec,	"%retv      = OpAtomicIDecrement %i32 %outloc %one %zero\n",
+	ADD_OPATOMIC_CASE_1(idec,	"%retv      = OpAtomicIDecrement %i32 %outloc ${SCOPE} ${SEMANTICS}\n",
 								"             OpStore %retloc %retv\n", OPATOMIC_IDEC );
 	if (!verifyReturnValues)
 	{
-		ADD_OPATOMIC_CASE_N(load,	"%inval2    = OpAtomicLoad %i32 %inloc %one %zero\n"
+		ADD_OPATOMIC_CASE_N(load,	"%inval2    = OpAtomicLoad %i32 %inloc ${SCOPE} ${SEMANTICS}\n"
 									"             OpStore %outloc %inval2\n", "", OPATOMIC_LOAD );
-		ADD_OPATOMIC_CASE_N(store,	"             OpAtomicStore %outloc %one %zero %inval\n", "", OPATOMIC_STORE );
+		ADD_OPATOMIC_CASE_N(store,	"             OpAtomicStore %outloc ${SCOPE} ${SEMANTICS} %inval\n", "", OPATOMIC_STORE );
 	}
 
 	ADD_OPATOMIC_CASE_N(compex, "%even      = OpSMod %i32 %inval %two\n"
 								"             OpStore %outloc %even\n"
-								"%retv      = OpAtomicCompareExchange %i32 %outloc %one %zero %zero %minusone %zero\n",
+								"%retv      = OpAtomicCompareExchange %i32 %outloc ${SCOPE} ${SEMANTICS} ${SEMANTICS} %minusone %zero\n",
 								"			  OpStore %retloc %retv\n", OPATOMIC_COMPEX );
 
 
@@ -674,6 +1434,21 @@ tcu::TestCaseGroup* createOpAtomicGroup (tcu::TestContext& testCtx, bool useStor
 		vector<deInt32>				inputInts		(numElements, 0);
 		vector<deInt32>				expected		(cases[caseNdx].numOutputElements, -1);
 
+		if (volatileAtomic)
+		{
+			spec.extensions.push_back("VK_KHR_vulkan_memory_model");
+			spec.requestedVulkanFeatures.extVulkanMemoryModel = EXTVULKANMEMORYMODELFEATURES_ENABLE;
+
+			// volatile, queuefamily scope
+			specializations["SEMANTICS"] = "%volbit";
+			specializations["SCOPE"] = "%five";
+		}
+		else
+		{
+			// non-volatile, device scope
+			specializations["SEMANTICS"] = "%zero";
+			specializations["SCOPE"] = "%one";
+		}
 		specializations["INDEX"]				= (cases[caseNdx].numOutputElements == 1) ? "%zero" : "%x";
 		specializations["INSTRUCTION"]			= cases[caseNdx].assembly;
 		specializations["BLOCK_DECORATION"]		= useStorageBuffer ? "Block" : "BufferBlock";
@@ -709,6 +1484,10 @@ tcu::TestCaseGroup* createOpAtomicGroup (tcu::TestContext& testCtx, bool useStor
 		}
 
 		spec.assembly							= shaderTemplate.specialize(specializations);
+
+		// Specialize one more time, to catch things that were in a template parameter
+		const StringTemplate					assemblyTemplate(spec.assembly);
+		spec.assembly							= assemblyTemplate.specialize(specializations);
 
 		if (useStorageBuffer)
 			spec.extensions.push_back("VK_KHR_storage_buffer_storage_class");
@@ -2982,6 +3761,7 @@ void createOpPhiVartypeTests (de::MovePtr<tcu::TestCaseGroup>& group, tcu::TestC
 	specFloat16.assembly =
 		"OpCapability Shader\n"
 		"OpCapability StorageUniformBufferBlock16\n"
+		"OpCapability Float16\n"
 		"OpExtension \"SPV_KHR_16bit_storage\"\n"
 		"OpMemoryModel Logical GLSL450\n"
 		"OpEntryPoint GLCompute %main \"main\" %id\n"
@@ -3014,9 +3794,9 @@ void createOpPhiVartypeTests (de::MovePtr<tcu::TestCaseGroup>& group, tcu::TestC
 
 		"%id       = OpVariable %uvec3ptr Input\n"
 		"%zero     = OpConstant %i32 0\n"
-		"%float_0  = OpConstant %f16 0.0\n"
-		"%float_1  = OpConstant %f16 1.0\n"
-		"%float_n1 = OpConstant %f16 -1.0\n"
+		"%float_0  = OpConstant %f32 0.0\n"
+		"%float_1  = OpConstant %f32 1.0\n"
+		"%float_n1 = OpConstant %f32 -1.0\n"
 
 		"%main     = OpFunction %void None %voidf\n"
 		"%entry    = OpLabel\n"
@@ -3024,8 +3804,9 @@ void createOpPhiVartypeTests (de::MovePtr<tcu::TestCaseGroup>& group, tcu::TestC
 		"%x        = OpCompositeExtract %u32 %idval 0\n"
 		"%inloc    = OpAccessChain %f16ptr %indata %zero %x\n"
 		"%inval    = OpLoad %f16 %inloc\n"
+		"%f32_inval = OpFConvert %f32 %inval\n"
 
-		"%comp     = OpFOrdGreaterThan %bool %inval %float_0\n"
+		"%comp     = OpFOrdGreaterThan %bool %f32_inval %float_0\n"
 		"            OpSelectionMerge %cm None\n"
 		"            OpBranchConditional %comp %tb %fb\n"
 		"%tb       = OpLabel\n"
@@ -3033,10 +3814,11 @@ void createOpPhiVartypeTests (de::MovePtr<tcu::TestCaseGroup>& group, tcu::TestC
 		"%fb       = OpLabel\n"
 		"            OpBranch %cm\n"
 		"%cm       = OpLabel\n"
-		"%res      = OpPhi %f16 %float_1 %tb %float_n1 %fb\n"
+		"%res      = OpPhi %f32 %float_1 %tb %float_n1 %fb\n"
+		"%f16_res  = OpFConvert %f16 %res\n"
 
 		"%outloc   = OpAccessChain %f16ptr %outdata %zero %x\n"
-		"            OpStore %outloc %res\n"
+		"            OpStore %outloc %f16_res\n"
 		"            OpReturn\n"
 
 		"            OpFunctionEnd\n";
@@ -5992,10 +6774,8 @@ tcu::TestCaseGroup* createFloat16OpConstantCompositeGroup (tcu::TestContext& tes
 		spec.outputs.push_back(BufferSp(new Float32Buffer(negativeFloats)));
 		spec.numWorkGroups = IVec3(numElements, 1, 1);
 
-		spec.extensions.push_back("VK_KHR_16bit_storage");
 		spec.extensions.push_back("VK_KHR_shader_float16_int8");
 
-		spec.requestedVulkanFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 		spec.requestedVulkanFeatures.extFloat16Int8 = EXTFLOAT16INT8FEATURES_FLOAT16;
 
 		group->addChild(new SpvAsmComputeShaderCase(testCtx, cases[caseNdx].name, cases[caseNdx].name, spec));
@@ -6784,7 +7564,7 @@ tcu::TestCaseGroup* createSwitchBlockOrderTests(tcu::TestContext& testCtx)
 		"%loop      = OpLabel\n"
 		"%ival      = OpLoad %i32 %iptr\n"
 		"%lt_4      = OpSLessThan %bool %ival %c_i32_4\n"
-		"             OpLoopMerge %exit %switch_exit None\n"
+		"             OpLoopMerge %exit %cont None\n"
 		"             OpBranchConditional %lt_4 %switch_entry %exit\n"
 
 		// Merge block for loop.
@@ -6821,6 +7601,8 @@ tcu::TestCaseGroup* createSwitchBlockOrderTests(tcu::TestContext& testCtx)
 		"%switch_exit    = OpLabel\n"
 		"%ival_next      = OpIAdd %i32 %ival %c_i32_1\n"
 		"                  OpStore %iptr %ival_next\n"
+		"                  OpBranch %cont\n"
+		"%cont           = OpLabel\n"
 		"                  OpBranch %loop\n"
 
 		"%case1          = OpLabel\n"
@@ -7268,7 +8050,7 @@ tcu::TestCaseGroup* createOpPhiTests(tcu::TestContext& testCtx)
 		"%loop      = OpLabel\n"
 		"%ival      = OpLoad %i32 %iptr\n"
 		"%lt_4      = OpSLessThan %bool %ival %c_i32_4\n"
-		"             OpLoopMerge %exit %phi None\n"
+		"             OpLoopMerge %exit %cont None\n"
 		"             OpBranchConditional %lt_4 %entry %exit\n"
 
 		"%entry     = OpLabel\n"
@@ -7291,6 +8073,8 @@ tcu::TestCaseGroup* createOpPhiTests(tcu::TestContext& testCtx)
 
 		"%phi       = OpLabel\n"
 		"%operand   = OpPhi %f32 %c_f32_p4 %case2 %c_f32_p5 %case1 %c_f32_p2 %case0 %c_f32_0 %case3\n" // not in the order of blocks
+		"             OpBranch %cont\n"
+		"%cont      = OpLabel\n"
 		"%add       = OpFAdd %f32 %val %operand\n"
 		"             OpStore %loc %add\n"
 		"%ival_next = OpIAdd %i32 %ival %c_i32_1\n"
@@ -7439,7 +8223,7 @@ tcu::TestCaseGroup* createOpPhiTests(tcu::TestContext& testCtx)
 
 	fragments4["pre_main"]		= typesAndConstants4;
 	fragments4["testfun"]		= function4;
-	fragments4["capability"]	= "OpCapability StorageUniformBufferBlock16\n";
+	fragments4["capability"]	= "OpCapability StorageUniformBufferBlock16\nOpCapability Float16\n";
 	fragments4["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
 
 	extensions4.push_back("VK_KHR_16bit_storage");
@@ -8193,6 +8977,93 @@ tcu::TestCaseGroup* createModuleTests(tcu::TestContext& testCtx)
 	return moduleTests.release();
 }
 
+std::string getUnusedVarTestNamePiece(const std::string& prefix, ShaderTask task)
+{
+	switch (task)
+	{
+		case SHADER_TASK_NONE:			return "";
+		case SHADER_TASK_NORMAL:		return prefix + "_normal";
+		case SHADER_TASK_UNUSED_VAR:	return prefix + "_unused_var";
+		case SHADER_TASK_UNUSED_FUNC:	return prefix + "_unused_func";
+		default:						DE_ASSERT(DE_FALSE);
+	}
+	// unreachable
+	return "";
+}
+
+std::string getShaderTaskIndexName(ShaderTaskIndex index)
+{
+	switch (index)
+	{
+	case SHADER_TASK_INDEX_VERTEX:			return "vertex";
+	case SHADER_TASK_INDEX_GEOMETRY:		return "geom";
+	case SHADER_TASK_INDEX_TESS_CONTROL:	return "tessc";
+	case SHADER_TASK_INDEX_TESS_EVAL:		return "tesse";
+	case SHADER_TASK_INDEX_FRAGMENT:		return "frag";
+	default:								DE_ASSERT(DE_FALSE);
+	}
+	// unreachable
+	return "";
+}
+
+std::string getUnusedVarTestName(const ShaderTaskArray& shaderTasks, const VariableLocation& location)
+{
+	std::string testName = location.toString();
+
+	for (size_t i = 0; i < DE_LENGTH_OF_ARRAY(shaderTasks); ++i)
+	{
+		if (shaderTasks[i] != SHADER_TASK_NONE)
+		{
+			testName += "_" + getUnusedVarTestNamePiece(getShaderTaskIndexName((ShaderTaskIndex)i), shaderTasks[i]);
+		}
+	}
+
+	return testName;
+}
+
+tcu::TestCaseGroup* createUnusedVariableTests(tcu::TestContext& testCtx)
+{
+	de::MovePtr<tcu::TestCaseGroup>		moduleTests				(new tcu::TestCaseGroup(testCtx, "unused_variables", "Graphics shaders with unused variables"));
+
+	ShaderTaskArray						shaderCombinations[]	=
+	{
+		// Vertex					Geometry					Tess. Control				Tess. Evaluation			Fragment
+		{ SHADER_TASK_UNUSED_VAR,	SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NORMAL	},
+		{ SHADER_TASK_UNUSED_FUNC,	SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NORMAL	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_UNUSED_VAR	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_UNUSED_FUNC	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_UNUSED_VAR,		SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NORMAL	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_UNUSED_FUNC,	SHADER_TASK_NONE,			SHADER_TASK_NONE,			SHADER_TASK_NORMAL	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_NONE,			SHADER_TASK_UNUSED_VAR,		SHADER_TASK_NORMAL,			SHADER_TASK_NORMAL	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_NONE,			SHADER_TASK_UNUSED_FUNC,	SHADER_TASK_NORMAL,			SHADER_TASK_NORMAL	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_NONE,			SHADER_TASK_NORMAL,			SHADER_TASK_UNUSED_VAR,		SHADER_TASK_NORMAL	},
+		{ SHADER_TASK_NORMAL,		SHADER_TASK_NONE,			SHADER_TASK_NORMAL,			SHADER_TASK_UNUSED_FUNC,	SHADER_TASK_NORMAL	}
+	};
+
+	const VariableLocation				testLocations[] =
+	{
+		// Set		Binding
+		{ 0,		5			},
+		{ 5,		5			},
+	};
+
+	for (size_t combNdx = 0; combNdx < DE_LENGTH_OF_ARRAY(shaderCombinations); ++combNdx)
+	{
+		for (size_t locationNdx = 0; locationNdx < DE_LENGTH_OF_ARRAY(testLocations); ++locationNdx)
+		{
+			const ShaderTaskArray&	shaderTasks		= shaderCombinations[combNdx];
+			const VariableLocation&	location		= testLocations[locationNdx];
+			std::string				testName		= getUnusedVarTestName(shaderTasks, location);
+
+			addFunctionCaseWithPrograms<UnusedVariableContext>(
+				moduleTests.get(), testName, "", createUnusedVariableModules, runAndVerifyUnusedVariablePipeline,
+				createUnusedVariableContext(shaderTasks, location));
+		}
+	}
+
+	return moduleTests.release();
+}
+
 tcu::TestCaseGroup* createLoopTests(tcu::TestContext& testCtx)
 {
 	de::MovePtr<tcu::TestCaseGroup> testGroup(new tcu::TestCaseGroup(testCtx, "loop", "Looping control flow"));
@@ -8244,9 +9115,9 @@ tcu::TestCaseGroup* createLoopTests(tcu::TestContext& testCtx)
 
 		";adds and subtracts 1.0 to %val in alternate iterations\n"
 		"%loop = OpLabel\n"
-		"%count = OpPhi %i32 %c_i32_4 %entry %count__ %gather\n"
-		"%delta = OpPhi %f32 %c_f32_1 %entry %delta_next %gather\n"
-		"%val1 = OpPhi %f32 %val0 %entry %val %gather\n"
+		"%count = OpPhi %i32 %c_i32_4 %entry %count__ %cont\n"
+		"%delta = OpPhi %f32 %c_f32_1 %entry %delta_next %cont\n"
+		"%val1 = OpPhi %f32 %val0 %entry %val %cont\n"
 		// There are several possibilities for the Continue Target below.  Each
 		// will be specialized into a separate test case.
 		"OpLoopMerge %exit ${continue_target} None\n"
@@ -8268,6 +9139,9 @@ tcu::TestCaseGroup* createLoopTests(tcu::TestContext& testCtx)
 		"%delta_next = OpPhi %f32 %c_f32_n1 %even %c_f32_1 %odd\n"
 		"%val = OpFAdd %f32 %val1 %delta\n"
 		"%count__ = OpISub %i32 %count %c_i32_1\n"
+		"OpBranch %cont\n"
+
+		"%cont = OpLabel\n"
 		"%again = OpSGreaterThan %bool %count__ %c_i32_0\n"
 		"OpBranchConditional %again %loop %exit\n"
 
@@ -8285,7 +9159,7 @@ tcu::TestCaseGroup* createLoopTests(tcu::TestContext& testCtx)
 	createTestsForAllStages("multi_block_continue_construct", defaultColors, defaultColors, fragments, testGroup.get());
 
 	// The Continue Target is at the end of the loop.
-	continue_target["continue_target"] = "%gather";
+	continue_target["continue_target"] = "%cont";
 	fragments["testfun"] = multiBlock.specialize(continue_target);
 	createTestsForAllStages("multi_block_loop_construct", defaultColors, defaultColors, fragments, testGroup.get());
 
@@ -8308,7 +9182,6 @@ tcu::TestCaseGroup* createLoopTests(tcu::TestContext& testCtx)
 		"%if = OpLabel\n"
 		";skip if %count==2\n"
 		"%eq2 = OpIEqual %bool %count %c_i32_2\n"
-		"OpSelectionMerge %continue DontFlatten\n"
 		"OpBranchConditional %eq2 %continue %body\n"
 
 		"%body = OpLabel\n"
@@ -8353,7 +9226,6 @@ tcu::TestCaseGroup* createLoopTests(tcu::TestContext& testCtx)
 		"%if = OpLabel\n"
 		";end loop if %count==%two\n"
 		"%above2 = OpSGreaterThan %bool %count %two\n"
-		"OpSelectionMerge %continue DontFlatten\n"
 		"OpBranchConditional %above2 %body %exit\n"
 
 		"%body = OpLabel\n"
@@ -8398,7 +9270,7 @@ tcu::TestCaseGroup* createLoopTests(tcu::TestContext& testCtx)
 		"%if = OpLabel\n"
 		";return if %count==%two\n"
 		"%above2 = OpSGreaterThan %bool %count %two\n"
-		"OpSelectionMerge %continue DontFlatten\n"
+		"OpSelectionMerge %body DontFlatten\n"
 		"OpBranchConditional %above2 %body %early_exit\n"
 
 		"%early_exit = OpLabel\n"
@@ -9023,7 +9895,7 @@ const string getTestName (ConversionDataType from, ConversionDataType to, const 
 	return getTypeName(from) + "_to_" + getTypeName(to) + fullSuffix;
 }
 
-const string getAsmTypeName (ConversionDataType type)
+const string getAsmTypeName (ConversionDataType type, deUint32 elements = 1)
 {
 	string prefix;
 
@@ -9032,33 +9904,37 @@ const string getAsmTypeName (ConversionDataType type)
 	else if (type == DATA_TYPE_VEC2_SIGNED_16)	return "i16vec2";
 	else if (type == DATA_TYPE_VEC2_SIGNED_32)	return "v2i32";
 	else										DE_ASSERT(false);
+	if ((isInt(type) || isFloat(type)) && elements == 2)
+	{
+		prefix = "v2" + prefix;
+	}
 
 	return prefix + getBitWidthStr(type);
 }
 
 template<typename T>
-BufferSp getSpecializedBuffer (deInt64 number)
+BufferSp getSpecializedBuffer (deInt64 number, deUint32 elements = 1)
 {
-	return BufferSp(new Buffer<T>(vector<T>(1, (T)number)));
+	return BufferSp(new Buffer<T>(vector<T>(elements, (T)number)));
 }
 
-BufferSp getBuffer (ConversionDataType type, deInt64 number)
+BufferSp getBuffer (ConversionDataType type, deInt64 number, deUint32 elements = 1)
 {
 	switch (type)
 	{
-		case DATA_TYPE_SIGNED_8:		return getSpecializedBuffer<deInt8>(number);
-		case DATA_TYPE_SIGNED_16:		return getSpecializedBuffer<deInt16>(number);
-		case DATA_TYPE_SIGNED_32:		return getSpecializedBuffer<deInt32>(number);
-		case DATA_TYPE_SIGNED_64:		return getSpecializedBuffer<deInt64>(number);
-		case DATA_TYPE_UNSIGNED_8:		return getSpecializedBuffer<deUint8>(number);
-		case DATA_TYPE_UNSIGNED_16:		return getSpecializedBuffer<deUint16>(number);
-		case DATA_TYPE_UNSIGNED_32:		return getSpecializedBuffer<deUint32>(number);
-		case DATA_TYPE_UNSIGNED_64:		return getSpecializedBuffer<deUint64>(number);
-		case DATA_TYPE_FLOAT_16:		return getSpecializedBuffer<deUint16>(number);
-		case DATA_TYPE_FLOAT_32:		return getSpecializedBuffer<deUint32>(number);
-		case DATA_TYPE_FLOAT_64:		return getSpecializedBuffer<deUint64>(number);
-		case DATA_TYPE_VEC2_SIGNED_16:	return getSpecializedBuffer<deUint32>(number);
-		case DATA_TYPE_VEC2_SIGNED_32:	return getSpecializedBuffer<deUint64>(number);
+		case DATA_TYPE_SIGNED_8:		return getSpecializedBuffer<deInt8>(number, elements);
+		case DATA_TYPE_SIGNED_16:		return getSpecializedBuffer<deInt16>(number, elements);
+		case DATA_TYPE_SIGNED_32:		return getSpecializedBuffer<deInt32>(number, elements);
+		case DATA_TYPE_SIGNED_64:		return getSpecializedBuffer<deInt64>(number, elements);
+		case DATA_TYPE_UNSIGNED_8:		return getSpecializedBuffer<deUint8>(number, elements);
+		case DATA_TYPE_UNSIGNED_16:		return getSpecializedBuffer<deUint16>(number, elements);
+		case DATA_TYPE_UNSIGNED_32:		return getSpecializedBuffer<deUint32>(number, elements);
+		case DATA_TYPE_UNSIGNED_64:		return getSpecializedBuffer<deUint64>(number, elements);
+		case DATA_TYPE_FLOAT_16:		return getSpecializedBuffer<deUint16>(number, elements);
+		case DATA_TYPE_FLOAT_32:		return getSpecializedBuffer<deUint32>(number, elements);
+		case DATA_TYPE_FLOAT_64:		return getSpecializedBuffer<deUint64>(number, elements);
+		case DATA_TYPE_VEC2_SIGNED_16:	return getSpecializedBuffer<deUint32>(number, elements);
+		case DATA_TYPE_VEC2_SIGNED_32:	return getSpecializedBuffer<deUint64>(number, elements);
 
 		default:						TCU_THROW(InternalError, "Unimplemented type passed");
 	}
@@ -9105,7 +9981,7 @@ bool usesFloat64 (ConversionDataType from, ConversionDataType to)
 	return (from == DATA_TYPE_FLOAT_64 || to == DATA_TYPE_FLOAT_64);
 }
 
-void getVulkanFeaturesAndExtensions (ConversionDataType from, ConversionDataType to, VulkanFeatures& vulkanFeatures, vector<string>& extensions)
+void getVulkanFeaturesAndExtensions (ConversionDataType from, ConversionDataType to, bool useStorageExt, VulkanFeatures& vulkanFeatures, vector<string>& extensions)
 {
 	if (usesInt16(from, to) && !usesInt32(from, to))
 		vulkanFeatures.coreFeatures.shaderInt16 = DE_TRUE;
@@ -9116,7 +9992,7 @@ void getVulkanFeaturesAndExtensions (ConversionDataType from, ConversionDataType
 	if (usesFloat64(from, to))
 		vulkanFeatures.coreFeatures.shaderFloat64 = DE_TRUE;
 
-	if (usesInt16(from, to) || usesFloat16(from, to))
+	if ((usesInt16(from, to) || usesFloat16(from, to)) && useStorageExt)
 	{
 		extensions.push_back("VK_KHR_16bit_storage");
 		vulkanFeatures.ext16BitStorage |= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
@@ -9143,23 +10019,67 @@ void getVulkanFeaturesAndExtensions (ConversionDataType from, ConversionDataType
 
 struct ConvertCase
 {
-	ConvertCase (const string& instruction, ConversionDataType from, ConversionDataType to, deInt64 number, bool separateOutput = false, deInt64 outputNumber = 0, const char* suffix = DE_NULL)
+	ConvertCase (const string& instruction, ConversionDataType from, ConversionDataType to, deInt64 number, bool separateOutput = false, deInt64 outputNumber = 0, const char* suffix = DE_NULL, bool useStorageExt = true)
 	: m_fromType		(from)
 	, m_toType			(to)
+	, m_elements		(1)
+	, m_useStorageExt	(useStorageExt)
 	, m_name			(getTestName(from, to, suffix))
-	, m_inputBuffer		(getBuffer(from, number))
 	{
 		string caps;
 		string decl;
 		string exts;
 
-		m_asmTypes["inputType"]		= getAsmTypeName(from);
-		m_asmTypes["outputType"]	= getAsmTypeName(to);
+		m_asmTypes["inStorageType"]	= getAsmTypeName(from);
+		m_asmTypes["outStorageType"] = getAsmTypeName(to);
+		m_asmTypes["inCast"] = "OpCopyObject";
+		m_asmTypes["outCast"] = "OpCopyObject";
+		// If the storage extensions are being avoided, tests instead uses
+		// vectors so that they are easily convertible to 32-bit integers.
+		// |m_elements| indicates the size of the vector. It modifies how many
+		// items added to the buffers and converted in the tests.
+		//
+		// Currently only supports 1 (default) or 2 elements.
+		if (!m_useStorageExt)
+		{
+			bool in_change = false;
+			bool out_change = false;
+			if (usesFloat16(from, from) || usesInt16(from, from))
+			{
+				m_asmTypes["inStorageType"] = "u32";
+				m_asmTypes["inCast"] = "OpBitcast";
+				m_elements = 2;
+				in_change = true;
+			}
+			if (usesFloat16(to, to) || usesInt16(to, to))
+			{
+				m_asmTypes["outStorageType"] = "u32";
+				m_asmTypes["outCast"] = "OpBitcast";
+				m_elements = 2;
+				out_change = true;
+			}
+			if (in_change && !out_change)
+			{
+				m_asmTypes["outStorageType"] = getAsmTypeName(to, m_elements);
+			}
+			if (!in_change && out_change)
+			{
+				m_asmTypes["inStorageType"] = getAsmTypeName(from, m_elements);
+			}
+		}
 
+		// Safety check for implementation.
+		if (m_elements < 1 || m_elements > 2)
+			TCU_THROW(InternalError, "Unsupported number of elements");
+
+		m_asmTypes["inputType"]		= getAsmTypeName(from, m_elements);
+		m_asmTypes["outputType"]	= getAsmTypeName(to, m_elements);
+
+		m_inputBuffer = getBuffer(from, number, m_elements);
 		if (separateOutput)
-			m_outputBuffer = getBuffer(to, outputNumber);
+			m_outputBuffer = getBuffer(to, outputNumber, m_elements);
 		else
-			m_outputBuffer = getBuffer(to, number);
+			m_outputBuffer = getBuffer(to, number, m_elements);
 
 		if (usesInt8(from, to))
 		{
@@ -9177,6 +10097,12 @@ struct ConvertCase
 
 			decl += "%i8         = OpTypeInt 8 1\n"
 					"%u8         = OpTypeInt 8 0\n";
+
+			if (m_elements == 2)
+			{
+				decl += "%v2i8       = OpTypeVector %i8 2\n"
+						"%v2u8       = OpTypeVector %u8 2\n";
+			}
 			exts += "OpExtension \"SPV_KHR_8bit_storage\"\n";
 		}
 
@@ -9186,30 +10112,42 @@ struct ConvertCase
 
 			if (instruction == "OpUConvert" || instruction == "OpSConvert" || instruction == "OpFConvert")
 			{
-				// Conversions between 16 and 32 bit are provided by SPV_KHR_16bit_storage. The rest requires explicit Int16
+				// Width-only conversions between 16 and 32 bit are provided by SPV_KHR_16bit_storage. The rest requires explicit Int16
 				if (usesInt32(from, to) || usesFloat32(from, to))
 					requiresInt16Capability = false;
 			}
 
 			decl += "%i16        = OpTypeInt 16 1\n"
-					"%u16        = OpTypeInt 16 0\n"
-					"%i16vec2    = OpTypeVector %i16 2\n";
+					"%u16        = OpTypeInt 16 0\n";
+			if (m_elements == 2)
+			{
+				decl += "%v2i16      = OpTypeVector %i16 2\n"
+						"%v2u16      = OpTypeVector %u16 2\n";
+			}
+			else
+			{
+				decl += "%i16vec2    = OpTypeVector %i16 2\n";
+			}
 
 			// Conversions between 16 and 32 bit are provided by SPV_KHR_16bit_storage. The rest requires explicit Int16
-			if (requiresInt16Capability)
+			if (requiresInt16Capability || !m_useStorageExt)
 				caps += "OpCapability Int16\n";
 		}
 
 		if (usesFloat16(from, to))
 		{
 			decl += "%f16        = OpTypeFloat 16\n";
+			if (m_elements == 2)
+			{
+				decl += "%v2f16      = OpTypeVector %f16 2\n";
+			}
 
-			// Conversions between 16 and 32 bit are provided by SPV_KHR_16bit_storage. The rest requires explicit Float16
-			if (!(usesInt32(from, to) || usesFloat32(from, to)))
+			// Width-only conversions between 16 and 32 bit are provided by SPV_KHR_16bit_storage. The rest requires explicit Float16
+			if (!usesFloat32(from, to) || !m_useStorageExt)
 				caps += "OpCapability Float16\n";
 		}
 
-		if (usesInt16(from, to) || usesFloat16(from, to))
+		if ((usesInt16(from, to) || usesFloat16(from, to)) && m_useStorageExt)
 		{
 			caps += "OpCapability StorageUniformBufferBlock16\n";
 			exts += "OpExtension \"SPV_KHR_16bit_storage\"\n";
@@ -9220,12 +10158,21 @@ struct ConvertCase
 			caps += "OpCapability Int64\n";
 			decl += "%i64        = OpTypeInt 64 1\n"
 					"%u64        = OpTypeInt 64 0\n";
+			if (m_elements == 2)
+			{
+				decl += "%v2i64      = OpTypeVector %i64 2\n"
+						"%v2u64      = OpTypeVector %u64 2\n";
+			}
 		}
 
 		if (usesFloat64(from, to))
 		{
 			caps += "OpCapability Float64\n";
 			decl += "%f64        = OpTypeFloat 64\n";
+			if (m_elements == 2)
+			{
+				decl += "%v2f64        = OpTypeVector %f64 2\n";
+			}
 		}
 
 		m_asmTypes["datatype_capabilities"]		= caps;
@@ -9235,13 +10182,15 @@ struct ConvertCase
 
 	ConversionDataType		m_fromType;
 	ConversionDataType		m_toType;
+	deUint32				m_elements;
+	bool					m_useStorageExt;
 	string					m_name;
 	map<string, string>		m_asmTypes;
 	BufferSp				m_inputBuffer;
 	BufferSp				m_outputBuffer;
 };
 
-const string getConvertCaseShaderStr (const string& instruction, const ConvertCase& convertCase)
+const string getConvertCaseShaderStr (const string& instruction, const ConvertCase& convertCase, bool addVectors = false)
 {
 	map<string, string> params = convertCase.m_asmTypes;
 
@@ -9249,7 +10198,7 @@ const string getConvertCaseShaderStr (const string& instruction, const ConvertCa
 	params["inDecorator"]	= getByteWidthStr(convertCase.m_fromType);
 	params["outDecorator"]	= getByteWidthStr(convertCase.m_toType);
 
-	const StringTemplate shader (
+	std::string shader (
 		"OpCapability Shader\n"
 		"${datatype_capabilities}"
 		"${datatype_extensions:opt}"
@@ -9275,12 +10224,19 @@ const string getConvertCaseShaderStr (const string& instruction, const ConvertCa
 		"%f32        = OpTypeFloat 32\n"
 		"%v2i32      = OpTypeVector %i32 2\n"
 		"${datatype_additional_decl}"
+	);
+	if (addVectors)
+	{
+		shader += "%v2u32 = OpTypeVector %u32 2\n"
+					"%v2f32 = OpTypeVector %f32 2\n";
+	}
+	shader +=
 		"%uvec3      = OpTypeVector %u32 3\n"
 		// Derived types
-		"%in_ptr     = OpTypePointer Uniform %${inputType}\n"
-		"%out_ptr    = OpTypePointer Uniform %${outputType}\n"
-		"%in_buf     = OpTypeStruct %${inputType}\n"
-		"%out_buf    = OpTypeStruct %${outputType}\n"
+		"%in_ptr     = OpTypePointer Uniform %${inStorageType}\n"
+		"%out_ptr    = OpTypePointer Uniform %${outStorageType}\n"
+		"%in_buf     = OpTypeStruct %${inStorageType}\n"
+		"%out_buf    = OpTypeStruct %${outStorageType}\n"
 		"%in_bufptr  = OpTypePointer Uniform %in_buf\n"
 		"%out_bufptr = OpTypePointer Uniform %out_buf\n"
 		"%indata     = OpVariable %in_bufptr Uniform\n"
@@ -9292,14 +10248,16 @@ const string getConvertCaseShaderStr (const string& instruction, const ConvertCa
 		"%label      = OpLabel\n"
 		"%inloc      = OpAccessChain %in_ptr %indata %zero\n"
 		"%outloc     = OpAccessChain %out_ptr %outdata %zero\n"
-		"%inval      = OpLoad %${inputType} %inloc\n"
-		"%conv       = ${instruction} %${outputType} %inval\n"
-		"              OpStore %outloc %conv\n"
+		"%inval      = OpLoad %${inStorageType} %inloc\n"
+		"%in_cast    = ${inCast} %${inputType} %inval\n"
+		"%conv       = ${instruction} %${outputType} %in_cast\n"
+		"%out_cast   = ${outCast} %${outStorageType} %conv\n"
+		"              OpStore %outloc %out_cast\n"
 		"              OpReturn\n"
 		"              OpFunctionEnd\n"
-	);
+	;
 
-	return shader.specialize(params);
+	return StringTemplate(shader).specialize(params);
 }
 
 void createConvertCases (vector<ConvertCase>& testCases, const string& instruction)
@@ -9322,6 +10280,22 @@ void createConvertCases (vector<ConvertCase>& testCases, const string& instructi
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_64,		DATA_TYPE_UNSIGNED_32,		701256243));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_64,		DATA_TYPE_UNSIGNED_16,		4741));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_64,		DATA_TYPE_UNSIGNED_8,		65));
+
+		// Zero extension for int->uint
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_UNSIGNED_16,		56));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_UNSIGNED_32,		-47,								true,	209));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_UNSIGNED_64,		-5,									true,	251));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_UNSIGNED_32,		14669));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_UNSIGNED_64,		-3341,								true,	62195));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_UNSIGNED_64,		973610259));
+
+		// Truncate for int->uint
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_UNSIGNED_8,		-25711,								true,	145));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_UNSIGNED_8,		103));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_UNSIGNED_8,		-1067742499291926803ll,				true,	237));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_UNSIGNED_16,		12382));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_UNSIGNED_32,		-972812359,							true,	3322154937u));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_UNSIGNED_16,		-1067742499291926803ll,				true,	61165));
 	}
 	else if (instruction == "OpSConvert")
 	{
@@ -9352,7 +10326,7 @@ void createConvertCases (vector<ConvertCase>& testCases, const string& instructi
 		// Truncate for int->uint
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_UNSIGNED_8,		-25711,								true,	145));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_UNSIGNED_8,		103));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_UNSIGNED_8,		-1067742499291926803ll,				true,	61165));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_UNSIGNED_8,		-1067742499291926803ll,				true,	237));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_UNSIGNED_16,		12382));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_UNSIGNED_32,		-972812359,							true,	3322154937u));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_UNSIGNED_16,		-1067742499291926803ll,				true,	61165));
@@ -9385,8 +10359,13 @@ void createConvertCases (vector<ConvertCase>& testCases, const string& instructi
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_FLOAT_64,			0x449a4000,							true,	0x4093480000000000));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_FLOAT_32,			0x4093480000000000,					true,	0x449a4000));
 
+		// Conversion to/from 32-bit floats are supported by both 16-bit
+		// storage and Float16. The tests are duplicated to exercise both
+		// cases.
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_FLOAT_16,			0x449a4000,							true,	0x64D2));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_FLOAT_32,			0x64D2,								true,	0x449a4000));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_FLOAT_16,			0x449a4000,							true,	0x64D2,					"no_storage",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_FLOAT_32,			0x64D2,								true,	0x449a4000,				"no_storage",	false));
 
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_FLOAT_64,			0x64D2,								true,	0x4093480000000000));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_FLOAT_16,			0x4093480000000000,					true,	0x64D2));
@@ -9394,44 +10373,44 @@ void createConvertCases (vector<ConvertCase>& testCases, const string& instructi
 	else if (instruction == "OpConvertFToU")
 	{
 		// Normal numbers from uint8 range
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x5020,								true,	33,									"33"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x5020,								true,	33,									"33",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_UNSIGNED_8,		0x42280000,							true,	42,									"42"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_UNSIGNED_8,		0x4067800000000000ull,				true,	188,								"188"));
 
 		// Maximum uint8 value
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x5BF8,								true,	255,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x5BF8,								true,	255,								"max",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_UNSIGNED_8,		0x437F0000,							true,	255,								"max"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_UNSIGNED_8,		0x406FE00000000000ull,				true,	255,								"max"));
 
 		// +0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x0000,								true,	0,									"p0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x0000,								true,	0,									"p0",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_UNSIGNED_8,		0x00000000,							true,	0,									"p0"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_UNSIGNED_8,		0x0000000000000000ull,				true,	0,									"p0"));
 
 		// -0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x8000,								true,	0,									"m0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_8,		0x8000,								true,	0,									"m0",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_UNSIGNED_8,		0x80000000,							true,	0,									"m0"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_UNSIGNED_8,		0x8000000000000000ull,				true,	0,									"m0"));
 
 		// All hexadecimal values below represent 1234.0 as 16/32/64-bit IEEE 754 float
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x64D2,								true,	1234,								"1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x64D2,								true,	1234,								"1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x64D2,								true,	1234,								"1234"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x64D2,								true,	1234,								"1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x64D2,								true,	1234,								"1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x64D2,								true,	1234,								"1234",	false));
 
 		// 0x7BFF = 0111 1011 1111 1111 = 0 11110 1111111111 = 65504
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x7BFF,								true,	65504,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x7BFF,								true,	65504,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x7BFF,								true,	65504,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x7BFF,								true,	65504,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x7BFF,								true,	65504,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x7BFF,								true,	65504,								"max",	false));
 
 		// +0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x0000,								true,	0,									"p0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x0000,								true,	0,									"p0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x0000,								true,	0,									"p0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x0000,								true,	0,									"p0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x0000,								true,	0,									"p0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x0000,								true,	0,									"p0",	false));
 
 		// -0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x8000,								true,	0,									"m0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x8000,								true,	0,									"m0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x8000,								true,	0,									"m0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_16,		0x8000,								true,	0,									"m0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_32,		0x8000,								true,	0,									"m0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_UNSIGNED_64,		0x8000,								true,	0,									"m0",	false));
 
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_UNSIGNED_16,		0x449a4000,							true,	1234));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_UNSIGNED_32,		0x449a4000,							true,	1234));
@@ -9443,24 +10422,24 @@ void createConvertCases (vector<ConvertCase>& testCases, const string& instructi
 	else if (instruction == "OpConvertUToF")
 	{
 		// Normal numbers from uint8 range
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_16,			116,								true,	0x5740,								"116"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_16,			116,								true,	0x5740,								"116",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_32,			232,								true,	0x43680000,							"232"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_64,			164,								true,	0x4064800000000000ull,				"164"));
 
 		// Maximum uint8 value
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_16,			255,								true,	0x5BF8,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_16,			255,								true,	0x5BF8,								"max",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_32,			255,								true,	0x437F0000,							"max"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_8,		DATA_TYPE_FLOAT_64,			255,								true,	0x406FE00000000000ull,				"max"));
 
 		// All hexadecimal values below represent 1234.0 as 32/64-bit IEEE 754 float
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_16,		DATA_TYPE_FLOAT_16,			1234,								true,	0x64D2,								"1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_32,		DATA_TYPE_FLOAT_16,			1234,								true,	0x64D2,								"1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_64,		DATA_TYPE_FLOAT_16,			1234,								true,	0x64D2,								"1234"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_16,		DATA_TYPE_FLOAT_16,			1234,								true,	0x64D2,								"1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_32,		DATA_TYPE_FLOAT_16,			1234,								true,	0x64D2,								"1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_64,		DATA_TYPE_FLOAT_16,			1234,								true,	0x64D2,								"1234",	false));
 
 		// 0x7BFF = 0111 1011 1111 1111 = 0 11110 1111111111 = 65504
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_16,		DATA_TYPE_FLOAT_16,			65504,								true,	0x7BFF,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_32,		DATA_TYPE_FLOAT_16,			65504,								true,	0x7BFF,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_64,		DATA_TYPE_FLOAT_16,			65504,								true,	0x7BFF,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_16,		DATA_TYPE_FLOAT_16,			65504,								true,	0x7BFF,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_32,		DATA_TYPE_FLOAT_16,			65504,								true,	0x7BFF,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_64,		DATA_TYPE_FLOAT_16,			65504,								true,	0x7BFF,								"max",	false));
 
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_16,		DATA_TYPE_FLOAT_32,			1234,								true,	0x449a4000));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_UNSIGNED_16,		DATA_TYPE_FLOAT_64,			1234,								true,	0x4093480000000000));
@@ -9472,54 +10451,54 @@ void createConvertCases (vector<ConvertCase>& testCases, const string& instructi
 	else if (instruction == "OpConvertFToS")
 	{
 		// Normal numbers from int8 range
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0xC980,								true,	-11,								"m11"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0xC980,								true,	-11,								"m11",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_SIGNED_8,			0xC2140000,							true,	-37,								"m37"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_SIGNED_8,			0xC050800000000000ull,				true,	-66,								"m66"));
 
 		// Minimum int8 value
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0xD800,								true,	-128,								"min"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0xD800,								true,	-128,								"min",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_SIGNED_8,			0xC3000000,							true,	-128,								"min"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_SIGNED_8,			0xC060000000000000ull,				true,	-128,								"min"));
 
 		// Maximum int8 value
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0x57F0,								true,	127,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0x57F0,								true,	127,								"max",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_SIGNED_8,			0x42FE0000,							true,	127,								"max"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_SIGNED_8,			0x405FC00000000000ull,				true,	127,								"max"));
 
 		// +0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0x0000,								true,	0,									"p0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0x0000,								true,	0,									"p0",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_SIGNED_8,			0x00000000,							true,	0,									"p0"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_SIGNED_8,			0x0000000000000000ull,				true,	0,									"p0"));
 
 		// -0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0x8000,								true,	0,									"m0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_8,			0x8000,								true,	0,									"m0",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_SIGNED_8,			0x80000000,							true,	0,									"m0"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_64,			DATA_TYPE_SIGNED_8,			0x8000000000000000ull,				true,	0,									"m0"));
 
 		// All hexadecimal values below represent -1234.0 as 32/64-bit IEEE 754 float
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0xE4D2,								true,	-1234,								"m1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0xE4D2,								true,	-1234,								"m1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0xE4D2,								true,	-1234,								"m1234"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0xE4D2,								true,	-1234,								"m1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0xE4D2,								true,	-1234,								"m1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0xE4D2,								true,	-1234,								"m1234",	false));
 
 		// 0xF800 = 1111 1000 0000 0000 = 1 11110 0000000000 = -32768
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0xF800,								true,	-32768,								"min"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0xF800,								true,	-32768,								"min"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0xF800,								true,	-32768,								"min"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0xF800,								true,	-32768,								"min",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0xF800,								true,	-32768,								"min",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0xF800,								true,	-32768,								"min",	false));
 
 		// 0x77FF = 0111 0111 1111 1111 = 0 11101 1111111111 = 32752
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0x77FF,								true,	32752,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0x77FF,								true,	32752,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0x77FF,								true,	32752,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0x77FF,								true,	32752,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0x77FF,								true,	32752,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0x77FF,								true,	32752,								"max",	false));
 
 		// +0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0x0000,								true,	0,									"p0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0x0000,								true,	0,									"p0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0x0000,								true,	0,									"p0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0x0000,								true,	0,									"p0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0x0000,								true,	0,									"p0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0x0000,								true,	0,									"p0",	false));
 
 		// -0
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0x8000,								true,	0,									"m0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0x8000,								true,	0,									"m0"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0x8000,								true,	0,									"m0"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_16,		0x8000,								true,	0,									"m0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_32,		0x8000,								true,	0,									"m0",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_16,			DATA_TYPE_SIGNED_64,		0x8000,								true,	0,									"m0",	false));
 
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_SIGNED_16,		0xc49a4000,							true,	-1234));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_FLOAT_32,			DATA_TYPE_SIGNED_32,		0xc49a4000,							true,	-1234));
@@ -9533,34 +10512,34 @@ void createConvertCases (vector<ConvertCase>& testCases, const string& instructi
 	else if (instruction == "OpConvertSToF")
 	{
 		// Normal numbers from int8 range
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_16,			-12,								true,	0xCA00,								"m21"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_16,			-12,								true,	0xCA00,								"m21",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_32,			-21,								true,	0xC1A80000,							"m21"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_64,			-99,								true,	0xC058C00000000000ull,				"m99"));
 
 		// Minimum int8 value
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_16,			-128,								true,	0xD800,								"min"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_16,			-128,								true,	0xD800,								"min",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_32,			-128,								true,	0xC3000000,							"min"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_64,			-128,								true,	0xC060000000000000ull,				"min"));
 
 		// Maximum int8 value
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_16,			127,								true,	0x57F0,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_16,			127,								true,	0x57F0,								"max",	false));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_32,			127,								true,	0x42FE0000,							"max"));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_8,			DATA_TYPE_FLOAT_64,			127,								true,	0x405FC00000000000ull,				"max"));
 
 		// All hexadecimal values below represent 1234.0 as 32/64-bit IEEE 754 float
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_16,			-1234,								true,	0xE4D2,								"m1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_FLOAT_16,			-1234,								true,	0xE4D2,								"m1234"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_FLOAT_16,			-1234,								true,	0xE4D2,								"m1234"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_16,			-1234,								true,	0xE4D2,								"m1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_FLOAT_16,			-1234,								true,	0xE4D2,								"m1234",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_FLOAT_16,			-1234,								true,	0xE4D2,								"m1234",	false));
 
 		// 0xF800 = 1111 1000 0000 0000 = 1 11110 0000000000 = -32768
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_16,			-32768,								true,	0xF800,								"min"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_FLOAT_16,			-32768,								true,	0xF800,								"min"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_FLOAT_16,			-32768,								true,	0xF800,								"min"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_16,			-32768,								true,	0xF800,								"min",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_FLOAT_16,			-32768,								true,	0xF800,								"min",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_FLOAT_16,			-32768,								true,	0xF800,								"min",	false));
 
 		// 0x77FF = 0111 0111 1111 1111 = 0 11101 1111111111 = 32752
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_16,			32752,								true,	0x77FF,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_FLOAT_16,			32752,								true,	0x77FF,								"max"));
-		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_FLOAT_16,			32752,								true,	0x77FF,								"max"));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_16,			32752,								true,	0x77FF,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_32,		DATA_TYPE_FLOAT_16,			32752,								true,	0x77FF,								"max",	false));
+		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_64,		DATA_TYPE_FLOAT_16,			32752,								true,	0x77FF,								"max",	false));
 
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_32,			-1234,								true,	0xc49a4000));
 		testCases.push_back(ConvertCase(instruction,	DATA_TYPE_SIGNED_16,		DATA_TYPE_FLOAT_64,			-1234,								true,	0xc093480000000000));
@@ -9627,6 +10606,61 @@ const map<string, string> getConvertCaseFragments (string instruction, const Con
 	return fragments;
 }
 
+const map<string, string> getConvertCaseFragmentsNoStorage(string instruction, const ConvertCase& convertCase)
+{
+	map<string, string> params = convertCase.m_asmTypes;
+	map<string, string> fragments;
+
+	params["instruction"] = instruction;
+	params["inDecorator"] = getByteWidthStr(convertCase.m_fromType);
+
+	const StringTemplate decoration(
+		"      OpDecorate %SSBOi DescriptorSet 0\n"
+		"      OpDecorate %SSBOo DescriptorSet 0\n"
+		"      OpDecorate %SSBOi Binding 0\n"
+		"      OpDecorate %SSBOo Binding 1\n"
+		"      OpDecorate %s_SSBOi Block\n"
+		"      OpDecorate %s_SSBOo Block\n"
+		"OpMemberDecorate %s_SSBOi 0 Offset 0\n"
+		"OpMemberDecorate %s_SSBOo 0 Offset 0\n");
+
+	const StringTemplate pre_main(
+		"${datatype_additional_decl:opt}"
+		"    %ptr_in = OpTypePointer StorageBuffer %${inStorageType}\n"
+		"   %ptr_out = OpTypePointer StorageBuffer %${outStorageType}\n"
+		"   %s_SSBOi = OpTypeStruct %${inStorageType}\n"
+		"   %s_SSBOo = OpTypeStruct %${outStorageType}\n"
+		" %ptr_SSBOi = OpTypePointer StorageBuffer %s_SSBOi\n"
+		" %ptr_SSBOo = OpTypePointer StorageBuffer %s_SSBOo\n"
+		"     %SSBOi = OpVariable %ptr_SSBOi StorageBuffer\n"
+		"     %SSBOo = OpVariable %ptr_SSBOo StorageBuffer\n");
+
+	const StringTemplate testfun(
+		"%test_code = OpFunction %v4f32 None %v4f32_v4f32_function\n"
+		"%param     = OpFunctionParameter %v4f32\n"
+		"%label     = OpLabel\n"
+		"%iLoc      = OpAccessChain %ptr_in %SSBOi %c_u32_0\n"
+		"%oLoc      = OpAccessChain %ptr_out %SSBOo %c_u32_0\n"
+		"%inval      = OpLoad %${inStorageType} %iLoc\n"
+		"%in_cast    = ${inCast} %${inputType} %inval\n"
+		"%conv       = ${instruction} %${outputType} %in_cast\n"
+		"%out_cast   = ${outCast} %${outStorageType} %conv\n"
+		"              OpStore %oLoc %out_cast\n"
+		"              OpReturnValue %param\n"
+		"              OpFunctionEnd\n");
+
+	params["datatype_extensions"] =
+		params["datatype_extensions"] +
+		"OpExtension \"SPV_KHR_storage_buffer_storage_class\"\n";
+
+	fragments["capability"] = params["datatype_capabilities"];
+	fragments["extension"] = params["datatype_extensions"];
+	fragments["decoration"] = decoration.specialize(params);
+	fragments["pre_main"] = pre_main.specialize(params);
+	fragments["testfun"] = testfun.specialize(params);
+	return fragments;
+}
+
 // Test for OpSConvert, OpUConvert, OpFConvert and OpConvert* in compute shaders
 tcu::TestCaseGroup* createConvertComputeTests (tcu::TestContext& testCtx, const string& instruction, const string& name)
 {
@@ -9637,12 +10671,12 @@ tcu::TestCaseGroup* createConvertComputeTests (tcu::TestContext& testCtx, const 
 	for (vector<ConvertCase>::const_iterator test = testCases.begin(); test != testCases.end(); ++test)
 	{
 		ComputeShaderSpec spec;
-		spec.assembly			= getConvertCaseShaderStr(instruction, *test);
+		spec.assembly			= getConvertCaseShaderStr(instruction, *test, true);
 		spec.numWorkGroups		= IVec3(1, 1, 1);
 		spec.inputs.push_back	(test->m_inputBuffer);
 		spec.outputs.push_back	(test->m_outputBuffer);
 
-		getVulkanFeaturesAndExtensions(test->m_fromType, test->m_toType, spec.requestedVulkanFeatures, spec.extensions);
+		getVulkanFeaturesAndExtensions(test->m_fromType, test->m_toType, test->m_useStorageExt, spec.requestedVulkanFeatures, spec.extensions);
 
 		group->addChild(new SpvAsmComputeShaderCase(testCtx, test->m_name.c_str(), "", spec));
 	}
@@ -9658,7 +10692,7 @@ tcu::TestCaseGroup* createConvertGraphicsTests (tcu::TestContext& testCtx, const
 
 	for (vector<ConvertCase>::const_iterator test = testCases.begin(); test != testCases.end(); ++test)
 	{
-		map<string, string>	fragments		= getConvertCaseFragments(instruction, *test);
+		map<string, string>	fragments		= (test->m_useStorageExt) ? getConvertCaseFragments(instruction, *test) : getConvertCaseFragmentsNoStorage(instruction,*test);
 		VulkanFeatures		vulkanFeatures;
 		GraphicsResources	resources;
 		vector<string>		extensions;
@@ -9672,7 +10706,10 @@ tcu::TestCaseGroup* createConvertGraphicsTests (tcu::TestContext& testCtx, const
 		resources.outputs.push_back	(Resource(test->m_outputBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		extensions.push_back		("VK_KHR_storage_buffer_storage_class");
 
-		getVulkanFeaturesAndExtensions(test->m_fromType, test->m_toType, vulkanFeatures, extensions);
+		getVulkanFeaturesAndExtensions(test->m_fromType, test->m_toType, test->m_useStorageExt, vulkanFeatures, extensions);
+
+		vulkanFeatures.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+		vulkanFeatures.coreFeatures.fragmentStoresAndAtomics		= true;
 
 		createTestsForAllStages(
 			test->m_name, defaultColors, defaultColors, fragments, noSpecConstants,
@@ -9839,7 +10876,6 @@ tcu::TestCaseGroup* createOpConstantFloat16Tests(tcu::TestContext& testCtx)
 	outputColors[2] = RGBA(127, 255, 127, 255);
 	outputColors[3] = RGBA(127, 127, 255, 255);
 
-	extensions.push_back("VK_KHR_16bit_storage");
 	extensions.push_back("VK_KHR_shader_float16_int8");
 	features.extFloat16Int8 = EXTFLOAT16INT8FEATURES_FLOAT16;
 
@@ -9847,7 +10883,6 @@ tcu::TestCaseGroup* createOpConstantFloat16Tests(tcu::TestContext& testCtx)
 	{
 		map<string, string> fragments;
 
-		fragments["extension"]	= "OpExtension \"SPV_KHR_16bit_storage\"";
 		fragments["capability"]	= "OpCapability Float16\n";
 		fragments["pre_main"]	= tests[testNdx].constants;
 		fragments["testfun"]	= string(functionStart) + tests[testNdx].code + functionEnd;
@@ -9865,7 +10900,8 @@ void finalizeTestsCreation (T&							specResource,
 							const std::string&			testName,
 							const VulkanFeatures&		vulkanFeatures,
 							const vector<string>&		extensions,
-							const IVec3&				numWorkGroups);
+							const IVec3&				numWorkGroups,
+							const bool					splitRenderArea = false);
 
 template<>
 void finalizeTestsCreation (GraphicsResources&			specResource,
@@ -9875,12 +10911,13 @@ void finalizeTestsCreation (GraphicsResources&			specResource,
 							const std::string&			testName,
 							const VulkanFeatures&		vulkanFeatures,
 							const vector<string>&		extensions,
-							const IVec3&				)
+							const IVec3&				,
+							const bool					splitRenderArea)
 {
 	RGBA defaultColors[4];
 	getDefaultColors(defaultColors);
 
-	createTestsForAllStages(testName, defaultColors, defaultColors, fragments, specResource, extensions, &testGroup, vulkanFeatures);
+	createTestsForAllStages(testName, defaultColors, defaultColors, fragments, specResource, extensions, &testGroup, vulkanFeatures, QP_TEST_RESULT_FAIL, std::string(), splitRenderArea);
 }
 
 template<>
@@ -9891,7 +10928,8 @@ void finalizeTestsCreation (ComputeShaderSpec&			specResource,
 							const std::string&			testName,
 							const VulkanFeatures&		vulkanFeatures,
 							const vector<string>&		extensions,
-							const IVec3&				numWorkGroups)
+							const IVec3&				numWorkGroups,
+							bool)
 {
 	specResource.numWorkGroups = numWorkGroups;
 	specResource.requestedVulkanFeatures = vulkanFeatures;
@@ -9910,15 +10948,17 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 	de::MovePtr<tcu::TestCaseGroup>		testGroup			(new tcu::TestCaseGroup(testCtx, groupName.c_str(), "Float 16 logical tests"));
 
 	de::Random							rnd					(deStringHash(testGroup->getName()));
-	const string						spvCapabilities		= string("OpCapability StorageUniformBufferBlock16\n") + (nanSupported ? "OpCapability SignedZeroInfNanPreserve\n" : "");
-	const string						spvExtensions		= string("OpExtension \"SPV_KHR_16bit_storage\"\n") + (nanSupported ? "OpExtension \"SPV_KHR_float_controls\"\n" : "");
+	const string						spvCapabilities		= string("OpCapability Float16\n") + (nanSupported ? "OpCapability SignedZeroInfNanPreserve\n" : "");
+	const string						spvExtensions		= (nanSupported ? "OpExtension \"SPV_KHR_float_controls\"\n" : "");
 	const string						spvExecutionMode	= nanSupported ? "OpExecutionMode %BP_main SignedZeroInfNanPreserve 16\n" : "";
-	const deUint32						numDataPoints		= 16;
-	const vector<deFloat16>				float16Data			= getFloat16s(rnd, numDataPoints);
-	const vector<deFloat16>				float16Data1		= squarize(float16Data, 0);
-	const vector<deFloat16>				float16Data2		= squarize(float16Data, 1);
-	const vector<deFloat16>				float16DataVec1		= squarizeVector(float16Data, 0);
-	const vector<deFloat16>				float16DataVec2		= squarizeVector(float16Data, 1);
+	const deUint32						numDataPointsScalar	= 16;
+	const deUint32						numDataPointsVector	= 14;
+	const vector<deFloat16>				float16DataScalar	= getFloat16s(rnd, numDataPointsScalar);
+	const vector<deFloat16>				float16DataVector	= getFloat16s(rnd, numDataPointsVector);
+	const vector<deFloat16>				float16Data1		= squarize(float16DataScalar, 0);			// Total Size: square(sizeof(float16DataScalar))
+	const vector<deFloat16>				float16Data2		= squarize(float16DataScalar, 1);
+	const vector<deFloat16>				float16DataVec1		= squarizeVector(float16DataVector, 0);		// Total Size: 2 * (square(square(sizeof(float16DataVector))))
+	const vector<deFloat16>				float16DataVec2		= squarizeVector(float16DataVector, 1);
 	const vector<deFloat16>				float16OutDummy		(float16Data1.size(), 0);
 	const vector<deFloat16>				float16OutVecDummy	(float16DataVec1.size(), 0);
 
@@ -9951,22 +10991,28 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 	{ // scalar cases
 		const StringTemplate preMain
 		(
-			"%c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
-			"      %f16 = OpTypeFloat 16\n"
-			"  %c_f16_0 = OpConstant %f16 0.0\n"
-			"  %c_f16_1 = OpConstant %f16 1.0\n"
-			"   %up_f16 = OpTypePointer Uniform %f16\n"
-			"   %ra_f16 = OpTypeArray %f16 %c_i32_ndp\n"
-			"   %SSBO16 = OpTypeStruct %ra_f16\n"
-			"%up_SSBO16 = OpTypePointer Uniform %SSBO16\n"
-			"%ssbo_src0 = OpVariable %up_SSBO16 Uniform\n"
-			"%ssbo_src1 = OpVariable %up_SSBO16 Uniform\n"
-			" %ssbo_dst = OpVariable %up_SSBO16 Uniform\n"
+			"      %c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
+			"     %c_i32_hndp = OpSpecConstantOp %i32 SDiv %c_i32_ndp %c_i32_2\n"
+			"%c_u32_high_ones = OpConstant %u32 0xffff0000\n"
+			" %c_u32_low_ones = OpConstant %u32 0x0000ffff\n"
+			"            %f16 = OpTypeFloat 16\n"
+			"          %v2f16 = OpTypeVector %f16 2\n"
+			"        %c_f16_0 = OpConstant %f16 0.0\n"
+			"        %c_f16_1 = OpConstant %f16 1.0\n"
+			"         %up_u32 = OpTypePointer Uniform %u32\n"
+			"         %ra_u32 = OpTypeArray %u32 %c_i32_hndp\n"
+			"         %SSBO16 = OpTypeStruct %ra_u32\n"
+			"      %up_SSBO16 = OpTypePointer Uniform %SSBO16\n"
+			"     %f16_i32_fn = OpTypeFunction %f16 %i32\n"
+			"%void_f16_i32_fn = OpTypeFunction %void %f16 %i32\n"
+			"      %ssbo_src0 = OpVariable %up_SSBO16 Uniform\n"
+			"      %ssbo_src1 = OpVariable %up_SSBO16 Uniform\n"
+			"       %ssbo_dst = OpVariable %up_SSBO16 Uniform\n"
 		);
 
 		const StringTemplate decoration
 		(
-			"OpDecorate %ra_f16 ArrayStride 2\n"
+			"OpDecorate %ra_u32 ArrayStride 4\n"
 			"OpMemberDecorate %SSBO16 0 Offset 0\n"
 			"OpDecorate %SSBO16 BufferBlock\n"
 			"OpDecorate %ssbo_src0 DescriptorSet 0\n"
@@ -9996,15 +11042,13 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 			"    %write = OpLabel\n"
 			"      %ndx = OpLoad %i32 %i\n"
 
-			"     %src0 = OpAccessChain %up_f16 %ssbo_src0 %c_i32_0 %ndx\n"
-			" %val_src0 = OpLoad %f16 %src0\n"
+			" %val_src0 = OpFunctionCall %f16 %ld_arg_ssbo_src0 %ndx\n"
 
 			"${op_arg1_calc}"
 
 			" %val_bdst = ${op_code} %bool %val_src0 ${op_arg1}\n"
 			"  %val_dst = OpSelect %f16 %val_bdst %c_f16_1 %c_f16_0\n"
-			"      %dst = OpAccessChain %up_f16 %ssbo_dst %c_i32_0 %ndx\n"
-			"             OpStore %dst %val_dst\n"
+			"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n"
 			"             OpBranch %next\n"
 
 			"     %next = OpLabel\n"
@@ -10021,8 +11065,7 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 
 		const StringTemplate arg1Calc
 		(
-			"     %src1 = OpAccessChain %up_f16 %ssbo_src1 %c_i32_0 %ndx\n"
-			" %val_src1 = OpLoad %f16 %src1\n"
+			" %val_src1 = OpFunctionCall %f16 %ld_arg_ssbo_src1 %ndx\n"
 		);
 
 		for (deUint32 testOpsIdx = 0; testOpsIdx < DE_LENGTH_OF_ARRAY(testOps); ++testOpsIdx)
@@ -10047,13 +11090,18 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 			fragments["decoration"]		= decoration.specialize(specs);
 			fragments["pre_main"]		= preMain.specialize(specs);
 			fragments["testfun"]		= testFun.specialize(specs);
+			fragments["testfun"]		+= StringTemplate(loadScalarF16FromUint).specialize({{"var", "ssbo_src0"}});
+			if (testOp.argCount > 1)
+			{
+				fragments["testfun"]	+= StringTemplate(loadScalarF16FromUint).specialize({{"var", "ssbo_src1"}});
+			}
+			fragments["testfun"]		+= StringTemplate(storeScalarF16AsUint).specialize({{"var", "ssbo_dst"}});
 
 			specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16Data1)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 			specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16Data2)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 			specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16OutDummy)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 			specResource.verifyIO = nanSupported ? testOp.verifyFuncNan : testOp.verifyFuncNonNan;
 
-			extensions.push_back("VK_KHR_16bit_storage");
 			extensions.push_back("VK_KHR_shader_float16_int8");
 
 			if (nanSupported)
@@ -10063,7 +11111,6 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 				features.floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16 = DE_TRUE;
 			}
 
-			features.ext16BitStorage = EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 			features.extFloat16Int8 = EXTFLOAT16INT8FEATURES_FLOAT16;
 
 			finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
@@ -10072,26 +11119,28 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 	{ // vector cases
 		const StringTemplate preMain
 		(
-			"  %c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
-			"     %v2bool = OpTypeVector %bool 2\n"
-			"        %f16 = OpTypeFloat 16\n"
-			"    %c_f16_0 = OpConstant %f16 0.0\n"
-			"    %c_f16_1 = OpConstant %f16 1.0\n"
-			"      %v2f16 = OpTypeVector %f16 2\n"
-			"%c_v2f16_0_0 = OpConstantComposite %v2f16 %c_f16_0 %c_f16_0\n"
-			"%c_v2f16_1_1 = OpConstantComposite %v2f16 %c_f16_1 %c_f16_1\n"
-			"   %up_v2f16 = OpTypePointer Uniform %v2f16\n"
-			"   %ra_v2f16 = OpTypeArray %v2f16 %c_i32_ndp\n"
-			"     %SSBO16 = OpTypeStruct %ra_v2f16\n"
-			"  %up_SSBO16 = OpTypePointer Uniform %SSBO16\n"
-			"  %ssbo_src0 = OpVariable %up_SSBO16 Uniform\n"
-			"  %ssbo_src1 = OpVariable %up_SSBO16 Uniform\n"
-			"   %ssbo_dst = OpVariable %up_SSBO16 Uniform\n"
+			"        %c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
+			"           %v2bool = OpTypeVector %bool 2\n"
+			"              %f16 = OpTypeFloat 16\n"
+			"          %c_f16_0 = OpConstant %f16 0.0\n"
+			"          %c_f16_1 = OpConstant %f16 1.0\n"
+			"            %v2f16 = OpTypeVector %f16 2\n"
+			"      %c_v2f16_0_0 = OpConstantComposite %v2f16 %c_f16_0 %c_f16_0\n"
+			"      %c_v2f16_1_1 = OpConstantComposite %v2f16 %c_f16_1 %c_f16_1\n"
+			"           %up_u32 = OpTypePointer Uniform %u32\n"
+			"           %ra_u32 = OpTypeArray %u32 %c_i32_ndp\n"
+			"           %SSBO16 = OpTypeStruct %ra_u32\n"
+			"        %up_SSBO16 = OpTypePointer Uniform %SSBO16\n"
+			"     %v2f16_i32_fn = OpTypeFunction %v2f16 %i32\n"
+			"%void_v2f16_i32_fn = OpTypeFunction %void %v2f16 %i32\n"
+			"        %ssbo_src0 = OpVariable %up_SSBO16 Uniform\n"
+			"        %ssbo_src1 = OpVariable %up_SSBO16 Uniform\n"
+			"         %ssbo_dst = OpVariable %up_SSBO16 Uniform\n"
 		);
 
 		const StringTemplate decoration
 		(
-			"OpDecorate %ra_v2f16 ArrayStride 4\n"
+			"OpDecorate %ra_u32 ArrayStride 4\n"
 			"OpMemberDecorate %SSBO16 0 Offset 0\n"
 			"OpDecorate %SSBO16 BufferBlock\n"
 			"OpDecorate %ssbo_src0 DescriptorSet 0\n"
@@ -10121,15 +11170,13 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 			"    %write = OpLabel\n"
 			"      %ndx = OpLoad %i32 %i\n"
 
-			"     %src0 = OpAccessChain %up_v2f16 %ssbo_src0 %c_i32_0 %ndx\n"
-			" %val_src0 = OpLoad %v2f16 %src0\n"
+			" %val_src0 = OpFunctionCall %v2f16 %ld_arg_ssbo_src0 %ndx\n"
 
 			"${op_arg1_calc}"
 
 			" %val_bdst = ${op_code} %v2bool %val_src0 ${op_arg1}\n"
 			"  %val_dst = OpSelect %v2f16 %val_bdst %c_v2f16_1_1 %c_v2f16_0_0\n"
-			"      %dst = OpAccessChain %up_v2f16 %ssbo_dst %c_i32_0 %ndx\n"
-			"             OpStore %dst %val_dst\n"
+			"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n"
 			"             OpBranch %next\n"
 
 			"     %next = OpLabel\n"
@@ -10146,8 +11193,7 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 
 		const StringTemplate arg1Calc
 		(
-			"     %src1 = OpAccessChain %up_v2f16 %ssbo_src1 %c_i32_0 %ndx\n"
-			" %val_src1 = OpLoad %v2f16 %src1\n"
+			" %val_src1 = OpFunctionCall %v2f16 %ld_arg_ssbo_src1 %ndx\n"
 		);
 
 		for (deUint32 testOpsIdx = 0; testOpsIdx < DE_LENGTH_OF_ARRAY(testOps); ++testOpsIdx)
@@ -10173,13 +11219,18 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 			fragments["decoration"]		= decoration.specialize(specs);
 			fragments["pre_main"]		= preMain.specialize(specs);
 			fragments["testfun"]		= testFun.specialize(specs);
+			fragments["testfun"]		+= StringTemplate(loadV2F16FromUint).specialize({{"var", "ssbo_src0"}});
+			if (testOp.argCount > 1)
+			{
+				fragments["testfun"]	+= StringTemplate(loadV2F16FromUint).specialize({{"var", "ssbo_src1"}});
+			}
+			fragments["testfun"]		+= StringTemplate(storeV2F16AsUint).specialize({{"var", "ssbo_dst"}});
 
 			specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16DataVec1)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 			specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16DataVec2)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 			specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16OutVecDummy)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 			specResource.verifyIO = nanSupported ? testOp.verifyFuncNan : testOp.verifyFuncNonNan;
 
-			extensions.push_back("VK_KHR_16bit_storage");
 			extensions.push_back("VK_KHR_shader_float16_int8");
 
 			if (nanSupported)
@@ -10189,10 +11240,9 @@ tcu::TestCaseGroup* createFloat16LogicalSet (tcu::TestContext& testCtx, const bo
 				features.floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16 = DE_TRUE;
 			}
 
-			features.ext16BitStorage = EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 			features.extFloat16Int8 = EXTFLOAT16INT8FEATURES_FLOAT16;
 
-			finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
+			finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1), true);
 		}
 	}
 
@@ -10231,7 +11281,7 @@ tcu::TestCaseGroup* createFloat16FuncSet (tcu::TestContext& testCtx)
 	de::MovePtr<tcu::TestCaseGroup>		testGroup			(new tcu::TestCaseGroup(testCtx, "function", "Float 16 function call related tests"));
 
 	de::Random							rnd					(deStringHash(testGroup->getName()));
-	const StringTemplate				capabilities		("OpCapability ${cap}\n");
+	const StringTemplate				capabilities		("OpCapability Float16\n");
 	const deUint32						numDataPoints		= 256;
 	const vector<deFloat16>				float16InputData	= getFloat16s(rnd, numDataPoints);
 	const vector<deFloat16>				float16OutputDummy	(float16InputData.size(), 0);
@@ -10242,6 +11292,9 @@ tcu::TestCaseGroup* createFloat16FuncSet (tcu::TestContext& testCtx)
 		const deUint32	typeComponents;
 		const char*		typeName;
 		const char*		typeDecls;
+		const char*		typeStorage;
+		const string		loadFunc;
+		const string		storeFunc;
 	};
 
 	const TestType	testTypes[]	=
@@ -10249,25 +11302,44 @@ tcu::TestCaseGroup* createFloat16FuncSet (tcu::TestContext& testCtx)
 		{
 			1,
 			"f16",
-			""
+			"      %v2f16 = OpTypeVector %f16 2\n"
+			"%f16_i32_fn = OpTypeFunction %f16 %i32\n"
+			"%void_f16_i32_fn = OpTypeFunction %void %f16 %i32\n"
+			"%c_u32_high_ones = OpConstant %u32 0xffff0000\n"
+			" %c_u32_low_ones = OpConstant %u32 0x0000ffff\n",
+			"u32_hndp",
+			loadScalarF16FromUint,
+			storeScalarF16AsUint
 		},
 		{
 			2,
 			"v2f16",
 			"      %v2f16 = OpTypeVector %f16 2\n"
 			"  %c_v2f16_0 = OpConstantComposite %v2f16 %c_f16_0 %c_f16_0\n"
+			"%v2f16_i32_fn = OpTypeFunction %v2f16 %i32\n"
+			"%void_v2f16_i32_fn = OpTypeFunction %void %v2f16 %i32\n",
+			"u32_ndp",
+			loadV2F16FromUint,
+			storeV2F16AsUint
 		},
 		{
 			4,
 			"v4f16",
+			"      %v2f16 = OpTypeVector %f16 2\n"
 			"      %v4f16 = OpTypeVector %f16 4\n"
 			"  %c_v4f16_0 = OpConstantComposite %v4f16 %c_f16_0 %c_f16_0 %c_f16_0 %c_f16_0\n"
+			"%v4f16_i32_fn = OpTypeFunction %v4f16 %i32\n"
+			"%void_v4f16_i32_fn = OpTypeFunction %void %v4f16 %i32\n",
+			"ra_u32_2",
+			loadV4F16FromUints,
+			storeV4F16AsUints
 		},
 	};
 
 	const StringTemplate preMain
 	(
 		"  %c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
+		" %c_i32_hndp = OpSpecConstantOp %i32 SDiv %c_i32_ndp %c_i32_2\n"
 		"     %v2bool = OpTypeVector %bool 2\n"
 		"        %f16 = OpTypeFloat 16\n"
 		"    %c_f16_0 = OpConstant %f16 0.0\n"
@@ -10275,9 +11347,12 @@ tcu::TestCaseGroup* createFloat16FuncSet (tcu::TestContext& testCtx)
 		"${type_decls}"
 
 		"  %${tt}_fun = OpTypeFunction %${tt} %${tt}\n"
-		"   %up_${tt} = OpTypePointer Uniform %${tt}\n"
-		"   %ra_${tt} = OpTypeArray %${tt} %c_i32_ndp\n"
-		"     %SSBO16 = OpTypeStruct %ra_${tt}\n"
+		"   %ra_u32_2 = OpTypeArray %u32 %c_u32_2\n"
+		"%ra_u32_hndp = OpTypeArray %u32 %c_i32_hndp\n"
+		" %ra_u32_ndp = OpTypeArray %u32 %c_i32_ndp\n"
+		"%ra_ra_u32_2 = OpTypeArray %ra_u32_2 %c_i32_ndp\n"
+		"	  %up_u32 = OpTypePointer Uniform %u32\n"
+		"     %SSBO16 = OpTypeStruct %ra_${ts}\n"
 		"  %up_SSBO16 = OpTypePointer Uniform %SSBO16\n"
 		"   %ssbo_src = OpVariable %up_SSBO16 Uniform\n"
 		"   %ssbo_dst = OpVariable %up_SSBO16 Uniform\n"
@@ -10285,7 +11360,10 @@ tcu::TestCaseGroup* createFloat16FuncSet (tcu::TestContext& testCtx)
 
 	const StringTemplate decoration
 	(
-		"OpDecorate %ra_${tt} ArrayStride ${tt_stride}\n"
+		"OpDecorate %ra_u32_2 ArrayStride 4\n"
+		"OpDecorate %ra_u32_hndp ArrayStride 4\n"
+		"OpDecorate %ra_u32_ndp ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_2 ArrayStride 8\n"
 		"OpMemberDecorate %SSBO16 0 Offset 0\n"
 		"OpDecorate %SSBO16 BufferBlock\n"
 		"OpDecorate %ssbo_src DescriptorSet 0\n"
@@ -10313,12 +11391,9 @@ tcu::TestCaseGroup* createFloat16FuncSet (tcu::TestContext& testCtx)
 		"    %write = OpLabel\n"
 		"      %ndx = OpLoad %i32 %i\n"
 
-		"      %src = OpAccessChain %up_${tt} %ssbo_src %c_i32_0 %ndx\n"
-		"  %val_src = OpLoad %${tt} %src\n"
-
+		"  %val_src = OpFunctionCall %${tt} %ld_arg_ssbo_src %ndx\n"
 		"  %val_dst = OpFunctionCall %${tt} %pass_fun %val_src\n"
-		"      %dst = OpAccessChain %up_${tt} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n"
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n"
 		"             OpBranch %next\n"
 
 		"     %next = OpLabel\n"
@@ -10352,419 +11427,28 @@ tcu::TestCaseGroup* createFloat16FuncSet (tcu::TestContext& testCtx)
 		VulkanFeatures		features;
 		vector<string>		extensions;
 
-		specs["cap"]				= "StorageUniformBufferBlock16";
 		specs["num_data_points"]	= de::toString(iterations);
 		specs["tt"]					= testType.typeName;
+		specs["ts"]					= testType.typeStorage;
 		specs["tt_stride"]			= de::toString(typeStride);
 		specs["type_decls"]			= testType.typeDecls;
 
-		fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
 		fragments["capability"]		= capabilities.specialize(specs);
 		fragments["decoration"]		= decoration.specialize(specs);
 		fragments["pre_main"]		= preMain.specialize(specs);
 		fragments["testfun"]		= testFun.specialize(specs);
+		fragments["testfun"]		+= StringTemplate(testType.loadFunc).specialize({{"var", "ssbo_src"}});
+		fragments["testfun"]		+= StringTemplate(testType.storeFunc).specialize({{"var", "ssbo_dst"}});
 
 		specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16InputData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16OutputDummy)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.verifyIO = compareFP16FunctionSetFunc;
 
-		extensions.push_back("VK_KHR_16bit_storage");
 		extensions.push_back("VK_KHR_shader_float16_int8");
 
-		features.ext16BitStorage = EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 		features.extFloat16Int8	= EXTFLOAT16INT8FEATURES_FLOAT16;
 
 		finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
-	}
-
-	return testGroup.release();
-}
-
-struct getV_	{ deUint32 inline operator()(deUint32 v) const	{ return v;        } getV_(){} };
-struct getV0	{ deUint32 inline operator()(deUint32 v) const	{ return v & (~1); } getV0(){} };
-struct getV1	{ deUint32 inline operator()(deUint32 v) const	{ return v | ( 1); } getV1(){} };
-
-template<deUint32 R, deUint32 N>
-inline static deUint32 getOffset(deUint32 x, deUint32 y, deUint32 n)
-{
-	return N * ((R * y) + x) + n;
-}
-
-template<deUint32 R, deUint32 N, class X0, class X1, class Y0, class Y1>
-struct getFDelta
-{
-	float operator() (const deFloat16* data, deUint32 x, deUint32 y, deUint32 n, deUint32 flavor) const
-	{
-		DE_STATIC_ASSERT(R%2 == 0);
-		DE_ASSERT(flavor == 0);
-		DE_UNREF(flavor);
-
-		const X0			x0;
-		const X1			x1;
-		const Y0			y0;
-		const Y1			y1;
-		const deFloat16		v0	= data[getOffset<R, N>(x0(x), y0(y), n)];
-		const deFloat16		v1	= data[getOffset<R, N>(x1(x), y1(y), n)];
-		const tcu::Float16	f0	= tcu::Float16(v0);
-		const tcu::Float16	f1	= tcu::Float16(v1);
-		const float			d0	= f0.asFloat();
-		const float			d1	= f1.asFloat();
-		const float			d	= d1 - d0;
-
-		return d;
-	}
-
-	getFDelta(){}
-};
-
-template<deUint32 F, class Class0, class Class1>
-struct getFOneOf
-{
-	float operator() (const deFloat16* data, deUint32 x, deUint32 y, deUint32 n, deUint32 flavor) const
-	{
-		DE_ASSERT(flavor < F);
-
-		if (flavor == 0)
-		{
-			Class0 c;
-
-			return c(data, x, y, n, flavor);
-		}
-		else
-		{
-			Class1 c;
-
-			return c(data, x, y, n, flavor - 1);
-		}
-	}
-
-	getFOneOf(){}
-};
-
-template<class FineX0, class FineX1, class FineY0, class FineY1>
-struct calcWidthOf4
-{
-	float operator() (const deFloat16* data, deUint32 x, deUint32 y, deUint32 n, deUint32 flavor) const
-	{
-		DE_ASSERT(flavor < 4);
-
-		const deUint32						flavorX = (flavor & 1) == 0 ? 0 : 1;
-		const deUint32						flavorY = (flavor & 2) == 0 ? 0 : 1;
-		const getFOneOf<2, FineX0, FineX1>	cx;
-		const getFOneOf<2, FineY0, FineY1>	cy;
-		float								v		= 0;
-
-		v += fabsf(cx(data, x, y, n, flavorX));
-		v += fabsf(cy(data, x, y, n, flavorY));
-
-		return v;
-	}
-
-	calcWidthOf4(){}
-};
-
-template<deUint32 R, deUint32 N, class Derivative>
-bool compareDerivativeWithFlavor (const deFloat16* inputAsFP16, const deFloat16* outputAsFP16, deUint32 flavor, std::string& error)
-{
-	const deUint32		numDataPointsByAxis	= R;
-	const Derivative	derivativeFunc;
-
-	for (deUint32 y = 0; y < numDataPointsByAxis; ++y)
-	for (deUint32 x = 0; x < numDataPointsByAxis; ++x)
-	for (deUint32 n = 0; n < N; ++n)
-	{
-		const float		expectedFloat	= derivativeFunc(inputAsFP16, x, y, n, flavor);
-		deFloat16		expected		= deFloat32To16Round(expectedFloat, DE_ROUNDINGMODE_TO_NEAREST_EVEN);
-		const deFloat16	output			= outputAsFP16[getOffset<R, N>(x, y, n)];
-
-		bool			reportError		= !compare16BitFloat(expected, output, error);
-
-		if (reportError)
-		{
-			expected	= deFloat32To16Round(expectedFloat, DE_ROUNDINGMODE_TO_ZERO);
-			reportError	= !compare16BitFloat(expected, output, error);
-		}
-
-		if (reportError)
-		{
-			error = "subcase at " + de::toString(x) + "," + de::toString(y) + "," + de::toString(n) + ": " + error;
-
-			return false;
-		}
-	}
-
-	return true;
-}
-
-template<deUint32 R, deUint32 N, deUint32 FLAVOUR_COUNT, class Derivative>
-bool compareDerivative (const std::vector<Resource>& inputs, const vector<AllocationSp>& outputAllocs, const std::vector<Resource>&, TestLog& log)
-{
-	if (inputs.size() != 1 || outputAllocs.size() != 1)
-		return false;
-
-	deUint32			successfulRuns			= FLAVOUR_COUNT;
-	std::string			results[FLAVOUR_COUNT];
-	vector<deUint8>		inputBytes;
-
-	inputs[0].getBytes(inputBytes);
-
-	const deFloat16*	inputAsFP16		= reinterpret_cast<deFloat16* const>(&inputBytes.front());
-	const deFloat16*	outputAsFP16	= static_cast<deFloat16*>(outputAllocs[0]->getHostPtr());
-
-	DE_ASSERT(inputBytes.size() ==  R * R * N * sizeof(deFloat16));
-
-	for (deUint32 flavor = 0; flavor < FLAVOUR_COUNT; ++flavor)
-		if (compareDerivativeWithFlavor<R, N, Derivative> (inputAsFP16, outputAsFP16, flavor, results[flavor]))
-		{
-			break;
-		}
-		else
-		{
-			successfulRuns--;
-		}
-
-	if (successfulRuns == 0)
-		for (deUint32 flavor = 0; flavor < FLAVOUR_COUNT; flavor++)
-			log << TestLog::Message << "At flavor #" << flavor << " " << results[flavor] << TestLog::EndMessage;
-
-	return successfulRuns > 0;
-}
-
-template<deUint32 R, deUint32 N>
-tcu::TestCaseGroup* createDerivativeTests (tcu::TestContext& testCtx)
-{
-	typedef getFDelta<R, N, getV0, getV1, getV_, getV_> getFDxFine;
-	typedef getFDelta<R, N, getV_, getV_, getV0, getV1> getFDyFine;
-
-	typedef getFDelta<R, N, getV0, getV1, getV0, getV0> getFdxCoarse0;
-	typedef getFDelta<R, N, getV0, getV1, getV1, getV1> getFdxCoarse1;
-	typedef getFDelta<R, N, getV0, getV0, getV0, getV1> getFdyCoarse0;
-	typedef getFDelta<R, N, getV1, getV1, getV0, getV1> getFdyCoarse1;
-	typedef getFOneOf<2, getFdxCoarse0, getFdxCoarse1> getFDxCoarse;
-	typedef getFOneOf<2, getFdyCoarse0, getFdyCoarse1> getFDyCoarse;
-
-	typedef calcWidthOf4<getFDxFine, getFDxFine, getFDyFine, getFDyFine> getFWidthFine;
-	typedef calcWidthOf4<getFdxCoarse0, getFdxCoarse1, getFdyCoarse0, getFdyCoarse1> getFWidthCoarse;
-
-	typedef getFOneOf<3, getFDxFine, getFDxCoarse> getFDx;
-	typedef getFOneOf<3, getFDyFine, getFDyCoarse> getFDy;
-	typedef getFOneOf<5, getFWidthFine, getFWidthCoarse> getFWidth;
-
-	const std::string					testGroupName		(std::string("derivative_") + de::toString(N));
-	de::MovePtr<tcu::TestCaseGroup>		testGroup			(new tcu::TestCaseGroup(testCtx, testGroupName.c_str(), "Derivative instruction tests"));
-
-	de::Random							rnd					(deStringHash(testGroup->getName()));
-	const deUint32						numDataPointsByAxis	= R;
-	const deUint32						numDataPoints		= N * numDataPointsByAxis * numDataPointsByAxis;
-	vector<deFloat16>					float16InputX;
-	vector<deFloat16>					float16InputY;
-	vector<deFloat16>					float16InputW;
-	vector<deFloat16>					float16OutputDummy	(numDataPoints, 0);
-	RGBA								defaultColors[4];
-
-	getDefaultColors(defaultColors);
-
-	float16InputX.reserve(numDataPoints);
-	for (deUint32 y = 0; y < numDataPointsByAxis; ++y)
-	for (deUint32 x = 0; x < numDataPointsByAxis; ++x)
-	for (deUint32 n = 0; n < N; ++n)
-	{
-		const float arg = static_cast<float>(2 * DE_PI) * static_cast<float>(x * (n + 1)) / static_cast<float>(1 * numDataPointsByAxis);
-
-		if (y%2 == 0)
-			float16InputX.push_back(tcu::Float16(sin(arg)).bits());
-		else
-			float16InputX.push_back(tcu::Float16(cos(arg)).bits());
-	}
-
-	float16InputY.reserve(numDataPoints);
-	for (deUint32 y = 0; y < numDataPointsByAxis; ++y)
-	for (deUint32 x = 0; x < numDataPointsByAxis; ++x)
-	for (deUint32 n = 0; n < N; ++n)
-	{
-		const float arg = static_cast<float>(2 * DE_PI) * static_cast<float>(y * (n + 1)) / static_cast<float>(1 * numDataPointsByAxis);
-
-		if (x%2 == 0)
-			float16InputY.push_back(tcu::Float16(sin(arg)).bits());
-		else
-			float16InputY.push_back(tcu::Float16(cos(arg)).bits());
-	}
-
-	const deFloat16 testNumbers[]	=
-	{
-		tcu::Float16( 2.0  ).bits(),
-		tcu::Float16( 4.0  ).bits(),
-		tcu::Float16( 8.0  ).bits(),
-		tcu::Float16( 16.0 ).bits(),
-		tcu::Float16( 32.0 ).bits(),
-		tcu::Float16( 64.0 ).bits(),
-		tcu::Float16( 128.0).bits(),
-		tcu::Float16( 256.0).bits(),
-		tcu::Float16( 512.0).bits(),
-		tcu::Float16(-2.0  ).bits(),
-		tcu::Float16(-4.0  ).bits(),
-		tcu::Float16(-8.0  ).bits(),
-		tcu::Float16(-16.0 ).bits(),
-		tcu::Float16(-32.0 ).bits(),
-		tcu::Float16(-64.0 ).bits(),
-		tcu::Float16(-128.0).bits(),
-		tcu::Float16(-256.0).bits(),
-		tcu::Float16(-512.0).bits(),
-	};
-
-	float16InputW.reserve(numDataPoints);
-	for (deUint32 y = 0; y < numDataPointsByAxis; ++y)
-	for (deUint32 x = 0; x < numDataPointsByAxis; ++x)
-	for (deUint32 n = 0; n < N; ++n)
-		float16InputW.push_back(testNumbers[rnd.getInt(0, DE_LENGTH_OF_ARRAY(testNumbers) - 1)]);
-
-	struct TestOp
-	{
-		const char*			opCode;
-		vector<deFloat16>&	inputData;
-		VerifyIOFunc		verifyFunc;
-	};
-
-	const TestOp	testOps[]	=
-	{
-		{ "OpDPdxFine"		,	float16InputX	,	compareDerivative<R, N, 1, getFDxFine		>	},
-		{ "OpDPdyFine"		,	float16InputY	,	compareDerivative<R, N, 1, getFDyFine		>	},
-		{ "OpFwidthFine"	,	float16InputW	,	compareDerivative<R, N, 1, getFWidthFine	>	},
-		{ "OpDPdxCoarse"	,	float16InputX	,	compareDerivative<R, N, 3, getFDx			>	},
-		{ "OpDPdyCoarse"	,	float16InputY	,	compareDerivative<R, N, 3, getFDy			>	},
-		{ "OpFwidthCoarse"	,	float16InputW	,	compareDerivative<R, N, 5, getFWidth		>	},
-		{ "OpDPdx"			,	float16InputX	,	compareDerivative<R, N, 3, getFDx			>	},
-		{ "OpDPdy"			,	float16InputY	,	compareDerivative<R, N, 3, getFDy			>	},
-		{ "OpFwidth"		,	float16InputW	,	compareDerivative<R, N, 5, getFWidth		>	},
-	};
-
-	struct TestType
-	{
-		const deUint32	typeComponents;
-		const char*		typeName;
-		const char*		typeDecls;
-	};
-
-	const TestType	testTypes[]	=
-	{
-		{
-			1,
-			"f16",
-			""
-		},
-		{
-			2,
-			"v2f16",
-			"      %v2f16 = OpTypeVector %f16 2\n"
-		},
-		{
-			4,
-			"v4f16",
-			"      %v4f16 = OpTypeVector %f16 4\n"
-		},
-	};
-
-	const deUint32	testTypeNdx	= (N == 1) ? 0
-								: (N == 2) ? 1
-								: (N == 4) ? 2
-								: DE_LENGTH_OF_ARRAY(testTypes);
-	const TestType&	testType	=	testTypes[testTypeNdx];
-
-	DE_ASSERT(testTypeNdx < DE_LENGTH_OF_ARRAY(testTypes));
-	DE_ASSERT(testType.typeComponents == N);
-
-	const StringTemplate preMain
-	(
-		"%c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
-		" %c_u32_xw = OpConstant %u32 ${items_by_x}\n"
-		"      %f16 = OpTypeFloat 16\n"
-		"${type_decls}"
-		" %up_${tt} = OpTypePointer Uniform %${tt}\n"
-		" %ra_${tt} = OpTypeArray %${tt} %c_i32_ndp\n"
-		"   %SSBO16 = OpTypeStruct %ra_${tt}\n"
-		"%up_SSBO16 = OpTypePointer Uniform %SSBO16\n"
-		" %ssbo_src = OpVariable %up_SSBO16 Uniform\n"
-		" %ssbo_dst = OpVariable %up_SSBO16 Uniform\n"
-	);
-
-	const StringTemplate decoration
-	(
-		"OpDecorate %ra_${tt} ArrayStride ${tt_stride}\n"
-		"OpMemberDecorate %SSBO16 0 Offset 0\n"
-		"OpDecorate %SSBO16 BufferBlock\n"
-		"OpDecorate %ssbo_src DescriptorSet 0\n"
-		"OpDecorate %ssbo_src Binding 0\n"
-		"OpDecorate %ssbo_dst DescriptorSet 0\n"
-		"OpDecorate %ssbo_dst Binding 1\n"
-	);
-
-	const StringTemplate testFun
-	(
-		"%test_code = OpFunction %v4f32 None %v4f32_v4f32_function\n"
-		"    %param = OpFunctionParameter %v4f32\n"
-		"    %entry = OpLabel\n"
-
-		"  %loc_x_c = OpAccessChain %ip_f32 %BP_gl_FragCoord %c_i32_0\n"
-		"  %loc_y_c = OpAccessChain %ip_f32 %BP_gl_FragCoord %c_i32_1\n"
-		"      %x_c = OpLoad %f32 %loc_x_c\n"
-		"      %y_c = OpLoad %f32 %loc_y_c\n"
-		"    %x_idx = OpConvertFToU %u32 %x_c\n"
-		"    %y_idx = OpConvertFToU %u32 %y_c\n"
-		"    %ndx_y = OpIMul %u32 %y_idx %c_u32_xw\n"
-		"      %ndx = OpIAdd %u32 %ndx_y %x_idx\n"
-
-		"      %src = OpAccessChain %up_${tt} %ssbo_src %c_i32_0 %ndx\n"
-		"  %val_src = OpLoad %${tt} %src\n"
-		"  %val_dst = ${op_code} %${tt} %val_src\n"
-		"      %dst = OpAccessChain %up_${tt} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n"
-		"             OpBranch %merge\n"
-
-		"    %merge = OpLabel\n"
-		"             OpReturnValue %param\n"
-
-		"             OpFunctionEnd\n"
-	);
-
-	for (deUint32 testOpsIdx = 0; testOpsIdx < DE_LENGTH_OF_ARRAY(testOps); ++testOpsIdx)
-	{
-		const TestOp&		testOp			= testOps[testOpsIdx];
-		const string		testName		= de::toLower(string(testOp.opCode));
-		const size_t		typeStride		= N * sizeof(deFloat16);
-		GraphicsResources	specResource;
-		map<string, string>	specs;
-		VulkanFeatures		features;
-		vector<string>		extensions;
-		map<string, string>	fragments;
-		SpecConstants		noSpecConstants;
-		PushConstants		noPushConstants;
-		GraphicsInterfaces	noInterfaces;
-
-		specs["op_code"]			= testOp.opCode;
-		specs["num_data_points"]	= de::toString(testOp.inputData.size() / N);
-		specs["items_by_x"]			= de::toString(numDataPointsByAxis);
-		specs["tt"]					= testType.typeName;
-		specs["tt_stride"]			= de::toString(typeStride);
-		specs["type_decls"]			= testType.typeDecls;
-
-		fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
-		fragments["capability"]		= "OpCapability DerivativeControl\nOpCapability StorageUniformBufferBlock16\n";
-		fragments["decoration"]		= decoration.specialize(specs);
-		fragments["pre_main"]		= preMain.specialize(specs);
-		fragments["testfun"]		= testFun.specialize(specs);
-
-		specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(testOp.inputData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16OutputDummy)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
-		specResource.verifyIO = testOp.verifyFunc;
-
-		extensions.push_back("VK_KHR_16bit_storage");
-		extensions.push_back("VK_KHR_shader_float16_int8");
-
-		features.extFloat16Int8		= EXTFLOAT16INT8FEATURES_FLOAT16;
-		features.ext16BitStorage	= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
-
-		createTestForStage(VK_SHADER_STAGE_FRAGMENT_BIT, testName.c_str(), defaultColors, defaultColors, fragments, noSpecConstants,
-							noPushConstants, specResource, noInterfaces, extensions, features, testGroup.get(), QP_TEST_RESULT_FAIL, string(), true);
 	}
 
 	return testGroup.release();
@@ -10830,6 +11514,9 @@ tcu::TestCaseGroup* createFloat16VectorExtractSet (tcu::TestContext& testCtx)
 		const size_t	typeStride;
 		const char*		typeName;
 		const char*		typeDecls;
+		const char*		typeStorage;
+		const string		loadFunction;
+		const string		storeFunction;
 	};
 
 	const TestType	testTypes[]	=
@@ -10839,41 +11526,65 @@ tcu::TestCaseGroup* createFloat16VectorExtractSet (tcu::TestContext& testCtx)
 			2 * sizeof(deFloat16),
 			"v2f16",
 			"      %v2f16 = OpTypeVector %f16 2\n"
+			"%v2f16_i32_fn = OpTypeFunction %v2f16 %i32\n"
+			"%void_f16_i32_fn = OpTypeFunction %void %f16 %i32\n"
+			"%c_u32_high_ones = OpConstant %u32 0xffff0000\n"
+			" %c_u32_low_ones = OpConstant %u32 0x0000ffff\n",
+			"u32",
+			loadV2F16FromUint,
+			storeScalarF16AsUint
 		},
 		{
 			3,
 			4 * sizeof(deFloat16),
 			"v3f16",
+			"      %v2f16 = OpTypeVector %f16 2\n"
 			"      %v3f16 = OpTypeVector %f16 3\n"
+			"%v3f16_i32_fn = OpTypeFunction %v3f16 %i32\n"
+			"%void_f16_i32_fn = OpTypeFunction %void %f16 %i32\n"
+			"%c_u32_high_ones = OpConstant %u32 0xffff0000\n"
+			" %c_u32_low_ones = OpConstant %u32 0x0000ffff\n",
+			"ra_u32_2",
+			loadV3F16FromUints,
+			storeScalarF16AsUint
 		},
 		{
 			4,
 			4 * sizeof(deFloat16),
 			"v4f16",
+			"      %v2f16 = OpTypeVector %f16 2\n"
 			"      %v4f16 = OpTypeVector %f16 4\n"
+			"%v4f16_i32_fn = OpTypeFunction %v4f16 %i32\n"
+			"%void_f16_i32_fn = OpTypeFunction %void %f16 %i32\n"
+			"%c_u32_high_ones = OpConstant %u32 0xffff0000\n"
+			" %c_u32_low_ones = OpConstant %u32 0x0000ffff\n",
+			"ra_u32_2",
+			loadV4F16FromUints,
+			storeScalarF16AsUint
 		},
 	};
 
 	const StringTemplate preMain
 	(
 		"  %c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
+		" %c_i32_hndp = OpSpecConstantOp %i32 SDiv %c_i32_ndp %c_i32_2\n"
 		"        %f16 = OpTypeFloat 16\n"
 
 		"${type_decl}"
-
-		"   %up_${tt} = OpTypePointer Uniform %${tt}\n"
-		"   %ra_${tt} = OpTypeArray %${tt} %c_i32_ndp\n"
-		"   %SSBO_SRC = OpTypeStruct %ra_${tt}\n"
-		"%up_SSBO_SRC = OpTypePointer Uniform %SSBO_SRC\n"
 
 		"     %up_u32 = OpTypePointer Uniform %u32\n"
 		"     %ra_u32 = OpTypeArray %u32 %c_i32_ndp\n"
 		"   %SSBO_IDX = OpTypeStruct %ra_u32\n"
 		"%up_SSBO_IDX = OpTypePointer Uniform %SSBO_IDX\n"
 
-		"     %up_f16 = OpTypePointer Uniform %f16\n"
-		"     %ra_f16 = OpTypeArray %f16 %c_i32_ndp\n"
-		"   %SSBO_DST = OpTypeStruct %ra_f16\n"
+		"   %ra_u32_2 = OpTypeArray %u32 %c_u32_2\n"
+		" %ra_u32_ndp = OpTypeArray %u32 %c_i32_ndp\n"
+		"%ra_ra_u32_2 = OpTypeArray %ra_u32_2 %c_i32_ndp\n"
+		"   %SSBO_SRC = OpTypeStruct %ra_${ts}\n"
+		"%up_SSBO_SRC = OpTypePointer Uniform %SSBO_SRC\n"
+
+		" %ra_u32_hndp = OpTypeArray %u32 %c_i32_hndp\n"
+		"   %SSBO_DST = OpTypeStruct %ra_u32_hndp\n"
 		"%up_SSBO_DST = OpTypePointer Uniform %SSBO_DST\n"
 
 		"   %ssbo_src = OpVariable %up_SSBO_SRC Uniform\n"
@@ -10883,7 +11594,9 @@ tcu::TestCaseGroup* createFloat16VectorExtractSet (tcu::TestContext& testCtx)
 
 	const StringTemplate decoration
 	(
-		"OpDecorate %ra_${tt} ArrayStride ${tt_stride}\n"
+		"OpDecorate %ra_u32_2 ArrayStride 4\n"
+		"OpDecorate %ra_u32_hndp ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_2 ArrayStride 8\n"
 		"OpMemberDecorate %SSBO_SRC 0 Offset 0\n"
 		"OpDecorate %SSBO_SRC BufferBlock\n"
 		"OpDecorate %ssbo_src DescriptorSet 0\n"
@@ -10895,7 +11608,6 @@ tcu::TestCaseGroup* createFloat16VectorExtractSet (tcu::TestContext& testCtx)
 		"OpDecorate %ssbo_idx DescriptorSet 0\n"
 		"OpDecorate %ssbo_idx Binding 1\n"
 
-		"OpDecorate %ra_f16 ArrayStride 2\n"
 		"OpMemberDecorate %SSBO_DST 0 Offset 0\n"
 		"OpDecorate %SSBO_DST BufferBlock\n"
 		"OpDecorate %ssbo_dst DescriptorSet 0\n"
@@ -10927,16 +11639,14 @@ tcu::TestCaseGroup* createFloat16VectorExtractSet (tcu::TestContext& testCtx)
 		"    %write = OpLabel\n"
 		"      %ndx = OpLoad %i32 %i\n"
 
-		"      %src = OpAccessChain %up_${tt} %ssbo_src %c_i32_0 %ndx\n"
-		"  %val_src = OpLoad %${tt} %src\n"
+		"  %val_src = OpFunctionCall %${tt} %ld_arg_ssbo_src %ndx\n"
 
 		"  %src_idx = OpAccessChain %up_u32 %ssbo_idx %c_i32_0 %ndx\n"
 		"  %val_idx = OpLoad %u32 %src_idx\n"
 
 		"  %val_dst = OpVectorExtractDynamic %f16 %val_src %val_idx\n"
-		"      %dst = OpAccessChain %up_f16 %ssbo_dst %c_i32_0 %ndx\n"
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n"
 
-		"             OpStore %dst %val_dst\n"
 		"             OpBranch %next\n"
 
 		"     %next = OpLabel\n"
@@ -10971,25 +11681,25 @@ tcu::TestCaseGroup* createFloat16VectorExtractSet (tcu::TestContext& testCtx)
 
 		specs["num_data_points"]	= de::toString(iterations);
 		specs["tt"]					= testType.typeName;
+		specs["ts"]					= testType.typeStorage;
 		specs["tt_stride"]			= de::toString(testType.typeStride);
 		specs["type_decl"]			= testType.typeDecls;
 
-		fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
-		fragments["capability"]		= "OpCapability StorageUniformBufferBlock16\n";
+		fragments["capability"]		= "OpCapability Float16\n";
 		fragments["decoration"]		= decoration.specialize(specs);
 		fragments["pre_main"]		= preMain.specialize(specs);
 		fragments["testfun"]		= testFun.specialize(specs);
+		fragments["testfun"]		+= StringTemplate(testType.loadFunction).specialize({{"var", "ssbo_src"}});
+		fragments["testfun"]		+= StringTemplate(testType.storeFunction).specialize({{"var", "ssbo_dst"}});
 
 		specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16InputData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.inputs.push_back(Resource(BufferSp(new Uint32Buffer(inputDataNdx)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16OutputDummy)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.verifyIO = compareFP16VectorExtractFunc;
 
-		extensions.push_back("VK_KHR_16bit_storage");
 		extensions.push_back("VK_KHR_shader_float16_int8");
 
 		features.extFloat16Int8		= EXTFLOAT16INT8FEATURES_FLOAT16;
-		features.ext16BitStorage	= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 
 		finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
 	}
@@ -11066,6 +11776,9 @@ tcu::TestCaseGroup* createFloat16VectorInsertSet (tcu::TestContext& testCtx)
 		const char*		typeName;
 		const char*		typeDecls;
 		VerifyIOFunc	verifyIOFunc;
+		const char*		typeStorage;
+		const string		loadFunction;
+		const string		storeFunction;
 	};
 
 	const TestType	testTypes[]	=
@@ -11074,22 +11787,39 @@ tcu::TestCaseGroup* createFloat16VectorInsertSet (tcu::TestContext& testCtx)
 			2,
 			2 * sizeof(deFloat16),
 			"v2f16",
-			"      %v2f16 = OpTypeVector %f16 2\n",
-			compareFP16VectorInsertFunc<2, replacement>
+			"      %v2f16 = OpTypeVector %f16 2\n"
+			"%v2f16_i32_fn = OpTypeFunction %v2f16 %i32\n"
+			"%void_v2f16_i32_fn = OpTypeFunction %void %v2f16 %i32\n",
+			compareFP16VectorInsertFunc<2, replacement>,
+			"u32",
+			loadV2F16FromUint,
+			storeV2F16AsUint
 		},
 		{
 			3,
 			4 * sizeof(deFloat16),
 			"v3f16",
-			"      %v3f16 = OpTypeVector %f16 3\n",
-			compareFP16VectorInsertFunc<3, replacement>
+			"      %v2f16 = OpTypeVector %f16 2\n"
+			"      %v3f16 = OpTypeVector %f16 3\n"
+			"%v3f16_i32_fn = OpTypeFunction %v3f16 %i32\n"
+			"%void_v3f16_i32_fn = OpTypeFunction %void %v3f16 %i32\n",
+			compareFP16VectorInsertFunc<3, replacement>,
+			"ra_u32_2",
+			loadV3F16FromUints,
+			storeV3F16AsUints
 		},
 		{
 			4,
 			4 * sizeof(deFloat16),
 			"v4f16",
-			"      %v4f16 = OpTypeVector %f16 4\n",
-			compareFP16VectorInsertFunc<4, replacement>
+			"      %v2f16 = OpTypeVector %f16 2\n"
+			"      %v4f16 = OpTypeVector %f16 4\n"
+			"%v4f16_i32_fn = OpTypeFunction %v4f16 %i32\n"
+			"%void_v4f16_i32_fn = OpTypeFunction %void %v4f16 %i32\n",
+			compareFP16VectorInsertFunc<4, replacement>,
+			"ra_u32_2",
+			loadV4F16FromUints,
+			storeV4F16AsUints
 		},
 	};
 
@@ -11101,17 +11831,17 @@ tcu::TestCaseGroup* createFloat16VectorInsertSet (tcu::TestContext& testCtx)
 
 		"${type_decl}"
 
-		"   %up_${tt} = OpTypePointer Uniform %${tt}\n"
-		"   %ra_${tt} = OpTypeArray %${tt} %c_i32_ndp\n"
-		"   %SSBO_SRC = OpTypeStruct %ra_${tt}\n"
-		"%up_SSBO_SRC = OpTypePointer Uniform %SSBO_SRC\n"
-
-		"     %up_u32 = OpTypePointer Uniform %u32\n"
 		"     %ra_u32 = OpTypeArray %u32 %c_i32_ndp\n"
+		"	  %up_u32 = OpTypePointer Uniform %u32\n"
 		"   %SSBO_IDX = OpTypeStruct %ra_u32\n"
 		"%up_SSBO_IDX = OpTypePointer Uniform %SSBO_IDX\n"
 
-		"   %SSBO_DST = OpTypeStruct %ra_${tt}\n"
+		"   %ra_u32_2 = OpTypeArray %u32 %c_u32_2\n"
+		"%ra_ra_u32_2 = OpTypeArray %ra_u32_2 %c_i32_ndp\n"
+		"   %SSBO_SRC = OpTypeStruct %ra_${ts}\n"
+		"%up_SSBO_SRC = OpTypePointer Uniform %SSBO_SRC\n"
+
+		"   %SSBO_DST = OpTypeStruct %ra_${ts}\n"
 		"%up_SSBO_DST = OpTypePointer Uniform %SSBO_DST\n"
 
 		"   %ssbo_src = OpVariable %up_SSBO_SRC Uniform\n"
@@ -11121,7 +11851,8 @@ tcu::TestCaseGroup* createFloat16VectorInsertSet (tcu::TestContext& testCtx)
 
 	const StringTemplate decoration
 	(
-		"OpDecorate %ra_${tt} ArrayStride ${tt_stride}\n"
+		"OpDecorate %ra_u32_2 ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_2 ArrayStride 8\n"
 		"OpMemberDecorate %SSBO_SRC 0 Offset 0\n"
 		"OpDecorate %SSBO_SRC BufferBlock\n"
 		"OpDecorate %ssbo_src DescriptorSet 0\n"
@@ -11164,16 +11895,14 @@ tcu::TestCaseGroup* createFloat16VectorInsertSet (tcu::TestContext& testCtx)
 		"    %write = OpLabel\n"
 		"      %ndx = OpLoad %i32 %i\n"
 
-		"      %src = OpAccessChain %up_${tt} %ssbo_src %c_i32_0 %ndx\n"
-		"  %val_src = OpLoad %${tt} %src\n"
+		"  %val_src = OpFunctionCall %${tt} %ld_arg_ssbo_src %ndx\n"
 
 		"  %src_idx = OpAccessChain %up_u32 %ssbo_idx %c_i32_0 %ndx\n"
 		"  %val_idx = OpLoad %u32 %src_idx\n"
 
 		"  %val_dst = OpVectorInsertDynamic %${tt} %val_src %c_f16_ins %val_idx\n"
-		"      %dst = OpAccessChain %up_${tt} %ssbo_dst %c_i32_0 %ndx\n"
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n"
 
-		"             OpStore %dst %val_dst\n"
 		"             OpBranch %next\n"
 
 		"     %next = OpLabel\n"
@@ -11208,26 +11937,26 @@ tcu::TestCaseGroup* createFloat16VectorInsertSet (tcu::TestContext& testCtx)
 
 		specs["num_data_points"]	= de::toString(iterations);
 		specs["tt"]					= testType.typeName;
+		specs["ts"]					= testType.typeStorage;
 		specs["tt_stride"]			= de::toString(testType.typeStride);
 		specs["type_decl"]			= testType.typeDecls;
 		specs["replacement"]		= de::toString(replacement);
 
-		fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
-		fragments["capability"]		= "OpCapability StorageUniformBufferBlock16\n";
+		fragments["capability"]		= "OpCapability Float16\n";
 		fragments["decoration"]		= decoration.specialize(specs);
 		fragments["pre_main"]		= preMain.specialize(specs);
 		fragments["testfun"]		= testFun.specialize(specs);
+		fragments["testfun"]		+= StringTemplate(testType.loadFunction).specialize({{"var", "ssbo_src"}});
+		fragments["testfun"]		+= StringTemplate(testType.storeFunction).specialize({{"var", "ssbo_dst"}});
 
 		specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16InputData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.inputs.push_back(Resource(BufferSp(new Uint32Buffer(inputDataNdx)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16OutputDummy)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.verifyIO = testType.verifyIOFunc;
 
-		extensions.push_back("VK_KHR_16bit_storage");
 		extensions.push_back("VK_KHR_shader_float16_int8");
 
 		features.extFloat16Int8		= EXTFLOAT16INT8FEATURES_FLOAT16;
-		features.ext16BitStorage	= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 
 		finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
 	}
@@ -11371,6 +12100,8 @@ tcu::TestCaseGroup* createFloat16VectorShuffleSet (tcu::TestContext& testCtx)
 	{
 		const deUint32	typeComponents;
 		const char*		typeName;
+		const string	loadFunction;
+		const string	storeFunction;
 	};
 
 	const TestType	testTypes[]	=
@@ -11378,14 +12109,20 @@ tcu::TestCaseGroup* createFloat16VectorShuffleSet (tcu::TestContext& testCtx)
 		{
 			2,
 			"v2f16",
+			loadV2F16FromUint,
+			storeV2F16AsUint
 		},
 		{
 			3,
 			"v3f16",
+			loadV3F16FromUints,
+			storeV3F16AsUints
 		},
 		{
 			4,
 			"v4f16",
+			loadV4F16FromUints,
+			storeV4F16AsUints
 		},
 	};
 
@@ -11398,19 +12135,23 @@ tcu::TestCaseGroup* createFloat16VectorShuffleSet (tcu::TestContext& testCtx)
 		"        %v3f16 = OpTypeVector %f16 3\n"
 		"        %v4f16 = OpTypeVector %f16 4\n"
 
-		"     %up_v2f16 = OpTypePointer Uniform %v2f16\n"
-		"     %ra_v2f16 = OpTypeArray %v2f16 %c_i32_ndp\n"
-		"   %SSBO_v2f16 = OpTypeStruct %ra_v2f16\n"
+		"     %v2f16_i32_fn = OpTypeFunction %v2f16 %i32\n"
+		"     %v3f16_i32_fn = OpTypeFunction %v3f16 %i32\n"
+		"     %v4f16_i32_fn = OpTypeFunction %v4f16 %i32\n"
+		"%void_v2f16_i32_fn = OpTypeFunction %void %v2f16 %i32\n"
+		"%void_v3f16_i32_fn = OpTypeFunction %void %v3f16 %i32\n"
+		"%void_v4f16_i32_fn = OpTypeFunction %void %v4f16 %i32\n"
+
+		"     %ra_u32_2 = OpTypeArray %u32 %c_u32_2\n"
+		"   %ra_u32_ndp = OpTypeArray %u32 %c_i32_ndp\n"
+		"  %ra_ra_u32_2 = OpTypeArray %ra_u32_2 %c_i32_ndp\n"
+		"       %up_u32 = OpTypePointer Uniform %u32\n"
+		"   %SSBO_v2f16 = OpTypeStruct %ra_u32_ndp\n"
+		"   %SSBO_v3f16 = OpTypeStruct %ra_ra_u32_2\n"
+		"   %SSBO_v4f16 = OpTypeStruct %ra_ra_u32_2\n"
+
 		"%up_SSBO_v2f16 = OpTypePointer Uniform %SSBO_v2f16\n"
-
-		"     %up_v3f16 = OpTypePointer Uniform %v3f16\n"
-		"     %ra_v3f16 = OpTypeArray %v3f16 %c_i32_ndp\n"
-		"   %SSBO_v3f16 = OpTypeStruct %ra_v3f16\n"
 		"%up_SSBO_v3f16 = OpTypePointer Uniform %SSBO_v3f16\n"
-
-		"     %up_v4f16 = OpTypePointer Uniform %v4f16\n"
-		"     %ra_v4f16 = OpTypeArray %v4f16 %c_i32_ndp\n"
-		"   %SSBO_v4f16 = OpTypeStruct %ra_v4f16\n"
 		"%up_SSBO_v4f16 = OpTypePointer Uniform %SSBO_v4f16\n"
 
 		"        %fun_t = OpTypeFunction %${tt_dst} %${tt_src0} %${tt_src1} %i32\n"
@@ -11422,9 +12163,9 @@ tcu::TestCaseGroup* createFloat16VectorShuffleSet (tcu::TestContext& testCtx)
 
 	const StringTemplate decoration
 	(
-		"OpDecorate %ra_v2f16 ArrayStride 4\n"
-		"OpDecorate %ra_v3f16 ArrayStride 8\n"
-		"OpDecorate %ra_v4f16 ArrayStride 8\n"
+		"OpDecorate %ra_u32_2 ArrayStride 4\n"
+		"OpDecorate %ra_u32_ndp ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_2 ArrayStride 8\n"
 
 		"OpMemberDecorate %SSBO_v2f16 0 Offset 0\n"
 		"OpDecorate %SSBO_v2f16 BufferBlock\n"
@@ -11467,13 +12208,10 @@ tcu::TestCaseGroup* createFloat16VectorShuffleSet (tcu::TestContext& testCtx)
 
 		"    %write = OpLabel\n"
 		"      %ndx = OpLoad %i32 %i\n"
-		"     %src0 = OpAccessChain %up_${tt_src0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${tt_src0} %src0\n"
-		"     %src1 = OpAccessChain %up_${tt_src1} %ssbo_src1 %c_i32_0 %ndx\n"
-		" %val_src1 = OpLoad %${tt_src1} %src1\n"
+		" %val_src0 = OpFunctionCall %${tt_src0} %ld_arg_ssbo_src0 %ndx\n"
+		" %val_src1 = OpFunctionCall %${tt_src1} %ld_arg_ssbo_src1 %ndx\n"
 		"  %val_dst = OpFunctionCall %${tt_dst} %sw_fun %val_src0 %val_src1 %ndx\n"
-		"      %dst = OpAccessChain %up_${tt_dst} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n"
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n"
 		"             OpBranch %next\n"
 
 		"     %next = OpLabel\n"
@@ -11583,22 +12321,22 @@ tcu::TestCaseGroup* createFloat16VectorShuffleSet (tcu::TestContext& testCtx)
 				specs["case_list"]			= caseList;
 				specs["case_count"]			= de::toString(caseCount);
 
-				fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
-				fragments["capability"]		= "OpCapability StorageUniformBufferBlock16\n";
+				fragments["capability"]		= "OpCapability Float16\n";
 				fragments["decoration"]		= decoration.specialize(specs);
 				fragments["pre_main"]		= preMain.specialize(specs);
 				fragments["testfun"]		= testFun.specialize(specs);
+				fragments["testfun"]		+= StringTemplate(src0Type.loadFunction).specialize({{"var", "ssbo_src0"}});
+				fragments["testfun"]		+= StringTemplate(src1Type.loadFunction).specialize({{"var", "ssbo_src1"}});
+				fragments["testfun"]		+= StringTemplate(dstType.storeFunction).specialize({{"var", "ssbo_dst"}});
 
 				specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16Input0Data)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 				specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(float16Input1Data)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 				specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16OutputDummy)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 				specResource.verifyIO = getFloat16VectorShuffleVerifyIOFunc(dstType.typeComponents, src0Type.typeComponents, src1Type.typeComponents);
 
-				extensions.push_back("VK_KHR_16bit_storage");
 				extensions.push_back("VK_KHR_shader_float16_int8");
 
 				features.extFloat16Int8		= EXTFLOAT16INT8FEATURES_FLOAT16;
-				features.ext16BitStorage	= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 
 				finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
 			}
@@ -11666,7 +12404,45 @@ tcu::TestCaseGroup* createFloat16CompositeConstructSet (tcu::TestContext& testCt
 
 		"${consts}"
 
+		"     %c_f16_n1 = OpConstant %f16 -1.0\n"
+		"   %c_v2f16_n1 = OpConstantComposite %v2f16 %c_f16_n1 %c_f16_n1\n"
 		"      %c_u32_5 = OpConstant %u32 5\n"
+		"      %c_u32_6 = OpConstant %u32 6\n"
+		"      %c_u32_7 = OpConstant %u32 7\n"
+		"      %c_u32_8 = OpConstant %u32 8\n"
+		"      %c_u32_9 = OpConstant %u32 9\n"
+		"     %c_u32_10 = OpConstant %u32 10\n"
+		"     %c_u32_11 = OpConstant %u32 11\n"
+		"     %c_u32_12 = OpConstant %u32 12\n"
+		"     %c_u32_13 = OpConstant %u32 13\n"
+		"     %c_u32_14 = OpConstant %u32 14\n"
+		"     %c_u32_15 = OpConstant %u32 15\n"
+		"     %c_u32_16 = OpConstant %u32 16\n"
+		"     %c_u32_17 = OpConstant %u32 17\n"
+		"     %c_u32_18 = OpConstant %u32 18\n"
+		"     %c_u32_19 = OpConstant %u32 19\n"
+		"     %c_u32_20 = OpConstant %u32 20\n"
+		"     %c_u32_21 = OpConstant %u32 21\n"
+		"     %c_u32_22 = OpConstant %u32 22\n"
+		"     %c_u32_23 = OpConstant %u32 23\n"
+		"     %c_u32_24 = OpConstant %u32 24\n"
+		"     %c_u32_25 = OpConstant %u32 25\n"
+		"     %c_u32_26 = OpConstant %u32 26\n"
+		"     %c_u32_27 = OpConstant %u32 27\n"
+		"     %c_u32_28 = OpConstant %u32 28\n"
+		"     %c_u32_29 = OpConstant %u32 29\n"
+		"     %c_u32_30 = OpConstant %u32 30\n"
+		"     %c_u32_31 = OpConstant %u32 31\n"
+		"     %c_u32_33 = OpConstant %u32 33\n"
+		"     %c_u32_34 = OpConstant %u32 34\n"
+		"     %c_u32_35 = OpConstant %u32 35\n"
+		"     %c_u32_36 = OpConstant %u32 36\n"
+		"     %c_u32_37 = OpConstant %u32 37\n"
+		"     %c_u32_38 = OpConstant %u32 38\n"
+		"     %c_u32_39 = OpConstant %u32 39\n"
+		"     %c_u32_40 = OpConstant %u32 40\n"
+		"     %c_u32_41 = OpConstant %u32 41\n"
+		"     %c_u32_44 = OpConstant %u32 44\n"
 
 		" %f16arr3      = OpTypeArray %f16 %c_u32_3\n"
 		" %v2f16arr3    = OpTypeArray %v2f16 %c_u32_3\n"
@@ -11677,9 +12453,10 @@ tcu::TestCaseGroup* createFloat16CompositeConstructSet (tcu::TestContext& testCt
 		" %struct16arr3 = OpTypeArray %struct16 %c_u32_3\n"
 		" %st_test      = OpTypeStruct %f16 %v2f16 %v3f16 %v4f16 %f16arr3 %struct16arr3 %v2f16arr5 %f16 %v3f16arr5 %v4f16arr3\n"
 
-		"        %up_st = OpTypePointer Uniform %st_test\n"
-		"        %ra_st = OpTypeArray %st_test %c_i32_ndp\n"
-		"      %SSBO_st = OpTypeStruct %ra_st\n"
+		"       %up_u32 = OpTypePointer Uniform %u32\n"
+		"    %ra_u32_44 = OpTypeArray %u32 %c_u32_44\n"
+		"    %ra_ra_u32 = OpTypeArray %ra_u32_44 %c_i32_ndp\n"
+		"      %SSBO_st = OpTypeStruct %ra_ra_u32\n"
 		"   %up_SSBO_st = OpTypePointer Uniform %SSBO_st\n"
 
 		"     %ssbo_dst = OpVariable %up_SSBO_st Uniform\n"
@@ -11688,7 +12465,8 @@ tcu::TestCaseGroup* createFloat16CompositeConstructSet (tcu::TestContext& testCt
 	const StringTemplate decoration
 	(
 		"OpDecorate %SSBO_st BufferBlock\n"
-		"OpDecorate %ra_st ArrayStride ${struct_item_size}\n"
+		"OpDecorate %ra_u32_44 ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32 ArrayStride ${struct_item_size}\n"
 		"OpDecorate %ssbo_dst DescriptorSet 0\n"
 		"OpDecorate %ssbo_dst Binding 1\n"
 
@@ -11792,8 +12570,218 @@ tcu::TestCaseGroup* createFloat16CompositeConstructSet (tcu::TestContext& testCt
 		"      %fld9 = OpCompositeConstruct %v4f16arr3 %fld9_0 %fld9_1 %fld9_2\n"
 
 		"    %st_val = OpCompositeConstruct %st_test %c_f16_0 %fld1 %fld2 %fld3 %fld4 %fld5 %fld6 %c_f16_50 %fld8 %fld9\n"
-		"       %dst = OpAccessChain %up_st %ssbo_dst %c_i32_0 %ndx\n"
-		"              OpStore %dst %st_val\n"
+
+		// Storage section: all elements that are not directly accessed should
+		// have the value of -1.0. This means for f16 and v3f16 stores the v2f16
+		// is constructed with one element from a constant -1.0.
+		// half offset 0
+		"      %ex_0 = OpCompositeExtract %f16 %st_val 0\n"
+		"     %vec_0 = OpCompositeConstruct %v2f16 %ex_0 %c_f16_n1\n"
+		"      %bc_0 = OpBitcast %u32 %vec_0\n"
+		"     %gep_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_0\n"
+		"              OpStore %gep_0 %bc_0\n"
+
+		// <2 x half> offset 4
+		"      %ex_1 = OpCompositeExtract %v2f16 %st_val 1\n"
+		"      %bc_1 = OpBitcast %u32 %ex_1\n"
+		"     %gep_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_1\n"
+		"              OpStore %gep_1 %bc_1\n"
+
+		// <3 x half> offset 8
+		"      %ex_2 = OpCompositeExtract %v3f16 %st_val 2\n"
+		"    %ex_2_0 = OpVectorShuffle %v2f16 %ex_2 %c_v2f16_n1 0 1\n"
+		"    %ex_2_1 = OpVectorShuffle %v2f16 %ex_2 %c_v2f16_n1 2 3\n"
+		"    %bc_2_0 = OpBitcast %u32 %ex_2_0\n"
+		"    %bc_2_1 = OpBitcast %u32 %ex_2_1\n"
+		"   %gep_2_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_2\n"
+		"   %gep_2_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_3\n"
+		"              OpStore %gep_2_0 %bc_2_0\n"
+		"              OpStore %gep_2_1 %bc_2_1\n"
+
+		// <4 x half> offset 16
+		"      %ex_3 = OpCompositeExtract %v4f16 %st_val 3\n"
+		"    %ex_3_0 = OpVectorShuffle %v2f16 %ex_3 %ex_3 0 1\n"
+		"    %ex_3_1 = OpVectorShuffle %v2f16 %ex_3 %ex_3 2 3\n"
+		"    %bc_3_0 = OpBitcast %u32 %ex_3_0\n"
+		"    %bc_3_1 = OpBitcast %u32 %ex_3_1\n"
+		"   %gep_3_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_4\n"
+		"   %gep_3_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_5\n"
+		"              OpStore %gep_3_0 %bc_3_0\n"
+		"              OpStore %gep_3_1 %bc_3_1\n"
+
+		// [3 x half] offset 24
+		"    %ex_4_0 = OpCompositeExtract %f16 %st_val 4 0\n"
+		"    %ex_4_1 = OpCompositeExtract %f16 %st_val 4 1\n"
+		"    %ex_4_2 = OpCompositeExtract %f16 %st_val 4 2\n"
+		"   %vec_4_0 = OpCompositeConstruct %v2f16 %ex_4_0 %ex_4_1\n"
+		"   %vec_4_1 = OpCompositeConstruct %v2f16 %ex_4_2 %c_f16_n1\n"
+		"    %bc_4_0 = OpBitcast %u32 %vec_4_0\n"
+		"    %bc_4_1 = OpBitcast %u32 %vec_4_1\n"
+		"   %gep_4_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_6\n"
+		"   %gep_4_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_7\n"
+		"              OpStore %gep_4_0 %bc_4_0\n"
+		"              OpStore %gep_4_1 %bc_4_1\n"
+
+		// [3 x {half, [3 x <2 x half>]}] offset 32
+		"    %ex_5_0 = OpCompositeExtract %struct16 %st_val 5 0\n"
+		"    %ex_5_1 = OpCompositeExtract %struct16 %st_val 5 1\n"
+		"    %ex_5_2 = OpCompositeExtract %struct16 %st_val 5 2\n"
+		"  %ex_5_0_0 = OpCompositeExtract %f16 %ex_5_0 0\n"
+		"  %ex_5_1_0 = OpCompositeExtract %f16 %ex_5_1 0\n"
+		"  %ex_5_2_0 = OpCompositeExtract %f16 %ex_5_2 0\n"
+		"%ex_5_0_1_0 = OpCompositeExtract %v2f16 %ex_5_0 1 0\n"
+		"%ex_5_0_1_1 = OpCompositeExtract %v2f16 %ex_5_0 1 1\n"
+		"%ex_5_0_1_2 = OpCompositeExtract %v2f16 %ex_5_0 1 2\n"
+		"%ex_5_1_1_0 = OpCompositeExtract %v2f16 %ex_5_1 1 0\n"
+		"%ex_5_1_1_1 = OpCompositeExtract %v2f16 %ex_5_1 1 1\n"
+		"%ex_5_1_1_2 = OpCompositeExtract %v2f16 %ex_5_1 1 2\n"
+		"%ex_5_2_1_0 = OpCompositeExtract %v2f16 %ex_5_2 1 0\n"
+		"%ex_5_2_1_1 = OpCompositeExtract %v2f16 %ex_5_2 1 1\n"
+		"%ex_5_2_1_2 = OpCompositeExtract %v2f16 %ex_5_2 1 2\n"
+		" %vec_5_0_0 = OpCompositeConstruct %v2f16 %ex_5_0_0 %c_f16_n1\n"
+		" %vec_5_1_0 = OpCompositeConstruct %v2f16 %ex_5_1_0 %c_f16_n1\n"
+		" %vec_5_2_0 = OpCompositeConstruct %v2f16 %ex_5_2_0 %c_f16_n1\n"
+		"  %bc_5_0_0 = OpBitcast %u32 %vec_5_0_0\n"
+		"  %bc_5_1_0 = OpBitcast %u32 %vec_5_1_0\n"
+		"  %bc_5_2_0 = OpBitcast %u32 %vec_5_2_0\n"
+		"%bc_5_0_1_0 = OpBitcast %u32 %ex_5_0_1_0\n"
+		"%bc_5_0_1_1 = OpBitcast %u32 %ex_5_0_1_1\n"
+		"%bc_5_0_1_2 = OpBitcast %u32 %ex_5_0_1_2\n"
+		"%bc_5_1_1_0 = OpBitcast %u32 %ex_5_1_1_0\n"
+		"%bc_5_1_1_1 = OpBitcast %u32 %ex_5_1_1_1\n"
+		"%bc_5_1_1_2 = OpBitcast %u32 %ex_5_1_1_2\n"
+		"%bc_5_2_1_0 = OpBitcast %u32 %ex_5_2_1_0\n"
+		"%bc_5_2_1_1 = OpBitcast %u32 %ex_5_2_1_1\n"
+		"%bc_5_2_1_2 = OpBitcast %u32 %ex_5_2_1_2\n"
+		"  %gep_5_0_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_8\n"
+		"%gep_5_0_1_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_9\n"
+		"%gep_5_0_1_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_10\n"
+		"%gep_5_0_1_2 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_11\n"
+		"  %gep_5_1_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_12\n"
+		"%gep_5_1_1_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_13\n"
+		"%gep_5_1_1_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_14\n"
+		"%gep_5_1_1_2 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_15\n"
+		"  %gep_5_2_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_16\n"
+		"%gep_5_2_1_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_17\n"
+		"%gep_5_2_1_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_18\n"
+		"%gep_5_2_1_2 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_19\n"
+		"              OpStore %gep_5_0_0 %bc_5_0_0\n"
+		"              OpStore %gep_5_0_1_0 %bc_5_0_1_0\n"
+		"              OpStore %gep_5_0_1_1 %bc_5_0_1_1\n"
+		"              OpStore %gep_5_0_1_2 %bc_5_0_1_2\n"
+		"              OpStore %gep_5_1_0 %bc_5_1_0\n"
+		"              OpStore %gep_5_1_1_0 %bc_5_1_1_0\n"
+		"              OpStore %gep_5_1_1_1 %bc_5_1_1_1\n"
+		"              OpStore %gep_5_1_1_2 %bc_5_1_1_2\n"
+		"              OpStore %gep_5_2_0 %bc_5_2_0\n"
+		"              OpStore %gep_5_2_1_0 %bc_5_2_1_0\n"
+		"              OpStore %gep_5_2_1_1 %bc_5_2_1_1\n"
+		"              OpStore %gep_5_2_1_2 %bc_5_2_1_2\n"
+
+		// [5 x <2 x half>] offset 80
+		"    %ex_6_0 = OpCompositeExtract %v2f16 %st_val 6 0\n"
+		"    %ex_6_1 = OpCompositeExtract %v2f16 %st_val 6 1\n"
+		"    %ex_6_2 = OpCompositeExtract %v2f16 %st_val 6 2\n"
+		"    %ex_6_3 = OpCompositeExtract %v2f16 %st_val 6 3\n"
+		"    %ex_6_4 = OpCompositeExtract %v2f16 %st_val 6 4\n"
+		"    %bc_6_0 = OpBitcast %u32 %ex_6_0\n"
+		"    %bc_6_1 = OpBitcast %u32 %ex_6_1\n"
+		"    %bc_6_2 = OpBitcast %u32 %ex_6_2\n"
+		"    %bc_6_3 = OpBitcast %u32 %ex_6_3\n"
+		"    %bc_6_4 = OpBitcast %u32 %ex_6_4\n"
+		"   %gep_6_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_20\n"
+		"   %gep_6_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_21\n"
+		"   %gep_6_2 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_22\n"
+		"   %gep_6_3 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_23\n"
+		"   %gep_6_4 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_24\n"
+		"              OpStore %gep_6_0 %bc_6_0\n"
+		"              OpStore %gep_6_1 %bc_6_1\n"
+		"              OpStore %gep_6_2 %bc_6_2\n"
+		"              OpStore %gep_6_3 %bc_6_3\n"
+		"              OpStore %gep_6_4 %bc_6_4\n"
+
+		// half offset 100
+		"      %ex_7 = OpCompositeExtract %f16 %st_val 7\n"
+		"     %vec_7 = OpCompositeConstruct %v2f16 %ex_7 %c_f16_n1\n"
+		"      %bc_7 = OpBitcast %u32 %vec_7\n"
+		"     %gep_7 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_25\n"
+		"              OpStore %gep_7 %bc_7\n"
+
+		// [5 x <3 x half>] offset 104
+		"    %ex_8_0 = OpCompositeExtract %v3f16 %st_val 8 0\n"
+		"    %ex_8_1 = OpCompositeExtract %v3f16 %st_val 8 1\n"
+		"    %ex_8_2 = OpCompositeExtract %v3f16 %st_val 8 2\n"
+		"    %ex_8_3 = OpCompositeExtract %v3f16 %st_val 8 3\n"
+		"    %ex_8_4 = OpCompositeExtract %v3f16 %st_val 8 4\n"
+		" %vec_8_0_0 = OpVectorShuffle %v2f16 %ex_8_0 %c_v2f16_n1 0 1\n"
+		" %vec_8_0_1 = OpVectorShuffle %v2f16 %ex_8_0 %c_v2f16_n1 2 3\n"
+		" %vec_8_1_0 = OpVectorShuffle %v2f16 %ex_8_1 %c_v2f16_n1 0 1\n"
+		" %vec_8_1_1 = OpVectorShuffle %v2f16 %ex_8_1 %c_v2f16_n1 2 3\n"
+		" %vec_8_2_0 = OpVectorShuffle %v2f16 %ex_8_2 %c_v2f16_n1 0 1\n"
+		" %vec_8_2_1 = OpVectorShuffle %v2f16 %ex_8_2 %c_v2f16_n1 2 3\n"
+		" %vec_8_3_0 = OpVectorShuffle %v2f16 %ex_8_3 %c_v2f16_n1 0 1\n"
+		" %vec_8_3_1 = OpVectorShuffle %v2f16 %ex_8_3 %c_v2f16_n1 2 3\n"
+		" %vec_8_4_0 = OpVectorShuffle %v2f16 %ex_8_4 %c_v2f16_n1 0 1\n"
+		" %vec_8_4_1 = OpVectorShuffle %v2f16 %ex_8_4 %c_v2f16_n1 2 3\n"
+		"  %bc_8_0_0 = OpBitcast %u32 %vec_8_0_0\n"
+		"  %bc_8_0_1 = OpBitcast %u32 %vec_8_0_1\n"
+		"  %bc_8_1_0 = OpBitcast %u32 %vec_8_1_0\n"
+		"  %bc_8_1_1 = OpBitcast %u32 %vec_8_1_1\n"
+		"  %bc_8_2_0 = OpBitcast %u32 %vec_8_2_0\n"
+		"  %bc_8_2_1 = OpBitcast %u32 %vec_8_2_1\n"
+		"  %bc_8_3_0 = OpBitcast %u32 %vec_8_3_0\n"
+		"  %bc_8_3_1 = OpBitcast %u32 %vec_8_3_1\n"
+		"  %bc_8_4_0 = OpBitcast %u32 %vec_8_4_0\n"
+		"  %bc_8_4_1 = OpBitcast %u32 %vec_8_4_1\n"
+		" %gep_8_0_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_26\n"
+		" %gep_8_0_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_27\n"
+		" %gep_8_1_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_28\n"
+		" %gep_8_1_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_29\n"
+		" %gep_8_2_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_30\n"
+		" %gep_8_2_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_31\n"
+		" %gep_8_3_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_32\n"
+		" %gep_8_3_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_33\n"
+		" %gep_8_4_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_34\n"
+		" %gep_8_4_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_35\n"
+		"              OpStore %gep_8_0_0 %bc_8_0_0\n"
+		"              OpStore %gep_8_0_1 %bc_8_0_1\n"
+		"              OpStore %gep_8_1_0 %bc_8_1_0\n"
+		"              OpStore %gep_8_1_1 %bc_8_1_1\n"
+		"              OpStore %gep_8_2_0 %bc_8_2_0\n"
+		"              OpStore %gep_8_2_1 %bc_8_2_1\n"
+		"              OpStore %gep_8_3_0 %bc_8_3_0\n"
+		"              OpStore %gep_8_3_1 %bc_8_3_1\n"
+		"              OpStore %gep_8_4_0 %bc_8_4_0\n"
+		"              OpStore %gep_8_4_1 %bc_8_4_1\n"
+
+		// [3 x <4 x half>] offset 144
+		"    %ex_9_0 = OpCompositeExtract %v4f16 %st_val 9 0\n"
+		"    %ex_9_1 = OpCompositeExtract %v4f16 %st_val 9 1\n"
+		"    %ex_9_2 = OpCompositeExtract %v4f16 %st_val 9 2\n"
+		" %vec_9_0_0 = OpVectorShuffle %v2f16 %ex_9_0 %ex_9_0 0 1\n"
+		" %vec_9_0_1 = OpVectorShuffle %v2f16 %ex_9_0 %ex_9_0 2 3\n"
+		" %vec_9_1_0 = OpVectorShuffle %v2f16 %ex_9_1 %ex_9_1 0 1\n"
+		" %vec_9_1_1 = OpVectorShuffle %v2f16 %ex_9_1 %ex_9_1 2 3\n"
+		" %vec_9_2_0 = OpVectorShuffle %v2f16 %ex_9_2 %ex_9_2 0 1\n"
+		" %vec_9_2_1 = OpVectorShuffle %v2f16 %ex_9_2 %ex_9_2 2 3\n"
+		"  %bc_9_0_0 = OpBitcast %u32 %vec_9_0_0\n"
+		"  %bc_9_0_1 = OpBitcast %u32 %vec_9_0_1\n"
+		"  %bc_9_1_0 = OpBitcast %u32 %vec_9_1_0\n"
+		"  %bc_9_1_1 = OpBitcast %u32 %vec_9_1_1\n"
+		"  %bc_9_2_0 = OpBitcast %u32 %vec_9_2_0\n"
+		"  %bc_9_2_1 = OpBitcast %u32 %vec_9_2_1\n"
+		" %gep_9_0_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_36\n"
+		" %gep_9_0_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_37\n"
+		" %gep_9_1_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_38\n"
+		" %gep_9_1_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_39\n"
+		" %gep_9_2_0 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_40\n"
+		" %gep_9_2_1 = OpAccessChain %up_u32 %ssbo_dst %c_u32_0 %ndx %c_u32_41\n"
+		"              OpStore %gep_9_0_0 %bc_9_0_0\n"
+		"              OpStore %gep_9_0_1 %bc_9_0_1\n"
+		"              OpStore %gep_9_1_0 %bc_9_1_0\n"
+		"              OpStore %gep_9_1_1 %bc_9_1_1\n"
+		"              OpStore %gep_9_2_0 %bc_9_2_0\n"
+		"              OpStore %gep_9_2_1 %bc_9_2_1\n"
 
 		"              OpBranch %next\n"
 
@@ -11843,8 +12831,7 @@ tcu::TestCaseGroup* createFloat16CompositeConstructSet (tcu::TestContext& testCt
 		specs["field_modifier"]		= de::toString(fieldModifier);
 		specs["consts"]				= consts;
 
-		fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
-		fragments["capability"]		= "OpCapability StorageUniformBufferBlock16\n";
+		fragments["capability"]		= "OpCapability Float16\n";
 		fragments["decoration"]		= decoration.specialize(specs);
 		fragments["pre_main"]		= preMain.specialize(specs);
 		fragments["testfun"]		= testFun.specialize(specs);
@@ -11853,11 +12840,9 @@ tcu::TestCaseGroup* createFloat16CompositeConstructSet (tcu::TestContext& testCt
 		specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(expectedOutput)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.verifyIO = compareFP16CompositeFunc;
 
-		extensions.push_back("VK_KHR_16bit_storage");
 		extensions.push_back("VK_KHR_shader_float16_int8");
 
 		features.extFloat16Int8		= EXTFLOAT16INT8FEATURES_FLOAT16;
-		features.ext16BitStorage	= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 
 		finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
 	}
@@ -11873,17 +12858,29 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 	const string						opName			(op);
 	const deUint32						opIndex			= (opName == "OpCompositeInsert") ? 0
 														: (opName == "OpCompositeExtract") ? 1
-														: -1;
+														: std::numeric_limits<deUint32>::max();
 
 	const StringTemplate preMain
 	(
 		"   %c_i32_ndp = OpConstant %i32 ${num_elements}\n"
+		"  %c_i32_hndp = OpSpecConstantOp %i32 SDiv %c_i32_ndp %c_i32_2\n"
+		"  %c_i32_size = OpConstant %i32 ${struct_u32s}\n"
+		"%c_u32_high_ones = OpConstant %u32 0xffff0000\n"
+		" %c_u32_low_ones = OpConstant %u32 0x0000ffff\n"
 		"         %f16 = OpTypeFloat 16\n"
 		"       %v2f16 = OpTypeVector %f16 2\n"
 		"       %v3f16 = OpTypeVector %f16 3\n"
 		"       %v4f16 = OpTypeVector %f16 4\n"
 		"    %c_f16_na = OpConstant %f16 -1.0\n"
+		"  %c_v2f16_n1 = OpConstantComposite %v2f16 %c_f16_na %c_f16_na\n"
 		"     %c_u32_5 = OpConstant %u32 5\n"
+		"     %c_i32_5 = OpConstant %i32 5\n"
+		"     %c_i32_6 = OpConstant %i32 6\n"
+		"     %c_i32_7 = OpConstant %i32 7\n"
+		"     %c_i32_8 = OpConstant %i32 8\n"
+		"     %c_i32_9 = OpConstant %i32 9\n"
+		"    %c_i32_10 = OpConstant %i32 10\n"
+		"    %c_i32_11 = OpConstant %i32 11\n"
 
 		"%f16arr3      = OpTypeArray %f16 %c_u32_3\n"
 		"%v2f16arr3    = OpTypeArray %v2f16 %c_u32_3\n"
@@ -11894,10 +12891,15 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 		"%struct16arr3 = OpTypeArray %struct16 %c_u32_3\n"
 		"%st_test      = OpTypeStruct %${field_type}\n"
 
-		"      %up_f16 = OpTypePointer Uniform %f16\n"
-		"       %up_st = OpTypePointer Uniform %st_test\n"
-		"      %ra_f16 = OpTypeArray %f16 %c_i32_ndp\n"
-		"       %ra_st = OpTypeArray %st_test %c_i32_1\n"
+		"      %ra_f16 = OpTypeArray %u32 %c_i32_hndp\n"
+		"       %ra_st = OpTypeArray %u32 %c_i32_size\n"
+		"      %up_u32 = OpTypePointer Uniform %u32\n"
+		"     %st_test_i32_fn = OpTypeFunction %st_test %i32\n"
+		"%void_st_test_i32_fn = OpTypeFunction %void %st_test %i32\n"
+		"         %f16_i32_fn = OpTypeFunction %f16 %i32\n"
+		"    %void_f16_i32_fn = OpTypeFunction %void %f16 %i32\n"
+		"       %v2f16_i32_fn = OpTypeFunction %v2f16 %i32\n"
+		"  %void_v2f16_i32_fn = OpTypeFunction %void %v2f16 %i32\n"
 
 		"${op_premain_decls}"
 
@@ -11912,8 +12914,8 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 	(
 		"OpDecorate %SSBO_src BufferBlock\n"
 		"OpDecorate %SSBO_dst BufferBlock\n"
-		"OpDecorate %ra_f16 ArrayStride 2\n"
-		"OpDecorate %ra_st ArrayStride ${struct_item_size}\n"
+		"OpDecorate %ra_f16 ArrayStride 4\n"
+		"OpDecorate %ra_st ArrayStride 4\n"
 		"OpDecorate %ssbo_src DescriptorSet 0\n"
 		"OpDecorate %ssbo_src Binding 0\n"
 		"OpDecorate %ssbo_dst DescriptorSet 0\n"
@@ -11961,7 +12963,7 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 
 		"${op_sw_fun_call}"
 
-		"              OpStore %dst %val_dst\n"
+		"    %dst_st = OpFunctionCall %void %${st_call} %val_dst %${st_ndx}\n"
 		"              OpBranch %next\n"
 
 		"      %next = OpLabel\n"
@@ -11999,6 +13001,515 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 		"             OpReturnValue %val_ret_${case_ndx}\n"
 	);
 
+	const string loadF16
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_entry = OpLabel\n"
+		"   %ld_${var}_call = OpFunctionCall %f16 %ld_arg_${var} %ld_${var}_param\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_call\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n" +
+		loadScalarF16FromUint
+	);
+
+	const string loadV2F16
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_entry = OpLabel\n"
+		"   %ld_${var}_call = OpFunctionCall %v2f16 %ld_arg_${var} %ld_${var}_param\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_call\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n" +
+		loadV2F16FromUint
+	);
+
+	const string loadV3F16
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_entry = OpLabel\n"
+		"  %ld_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"  %ld_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"   %ld_${var}_ld_0 = OpLoad %u32 %ld_${var}_gep_0\n"
+		"   %ld_${var}_ld_1 = OpLoad %u32 %ld_${var}_gep_1\n"
+		"   %ld_${var}_bc_0 = OpBitcast %v2f16 %ld_${var}_ld_0\n"
+		"   %ld_${var}_bc_1 = OpBitcast %v2f16 %ld_${var}_ld_1\n"
+		"    %ld_${var}_vec = OpVectorShuffle %v3f16 %ld_${var}_bc_0 %ld_${var}_bc_1 0 1 2\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_vec\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n"
+	);
+
+	const string loadV4F16
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_entry = OpLabel\n"
+		"  %ld_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"  %ld_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"   %ld_${var}_ld_0 = OpLoad %u32 %ld_${var}_gep_0\n"
+		"   %ld_${var}_ld_1 = OpLoad %u32 %ld_${var}_gep_1\n"
+		"   %ld_${var}_bc_0 = OpBitcast %v2f16 %ld_${var}_ld_0\n"
+		"   %ld_${var}_bc_1 = OpBitcast %v2f16 %ld_${var}_ld_1\n"
+		"    %ld_${var}_vec = OpVectorShuffle %v4f16 %ld_${var}_bc_0 %ld_${var}_bc_1 0 1 2 3\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_vec\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n"
+	);
+
+	const string loadF16Arr3
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_entry = OpLabel\n"
+		"  %ld_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_u32_0 %c_u32_0\n"
+		"  %ld_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_u32_0 %c_u32_1\n"
+		"   %ld_${var}_ld_0 = OpLoad %u32 %ld_${var}_gep_0\n"
+		"   %ld_${var}_ld_1 = OpLoad %u32 %ld_${var}_gep_1\n"
+		"   %ld_${var}_bc_0 = OpBitcast %v2f16 %ld_${var}_ld_0\n"
+		"   %ld_${var}_bc_1 = OpBitcast %v2f16 %ld_${var}_ld_1\n"
+		"   %ld_${var}_ex_0 = OpCompositeExtract %f16 %ld_${var}_bc_0 0\n"
+		"   %ld_${var}_ex_1 = OpCompositeExtract %f16 %ld_${var}_bc_0 1\n"
+		"   %ld_${var}_ex_2 = OpCompositeExtract %f16 %ld_${var}_bc_1 0\n"
+		"   %ld_${var}_cons = OpCompositeConstruct %f16arr3 %ld_${var}_ex_0 %ld_${var}_ex_1 %ld_${var}_ex_2\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_cons\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n"
+	);
+
+	const string loadV2F16Arr5
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_label = OpLabel\n"
+		"  %ld_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"  %ld_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"  %ld_${var}_gep_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		"  %ld_${var}_gep_3 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		"  %ld_${var}_gep_4 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		"   %ld_${var}_ld_0 = OpLoad %u32 %ld_${var}_gep_0\n"
+		"   %ld_${var}_ld_1 = OpLoad %u32 %ld_${var}_gep_1\n"
+		"   %ld_${var}_ld_2 = OpLoad %u32 %ld_${var}_gep_2\n"
+		"   %ld_${var}_ld_3 = OpLoad %u32 %ld_${var}_gep_3\n"
+		"   %ld_${var}_ld_4 = OpLoad %u32 %ld_${var}_gep_4\n"
+		"   %ld_${var}_bc_0 = OpBitcast %v2f16 %ld_${var}_ld_0\n"
+		"   %ld_${var}_bc_1 = OpBitcast %v2f16 %ld_${var}_ld_1\n"
+		"   %ld_${var}_bc_2 = OpBitcast %v2f16 %ld_${var}_ld_2\n"
+		"   %ld_${var}_bc_3 = OpBitcast %v2f16 %ld_${var}_ld_3\n"
+		"   %ld_${var}_bc_4 = OpBitcast %v2f16 %ld_${var}_ld_4\n"
+		"   %ld_${var}_cons = OpCompositeConstruct %v2f16arr5 %ld_${var}_bc_0 %ld_${var}_bc_1 %ld_${var}_bc_2 %ld_${var}_bc_3 %ld_${var}_bc_4\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_cons\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n"
+	);
+
+	const string loadV3F16Arr5
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_entry = OpLabel\n"
+		"%ld_${var}_gep_0_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"%ld_${var}_gep_0_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"%ld_${var}_gep_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		"%ld_${var}_gep_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		"%ld_${var}_gep_2_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		"%ld_${var}_gep_2_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_5\n"
+		"%ld_${var}_gep_3_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_6\n"
+		"%ld_${var}_gep_3_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_7\n"
+		"%ld_${var}_gep_4_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_8\n"
+		"%ld_${var}_gep_4_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_9\n"
+		" %ld_${var}_ld_0_0 = OpLoad %u32 %ld_${var}_gep_0_0\n"
+		" %ld_${var}_ld_0_1 = OpLoad %u32 %ld_${var}_gep_0_1\n"
+		" %ld_${var}_ld_1_0 = OpLoad %u32 %ld_${var}_gep_1_0\n"
+		" %ld_${var}_ld_1_1 = OpLoad %u32 %ld_${var}_gep_1_1\n"
+		" %ld_${var}_ld_2_0 = OpLoad %u32 %ld_${var}_gep_2_0\n"
+		" %ld_${var}_ld_2_1 = OpLoad %u32 %ld_${var}_gep_2_1\n"
+		" %ld_${var}_ld_3_0 = OpLoad %u32 %ld_${var}_gep_3_0\n"
+		" %ld_${var}_ld_3_1 = OpLoad %u32 %ld_${var}_gep_3_1\n"
+		" %ld_${var}_ld_4_0 = OpLoad %u32 %ld_${var}_gep_4_0\n"
+		" %ld_${var}_ld_4_1 = OpLoad %u32 %ld_${var}_gep_4_1\n"
+		" %ld_${var}_bc_0_0 = OpBitcast %v2f16 %ld_${var}_ld_0_0\n"
+		" %ld_${var}_bc_0_1 = OpBitcast %v2f16 %ld_${var}_ld_0_1\n"
+		" %ld_${var}_bc_1_0 = OpBitcast %v2f16 %ld_${var}_ld_1_0\n"
+		" %ld_${var}_bc_1_1 = OpBitcast %v2f16 %ld_${var}_ld_1_1\n"
+		" %ld_${var}_bc_2_0 = OpBitcast %v2f16 %ld_${var}_ld_2_0\n"
+		" %ld_${var}_bc_2_1 = OpBitcast %v2f16 %ld_${var}_ld_2_1\n"
+		" %ld_${var}_bc_3_0 = OpBitcast %v2f16 %ld_${var}_ld_3_0\n"
+		" %ld_${var}_bc_3_1 = OpBitcast %v2f16 %ld_${var}_ld_3_1\n"
+		" %ld_${var}_bc_4_0 = OpBitcast %v2f16 %ld_${var}_ld_4_0\n"
+		" %ld_${var}_bc_4_1 = OpBitcast %v2f16 %ld_${var}_ld_4_1\n"
+		"  %ld_${var}_vec_0 = OpVectorShuffle %v3f16 %ld_${var}_bc_0_0 %ld_${var}_bc_0_1 0 1 2\n"
+		"  %ld_${var}_vec_1 = OpVectorShuffle %v3f16 %ld_${var}_bc_1_0 %ld_${var}_bc_1_1 0 1 2\n"
+		"  %ld_${var}_vec_2 = OpVectorShuffle %v3f16 %ld_${var}_bc_2_0 %ld_${var}_bc_2_1 0 1 2\n"
+		"  %ld_${var}_vec_3 = OpVectorShuffle %v3f16 %ld_${var}_bc_3_0 %ld_${var}_bc_3_1 0 1 2\n"
+		"  %ld_${var}_vec_4 = OpVectorShuffle %v3f16 %ld_${var}_bc_4_0 %ld_${var}_bc_4_1 0 1 2\n"
+		"   %ld_${var}_cons = OpCompositeConstruct %v3f16arr5 %ld_${var}_vec_0 %ld_${var}_vec_1 %ld_${var}_vec_2 %ld_${var}_vec_3 %ld_${var}_vec_4\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_cons\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n"
+	);
+
+	const string loadV4F16Arr3
+	(
+		"        %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"  %ld_${var}_param = OpFunctionParameter %i32\n"
+		"  %ld_${var}_entry = OpLabel\n"
+		"%ld_${var}_gep_0_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"%ld_${var}_gep_0_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"%ld_${var}_gep_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		"%ld_${var}_gep_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		"%ld_${var}_gep_2_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		"%ld_${var}_gep_2_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_5\n"
+		" %ld_${var}_ld_0_0 = OpLoad %u32 %ld_${var}_gep_0_0\n"
+		" %ld_${var}_ld_0_1 = OpLoad %u32 %ld_${var}_gep_0_1\n"
+		" %ld_${var}_ld_1_0 = OpLoad %u32 %ld_${var}_gep_1_0\n"
+		" %ld_${var}_ld_1_1 = OpLoad %u32 %ld_${var}_gep_1_1\n"
+		" %ld_${var}_ld_2_0 = OpLoad %u32 %ld_${var}_gep_2_0\n"
+		" %ld_${var}_ld_2_1 = OpLoad %u32 %ld_${var}_gep_2_1\n"
+		" %ld_${var}_bc_0_0 = OpBitcast %v2f16 %ld_${var}_ld_0_0\n"
+		" %ld_${var}_bc_0_1 = OpBitcast %v2f16 %ld_${var}_ld_0_1\n"
+		" %ld_${var}_bc_1_0 = OpBitcast %v2f16 %ld_${var}_ld_1_0\n"
+		" %ld_${var}_bc_1_1 = OpBitcast %v2f16 %ld_${var}_ld_1_1\n"
+		" %ld_${var}_bc_2_0 = OpBitcast %v2f16 %ld_${var}_ld_2_0\n"
+		" %ld_${var}_bc_2_1 = OpBitcast %v2f16 %ld_${var}_ld_2_1\n"
+		"  %ld_${var}_vec_0 = OpVectorShuffle %v4f16 %ld_${var}_bc_0_0 %ld_${var}_bc_0_1 0 1 2 3\n"
+		"  %ld_${var}_vec_1 = OpVectorShuffle %v4f16 %ld_${var}_bc_1_0 %ld_${var}_bc_1_1 0 1 2 3\n"
+		"  %ld_${var}_vec_2 = OpVectorShuffle %v4f16 %ld_${var}_bc_2_0 %ld_${var}_bc_2_1 0 1 2 3\n"
+		"   %ld_${var}_cons = OpCompositeConstruct %v4f16arr3 %ld_${var}_vec_0 %ld_${var}_vec_1 %ld_${var}_vec_2\n"
+		"%ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_cons\n"
+		"                     OpReturnValue %ld_${var}_st_test\n"
+		"                     OpFunctionEnd\n"
+	);
+
+	const string loadStruct16Arr3
+	(
+		"          %ld_${var} = OpFunction %st_test None %st_test_i32_fn\n"
+		"    %ld_${var}_param = OpFunctionParameter %i32\n"
+		"    %ld_${var}_entry = OpLabel\n"
+		"%ld_${var}_gep_0_0   = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"%ld_${var}_gep_0_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"%ld_${var}_gep_0_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		"%ld_${var}_gep_0_1_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		"%ld_${var}_gep_1_0   = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		"%ld_${var}_gep_1_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_5\n"
+		"%ld_${var}_gep_1_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_6\n"
+		"%ld_${var}_gep_1_1_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_7\n"
+		"%ld_${var}_gep_2_0   = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_8\n"
+		"%ld_${var}_gep_2_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_9\n"
+		"%ld_${var}_gep_2_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_10\n"
+		"%ld_${var}_gep_2_1_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_11\n"
+		" %ld_${var}_ld_0_0   = OpLoad %u32 %ld_${var}_gep_0_0\n"
+		" %ld_${var}_ld_0_1_0 = OpLoad %u32 %ld_${var}_gep_0_1_0\n"
+		" %ld_${var}_ld_0_1_1 = OpLoad %u32 %ld_${var}_gep_0_1_1\n"
+		" %ld_${var}_ld_0_1_2 = OpLoad %u32 %ld_${var}_gep_0_1_2\n"
+		" %ld_${var}_ld_1_0   = OpLoad %u32 %ld_${var}_gep_1_0\n"
+		" %ld_${var}_ld_1_1_0 = OpLoad %u32 %ld_${var}_gep_1_1_0\n"
+		" %ld_${var}_ld_1_1_1 = OpLoad %u32 %ld_${var}_gep_1_1_1\n"
+		" %ld_${var}_ld_1_1_2 = OpLoad %u32 %ld_${var}_gep_1_1_2\n"
+		" %ld_${var}_ld_2_0   = OpLoad %u32 %ld_${var}_gep_2_0\n"
+		" %ld_${var}_ld_2_1_0 = OpLoad %u32 %ld_${var}_gep_2_1_0\n"
+		" %ld_${var}_ld_2_1_1 = OpLoad %u32 %ld_${var}_gep_2_1_1\n"
+		" %ld_${var}_ld_2_1_2 = OpLoad %u32 %ld_${var}_gep_2_1_2\n"
+		" %ld_${var}_bc_0_0   = OpBitcast %v2f16 %ld_${var}_ld_0_0\n"
+		" %ld_${var}_bc_0_1_0 = OpBitcast %v2f16 %ld_${var}_ld_0_1_0\n"
+		" %ld_${var}_bc_0_1_1 = OpBitcast %v2f16 %ld_${var}_ld_0_1_1\n"
+		" %ld_${var}_bc_0_1_2 = OpBitcast %v2f16 %ld_${var}_ld_0_1_2\n"
+		" %ld_${var}_bc_1_0   = OpBitcast %v2f16 %ld_${var}_ld_1_0\n"
+		" %ld_${var}_bc_1_1_0 = OpBitcast %v2f16 %ld_${var}_ld_1_1_0\n"
+		" %ld_${var}_bc_1_1_1 = OpBitcast %v2f16 %ld_${var}_ld_1_1_1\n"
+		" %ld_${var}_bc_1_1_2 = OpBitcast %v2f16 %ld_${var}_ld_1_1_2\n"
+		" %ld_${var}_bc_2_0   = OpBitcast %v2f16 %ld_${var}_ld_2_0\n"
+		" %ld_${var}_bc_2_1_0 = OpBitcast %v2f16 %ld_${var}_ld_2_1_0\n"
+		" %ld_${var}_bc_2_1_1 = OpBitcast %v2f16 %ld_${var}_ld_2_1_1\n"
+		" %ld_${var}_bc_2_1_2 = OpBitcast %v2f16 %ld_${var}_ld_2_1_2\n"
+		"    %ld_${var}_arr_0 = OpCompositeConstruct %v2f16arr3 %ld_${var}_bc_0_1_0 %ld_${var}_bc_0_1_1 %ld_${var}_bc_0_1_2\n"
+		"    %ld_${var}_arr_1 = OpCompositeConstruct %v2f16arr3 %ld_${var}_bc_1_1_0 %ld_${var}_bc_1_1_1 %ld_${var}_bc_1_1_2\n"
+		"    %ld_${var}_arr_2 = OpCompositeConstruct %v2f16arr3 %ld_${var}_bc_2_1_0 %ld_${var}_bc_2_1_1 %ld_${var}_bc_2_1_2\n"
+		"     %ld_${var}_ex_0 = OpCompositeExtract %f16 %ld_${var}_bc_0_0 0\n"
+		"     %ld_${var}_ex_1 = OpCompositeExtract %f16 %ld_${var}_bc_1_0 0\n"
+		"     %ld_${var}_ex_2 = OpCompositeExtract %f16 %ld_${var}_bc_2_0 0\n"
+		"     %ld_${var}_st_0 = OpCompositeConstruct %struct16 %ld_${var}_ex_0 %ld_${var}_arr_0\n"
+		"     %ld_${var}_st_1 = OpCompositeConstruct %struct16 %ld_${var}_ex_1 %ld_${var}_arr_1\n"
+		"     %ld_${var}_st_2 = OpCompositeConstruct %struct16 %ld_${var}_ex_2 %ld_${var}_arr_2\n"
+		"     %ld_${var}_cons = OpCompositeConstruct %struct16arr3 %ld_${var}_st_0 %ld_${var}_st_1 %ld_${var}_st_2\n"
+		"  %ld_${var}_st_test = OpCompositeConstruct %st_test %ld_${var}_cons\n"
+		"                       OpReturnValue %ld_${var}_st_test\n"
+		"                      OpFunctionEnd\n"
+	);
+
+	const string storeF16
+	(
+		"       %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"%st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"%st_${var}_param2 = OpFunctionParameter %i32\n"
+		" %st_${var}_entry = OpLabel\n"
+		"    %st_${var}_ex = OpCompositeExtract %f16 %st_${var}_param1 0\n"
+		"  %st_${var}_call = OpFunctionCall %void %st_fn_${var} %st_${var}_ex %st_${var}_param2\n"
+		"                    OpReturn\n"
+		"                    OpFunctionEnd\n" +
+		storeScalarF16AsUint
+	);
+
+	const string storeV2F16
+	(
+		"       %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"%st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"%st_${var}_param2 = OpFunctionParameter %i32\n"
+		" %st_${var}_entry = OpLabel\n"
+		"    %st_${var}_ex = OpCompositeExtract %v2f16 %st_${var}_param1 0\n"
+		"  %st_${var}_call = OpFunctionCall %void %st_fn_${var} %st_${var}_ex %st_${var}_param2\n"
+		"                    OpReturn\n"
+		"                    OpFunctionEnd\n" +
+		storeV2F16AsUint
+	);
+
+	const string storeV3F16
+	(
+		"       %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"%st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"%st_${var}_param2 = OpFunctionParameter %i32\n"
+		" %st_${var}_entry = OpLabel\n"
+		"    %st_${var}_ex = OpCompositeExtract %v3f16 %st_${var}_param1 0\n"
+		" %st_${var}_vec_0 = OpVectorShuffle %v2f16 %st_${var}_ex %c_v2f16_n1 0 1\n"
+		" %st_${var}_vec_1 = OpVectorShuffle %v2f16 %st_${var}_ex %c_v2f16_n1 2 3\n"
+		"  %st_${var}_bc_0 = OpBitcast %u32 %st_${var}_vec_0\n"
+		"  %st_${var}_bc_1 = OpBitcast %u32 %st_${var}_vec_1\n"
+		" %st_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		" %st_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"                    OpStore %st_${var}_gep_0 %st_${var}_bc_0\n"
+		"                    OpStore %st_${var}_gep_1 %st_${var}_bc_1\n"
+		"                    OpReturn\n"
+		"                    OpFunctionEnd\n"
+	);
+
+	const string storeV4F16
+	(
+		"       %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"%st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"%st_${var}_param2 = OpFunctionParameter %i32\n"
+		" %st_${var}_entry = OpLabel\n"
+		"    %st_${var}_ex = OpCompositeExtract %v4f16 %st_${var}_param1 0\n"
+		" %st_${var}_vec_0 = OpVectorShuffle %v2f16 %st_${var}_ex %c_v2f16_n1 0 1\n"
+		" %st_${var}_vec_1 = OpVectorShuffle %v2f16 %st_${var}_ex %c_v2f16_n1 2 3\n"
+		"  %st_${var}_bc_0 = OpBitcast %u32 %st_${var}_vec_0\n"
+		"  %st_${var}_bc_1 = OpBitcast %u32 %st_${var}_vec_1\n"
+		" %st_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		" %st_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"                    OpStore %st_${var}_gep_0 %st_${var}_bc_0\n"
+		"                    OpStore %st_${var}_gep_1 %st_${var}_bc_1\n"
+		"                    OpReturn\n"
+		"                    OpFunctionEnd\n"
+	);
+
+	const string storeF16Arr3
+	(
+		"       %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"%st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"%st_${var}_param2 = OpFunctionParameter %i32\n"
+		" %st_${var}_entry = OpLabel\n"
+		"  %st_${var}_ex_0 = OpCompositeExtract %f16 %st_${var}_param1 0 0\n"
+		"  %st_${var}_ex_1 = OpCompositeExtract %f16 %st_${var}_param1 0 1\n"
+		"  %st_${var}_ex_2 = OpCompositeExtract %f16 %st_${var}_param1 0 2\n"
+		" %st_${var}_vec_0 = OpCompositeConstruct %v2f16 %st_${var}_ex_0 %st_${var}_ex_1\n"
+		" %st_${var}_vec_1 = OpCompositeConstruct %v2f16 %st_${var}_ex_2 %c_f16_na\n"
+		"  %st_${var}_bc_0 = OpBitcast %u32 %st_${var}_vec_0\n"
+		"  %st_${var}_bc_1 = OpBitcast %u32 %st_${var}_vec_1\n"
+		" %st_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		" %st_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"                    OpStore %st_${var}_gep_0 %st_${var}_bc_0\n"
+		"                    OpStore %st_${var}_gep_1 %st_${var}_bc_1\n"
+		"                    OpReturn\n"
+		"                    OpFunctionEnd\n"
+	);
+
+	const string storeV2F16Arr5
+	(
+		"       %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"%st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"%st_${var}_param2 = OpFunctionParameter %i32\n"
+		" %st_${var}_entry = OpLabel\n"
+		"  %st_${var}_ex_0 = OpCompositeExtract %v2f16 %st_${var}_param1 0 0\n"
+		"  %st_${var}_ex_1 = OpCompositeExtract %v2f16 %st_${var}_param1 0 1\n"
+		"  %st_${var}_ex_2 = OpCompositeExtract %v2f16 %st_${var}_param1 0 2\n"
+		"  %st_${var}_ex_3 = OpCompositeExtract %v2f16 %st_${var}_param1 0 3\n"
+		"  %st_${var}_ex_4 = OpCompositeExtract %v2f16 %st_${var}_param1 0 4\n"
+		"  %st_${var}_bc_0 = OpBitcast %u32 %st_${var}_ex_0\n"
+		"  %st_${var}_bc_1 = OpBitcast %u32 %st_${var}_ex_1\n"
+		"  %st_${var}_bc_2 = OpBitcast %u32 %st_${var}_ex_2\n"
+		"  %st_${var}_bc_3 = OpBitcast %u32 %st_${var}_ex_3\n"
+		"  %st_${var}_bc_4 = OpBitcast %u32 %st_${var}_ex_4\n"
+		" %st_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		" %st_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		" %st_${var}_gep_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		" %st_${var}_gep_3 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		" %st_${var}_gep_4 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		"                    OpStore %st_${var}_gep_0 %st_${var}_bc_0\n"
+		"                    OpStore %st_${var}_gep_1 %st_${var}_bc_1\n"
+		"                    OpStore %st_${var}_gep_2 %st_${var}_bc_2\n"
+		"                    OpStore %st_${var}_gep_3 %st_${var}_bc_3\n"
+		"                    OpStore %st_${var}_gep_4 %st_${var}_bc_4\n"
+		"                    OpReturn\n"
+		"                    OpFunctionEnd\n"
+	);
+
+	const string storeV3F16Arr5
+	(
+		"       %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"%st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"%st_${var}_param2 = OpFunctionParameter %i32\n"
+		" %st_${var}_entry = OpLabel\n"
+		"  %st_${var}_ex_0 = OpCompositeExtract %v3f16 %st_${var}_param1 0 0\n"
+		"  %st_${var}_ex_1 = OpCompositeExtract %v3f16 %st_${var}_param1 0 1\n"
+		"  %st_${var}_ex_2 = OpCompositeExtract %v3f16 %st_${var}_param1 0 2\n"
+		"  %st_${var}_ex_3 = OpCompositeExtract %v3f16 %st_${var}_param1 0 3\n"
+		"  %st_${var}_ex_4 = OpCompositeExtract %v3f16 %st_${var}_param1 0 4\n"
+		"%st_${var}_v2_0_0 = OpVectorShuffle %v2f16 %st_${var}_ex_0 %c_v2f16_n1 0 1\n"
+		"%st_${var}_v2_0_1 = OpVectorShuffle %v2f16 %st_${var}_ex_0 %c_v2f16_n1 2 3\n"
+		"%st_${var}_v2_1_0 = OpVectorShuffle %v2f16 %st_${var}_ex_1 %c_v2f16_n1 0 1\n"
+		"%st_${var}_v2_1_1 = OpVectorShuffle %v2f16 %st_${var}_ex_1 %c_v2f16_n1 2 3\n"
+		"%st_${var}_v2_2_0 = OpVectorShuffle %v2f16 %st_${var}_ex_2 %c_v2f16_n1 0 1\n"
+		"%st_${var}_v2_2_1 = OpVectorShuffle %v2f16 %st_${var}_ex_2 %c_v2f16_n1 2 3\n"
+		"%st_${var}_v2_3_0 = OpVectorShuffle %v2f16 %st_${var}_ex_3 %c_v2f16_n1 0 1\n"
+		"%st_${var}_v2_3_1 = OpVectorShuffle %v2f16 %st_${var}_ex_3 %c_v2f16_n1 2 3\n"
+		"%st_${var}_v2_4_0 = OpVectorShuffle %v2f16 %st_${var}_ex_4 %c_v2f16_n1 0 1\n"
+		"%st_${var}_v2_4_1 = OpVectorShuffle %v2f16 %st_${var}_ex_4 %c_v2f16_n1 2 3\n"
+		"%st_${var}_bc_0_0 = OpBitcast %u32 %st_${var}_v2_0_0\n"
+		"%st_${var}_bc_0_1 = OpBitcast %u32 %st_${var}_v2_0_1\n"
+		"%st_${var}_bc_1_0 = OpBitcast %u32 %st_${var}_v2_1_0\n"
+		"%st_${var}_bc_1_1 = OpBitcast %u32 %st_${var}_v2_1_1\n"
+		"%st_${var}_bc_2_0 = OpBitcast %u32 %st_${var}_v2_2_0\n"
+		"%st_${var}_bc_2_1 = OpBitcast %u32 %st_${var}_v2_2_1\n"
+		"%st_${var}_bc_3_0 = OpBitcast %u32 %st_${var}_v2_3_0\n"
+		"%st_${var}_bc_3_1 = OpBitcast %u32 %st_${var}_v2_3_1\n"
+		"%st_${var}_bc_4_0 = OpBitcast %u32 %st_${var}_v2_4_0\n"
+		"%st_${var}_bc_4_1 = OpBitcast %u32 %st_${var}_v2_4_1\n"
+		" %st_${var}_gep_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		" %st_${var}_gep_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		" %st_${var}_gep_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		" %st_${var}_gep_3 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		" %st_${var}_gep_4 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		" %st_${var}_gep_5 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_5\n"
+		" %st_${var}_gep_6 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_6\n"
+		" %st_${var}_gep_7 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_7\n"
+		" %st_${var}_gep_8 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_8\n"
+		" %st_${var}_gep_9 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_9\n"
+		"                    OpStore %st_${var}_gep_0 %st_${var}_bc_0_0\n"
+		"                    OpStore %st_${var}_gep_1 %st_${var}_bc_0_1\n"
+		"                    OpStore %st_${var}_gep_2 %st_${var}_bc_1_0\n"
+		"                    OpStore %st_${var}_gep_3 %st_${var}_bc_1_1\n"
+		"                    OpStore %st_${var}_gep_4 %st_${var}_bc_2_0\n"
+		"                    OpStore %st_${var}_gep_5 %st_${var}_bc_2_1\n"
+		"                    OpStore %st_${var}_gep_6 %st_${var}_bc_3_0\n"
+		"                    OpStore %st_${var}_gep_7 %st_${var}_bc_3_1\n"
+		"                    OpStore %st_${var}_gep_8 %st_${var}_bc_4_0\n"
+		"                    OpStore %st_${var}_gep_9 %st_${var}_bc_4_1\n"
+		"                    OpReturn\n"
+		"                    OpFunctionEnd\n"
+	);
+
+	const string storeV4F16Arr3
+	(
+		"        %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		" %st_${var}_param1 = OpFunctionParameter %st_test\n"
+		" %st_${var}_param2 = OpFunctionParameter %i32\n"
+		"  %st_${var}_entry = OpLabel\n"
+		"   %st_${var}_ex_0 = OpCompositeExtract %v4f16 %st_${var}_param1 0 0\n"
+		"   %st_${var}_ex_1 = OpCompositeExtract %v4f16 %st_${var}_param1 0 1\n"
+		"   %st_${var}_ex_2 = OpCompositeExtract %v4f16 %st_${var}_param1 0 2\n"
+		"%st_${var}_vec_0_0 = OpVectorShuffle %v2f16 %st_${var}_ex_0 %st_${var}_ex_0 0 1\n"
+		"%st_${var}_vec_0_1 = OpVectorShuffle %v2f16 %st_${var}_ex_0 %st_${var}_ex_0 2 3\n"
+		"%st_${var}_vec_1_0 = OpVectorShuffle %v2f16 %st_${var}_ex_1 %st_${var}_ex_1 0 1\n"
+		"%st_${var}_vec_1_1 = OpVectorShuffle %v2f16 %st_${var}_ex_1 %st_${var}_ex_1 2 3\n"
+		"%st_${var}_vec_2_0 = OpVectorShuffle %v2f16 %st_${var}_ex_2 %st_${var}_ex_2 0 1\n"
+		"%st_${var}_vec_2_1 = OpVectorShuffle %v2f16 %st_${var}_ex_2 %st_${var}_ex_2 2 3\n"
+		" %st_${var}_bc_0_0 = OpBitcast %u32 %st_${var}_vec_0_0\n"
+		" %st_${var}_bc_0_1 = OpBitcast %u32 %st_${var}_vec_0_1\n"
+		" %st_${var}_bc_1_0 = OpBitcast %u32 %st_${var}_vec_1_0\n"
+		" %st_${var}_bc_1_1 = OpBitcast %u32 %st_${var}_vec_1_1\n"
+		" %st_${var}_bc_2_0 = OpBitcast %u32 %st_${var}_vec_2_0\n"
+		" %st_${var}_bc_2_1 = OpBitcast %u32 %st_${var}_vec_2_1\n"
+		"%st_${var}_gep_0_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"%st_${var}_gep_0_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"%st_${var}_gep_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		"%st_${var}_gep_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		"%st_${var}_gep_2_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		"%st_${var}_gep_2_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_5\n"
+		"                     OpStore %st_${var}_gep_0_0 %st_${var}_bc_0_0\n"
+		"                     OpStore %st_${var}_gep_0_1 %st_${var}_bc_0_1\n"
+		"                     OpStore %st_${var}_gep_1_0 %st_${var}_bc_1_0\n"
+		"                     OpStore %st_${var}_gep_1_1 %st_${var}_bc_1_1\n"
+		"                     OpStore %st_${var}_gep_2_0 %st_${var}_bc_2_0\n"
+		"                     OpStore %st_${var}_gep_2_1 %st_${var}_bc_2_1\n"
+		"                     OpReturn\n"
+		"                     OpFunctionEnd\n"
+	);
+
+	const string storeStruct16Arr3
+	(
+		"          %st_${var} = OpFunction %void None %void_st_test_i32_fn\n"
+		"   %st_${var}_param1 = OpFunctionParameter %st_test\n"
+		"   %st_${var}_param2 = OpFunctionParameter %i32\n"
+		"    %st_${var}_entry = OpLabel\n"
+		"     %st_${var}_st_0 = OpCompositeExtract %struct16 %st_${var}_param1 0 0\n"
+		"     %st_${var}_st_1 = OpCompositeExtract %struct16 %st_${var}_param1 0 1\n"
+		"     %st_${var}_st_2 = OpCompositeExtract %struct16 %st_${var}_param1 0 2\n"
+		"   %st_${var}_el_0   = OpCompositeExtract   %f16 %st_${var}_st_0 0\n"
+		"   %st_${var}_v2_0_0 = OpCompositeExtract %v2f16 %st_${var}_st_0 1 0\n"
+		"   %st_${var}_v2_0_1 = OpCompositeExtract %v2f16 %st_${var}_st_0 1 1\n"
+		"   %st_${var}_v2_0_2 = OpCompositeExtract %v2f16 %st_${var}_st_0 1 2\n"
+		"   %st_${var}_el_1   = OpCompositeExtract   %f16 %st_${var}_st_1 0\n"
+		"   %st_${var}_v2_1_0 = OpCompositeExtract %v2f16 %st_${var}_st_1 1 0\n"
+		"   %st_${var}_v2_1_1 = OpCompositeExtract %v2f16 %st_${var}_st_1 1 1\n"
+		"   %st_${var}_v2_1_2 = OpCompositeExtract %v2f16 %st_${var}_st_1 1 2\n"
+		"   %st_${var}_el_2   = OpCompositeExtract   %f16 %st_${var}_st_2 0\n"
+		"   %st_${var}_v2_2_0 = OpCompositeExtract %v2f16 %st_${var}_st_2 1 0\n"
+		"   %st_${var}_v2_2_1 = OpCompositeExtract %v2f16 %st_${var}_st_2 1 1\n"
+		"   %st_${var}_v2_2_2 = OpCompositeExtract %v2f16 %st_${var}_st_2 1 2\n"
+		"     %st_${var}_v2_0 = OpCompositeConstruct %v2f16 %st_${var}_el_0 %c_f16_na\n"
+		"     %st_${var}_v2_1 = OpCompositeConstruct %v2f16 %st_${var}_el_1 %c_f16_na\n"
+		"     %st_${var}_v2_2 = OpCompositeConstruct %v2f16 %st_${var}_el_2 %c_f16_na\n"
+		"   %st_${var}_bc_0   = OpBitcast %u32 %st_${var}_v2_0\n"
+		"   %st_${var}_bc_0_0 = OpBitcast %u32 %st_${var}_v2_0_0\n"
+		"   %st_${var}_bc_0_1 = OpBitcast %u32 %st_${var}_v2_0_1\n"
+		"   %st_${var}_bc_0_2 = OpBitcast %u32 %st_${var}_v2_0_2\n"
+		"   %st_${var}_bc_1   = OpBitcast %u32 %st_${var}_v2_1\n"
+		"   %st_${var}_bc_1_0 = OpBitcast %u32 %st_${var}_v2_1_0\n"
+		"   %st_${var}_bc_1_1 = OpBitcast %u32 %st_${var}_v2_1_1\n"
+		"   %st_${var}_bc_1_2 = OpBitcast %u32 %st_${var}_v2_1_2\n"
+		"   %st_${var}_bc_2   = OpBitcast %u32 %st_${var}_v2_2\n"
+		"   %st_${var}_bc_2_0 = OpBitcast %u32 %st_${var}_v2_2_0\n"
+		"   %st_${var}_bc_2_1 = OpBitcast %u32 %st_${var}_v2_2_1\n"
+		"   %st_${var}_bc_2_2 = OpBitcast %u32 %st_${var}_v2_2_2\n"
+		"%st_${var}_gep_0_0_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_0\n"
+		"%st_${var}_gep_0_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_1\n"
+		"%st_${var}_gep_0_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_2\n"
+		"%st_${var}_gep_0_1_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_3\n"
+		"%st_${var}_gep_1_0_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_4\n"
+		"%st_${var}_gep_1_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_5\n"
+		"%st_${var}_gep_1_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_6\n"
+		"%st_${var}_gep_1_1_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_7\n"
+		"%st_${var}_gep_2_0_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_8\n"
+		"%st_${var}_gep_2_1_0 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_9\n"
+		"%st_${var}_gep_2_1_1 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_10\n"
+		"%st_${var}_gep_2_1_2 = OpAccessChain %up_u32 %${var} %c_i32_0 %c_i32_11\n"
+		"                       OpStore %st_${var}_gep_0_0_0 %st_${var}_bc_0\n"
+		"                       OpStore %st_${var}_gep_0_1_0 %st_${var}_bc_0_0\n"
+		"                       OpStore %st_${var}_gep_0_1_1 %st_${var}_bc_0_1\n"
+		"                       OpStore %st_${var}_gep_0_1_2 %st_${var}_bc_0_2\n"
+		"                       OpStore %st_${var}_gep_1_0_0 %st_${var}_bc_1\n"
+		"                       OpStore %st_${var}_gep_1_1_0 %st_${var}_bc_1_0\n"
+		"                       OpStore %st_${var}_gep_1_1_1 %st_${var}_bc_1_1\n"
+		"                       OpStore %st_${var}_gep_1_1_2 %st_${var}_bc_1_2\n"
+		"                       OpStore %st_${var}_gep_2_0_0 %st_${var}_bc_2\n"
+		"                       OpStore %st_${var}_gep_2_1_0 %st_${var}_bc_2_0\n"
+		"                       OpStore %st_${var}_gep_2_1_1 %st_${var}_bc_2_1\n"
+		"                       OpStore %st_${var}_gep_2_1_2 %st_${var}_bc_2_2\n"
+		"                       OpReturn\n"
+		"                       OpFunctionEnd\n"
+	);
+
 	struct OpParts
 	{
 		const char*	premainDecls;
@@ -12016,10 +13527,8 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 			"    %SSBO_src = OpTypeStruct %ra_f16\n"
 			"    %SSBO_dst = OpTypeStruct %ra_st\n",
 
-			"       %src = OpAccessChain %up_f16 %ssbo_src %c_i32_0 %ndx\n"
-			"       %dst = OpAccessChain %up_st %ssbo_dst %c_i32_0 %c_i32_0\n"
-			"   %val_new = OpLoad %f16 %src\n"
-			"   %val_old = OpLoad %st_test %dst\n"
+			"   %val_new = OpFunctionCall %f16 %ld_arg_ssbo_src %ndx\n"
+			"   %val_old = OpFunctionCall %st_test %ld_ssbo_dst %c_i32_0\n"
 			"   %val_dst = OpFunctionCall %st_test %sw_fun %val_new %val_old %ndx\n",
 
 			"   %sw_fun = OpFunction %st_test None %fun_t\n"
@@ -12035,9 +13544,7 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 			"    %SSBO_src = OpTypeStruct %ra_st\n"
 			"    %SSBO_dst = OpTypeStruct %ra_f16\n",
 
-			"       %src = OpAccessChain %up_st %ssbo_src %c_i32_0 %c_i32_0\n"
-			"       %dst = OpAccessChain %up_f16 %ssbo_dst %c_i32_0 %ndx\n"
-			"   %val_src = OpLoad %st_test %src\n"
+			"   %val_src = OpFunctionCall %st_test %ld_ssbo_src %c_i32_0\n"
 			"   %val_dst = OpFunctionCall %f16 %sw_fun %val_src %ndx\n",
 
 			"   %sw_fun = OpFunction %f16 None %fun_t\n",
@@ -12048,7 +13555,7 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 		},
 	};
 
-	DE_ASSERT(opIndex >= 0 && opIndex < DE_LENGTH_OF_ARRAY(opPartsArray));
+	DE_ASSERT(opIndex < DE_LENGTH_OF_ARRAY(opPartsArray));
 
 	const char*	accessPathF16[] =
 	{
@@ -12169,19 +13676,21 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 		const char*		name;
 		size_t			accessPathLength;
 		const char**	accessPath;
+		const string	loadFunction;
+		const string	storeFunction;
 	};
 
 	const TypeTestParameters typeTestParameters[] =
 	{
-		{	"f16",			DE_LENGTH_OF_ARRAY(accessPathF16),			accessPathF16			},
-		{	"v2f16",		DE_LENGTH_OF_ARRAY(accessPathV2F16),		accessPathV2F16			},
-		{	"v3f16",		DE_LENGTH_OF_ARRAY(accessPathV3F16),		accessPathV3F16			},
-		{	"v4f16",		DE_LENGTH_OF_ARRAY(accessPathV4F16),		accessPathV4F16			},
-		{	"f16arr3",		DE_LENGTH_OF_ARRAY(accessPathF16Arr3),		accessPathF16Arr3		},
-		{	"v2f16arr5",	DE_LENGTH_OF_ARRAY(accessPathV2F16Arr5),	accessPathV2F16Arr5		},
-		{	"v3f16arr5",	DE_LENGTH_OF_ARRAY(accessPathV3F16Arr5),	accessPathV3F16Arr5		},
-		{	"v4f16arr3",	DE_LENGTH_OF_ARRAY(accessPathV4F16Arr3),	accessPathV4F16Arr3		},
-		{	"struct16arr3",	DE_LENGTH_OF_ARRAY(accessPathStruct16Arr3),	accessPathStruct16Arr3	},
+		{	"f16",			DE_LENGTH_OF_ARRAY(accessPathF16),			accessPathF16,			loadF16,			storeF16		 },
+		{	"v2f16",		DE_LENGTH_OF_ARRAY(accessPathV2F16),		accessPathV2F16,		loadV2F16,			storeV2F16		 },
+		{	"v3f16",		DE_LENGTH_OF_ARRAY(accessPathV3F16),		accessPathV3F16,		loadV3F16,			storeV3F16		 },
+		{	"v4f16",		DE_LENGTH_OF_ARRAY(accessPathV4F16),		accessPathV4F16,		loadV4F16,			storeV4F16		  },
+		{	"f16arr3",		DE_LENGTH_OF_ARRAY(accessPathF16Arr3),		accessPathF16Arr3,		loadF16Arr3,		storeF16Arr3	  },
+		{	"v2f16arr5",	DE_LENGTH_OF_ARRAY(accessPathV2F16Arr5),	accessPathV2F16Arr5,	loadV2F16Arr5,		storeV2F16Arr5	  },
+		{	"v3f16arr5",	DE_LENGTH_OF_ARRAY(accessPathV3F16Arr5),	accessPathV3F16Arr5,	loadV3F16Arr5,		storeV3F16Arr5	  },
+		{	"v4f16arr3",	DE_LENGTH_OF_ARRAY(accessPathV4F16Arr3),	accessPathV4F16Arr3,	loadV4F16Arr3,		storeV4F16Arr3	  },
+		{	"struct16arr3",	DE_LENGTH_OF_ARRAY(accessPathStruct16Arr3),	accessPathStruct16Arr3,	loadStruct16Arr3,	storeStruct16Arr3},
 	};
 
 	for (size_t typeTestNdx = 0; typeTestNdx < DE_LENGTH_OF_ARRAY(typeTestParameters); ++typeTestNdx)
@@ -12231,26 +13740,39 @@ tcu::TestCaseGroup* createFloat16CompositeInsertExtractSet (tcu::TestContext& te
 		specs["num_elements"]			= de::toString(structItemsCount);
 		specs["field_type"]				= typeTestParameters[typeTestNdx].name;
 		specs["struct_item_size"]		= de::toString(structItemsCount * sizeof(deFloat16));
+		specs["struct_u32s"]			= de::toString(structItemsCount / 2);
 		specs["op_premain_decls"]		= opParts.premainDecls;
 		specs["op_sw_fun_call"]			= opParts.swFunCall;
 		specs["op_sw_fun_header"]		= opParts.swFunHeader;
 		specs["op_case_default_value"]	= opParts.caseDefaultValue;
+		if (opIndex == 0) {
+			specs["st_call"]			= "st_ssbo_dst";
+			specs["st_ndx"]				= "c_i32_0";
+		} else {
+			specs["st_call"]			= "st_fn_ssbo_dst";
+			specs["st_ndx"]				= "ndx";
+		}
 
-		fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"";
-		fragments["capability"]		= "OpCapability StorageUniformBufferBlock16\n";
+		fragments["capability"]		= "OpCapability Float16\n";
 		fragments["decoration"]		= decoration.specialize(specs);
 		fragments["pre_main"]		= preMain.specialize(specs);
 		fragments["testfun"]		= testFun.specialize(specs);
+		if (opIndex == 0) {
+			fragments["testfun"]		+= StringTemplate(loadScalarF16FromUint).specialize({{"var", "ssbo_src"}});
+			fragments["testfun"]		+= StringTemplate(typeTestParameters[typeTestNdx].loadFunction).specialize({{"var", "ssbo_dst"}});
+			fragments["testfun"]		+= StringTemplate(typeTestParameters[typeTestNdx].storeFunction).specialize({{"var", "ssbo_dst"}});
+		} else {
+			fragments["testfun"]		+= StringTemplate(typeTestParameters[typeTestNdx].loadFunction).specialize({{"var", "ssbo_src"}});
+			fragments["testfun"]		+= StringTemplate(storeScalarF16AsUint).specialize({{"var", "ssbo_dst"}});
+		}
 
 		specResource.inputs.push_back(Resource(BufferSp(new Float16Buffer(inputFP16)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(dummyFP16Output)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 		specResource.verifyIO = compareFP16CompositeFunc;
 
-		extensions.push_back("VK_KHR_16bit_storage");
 		extensions.push_back("VK_KHR_shader_float16_int8");
 
 		features.extFloat16Int8		= EXTFLOAT16INT8FEATURES_FLOAT16;
-		features.ext16BitStorage	= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 
 		finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
 	}
@@ -15566,6 +17088,8 @@ bool compareFP16ArithmeticFunc (const std::vector<Resource>& inputs, const vecto
 					{
 						tcu::Float16 expected	(iterationCalculatedFP16[componentNdx]);
 						tcu::Float16 outputted	(iterationOutputFP16[componentNdx]);
+						tcu::Float64 edgeMin    (iterationEdgeMin[componentNdx]);
+						tcu::Float64 edgeMax    (iterationEdgeMax[componentNdx]);
 
 						if (reportError && expected.isNaN())
 							reportError = false;
@@ -15582,9 +17106,9 @@ bool compareFP16ArithmeticFunc (const std::vector<Resource>& inputs, const vecto
 							if (reportError && expected.isInf())
 							{
 								// RTZ rounding mode returns +/-65504 instead of Inf on overflow
-								if (expected.sign() == 1 && outputted.bits() == 0x7bff && iterationEdgeMin[componentNdx] <= std::numeric_limits<double>::max())
+								if (expected.sign() == 1 && outputted.bits() == 0x7bff && edgeMin.asDouble() <= std::numeric_limits<double>::max())
 									reportError = false;
-								else if (expected.sign() == -1 && outputted.bits() == 0xfbff && iterationEdgeMax[componentNdx] >= -std::numeric_limits<double>::max())
+								else if (expected.sign() == -1 && outputted.bits() == 0xfbff && edgeMax.asDouble() >= -std::numeric_limits<double>::max())
 									reportError = false;
 							}
 
@@ -15592,9 +17116,9 @@ bool compareFP16ArithmeticFunc (const std::vector<Resource>& inputs, const vecto
 							{
 								const double	outputtedDouble	= outputted.asDouble();
 
-								DE_ASSERT(iterationEdgeMin[componentNdx] <= iterationEdgeMax[componentNdx]);
+							    DE_ASSERT(edgeMin.isNaN() || edgeMax.isNaN() || (edgeMin.asDouble() <= edgeMax.asDouble()));
 
-								if (de::inRange(outputtedDouble, iterationEdgeMin[componentNdx], iterationEdgeMax[componentNdx]))
+								if (de::inRange(outputtedDouble, edgeMin.asDouble(), edgeMax.asDouble()))
 									reportError = false;
 							}
 						}
@@ -16071,6 +17595,7 @@ struct Math16TestType
 	const size_t	typeComponents;
 	const size_t	typeArrayStride;
 	const size_t	typeStructStride;
+	const char*		storage_type;
 };
 
 enum Math16DataTypes
@@ -16125,20 +17650,20 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 	const char*					componentType				= "f16";
 	const Math16TestType		testTypes[MATH16_TYPE_LAST]	=
 	{
-		{ "",		0,	 0,						 0,						},
-		{ "",		1,	 1 * sizeof(deFloat16),	 2 * sizeof(deFloat16)	},
-		{ "v2",		2,	 2 * sizeof(deFloat16),	 2 * sizeof(deFloat16)	},
-		{ "v3",		3,	 4 * sizeof(deFloat16),	 4 * sizeof(deFloat16)	},
-		{ "v4",		4,	 4 * sizeof(deFloat16),	 4 * sizeof(deFloat16)	},
-		{ "m2x2",	0,	 4 * sizeof(deFloat16),	 4 * sizeof(deFloat16)	},
-		{ "m2x3",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16)	},
-		{ "m2x4",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16)	},
-		{ "m3x2",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16)	},
-		{ "m3x3",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16)	},
-		{ "m3x4",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16)	},
-		{ "m4x2",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16)	},
-		{ "m4x3",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16)	},
-		{ "m4x4",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16)	},
+		{ "",		0,	 0,						 0,						"" },
+		{ "",		1,	 1 * sizeof(deFloat16),	 2 * sizeof(deFloat16),	"u32_half_ndp" },
+		{ "v2",		2,	 2 * sizeof(deFloat16),	 2 * sizeof(deFloat16),	"u32_ndp" },
+		{ "v3",		3,	 4 * sizeof(deFloat16),	 4 * sizeof(deFloat16),	"u32_ndp_2" },
+		{ "v4",		4,	 4 * sizeof(deFloat16),	 4 * sizeof(deFloat16),	"u32_ndp_2" },
+		{ "m2x2",	0,	 4 * sizeof(deFloat16),	 4 * sizeof(deFloat16),	"u32_ndp_2" },
+		{ "m2x3",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16),	"u32_ndp_4" },
+		{ "m2x4",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16),	"u32_ndp_4" },
+		{ "m3x2",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16),	"u32_ndp_3" },
+		{ "m3x3",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16),	"u32_ndp_6" },
+		{ "m3x4",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16),	"u32_ndp_6" },
+		{ "m4x2",	0,	 8 * sizeof(deFloat16),	 8 * sizeof(deFloat16),	"u32_ndp_4" },
+		{ "m4x3",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16),	"u32_ndp_8" },
+		{ "m4x4",	0,	16 * sizeof(deFloat16),	16 * sizeof(deFloat16),	"u32_ndp_8" },
 	};
 
 	DE_ASSERT(testTypeIdx == testTypes[testTypeIdx].typeComponents);
@@ -16162,131 +17687,118 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 		"        %m4x3f16 = OpTypeMatrix %v3f16 4\n"
 		"        %m4x4f16 = OpTypeMatrix %v4f16 4\n"
 
-		"     %up_f16     = OpTypePointer Uniform %f16    \n"
-		"     %up_v2f16   = OpTypePointer Uniform %v2f16  \n"
-		"     %up_v3f16   = OpTypePointer Uniform %v3f16  \n"
-		"     %up_v4f16   = OpTypePointer Uniform %v4f16  \n"
-		"     %up_m2x2f16 = OpTypePointer Uniform %m2x2f16\n"
-		"     %up_m2x3f16 = OpTypePointer Uniform %m2x3f16\n"
-		"     %up_m2x4f16 = OpTypePointer Uniform %m2x4f16\n"
-		"     %up_m3x2f16 = OpTypePointer Uniform %m3x2f16\n"
-		"     %up_m3x3f16 = OpTypePointer Uniform %m3x3f16\n"
-		"     %up_m3x4f16 = OpTypePointer Uniform %m3x4f16\n"
-		"     %up_m4x2f16 = OpTypePointer Uniform %m4x2f16\n"
-		"     %up_m4x3f16 = OpTypePointer Uniform %m4x3f16\n"
-		"     %up_m4x4f16 = OpTypePointer Uniform %m4x4f16\n"
-
-		"     %ra_f16     = OpTypeArray %f16     %c_i32_ndp\n"
-		"     %ra_v2f16   = OpTypeArray %v2f16   %c_i32_ndp\n"
-		"     %ra_v3f16   = OpTypeArray %v3f16   %c_i32_ndp\n"
-		"     %ra_v4f16   = OpTypeArray %v4f16   %c_i32_ndp\n"
-		"     %ra_m2x2f16 = OpTypeArray %m2x2f16 %c_i32_ndp\n"
-		"     %ra_m2x3f16 = OpTypeArray %m2x3f16 %c_i32_ndp\n"
-		"     %ra_m2x4f16 = OpTypeArray %m2x4f16 %c_i32_ndp\n"
-		"     %ra_m3x2f16 = OpTypeArray %m3x2f16 %c_i32_ndp\n"
-		"     %ra_m3x3f16 = OpTypeArray %m3x3f16 %c_i32_ndp\n"
-		"     %ra_m3x4f16 = OpTypeArray %m3x4f16 %c_i32_ndp\n"
-		"     %ra_m4x2f16 = OpTypeArray %m4x2f16 %c_i32_ndp\n"
-		"     %ra_m4x3f16 = OpTypeArray %m4x3f16 %c_i32_ndp\n"
-		"     %ra_m4x4f16 = OpTypeArray %m4x4f16 %c_i32_ndp\n"
-
-		"   %SSBO_f16     = OpTypeStruct %ra_f16    \n"
-		"   %SSBO_v2f16   = OpTypeStruct %ra_v2f16  \n"
-		"   %SSBO_v3f16   = OpTypeStruct %ra_v3f16  \n"
-		"   %SSBO_v4f16   = OpTypeStruct %ra_v4f16  \n"
-		"   %SSBO_m2x2f16 = OpTypeStruct %ra_m2x2f16\n"
-		"   %SSBO_m2x3f16 = OpTypeStruct %ra_m2x3f16\n"
-		"   %SSBO_m2x4f16 = OpTypeStruct %ra_m2x4f16\n"
-		"   %SSBO_m3x2f16 = OpTypeStruct %ra_m3x2f16\n"
-		"   %SSBO_m3x3f16 = OpTypeStruct %ra_m3x3f16\n"
-		"   %SSBO_m3x4f16 = OpTypeStruct %ra_m3x4f16\n"
-		"   %SSBO_m4x2f16 = OpTypeStruct %ra_m4x2f16\n"
-		"   %SSBO_m4x3f16 = OpTypeStruct %ra_m4x3f16\n"
-		"   %SSBO_m4x4f16 = OpTypeStruct %ra_m4x4f16\n"
-
-		"%up_SSBO_f16     = OpTypePointer Uniform %SSBO_f16    \n"
-		"%up_SSBO_v2f16   = OpTypePointer Uniform %SSBO_v2f16  \n"
-		"%up_SSBO_v3f16   = OpTypePointer Uniform %SSBO_v3f16  \n"
-		"%up_SSBO_v4f16   = OpTypePointer Uniform %SSBO_v4f16  \n"
-		"%up_SSBO_m2x2f16 = OpTypePointer Uniform %SSBO_m2x2f16\n"
-		"%up_SSBO_m2x3f16 = OpTypePointer Uniform %SSBO_m2x3f16\n"
-		"%up_SSBO_m2x4f16 = OpTypePointer Uniform %SSBO_m2x4f16\n"
-		"%up_SSBO_m3x2f16 = OpTypePointer Uniform %SSBO_m3x2f16\n"
-		"%up_SSBO_m3x3f16 = OpTypePointer Uniform %SSBO_m3x3f16\n"
-		"%up_SSBO_m3x4f16 = OpTypePointer Uniform %SSBO_m3x4f16\n"
-		"%up_SSBO_m4x2f16 = OpTypePointer Uniform %SSBO_m4x2f16\n"
-		"%up_SSBO_m4x3f16 = OpTypePointer Uniform %SSBO_m4x3f16\n"
-		"%up_SSBO_m4x4f16 = OpTypePointer Uniform %SSBO_m4x4f16\n"
-
 		"       %fp_v2i32 = OpTypePointer Function %v2i32\n"
 		"       %fp_v3i32 = OpTypePointer Function %v3i32\n"
 		"       %fp_v4i32 = OpTypePointer Function %v4i32\n"
+
+		"      %c_u32_ndp = OpConstant %u32 ${num_data_points}\n"
+		" %c_u32_half_ndp = OpSpecConstantOp %u32 UDiv %c_i32_ndp %c_u32_2\n"
+		"        %c_u32_5 = OpConstant %u32 5\n"
+		"        %c_u32_6 = OpConstant %u32 6\n"
+		"        %c_u32_7 = OpConstant %u32 7\n"
+		"        %c_u32_8 = OpConstant %u32 8\n"
+		"        %c_f16_0 = OpConstant %f16 0\n"
+		"        %c_f16_1 = OpConstant %f16 1\n"
+		"      %c_v2f16_0 = OpConstantComposite %v2f16 %c_f16_0 %c_f16_0\n"
+		"         %up_u32 = OpTypePointer Uniform %u32\n"
+		"%c_u32_high_ones = OpConstant %u32 0xffff0000\n"
+		" %c_u32_low_ones = OpConstant %u32 0x0000ffff\n"
+
+		"    %ra_u32_half_ndp = OpTypeArray %u32 %c_u32_half_ndp\n"
+		"  %SSBO_u32_half_ndp = OpTypeStruct %ra_u32_half_ndp\n"
+		"%up_SSBO_u32_half_ndp = OpTypePointer Uniform %SSBO_u32_half_ndp\n"
+		"         %ra_u32_ndp = OpTypeArray %u32 %c_u32_ndp\n"
+		"       %SSBO_u32_ndp = OpTypeStruct %ra_u32_ndp\n"
+		"    %up_SSBO_u32_ndp = OpTypePointer Uniform %SSBO_u32_ndp\n"
+		"           %ra_u32_2 = OpTypeArray %u32 %c_u32_2\n"
+		"        %up_ra_u32_2 = OpTypePointer Uniform %ra_u32_2\n"
+		"      %ra_ra_u32_ndp = OpTypeArray %ra_u32_2 %c_u32_ndp\n"
+		"     %SSBO_u32_ndp_2 = OpTypeStruct %ra_ra_u32_ndp\n"
+		"  %up_SSBO_u32_ndp_2 = OpTypePointer Uniform %SSBO_u32_ndp_2\n"
+		"           %ra_u32_4 = OpTypeArray %u32 %c_u32_4\n"
+		"        %up_ra_u32_4 = OpTypePointer Uniform %ra_u32_4\n"
+		"        %ra_ra_u32_4 = OpTypeArray %ra_u32_4 %c_u32_ndp\n"
+		"     %SSBO_u32_ndp_4 = OpTypeStruct %ra_ra_u32_4\n"
+		"  %up_SSBO_u32_ndp_4 = OpTypePointer Uniform %SSBO_u32_ndp_4\n"
+		"           %ra_u32_3 = OpTypeArray %u32 %c_u32_3\n"
+		"        %up_ra_u32_3 = OpTypePointer Uniform %ra_u32_3\n"
+		"        %ra_ra_u32_3 = OpTypeArray %ra_u32_3 %c_u32_ndp\n"
+		"     %SSBO_u32_ndp_3 = OpTypeStruct %ra_ra_u32_3\n"
+		"  %up_SSBO_u32_ndp_3 = OpTypePointer Uniform %SSBO_u32_ndp_3\n"
+		"           %ra_u32_6 = OpTypeArray %u32 %c_u32_6\n"
+		"        %up_ra_u32_6 = OpTypePointer Uniform %ra_u32_6\n"
+		"        %ra_ra_u32_6 = OpTypeArray %ra_u32_6 %c_u32_ndp\n"
+		"     %SSBO_u32_ndp_6 = OpTypeStruct %ra_ra_u32_6\n"
+		"  %up_SSBO_u32_ndp_6 = OpTypePointer Uniform %SSBO_u32_ndp_6\n"
+		"           %ra_u32_8 = OpTypeArray %u32 %c_u32_8\n"
+		"        %up_ra_u32_8 = OpTypePointer Uniform %ra_u32_8\n"
+		"        %ra_ra_u32_8 = OpTypeArray %ra_u32_8 %c_u32_ndp\n"
+		"     %SSBO_u32_ndp_8 = OpTypeStruct %ra_ra_u32_8\n"
+		"  %up_SSBO_u32_ndp_8 = OpTypePointer Uniform %SSBO_u32_ndp_8\n"
+
+		"         %f16_i32_fn = OpTypeFunction %f16 %i32\n"
+		"       %v2f16_i32_fn = OpTypeFunction %v2f16 %i32\n"
+		"       %v3f16_i32_fn = OpTypeFunction %v3f16 %i32\n"
+		"       %v4f16_i32_fn = OpTypeFunction %v4f16 %i32\n"
+		"     %m2x2f16_i32_fn = OpTypeFunction %m2x2f16 %i32\n"
+		"     %m2x3f16_i32_fn = OpTypeFunction %m2x3f16 %i32\n"
+		"     %m2x4f16_i32_fn = OpTypeFunction %m2x4f16 %i32\n"
+		"     %m3x2f16_i32_fn = OpTypeFunction %m3x2f16 %i32\n"
+		"     %m3x3f16_i32_fn = OpTypeFunction %m3x3f16 %i32\n"
+		"     %m3x4f16_i32_fn = OpTypeFunction %m3x4f16 %i32\n"
+		"     %m4x2f16_i32_fn = OpTypeFunction %m4x2f16 %i32\n"
+		"     %m4x3f16_i32_fn = OpTypeFunction %m4x3f16 %i32\n"
+		"     %m4x4f16_i32_fn = OpTypeFunction %m4x4f16 %i32\n"
+		"    %void_f16_i32_fn = OpTypeFunction %void %f16 %i32\n"
+		"  %void_v2f16_i32_fn = OpTypeFunction %void %v2f16 %i32\n"
+		"  %void_v3f16_i32_fn = OpTypeFunction %void %v3f16 %i32\n"
+		"  %void_v4f16_i32_fn = OpTypeFunction %void %v4f16 %i32\n"
+		"%void_m2x2f16_i32_fn = OpTypeFunction %void %m2x2f16 %i32\n"
+		"%void_m2x3f16_i32_fn = OpTypeFunction %void %m2x3f16 %i32\n"
+		"%void_m2x4f16_i32_fn = OpTypeFunction %void %m2x4f16 %i32\n"
+		"%void_m3x2f16_i32_fn = OpTypeFunction %void %m3x2f16 %i32\n"
+		"%void_m3x3f16_i32_fn = OpTypeFunction %void %m3x3f16 %i32\n"
+		"%void_m3x4f16_i32_fn = OpTypeFunction %void %m3x4f16 %i32\n"
+		"%void_m4x2f16_i32_fn = OpTypeFunction %void %m4x2f16 %i32\n"
+		"%void_m4x3f16_i32_fn = OpTypeFunction %void %m4x3f16 %i32\n"
+		"%void_m4x4f16_i32_fn = OpTypeFunction %void %m4x4f16 %i32\n"
 		"${arg_vars}"
 	);
 
 	const StringTemplate decoration
 	(
-		"OpDecorate %ra_f16     ArrayStride 2 \n"
-		"OpDecorate %ra_v2f16   ArrayStride 4 \n"
-		"OpDecorate %ra_v3f16   ArrayStride 8 \n"
-		"OpDecorate %ra_v4f16   ArrayStride 8 \n"
-		"OpDecorate %ra_m2x2f16 ArrayStride 8 \n"
-		"OpDecorate %ra_m2x3f16 ArrayStride 16\n"
-		"OpDecorate %ra_m2x4f16 ArrayStride 16\n"
-		"OpDecorate %ra_m3x2f16 ArrayStride 16\n"
-		"OpDecorate %ra_m3x3f16 ArrayStride 32\n"
-		"OpDecorate %ra_m3x4f16 ArrayStride 32\n"
-		"OpDecorate %ra_m4x2f16 ArrayStride 16\n"
-		"OpDecorate %ra_m4x3f16 ArrayStride 32\n"
-		"OpDecorate %ra_m4x4f16 ArrayStride 32\n"
+		"OpDecorate %ra_u32_half_ndp ArrayStride 4\n"
+		"OpMemberDecorate %SSBO_u32_half_ndp 0 Offset 0\n"
+		"OpDecorate %SSBO_u32_half_ndp BufferBlock\n"
 
-		"OpMemberDecorate %SSBO_f16     0 Offset 0\n"
-		"OpMemberDecorate %SSBO_v2f16   0 Offset 0\n"
-		"OpMemberDecorate %SSBO_v3f16   0 Offset 0\n"
-		"OpMemberDecorate %SSBO_v4f16   0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m2x2f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m2x3f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m2x4f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m3x2f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m3x3f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m3x4f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m4x2f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m4x3f16 0 Offset 0\n"
-		"OpMemberDecorate %SSBO_m4x4f16 0 Offset 0\n"
+		"OpDecorate %ra_u32_ndp ArrayStride 4\n"
+		"OpMemberDecorate %SSBO_u32_ndp 0 Offset 0\n"
+		"OpDecorate %SSBO_u32_ndp BufferBlock\n"
 
-		"OpDecorate %SSBO_f16     BufferBlock\n"
-		"OpDecorate %SSBO_v2f16   BufferBlock\n"
-		"OpDecorate %SSBO_v3f16   BufferBlock\n"
-		"OpDecorate %SSBO_v4f16   BufferBlock\n"
-		"OpDecorate %SSBO_m2x2f16 BufferBlock\n"
-		"OpDecorate %SSBO_m2x3f16 BufferBlock\n"
-		"OpDecorate %SSBO_m2x4f16 BufferBlock\n"
-		"OpDecorate %SSBO_m3x2f16 BufferBlock\n"
-		"OpDecorate %SSBO_m3x3f16 BufferBlock\n"
-		"OpDecorate %SSBO_m3x4f16 BufferBlock\n"
-		"OpDecorate %SSBO_m4x2f16 BufferBlock\n"
-		"OpDecorate %SSBO_m4x3f16 BufferBlock\n"
-		"OpDecorate %SSBO_m4x4f16 BufferBlock\n"
+		"OpDecorate %ra_u32_2 ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_ndp ArrayStride 8\n"
+		"OpMemberDecorate %SSBO_u32_ndp_2 0 Offset 0\n"
+		"OpDecorate %SSBO_u32_ndp_2 BufferBlock\n"
 
-		"OpMemberDecorate %SSBO_m2x2f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m2x3f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m2x4f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m3x2f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m3x3f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m3x4f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m4x2f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m4x3f16 0 ColMajor\n"
-		"OpMemberDecorate %SSBO_m4x4f16 0 ColMajor\n"
+		"OpDecorate %ra_u32_4 ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_4 ArrayStride 16\n"
+		"OpMemberDecorate %SSBO_u32_ndp_4 0 Offset 0\n"
+		"OpDecorate %SSBO_u32_ndp_4 BufferBlock\n"
 
-		"OpMemberDecorate %SSBO_m2x2f16 0 MatrixStride 4\n"
-		"OpMemberDecorate %SSBO_m2x3f16 0 MatrixStride 8\n"
-		"OpMemberDecorate %SSBO_m2x4f16 0 MatrixStride 8\n"
-		"OpMemberDecorate %SSBO_m3x2f16 0 MatrixStride 4\n"
-		"OpMemberDecorate %SSBO_m3x3f16 0 MatrixStride 8\n"
-		"OpMemberDecorate %SSBO_m3x4f16 0 MatrixStride 8\n"
-		"OpMemberDecorate %SSBO_m4x2f16 0 MatrixStride 4\n"
-		"OpMemberDecorate %SSBO_m4x3f16 0 MatrixStride 8\n"
-		"OpMemberDecorate %SSBO_m4x4f16 0 MatrixStride 8\n"
+		"OpDecorate %ra_u32_3 ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_3 ArrayStride 16\n"
+		"OpMemberDecorate %SSBO_u32_ndp_3 0 Offset 0\n"
+		"OpDecorate %SSBO_u32_ndp_3 BufferBlock\n"
+
+		"OpDecorate %ra_u32_6 ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_6 ArrayStride 32\n"
+		"OpMemberDecorate %SSBO_u32_ndp_6 0 Offset 0\n"
+		"OpDecorate %SSBO_u32_ndp_6 BufferBlock\n"
+
+		"OpDecorate %ra_u32_8 ArrayStride 4\n"
+		"OpDecorate %ra_ra_u32_8 ArrayStride 32\n"
+		"OpMemberDecorate %SSBO_u32_ndp_8 0 Offset 0\n"
+		"OpDecorate %SSBO_u32_ndp_8 BufferBlock\n"
 
 		"${arg_decorations}"
 	);
@@ -16328,11 +17840,9 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragment1	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		"     %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"  %val_dst = ${op} %${tr} ${ext_inst} %val_src0\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"     %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 		"",
 		"",
 		"",
@@ -16340,13 +17850,10 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragment2	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
-		"     %src1 = OpAccessChain %up_${t1} %ssbo_src1 %c_i32_0 %ndx\n"
-		" %val_src1 = OpLoad %${t1} %src1\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
+		" %val_src1 = OpFunctionCall %${t1} %ld_arg_ssbo_src1 %ndx\n"
 		"  %val_dst = ${op} %${tr} ${ext_inst} %val_src0 %val_src1\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 		"",
 		"",
 		"",
@@ -16354,15 +17861,11 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragment3	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
-		"     %src1 = OpAccessChain %up_${t1} %ssbo_src1 %c_i32_0 %ndx\n"
-		" %val_src1 = OpLoad %${t1} %src1\n"
-		"     %src2 = OpAccessChain %up_${t2} %ssbo_src2 %c_i32_0 %ndx\n"
-		" %val_src2 = OpLoad %${t2} %src2\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
+		" %val_src1 = OpFunctionCall %${t1} %ld_arg_ssbo_src1 %ndx\n"
+		" %val_src2 = OpFunctionCall %${t2} %ld_arg_ssbo_src2 %ndx\n"
 		"  %val_dst = ${op} %${tr} ${ext_inst} %val_src0 %val_src1 %val_src2\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 		"",
 		"",
 		"",
@@ -16370,14 +17873,11 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentLdExp	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
-		"     %src1 = OpAccessChain %up_${t1} %ssbo_src1 %c_i32_0 %ndx\n"
-		" %val_src1 = OpLoad %${t1} %src1\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
+		" %val_src1 = OpFunctionCall %${t1} %ld_arg_ssbo_src1 %ndx\n"
 		"%val_src1i = OpConvertFToS %${dr}i32 %val_src1\n"
 		"  %val_dst = ${op} %${tr} ${ext_inst} %val_src0 %val_src1i\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"",
 
@@ -16388,11 +17888,9 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentModfFrac	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"  %val_dst = ${op} %${tr} ${ext_inst} %val_src0 %tmp\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"   %fp_tmp = OpTypePointer Function %${tr}\n",
 
@@ -16403,13 +17901,11 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentModfInt	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"%val_dummy = ${op} %${tr} ${ext_inst} %val_src0 %tmp\n"
 		"     %tmp0 = OpAccessChain %fp_tmp %tmp\n"
 		"  %val_dst = OpLoad %${tr} %tmp0\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"   %fp_tmp = OpTypePointer Function %${tr}\n",
 
@@ -16420,15 +17916,13 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentModfStruct	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"  %val_tmp = ${op} %st_tmp ${ext_inst} %val_src0\n"
 		"%tmp_ptr_s = OpAccessChain %fp_tmp %tmp\n"
 		"             OpStore %tmp_ptr_s %val_tmp\n"
 		"%tmp_ptr_l = OpAccessChain %fp_${tr} %tmp %c_${struct_member}\n"
 		"  %val_dst = OpLoad %${tr} %tmp_ptr_l\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"  %fp_${tr} = OpTypePointer Function %${tr}\n"
 		"   %st_tmp = OpTypeStruct %${tr} %${tr}\n"
@@ -16444,15 +17938,13 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentFrexpStructS	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"  %val_tmp = ${op} %st_tmp ${ext_inst} %val_src0\n"
 		"%tmp_ptr_s = OpAccessChain %fp_tmp %tmp\n"
 		"             OpStore %tmp_ptr_s %val_tmp\n"
 		"%tmp_ptr_l = OpAccessChain %fp_${tr} %tmp %c_i32_0\n"
 		"  %val_dst = OpLoad %${tr} %tmp_ptr_l\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"  %fp_${tr} = OpTypePointer Function %${tr}\n"
 		"   %st_tmp = OpTypeStruct %${tr} %${dr}i32\n"
@@ -16466,16 +17958,14 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentFrexpStructE	=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"  %val_tmp = ${op} %st_tmp ${ext_inst} %val_src0\n"
 		"%tmp_ptr_s = OpAccessChain %fp_tmp %tmp\n"
 		"             OpStore %tmp_ptr_s %val_tmp\n"
 		"%tmp_ptr_l = OpAccessChain %fp_${dr}i32 %tmp %c_i32_1\n"
 		"%val_dst_i = OpLoad %${dr}i32 %tmp_ptr_l\n"
 		"  %val_dst = OpConvertSToF %${tr} %val_dst_i\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"   %st_tmp = OpTypeStruct %${tr} %${dr}i32\n"
 		"   %fp_tmp = OpTypePointer Function %st_tmp\n",
@@ -16488,12 +17978,10 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentFrexpS		=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"  %out_exp = OpAccessChain %fp_${dr}i32 %tmp\n"
 		"  %val_dst = ${op} %${tr} ${ext_inst} %val_src0 %out_exp\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"",
 
@@ -16504,14 +17992,12 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 	const Math16ArgFragments	argFragmentFrexpE		=
 	{
-		"     %src0 = OpAccessChain %up_${t0} %ssbo_src0 %c_i32_0 %ndx\n"
-		" %val_src0 = OpLoad %${t0} %src0\n"
+		" %val_src0 = OpFunctionCall %${t0} %ld_arg_ssbo_src0 %ndx\n"
 		"  %out_exp = OpAccessChain %fp_${dr}i32 %tmp\n"
 		"%val_dummy = ${op} %${tr} ${ext_inst} %val_src0 %out_exp\n"
 		"%val_dst_i = OpLoad %${dr}i32 %out_exp\n"
 		"  %val_dst = OpConvertSToF %${tr} %val_dst_i\n"
-		"      %dst = OpAccessChain %up_${tr} %ssbo_dst %c_i32_0 %ndx\n"
-		"             OpStore %dst %val_dst\n",
+		"      %dst = OpFunctionCall %void %st_fn_ssbo_dst %val_dst %ndx\n",
 
 		"",
 
@@ -16519,6 +18005,36 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 
 		"      %tmp = OpVariable %fp_${dr}i32 Function\n",
 	};
+
+	string load_funcs[MATH16_TYPE_LAST];
+	load_funcs[SCALAR] = loadScalarF16FromUint;
+	load_funcs[VEC2]   = loadV2F16FromUint;
+	load_funcs[VEC3]   = loadV3F16FromUints;
+	load_funcs[VEC4]   = loadV4F16FromUints;
+	load_funcs[MAT2X2] = loadM2x2F16FromUints;
+	load_funcs[MAT2X3] = loadM2x3F16FromUints;
+	load_funcs[MAT2X4] = loadM2x4F16FromUints;
+	load_funcs[MAT3X2] = loadM3x2F16FromUints;
+	load_funcs[MAT3X3] = loadM3x3F16FromUints;
+	load_funcs[MAT3X4] = loadM3x4F16FromUints;
+	load_funcs[MAT4X2] = loadM4x2F16FromUints;
+	load_funcs[MAT4X3] = loadM4x3F16FromUints;
+	load_funcs[MAT4X4] = loadM4x4F16FromUints;
+
+	string store_funcs[MATH16_TYPE_LAST];
+	store_funcs[SCALAR] = storeScalarF16AsUint;
+	store_funcs[VEC2]   = storeV2F16AsUint;
+	store_funcs[VEC3]   = storeV3F16AsUints;
+	store_funcs[VEC4]   = storeV4F16AsUints;
+	store_funcs[MAT2X2] = storeM2x2F16AsUints;
+	store_funcs[MAT2X3] = storeM2x3F16AsUints;
+	store_funcs[MAT2X4] = storeM2x4F16AsUints;
+	store_funcs[MAT3X2] = storeM3x2F16AsUints;
+	store_funcs[MAT3X3] = storeM3x3F16AsUints;
+	store_funcs[MAT3X4] = storeM3x4F16AsUints;
+	store_funcs[MAT4X2] = storeM4x2F16AsUints;
+	store_funcs[MAT4X3] = storeM4x3F16AsUints;
+	store_funcs[MAT4X4] = storeM4x4F16AsUints;
 
 	const Math16TestType&		testType				= testTypes[testTypeIdx];
 	const string				funcNameString			= string(testFunc.funcName) + string(testFunc.funcSuffix);
@@ -16540,6 +18056,7 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 	string						variables;
 	string						declarations;
 	string						decorations;
+	string						functions;
 
 	switch (testFunc.funcArgsCount)
 	{
@@ -16578,11 +18095,13 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 		}
 	}
 
+	functions = StringTemplate(store_funcs[testFunc.typeResult]).specialize({{"var", "ssbo_dst"}});
 	if (testFunc.funcArgsCount == 1)
 	{
+		functions += StringTemplate(load_funcs[testFunc.typeArg0]).specialize({{"var", "ssbo_src0"}});
 		variables +=
-			" %ssbo_src0 = OpVariable %up_SSBO_${t0} Uniform\n"
-			"  %ssbo_dst = OpVariable %up_SSBO_${tr} Uniform\n";
+			" %ssbo_src0 = OpVariable %up_SSBO_${store_t0} Uniform\n"
+			"  %ssbo_dst = OpVariable %up_SSBO_${store_tr} Uniform\n";
 
 		decorations +=
 			"OpDecorate %ssbo_src0 DescriptorSet 0\n"
@@ -16592,10 +18111,12 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 	}
 	else if (testFunc.funcArgsCount == 2)
 	{
+		functions += StringTemplate(load_funcs[testFunc.typeArg0]).specialize({{"var", "ssbo_src0"}});
+		functions += StringTemplate(load_funcs[testFunc.typeArg1]).specialize({{"var", "ssbo_src1"}});
 		variables +=
-			" %ssbo_src0 = OpVariable %up_SSBO_${t0} Uniform\n"
-			" %ssbo_src1 = OpVariable %up_SSBO_${t1} Uniform\n"
-			"  %ssbo_dst = OpVariable %up_SSBO_${tr} Uniform\n";
+			" %ssbo_src0 = OpVariable %up_SSBO_${store_t0} Uniform\n"
+			" %ssbo_src1 = OpVariable %up_SSBO_${store_t1} Uniform\n"
+			"  %ssbo_dst = OpVariable %up_SSBO_${store_tr} Uniform\n";
 
 		decorations +=
 			"OpDecorate %ssbo_src0 DescriptorSet 0\n"
@@ -16607,11 +18128,14 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 	}
 	else if (testFunc.funcArgsCount == 3)
 	{
+		functions += StringTemplate(load_funcs[testFunc.typeArg0]).specialize({{"var", "ssbo_src0"}});
+		functions += StringTemplate(load_funcs[testFunc.typeArg1]).specialize({{"var", "ssbo_src1"}});
+		functions += StringTemplate(load_funcs[testFunc.typeArg2]).specialize({{"var", "ssbo_src2"}});
 		variables +=
-			" %ssbo_src0 = OpVariable %up_SSBO_${t0} Uniform\n"
-			" %ssbo_src1 = OpVariable %up_SSBO_${t1} Uniform\n"
-			" %ssbo_src2 = OpVariable %up_SSBO_${t2} Uniform\n"
-			"  %ssbo_dst = OpVariable %up_SSBO_${tr} Uniform\n";
+			" %ssbo_src0 = OpVariable %up_SSBO_${store_t0} Uniform\n"
+			" %ssbo_src1 = OpVariable %up_SSBO_${store_t1} Uniform\n"
+			" %ssbo_src2 = OpVariable %up_SSBO_${store_t2} Uniform\n"
+			"  %ssbo_dst = OpVariable %up_SSBO_${store_tr} Uniform\n";
 
 		decorations +=
 			"OpDecorate %ssbo_src0 DescriptorSet 0\n"
@@ -16639,6 +18163,10 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 	specs["t0"]					= string(testTypes[testFunc.typeArg0].typePrefix) + componentType;
 	specs["t1"]					= string(testTypes[testFunc.typeArg1].typePrefix) + componentType;
 	specs["t2"]					= string(testTypes[testFunc.typeArg2].typePrefix) + componentType;
+	specs["store_tr"]			= string(testTypes[testFunc.typeResult].storage_type);
+	specs["store_t0"]			= string(testTypes[testFunc.typeArg0].storage_type);
+	specs["store_t1"]			= string(testTypes[testFunc.typeArg1].storage_type);
+	specs["store_t2"]			= string(testTypes[testFunc.typeArg2].storage_type);
 	specs["struct_stride"]		= de::toString(typeStructStride);
 	specs["op"]					= extInst ? "OpExtInst" : testFunc.funcName;
 	specs["ext_inst"]			= extInst ? string("%ext_import ") + testFunc.funcName : "";
@@ -16655,10 +18183,10 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 	specs["arg_infunc_vars"]	= funcVariables;
 	specs["arg_func_call"]		= funcCall;
 
-	fragments["extension"]		= "OpExtension \"SPV_KHR_16bit_storage\"\n%ext_import = OpExtInstImport \"GLSL.std.450\"";
-	fragments["capability"]		= "OpCapability Matrix\nOpCapability StorageUniformBufferBlock16";
+	fragments["extension"]		= "%ext_import = OpExtInstImport \"GLSL.std.450\"";
+	fragments["capability"]		= "OpCapability Matrix\nOpCapability Float16\n";
 	fragments["decoration"]		= decoration.specialize(specs);
-	fragments["pre_main"]		= preMain.specialize(specs);
+	fragments["pre_main"]		= preMain.specialize(specs) + functions;
 	fragments["testfun"]		= testFun.specialize(specs);
 
 	for (size_t inputArgNdx = 0; inputArgNdx < testFunc.funcArgsCount; ++inputArgNdx)
@@ -16675,10 +18203,8 @@ void createFloat16ArithmeticFuncTest (tcu::TestContext& testCtx, tcu::TestCaseGr
 	specResource.outputs.push_back(Resource(BufferSp(new Float16Buffer(float16DummyOutput)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
 	specResource.verifyIO = testFunc.verifyFunc;
 
-	extensions.push_back("VK_KHR_16bit_storage");
 	extensions.push_back("VK_KHR_shader_float16_int8");
 
-	features.ext16BitStorage	= EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
 	features.extFloat16Int8		= EXTFLOAT16INT8FEATURES_FLOAT16;
 
 	finalizeTestsCreation(specResource, fragments, testCtx, testGroup, testName, features, extensions, IVec3(1, 1, 1));
@@ -17674,9 +19200,6 @@ tcu::TestCaseGroup* createFloat16Tests (tcu::TestContext& testCtx)
 	testGroup->addChild(createFloat16LogicalSet<GraphicsResources>(testCtx, TEST_WITH_NAN));
 	testGroup->addChild(createFloat16LogicalSet<GraphicsResources>(testCtx, TEST_WITHOUT_NAN));
 	testGroup->addChild(createFloat16FuncSet<GraphicsResources>(testCtx));
-	testGroup->addChild(createDerivativeTests<256, 1>(testCtx));
-	testGroup->addChild(createDerivativeTests<256, 2>(testCtx));
-	testGroup->addChild(createDerivativeTests<256, 4>(testCtx));
 	testGroup->addChild(createFloat16VectorExtractSet<GraphicsResources>(testCtx));
 	testGroup->addChild(createFloat16VectorInsertSet<GraphicsResources>(testCtx));
 	testGroup->addChild(createFloat16VectorShuffleSet<GraphicsResources>(testCtx));
@@ -18071,6 +19594,292 @@ tcu::TestCaseGroup* createOpMemberNameAbuseTests (tcu::TestContext& testCtx)
 	return abuseGroup.release();
 }
 
+vector<deUint32> getSparseIdsAbuseData (const deUint32 numDataPoints, const deUint32 seed)
+{
+	vector<deUint32>	result;
+	de::Random			rnd		(seed);
+
+	result.reserve(numDataPoints);
+
+	for (deUint32 dataPointNdx = 0; dataPointNdx < numDataPoints; ++dataPointNdx)
+		result.push_back(rnd.getUint32());
+
+	return result;
+}
+
+vector<deUint32> getSparseIdsAbuseResults (const vector<deUint32>& inData1, const vector<deUint32>& inData2)
+{
+	vector<deUint32>	result;
+
+	result.reserve(inData1.size());
+
+	for (size_t dataPointNdx = 0; dataPointNdx < inData1.size(); ++dataPointNdx)
+		result.push_back(inData1[dataPointNdx] + inData2[dataPointNdx]);
+
+	return result;
+}
+
+template<class SpecResource>
+void createSparseIdsAbuseTest (tcu::TestContext& testCtx, de::MovePtr<tcu::TestCaseGroup>& testGroup)
+{
+	const deUint32			numDataPoints	= 16;
+	const std::string		testName		("sparse_ids");
+	const deUint32			seed			(deStringHash(testName.c_str()));
+	const vector<deUint32>	inData1			(getSparseIdsAbuseData(numDataPoints, seed + 1));
+	const vector<deUint32>	inData2			(getSparseIdsAbuseData(numDataPoints, seed + 2));
+	const vector<deUint32>	outData			(getSparseIdsAbuseResults(inData1, inData2));
+	const StringTemplate	preMain
+	(
+		"%c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
+		"   %up_u32 = OpTypePointer Uniform %u32\n"
+		"   %ra_u32 = OpTypeArray %u32 %c_i32_ndp\n"
+		"   %SSBO32 = OpTypeStruct %ra_u32\n"
+		"%up_SSBO32 = OpTypePointer Uniform %SSBO32\n"
+		"%ssbo_src0 = OpVariable %up_SSBO32 Uniform\n"
+		"%ssbo_src1 = OpVariable %up_SSBO32 Uniform\n"
+		" %ssbo_dst = OpVariable %up_SSBO32 Uniform\n"
+	);
+	const StringTemplate	decoration
+	(
+		"OpDecorate %ra_u32 ArrayStride 4\n"
+		"OpMemberDecorate %SSBO32 0 Offset 0\n"
+		"OpDecorate %SSBO32 BufferBlock\n"
+		"OpDecorate %ssbo_src0 DescriptorSet 0\n"
+		"OpDecorate %ssbo_src0 Binding 0\n"
+		"OpDecorate %ssbo_src1 DescriptorSet 0\n"
+		"OpDecorate %ssbo_src1 Binding 1\n"
+		"OpDecorate %ssbo_dst DescriptorSet 0\n"
+		"OpDecorate %ssbo_dst Binding 2\n"
+	);
+	const StringTemplate	testFun
+	(
+		"%test_code = OpFunction %v4f32 None %v4f32_v4f32_function\n"
+		"    %param = OpFunctionParameter %v4f32\n"
+
+		"    %entry = OpLabel\n"
+		"        %i = OpVariable %fp_i32 Function\n"
+		"             OpStore %i %c_i32_0\n"
+		"             OpBranch %loop\n"
+
+		"     %loop = OpLabel\n"
+		"    %i_cmp = OpLoad %i32 %i\n"
+		"       %lt = OpSLessThan %bool %i_cmp %c_i32_ndp\n"
+		"             OpLoopMerge %merge %next None\n"
+		"             OpBranchConditional %lt %write %merge\n"
+
+		"    %write = OpLabel\n"
+		"      %ndx = OpLoad %i32 %i\n"
+
+		"      %127 = OpAccessChain %up_u32 %ssbo_src0 %c_i32_0 %ndx\n"
+		"      %128 = OpLoad %u32 %127\n"
+
+		// The test relies on SPIR-V compiler option SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS set in assembleSpirV()
+		"  %4194000 = OpAccessChain %up_u32 %ssbo_src1 %c_i32_0 %ndx\n"
+		"  %4194001 = OpLoad %u32 %4194000\n"
+
+		"  %2097151 = OpIAdd %u32 %128 %4194001\n"
+		"  %2097152 = OpAccessChain %up_u32 %ssbo_dst %c_i32_0 %ndx\n"
+		"             OpStore %2097152 %2097151\n"
+		"             OpBranch %next\n"
+
+		"     %next = OpLabel\n"
+		"    %i_cur = OpLoad %i32 %i\n"
+		"    %i_new = OpIAdd %i32 %i_cur %c_i32_1\n"
+		"             OpStore %i %i_new\n"
+		"             OpBranch %loop\n"
+
+		"    %merge = OpLabel\n"
+		"             OpReturnValue %param\n"
+
+		"             OpFunctionEnd\n"
+	);
+	SpecResource			specResource;
+	map<string, string>		specs;
+	VulkanFeatures			features;
+	map<string, string>		fragments;
+	vector<string>			extensions;
+
+	specs["num_data_points"]	= de::toString(numDataPoints);
+
+	fragments["decoration"]		= decoration.specialize(specs);
+	fragments["pre_main"]		= preMain.specialize(specs);
+	fragments["testfun"]		= testFun.specialize(specs);
+
+	specResource.inputs.push_back(Resource(BufferSp(new Uint32Buffer(inData1)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+	specResource.inputs.push_back(Resource(BufferSp(new Uint32Buffer(inData2)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+	specResource.outputs.push_back(Resource(BufferSp(new Uint32Buffer(outData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+
+	features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+	features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+	finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
+}
+
+vector<deUint32> getLotsIdsAbuseData (const deUint32 numDataPoints, const deUint32 seed)
+{
+	vector<deUint32>	result;
+	de::Random			rnd		(seed);
+
+	result.reserve(numDataPoints);
+
+	// Fixed value
+	result.push_back(1u);
+
+	// Random values
+	for (deUint32 dataPointNdx = 1; dataPointNdx < numDataPoints; ++dataPointNdx)
+		result.push_back(rnd.getUint8());
+
+	return result;
+}
+
+vector<deUint32> getLotsIdsAbuseResults (const vector<deUint32>& inData1, const vector<deUint32>& inData2, const deUint32 count)
+{
+	vector<deUint32>	result;
+
+	result.reserve(inData1.size());
+
+	for (size_t dataPointNdx = 0; dataPointNdx < inData1.size(); ++dataPointNdx)
+		result.push_back(inData1[dataPointNdx] + count * inData2[dataPointNdx]);
+
+	return result;
+}
+
+template<class SpecResource>
+void createLotsIdsAbuseTest (tcu::TestContext& testCtx, de::MovePtr<tcu::TestCaseGroup>& testGroup)
+{
+	const deUint32			numDataPoints	= 16;
+	const deUint32			firstNdx		= 100u;
+	const deUint32			sequenceCount	= 10000u;
+	const std::string		testName		("lots_ids");
+	const deUint32			seed			(deStringHash(testName.c_str()));
+	const vector<deUint32>	inData1			(getLotsIdsAbuseData(numDataPoints, seed + 1));
+	const vector<deUint32>	inData2			(getLotsIdsAbuseData(numDataPoints, seed + 2));
+	const vector<deUint32>	outData			(getLotsIdsAbuseResults(inData1, inData2, sequenceCount));
+	const StringTemplate preMain
+	(
+		"%c_i32_ndp = OpConstant %i32 ${num_data_points}\n"
+		"   %up_u32 = OpTypePointer Uniform %u32\n"
+		"   %ra_u32 = OpTypeArray %u32 %c_i32_ndp\n"
+		"   %SSBO32 = OpTypeStruct %ra_u32\n"
+		"%up_SSBO32 = OpTypePointer Uniform %SSBO32\n"
+		"%ssbo_src0 = OpVariable %up_SSBO32 Uniform\n"
+		"%ssbo_src1 = OpVariable %up_SSBO32 Uniform\n"
+		" %ssbo_dst = OpVariable %up_SSBO32 Uniform\n"
+	);
+	const StringTemplate decoration
+	(
+		"OpDecorate %ra_u32 ArrayStride 4\n"
+		"OpMemberDecorate %SSBO32 0 Offset 0\n"
+		"OpDecorate %SSBO32 BufferBlock\n"
+		"OpDecorate %ssbo_src0 DescriptorSet 0\n"
+		"OpDecorate %ssbo_src0 Binding 0\n"
+		"OpDecorate %ssbo_src1 DescriptorSet 0\n"
+		"OpDecorate %ssbo_src1 Binding 1\n"
+		"OpDecorate %ssbo_dst DescriptorSet 0\n"
+		"OpDecorate %ssbo_dst Binding 2\n"
+	);
+	const StringTemplate testFun
+	(
+		"%test_code = OpFunction %v4f32 None %v4f32_v4f32_function\n"
+		"    %param = OpFunctionParameter %v4f32\n"
+
+		"    %entry = OpLabel\n"
+		"        %i = OpVariable %fp_i32 Function\n"
+		"             OpStore %i %c_i32_0\n"
+		"             OpBranch %loop\n"
+
+		"     %loop = OpLabel\n"
+		"    %i_cmp = OpLoad %i32 %i\n"
+		"       %lt = OpSLessThan %bool %i_cmp %c_i32_ndp\n"
+		"             OpLoopMerge %merge %next None\n"
+		"             OpBranchConditional %lt %write %merge\n"
+
+		"    %write = OpLabel\n"
+		"      %ndx = OpLoad %i32 %i\n"
+
+		"       %90 = OpAccessChain %up_u32 %ssbo_src1 %c_i32_0 %ndx\n"
+		"       %91 = OpLoad %u32 %90\n"
+
+		"       %98 = OpAccessChain %up_u32 %ssbo_src0 %c_i32_0 %ndx\n"
+		"       %${zeroth_id} = OpLoad %u32 %98\n"
+
+		"${seq}\n"
+
+		// The test relies on SPIR-V compiler option SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS set in assembleSpirV()
+		"      %dst = OpAccessChain %up_u32 %ssbo_dst %c_i32_0 %ndx\n"
+		"             OpStore %dst %${last_id}\n"
+		"             OpBranch %next\n"
+
+		"     %next = OpLabel\n"
+		"    %i_cur = OpLoad %i32 %i\n"
+		"    %i_new = OpIAdd %i32 %i_cur %c_i32_1\n"
+		"             OpStore %i %i_new\n"
+		"             OpBranch %loop\n"
+
+		"    %merge = OpLabel\n"
+		"             OpReturnValue %param\n"
+
+		"             OpFunctionEnd\n"
+	);
+	deUint32				lastId			= firstNdx;
+	SpecResource			specResource;
+	map<string, string>		specs;
+	VulkanFeatures			features;
+	map<string, string>		fragments;
+	vector<string>			extensions;
+	std::string				sequence;
+
+	for (deUint32 sequenceNdx = 0; sequenceNdx < sequenceCount; ++sequenceNdx)
+	{
+		const deUint32		sequenceId		= sequenceNdx + firstNdx;
+		const std::string	sequenceIdStr	= de::toString(sequenceId);
+
+		sequence += "%" + sequenceIdStr + " = OpIAdd %u32 %91 %" + de::toString(sequenceId - 1) + "\n";
+		lastId = sequenceId;
+
+		if (sequenceNdx == 0)
+			sequence.reserve((10 + sequence.length()) * sequenceCount);
+	}
+
+	specs["num_data_points"]	= de::toString(numDataPoints);
+	specs["zeroth_id"]			= de::toString(firstNdx - 1);
+	specs["last_id"]			= de::toString(lastId);
+	specs["seq"]				= sequence;
+
+	fragments["decoration"]		= decoration.specialize(specs);
+	fragments["pre_main"]		= preMain.specialize(specs);
+	fragments["testfun"]		= testFun.specialize(specs);
+
+	specResource.inputs.push_back(Resource(BufferSp(new Uint32Buffer(inData1)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+	specResource.inputs.push_back(Resource(BufferSp(new Uint32Buffer(inData2)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+	specResource.outputs.push_back(Resource(BufferSp(new Uint32Buffer(outData)), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+
+	features.coreFeatures.vertexPipelineStoresAndAtomics	= true;
+	features.coreFeatures.fragmentStoresAndAtomics			= true;
+
+	finalizeTestsCreation(specResource, fragments, testCtx, *testGroup.get(), testName, features, extensions, IVec3(1, 1, 1));
+}
+
+tcu::TestCaseGroup* createSpirvIdsAbuseTests (tcu::TestContext& testCtx)
+{
+	de::MovePtr<tcu::TestCaseGroup>	testGroup	(new tcu::TestCaseGroup(testCtx, "spirv_ids_abuse", "SPIR-V abuse tests"));
+
+	createSparseIdsAbuseTest<GraphicsResources>(testCtx, testGroup);
+	createLotsIdsAbuseTest<GraphicsResources>(testCtx, testGroup);
+
+	return testGroup.release();
+}
+
+tcu::TestCaseGroup* createSpirvIdsAbuseGroup (tcu::TestContext& testCtx)
+{
+	de::MovePtr<tcu::TestCaseGroup>	testGroup	(new tcu::TestCaseGroup(testCtx, "spirv_ids_abuse", "SPIR-V abuse tests"));
+
+	createSparseIdsAbuseTest<ComputeShaderSpec>(testCtx, testGroup);
+	createLotsIdsAbuseTest<ComputeShaderSpec>(testCtx, testGroup);
+
+	return testGroup.release();
+}
+
 tcu::TestCaseGroup* createInstructionTests (tcu::TestContext& testCtx)
 {
 	const bool testComputePipeline = true;
@@ -18081,11 +19890,14 @@ tcu::TestCaseGroup* createInstructionTests (tcu::TestContext& testCtx)
 
 	computeTests->addChild(createSpivVersionCheckTests(testCtx, testComputePipeline));
 	computeTests->addChild(createLocalSizeGroup(testCtx));
+	computeTests->addChild(createNonSemanticInfoGroup(testCtx));
 	computeTests->addChild(createOpNopGroup(testCtx));
 	computeTests->addChild(createOpFUnordGroup(testCtx, TEST_WITHOUT_NAN));
+	computeTests->addChild(createOpFUnordGroup(testCtx, TEST_WITH_NAN));
 	computeTests->addChild(createOpAtomicGroup(testCtx, false));
 	computeTests->addChild(createOpAtomicGroup(testCtx, true));					// Using new StorageBuffer decoration
 	computeTests->addChild(createOpAtomicGroup(testCtx, false, 1024, true));	// Return value validation
+	computeTests->addChild(createOpAtomicGroup(testCtx, true, 65536, false, true));	// volatile atomics
 	computeTests->addChild(createOpLineGroup(testCtx));
 	computeTests->addChild(createOpModuleProcessedGroup(testCtx));
 	computeTests->addChild(createOpNoLineGroup(testCtx));
@@ -18127,6 +19939,7 @@ tcu::TestCaseGroup* createInstructionTests (tcu::TestContext& testCtx)
 	computeTests->addChild(createOpNMinGroup(testCtx));
 	computeTests->addChild(createOpNMaxGroup(testCtx));
 	computeTests->addChild(createOpNClampGroup(testCtx));
+	computeTests->addChild(createFloatControlsExtensionlessGroup(testCtx));
 	{
 		de::MovePtr<tcu::TestCaseGroup>	computeAndroidTests	(new tcu::TestCaseGroup(testCtx, "android", "Android CTS Tests"));
 
@@ -18145,6 +19958,7 @@ tcu::TestCaseGroup* createInstructionTests (tcu::TestContext& testCtx)
 	computeTests->addChild(createConditionalBranchComputeGroup(testCtx));
 	computeTests->addChild(createIndexingComputeGroup(testCtx));
 	computeTests->addChild(createVariablePointersComputeGroup(testCtx));
+	computeTests->addChild(createPhysicalPointersComputeGroup(testCtx));
 	computeTests->addChild(createImageSamplerComputeGroup(testCtx));
 	computeTests->addChild(createOpNameGroup(testCtx));
 	computeTests->addChild(createOpMemberNameGroup(testCtx));
@@ -18152,6 +19966,12 @@ tcu::TestCaseGroup* createInstructionTests (tcu::TestContext& testCtx)
 	computeTests->addChild(createFloat16Group(testCtx));
 	computeTests->addChild(createBoolGroup(testCtx));
 	computeTests->addChild(createWorkgroupMemoryComputeGroup(testCtx));
+	computeTests->addChild(createSpirvIdsAbuseGroup(testCtx));
+	computeTests->addChild(createSignedIntCompareGroup(testCtx));
+	computeTests->addChild(createUnusedVariableComputeTests(testCtx));
+	computeTests->addChild(createPtrAccessChainGroup(testCtx));
+	computeTests->addChild(createHlslComputeGroup(testCtx));
+	computeTests->addChild(create64bitCompareComputeGroup(testCtx));
 
 	graphicsTests->addChild(createCrossStageInterfaceTests(testCtx));
 	graphicsTests->addChild(createSpivVersionCheckTests(testCtx, !testComputePipeline));
@@ -18167,6 +19987,7 @@ tcu::TestCaseGroup* createInstructionTests (tcu::TestContext& testCtx)
 	graphicsTests->addChild(createOpUndefTests(testCtx));
 	graphicsTests->addChild(createSelectionBlockOrderTests(testCtx));
 	graphicsTests->addChild(createModuleTests(testCtx));
+	graphicsTests->addChild(createUnusedVariableTests(testCtx));
 	graphicsTests->addChild(createSwitchBlockOrderTests(testCtx));
 	graphicsTests->addChild(createOpPhiTests(testCtx));
 	graphicsTests->addChild(createNoContractionTests(testCtx));
@@ -18211,11 +20032,13 @@ tcu::TestCaseGroup* createInstructionTests (tcu::TestContext& testCtx)
 	graphicsTests->addChild(createConvertGraphicsTests(testCtx, "OpConvertFToU", "convertftou"));
 	graphicsTests->addChild(createPointerParameterGraphicsGroup(testCtx));
 	graphicsTests->addChild(createVaryingNameGraphicsGroup(testCtx));
-
 	graphicsTests->addChild(createFloat16Tests(testCtx));
+	graphicsTests->addChild(createSpirvIdsAbuseTests(testCtx));
+	graphicsTests->addChild(create64bitCompareGraphicsGroup(testCtx));
 
 	instructionTests->addChild(computeTests.release());
 	instructionTests->addChild(graphicsTests.release());
+	instructionTests->addChild(createSpirvVersion1p4Group(testCtx));
 
 	return instructionTests.release();
 }

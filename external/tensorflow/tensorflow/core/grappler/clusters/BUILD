@@ -1,11 +1,13 @@
-licenses(["notice"])  # Apache 2.0
-
-load("//tensorflow:tensorflow.bzl", "if_cuda")
+load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda")
 load("//tensorflow:tensorflow.bzl", "tf_cc_test")
 load("//tensorflow:tensorflow.bzl", "tf_cuda_library")
 load(
-    "//tensorflow/core:platform/default/build_config_root.bzl",
+    "//tensorflow/core/platform:build_config_root.bzl",
     "tf_cuda_tests_tags",
+)
+
+package(
+    licenses = ["notice"],  # Apache 2.0
 )
 
 config_setting(
@@ -48,6 +50,19 @@ tf_cc_test(
         "//tensorflow/core:protos_all_cc",
         "//tensorflow/core:test",
         "//tensorflow/core:test_main",
+    ],
+)
+
+filegroup(
+    name = "pywrap_required_hdrs",
+    srcs = [
+        "cluster.h",
+        "single_machine.h",
+        "utils.h",
+        "virtual_cluster.h",
+    ],
+    visibility = [
+        "//tensorflow/python:__pkg__",
     ],
 )
 

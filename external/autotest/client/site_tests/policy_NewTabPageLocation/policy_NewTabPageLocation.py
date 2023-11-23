@@ -27,25 +27,15 @@ class policy_NewTabPageLocation(
 
         """
         self.keyboard.press_key('ctrl+t')
-
-        # Try to get a policy from the current tab. If it works, that means the
-        # policy page is open, and the newtab policy set it. Default (not set)
-        # would be chrome://newtab, and this try would not work.
-        try:
-            self._get_policy_stats_shown(self.cr.browser.tabs[-1],
-                                             'NewTabPageLocation')
-            if not case_value:
-                raise error.TestFail(
-                    'NewTabPageLocation was set when it should not be!')
-
-        except exceptions.EvaluateException:
-            if case_value:
-                raise error.TestFail(
-                    'NewTabPageLocation was not set when it should be!')
-
-        if not case_value:
-            url = self.cr.browser.tabs[-1].GetUrl()
-            if url != 'chrome://newtab/':
+        new_page_text = '/Chrome Policies/'
+        # Check for a chrome policies ui object.
+        if case_value:
+            self.ui.wait_for_ui_obj(new_page_text, isRegex=True)
+        else:
+            url = str(self.cr.browser.tabs[-1].GetUrl())
+            if not (
+                    self.ui.did_obj_not_load(new_page_text, isRegex=True) and
+                    (url == 'chrome://newtab/')):
                 raise error.TestFail(
                     'NewTab was not "chrome://newtab/" instead got {}'
                     .format(url))
@@ -64,4 +54,5 @@ class policy_NewTabPageLocation(
         case_value = TEST_CASES[case]
         policy_setting = {'NewTabPageLocation': case_value}
         self.setup_case(user_policies=policy_setting)
+        self.ui.start_ui_root(self.cr)
         self._homepage_check(case_value)

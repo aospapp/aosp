@@ -629,15 +629,26 @@ TEST_F(ValidateData, specialize_boolean) {
   ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
 }
 
-TEST_F(ValidateData, specialize_boolean_to_int) {
+TEST_F(ValidateData, specialize_boolean_true_to_int) {
   std::string str = header + R"(
 %2 = OpTypeInt 32 1
-%3 = OpSpecConstantTrue %2
+%3 = OpSpecConstantTrue %2)";
+  CompileSuccessfully(str.c_str());
+  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpSpecConstantTrue Result Type <id> '1[%int]' is not "
+                        "a boolean type"));
+}
+
+TEST_F(ValidateData, specialize_boolean_false_to_int) {
+  std::string str = header + R"(
+%2 = OpTypeInt 32 1
 %4 = OpSpecConstantFalse %2)";
   CompileSuccessfully(str.c_str());
   ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Specialization constant must be a boolean"));
+              HasSubstr("OpSpecConstantFalse Result Type <id> '1[%int]' is not "
+                        "a boolean type"));
 }
 
 TEST_F(ValidateData, missing_forward_pointer_decl) {
@@ -648,7 +659,7 @@ TEST_F(ValidateData, missing_forward_pointer_decl) {
   CompileSuccessfully(str.c_str());
   ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("must first be declared using OpTypeForwardPointer"));
+              HasSubstr("Operand 3[%3] requires a previous definition"));
 }
 
 TEST_F(ValidateData, missing_forward_pointer_decl_self_reference) {
@@ -658,8 +669,9 @@ TEST_F(ValidateData, missing_forward_pointer_decl_self_reference) {
 )";
   CompileSuccessfully(str.c_str());
   ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
-  EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("must first be declared using OpTypeForwardPointer"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Operand 2[%_struct_2] requires a previous definition"));
 }
 
 TEST_F(ValidateData, forward_pointer_missing_definition) {
@@ -698,9 +710,7 @@ OpTypeForwardPointer %_ptr_Generic_struct_A Generic
   CompileSuccessfully(str.c_str());
   ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("A forward reference operand in an OpTypeStruct must "
-                        "be an OpTypePointer that points to an OpTypeStruct. "
-                        "Found OpTypePointer that points to OpTypeInt."));
+              HasSubstr("Forward pointers must point to a structure"));
 }
 
 TEST_F(ValidateData, struct_forward_pointer_good) {
@@ -717,8 +727,7 @@ OpTypeForwardPointer %_ptr_Generic_struct_A Generic
 }
 
 TEST_F(ValidateData, ext_16bit_storage_caps_allow_free_fp_rounding_mode) {
-  for (const char* cap : {"StorageUniform16", "StorageUniformBufferBlock16",
-                          "StoragePushConstant16", "StorageInputOutput16"}) {
+  for (const char* cap : {"StorageUniform16", "StorageUniformBufferBlock16"}) {
     for (const char* mode : {"RTE", "RTZ", "RTP", "RTN"}) {
       std::string str = std::string(R"(
         OpCapability Shader
@@ -778,9 +787,10 @@ TEST_F(ValidateData, vulkan_disallow_free_fp_rounding_mode) {
       ASSERT_EQ(SPV_ERROR_INVALID_CAPABILITY, ValidateInstructions(env));
       EXPECT_THAT(
           getDiagnosticString(),
-          HasSubstr("Operand 2 of Decorate requires one of these capabilities: "
-                    "StorageBuffer16BitAccess StorageUniform16 "
-                    "StoragePushConstant16 StorageInputOutput16"));
+          HasSubstr(
+              "Operand 2 of Decorate requires one of these capabilities: "
+              "StorageBuffer16BitAccess UniformAndStorageBuffer16BitAccess "
+              "StoragePushConstant16 StorageInputOutput16"));
     }
   }
 }

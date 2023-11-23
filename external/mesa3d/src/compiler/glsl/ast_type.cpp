@@ -270,6 +270,7 @@ ast_type_qualifier::merge_qualifier(YYLTYPE *loc,
    input_layout_mask.flags.q.precise = 1;
    input_layout_mask.flags.q.sample = 1;
    input_layout_mask.flags.q.smooth = 1;
+   input_layout_mask.flags.q.non_coherent = 1;
 
    if (state->has_bindless()) {
       /* Allow to use image qualifiers with shader inputs/outputs. */
@@ -443,6 +444,11 @@ ast_type_qualifier::merge_qualifier(YYLTYPE *loc,
    if (q.flags.q.bound_image)
       this->flags.q.bound_image = true;
 
+   if (q.flags.q.derivative_group) {
+      this->flags.q.derivative_group = true;
+      this->derivative_group = q.derivative_group;
+   }
+
    this->flags.i |= q.flags.i;
 
    if (this->flags.q.in &&
@@ -482,6 +488,13 @@ ast_type_qualifier::merge_qualifier(YYLTYPE *loc,
        q.flags.q.bound_sampler ||
        q.flags.q.bound_image)
       merge_bindless_qualifier(state);
+
+   if (state->EXT_gpu_shader4_enable &&
+       state->stage == MESA_SHADER_FRAGMENT &&
+       this->flags.q.varying && q.flags.q.out) {
+      this->flags.q.varying = 0;
+      this->flags.q.out = 1;
+   }
 
    return r;
 }
@@ -636,10 +649,15 @@ ast_type_qualifier::validate_in_qualifier(YYLTYPE *loc,
       valid_in_mask.flags.q.early_fragment_tests = 1;
       valid_in_mask.flags.q.inner_coverage = 1;
       valid_in_mask.flags.q.post_depth_coverage = 1;
+      valid_in_mask.flags.q.pixel_interlock_ordered = 1;
+      valid_in_mask.flags.q.pixel_interlock_unordered = 1;
+      valid_in_mask.flags.q.sample_interlock_ordered = 1;
+      valid_in_mask.flags.q.sample_interlock_unordered = 1;
       break;
    case MESA_SHADER_COMPUTE:
       valid_in_mask.flags.q.local_size = 7;
       valid_in_mask.flags.q.local_size_variable = 1;
+      valid_in_mask.flags.q.derivative_group = 1;
       break;
    default:
       r = false;
@@ -705,6 +723,48 @@ ast_type_qualifier::merge_into_in_qualifier(YYLTYPE *loc,
                        "inner_coverage & post_depth_coverage layout qualifiers "
                        "are mutally exclusives");
       r = false;
+   }
+
+   if (state->in_qualifier->flags.q.pixel_interlock_ordered) {
+      state->fs_pixel_interlock_ordered = true;
+      state->in_qualifier->flags.q.pixel_interlock_ordered = false;
+   }
+
+   if (state->in_qualifier->flags.q.pixel_interlock_unordered) {
+      state->fs_pixel_interlock_unordered = true;
+      state->in_qualifier->flags.q.pixel_interlock_unordered = false;
+   }
+
+   if (state->in_qualifier->flags.q.sample_interlock_ordered) {
+      state->fs_sample_interlock_ordered = true;
+      state->in_qualifier->flags.q.sample_interlock_ordered = false;
+   }
+
+   if (state->in_qualifier->flags.q.sample_interlock_unordered) {
+      state->fs_sample_interlock_unordered = true;
+      state->in_qualifier->flags.q.sample_interlock_unordered = false;
+   }
+
+   if (state->fs_pixel_interlock_ordered +
+       state->fs_pixel_interlock_unordered +
+       state->fs_sample_interlock_ordered +
+       state->fs_sample_interlock_unordered > 1) {
+      _mesa_glsl_error(loc, state,
+                       "only one interlock mode can be used at any time.");
+      r = false;
+   }
+
+   if (state->in_qualifier->flags.q.derivative_group) {
+      if (state->cs_derivative_group != DERIVATIVE_GROUP_NONE) {
+         if (state->in_qualifier->derivative_group != DERIVATIVE_GROUP_NONE &&
+             state->cs_derivative_group != state->in_qualifier->derivative_group) {
+            _mesa_glsl_error(loc, state,
+                             "conflicting derivative groups.");
+            r = false;
+         }
+      } else {
+         state->cs_derivative_group = state->in_qualifier->derivative_group;
+      }
    }
 
    /* We allow the creation of multiple cs_input_layout nodes. Coherence among
@@ -775,7 +835,7 @@ ast_type_qualifier::validate_flags(YYLTYPE *loc,
                     "%s '%s':"
                     "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s"
                     "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s"
-                    "%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+                    "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
                     message, name,
                     bad.flags.q.invariant ? " invariant" : "",
                     bad.flags.q.precise ? " precise" : "",
@@ -838,7 +898,12 @@ ast_type_qualifier::validate_flags(YYLTYPE *loc,
                     bad.flags.q.bindless_image ? " bindless_image" : "",
                     bad.flags.q.bound_sampler ? " bound_sampler" : "",
                     bad.flags.q.bound_image ? " bound_image" : "",
-                    bad.flags.q.post_depth_coverage ? " post_depth_coverage" : "");
+                    bad.flags.q.post_depth_coverage ? " post_depth_coverage" : "",
+                    bad.flags.q.pixel_interlock_ordered ? " pixel_interlock_ordered" : "",
+                    bad.flags.q.pixel_interlock_unordered ? " pixel_interlock_unordered": "",
+                    bad.flags.q.sample_interlock_ordered ? " sample_interlock_ordered": "",
+                    bad.flags.q.sample_interlock_unordered ? " sample_interlock_unordered": "",
+                    bad.flags.q.non_coherent ? " noncoherent" : "");
    return false;
 }
 

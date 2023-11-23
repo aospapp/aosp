@@ -12,22 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("../../../../gn/perfetto.gni")
 import("../../../../gn/proto_library.gni")
-import("../../../../gn/protozero_library.gni")
 
-common_sources = [ "mem_metric.proto" ]
-
-proto_library("lite") {
-  generate_python = false
-  proto_in_dir = "$perfetto_root_path/protos"
-  proto_out_dir = "$perfetto_root_path/protos"
-  sources = common_sources
-}
-
-protozero_library("zero") {
-  proto_in_dir = "$perfetto_root_path/protos"
-  proto_out_dir = "$perfetto_root_path/protos"
-  sources = common_sources
-  generator_plugin_options = "wrapper_namespace=pbzero"
+perfetto_proto_library("@TYPE@") {
+  sources = [
+    "batt_metric.proto",
+    "cpu_metric.proto",
+    "display_metrics.proto",
+    "heap_profile_callsites.proto",
+    "hwui_metric.proto",
+    "ion_metric.proto",
+    "java_heap_histogram.proto",
+    "java_heap_stats.proto",
+    "lmk_metric.proto",
+    "lmk_reason_metric.proto",
+    "mem_metric.proto",
+    "mem_unagg_metric.proto",
+    "package_list.proto",
+    "powrails_metric.proto",
+    "process_metadata.proto",
+    "startup_metric.proto",
+    "task_names.proto",
+    "thread_time_in_state_metric.proto",
+    "unmapped_java_symbols.proto",
+    "unsymbolized_frames.proto",
+  ]
 }

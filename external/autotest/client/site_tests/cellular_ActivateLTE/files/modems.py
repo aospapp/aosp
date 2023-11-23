@@ -70,19 +70,6 @@ class TestModem(modem_3gpp.Modem3gpp):
         modem_3gpp.Modem3gpp.Reset(self)
 
 
-class ResetRequiredForActivationModem(TestModem):
-    """
-    Fake modem boots up as unprovisioned & becomes activated only if it has
-    been explicitly activated by calling CompleteCellularActivation
-    and has been reset at least once after initiating activatation
-    """
-    def RegisterWithNetwork(
-            self, operator_id='', return_cb=None, raise_cb=None):
-        if self.Get(I_ACTIVATION_TEST, 'ResetCalled'):
-            modem_3gpp.Modem3gpp.RegisterWithNetwork(
-                    self, operator_id, return_cb, raise_cb)
-
-
 class TestSIM(sim.SIM):
     """ SIM instantiated with the default test network, for ease of use. """
     def __init__(self):

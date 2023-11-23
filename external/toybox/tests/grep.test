@@ -69,7 +69,7 @@ testing "-o overlap" "grep -bo aaa" "1:aaa\n" "" "baaaa\n"
 testing "-co" "grep -co one input" "1\n" "one one one\n" ""
 testing "-nom" "grep -nom 2 one" "1:one\n1:one\n1:one\n2:one\n2:one\n" \
   "" "one one one\none one\none"
-testing "-vo" "grep -vo one input" "two\nthree\n" "onetwoonethreeone\n" ""
+toyonly testing "-vo" "grep -vo one input" "two\nthree\n" "onetwoonethreeone\n" ""
 testing "no newline" "grep -h one input -" \
   "hello one\nthere one\n" "hello one" "there one"
 
@@ -90,6 +90,8 @@ testing "-Fx ''" "grep -Fx '' input" "" "one one one\n" ""
 testing "-F ''" "grep -F '' input" "one one one\n" "one one one\n" ""
 testing "-F -e blah -e ''" "grep -F -e blah -e '' input" "one one one\n" \
   "one one one\n" ""
+testing "-Fxv -e subset" "grep -Fxv -e bbswitch-dkms -e dkms" "" "" \
+  "bbswitch-dkms\n"
 testing "-e blah -e ''" "grep -e blah -e '' input" "one one one\n" \
   "one one one\n" ""
 testing "-w ''" "grep -w '' input" "" "one one one\n" ""
@@ -118,7 +120,7 @@ testing "-HnbB1" "grep -HnbB1 f input" \
 testing "-q match overrides error" \
   "grep -q hello missing input 2>/dev/null && echo yes" "yes\n" "hello\n" ""
 testing "-q not found is 1" \
-  'grep -q hello input || echo $?' "1\n" "" ""
+  'grep -q hello input || echo $?' "1\n" "x" ""
 testing "-q missing is 2" \
   'grep -q hello missing missing 2>/dev/null || echo $?' "2\n" "" ""
 testing "-q missing survives exists but not found" \
@@ -165,3 +167,33 @@ ln -s nope sub/link
 testing "" 'grep -r walrus sub 2>/dev/null; echo $?' "1\n" "" ""
 rm -rf sub
 
+# --exclude-dir
+mkdir sub
+mkdir sub/yes
+echo "hello world" > sub/yes/test
+mkdir sub/no
+echo "hello world" > sub/no/test
+testing "--exclude-dir" 'grep --exclude-dir=no -r world sub' "sub/yes/test:hello world\n" "" ""
+rm -rf sub
+
+# -r and -R differ in that -R will dereference symlinks to directories.
+mkdir dir
+echo "hello" > dir/f
+mkdir sub
+ln -s ../dir sub/link
+testing "" "grep -rh hello sub 2>/dev/null || echo err" "err\n" "" ""
+testing "" "grep -Rh hello sub" "hello\n" "" ""
+rm -rf sub real
+
+# -F multiple matches
+testing "-F multiple" "grep -F h input" "this is hello\nthis is world\n" \
+  "missing\nthis is hello\nthis is world\nmissing" ""
+testing "-Fi multiple" "grep -Fi h input" "this is HELLO\nthis is WORLD\n" \
+  "missing\nthis is HELLO\nthis is WORLD\nmissing" ""
+testing "-F empty multiple" "grep -Fi '' input" \
+  "missing\nthis is HELLO\nthis is WORLD\nmissing\n" \
+  "missing\nthis is HELLO\nthis is WORLD\nmissing" ""
+testing "-Fx" "grep -Fx h input" "h\n" \
+  "missing\nH\nthis is hello\nthis is world\nh\nmissing" ""
+testing "-Fix" "grep -Fix h input" "H\nh\n" \
+  "missing\nH\nthis is HELLO\nthis is WORLD\nh\nmissing" ""

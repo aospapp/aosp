@@ -58,7 +58,7 @@ struct stm32_i2c_regs {
 #define STM32_I2C_CR2_ADD10			BIT(11)
 #define STM32_I2C_CR2_RD_WRN			BIT(10)
 #define STM32_I2C_CR2_SADD10_MASK		GENMASK(9, 0)
-#define STM32_I2C_CR2_SADD10(n)			((n & STM32_I2C_CR2_SADD10_MASK))
+#define STM32_I2C_CR2_SADD10(n)			(n & STM32_I2C_CR2_SADD10_MASK)
 #define STM32_I2C_CR2_SADD7_MASK		GENMASK(7, 1)
 #define STM32_I2C_CR2_SADD7(n)			((n & 0x7f) << 1)
 #define STM32_I2C_CR2_RESET_MASK		(STM32_I2C_CR2_HEAD10R \
@@ -197,7 +197,7 @@ struct stm32_i2c_priv {
 	int speed;
 };
 
-static struct stm32_i2c_spec i2c_specs[] = {
+static const struct stm32_i2c_spec i2c_specs[] = {
 	[STM32_I2C_SPEED_STANDARD] = {
 		.rate = STANDARD_RATE,
 		.rate_min = 8000,
@@ -236,7 +236,7 @@ static struct stm32_i2c_spec i2c_specs[] = {
 	},
 };
 
-static struct stm32_i2c_setup stm32f7_setup = {
+static const struct stm32_i2c_setup stm32f7_setup = {
 	.rise_time = STM32_I2C_RISE_TIME_DEFAULT,
 	.fall_time = STM32_I2C_FALL_TIME_DEFAULT,
 	.dnf = STM32_I2C_DNF_DEFAULT,
@@ -255,7 +255,7 @@ static int stm32_i2c_check_device_busy(struct stm32_i2c_priv *i2c_priv)
 }
 
 static void stm32_i2c_message_start(struct stm32_i2c_priv *i2c_priv,
-				      struct i2c_msg *msg, bool stop)
+				    struct i2c_msg *msg, bool stop)
 {
 	struct stm32_i2c_regs *regs = i2c_priv->regs;
 	u32 cr2 = readl(&regs->cr2);
@@ -299,7 +299,7 @@ static void stm32_i2c_message_start(struct stm32_i2c_priv *i2c_priv,
  */
 
 static void stm32_i2c_handle_reload(struct stm32_i2c_priv *i2c_priv,
-				      struct i2c_msg *msg, bool stop)
+				    struct i2c_msg *msg, bool stop)
 {
 	struct stm32_i2c_regs *regs = i2c_priv->regs;
 	u32 cr2 = readl(&regs->cr2);
@@ -317,7 +317,7 @@ static void stm32_i2c_handle_reload(struct stm32_i2c_priv *i2c_priv,
 }
 
 static int stm32_i2c_wait_flags(struct stm32_i2c_priv *i2c_priv,
-				  u32 flags, u32 *status)
+				u32 flags, u32 *status)
 {
 	struct stm32_i2c_regs *regs = i2c_priv->regs;
 	u32 time_start = get_timer(0);
@@ -392,7 +392,7 @@ static int stm32_i2c_check_end_of_message(struct stm32_i2c_priv *i2c_priv)
 }
 
 static int stm32_i2c_message_xfer(struct stm32_i2c_priv *i2c_priv,
-				    struct i2c_msg *msg, bool stop)
+				  struct i2c_msg *msg, bool stop)
 {
 	struct stm32_i2c_regs *regs = i2c_priv->regs;
 	u32 status;
@@ -465,7 +465,7 @@ static int stm32_i2c_message_xfer(struct stm32_i2c_priv *i2c_priv,
 }
 
 static int stm32_i2c_xfer(struct udevice *bus, struct i2c_msg *msg,
-			    int nmsgs)
+			  int nmsgs)
 {
 	struct stm32_i2c_priv *i2c_priv = dev_get_priv(bus);
 	int ret;
@@ -500,7 +500,7 @@ static int stm32_i2c_compute_solutions(struct stm32_i2c_setup *setup,
 	af_delay_max = setup->analog_filter ?
 		       STM32_I2C_ANALOG_FILTER_DELAY_MAX : 0;
 
-	sdadel_min = setup->fall_time - i2c_specs[setup->speed].hddat_min -
+	sdadel_min = i2c_specs[setup->speed].hddat_min + setup->fall_time -
 		     af_delay_min - (setup->dnf + 3) * i2cclk;
 
 	sdadel_max = i2c_specs[setup->speed].vddat_max - setup->rise_time -
@@ -519,13 +519,13 @@ static int stm32_i2c_compute_solutions(struct stm32_i2c_setup *setup,
 	/* Compute possible values for PRESC, SCLDEL and SDADEL */
 	for (p = 0; p < STM32_PRESC_MAX; p++) {
 		for (l = 0; l < STM32_SCLDEL_MAX; l++) {
-			u32 scldel = (l + 1) * (p + 1) * i2cclk;
+			int scldel = (l + 1) * (p + 1) * i2cclk;
 
 			if (scldel < scldel_min)
 				continue;
 
 			for (a = 0; a < STM32_SDADEL_MAX; a++) {
-				u32 sdadel = (a * (p + 1) + 1) * i2cclk;
+				int sdadel = (a * (p + 1) + 1) * i2cclk;
 
 				if (((sdadel >= sdadel_min) &&
 				     (sdadel <= sdadel_max)) &&
@@ -540,8 +540,12 @@ static int stm32_i2c_compute_solutions(struct stm32_i2c_setup *setup,
 					p_prev = p;
 
 					list_add_tail(&v->node, solutions);
+					break;
 				}
 			}
+
+			if (p_prev == p)
+				break;
 		}
 	}
 
@@ -594,6 +598,7 @@ static int stm32_i2c_choose_solution(struct stm32_i2c_setup *setup,
 
 		for (l = 0; l < STM32_SCLL_MAX; l++) {
 			u32 tscl_l = (l + 1) * prescaler + tsync;
+
 			if ((tscl_l < i2c_specs[setup->speed].l_min) ||
 			    (i2cclk >=
 			     ((tscl_l - af_delay_min - dnf_delay) / 4))) {
@@ -608,10 +613,12 @@ static int stm32_i2c_choose_solution(struct stm32_i2c_setup *setup,
 				if ((tscl >= clk_min) && (tscl <= clk_max) &&
 				    (tscl_h >= i2c_specs[setup->speed].h_min) &&
 				    (i2cclk < tscl_h)) {
-					int clk_error = tscl - i2cbus;
+					u32 clk_error;
 
-					if (clk_error < 0)
-						clk_error = -clk_error;
+					if (tscl > i2cbus)
+						clk_error = tscl - i2cbus;
+					else
+						clk_error = i2cbus - tscl;
 
 					if (clk_error < clk_error_prev) {
 						clk_error_prev = clk_error;
@@ -634,8 +641,8 @@ static int stm32_i2c_choose_solution(struct stm32_i2c_setup *setup,
 }
 
 static int stm32_i2c_compute_timing(struct stm32_i2c_priv *i2c_priv,
-				      struct stm32_i2c_setup *setup,
-				      struct stm32_i2c_timings *output)
+				    struct stm32_i2c_setup *setup,
+				    struct stm32_i2c_timings *output)
 {
 	struct stm32_i2c_timings *v, *_v;
 	struct list_head solutions;
@@ -643,28 +650,28 @@ static int stm32_i2c_compute_timing(struct stm32_i2c_priv *i2c_priv,
 
 	if (setup->speed >= STM32_I2C_SPEED_END) {
 		pr_err("%s: speed out of bound {%d/%d}\n", __func__,
-		      setup->speed, STM32_I2C_SPEED_END - 1);
+		       setup->speed, STM32_I2C_SPEED_END - 1);
 		return -EINVAL;
 	}
 
 	if ((setup->rise_time > i2c_specs[setup->speed].rise_max) ||
 	    (setup->fall_time > i2c_specs[setup->speed].fall_max)) {
 		pr_err("%s :timings out of bound Rise{%d>%d}/Fall{%d>%d}\n",
-		      __func__,
-		      setup->rise_time, i2c_specs[setup->speed].rise_max,
-		      setup->fall_time, i2c_specs[setup->speed].fall_max);
+		       __func__,
+		       setup->rise_time, i2c_specs[setup->speed].rise_max,
+		       setup->fall_time, i2c_specs[setup->speed].fall_max);
 		return -EINVAL;
 	}
 
 	if (setup->dnf > STM32_I2C_DNF_MAX) {
 		pr_err("%s: DNF out of bound %d/%d\n", __func__,
-		      setup->dnf, STM32_I2C_DNF_MAX);
+		       setup->dnf, STM32_I2C_DNF_MAX);
 		return -EINVAL;
 	}
 
 	if (setup->speed_freq > i2c_specs[setup->speed].rate) {
 		pr_err("%s: Freq {%d/%d}\n", __func__,
-		      setup->speed_freq, i2c_specs[setup->speed].rate);
+		       setup->speed_freq, i2c_specs[setup->speed].rate);
 		return -EINVAL;
 	}
 
@@ -693,7 +700,7 @@ exit:
 }
 
 static int stm32_i2c_setup_timing(struct stm32_i2c_priv *i2c_priv,
-				    struct stm32_i2c_timings *timing)
+				  struct stm32_i2c_timings *timing)
 {
 	struct stm32_i2c_setup *setup = i2c_priv->setup;
 	int ret = 0;

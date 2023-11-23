@@ -29,6 +29,7 @@ class firmware_LegacyRecovery(FirmwareTest):
         super(firmware_LegacyRecovery, self).cleanup()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Turn on the recovery boot. Enable recovery request "
                      "and perform a reboot.")
         self.check_state((self.checkers.crossystem_checker, {

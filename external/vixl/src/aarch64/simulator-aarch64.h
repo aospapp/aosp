@@ -715,10 +715,37 @@ class Simulator : public DecoderVisitor {
   }
   VIXL_DEPRECATED("IncrementPc", void increment_pc()) { IncrementPc(); }
 
+  BType ReadBType() const { return btype_; }
+  void WriteNextBType(BType btype) { next_btype_ = btype; }
+  void UpdateBType() {
+    btype_ = next_btype_;
+    next_btype_ = DefaultBType;
+  }
+
+  // Helper function to determine BType for branches.
+  BType GetBTypeFromInstruction(const Instruction* instr) const;
+
+  bool PcIsInGuardedPage() const { return guard_pages_; }
+  void SetGuardedPages(bool guard_pages) { guard_pages_ = guard_pages; }
+
   void ExecuteInstruction() {
     // The program counter should always be aligned.
     VIXL_ASSERT(IsWordAligned(pc_));
     pc_modified_ = false;
+
+    // On guarded pages, if BType is not zero, take an exception on any
+    // instruction other than BTI, PACI[AB]SP, HLT or BRK.
+    if (PcIsInGuardedPage() && (ReadBType() != DefaultBType)) {
+      if (pc_->IsPAuth()) {
+        Instr i = pc_->Mask(SystemPAuthMask);
+        if ((i != PACIASP) && (i != PACIBSP)) {
+          VIXL_ABORT_WITH_MSG(
+              "Executing non-BTI instruction with wrong BType.");
+        }
+      } else if (!pc_->IsBti() && !pc_->IsException()) {
+        VIXL_ABORT_WITH_MSG("Executing non-BTI instruction with wrong BType.");
+      }
+    }
 
     // decoder_->Decode(...) triggers at least the following visitors:
     //  1. The CPUFeaturesAuditor (`cpu_features_auditor_`).
@@ -729,6 +756,7 @@ class Simulator : public DecoderVisitor {
     decoder_->Decode(pc_);
     IncrementPc();
     LogAllWrittenRegisters();
+    UpdateBType();
 
     VIXL_CHECK(cpu_features_auditor_.InstructionIsAvailable());
   }
@@ -739,10 +767,17 @@ class Simulator : public DecoderVisitor {
   VISITOR_LIST_THAT_RETURN(DECLARE)
 #undef DECLARE
 
-#define DECLARE(A)                                                     \
-  VIXL_DEBUG_NO_RETURN virtual void Visit##A(const Instruction* instr) \
-      VIXL_OVERRIDE;
+
+#define DECLARE(A) \
+  VIXL_NO_RETURN virtual void Visit##A(const Instruction* instr) VIXL_OVERRIDE;
   VISITOR_LIST_THAT_DONT_RETURN(DECLARE)
+#undef DECLARE
+
+
+#define DECLARE(A)                                                             \
+  VIXL_NO_RETURN_IN_DEBUG_MODE virtual void Visit##A(const Instruction* instr) \
+      VIXL_OVERRIDE;
+  VISITOR_LIST_THAT_DONT_RETURN_IN_DEBUG_MODE(DECLARE)
 #undef DECLARE
 
 
@@ -1263,7 +1298,16 @@ class Simulator : public DecoderVisitor {
                            T value,
                            RegLogMode log_mode = LogRegWrites) {
     if (operand.IsCPURegister()) {
-      WriteCPURegister<T>(operand.GetCPURegister(), value, log_mode);
+      // Outside SIMD, registers are 64-bit or a subset of a 64-bit register. If
+      // the width of the value to write is smaller than 64 bits, the unused
+      // bits may contain unrelated values that the code following this write
+      // needs to handle gracefully.
+      // Here we fill the unused bits with a predefined pattern to catch issues
+      // early.
+      VIXL_ASSERT(operand.GetCPURegister().GetSizeInBits() <= 64);
+      uint64_t raw = 0xdeadda1adeadda1a;
+      memcpy(&raw, &value, sizeof(value));
+      WriteCPURegister(operand.GetCPURegister(), raw, log_mode);
     } else {
       VIXL_ASSERT(operand.IsMemOperand());
       Memory::Write(ComputeMemOperandAddress(operand.GetMemOperand()), value);
@@ -1585,6 +1629,31 @@ class Simulator : public DecoderVisitor {
     print_exclusive_access_warning_ = false;
   }
 
+  void CheckIsValidUnalignedAtomicAccess(int rn,
+                                         uint64_t address,
+                                         unsigned access_size) {
+    // Verify that the address is available to the host.
+    VIXL_ASSERT(address == static_cast<uintptr_t>(address));
+
+    if (GetCPUFeatures()->Has(CPUFeatures::kUSCAT)) {
+      // Check that the access falls entirely within one atomic access granule.
+      if (AlignDown(address, kAtomicAccessGranule) !=
+          AlignDown(address + access_size - 1, kAtomicAccessGranule)) {
+        VIXL_ALIGNMENT_EXCEPTION();
+      }
+    } else {
+      // Check that the access is aligned.
+      if (AlignDown(address, access_size) != address) {
+        VIXL_ALIGNMENT_EXCEPTION();
+      }
+    }
+
+    // The sp must be aligned to 16 bytes when it is accessed.
+    if ((rn == kSpRegCode) && (AlignDown(address, 16) != address)) {
+      VIXL_ALIGNMENT_EXCEPTION();
+    }
+  }
+
   enum PointerType { kDataPointer, kInstructionPointer };
 
   struct PACKey {
@@ -1817,6 +1886,10 @@ class Simulator : public DecoderVisitor {
   void AtomicMemorySwapHelper(const Instruction* instr);
   template <typename T>
   void LoadAcquireRCpcHelper(const Instruction* instr);
+  template <typename T1, typename T2>
+  void LoadAcquireRCpcUnscaledOffsetHelper(const Instruction* instr);
+  template <typename T>
+  void StoreReleaseUnscaledOffsetHelper(const Instruction* instr);
   uintptr_t AddressModeHelper(unsigned addr_reg,
                               int64_t offset,
                               AddrMode addrmode);
@@ -1998,11 +2071,31 @@ class Simulator : public DecoderVisitor {
                       const LogicVRegister& src1,
                       const LogicVRegister& src2,
                       int index);
+  LogicVRegister fmlal(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int index);
+  LogicVRegister fmlal2(VectorFormat vform,
+                        LogicVRegister dst,
+                        const LogicVRegister& src1,
+                        const LogicVRegister& src2,
+                        int index);
   LogicVRegister fmls(VectorFormat vform,
                       LogicVRegister dst,
                       const LogicVRegister& src1,
                       const LogicVRegister& src2,
                       int index);
+  LogicVRegister fmlsl(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2,
+                       int index);
+  LogicVRegister fmlsl2(VectorFormat vform,
+                        LogicVRegister dst,
+                        const LogicVRegister& src1,
+                        const LogicVRegister& src2,
+                        int index);
   LogicVRegister fmulx(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src1,
@@ -2831,6 +2924,12 @@ class Simulator : public DecoderVisitor {
   NEON_FPPAIRWISE_LIST(DECLARE_NEON_FP_PAIR_OP)
 #undef DECLARE_NEON_FP_PAIR_OP
 
+  enum FrintMode {
+    kFrintToInteger = 0,
+    kFrintToInt32 = 32,
+    kFrintToInt64 = 64
+  };
+
   template <typename T>
   LogicVRegister frecps(VectorFormat vform,
                         LogicVRegister dst,
@@ -2871,6 +2970,23 @@ class Simulator : public DecoderVisitor {
                        LogicVRegister dst,
                        const LogicVRegister& src1,
                        const LogicVRegister& src2);
+
+  LogicVRegister fmlal(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2);
+  LogicVRegister fmlal2(VectorFormat vform,
+                        LogicVRegister dst,
+                        const LogicVRegister& src1,
+                        const LogicVRegister& src2);
+  LogicVRegister fmlsl(VectorFormat vform,
+                       LogicVRegister dst,
+                       const LogicVRegister& src1,
+                       const LogicVRegister& src2);
+  LogicVRegister fmlsl2(VectorFormat vform,
+                        LogicVRegister dst,
+                        const LogicVRegister& src1,
+                        const LogicVRegister& src2);
 
   template <typename T>
   LogicVRegister fcmp(VectorFormat vform,
@@ -2918,11 +3034,13 @@ class Simulator : public DecoderVisitor {
                       LogicVRegister dst,
                       const LogicVRegister& src1,
                       const LogicVRegister& src2);
+
   LogicVRegister frint(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src,
                        FPRounding rounding_mode,
-                       bool inexact_exception = false);
+                       bool inexact_exception = false,
+                       FrintMode frint_mode = kFrintToInteger);
   LogicVRegister fcvts(VectorFormat vform,
                        LogicVRegister dst,
                        const LogicVRegister& src,
@@ -3010,6 +3128,8 @@ class Simulator : public DecoderVisitor {
 
   void FPCompare(double val0, double val1, FPTrapFlags trap);
   double FPRoundInt(double value, FPRounding round_mode);
+  double FPRoundInt(double value, FPRounding round_mode, FrintMode frint_mode);
+  double FPRoundIntCommon(double value, FPRounding round_mode);
   double recip_sqrt_estimate(double a);
   double recip_estimate(double a);
   double FPRecipSqrtEstimate(double a);
@@ -3089,10 +3209,7 @@ class Simulator : public DecoderVisitor {
   void DoSaveCPUFeatures(const Instruction* instr);
   void DoRestoreCPUFeatures(const Instruction* instr);
 
-// Simulate a runtime call.
-#ifndef VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT
-  VIXL_NO_RETURN_IN_DEBUG_MODE
-#endif
+  // Simulate a runtime call.
   void DoRuntimeCall(const Instruction* instr);
 
   // Processor state ---------------------------------------
@@ -3134,9 +3251,8 @@ class Simulator : public DecoderVisitor {
     VIXL_ASSERT(ReadFpcr().GetFZ() == 0);
     // Ties-to-even rounding only.
     VIXL_ASSERT(ReadFpcr().GetRMode() == FPTieEven);
-
-    // The simulator does not support half-precision operations so
-    // GetFpcr().AHP() is irrelevant, and is not checked here.
+    // No alternative half-precision support.
+    VIXL_ASSERT(ReadFpcr().GetAHP() == 0);
   }
 
   static int CalcNFlag(uint64_t result, unsigned reg_size) {
@@ -3159,6 +3275,17 @@ class Simulator : public DecoderVisitor {
   // automatically incremented.
   bool pc_modified_;
   const Instruction* pc_;
+
+  // Branch type register, used for branch target identification.
+  BType btype_;
+
+  // Next value of branch type register after the current instruction has been
+  // decoded.
+  BType next_btype_;
+
+  // Global flag for enabling guarded pages.
+  // TODO: implement guarding at page granularity, rather than globally.
+  bool guard_pages_;
 
   static const char* xreg_names[];
   static const char* wreg_names[];
@@ -3240,6 +3367,9 @@ class Simulator : public DecoderVisitor {
 
   CPUFeaturesAuditor cpu_features_auditor_;
   std::vector<CPUFeatures> saved_cpu_features_;
+
+  // The simulated state of RNDR and RNDRRS for generating a random number.
+  uint16_t rndr_state_[3];
 };
 
 #if defined(VIXL_HAS_SIMULATED_RUNTIME_CALL_SUPPORT) && __cplusplus < 201402L

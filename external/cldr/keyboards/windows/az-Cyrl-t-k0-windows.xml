@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE keyboard SYSTEM "../dtd/ldmlKeyboard.dtd">
 <keyboard locale="az-Cyrl-t-k0-windows">
-	<version platform="10" number="$Revision: 13265 $"/>
+	<version platform="10" number="$Revision$"/>
 	<names>
 		<name value="Azeri Cyrillic"/>
 	</names>

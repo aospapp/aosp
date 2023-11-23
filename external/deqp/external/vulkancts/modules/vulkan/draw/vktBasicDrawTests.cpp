@@ -38,6 +38,7 @@
 #include "tcuRGBA.hpp"
 #include "tcuTextureUtil.hpp"
 #include "tcuImageCompare.hpp"
+#include "tcuVectorUtil.hpp"
 
 #include "rrRenderer.hpp"
 
@@ -321,18 +322,6 @@ void DrawTestInstanceBase::initialize (const DrawParamsBase& data)
 	const vk::VkDevice	device				= m_context.getDevice();
 	const deUint32		queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
 
-	const vk::VkPhysicalDeviceFeatures features = m_context.getDeviceFeatures();
-
-	if (features.geometryShader == VK_FALSE &&
-		(m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY ||
-		 m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY ||
-		 m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY ||
-		 m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY)
-		)
-	{
-		TCU_THROW(NotSupportedError, "Geometry Not Supported");
-	}
-
 	const PipelineLayoutCreateInfo pipelineLayoutCreateInfo;
 	m_pipelineLayout						= vk::createPipelineLayout(m_vk, device, &pipelineLayoutCreateInfo);
 
@@ -486,7 +475,7 @@ void DrawTestInstanceBase::generateRefImage (const tcu::PixelBufferAccess& acces
 	const rr::Program						program			(&vertShader, &fragShader);
 	const rr::MultisamplePixelBufferAccess	colorBuffer		= rr::MultisamplePixelBufferAccess::fromSinglesampleAccess(access);
 	const rr::RenderTarget					renderTarget	(colorBuffer);
-	const rr::RenderState					renderState		((rr::ViewportState(colorBuffer)));
+	const rr::RenderState					renderState		((rr::ViewportState(colorBuffer)), m_context.getDeviceProperties().limits.subPixelPrecisionBits);
 	const rr::Renderer						renderer;
 
 	const rr::VertexAttrib	vertexAttribs[] =
@@ -550,6 +539,7 @@ class DrawTestCase : public TestCase
 									~DrawTestCase		(void);
 	virtual	void					initPrograms		(vk::SourceCollections& programCollection) const;
 	virtual void					initShaderSources	(void);
+	virtual void					checkSupport		(Context& context) const;
 	virtual TestInstance*			createInstance		(Context& context) const;
 
 private:
@@ -576,6 +566,18 @@ void DrawTestCase<T>::initPrograms (vk::SourceCollections& programCollection) co
 {
 	programCollection.glslSources.add("vert") << glu::VertexSource(m_vertShaderSource);
 	programCollection.glslSources.add("frag") << glu::FragmentSource(m_fragShaderSource);
+}
+
+template<typename T>
+void DrawTestCase<T>::checkSupport (Context& context) const
+{
+	if (m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY ||
+		m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY ||
+		m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY ||
+		m_data.topology == vk::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY)
+	{
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER);
+	}
 }
 
 template<typename T>
@@ -631,9 +633,12 @@ void DrawTestInstance<DrawParams>::generateDrawData (void)
 	// Fill only the used indexes
 	for (deUint32 vertexIdx = m_data.params.firstVertex; vertexIdx < vectorSize; ++vertexIdx)
 	{
+		const float f0 = rnd.getFloat(-1.0f, 1.0f);
+		const float f1 = rnd.getFloat(-1.0f, 1.0f);
+
 		m_data.vertices[vertexIdx] = PositionColorVertex(
-			tcu::Vec4(rnd.getFloat(-1.0, 1.0), rnd.getFloat(-1.0, 1.0), 1.0, 1.0),										// Coord
-			tcu::Vec4(rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0)));	// Color
+			tcu::Vec4(f0, f1, 1.0f, 1.0f),	// Coord
+			tcu::randomVec4(rnd));			// Color
 	}
 }
 
@@ -658,7 +663,7 @@ tcu::TestStatus DrawTestInstance<DrawParams>::iterate (void)
 	submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 
 	// Validation
-	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 	tcu::clear(refImage.getAccess(), tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
 	std::vector<tcu::Vec4>	vertices;
@@ -712,10 +717,12 @@ void DrawTestInstance<DrawIndexedParams>::generateDrawData (void)
 		std::vector<PositionColorVertex>::iterator vertexIt = m_data.vertices.begin() + m_data.params.vertexOffset + *indexIt;
 
 		tcu::VecAccess<float, 4, 4>	positionAccess = vertexIt->position.xyzw();
-		positionAccess = tcu::Vec4(rnd.getFloat(-1.0, 1.0), rnd.getFloat(-1.0, 1.0), 1.0, 1.0);
+		const float f0 = rnd.getFloat(-1.0f, 1.0f);
+		const float f1 = rnd.getFloat(-1.0f, 1.0f);
+		positionAccess = tcu::Vec4(f0, f1, 1.0f, 1.0f);
 
 		tcu::VecAccess<float, 4, 4>	colorAccess = vertexIt->color.xyzw();
-		colorAccess = tcu::Vec4(rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0));
+		colorAccess = tcu::randomVec4(rnd);
 	}
 }
 
@@ -772,7 +779,7 @@ tcu::TestStatus DrawTestInstance<DrawIndexedParams>::iterate (void)
 	submitCommandsAndWait(m_vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Validation
-	tcu::TextureLevel	refImage	(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+	tcu::TextureLevel	refImage	(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 	tcu::clear(refImage.getAccess(), tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
 	std::vector<tcu::Vec4>	vertices;
@@ -825,10 +832,12 @@ void DrawTestInstance<DrawIndirectParams>::generateDrawData (void)
 			std::vector<PositionColorVertex>::iterator vertexIt = vertexStart + idx;
 
 			tcu::VecAccess<float, 4, 4> positionAccess = vertexIt->position.xyzw();
-			positionAccess = tcu::Vec4(rnd.getFloat(-1.0, 1.0), rnd.getFloat(-1.0, 1.0), 1.0, 1.0);
+			const float f0 = rnd.getFloat(-1.0f, 1.0f);
+			const float f1 = rnd.getFloat(-1.0f, 1.0f);
+			positionAccess = tcu::Vec4(f0, f1, 1.0f, 1.0f);
 
 			tcu::VecAccess<float, 4, 4> colorAccess = vertexIt->color.xyzw();
-			colorAccess = tcu::Vec4(rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0));
+			colorAccess = tcu::randomVec4(rnd);
 		}
 	}
 }
@@ -899,7 +908,7 @@ tcu::TestStatus DrawTestInstance<DrawIndirectParams>::iterate (void)
 	submitCommandsAndWait(m_vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Validation
-	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 	tcu::clear(refImage.getAccess(), tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
 	for (std::vector<vk::VkDrawIndirectCommand>::const_iterator it = m_data.commands.begin(); it != m_data.commands.end(); ++it)
@@ -976,10 +985,12 @@ void DrawTestInstance<DrawIndexedIndirectParams>::generateDrawData (void)
 			std::vector<PositionColorVertex>::iterator	vertexIt = m_data.vertices.begin() + cmdIt->vertexOffset + m_data.indexes[idx];
 
 			tcu::VecAccess<float, 4, 4> positionAccess = vertexIt->position.xyzw();
-			positionAccess = tcu::Vec4(rnd.getFloat(-1.0, 1.0), rnd.getFloat(-1.0, 1.0), 1.0, 1.0);
+			const float f0 = rnd.getFloat(-1.0f, 1.0f);
+			const float f1 = rnd.getFloat(-1.0f, 1.0f);
+			positionAccess = tcu::Vec4(f0, f1, 1.0f, 1.0f);
 
 			tcu::VecAccess<float, 4, 4> colorAccess = vertexIt->color.xyzw();
-			colorAccess = tcu::Vec4(rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0), rnd.getFloat(0.0, 1.0));
+			colorAccess = tcu::randomVec4(rnd);
 		}
 	}
 }
@@ -1079,7 +1090,7 @@ tcu::TestStatus DrawTestInstance<DrawIndexedIndirectParams>::iterate (void)
 	submitCommandsAndWait(m_vk, vkDevice, queue, m_cmdBuffer.get());
 
 	// Validation
-	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+	tcu::TextureLevel refImage (vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 	tcu::clear(refImage.getAccess(), tcu::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
 	for (std::vector<vk::VkDrawIndexedIndirectCommand>::const_iterator cmd = m_data.commands.begin(); cmd != m_data.commands.end(); ++cmd)

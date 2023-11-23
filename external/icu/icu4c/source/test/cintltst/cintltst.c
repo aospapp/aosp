@@ -42,6 +42,13 @@
 #   include <console.h>
 #endif
 
+// ANDROID_USE_ICU_REG is defined when building against the Android OS source tree.
+// androidicuinit is a static library which helps initialize ICU4C using the data
+// on the device.
+#if defined(__ANDROID__) && defined(ANDROID_USE_ICU_REG)
+#include <androidicuinit/android_icu_reg.h>
+#endif
+
 #define CTST_MAX_ALLOC 8192
 /* Array used as a queue */
 static void * ctst_allocated_stuff[CTST_MAX_ALLOC] = {0};
@@ -54,8 +61,6 @@ static int ctst_allocated_total = 0;
 #ifdef CTST_LEAK_CHECK
 static void ctst_freeAll(void);
 #endif
-
-static char* _testDataPath=NULL;
 
 /*
  *  Forward Declarations
@@ -251,7 +256,11 @@ int main(int argc, const char* const argv[])
         (int)((diffTime%U_MILLIS_PER_MINUTE)/U_MILLIS_PER_SECOND),
         (int)(diffTime%U_MILLIS_PER_SECOND));
 
+#ifdef ZERO_EXIT_CODE_FOR_FAILURES
+    return 0;
+#else
     return nerrors ? 1 : 0;
+#endif
 }
 
 /*
@@ -293,139 +302,6 @@ static void ctest_appendToDataDirectory(const char *toAppend)
 }
 */
 
-/* returns the path to icu/source/data */
-const char *  ctest_dataSrcDir()
-{
-    static const char *dataSrcDir = NULL;
-
-    if(dataSrcDir) {
-        return dataSrcDir;
-    }
-
-    /* U_TOPSRCDIR is set by the makefiles on UNIXes when building cintltst and intltst
-    //              to point to the top of the build hierarchy, which may or
-    //              may not be the same as the source directory, depending on
-    //              the configure options used.  At any rate,
-    //              set the data path to the built data from this directory.
-    //              The value is complete with quotes, so it can be used
-    //              as-is as a string constant.
-    */
-#if defined (U_TOPSRCDIR)
-    {
-        dataSrcDir = U_TOPSRCDIR  U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
-    }
-#else
-
-    /* On Windows, the file name obtained from __FILE__ includes a full path.
-     *             This file is "wherever\icu\source\test\cintltst\cintltst.c"
-     *             Change to    "wherever\icu\source\data"
-     */
-    {
-        static char p[sizeof(__FILE__) + 20];
-        char *pBackSlash;
-        int i;
-
-        strcpy(p, __FILE__);
-        /* We want to back over three '\' chars.                            */
-        /*   Only Windows should end up here, so looking for '\' is safe.   */
-        for (i=1; i<=3; i++) {
-            pBackSlash = strrchr(p, U_FILE_SEP_CHAR);
-            if (pBackSlash != NULL) {
-                *pBackSlash = 0;        /* Truncate the string at the '\'   */
-            }
-        }
-
-        if (pBackSlash != NULL) {
-            /* We found and truncated three names from the path.
-             *  Now append "source\data" and set the environment
-             */
-            strcpy(pBackSlash, U_FILE_SEP_STRING "data" U_FILE_SEP_STRING );
-            dataSrcDir = p;
-        }
-        else {
-            /* __FILE__ on MSVC7 does not contain the directory */
-            FILE *file = fopen(".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "Makefile.in", "r");
-            if (file) {
-                fclose(file);
-                dataSrcDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
-            }
-            else {
-                dataSrcDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
-            }
-        }
-    }
-#endif
-
-    return dataSrcDir;
-
-}
-
-/* returns the path to icu/source/data/out */
-const char *ctest_dataOutDir()
-{
-    static const char *dataOutDir = NULL;
-
-    if(dataOutDir) {
-        return dataOutDir;
-    }
-
-    /* U_TOPBUILDDIR is set by the makefiles on UNIXes when building cintltst and intltst
-    //              to point to the top of the build hierarchy, which may or
-    //              may not be the same as the source directory, depending on
-    //              the configure options used.  At any rate,
-    //              set the data path to the built data from this directory.
-    //              The value is complete with quotes, so it can be used
-    //              as-is as a string constant.
-    */
-#if defined (U_TOPBUILDDIR)
-    {
-        dataOutDir = U_TOPBUILDDIR "data"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
-    }
-#else
-
-    /* On Windows, the file name obtained from __FILE__ includes a full path.
-     *             This file is "wherever\icu\source\test\cintltst\cintltst.c"
-     *             Change to    "wherever\icu\source\data"
-     */
-    {
-        static char p[sizeof(__FILE__) + 20];
-        char *pBackSlash;
-        int i;
-
-        strcpy(p, __FILE__);
-        /* We want to back over three '\' chars.                            */
-        /*   Only Windows should end up here, so looking for '\' is safe.   */
-        for (i=1; i<=3; i++) {
-            pBackSlash = strrchr(p, U_FILE_SEP_CHAR);
-            if (pBackSlash != NULL) {
-                *pBackSlash = 0;        /* Truncate the string at the '\'   */
-            }
-        }
-
-        if (pBackSlash != NULL) {
-            /* We found and truncated three names from the path.
-             *  Now append "source\data" and set the environment
-             */
-            strcpy(pBackSlash, U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "out" U_FILE_SEP_STRING);
-            dataOutDir = p;
-        }
-        else {
-            /* __FILE__ on MSVC7 does not contain the directory */
-            FILE *file = fopen(".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "Makefile.in", "r");
-            if (file) {
-                fclose(file);
-                dataOutDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "out" U_FILE_SEP_STRING;
-            }
-            else {
-                dataOutDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "out" U_FILE_SEP_STRING;
-            }
-        }
-    }
-#endif
-
-    return dataOutDir;
-}
-
 /*  ctest_setICU_DATA  - if the ICU_DATA environment variable is not already
  *                       set, try to deduce the directory in which ICU was built,
  *                       and set ICU_DATA to "icu/source/data" in that location.
@@ -436,14 +312,11 @@ const char *ctest_dataOutDir()
  *                       tests dynamically load some data.
  */
 void ctest_setICU_DATA() {
-
-    /* No location for the data dir was identifiable.
-     *   Add other fallbacks for the test data location here if the need arises
-     */
-    if (getenv("ICU_DATA") == NULL) {
-        /* If ICU_DATA isn't set, set it to the usual location */
-        u_setDataDirectory(ctest_dataOutDir());
-    }
+    #if defined(__ANDROID__) && defined(ANDROID_USE_ICU_REG)
+    android_icu_register();
+    #else
+    u_setDataDirectory(ctest_dataOutDir());
+    #endif
 }
 
 /*  These tests do cleanup and reinitialize ICU in the course of their operation.
@@ -464,12 +337,16 @@ UBool ctest_resetICU() {
     UErrorCode   status = U_ZERO_ERROR;
     char         *dataDir = safeGetICUDataDirectory();
 
+    #if defined(__ANDROID__) && defined(ANDROID_USE_ICU_REG)
+    android_icu_deregister();
+    #else
     u_cleanup();
+    #endif
     if (!initArgs(gOrigArgc, gOrigArgv, NULL, NULL)) {
         /* Error already displayed. */
         return FALSE;
     }
-    u_setDataDirectory(dataDir);
+    ctest_setICU_DATA();
     free(dataDir);
     u_init(&status);
     if (U_FAILURE(status)) {
@@ -533,47 +410,8 @@ char *aescstrdup(const UChar* unichars,int32_t length){
     return newString;
 }
 
-const char* loadTestData(UErrorCode* err){
-    if( _testDataPath == NULL){
-        const char*      directory=NULL;
-        UResourceBundle* test =NULL;
-        char* tdpath=NULL;
-        const char* tdrelativepath;
-#if defined (U_TOPBUILDDIR)
-        tdrelativepath = "test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
-        directory = U_TOPBUILDDIR;
-#else
-        tdrelativepath = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
-        directory= ctest_dataOutDir();
-#endif
-
-        tdpath = (char*) ctst_malloc(sizeof(char) *(( strlen(directory) * strlen(tdrelativepath)) + 10));
-
-
-        /* u_getDataDirectory shoul return \source\data ... set the
-         * directory to ..\source\data\..\test\testdata\out\testdata
-         *
-         * Fallback: When Memory mapped file is built
-         * ..\source\data\out\..\..\test\testdata\out\testdata
-         */
-        strcpy(tdpath, directory);
-        strcat(tdpath, tdrelativepath);
-        strcat(tdpath,"testdata");
-
-
-        test=ures_open(tdpath, "testtypes", err);
-
-        /* Fall back did not succeed either so return */
-        if(U_FAILURE(*err)){
-            *err = U_FILE_ACCESS_ERROR;
-            log_data_err("Could not load testtypes.res in testdata bundle with path %s - %s\n", tdpath, u_errorName(*err));
-            return "";
-        }
-        ures_close(test);
-        _testDataPath = tdpath;
-        return _testDataPath;
-    }
-    return _testDataPath;
+const char* loadTestData(UErrorCode* err) {
+    return ctest_loadTestData(err);
 }
 
 #define CTEST_MAX_TIMEZONE_SIZE 256
@@ -657,7 +495,6 @@ static void ctst_freeAll() {
         }
     }
     ctst_allocated = 0;
-    _testDataPath=NULL;
 }
 
 #define VERBOSE_ASSERTIONS
@@ -738,6 +575,20 @@ U_CFUNC UBool assertIntEquals(const char* message, int64_t expected, int64_t act
 #ifdef VERBOSE_ASSERTIONS
     else {
         log_verbose("Ok: %s; got \"%d\"\n", message, actual);
+    }
+#endif
+    return TRUE;
+}
+
+U_CFUNC UBool assertPtrEquals(const char* message, const void* expected, const void* actual) {
+    if (expected != actual) {
+        log_err("FAIL: %s; got 0x%llx; expected 0x%llx\n",
+                message, actual, expected);
+        return FALSE;
+    }
+#ifdef VERBOSE_ASSERTIONS
+    else {
+        log_verbose("Ok: %s; got 0x%llx\n", message, actual);
     }
 #endif
     return TRUE;

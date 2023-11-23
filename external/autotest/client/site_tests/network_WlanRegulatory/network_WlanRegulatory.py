@@ -13,11 +13,15 @@ from autotest_lib.client.common_lib.cros.network import iw_runner
 
 class network_WlanRegulatory(test.test):
     """
-    Ensure the "crda" tool works, and can be successfully triggered by
-    the kernel from the "iw" userspace utility to change the system
-    regulatory domain.
+    Ensure the regulatory database is sane and that we can successfully switch
+    domains using the "iw" userspace utility. We don't verify that the system
+    truly respects the rules, but only that it does not reject them.
+    Note that some drivers "self manage" their domain detection and so this
+    test can't apply reliably.
     """
     version = 1
+    # TODO(https://crbug.com/1000346): parse /lib/firmware/regulatory.db, once
+    # CRDA goes away.
     REGULATORY_DATABASE = '/usr/lib/crda/regulatory.bin'
 
     def get_regulatory_domains(self):
@@ -25,7 +29,6 @@ class network_WlanRegulatory(test.test):
         return utils.system_output('regdbdump %s | grep country | '
                                    'sed -e s/^country.// -e s/:.*//' %
                                    self.REGULATORY_DATABASE).split()
-
 
     def assert_set_regulatory_domain(self, regdomain):
         """Set the system regulatory domain, then assert that it is correct.
@@ -47,12 +50,17 @@ class network_WlanRegulatory(test.test):
             raise error.TestFail('Expected iw to set regdomain %s but got %s' %
                                  (regdomain, current_regdomain))
 
-
     def run_once(self):
         """Test main loop"""
         self._iw = iw_runner.IwRunner()
-        initial_regdomain = self._iw.get_regulatory_domain()
-        logging.info('Initial regulatory domain is %s', initial_regdomain)
+        self._initial_regdomain = self._iw.get_regulatory_domain()
+        logging.info('Initial regulatory domain is %s', self._initial_regdomain)
+
+        # If the driver "self manages" (NL80211_ATTR_WIPHY_SELF_MANAGED_REG)
+        # its domain detection, we can't guarantee it will respect user-space
+        # settings.
+        if self._iw.is_regulatory_self_managed():
+            raise error.TestNAError('Wiphy is self-managed')
 
         domain_list = self.get_regulatory_domains()
         if not domain_list:
@@ -60,4 +68,8 @@ class network_WlanRegulatory(test.test):
 
         for domain in domain_list:
             self.assert_set_regulatory_domain(domain)
-        self.assert_set_regulatory_domain(initial_regdomain)
+
+    def cleanup(self):
+        """Cleanup: restore device to original state."""
+        if hasattr(self, '_initial_regdomain'):
+            self.assert_set_regulatory_domain(self._initial_regdomain)

@@ -1,21 +1,25 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2019 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14412 $"/>
+		<version number="$Revision$"/>
 		<language type="sr"/>
 		<script type="Cyrl"/>
 		<territory type="BA"/>
 	</identity>
 	<annotations>
 		<annotation cp="🥽" draft="contributed">заштитне наочари</annotation>
+		<annotation cp="🥽" type="tts" draft="contributed">заштитне наочари</annotation>
 		<annotation cp="🥼" draft="contributed">бели мантил</annotation>
+		<annotation cp="🥼" type="tts" draft="contributed">бели мантил</annotation>
 		<annotation cp="🥾" draft="contributed">ципела за планинарење</annotation>
+		<annotation cp="🥾" type="tts" draft="contributed">ципела за планинарење</annotation>
 		<annotation cp="🥿" draft="contributed">равна ципела</annotation>
+		<annotation cp="🥿" type="tts" draft="contributed">равна ципела</annotation>
 	</annotations>
 </ldml>

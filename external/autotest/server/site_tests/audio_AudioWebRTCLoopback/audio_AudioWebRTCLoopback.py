@@ -8,6 +8,7 @@ import logging
 import os
 import time
 
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
@@ -55,9 +56,11 @@ class audio_AudioWebRTCLoopback(audio_test.AudioTest):
                                   block size.
 
         """
-        if not audio_test_utils.has_headphone(host):
-            logging.info('Skip the test because there is no headphone')
-            return
+        if not audio_test_utils.has_audio_jack(host):
+            raise error.TestNAError(
+                    'No audio jack for the DUT.'
+                    'Please check label of the host and control file.'
+                    'Please check the host label and test dependency.')
 
         golden_file = audio_test_data.GenerateAudioTestData(
                 data_format=dict(file_type='wav',

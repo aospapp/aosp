@@ -318,12 +318,18 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
     }
 
     ps_slice_hdr = ps_codec->s_parse.ps_slice_hdr_base + (ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1));
-
+    memset(ps_slice_hdr, 0, sizeof(*ps_slice_hdr));
 
     if((ps_pps->i1_dependent_slice_enabled_flag) &&
        (!first_slice_in_pic_flag))
     {
         BITS_PARSE("dependent_slice_flag", value, ps_bitstrm, 1);
+
+        /* First slice to be decoded in the current picture can't be dependent slice */
+        if (value && 0 == ps_codec->i4_pic_present)
+        {
+             return IHEVCD_IGNORE_SLICE;
+        }
 
         /* If dependendent slice, copy slice header from previous slice */
         if(value && (ps_codec->s_parse.i4_cur_slice_idx > 0))
@@ -471,7 +477,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                     ps_slice_hdr->i1_num_long_term_sps = value;
                 }
                 UEV_PARSE("num_long_term_pics", value, ps_bitstrm);
-                if((value + ps_slice_hdr->i1_num_long_term_sps + num_neg_pics + num_pos_pics) > (MAX_DPB_SIZE - 1))
+                if(((ULWORD64)value + ps_slice_hdr->i1_num_long_term_sps + num_neg_pics +
+                    num_pos_pics) > (MAX_DPB_SIZE - 1))
                 {
                     return IHEVCD_INVALID_PARAMETER;
                 }
@@ -487,6 +494,10 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                         {
                             WORD32 num_bits = 32 - CLZ(ps_sps->i1_num_long_term_ref_pics_sps - 1);
                             BITS_PARSE("lt_idx_sps[ i ]", value, ps_bitstrm, num_bits);
+                            if(value >= ps_sps->i1_num_long_term_ref_pics_sps)
+                            {
+                                return IHEVCD_INVALID_PARAMETER;
+                            }
                         }
                         else
                         {
@@ -676,7 +687,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
 
         }
         SEV_PARSE("slice_qp_delta", i4_value, ps_bitstrm);
-        if((i4_value + ps_pps->i1_pic_init_qp) < 0 || (i4_value + ps_pps->i1_pic_init_qp) > MAX_HEVC_QP)
+        if((i4_value < (MIN_HEVC_QP - ps_pps->i1_pic_init_qp)) ||
+           (i4_value > (MAX_HEVC_QP - ps_pps->i1_pic_init_qp)))
         {
             return IHEVCD_INVALID_PARAMETER;
         }

@@ -31,8 +31,8 @@ class power_BrightnessResetAfterReboot(test.test):
 
         if initial_bright < 10.0 or initial_bright > 90.0:
             raise error.TestFail('Default brightness level is out '
-                                 'of scope(10% - 90%): %f'
-                                 %(initial_bright))
+                                 'of scope(10%% - 90%%): %f'
+                                 % (initial_bright))
 
         self.backlight_control('%s=0' % (self.SET_BRIGHTNESS_FLAG), host)
         if not self.backlight_control(self.GET_BRIGHTNESS_FLAG, host) == 0:

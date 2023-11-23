@@ -19,13 +19,16 @@
 
 #include <stdint.h>
 
+#include <deque>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
-#include "perfetto/base/scoped_file.h"
+#include "perfetto/ext/base/scoped_file.h"
+#include "src/traced/probes/ftrace/compact_sched.h"
 #include "src/traced/probes/ftrace/event_info.h"
 #include "src/traced/probes/ftrace/format_parser.h"
 
@@ -64,6 +67,10 @@ class GroupAndName {
   std::string name_;
 };
 
+inline void PrintTo(const GroupAndName& event, ::std::ostream* os) {
+  *os << "GroupAndName(" << event.group() << ", " << event.name() << ")";
+}
+
 bool InferFtraceType(const std::string& type_and_name,
                      size_t size,
                      bool is_signed,
@@ -91,7 +98,8 @@ class ProtoTranslationTable {
   ProtoTranslationTable(const FtraceProcfs* ftrace_procfs,
                         const std::vector<Event>& events,
                         std::vector<Field> common_fields,
-                        FtracePageHeaderSpec ftrace_page_header_spec);
+                        FtracePageHeaderSpec ftrace_page_header_spec,
+                        CompactSchedEventFormat compact_sched_format);
 
   size_t largest_id() const { return largest_id_; }
 
@@ -114,9 +122,10 @@ class ProtoTranslationTable {
   const Event* GetEventById(size_t id) const {
     if (id == 0 || id > largest_id_)
       return nullptr;
-    if (!events_.at(id).ftrace_event_id)
+    const Event* evt = &events_[id];
+    if (!evt->ftrace_event_id)
       return nullptr;
-    return &events_.at(id);
+    return evt;
   }
 
   size_t EventToFtraceId(const GroupAndName& group_and_name) const {
@@ -125,7 +134,7 @@ class ProtoTranslationTable {
     return group_and_name_to_event_.at(group_and_name)->ftrace_event_id;
   }
 
-  const std::vector<Event>& events() { return events_; }
+  const std::deque<Event>& events() { return events_; }
   const FtracePageHeaderSpec& ftrace_page_header_spec() const {
     return ftrace_page_header_spec_;
   }
@@ -151,6 +160,10 @@ class ProtoTranslationTable {
     return name_to_events_.at(name)[0];
   }
 
+  const CompactSchedEventFormat& compact_sched_format() const {
+    return compact_sched_format_;
+  }
+
  private:
   ProtoTranslationTable(const ProtoTranslationTable&) = delete;
   ProtoTranslationTable& operator=(const ProtoTranslationTable&) = delete;
@@ -162,7 +175,7 @@ class ProtoTranslationTable {
                                    Event& event);
 
   const FtraceProcfs* ftrace_procfs_;
-  std::vector<Event> events_;
+  std::deque<Event> events_;
   size_t largest_id_;
   std::map<GroupAndName, const Event*> group_and_name_to_event_;
   std::map<std::string, std::vector<const Event*>> name_to_events_;
@@ -170,6 +183,7 @@ class ProtoTranslationTable {
   std::vector<Field> common_fields_;
   FtracePageHeaderSpec ftrace_page_header_spec_{};
   std::set<std::string> interned_strings_;
+  CompactSchedEventFormat compact_sched_format_;
 };
 
 // Class for efficient 'is event with id x enabled?' checks.

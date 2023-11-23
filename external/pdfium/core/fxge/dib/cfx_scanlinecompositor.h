@@ -9,12 +9,12 @@
 
 #include <memory>
 
-#include "core/fxge/dib/cfx_dibsource.h"
+#include "core/fxcrt/fx_memory_wrappers.h"
+#include "core/fxge/fx_dib.h"
 
 class CFX_ScanlineCompositor {
  public:
   CFX_ScanlineCompositor();
-
   ~CFX_ScanlineCompositor();
 
   bool Init(FXDIB_Format dest_format,
@@ -22,10 +22,9 @@ class CFX_ScanlineCompositor {
             int32_t width,
             uint32_t* pSrcPalette,
             uint32_t mask_color,
-            int blend_type,
+            BlendMode blend_type,
             bool bClip,
-            bool bRgbByteOrder,
-            int alpha_flag);
+            bool bRgbByteOrder);
 
   void CompositeRgbBitmapLine(uint8_t* dest_scan,
                               const uint8_t* src_scan,
@@ -60,7 +59,7 @@ class CFX_ScanlineCompositor {
                          FXDIB_Format dest_format,
                          const uint32_t* pSrcPalette);
 
-  void InitSourceMask(int alpha_flag, uint32_t mask_color);
+  void InitSourceMask(uint32_t mask_color);
 
   int m_iTransparency;
   FXDIB_Format m_SrcFormat;
@@ -70,8 +69,8 @@ class CFX_ScanlineCompositor {
   int m_MaskRed;
   int m_MaskGreen;
   int m_MaskBlue;
-  int m_BlendType;
-  bool m_bRgbByteOrder;
+  BlendMode m_BlendType = BlendMode::kNormal;
+  bool m_bRgbByteOrder = false;
 };
 
 #endif  // CORE_FXGE_DIB_CFX_SCANLINECOMPOSITOR_H_

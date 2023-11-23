@@ -45,8 +45,8 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['laszio@chromium.org',
-           'chromeos-toolchain-sheriff@grotations.appspotmail.com']
+    'cc': ['tcwang@chromium.org',
+    	   'chromeos-toolchain-oncall1@google.com']
 }
 
 args_dict['job'] = job

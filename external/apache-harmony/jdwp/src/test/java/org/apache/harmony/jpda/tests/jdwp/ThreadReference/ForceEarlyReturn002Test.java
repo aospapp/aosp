@@ -69,7 +69,8 @@ public class ForceEarlyReturn002Test extends JDWPSyncTestCase {
         long testedThreadID = debuggeeWrapper.vmMirror
                 .getThreadID(ForceEarlyReturnDebuggee.THREAD_LONG);
         logWriter.println("==> Get testedThreadID is" + testedThreadID);
-
+        logWriter.println("==> suspend testedThread...");
+        debuggeeWrapper.vmMirror.suspendThread(testedThreadID);
 
         // Compose the ForceEarlyReturn command
         CommandPacket forceEarlyReturnPacket = new CommandPacket(

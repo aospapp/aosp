@@ -20,17 +20,18 @@ toybox generated/unstripped/toybox: toybox_stuff
 
 .PHONY: clean distclean baseline bloatcheck install install_flat \
 	uinstall uninstall_flat tests help toybox_stuff change \
-	list list_working list_pending
+	list list_working list_pending root run_root
 
 include kconfig/Makefile
 -include .singlemake
 
 $(KCONFIG_CONFIG): $(KCONFIG_TOP)
-	@if [ -e "$(KCONFG_CONFIG)" ]; then make silentoldconfig; \
+	@if [ -e "$(KCONFIG_CONFIG)" ]; then make silentoldconfig; \
 	else echo "Not configured (run 'make defconfig' or 'make menuconfig')";\
 	exit 1; fi
 
 $(KCONFIG_TOP): generated/Config.in generated/Config.probed
+generated/Config.probed: generated/Config.in
 generated/Config.in: toys/*/*.c scripts/genconfig.sh
 	scripts/genconfig.sh
 
@@ -59,15 +60,28 @@ uninstall:
 change:
 	scripts/change.sh
 
+root_clean:
+	@rm -rf root
+	@echo root cleaned
+
 clean::
-	rm -rf toybox generated change .singleconfig*
+	@rm -rf toybox generated change .singleconfig* cross-log-*.*
+	@echo cleaned
 
 # If singlemake was in generated/ "make clean; make test_ls" wouldn't work.
-distclean: clean
-	rm -f toybox_old .config* .singlemake
+distclean: clean root_clean
+	@rm -f toybox* .config* .singlemake
+	@echo removed .config
 
 tests:
 	scripts/test.sh
+
+root:
+	scripts/mkroot.sh $(MAKEFLAGS)
+
+run_root:
+	C=$$(basename "$$CROSS_COMPILE" | sed 's/-.*//'); \
+        cd root/"$${C:-host}" && ./qemu-*.sh $(MAKEFLAGS) || exit 1
 
 help::
 	@cat scripts/help.txt

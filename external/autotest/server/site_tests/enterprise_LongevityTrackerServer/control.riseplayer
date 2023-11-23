@@ -10,7 +10,6 @@ TEST_CATEGORY = "Performance"
 TEST_CLASS = "performance"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:kiosk_longevity"
-DEPENDENCIES = "riseplayer"
 
 DOC = """
 This test enrolls ChromeOS device into kiosk mode and captures device resource

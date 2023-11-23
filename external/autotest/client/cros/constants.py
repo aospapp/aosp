@@ -90,8 +90,6 @@ MOCK_OWNER_CERT = 'mock_owner_cert.pem'
 MOCK_OWNER_KEY = 'mock_owner_private.key'
 MOCK_OWNER_POLICY = 'mock_owner.policy'
 
-NETWORK_MANAGER = 'flimflam'
-
 ISSUE_AUTH_TOKEN_URL = '/accounts/IssueAuthToken'
 ISSUE_AUTH_TOKEN_NEW_URL = '/IssueAuthToken'
 
@@ -111,8 +109,6 @@ OAUTH2_GET_AUTH_CODE_URL = '/o/oauth2/programmatic_auth'
 OAUTH2_GET_TOKEN_URL = '/o/oauth2/token'
 
 OWNER_KEY_FILE = WHITELIST_DIR + '/owner.key'
-
-PORTAL_CHECK_URL = '/generate_204'
 
 SERVICE_LOGIN_URL = '/accounts/ServiceLogin'
 SERVICE_LOGIN_NEW_URL = '/ServiceLogin'
@@ -201,6 +197,3 @@ CHROME_VERSION = 'CHROME_VERSION'
 
 # Moblab Environment Constants.
 MOBLAB_USER = 'moblab'
-
-# Variant test keyval
-VARIANT_KEY = 'variant_key'

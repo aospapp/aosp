@@ -16,6 +16,7 @@ java_library_host {
     name: "smali-util",
     srcs: ["src/main/java/**/*.java"],
     libs: [
+        "dexlib2",
         "guava",
         "jcommander",
         "jsr305",

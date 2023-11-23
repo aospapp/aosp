@@ -90,11 +90,11 @@ public class BluetoothFacade extends RpcReceiver {
             if (action.equals(BluetoothDevice.ACTION_FOUND)) {
                 BluetoothDevice device = intent.getParcelableExtra(
                         BluetoothDevice.EXTRA_DEVICE);
-                Log.d("Found device " + device.getAliasName());
+                Log.d("Found device " + device.getAlias());
                 if (!DiscoveredDevices.containsKey(device.getAddress())) {
-                    String name = device.getAliasName();
+                    String name = device.getAlias();
                     if (name != null) {
-                        DiscoveredDevices.put(device.getAliasName(), device);
+                        DiscoveredDevices.put(device.getAlias(), device);
                     }
                     DiscoveredDevices.put(device.getAddress(), device);
                 }
@@ -161,7 +161,7 @@ public class BluetoothFacade extends RpcReceiver {
 
 
     public static boolean deviceMatch(BluetoothDevice device, String deviceID) {
-        return deviceID.equals(device.getAliasName()) || deviceID.equals(
+        return deviceID.equals(device.getAlias()) || deviceID.equals(
                 device.getAddress());
     }
 
@@ -192,9 +192,9 @@ public class BluetoothFacade extends RpcReceiver {
             throws Exception {
         Log.d("Looking for " + deviceID);
         for (BluetoothDevice bd : devices) {
-            Log.d(bd.getAliasName() + " " + bd.getAddress());
+            Log.d(bd.getAlias() + " " + bd.getAddress());
             if (deviceMatch(bd, deviceID)) {
-                Log.d("Found match " + bd.getAliasName() + " " + bd.getAddress());
+                Log.d("Found match " + bd.getAlias() + " " + bd.getAddress());
                 return bd;
             }
         }
@@ -211,7 +211,7 @@ public class BluetoothFacade extends RpcReceiver {
             Collection<BluetoothDevice> devices, String deviceID) {
         for (BluetoothDevice bd : devices) {
             if (deviceMatch(bd, deviceID)) {
-                Log.d("Found match " + bd.getAliasName() + " " + bd.getAddress());
+                Log.d("Found match " + bd.getAlias() + " " + bd.getAddress());
                 return true;
             }
         }
@@ -227,11 +227,11 @@ public class BluetoothFacade extends RpcReceiver {
     @Rpc(description = "Requests that the device be discoverable for Bluetooth connections.")
     public void bluetoothMakeDiscoverable(
             @RpcParameter(name = "duration",
-                          description = "period of time, in seconds,"
+                          description = "period of time, in milliseconds,"
                                       + "during which the device should be discoverable")
-            @RpcDefault("300")
-            Integer duration) {
-        Log.d("Making discoverable for " + duration + " seconds.\n");
+            @RpcDefault("300000")
+            Long duration) {
+        Log.d("Making discoverable for " + duration + " milliseconds.\n");
         mBluetoothAdapter.setScanMode(
                 BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE, duration);
     }

@@ -26,9 +26,8 @@ struct float_buffer {
  *    max_size - The max number of frames this buffer may store.
  *    num_channels - Number of channels of the deinterleaved data.
  */
-static inline struct float_buffer *float_buffer_create(
-		unsigned int max_size,
-		unsigned int num_channels)
+static inline struct float_buffer *
+float_buffer_create(unsigned int max_size, unsigned int num_channels)
 {
 	struct float_buffer *b;
 
@@ -36,9 +35,9 @@ static inline struct float_buffer *float_buffer_create(
 
 	b->num_channels = num_channels;
 	b->fp = (float **)malloc(num_channels * sizeof(float *));
-	b->buf = (struct byte_buffer *)
-		calloc(1, sizeof(struct byte_buffer) +
-			max_size * num_channels * sizeof(float));
+	b->buf = (struct byte_buffer *)calloc(
+		1, sizeof(struct byte_buffer) +
+			   max_size * num_channels * sizeof(float));
 	b->buf->max_size = max_size;
 	b->buf->used_size = max_size;
 	return b;
@@ -119,8 +118,7 @@ static inline void float_buffer_reset(struct float_buffer *b)
 }
 
 /* Marks |nread| frames as read in float_buffer. */
-static inline void float_buffer_read(struct float_buffer *b,
-				     unsigned int nread)
+static inline void float_buffer_read(struct float_buffer *b, unsigned int nread)
 {
 	buf_increment_read(b->buf, nread);
 }

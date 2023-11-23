@@ -18,7 +18,7 @@ ERROR_BEHAVIOR_NOTIFIER = 'notify'  # for platform specific behavior.
 
 # Default configuration for verity_image
 DEFAULT_TARGET_NAME = 'verity_image'
-DEFAULT_ALG = 'sha1'
+DEFAULT_ALG = 'sha256'
 DEFAULT_IMAGE_SIZE_IN_BLOCKS = 100
 DEFAULT_ERROR_BEHAVIOR = ERROR_BEHAVIOR_ERROR
 # TODO(wad) make this configurable when dm-verity doesn't hard-code 4096.

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="es"/>
 	</identity>
 	<annotations>
@@ -23,52 +23,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏾" type="tts">tono de piel oscuro medio</annotation>
 		<annotation cp="🏿">piel | tipo 6 | tono | tono de piel | tono de piel oscuro</annotation>
 		<annotation cp="🏿" type="tts">tono de piel oscuro</annotation>
+		<annotation cp="⚧">símbolo de transgénero | transgénero</annotation>
+		<annotation cp="⚧" type="tts">símbolo de transgénero</annotation>
+		<annotation cp="🤌">dedos | dedos juntos apuntando hacia arriba | gesto | italia | italiano | mano | sarcasmo</annotation>
+		<annotation cp="🤌" type="tts">dedos juntos apuntando hacia arriba</annotation>
+		<annotation cp="🥲">agradecido | aliviado | cara sonriente con lágrima | emocionado | lágrima | orgulloso | sonrisa</annotation>
+		<annotation cp="🥲" type="tts">cara sonriente con lágrima</annotation>
+		<annotation cp="🥷">furtivo | luchador | ninja | oculto | sigilo</annotation>
+		<annotation cp="🥷" type="tts">ninja</annotation>
+		<annotation cp="🥸">cara disfrazada | careta | disfraz | disimulo | gafas | incógnito | nariz</annotation>
+		<annotation cp="🥸" type="tts">cara disfrazada</annotation>
+		<annotation cp="🦣">colmillo | extinguido | lanudo | mamut</annotation>
+		<annotation cp="🦣" type="tts">mamut</annotation>
+		<annotation cp="🦤">ave | dodo | dronte | extinguido | Mauricio | pájaro</annotation>
+		<annotation cp="🦤" type="tts">dodo</annotation>
+		<annotation cp="🦫">castor | roedor</annotation>
+		<annotation cp="🦫" type="tts">castor</annotation>
+		<annotation cp="🦬">bisonte | búfalo | cíbolo</annotation>
+		<annotation cp="🦬" type="tts">bisonte</annotation>
+		<annotation cp="🦭">foca | león marino</annotation>
+		<annotation cp="🦭" type="tts">foca</annotation>
+		<annotation cp="🧋">boba | burbuja | leche | perla | té | té de burbujas</annotation>
+		<annotation cp="🧋" type="tts">té de burbujas</annotation>
+		<annotation cp="🩴">chancla | chancla de dedo | chancleta | chinela | sandalia</annotation>
+		<annotation cp="🩴" type="tts">chancla</annotation>
+		<annotation cp="🪃">australia | boomerang | bumerán | rebotar</annotation>
+		<annotation cp="🪃" type="tts">bumerán</annotation>
+		<annotation cp="🪄">bruja | hechicero | magia | mago | prestidigitación | varita | varita mágica</annotation>
+		<annotation cp="🪄" type="tts">varita mágica</annotation>
+		<annotation cp="🪅">caballito | celebración | fiesta | piñata</annotation>
+		<annotation cp="🪅" type="tts">piñata</annotation>
+		<annotation cp="🪆">babushka | mamushka | matrioska | muñeca rusa | rusia</annotation>
+		<annotation cp="🪆" type="tts">muñeca rusa</annotation>
+		<annotation cp="🪖">casco | casco militar | ejército | guerra | guerrero | soldado</annotation>
+		<annotation cp="🪖" type="tts">casco militar</annotation>
+		<annotation cp="🪗">acordeón | concertina</annotation>
+		<annotation cp="🪗" type="tts">acordeón</annotation>
+		<annotation cp="🪘">conga | ritmo | tambor | tamboril</annotation>
+		<annotation cp="🪘" type="tts">tamboril</annotation>
+		<annotation cp="🪙">dinero | metal | moneda | oro | plata | tesoro</annotation>
+		<annotation cp="🪙" type="tts">moneda</annotation>
+		<annotation cp="🪚">carpintería | carpintero | herramienta | sierra | sierra de carpintería | talar</annotation>
+		<annotation cp="🪚" type="tts">sierra de carpintería</annotation>
+		<annotation cp="🪛">atornillador | destornillador | herramienta | tornillo</annotation>
+		<annotation cp="🪛" type="tts">destornillador</annotation>
+		<annotation cp="🪜">escalar | escalera | escalerilla | escalón | peldaño</annotation>
+		<annotation cp="🪜" type="tts">escalera</annotation>
+		<annotation cp="🪝">agarrar | anzuelo | atrapar | gancho | garfio</annotation>
+		<annotation cp="🪝" type="tts">gancho</annotation>
+		<annotation cp="🪞">espéculo | espejo | reflector | reflejo</annotation>
+		<annotation cp="🪞" type="tts">espejo</annotation>
+		<annotation cp="🪟">abertura | apertura | cristal | marco | transparente | ventana | vista</annotation>
+		<annotation cp="🪟" type="tts">ventana</annotation>
+		<annotation cp="🪠">desatascador | fontanero | retrete | servicio | succión</annotation>
+		<annotation cp="🪠" type="tts">desatascador</annotation>
+		<annotation cp="🪡">aguja | aguja de coser | bordado | coser | hilar | punto | tejer</annotation>
+		<annotation cp="🪡" type="tts">aguja de coser</annotation>
+		<annotation cp="🪢">anudar | atar | enredar | nudo | trenzar</annotation>
+		<annotation cp="🪢" type="tts">nudo</annotation>
+		<annotation cp="🪣">balde | barreño | cuba | cubeta | cubo</annotation>
+		<annotation cp="🪣" type="tts">cubo</annotation>
+		<annotation cp="🪤">cebo | cepo | engañar | ratón | ratonera | trampa | trampa de ratones</annotation>
+		<annotation cp="🪤" type="tts">trampa de ratones</annotation>
+		<annotation cp="🪥">cepillo | cepillo de dientes | dental | higiene | limpio | servicio</annotation>
+		<annotation cp="🪥" type="tts">cepillo de dientes</annotation>
+		<annotation cp="🪦">cementario | estela | lápida | sepulcro | tumba</annotation>
+		<annotation cp="🪦" type="tts">lápida</annotation>
+		<annotation cp="🪧">anuncio | aviso | cartel | letrero | pancarta | poste</annotation>
+		<annotation cp="🪧" type="tts">letrero</annotation>
+		<annotation cp="🪨">pedrusco | peña | peñasco | piedra | roca</annotation>
+		<annotation cp="🪨" type="tts">piedra</annotation>
+		<annotation cp="🪰">basura | bicho | mal olor | mosca | podrido</annotation>
+		<annotation cp="🪰" type="tts">mosca</annotation>
+		<annotation cp="🪱">gusano | lombriz | oruga | parásito</annotation>
+		<annotation cp="🪱" type="tts">gusano</annotation>
+		<annotation cp="🪲">bicho | escarabajo | insecto</annotation>
+		<annotation cp="🪲" type="tts">escarabajo</annotation>
+		<annotation cp="🪳">alimaña | bicho | cucaracha | insecto | plaga</annotation>
+		<annotation cp="🪳" type="tts">cucaracha</annotation>
+		<annotation cp="🪴">crecer | maceta | planta | planta de maceta | tiesto</annotation>
+		<annotation cp="🪴" type="tts">planta de maceta</annotation>
+		<annotation cp="🪵">hoguera | leña | madera | madero | palos | tronco</annotation>
+		<annotation cp="🪵" type="tts">madera</annotation>
+		<annotation cp="🪶">ave | ligero | pájaro | pluma | plumaje</annotation>
+		<annotation cp="🪶" type="tts">pluma</annotation>
+		<annotation cp="🫀">centro | corazón humano | latido | núcleo | órgano | pulso</annotation>
+		<annotation cp="🫀" type="tts">corazón humano</annotation>
+		<annotation cp="🫁">exhalar | inhalar | órgano | pulmones | respirar</annotation>
+		<annotation cp="🫁" type="tts">pulmones</annotation>
+		<annotation cp="🫂">abrazo | adiós | despedida | gracias | personas abrazándose | saludo</annotation>
+		<annotation cp="🫂" type="tts">personas abrazándose</annotation>
+		<annotation cp="🫐">arándano | arándanos | azul | baya | frutos del bosque | mirtilo</annotation>
+		<annotation cp="🫐" type="tts">arándanos</annotation>
+		<annotation cp="🫑">ají | chile | morrón | pimiento | rojo | verdura</annotation>
+		<annotation cp="🫑" type="tts">pimiento</annotation>
+		<annotation cp="🫒">aceituna | aperitivo | comida | oliva</annotation>
+		<annotation cp="🫒" type="tts">aceituna</annotation>
+		<annotation cp="🫓">arepa | naan | pan sin levadura | pita | tortilla</annotation>
+		<annotation cp="🫓" type="tts">pan sin levadura</annotation>
+		<annotation cp="🫔">méxico | tamal | wrap</annotation>
+		<annotation cp="🫔" type="tts">tamal</annotation>
+		<annotation cp="🫕">chocolate | fondue | olla | queso | suizo</annotation>
+		<annotation cp="🫕" type="tts">fondue</annotation>
+		<annotation cp="🫖">bebida | infusión | té | tetera</annotation>
+		<annotation cp="🫖" type="tts">tetera</annotation>
+		<annotation cp="🛖">cabaña | casa | yurta</annotation>
+		<annotation cp="🛖" type="tts">cabaña</annotation>
+		<annotation cp="🛗">accesibilidad | ascensor | elevador | montacargas</annotation>
+		<annotation cp="🛗" type="tts">ascensor</annotation>
+		<annotation cp="🛻">camioneta | furgoneta | pickup</annotation>
+		<annotation cp="🛻" type="tts">camioneta</annotation>
+		<annotation cp="🛼">patín | patín de 4 ruedas | patines | patines de 4 ruedas</annotation>
+		<annotation cp="🛼" type="tts">patines</annotation>
 		<annotation cp="😀">cara | cara sonriendo | divertido | feliz | sonrisa</annotation>
 		<annotation cp="😀" type="tts">cara sonriendo</annotation>
-		<annotation cp="😁">cara | cara radiante con ojos sonrientes | ojo | risa | sonrisa</annotation>
-		<annotation cp="😁" type="tts">cara radiante con ojos sonrientes</annotation>
-		<annotation cp="😂">cara | cara llorando de risa | felicidad | lágrima | risa</annotation>
-		<annotation cp="😂" type="tts">cara llorando de risa</annotation>
-		<annotation cp="🤣">cara | cara revolviéndose de la risa | carcajada | ojos cerrados | risa</annotation>
-		<annotation cp="🤣" type="tts">cara revolviéndose de la risa</annotation>
 		<annotation cp="😃">cara | cara sonriendo con ojos grandes | divertido | risa | sonriendo</annotation>
 		<annotation cp="😃" type="tts">cara sonriendo con ojos grandes</annotation>
 		<annotation cp="😄">abierta | cara | cara sonriendo con ojos sonrientes | ojo | sonrisa</annotation>
 		<annotation cp="😄" type="tts">cara sonriendo con ojos sonrientes</annotation>
-		<annotation cp="😅">cara | cara sonriendo con sudor frío | frío | risa | sudor</annotation>
-		<annotation cp="😅" type="tts">cara sonriendo con sudor frío</annotation>
+		<annotation cp="😁">cara | cara radiante con ojos sonrientes | ojo | risa | sonrisa</annotation>
+		<annotation cp="😁" type="tts">cara radiante con ojos sonrientes</annotation>
 		<annotation cp="😆">abierta | boca | cara | cara sonriendo con los ojos cerrados | risa</annotation>
 		<annotation cp="😆" type="tts">cara sonriendo con los ojos cerrados</annotation>
+		<annotation cp="😅">cara | cara sonriendo con sudor frío | frío | risa | sudor</annotation>
+		<annotation cp="😅" type="tts">cara sonriendo con sudor frío</annotation>
+		<annotation cp="🤣">cara | cara revolviéndose de la risa | carcajada | ojos cerrados | risa</annotation>
+		<annotation cp="🤣" type="tts">cara revolviéndose de la risa</annotation>
+		<annotation cp="😂">cara | cara llorando de risa | felicidad | lágrima | risa</annotation>
+		<annotation cp="😂" type="tts">cara llorando de risa</annotation>
+		<annotation cp="🙂">cara | cara sonriendo ligeramente | sonrisa</annotation>
+		<annotation cp="🙂" type="tts">cara sonriendo ligeramente</annotation>
+		<annotation cp="🙃">cara | cara al revés | revés</annotation>
+		<annotation cp="🙃" type="tts">cara al revés</annotation>
 		<annotation cp="😉">cara | cara guiñando el ojo | guiño</annotation>
 		<annotation cp="😉" type="tts">cara guiñando el ojo</annotation>
 		<annotation cp="😊">cara | cara feliz con ojos sonrientes | ojo | rubor | sonrisa</annotation>
 		<annotation cp="😊" type="tts">cara feliz con ojos sonrientes</annotation>
-		<annotation cp="😋">cara | cara saboreando comida | delicioso | hambre | rico</annotation>
-		<annotation cp="😋" type="tts">cara saboreando comida</annotation>
-		<annotation cp="😎">cara | cara sonriendo con gafas de sol | gafas | guay | sol</annotation>
-		<annotation cp="😎" type="tts">cara sonriendo con gafas de sol</annotation>
+		<annotation cp="😇">ángel | cara | cara sonriendo con aureola | halo | sonrisa</annotation>
+		<annotation cp="😇" type="tts">cara sonriendo con aureola</annotation>
+		<annotation cp="🥰">adorar | amor | cara sonriendo con corazones | corazones | enamorada | enamorado</annotation>
+		<annotation cp="🥰" type="tts">cara sonriendo con corazones</annotation>
 		<annotation cp="😍">amor | cara | cara sonriendo con ojos de corazón | corazón | sonrisa</annotation>
 		<annotation cp="😍" type="tts">cara sonriendo con ojos de corazón</annotation>
-		<annotation cp="😘">beso | cara | cara lanzando un beso</annotation>
-		<annotation cp="😘" type="tts">cara lanzando un beso</annotation>
-		<annotation cp="🥰">adorar | cara sonriendo con 3 corazones | enamorada | enamorado</annotation>
-		<annotation cp="🥰" type="tts">cara sonriendo con 3 corazones</annotation>
-		<annotation cp="😗">beso | cara | cara besando</annotation>
-		<annotation cp="😗" type="tts">cara besando</annotation>
-		<annotation cp="😙">beso | cara | cara besando con ojos sonrientes | ojo | sonrisa</annotation>
-		<annotation cp="😙" type="tts">cara besando con ojos sonrientes</annotation>
-		<annotation cp="😚">beso | cara | cara besando con los ojos cerrados | cerrado | ojo</annotation>
-		<annotation cp="😚" type="tts">cara besando con los ojos cerrados</annotation>
-		<annotation cp="☺">cara | cara sonriente | contorno | relajado | sonrisa</annotation>
-		<annotation cp="☺" type="tts">cara sonriente</annotation>
-		<annotation cp="🙂">cara | cara sonriendo ligeramente | sonrisa</annotation>
-		<annotation cp="🙂" type="tts">cara sonriendo ligeramente</annotation>
-		<annotation cp="🤗">abrazo | cara | cara con manos abrazando | sonrisa</annotation>
-		<annotation cp="🤗" type="tts">cara con manos abrazando</annotation>
 		<annotation cp="🤩">cara | cara sonriendo con estrellas | estrellas | sonrisa</annotation>
 		<annotation cp="🤩" type="tts">cara sonriendo con estrellas</annotation>
+		<annotation cp="😘">beso | cara | cara lanzando un beso</annotation>
+		<annotation cp="😘" type="tts">cara lanzando un beso</annotation>
+		<annotation cp="😗">beso | cara | cara besando</annotation>
+		<annotation cp="😗" type="tts">cara besando</annotation>
+		<annotation cp="☺">cara | cara sonriente | contorno | relajado | sonrisa</annotation>
+		<annotation cp="☺" type="tts">cara sonriente</annotation>
+		<annotation cp="😚">beso | cara | cara besando con los ojos cerrados | cerrado | ojo</annotation>
+		<annotation cp="😚" type="tts">cara besando con los ojos cerrados</annotation>
+		<annotation cp="😙">beso | cara | cara besando con ojos sonrientes | ojo | sonrisa</annotation>
+		<annotation cp="😙" type="tts">cara besando con ojos sonrientes</annotation>
+		<annotation cp="😋">cara | cara saboreando comida | delicioso | hambre | rico</annotation>
+		<annotation cp="😋" type="tts">cara saboreando comida</annotation>
+		<annotation cp="😛">cara | cara sacando la lengua | lengua</annotation>
+		<annotation cp="😛" type="tts">cara sacando la lengua</annotation>
+		<annotation cp="😜">cara | cara sacando la lengua y guiñando un ojo | guiño | lengua | ojo</annotation>
+		<annotation cp="😜" type="tts">cara sacando la lengua y guiñando un ojo</annotation>
+		<annotation cp="🤪">cara de loco | grande | ojo | pequeño</annotation>
+		<annotation cp="🤪" type="tts">cara de loco</annotation>
+		<annotation cp="😝">cara | cara con ojos cerrados y lengua fuera | lengua | ojo | sabor</annotation>
+		<annotation cp="😝" type="tts">cara con ojos cerrados y lengua fuera</annotation>
+		<annotation cp="🤑">boca | cara | cara con lengua de dinero | dinero</annotation>
+		<annotation cp="🤑" type="tts">cara con lengua de dinero</annotation>
+		<annotation cp="🤗">abrazo | cara | cara con manos abrazando | sonrisa</annotation>
+		<annotation cp="🤗" type="tts">cara con manos abrazando</annotation>
+		<annotation cp="🤭">cara con mano sobre la boca | ostras | uy | vaya</annotation>
+		<annotation cp="🤭" type="tts">cara con mano sobre la boca</annotation>
+		<annotation cp="🤫">callado | cara pidiendo silencio | silencio</annotation>
+		<annotation cp="🤫" type="tts">cara pidiendo silencio</annotation>
 		<annotation cp="🤔">cara | cara pensativa | pensando</annotation>
 		<annotation cp="🤔" type="tts">cara pensativa</annotation>
+		<annotation cp="🤐">boca | cara | cara con la boca cerrada con cremallera | cremallera</annotation>
+		<annotation cp="🤐" type="tts">cara con la boca cerrada con cremallera</annotation>
 		<annotation cp="🤨">cara con ceja alzada | desconfiado | escéptico</annotation>
 		<annotation cp="🤨" type="tts">cara con ceja alzada</annotation>
 		<annotation cp="😐">cara | inexpresivo | neutral</annotation>
@@ -77,98 +207,26 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😑" type="tts">cara sin expresión</annotation>
 		<annotation cp="😶">boca | callado | cara | cara sin boca | silencio</annotation>
 		<annotation cp="😶" type="tts">cara sin boca</annotation>
-		<annotation cp="🙄">cara | cara con ojos en blanco | frustración | ojos | vueltos</annotation>
-		<annotation cp="🙄" type="tts">cara con ojos en blanco</annotation>
 		<annotation cp="😏">cara | cara sonriendo con superioridad | listillo | superioridad</annotation>
 		<annotation cp="😏" type="tts">cara sonriendo con superioridad</annotation>
-		<annotation cp="😣">cara | cara desesperada | desesperación | frustración</annotation>
-		<annotation cp="😣" type="tts">cara desesperada</annotation>
-		<annotation cp="😥">aliviado | cara | cara triste pero aliviada | decepcionado | menos mal</annotation>
-		<annotation cp="😥" type="tts">cara triste pero aliviada</annotation>
-		<annotation cp="😮">boca | cara | cara con la boca abierta</annotation>
-		<annotation cp="😮" type="tts">cara con la boca abierta</annotation>
-		<annotation cp="🤐">boca | cara | cara con la boca cerrada con cremallera | cremallera</annotation>
-		<annotation cp="🤐" type="tts">cara con la boca cerrada con cremallera</annotation>
-		<annotation cp="😯">alucinado | cara | cara estupefacta | estupefacto | sorprendido</annotation>
-		<annotation cp="😯" type="tts">cara estupefacta</annotation>
-		<annotation cp="😪">cara | cara de sueño | dormir | sueño</annotation>
-		<annotation cp="😪" type="tts">cara de sueño</annotation>
-		<annotation cp="😫">cansado | cara | cara cansada</annotation>
-		<annotation cp="😫" type="tts">cara cansada</annotation>
-		<annotation cp="😴">cara | cara durmiendo | dormido | sueño | zzz</annotation>
-		<annotation cp="😴" type="tts">cara durmiendo</annotation>
-		<annotation cp="😌">aliviado | cara | cara de alivio</annotation>
-		<annotation cp="😌" type="tts">cara de alivio</annotation>
-		<annotation cp="😛">cara | cara sacando la lengua | lengua</annotation>
-		<annotation cp="😛" type="tts">cara sacando la lengua</annotation>
-		<annotation cp="😜">cara | cara sacando la lengua y guiñando un ojo | guiño | lengua | ojo</annotation>
-		<annotation cp="😜" type="tts">cara sacando la lengua y guiñando un ojo</annotation>
-		<annotation cp="😝">cara | cara con ojos cerrados y lengua fuera | lengua | ojo | sabor</annotation>
-		<annotation cp="😝" type="tts">cara con ojos cerrados y lengua fuera</annotation>
-		<annotation cp="🤤">baba | babeando | cara</annotation>
-		<annotation cp="🤤" type="tts">cara babeando</annotation>
 		<annotation cp="😒">cara | cara de desaprobación | insatisfacción | rechazo</annotation>
 		<annotation cp="😒" type="tts">cara de desaprobación</annotation>
-		<annotation cp="😓">cara | cara con sudor frío | frío | sudor</annotation>
-		<annotation cp="😓" type="tts">cara con sudor frío</annotation>
-		<annotation cp="😔">alicaído | cara | cara desanimada | desanimado | pensativo</annotation>
-		<annotation cp="😔" type="tts">cara desanimada</annotation>
-		<annotation cp="😕">cara | cara de confusión | confuso</annotation>
-		<annotation cp="😕" type="tts">cara de confusión</annotation>
-		<annotation cp="🙃">cara | cara al revés | revés</annotation>
-		<annotation cp="🙃" type="tts">cara al revés</annotation>
-		<annotation cp="🤑">boca | cara | cara con lengua de dinero | dinero</annotation>
-		<annotation cp="🤑" type="tts">cara con lengua de dinero</annotation>
-		<annotation cp="😲">alucinado | asombrado | cara | cara asombrada | pasmado</annotation>
-		<annotation cp="😲" type="tts">cara asombrada</annotation>
-		<annotation cp="☹">cara | cara con el ceño fruncido | ceño | fruncido</annotation>
-		<annotation cp="☹" type="tts">cara con el ceño fruncido</annotation>
-		<annotation cp="🙁">cara | cara con el ceño ligeramente fruncido | ceño | fruncido</annotation>
-		<annotation cp="🙁" type="tts">cara con el ceño ligeramente fruncido</annotation>
-		<annotation cp="😖">cara | cara de frustración | frustrado</annotation>
-		<annotation cp="😖" type="tts">cara de frustración</annotation>
-		<annotation cp="😞">cara | cara decepcionada | decepción | decepcionado</annotation>
-		<annotation cp="😞" type="tts">cara decepcionada</annotation>
-		<annotation cp="😟">cara | cara preocupada | preocupación | preocupado</annotation>
-		<annotation cp="😟" type="tts">cara preocupada</annotation>
-		<annotation cp="😤">cabreo | cara | cara resoplando | enfado</annotation>
-		<annotation cp="😤" type="tts">cara resoplando</annotation>
-		<annotation cp="😢">cara | cara llorando | lágrima | llorar | triste</annotation>
-		<annotation cp="😢" type="tts">cara llorando</annotation>
-		<annotation cp="😭">cara | cara llorando fuerte | lágrima | llorar | triste</annotation>
-		<annotation cp="😭" type="tts">cara llorando fuerte</annotation>
-		<annotation cp="😦">boca abierta | cara | cara con el ceño fruncido y la boca abierta | ceño fruncido con boca abierta</annotation>
-		<annotation cp="😦" type="tts">cara con el ceño fruncido y la boca abierta</annotation>
-		<annotation cp="😧">angustia | angustiado | cara | cara angustiada</annotation>
-		<annotation cp="😧" type="tts">cara angustiada</annotation>
-		<annotation cp="😨">asustado | cara | cara asustada | miedo | miedoso</annotation>
-		<annotation cp="😨" type="tts">cara asustada</annotation>
-		<annotation cp="😩">agotado | cansado | cara | cara agotada</annotation>
-		<annotation cp="😩" type="tts">cara agotada</annotation>
-		<annotation cp="🤯">cabeza | cabeza explotando | explosión</annotation>
-		<annotation cp="🤯" type="tts">cabeza explotando</annotation>
+		<annotation cp="🙄">cara | cara con ojos en blanco | frustración | ojos | vueltos</annotation>
+		<annotation cp="🙄" type="tts">cara con ojos en blanco</annotation>
 		<annotation cp="😬">cara | cara haciendo una mueca | mueca</annotation>
 		<annotation cp="😬" type="tts">cara haciendo una mueca</annotation>
-		<annotation cp="😰">ansiedad | cara | cara con ansiedad y sudor | frío | sudor</annotation>
-		<annotation cp="😰" type="tts">cara con ansiedad y sudor</annotation>
-		<annotation cp="😱">asustado | cara | cara gritando de miedo | miedo | pánico</annotation>
-		<annotation cp="😱" type="tts">cara gritando de miedo</annotation>
-		<annotation cp="🥵">calor | cara con calor | cara roja | fiebre | golpe de calor | sudor</annotation>
-		<annotation cp="🥵" type="tts">cara con calor</annotation>
-		<annotation cp="🥶">cara con frío | cara congelada | congelado | frío | helado</annotation>
-		<annotation cp="🥶" type="tts">cara con frío</annotation>
-		<annotation cp="😳">cara | cara sonrojada | colorado | sonrojado</annotation>
-		<annotation cp="😳" type="tts">cara sonrojada</annotation>
-		<annotation cp="🤪">cara de loco | grande | ojo | pequeño</annotation>
-		<annotation cp="🤪" type="tts">cara de loco</annotation>
-		<annotation cp="😵">cara | cara mareada | mareo</annotation>
-		<annotation cp="😵" type="tts">cara mareada</annotation>
-		<annotation cp="😡">cabreo | cara | cara cabreada | enfadado | furia</annotation>
-		<annotation cp="😡" type="tts">cara cabreada</annotation>
-		<annotation cp="😠">cara | cara enfadada | enfadado | histérico</annotation>
-		<annotation cp="😠" type="tts">cara enfadada</annotation>
-		<annotation cp="🤬">cara con símbolos en la boca | maldecir | palabrota | símbolo</annotation>
-		<annotation cp="🤬" type="tts">cara con símbolos en la boca</annotation>
+		<annotation cp="🤥">cara | cara de mentiroso | mentiroso | nariz | pinocho</annotation>
+		<annotation cp="🤥" type="tts">cara de mentiroso</annotation>
+		<annotation cp="😌">aliviado | cara | cara de alivio</annotation>
+		<annotation cp="😌" type="tts">cara de alivio</annotation>
+		<annotation cp="😔">alicaído | cara | cara desanimada | desanimado | pensativo</annotation>
+		<annotation cp="😔" type="tts">cara desanimada</annotation>
+		<annotation cp="😪">cara | cara de sueño | dormir | sueño</annotation>
+		<annotation cp="😪" type="tts">cara de sueño</annotation>
+		<annotation cp="🤤">baba | babeando | cara</annotation>
+		<annotation cp="🤤" type="tts">cara babeando</annotation>
+		<annotation cp="😴">cara | cara durmiendo | dormido | sueño | zzz</annotation>
+		<annotation cp="😴" type="tts">cara durmiendo</annotation>
 		<annotation cp="😷">cara | cara con mascarilla médica | enfermo | malo | máscara</annotation>
 		<annotation cp="😷" type="tts">cara con mascarilla médica</annotation>
 		<annotation cp="🤒">cara | cara con termómetro | enfermo | malo | termómetro</annotation>
@@ -181,74 +239,296 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤮" type="tts">cara vomitando</annotation>
 		<annotation cp="🤧">cara | cara estornudando | estornudar | estornudo | pañuelo</annotation>
 		<annotation cp="🤧" type="tts">cara estornudando</annotation>
-		<annotation cp="😇">ángel | cara | cara sonriendo con aureola | halo | sonrisa</annotation>
-		<annotation cp="😇" type="tts">cara sonriendo con aureola</annotation>
+		<annotation cp="🥵">calor | cara con calor | cara roja | fiebre | golpe de calor | sudor</annotation>
+		<annotation cp="🥵" type="tts">cara con calor</annotation>
+		<annotation cp="🥶">cara con frío | cara congelada | congelado | frío | helado</annotation>
+		<annotation cp="🥶" type="tts">cara con frío</annotation>
+		<annotation cp="🥴">atontado | cara de grogui | entonado | grogui | intoxicado | mareado</annotation>
+		<annotation cp="🥴" type="tts">cara de grogui</annotation>
+		<annotation cp="😵">cara | cara mareada | mareo</annotation>
+		<annotation cp="😵" type="tts">cara mareada</annotation>
+		<annotation cp="🤯">cabeza | cabeza explotando | explosión</annotation>
+		<annotation cp="🤯" type="tts">cabeza explotando</annotation>
 		<annotation cp="🤠">cara | cara con sombrero de vaquero | sombrero | vaquera | vaquero</annotation>
 		<annotation cp="🤠" type="tts">cara con sombrero de vaquero</annotation>
 		<annotation cp="🥳">capirote | cara de fiesta | celebración | fiesta | gorro | matasuegras</annotation>
 		<annotation cp="🥳" type="tts">cara de fiesta</annotation>
-		<annotation cp="🥴">atontado | cara de grogui | entonado | grogui | intoxicado | mareado</annotation>
-		<annotation cp="🥴" type="tts">cara de grogui</annotation>
-		<annotation cp="🥺">cara de por favor | implorar | ojos adorables | piedad | por favor</annotation>
-		<annotation cp="🥺" type="tts">cara de por favor</annotation>
-		<annotation cp="🤥">cara | cara de mentiroso | mentiroso | nariz | pinocho</annotation>
-		<annotation cp="🤥" type="tts">cara de mentiroso</annotation>
-		<annotation cp="🤫">callado | cara pidiendo silencio | silencio</annotation>
-		<annotation cp="🤫" type="tts">cara pidiendo silencio</annotation>
-		<annotation cp="🤭">cara con mano sobre la boca | ostras | uy | vaya</annotation>
-		<annotation cp="🤭" type="tts">cara con mano sobre la boca</annotation>
-		<annotation cp="🧐">aristocrático | cara con monóculo | estirado</annotation>
-		<annotation cp="🧐" type="tts">cara con monóculo</annotation>
+		<annotation cp="😎">cara | cara sonriendo con gafas de sol | gafas | guay | sol</annotation>
+		<annotation cp="😎" type="tts">cara sonriendo con gafas de sol</annotation>
 		<annotation cp="🤓">cara | cara de empollón | empollón | friki | friqui</annotation>
 		<annotation cp="🤓" type="tts">cara de empollón</annotation>
+		<annotation cp="🧐">aristocrático | cara con monóculo | estirado</annotation>
+		<annotation cp="🧐" type="tts">cara con monóculo</annotation>
+		<annotation cp="😕">cara | cara de confusión | confuso</annotation>
+		<annotation cp="😕" type="tts">cara de confusión</annotation>
+		<annotation cp="😟">cara | cara preocupada | preocupación | preocupado</annotation>
+		<annotation cp="😟" type="tts">cara preocupada</annotation>
+		<annotation cp="🙁">cara | cara con el ceño ligeramente fruncido | ceño | fruncido</annotation>
+		<annotation cp="🙁" type="tts">cara con el ceño ligeramente fruncido</annotation>
+		<annotation cp="☹">cara | cara con el ceño fruncido | ceño | fruncido</annotation>
+		<annotation cp="☹" type="tts">cara con el ceño fruncido</annotation>
+		<annotation cp="😮">boca | cara | cara con la boca abierta</annotation>
+		<annotation cp="😮" type="tts">cara con la boca abierta</annotation>
+		<annotation cp="😯">alucinado | cara | cara estupefacta | estupefacto | sorprendido</annotation>
+		<annotation cp="😯" type="tts">cara estupefacta</annotation>
+		<annotation cp="😲">alucinado | asombrado | cara | cara asombrada | pasmado</annotation>
+		<annotation cp="😲" type="tts">cara asombrada</annotation>
+		<annotation cp="😳">cara | cara sonrojada | colorado | sonrojado</annotation>
+		<annotation cp="😳" type="tts">cara sonrojada</annotation>
+		<annotation cp="🥺">cara de por favor | implorar | ojos adorables | piedad | por favor</annotation>
+		<annotation cp="🥺" type="tts">cara de por favor</annotation>
+		<annotation cp="😦">boca abierta | cara | cara con el ceño fruncido y la boca abierta | ceño fruncido con boca abierta</annotation>
+		<annotation cp="😦" type="tts">cara con el ceño fruncido y la boca abierta</annotation>
+		<annotation cp="😧">angustia | angustiado | cara | cara angustiada</annotation>
+		<annotation cp="😧" type="tts">cara angustiada</annotation>
+		<annotation cp="😨">asustado | cara | cara asustada | miedo | miedoso</annotation>
+		<annotation cp="😨" type="tts">cara asustada</annotation>
+		<annotation cp="😰">ansiedad | cara | cara con ansiedad y sudor | frío | sudor</annotation>
+		<annotation cp="😰" type="tts">cara con ansiedad y sudor</annotation>
+		<annotation cp="😥">aliviado | cara | cara triste pero aliviada | decepcionado | menos mal</annotation>
+		<annotation cp="😥" type="tts">cara triste pero aliviada</annotation>
+		<annotation cp="😢">cara | cara llorando | lágrima | llorar | triste</annotation>
+		<annotation cp="😢" type="tts">cara llorando</annotation>
+		<annotation cp="😭">cara | cara llorando fuerte | lágrima | llorar | triste</annotation>
+		<annotation cp="😭" type="tts">cara llorando fuerte</annotation>
+		<annotation cp="😱">asustado | cara | cara gritando de miedo | miedo | pánico</annotation>
+		<annotation cp="😱" type="tts">cara gritando de miedo</annotation>
+		<annotation cp="😖">cara | cara de frustración | frustrado</annotation>
+		<annotation cp="😖" type="tts">cara de frustración</annotation>
+		<annotation cp="😣">cara | cara desesperada | desesperación | frustración</annotation>
+		<annotation cp="😣" type="tts">cara desesperada</annotation>
+		<annotation cp="😞">cara | cara decepcionada | decepción | decepcionado</annotation>
+		<annotation cp="😞" type="tts">cara decepcionada</annotation>
+		<annotation cp="😓">cara | cara con sudor frío | frío | sudor</annotation>
+		<annotation cp="😓" type="tts">cara con sudor frío</annotation>
+		<annotation cp="😩">agotado | cansado | cara | cara agotada</annotation>
+		<annotation cp="😩" type="tts">cara agotada</annotation>
+		<annotation cp="😫">cansado | cara | cara cansada</annotation>
+		<annotation cp="😫" type="tts">cara cansada</annotation>
+		<annotation cp="🥱">aburrido | bostezo | cansado | cara de bostezo | dormido | sueño</annotation>
+		<annotation cp="🥱" type="tts">cara de bostezo</annotation>
+		<annotation cp="😤">cabreo | cara | cara resoplando | enfado</annotation>
+		<annotation cp="😤" type="tts">cara resoplando</annotation>
+		<annotation cp="😡">cabreo | cara | cara cabreada | enfadado | furia</annotation>
+		<annotation cp="😡" type="tts">cara cabreada</annotation>
+		<annotation cp="😠">cara | cara enfadada | enfadado | histérico</annotation>
+		<annotation cp="😠" type="tts">cara enfadada</annotation>
+		<annotation cp="🤬">cara con símbolos en la boca | maldecir | palabrota | símbolo</annotation>
+		<annotation cp="🤬" type="tts">cara con símbolos en la boca</annotation>
 		<annotation cp="😈">cara | cara sonriendo con cuernos | cuernos | demonio | sonrisa</annotation>
 		<annotation cp="😈" type="tts">cara sonriendo con cuernos</annotation>
 		<annotation cp="👿">cara | cara enfadada con cuernos | cuernos | demonio | diablo</annotation>
 		<annotation cp="👿" type="tts">cara enfadada con cuernos</annotation>
+		<annotation cp="💀">calavera | cara | cuento | monstruo | muerte</annotation>
+		<annotation cp="💀" type="tts">calavera</annotation>
+		<annotation cp="☠">calavera | calavera y huesos cruzados | cara | huesos | muerte</annotation>
+		<annotation cp="☠" type="tts">calavera y huesos cruzados</annotation>
+		<annotation cp="💩">caca | caca con ojos | cómic | mierda | mojón</annotation>
+		<annotation cp="💩" type="tts">caca con ojos</annotation>
 		<annotation cp="🤡">cara | cara de payaso | payaso</annotation>
 		<annotation cp="🤡" type="tts">cara de payaso</annotation>
 		<annotation cp="👹">cara | cuento | cuernos | demonio japonés oni | sonrisa</annotation>
 		<annotation cp="👹" type="tts">demonio japonés oni</annotation>
 		<annotation cp="👺">cara | cuento | demonio japonés tengu | fantasía | monstruo | tengu</annotation>
 		<annotation cp="👺" type="tts">demonio japonés tengu</annotation>
-		<annotation cp="💀">calavera | cara | cuento | monstruo | muerte</annotation>
-		<annotation cp="💀" type="tts">calavera</annotation>
-		<annotation cp="☠">calavera | calavera y huesos cruzados | cara | huesos | muerte</annotation>
-		<annotation cp="☠" type="tts">calavera y huesos cruzados</annotation>
 		<annotation cp="👻">cara | criatura | cuento | fantasma | monstruo</annotation>
 		<annotation cp="👻" type="tts">fantasma</annotation>
 		<annotation cp="👽">alien | alienígena | cara | criatura | extraterrestre | ovni</annotation>
 		<annotation cp="👽" type="tts">alienígena</annotation>
 		<annotation cp="👾">alien | cara | criatura | extraterrestre | monstruo alienígena | ovni</annotation>
 		<annotation cp="👾" type="tts">monstruo alienígena</annotation>
-		<annotation cp="🤖">cara | cara de robot | monstruo | robot</annotation>
-		<annotation cp="🤖" type="tts">cara de robot</annotation>
-		<annotation cp="💩">caca | caca con ojos | cómic | mierda | mojón</annotation>
-		<annotation cp="💩" type="tts">caca con ojos</annotation>
-		<annotation cp="😺">abierta | cara | cara de gato sonriendo | gato | sonrisa</annotation>
-		<annotation cp="😺" type="tts">cara de gato sonriendo</annotation>
-		<annotation cp="😸">cara | cara de gato sonriendo con ojos sonrientes | gato | sonrisa</annotation>
-		<annotation cp="😸" type="tts">cara de gato sonriendo con ojos sonrientes</annotation>
-		<annotation cp="😹">cara | cara de gato llorando de risa | gato | lágrima | risa</annotation>
-		<annotation cp="😹" type="tts">cara de gato llorando de risa</annotation>
-		<annotation cp="😻">cara | cara de gato sonriendo y ojos de corazón | corazón | gato | sonrisa</annotation>
-		<annotation cp="😻" type="tts">cara de gato sonriendo y ojos de corazón</annotation>
-		<annotation cp="😼">cara | cara de gato con sonrisa irónica | gato | irónico | sonrisa</annotation>
-		<annotation cp="😼" type="tts">cara de gato con sonrisa irónica</annotation>
-		<annotation cp="😽">beso | cara | cara de gato besando | gato | ojo</annotation>
-		<annotation cp="😽" type="tts">cara de gato besando</annotation>
-		<annotation cp="🙀">cara | cara de gato asustado | gato | pánico | sorpresa</annotation>
-		<annotation cp="🙀" type="tts">cara de gato asustado</annotation>
-		<annotation cp="😿">cara | cara de gato llorando | gato | lágrima | triste</annotation>
-		<annotation cp="😿" type="tts">cara de gato llorando</annotation>
-		<annotation cp="😾">cara | cara de gato enfadado | enfadado | gato</annotation>
-		<annotation cp="😾" type="tts">cara de gato enfadado</annotation>
+		<annotation cp="🤖">cara | monstruo | robot</annotation>
+		<annotation cp="🤖" type="tts">robot</annotation>
+		<annotation cp="😺">cara | feliz | gato alegre | gato feliz | gato sonriendo | sonrisa</annotation>
+		<annotation cp="😺" type="tts">gato sonriendo</annotation>
+		<annotation cp="😸">cara | gato | gato sonriendo con ojos sonrientes | ojos | sonriente | sonrisa</annotation>
+		<annotation cp="😸" type="tts">gato sonriendo con ojos sonrientes</annotation>
+		<annotation cp="😹">cara | gato | gato llorando de risa | lágrima | risa</annotation>
+		<annotation cp="😹" type="tts">gato llorando de risa</annotation>
+		<annotation cp="😻">cara | corazón | enamorado | gato | gato sonriendo con ojos de corazón</annotation>
+		<annotation cp="😻" type="tts">gato sonriendo con ojos de corazón</annotation>
+		<annotation cp="😼">cara | gato | gato haciendo una mueca | irónico | sonrisa</annotation>
+		<annotation cp="😼" type="tts">gato haciendo una mueca</annotation>
+		<annotation cp="😽">beso | cara | cariñoso | gato | gato besando</annotation>
+		<annotation cp="😽" type="tts">gato besando</annotation>
+		<annotation cp="🙀">cara | gato | gato asustado | pánico | preocupación | sorpresa</annotation>
+		<annotation cp="🙀" type="tts">gato asustado</annotation>
+		<annotation cp="😿">cara | gato | gato llorando | lágrima | pena | triste</annotation>
+		<annotation cp="😿" type="tts">gato llorando</annotation>
+		<annotation cp="😾">cara | enfadado | gato</annotation>
+		<annotation cp="😾" type="tts">gato enfadado</annotation>
 		<annotation cp="🙈">cara | mal | mono | mono con los ojos tapados | prohibido</annotation>
 		<annotation cp="🙈" type="tts">mono con los ojos tapados</annotation>
 		<annotation cp="🙉">cara | mal | mono | mono con los oídos tapados | prohibido</annotation>
 		<annotation cp="🙉" type="tts">mono con los oídos tapados</annotation>
 		<annotation cp="🙊">cara | mal | mono | mono con la boca tapada | prohibido</annotation>
 		<annotation cp="🙊" type="tts">mono con la boca tapada</annotation>
+		<annotation cp="💋">beso | labios | marca de beso | romance</annotation>
+		<annotation cp="💋" type="tts">marca de beso</annotation>
+		<annotation cp="💌">amor | carta | carta de amor | corazón | correo</annotation>
+		<annotation cp="💌" type="tts">carta de amor</annotation>
+		<annotation cp="💘">amor | corazón | corazón con flecha | emoción | flecha</annotation>
+		<annotation cp="💘" type="tts">corazón con flecha</annotation>
+		<annotation cp="💝">corazón | corazón con lazo | emoción | lazo | san valentín</annotation>
+		<annotation cp="💝" type="tts">corazón con lazo</annotation>
+		<annotation cp="💖">amor | brillante | corazón brillante | emoción</annotation>
+		<annotation cp="💖" type="tts">corazón brillante</annotation>
+		<annotation cp="💗">corazón | creciente | emocionado | latido | nervioso</annotation>
+		<annotation cp="💗" type="tts">corazón creciente</annotation>
+		<annotation cp="💓">amor | corazón | corazón latiendo | emoción | latido</annotation>
+		<annotation cp="💓" type="tts">corazón latiendo</annotation>
+		<annotation cp="💞">corazón | corazones giratorios | giratorio</annotation>
+		<annotation cp="💞" type="tts">corazones giratorios</annotation>
+		<annotation cp="💕">amantes | amor | corazón | dos corazones</annotation>
+		<annotation cp="💕" type="tts">dos corazones</annotation>
+		<annotation cp="💟">adorno de corazón | corazón</annotation>
+		<annotation cp="💟" type="tts">adorno de corazón</annotation>
+		<annotation cp="❣">corazón | exclamación | exclamación de corazón | puntuación</annotation>
+		<annotation cp="❣" type="tts">exclamación de corazón</annotation>
+		<annotation cp="💔">corazón | emoción | partido | roto</annotation>
+		<annotation cp="💔" type="tts">corazón roto</annotation>
+		<annotation cp="❤">corazón | emoción | rojo</annotation>
+		<annotation cp="❤" type="tts">corazón rojo</annotation>
+		<annotation cp="🧡">corazón | emoción | naranja</annotation>
+		<annotation cp="🧡" type="tts">corazón naranja</annotation>
+		<annotation cp="💛">amarillo | corazón | emoción</annotation>
+		<annotation cp="💛" type="tts">corazón amarillo</annotation>
+		<annotation cp="💚">corazón | emoción | verde</annotation>
+		<annotation cp="💚" type="tts">corazón verde</annotation>
+		<annotation cp="💙">azul | corazón | emoción</annotation>
+		<annotation cp="💙" type="tts">corazón azul</annotation>
+		<annotation cp="💜">corazón | emoción | morado</annotation>
+		<annotation cp="💜" type="tts">corazón morado</annotation>
+		<annotation cp="🤎">corazón | emoción | marrón</annotation>
+		<annotation cp="🤎" type="tts">corazón marrón</annotation>
+		<annotation cp="🖤">corazón | negro</annotation>
+		<annotation cp="🖤" type="tts">corazón negro</annotation>
+		<annotation cp="🤍">blanco | corazón | emoción</annotation>
+		<annotation cp="🤍" type="tts">corazón blanco</annotation>
+		<annotation cp="💯">100 | cien puntos | pleno | puntos</annotation>
+		<annotation cp="💯" type="tts">cien puntos</annotation>
+		<annotation cp="💢">cómic | enfadado | enfado | símbolo de enfado</annotation>
+		<annotation cp="💢" type="tts">símbolo de enfado</annotation>
+		<annotation cp="💥">colisión | cómic</annotation>
+		<annotation cp="💥" type="tts">colisión</annotation>
+		<annotation cp="💫">cómic | emoción | estrella | mareo | símbolo de mareo</annotation>
+		<annotation cp="💫" type="tts">símbolo de mareo</annotation>
+		<annotation cp="💦">cómic | emoción | gotas de sudor | sudor</annotation>
+		<annotation cp="💦" type="tts">gotas de sudor</annotation>
+		<annotation cp="💨">carrera | cómic | correr | humo | salir corriendo</annotation>
+		<annotation cp="💨" type="tts">salir corriendo</annotation>
+		<annotation cp="🕳">agujero | orificio</annotation>
+		<annotation cp="🕳" type="tts">agujero</annotation>
+		<annotation cp="💣">bomba | cómic | emoción</annotation>
+		<annotation cp="💣" type="tts">bomba</annotation>
+		<annotation cp="💬">bocadillo | bocadillo de diálogo | cómic | conversación | diálogo</annotation>
+		<annotation cp="💬" type="tts">bocadillo de diálogo</annotation>
+		<annotation cp="👁‍🗨">bocadillo de texto | ojo | ojo en bocadillo de texto | testigo</annotation>
+		<annotation cp="👁‍🗨" type="tts">ojo en bocadillo de texto</annotation>
+		<annotation cp="🗨">bocadillo | bocadillo de diálogo por la izquierda | burbuja | conversación | diálogo</annotation>
+		<annotation cp="🗨" type="tts">bocadillo de diálogo por la izquierda</annotation>
+		<annotation cp="🗯">bocadillo | bocadillo de enfado por la derecha | cabreo | enfado | rabia</annotation>
+		<annotation cp="🗯" type="tts">bocadillo de enfado por la derecha</annotation>
+		<annotation cp="💭">bocadillo | bocadillo de pensamiento | burbuja | cómic | pensamiento</annotation>
+		<annotation cp="💭" type="tts">bocadillo de pensamiento</annotation>
+		<annotation cp="💤">cómic | dormir | símbolo de sueño | sueño | zzz</annotation>
+		<annotation cp="💤" type="tts">símbolo de sueño</annotation>
+		<annotation cp="👋">agitar | mano | mano saludando | saludar | saludo</annotation>
+		<annotation cp="👋" type="tts">mano saludando</annotation>
+		<annotation cp="🤚">dorso | dorso de la mano | levantado | mano</annotation>
+		<annotation cp="🤚" type="tts">dorso de la mano</annotation>
+		<annotation cp="🖐">abierta | dedo | mano</annotation>
+		<annotation cp="🖐" type="tts">mano abierta</annotation>
+		<annotation cp="✋">levantada | mano</annotation>
+		<annotation cp="✋" type="tts">mano levantada</annotation>
+		<annotation cp="🖖">mano | saludo | spock | vulcano</annotation>
+		<annotation cp="🖖" type="tts">saludo vulcano</annotation>
+		<annotation cp="👌">aprobación | mano | ok | señal de aprobación con la mano</annotation>
+		<annotation cp="👌" type="tts">señal de aprobación con la mano</annotation>
+		<annotation cp="🤏">mano pellizcando | pellizco | poco | poquito</annotation>
+		<annotation cp="🤏" type="tts">mano pellizcando</annotation>
+		<annotation cp="✌">mano | mano con señal de victoria | señal de victoria | victoria</annotation>
+		<annotation cp="✌" type="tts">mano con señal de victoria</annotation>
+		<annotation cp="🤞">cruzar | dedos | dedos cruzados | mano | suerte</annotation>
+		<annotation cp="🤞" type="tts">dedos cruzados</annotation>
+		<annotation cp="🤟">gesto de te quiero | mano | quiero</annotation>
+		<annotation cp="🤟" type="tts">gesto de te quiero</annotation>
+		<annotation cp="🤘">cuernos | dedo | mano | mano haciendo el signo de cuernos | rock</annotation>
+		<annotation cp="🤘" type="tts">mano haciendo el signo de cuernos</annotation>
+		<annotation cp="🤙">llamar | mano | mano haciendo el gesto de llamar | meñique | pulgar</annotation>
+		<annotation cp="🤙" type="tts">mano haciendo el gesto de llamar</annotation>
+		<annotation cp="👈">dedo | dorso de mano con índice a la izquierda | índice | izquierda | mano</annotation>
+		<annotation cp="👈" type="tts">dorso de mano con índice a la izquierda</annotation>
+		<annotation cp="👉">dedo | derecha | dorso de mano con índice a la derecha | índice | mano</annotation>
+		<annotation cp="👉" type="tts">dorso de mano con índice a la derecha</annotation>
+		<annotation cp="👆">apuntar | arriba | dedo | dorso de mano con índice hacia arriba | mano</annotation>
+		<annotation cp="👆" type="tts">dorso de mano con índice hacia arriba</annotation>
+		<annotation cp="🖕">corazón | dedo | dedo corazón hacia arriba | mano | peineta</annotation>
+		<annotation cp="🖕" type="tts">dedo corazón hacia arriba</annotation>
+		<annotation cp="👇">abajo | apuntar | dedo | dorso de mano con índice hacia abajo | mano</annotation>
+		<annotation cp="👇" type="tts">dorso de mano con índice hacia abajo</annotation>
+		<annotation cp="☝">apuntar | arriba | dedo | dedo índice hacia arriba | mano</annotation>
+		<annotation cp="☝" type="tts">dedo índice hacia arriba</annotation>
+		<annotation cp="👍">arriba | mano | pulgar | pulgar hacia arriba | señal</annotation>
+		<annotation cp="👍" type="tts">pulgar hacia arriba</annotation>
+		<annotation cp="👎">abajo | mano | pulgar | pulgar hacia abajo | señal</annotation>
+		<annotation cp="👎" type="tts">pulgar hacia abajo</annotation>
+		<annotation cp="✊">cerrado | mano | puñetazo | puño | puño en alto</annotation>
+		<annotation cp="✊" type="tts">puño en alto</annotation>
+		<annotation cp="👊">puñetazo | puño | puño cerrado</annotation>
+		<annotation cp="👊" type="tts">puño cerrado</annotation>
+		<annotation cp="🤛">izquierda | puño | puño hacia la izquierda</annotation>
+		<annotation cp="🤛" type="tts">puño hacia la izquierda</annotation>
+		<annotation cp="🤜">derecha | puño | puño hacia la derecha</annotation>
+		<annotation cp="🤜" type="tts">puño hacia la derecha</annotation>
+		<annotation cp="👏">aplaudir | manos | manos aplaudiendo | palmas | señal</annotation>
+		<annotation cp="👏" type="tts">manos aplaudiendo</annotation>
+		<annotation cp="🙌">celebración | gesto | hurra | mano | manos levantadas celebrando</annotation>
+		<annotation cp="🙌" type="tts">manos levantadas celebrando</annotation>
+		<annotation cp="👐">abiertas | manos</annotation>
+		<annotation cp="👐" type="tts">manos abiertas</annotation>
+		<annotation cp="🤲">oración | palmas hacia arriba juntas</annotation>
+		<annotation cp="🤲" type="tts">palmas hacia arriba juntas</annotation>
+		<annotation cp="🤝">acuerdo | apretón | apretón de manos | manos</annotation>
+		<annotation cp="🤝" type="tts">apretón de manos</annotation>
+		<annotation cp="🙏">mano | manos en oración | oración | orar | rezar</annotation>
+		<annotation cp="🙏" type="tts">manos en oración</annotation>
+		<annotation cp="✍">cuerpo | escribir | lápiz | mano | mano escribiendo</annotation>
+		<annotation cp="✍" type="tts">mano escribiendo</annotation>
+		<annotation cp="💅">cosmética | esmalte | manicura | pintarse las uñas | uñas</annotation>
+		<annotation cp="💅" type="tts">pintarse las uñas</annotation>
+		<annotation cp="🤳">autofoto | cámara | selfi | selfie | teléfono</annotation>
+		<annotation cp="🤳" type="tts">selfi</annotation>
+		<annotation cp="💪">bíceps | cómic | flexionado | fuerte | músculo</annotation>
+		<annotation cp="💪" type="tts">bíceps flexionado</annotation>
+		<annotation cp="🦾">accesibilidad | brazo mecánico | ortopedia | prótesis</annotation>
+		<annotation cp="🦾" type="tts">brazo mecánico</annotation>
+		<annotation cp="🦿">accesibilidad | ortopedia | pierna mecánica | prótesis</annotation>
+		<annotation cp="🦿" type="tts">pierna mecánica</annotation>
+		<annotation cp="🦵">extremidad | patada | pierna</annotation>
+		<annotation cp="🦵" type="tts">pierna</annotation>
+		<annotation cp="🦶">patada | pie | pisotón</annotation>
+		<annotation cp="🦶" type="tts">pie</annotation>
+		<annotation cp="👂">cuerpo | oreja</annotation>
+		<annotation cp="👂" type="tts">oreja</annotation>
+		<annotation cp="🦻">accesibilidad | audífono | oreja con audífono | prótesis auditiva | sordo</annotation>
+		<annotation cp="🦻" type="tts">oreja con audífono</annotation>
+		<annotation cp="👃">cuerpo | nariz</annotation>
+		<annotation cp="👃" type="tts">nariz</annotation>
+		<annotation cp="🧠">cerebro | inteligente</annotation>
+		<annotation cp="🧠" type="tts">cerebro</annotation>
+		<annotation cp="🦷">dentista | diente | muela</annotation>
+		<annotation cp="🦷" type="tts">diente</annotation>
+		<annotation cp="🦴">esqueleto | hueso</annotation>
+		<annotation cp="🦴" type="tts">hueso</annotation>
+		<annotation cp="👀">cara | ojos</annotation>
+		<annotation cp="👀" type="tts">ojos</annotation>
+		<annotation cp="👁">cuerpo | ojo</annotation>
+		<annotation cp="👁" type="tts">ojo</annotation>
+		<annotation cp="👅">cuerpo | lengua</annotation>
+		<annotation cp="👅" type="tts">lengua</annotation>
+		<annotation cp="👄">boca | cara | cuerpo | labios</annotation>
+		<annotation cp="👄" type="tts">boca</annotation>
 		<annotation cp="👶">bebé | joven | niño</annotation>
 		<annotation cp="👶" type="tts">bebé</annotation>
 		<annotation cp="🧒">crío | género | infante | joven | neutro</annotation>
@@ -259,194 +539,32 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👧" type="tts">niña</annotation>
 		<annotation cp="🧑">género | neutro | persona adulta</annotation>
 		<annotation cp="🧑" type="tts">persona adulta</annotation>
-		<annotation cp="👱">persona adulta rubia | personas | rubio</annotation>
+		<annotation cp="👱">persona adulta rubia | rubia | rubias | rubio | rubios</annotation>
 		<annotation cp="👱" type="tts">persona adulta rubia</annotation>
+		<annotation cp="🧑‍🍼">alimentar | amamantar | bebé | lactancia | persona | persona alimentando a bebé</annotation>
+		<annotation cp="🧑‍🍼" type="tts">persona alimentando a bebé</annotation>
+		<annotation cp="🧑‍🎄">navidad | noel | Noel</annotation>
+		<annotation cp="🧑‍🎄" type="tts">Noel</annotation>
 		<annotation cp="👨">adulto | hombre</annotation>
 		<annotation cp="👨" type="tts">hombre</annotation>
+		<annotation cp="🧔">barbas | barbudo | hombre | hombre con barba | persona</annotation>
+		<annotation cp="🧔" type="tts">hombre con barba</annotation>
 		<annotation cp="👱‍♂">hombre | rubiales | rubio</annotation>
 		<annotation cp="👱‍♂" type="tts">hombre rubio</annotation>
-		<annotation cp="🧔">barba | persona con barba</annotation>
-		<annotation cp="🧔" type="tts">persona con barba</annotation>
+		<annotation cp="👨‍🍼">alimentar | amamantar | bebé | hombre | hombre alimentando a bebé | lactancia</annotation>
+		<annotation cp="👨‍🍼" type="tts">hombre alimentando a bebé</annotation>
 		<annotation cp="👩">adulta | mujer</annotation>
 		<annotation cp="👩" type="tts">mujer</annotation>
 		<annotation cp="👱‍♀">mujer | rubia | rubiales</annotation>
 		<annotation cp="👱‍♀" type="tts">mujer rubia</annotation>
+		<annotation cp="👩‍🍼">alimentar | amamantar | bebé | lactancia | mujer | mujer alimentando a bebé</annotation>
+		<annotation cp="👩‍🍼" type="tts">mujer alimentando a bebé</annotation>
 		<annotation cp="🧓">género | maduro | mayor | neutro | persona adulta madura</annotation>
 		<annotation cp="🧓" type="tts">persona adulta madura</annotation>
 		<annotation cp="👴">anciano | hombre | mayor</annotation>
 		<annotation cp="👴" type="tts">anciano</annotation>
 		<annotation cp="👵">anciana | mayor | mujer</annotation>
 		<annotation cp="👵" type="tts">anciana</annotation>
-		<annotation cp="👨‍⚕">doctor | enfermero | médico | profesional sanitario hombre | sanitario | terapeuta hombre</annotation>
-		<annotation cp="👨‍⚕" type="tts">profesional sanitario hombre</annotation>
-		<annotation cp="👩‍⚕">doctora | enfermera | médica | profesional sanitario mujer | sanitaria | terapeuta mujer</annotation>
-		<annotation cp="👩‍⚕" type="tts">profesional sanitario mujer</annotation>
-		<annotation cp="👨‍🎓">estudiante | graduado | hombre | licenciado | universitario</annotation>
-		<annotation cp="👨‍🎓" type="tts">estudiante hombre</annotation>
-		<annotation cp="👩‍🎓">estudiante | graduada | licenciada | mujer | universitaria</annotation>
-		<annotation cp="👩‍🎓" type="tts">estudiante mujer</annotation>
-		<annotation cp="👨‍🏫">educador | hombre | instructor | maestro | profesor</annotation>
-		<annotation cp="👨‍🏫" type="tts">profesor</annotation>
-		<annotation cp="👩‍🏫">educadora | instructora | maestra | mujer | profesora</annotation>
-		<annotation cp="👩‍🏫" type="tts">profesora</annotation>
-		<annotation cp="👨‍⚖">balanza | hombre | juez | justicia | magistrado</annotation>
-		<annotation cp="👨‍⚖" type="tts">juez</annotation>
-		<annotation cp="👩‍⚖">balanza | jueza | justicia | magistrada | mujer</annotation>
-		<annotation cp="👩‍⚖" type="tts">jueza</annotation>
-		<annotation cp="👨‍🌾">agricultor | campo | granjero | hombre | labrador</annotation>
-		<annotation cp="👨‍🌾" type="tts">agricultor</annotation>
-		<annotation cp="👩‍🌾">agricultora | campo | granjera | labradora | mujer</annotation>
-		<annotation cp="👩‍🌾" type="tts">agricultora</annotation>
-		<annotation cp="👨‍🍳">chef | cocinero | hombre | pinche</annotation>
-		<annotation cp="👨‍🍳" type="tts">cocinero</annotation>
-		<annotation cp="👩‍🍳">chef | cocinera | mujer | pinche</annotation>
-		<annotation cp="👩‍🍳" type="tts">cocinera</annotation>
-		<annotation cp="👨‍🔧">electricista | fontanero | hombre | mecánico | operario</annotation>
-		<annotation cp="👨‍🔧" type="tts">mecánico</annotation>
-		<annotation cp="👩‍🔧">electricista | fontanera | mecánica | mujer | operaria</annotation>
-		<annotation cp="👩‍🔧" type="tts">mecánica</annotation>
-		<annotation cp="👨‍🏭">fábrica | montaje | obrero | operario | trabajador</annotation>
-		<annotation cp="👨‍🏭" type="tts">operario</annotation>
-		<annotation cp="👩‍🏭">fábrica | montaje | obrera | operaria | trabajadora</annotation>
-		<annotation cp="👩‍🏭" type="tts">operaria</annotation>
-		<annotation cp="👨‍💼">director | empresa | hombre | oficina | oficinista</annotation>
-		<annotation cp="👨‍💼" type="tts">oficinista hombre</annotation>
-		<annotation cp="👩‍💼">directora | empresa | mujer | oficina | oficinista</annotation>
-		<annotation cp="👩‍💼" type="tts">oficinista mujer</annotation>
-		<annotation cp="👨‍🔬">biólogo | científico | físico | hombre | químico</annotation>
-		<annotation cp="👨‍🔬" type="tts">científico</annotation>
-		<annotation cp="👩‍🔬">bióloga | científica | física | mujer | química</annotation>
-		<annotation cp="👩‍🔬" type="tts">científica</annotation>
-		<annotation cp="👨‍💻">desarrollador | hombre | informático | programador | tecnólogo</annotation>
-		<annotation cp="👨‍💻" type="tts">tecnólogo</annotation>
-		<annotation cp="👩‍💻">desarrolladora | informática | mujer | programadora | tecnóloga</annotation>
-		<annotation cp="👩‍💻" type="tts">tecnóloga</annotation>
-		<annotation cp="👨‍🎤">artista | cantante hombre | estrella | hombre | rock</annotation>
-		<annotation cp="👨‍🎤" type="tts">cantante hombre</annotation>
-		<annotation cp="👩‍🎤">artista | cantante mujer | estrella | mujer | rock</annotation>
-		<annotation cp="👩‍🎤" type="tts">cantante mujer</annotation>
-		<annotation cp="👨‍🎨">artista hombre | hombre | paleta | pintor | pinturas</annotation>
-		<annotation cp="👨‍🎨" type="tts">artista hombre</annotation>
-		<annotation cp="👩‍🎨">artista mujer | mujer | paleta | pintora | pinturas</annotation>
-		<annotation cp="👩‍🎨" type="tts">artista mujer</annotation>
-		<annotation cp="👨‍✈">avión | hombre | piloto | vuelo</annotation>
-		<annotation cp="👨‍✈" type="tts">piloto hombre</annotation>
-		<annotation cp="👩‍✈">avión | mujer | piloto | vuelo</annotation>
-		<annotation cp="👩‍✈" type="tts">piloto mujer</annotation>
-		<annotation cp="👨‍🚀">astronauta | cohete | espacio | hombre</annotation>
-		<annotation cp="👨‍🚀" type="tts">astronauta hombre</annotation>
-		<annotation cp="👩‍🚀">astronauta | cohete | espacio | mujer</annotation>
-		<annotation cp="👩‍🚀" type="tts">astronauta mujer</annotation>
-		<annotation cp="👨‍🚒">bombero | camión | manguera</annotation>
-		<annotation cp="👨‍🚒" type="tts">bombero</annotation>
-		<annotation cp="👩‍🚒">bombera | camión | manguera</annotation>
-		<annotation cp="👩‍🚒" type="tts">bombera</annotation>
-		<annotation cp="👮">agente | agente de policía | personas | policía</annotation>
-		<annotation cp="👮" type="tts">agente de policía</annotation>
-		<annotation cp="👮‍♂">agente | agente de policía hombre | hombre | poli | policía</annotation>
-		<annotation cp="👮‍♂" type="tts">agente de policía hombre</annotation>
-		<annotation cp="👮‍♀">agente | agente de policía mujer | mujer | poli | policía</annotation>
-		<annotation cp="👮‍♀" type="tts">agente de policía mujer</annotation>
-		<annotation cp="🕵">cara | detective | espía</annotation>
-		<annotation cp="🕵" type="tts">detective</annotation>
-		<annotation cp="🕵‍♂">agente | detective | espía | hombre | investigador</annotation>
-		<annotation cp="🕵‍♂" type="tts">detective hombre</annotation>
-		<annotation cp="🕵‍♀">agente | detective | espía | investigadora | mujer</annotation>
-		<annotation cp="🕵‍♀" type="tts">detective mujer</annotation>
-		<annotation cp="💂">guardia | personas</annotation>
-		<annotation cp="💂" type="tts">guardia</annotation>
-		<annotation cp="💂‍♂">guardia | hombre | vigilante</annotation>
-		<annotation cp="💂‍♂" type="tts">guardia hombre</annotation>
-		<annotation cp="💂‍♀">guardia | mujer | vigilante</annotation>
-		<annotation cp="💂‍♀" type="tts">guardia mujer</annotation>
-		<annotation cp="👷">casco | construcción | obrero | personas | trabajador</annotation>
-		<annotation cp="👷" type="tts">obrero</annotation>
-		<annotation cp="👷‍♂">albañil | construcción | hombre | obrero | trabajador</annotation>
-		<annotation cp="👷‍♂" type="tts">obrero hombre</annotation>
-		<annotation cp="👷‍♀">albañil | construcción | mujer | obrera | trabajadora</annotation>
-		<annotation cp="👷‍♀" type="tts">obrera</annotation>
-		<annotation cp="🤴">corona | príncipe</annotation>
-		<annotation cp="🤴" type="tts">príncipe</annotation>
-		<annotation cp="👸">cuento | fantasía | hadas | princesa</annotation>
-		<annotation cp="👸" type="tts">princesa</annotation>
-		<annotation cp="👳">hombre | persona con turbante | personas | turbante</annotation>
-		<annotation cp="👳" type="tts">persona con turbante</annotation>
-		<annotation cp="👳‍♂">hombre | hombre con turbante | turbante</annotation>
-		<annotation cp="👳‍♂" type="tts">hombre con turbante</annotation>
-		<annotation cp="👳‍♀">mujer | mujer con turbante | turbante</annotation>
-		<annotation cp="👳‍♀" type="tts">mujer con turbante</annotation>
-		<annotation cp="👲">gorro | gua | hombre | hombre con gorro chino | mao</annotation>
-		<annotation cp="👲" type="tts">hombre con gorro chino</annotation>
-		<annotation cp="🧕">hiyab | mujer con hiyab | pañuelo</annotation>
-		<annotation cp="🧕" type="tts">mujer con hiyab</annotation>
-		<annotation cp="🤵">esmoquin | hombre | hombre con esmoquin | novio</annotation>
-		<annotation cp="🤵" type="tts">hombre con esmoquin</annotation>
-		<annotation cp="👰">boda | mujer | novia | novia con velo | velo</annotation>
-		<annotation cp="👰" type="tts">novia con velo</annotation>
-		<annotation cp="🤰">embarazada | mujer</annotation>
-		<annotation cp="🤰" type="tts">mujer embarazada</annotation>
-		<annotation cp="🤱">amamantar | bebé | dar pecho | lactancia materna | pecho</annotation>
-		<annotation cp="🤱" type="tts">lactancia materna</annotation>
-		<annotation cp="👼">ángel | bebé | cara | cuento</annotation>
-		<annotation cp="👼" type="tts">bebé ángel</annotation>
-		<annotation cp="🎅">celebración | claus | navidad | papá noel | Papá Noel | santa</annotation>
-		<annotation cp="🎅" type="tts">Papá Noel</annotation>
-		<annotation cp="🤶">abuela | mamá | Mamá Noel | navidad | noel</annotation>
-		<annotation cp="🤶" type="tts">Mamá Noel</annotation>
-		<annotation cp="🦸">bueno | héroe | heroína | personaje de superhéroe | superhéroe | superpoder</annotation>
-		<annotation cp="🦸" type="tts">personaje de superhéroe</annotation>
-		<annotation cp="🦸‍♀">héroe | heroína | mujer | superhéroe | superheroína | superpoder</annotation>
-		<annotation cp="🦸‍♀" type="tts">superheroína</annotation>
-		<annotation cp="🦸‍♂">bueno | héroe | hombre | superhéroe | superpoder</annotation>
-		<annotation cp="🦸‍♂" type="tts">superhéroe</annotation>
-		<annotation cp="🦹">criminal | malo | malvado | personaje de supervillano | superpoder | villano</annotation>
-		<annotation cp="🦹" type="tts">personaje de supervillano</annotation>
-		<annotation cp="🦹‍♀">criminal | malvada | mujer | superpoder | supervillana | villana</annotation>
-		<annotation cp="🦹‍♀" type="tts">supervillana</annotation>
-		<annotation cp="🦹‍♂">criminal | hombre | malvado | superpoder | supervillano | villano</annotation>
-		<annotation cp="🦹‍♂" type="tts">supervillano</annotation>
-		<annotation cp="🧙">bruja | brujo | hechicera | hechicero | persona maga</annotation>
-		<annotation cp="🧙" type="tts">persona maga</annotation>
-		<annotation cp="🧙‍♀">bruja | hechicera | maga</annotation>
-		<annotation cp="🧙‍♀" type="tts">maga</annotation>
-		<annotation cp="🧙‍♂">brujo | hechicero | mago</annotation>
-		<annotation cp="🧙‍♂" type="tts">mago</annotation>
-		<annotation cp="🧚">campanilla | hada | oberón | puck | titania</annotation>
-		<annotation cp="🧚" type="tts">hada</annotation>
-		<annotation cp="🧚‍♀">campanilla | hada | hada mujer | titania</annotation>
-		<annotation cp="🧚‍♀" type="tts">hada mujer</annotation>
-		<annotation cp="🧚‍♂">hada | hada hombre | oberón | puck</annotation>
-		<annotation cp="🧚‍♂" type="tts">hada hombre</annotation>
-		<annotation cp="🧛">drácula | muerto viviente | no muerto | vampiro</annotation>
-		<annotation cp="🧛" type="tts">vampiro</annotation>
-		<annotation cp="🧛‍♀">muerta viviente | no muerta | vampiresa</annotation>
-		<annotation cp="🧛‍♀" type="tts">vampiresa</annotation>
-		<annotation cp="🧛‍♂">drácula | muerto viviente | no muerto | vampiro hombre</annotation>
-		<annotation cp="🧛‍♂" type="tts">vampiro hombre</annotation>
-		<annotation cp="🧜">persona sirena | sirena</annotation>
-		<annotation cp="🧜" type="tts">persona sirena</annotation>
-		<annotation cp="🧜‍♀">sirena</annotation>
-		<annotation cp="🧜‍♀" type="tts">sirena</annotation>
-		<annotation cp="🧜‍♂">sirena | sirena hombre | tritón</annotation>
-		<annotation cp="🧜‍♂" type="tts">sirena hombre</annotation>
-		<annotation cp="🧝">elfo | mágico</annotation>
-		<annotation cp="🧝" type="tts">elfo</annotation>
-		<annotation cp="🧝‍♀">elfa | mágico | mujer</annotation>
-		<annotation cp="🧝‍♀" type="tts">elfa</annotation>
-		<annotation cp="🧝‍♂">elfo | elfo hombre | mágico</annotation>
-		<annotation cp="🧝‍♂" type="tts">elfo hombre</annotation>
-		<annotation cp="🧞">genio | lámpara</annotation>
-		<annotation cp="🧞" type="tts">genio</annotation>
-		<annotation cp="🧞‍♀">genio | genio mujer | lámpara</annotation>
-		<annotation cp="🧞‍♀" type="tts">genio mujer</annotation>
-		<annotation cp="🧞‍♂">djinn | genio | genio hombre | lámpara</annotation>
-		<annotation cp="🧞‍♂" type="tts">genio hombre</annotation>
-		<annotation cp="🧟">caminante | muerto viviente | no muerto | zombi</annotation>
-		<annotation cp="🧟" type="tts">zombi</annotation>
-		<annotation cp="🧟‍♀">caminante | muerta viviente | no muerta | zombi mujer</annotation>
-		<annotation cp="🧟‍♀" type="tts">zombi mujer</annotation>
-		<annotation cp="🧟‍♂">caminante | muerto viviente | no muerto | zombi hombre</annotation>
-		<annotation cp="🧟‍♂" type="tts">zombi hombre</annotation>
 		<annotation cp="🙍">ceño | fruncido | gesto | persona | persona frunciendo el ceño</annotation>
 		<annotation cp="🙍" type="tts">persona frunciendo el ceño</annotation>
 		<annotation cp="🙍‍♂">ceño | fruncido | gesto | hombre | hombre frunciendo el ceño</annotation>
@@ -483,6 +601,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🙋‍♂" type="tts">hombre con la mano levantada</annotation>
 		<annotation cp="🙋‍♀">gesto | levantar | mano | mujer | mujer con la mano levantada</annotation>
 		<annotation cp="🙋‍♀" type="tts">mujer con la mano levantada</annotation>
+		<annotation cp="🧏">accesibilidad | escuchar | oído | oír | persona sorda | sordera</annotation>
+		<annotation cp="🧏" type="tts">persona sorda</annotation>
+		<annotation cp="🧏‍♂">hombre | sordera | sordo</annotation>
+		<annotation cp="🧏‍♂" type="tts">hombre sordo</annotation>
+		<annotation cp="🧏‍♀">mujer | sorda | sordera</annotation>
+		<annotation cp="🧏‍♀" type="tts">mujer sorda</annotation>
 		<annotation cp="🙇">disculpa | gesto | perdón | persona haciendo una reverencia | reverencia</annotation>
 		<annotation cp="🙇" type="tts">persona haciendo una reverencia</annotation>
 		<annotation cp="🙇‍♂">disculpa | gesto | hombre haciendo una reverencia | perdón | reverencia</annotation>
@@ -501,6 +625,216 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤷‍♂" type="tts">hombre encogido de hombros</annotation>
 		<annotation cp="🤷‍♀">duda | encogerse | hombros | indiferencia | mujer encogida de hombros</annotation>
 		<annotation cp="🤷‍♀" type="tts">mujer encogida de hombros</annotation>
+		<annotation cp="🧑‍⚕">doctor | enfermero | médico | profesional sanitario | salud | terapeuta</annotation>
+		<annotation cp="🧑‍⚕" type="tts">profesional sanitario</annotation>
+		<annotation cp="👨‍⚕">doctor | enfermero | médico | profesional sanitario hombre | sanitario | terapeuta hombre</annotation>
+		<annotation cp="👨‍⚕" type="tts">profesional sanitario hombre</annotation>
+		<annotation cp="👩‍⚕">doctora | enfermera | médica | profesional sanitario mujer | sanitaria | terapeuta mujer</annotation>
+		<annotation cp="👩‍⚕" type="tts">profesional sanitario mujer</annotation>
+		<annotation cp="🧑‍🎓">estudiante | graduado | licenciado | universitario</annotation>
+		<annotation cp="🧑‍🎓" type="tts">estudiante</annotation>
+		<annotation cp="👨‍🎓">estudiante | graduado | hombre | licenciado | universitario</annotation>
+		<annotation cp="👨‍🎓" type="tts">estudiante hombre</annotation>
+		<annotation cp="👩‍🎓">estudiante | graduada | licenciada | mujer | universitaria</annotation>
+		<annotation cp="👩‍🎓" type="tts">estudiante mujer</annotation>
+		<annotation cp="🧑‍🏫">docente | educador | enseñanza | instructor | maestro | profesor | señorita</annotation>
+		<annotation cp="🧑‍🏫" type="tts">docente</annotation>
+		<annotation cp="👨‍🏫">docente hombre | educador | hombre | instructor | maestro | profesor</annotation>
+		<annotation cp="👨‍🏫" type="tts">docente hombre</annotation>
+		<annotation cp="👩‍🏫">docente mujer | educadora | instructora | maestra | mujer | profesora</annotation>
+		<annotation cp="👩‍🏫" type="tts">docente mujer</annotation>
+		<annotation cp="🧑‍⚖">fiscal | juez | juicio | magistrado</annotation>
+		<annotation cp="🧑‍⚖" type="tts">fiscal</annotation>
+		<annotation cp="👨‍⚖">balanza | fiscal hombre | hombre | juez | justicia | magistrado</annotation>
+		<annotation cp="👨‍⚖" type="tts">fiscal hombre</annotation>
+		<annotation cp="👩‍⚖">balanza | fiscal mujer | jueza | justicia | magistrada | mujer</annotation>
+		<annotation cp="👩‍⚖" type="tts">fiscal mujer</annotation>
+		<annotation cp="🧑‍🌾">agricultor | cultivador | granjero | jardinero | labrador | profesional de la agricultura</annotation>
+		<annotation cp="🧑‍🌾" type="tts">profesional de la agricultura</annotation>
+		<annotation cp="👨‍🌾">agricultor | campo | granjero | hombre | labrador | profesional de la agricultura hombre</annotation>
+		<annotation cp="👨‍🌾" type="tts">profesional de la agricultura hombre</annotation>
+		<annotation cp="👩‍🌾">agricultora | campo | granjera | labradora | mujer | profesional de la agricultura mujer</annotation>
+		<annotation cp="👩‍🌾" type="tts">profesional de la agricultura mujer</annotation>
+		<annotation cp="🧑‍🍳">chef | cocinero | cocinillas | guisandero | pinche</annotation>
+		<annotation cp="🧑‍🍳" type="tts">chef</annotation>
+		<annotation cp="👨‍🍳">chef | cocinero | hombre | pinche</annotation>
+		<annotation cp="👨‍🍳" type="tts">chef hombre</annotation>
+		<annotation cp="👩‍🍳">chef | cocinera | mujer | pinche</annotation>
+		<annotation cp="👩‍🍳" type="tts">chef mujer</annotation>
+		<annotation cp="🧑‍🔧">electricista | fontanero | mecánico | operario | profesional de la mecánica | técnico</annotation>
+		<annotation cp="🧑‍🔧" type="tts">profesional de la mecánica</annotation>
+		<annotation cp="👨‍🔧">electricista | fontanero | hombre | mecánico | operario | profesional de la mecánica hombre</annotation>
+		<annotation cp="👨‍🔧" type="tts">profesional de la mecánica hombre</annotation>
+		<annotation cp="👩‍🔧">electricista | fontanera | mecánica | mujer | operaria | profesional de la mecánica mujer</annotation>
+		<annotation cp="👩‍🔧" type="tts">profesional de la mecánica mujer</annotation>
+		<annotation cp="🧑‍🏭">fábrica | montaje | obrero | operario | profesional industrial | trabajador</annotation>
+		<annotation cp="🧑‍🏭" type="tts">profesional industrial</annotation>
+		<annotation cp="👨‍🏭">fábrica | montaje | obrero | operario | profesional industrial hombre | trabajador</annotation>
+		<annotation cp="👨‍🏭" type="tts">profesional industrial hombre</annotation>
+		<annotation cp="👩‍🏭">fábrica | montaje | obrera | operaria | profesional industrial mujer | trabajadora</annotation>
+		<annotation cp="👩‍🏭" type="tts">profesional industrial mujer</annotation>
+		<annotation cp="🧑‍💼">arquitecto | director | ejecutivo | empresa | oficinista</annotation>
+		<annotation cp="🧑‍💼" type="tts">oficinista</annotation>
+		<annotation cp="👨‍💼">director | ejecutivo | empresa | hombre | oficina | oficinista</annotation>
+		<annotation cp="👨‍💼" type="tts">oficinista hombre</annotation>
+		<annotation cp="👩‍💼">directora | ejecutiva | empresa | mujer | oficina | oficinista</annotation>
+		<annotation cp="👩‍💼" type="tts">oficinista mujer</annotation>
+		<annotation cp="🧑‍🔬">biólogo | científico | experimentador | físico | profesional de la ciencia | químico</annotation>
+		<annotation cp="🧑‍🔬" type="tts">profesional de la ciencia</annotation>
+		<annotation cp="👨‍🔬">biólogo | científico | físico | hombre | profesional de la ciencia hombre | químico</annotation>
+		<annotation cp="👨‍🔬" type="tts">profesional de la ciencia hombre</annotation>
+		<annotation cp="👩‍🔬">bióloga | científica | física | mujer | profesional de la ciencia mujer | química</annotation>
+		<annotation cp="👩‍🔬" type="tts">profesional de la ciencia mujer</annotation>
+		<annotation cp="🧑‍💻">desarrollador | informático | profesional de la tecnología | programador | software | tecnólogo</annotation>
+		<annotation cp="🧑‍💻" type="tts">profesional de la tecnología</annotation>
+		<annotation cp="👨‍💻">desarrollador | hombre | informático | profesional de la tecnología hombre | programador | tecnólogo</annotation>
+		<annotation cp="👨‍💻" type="tts">profesional de la tecnología hombre</annotation>
+		<annotation cp="👩‍💻">desarrolladora | informática | mujer | profesional de la tecnología mujer | programadora | tecnóloga</annotation>
+		<annotation cp="👩‍💻" type="tts">profesional de la tecnología mujer</annotation>
+		<annotation cp="🧑‍🎤">artista | cantante | estrella | rock</annotation>
+		<annotation cp="🧑‍🎤" type="tts">cantante</annotation>
+		<annotation cp="👨‍🎤">artista | cantante hombre | estrella | hombre | rock</annotation>
+		<annotation cp="👨‍🎤" type="tts">cantante hombre</annotation>
+		<annotation cp="👩‍🎤">artista | cantante mujer | estrella | mujer | rock</annotation>
+		<annotation cp="👩‍🎤" type="tts">cantante mujer</annotation>
+		<annotation cp="🧑‍🎨">artista | paleta | pintor | pinturas</annotation>
+		<annotation cp="🧑‍🎨" type="tts">artista</annotation>
+		<annotation cp="👨‍🎨">artista hombre | hombre | paleta | pintor | pinturas</annotation>
+		<annotation cp="👨‍🎨" type="tts">artista hombre</annotation>
+		<annotation cp="👩‍🎨">artista mujer | mujer | paleta | pintora | pinturas</annotation>
+		<annotation cp="👩‍🎨" type="tts">artista mujer</annotation>
+		<annotation cp="🧑‍✈">avión | capitán | piloto | vuelo</annotation>
+		<annotation cp="🧑‍✈" type="tts">piloto</annotation>
+		<annotation cp="👨‍✈">avión | capitán | hombre | piloto | vuelo</annotation>
+		<annotation cp="👨‍✈" type="tts">piloto hombre</annotation>
+		<annotation cp="👩‍✈">avión | capitana | mujer | piloto | vuelo</annotation>
+		<annotation cp="👩‍✈" type="tts">piloto mujer</annotation>
+		<annotation cp="🧑‍🚀">astronauta | cohete | espacio</annotation>
+		<annotation cp="🧑‍🚀" type="tts">astronauta</annotation>
+		<annotation cp="👨‍🚀">astronauta | cohete | espacio | hombre</annotation>
+		<annotation cp="👨‍🚀" type="tts">astronauta hombre</annotation>
+		<annotation cp="👩‍🚀">astronauta | cohete | espacio | mujer</annotation>
+		<annotation cp="👩‍🚀" type="tts">astronauta mujer</annotation>
+		<annotation cp="🧑‍🚒">bombero | camión | manguera</annotation>
+		<annotation cp="🧑‍🚒" type="tts">bombero</annotation>
+		<annotation cp="👨‍🚒">bombero | bombero hombre | camión | manguera</annotation>
+		<annotation cp="👨‍🚒" type="tts">bombero hombre</annotation>
+		<annotation cp="👩‍🚒">bombera | camión | manguera</annotation>
+		<annotation cp="👩‍🚒" type="tts">bombera</annotation>
+		<annotation cp="👮">agente | agente de policía | personas | policía</annotation>
+		<annotation cp="👮" type="tts">agente de policía</annotation>
+		<annotation cp="👮‍♂">agente | agente de policía hombre | hombre | poli | policía</annotation>
+		<annotation cp="👮‍♂" type="tts">agente de policía hombre</annotation>
+		<annotation cp="👮‍♀">agente | agente de policía mujer | mujer | poli | policía</annotation>
+		<annotation cp="👮‍♀" type="tts">agente de policía mujer</annotation>
+		<annotation cp="🕵">cara | detective | espía</annotation>
+		<annotation cp="🕵" type="tts">detective</annotation>
+		<annotation cp="🕵‍♂">agente | detective | espía | hombre | investigador</annotation>
+		<annotation cp="🕵‍♂" type="tts">detective hombre</annotation>
+		<annotation cp="🕵‍♀">agente | detective | espía | investigadora | mujer</annotation>
+		<annotation cp="🕵‍♀" type="tts">detective mujer</annotation>
+		<annotation cp="💂">guardia | personas</annotation>
+		<annotation cp="💂" type="tts">guardia</annotation>
+		<annotation cp="💂‍♂">guardia | hombre | vigilante</annotation>
+		<annotation cp="💂‍♂" type="tts">guardia hombre</annotation>
+		<annotation cp="💂‍♀">guardia | mujer | vigilante</annotation>
+		<annotation cp="💂‍♀" type="tts">guardia mujer</annotation>
+		<annotation cp="👷">casco | construcción | obrero | personas | profesional de la construcción | trabajador</annotation>
+		<annotation cp="👷" type="tts">profesional de la construcción</annotation>
+		<annotation cp="👷‍♂">albañil | construcción | hombre | obrero | profesional de la construcción hombre | trabajador</annotation>
+		<annotation cp="👷‍♂" type="tts">profesional de la construcción hombre</annotation>
+		<annotation cp="👷‍♀">albañil | construcción | mujer | obrera | profesional de la construcción mujer | trabajadora</annotation>
+		<annotation cp="👷‍♀" type="tts">profesional de la construcción mujer</annotation>
+		<annotation cp="🤴">corona | príncipe</annotation>
+		<annotation cp="🤴" type="tts">príncipe</annotation>
+		<annotation cp="👸">cuento | fantasía | hadas | princesa</annotation>
+		<annotation cp="👸" type="tts">princesa</annotation>
+		<annotation cp="👳">hombre | persona con turbante | personas | turbante</annotation>
+		<annotation cp="👳" type="tts">persona con turbante</annotation>
+		<annotation cp="👳‍♂">hombre | hombre con turbante | turbante</annotation>
+		<annotation cp="👳‍♂" type="tts">hombre con turbante</annotation>
+		<annotation cp="👳‍♀">mujer | mujer con turbante | turbante</annotation>
+		<annotation cp="👳‍♀" type="tts">mujer con turbante</annotation>
+		<annotation cp="👲">gorro | gua | hombre | hombre con gorro chino | mao</annotation>
+		<annotation cp="👲" type="tts">hombre con gorro chino</annotation>
+		<annotation cp="🧕">hiyab | mujer con hiyab | pañuelo</annotation>
+		<annotation cp="🧕" type="tts">mujer con hiyab</annotation>
+		<annotation cp="🤵">esmoquin | novio | persona | persona con esmoquin</annotation>
+		<annotation cp="🤵" type="tts">persona con esmoquin</annotation>
+		<annotation cp="🤵‍♀">esmoquin | mujer | mujer con esmoquin</annotation>
+		<annotation cp="🤵‍♀" type="tts">mujer con esmoquin</annotation>
+		<annotation cp="🤵‍♂">esmoquin | hombre | hombre con esmoquin</annotation>
+		<annotation cp="🤵‍♂" type="tts">hombre con esmoquin</annotation>
+		<annotation cp="👰">boda | novia | persona | persona con velo | velo</annotation>
+		<annotation cp="👰" type="tts">persona con velo</annotation>
+		<annotation cp="👰‍♀">boda | mujer | mujer con velo | novia | velo</annotation>
+		<annotation cp="👰‍♀" type="tts">mujer con velo</annotation>
+		<annotation cp="👰‍♂">boda | hombre | hombre con velo | novio | velo</annotation>
+		<annotation cp="👰‍♂" type="tts">hombre con velo</annotation>
+		<annotation cp="🤰">embarazada | mujer</annotation>
+		<annotation cp="🤰" type="tts">mujer embarazada</annotation>
+		<annotation cp="🤱">amamantar | bebé | dar pecho | lactancia materna | pecho</annotation>
+		<annotation cp="🤱" type="tts">lactancia materna</annotation>
+		<annotation cp="👼">ángel | bebé | cara | cuento</annotation>
+		<annotation cp="👼" type="tts">bebé ángel</annotation>
+		<annotation cp="🎅">celebración | claus | navidad | papá noel | Papá Noel | santa</annotation>
+		<annotation cp="🎅" type="tts">Papá Noel</annotation>
+		<annotation cp="🤶">abuela | mamá | Mamá Noel | navidad | noel</annotation>
+		<annotation cp="🤶" type="tts">Mamá Noel</annotation>
+		<annotation cp="🦸">bueno | héroe | heroína | personaje de superhéroe | superhéroe | superpoder</annotation>
+		<annotation cp="🦸" type="tts">personaje de superhéroe</annotation>
+		<annotation cp="🦸‍♂">bueno | héroe | hombre | superhéroe | superpoder</annotation>
+		<annotation cp="🦸‍♂" type="tts">superhéroe</annotation>
+		<annotation cp="🦸‍♀">héroe | heroína | mujer | superhéroe | superheroína | superpoder</annotation>
+		<annotation cp="🦸‍♀" type="tts">superheroína</annotation>
+		<annotation cp="🦹">criminal | malo | malvado | personaje de supervillano | superpoder | villano</annotation>
+		<annotation cp="🦹" type="tts">personaje de supervillano</annotation>
+		<annotation cp="🦹‍♂">criminal | hombre | malvado | superpoder | supervillano | villano</annotation>
+		<annotation cp="🦹‍♂" type="tts">supervillano</annotation>
+		<annotation cp="🦹‍♀">criminal | malvada | mujer | superpoder | supervillana | villana</annotation>
+		<annotation cp="🦹‍♀" type="tts">supervillana</annotation>
+		<annotation cp="🧙">bruja | brujo | hechicera | hechicero | persona maga</annotation>
+		<annotation cp="🧙" type="tts">persona maga</annotation>
+		<annotation cp="🧙‍♂">brujo | hechicero | mago</annotation>
+		<annotation cp="🧙‍♂" type="tts">mago</annotation>
+		<annotation cp="🧙‍♀">bruja | hechicera | maga</annotation>
+		<annotation cp="🧙‍♀" type="tts">maga</annotation>
+		<annotation cp="🧚">campanilla | hada | oberón | puck | titania</annotation>
+		<annotation cp="🧚" type="tts">hada</annotation>
+		<annotation cp="🧚‍♂">hada | hada hombre | oberón | puck</annotation>
+		<annotation cp="🧚‍♂" type="tts">hada hombre</annotation>
+		<annotation cp="🧚‍♀">campanilla | hada | hada mujer | titania</annotation>
+		<annotation cp="🧚‍♀" type="tts">hada mujer</annotation>
+		<annotation cp="🧛">drácula | muerto viviente | no muerto | vampiro</annotation>
+		<annotation cp="🧛" type="tts">vampiro</annotation>
+		<annotation cp="🧛‍♂">drácula | muerto viviente | no muerto | vampiro hombre</annotation>
+		<annotation cp="🧛‍♂" type="tts">vampiro hombre</annotation>
+		<annotation cp="🧛‍♀">muerta viviente | no muerta | vampiresa</annotation>
+		<annotation cp="🧛‍♀" type="tts">vampiresa</annotation>
+		<annotation cp="🧜">persona sirena | sirena</annotation>
+		<annotation cp="🧜" type="tts">persona sirena</annotation>
+		<annotation cp="🧜‍♂">sirena | sirena hombre | tritón</annotation>
+		<annotation cp="🧜‍♂" type="tts">sirena hombre</annotation>
+		<annotation cp="🧜‍♀">sirena</annotation>
+		<annotation cp="🧜‍♀" type="tts">sirena</annotation>
+		<annotation cp="🧝">elfo | mágico</annotation>
+		<annotation cp="🧝" type="tts">elfo</annotation>
+		<annotation cp="🧝‍♂">elfo | elfo hombre | mágico</annotation>
+		<annotation cp="🧝‍♂" type="tts">elfo hombre</annotation>
+		<annotation cp="🧝‍♀">elfa | mágico | mujer</annotation>
+		<annotation cp="🧝‍♀" type="tts">elfa</annotation>
+		<annotation cp="🧞">genio | lámpara</annotation>
+		<annotation cp="🧞" type="tts">genio</annotation>
+		<annotation cp="🧞‍♂">djinn | genio | genio hombre | lámpara</annotation>
+		<annotation cp="🧞‍♂" type="tts">genio hombre</annotation>
+		<annotation cp="🧞‍♀">genio | genio mujer | lámpara</annotation>
+		<annotation cp="🧞‍♀" type="tts">genio mujer</annotation>
+		<annotation cp="🧟">caminante | muerto viviente | no muerto | zombi</annotation>
+		<annotation cp="🧟" type="tts">zombi</annotation>
+		<annotation cp="🧟‍♂">caminante | muerto viviente | no muerto | zombi hombre</annotation>
+		<annotation cp="🧟‍♂" type="tts">zombi hombre</annotation>
+		<annotation cp="🧟‍♀">caminante | muerta viviente | no muerta | zombi mujer</annotation>
+		<annotation cp="🧟‍♀" type="tts">zombi mujer</annotation>
 		<annotation cp="💆">cara | facial | masaje | persona recibiendo masaje | salón</annotation>
 		<annotation cp="💆" type="tts">persona recibiendo masaje</annotation>
 		<annotation cp="💆‍♂">cara | facial | hombre recibiendo masaje | masaje | salón</annotation>
@@ -519,6 +853,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">hombre caminando</annotation>
 		<annotation cp="🚶‍♀">andar | caminata | marcha | mujer | mujer caminando</annotation>
 		<annotation cp="🚶‍♀" type="tts">mujer caminando</annotation>
+		<annotation cp="🧍">de pie | levantada | levantado | levantarse | persona de pie</annotation>
+		<annotation cp="🧍" type="tts">persona de pie</annotation>
+		<annotation cp="🧍‍♂">de pie | hombre | hombre de pie | levantado | levantarse</annotation>
+		<annotation cp="🧍‍♂" type="tts">hombre de pie</annotation>
+		<annotation cp="🧍‍♀">de pie | levantada | levantarse | mujer | mujer de pie</annotation>
+		<annotation cp="🧍‍♀" type="tts">mujer de pie</annotation>
+		<annotation cp="🧎">arrodillada | arrodillado | arrodillarse | de rodillas | persona de rodillas</annotation>
+		<annotation cp="🧎" type="tts">persona de rodillas</annotation>
+		<annotation cp="🧎‍♂">arrodillado | arrodillarse | de rodillas | hombre | hombre de rodillas</annotation>
+		<annotation cp="🧎‍♂" type="tts">hombre de rodillas</annotation>
+		<annotation cp="🧎‍♀">arrodillada | arrodillarse | de rodillas | mujer | mujer de rodillas</annotation>
+		<annotation cp="🧎‍♀" type="tts">mujer de rodillas</annotation>
+		<annotation cp="🧑‍🦯">accesibilidad | ciego | invidente | once | persona con bastón</annotation>
+		<annotation cp="🧑‍🦯" type="tts">persona con bastón</annotation>
+		<annotation cp="👨‍🦯">accesibilidad | bastón | ciego | hombre | hombre con bastón | invidente</annotation>
+		<annotation cp="👨‍🦯" type="tts">hombre con bastón</annotation>
+		<annotation cp="👩‍🦯">accesibilidad | bastón | ciega | invidente | mujer | mujer con bastón</annotation>
+		<annotation cp="👩‍🦯" type="tts">mujer con bastón</annotation>
+		<annotation cp="🧑‍🦼">accesibilidad | persona en silla de ruedas eléctrica | silla de ruedas</annotation>
+		<annotation cp="🧑‍🦼" type="tts">persona en silla de ruedas eléctrica</annotation>
+		<annotation cp="👨‍🦼">accesibilidad | hombre | hombre en silla de ruedas eléctrica | silla de ruedas</annotation>
+		<annotation cp="👨‍🦼" type="tts">hombre en silla de ruedas eléctrica</annotation>
+		<annotation cp="👩‍🦼">accesibilidad | mujer | mujer en silla de ruedas eléctrica | silla de ruedas</annotation>
+		<annotation cp="👩‍🦼" type="tts">mujer en silla de ruedas eléctrica</annotation>
+		<annotation cp="🧑‍🦽">accesibilidad | persona en silla de ruedas manual | silla de ruedas</annotation>
+		<annotation cp="🧑‍🦽" type="tts">persona en silla de ruedas manual</annotation>
+		<annotation cp="👨‍🦽">accesibilidad | hombre | hombre en silla de ruedas manual | silla de ruedas</annotation>
+		<annotation cp="👨‍🦽" type="tts">hombre en silla de ruedas manual</annotation>
+		<annotation cp="👩‍🦽">accesibilidad | mujer | mujer en silla de ruedas manual | silla de ruedas</annotation>
+		<annotation cp="👩‍🦽" type="tts">mujer en silla de ruedas manual</annotation>
 		<annotation cp="🏃">carrera | deporte | maratón | persona corriendo</annotation>
 		<annotation cp="🏃" type="tts">persona corriendo</annotation>
 		<annotation cp="🏃‍♂">carrera | correr | hombre | hombre corriendo | maratón</annotation>
@@ -529,6 +893,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💃" type="tts">mujer bailando</annotation>
 		<annotation cp="🕺">bailar | hombre | hombre bailando</annotation>
 		<annotation cp="🕺" type="tts">hombre bailando</annotation>
+		<annotation cp="🕴">hombre | hombre trajeado levitando | levitar | negocios | traje</annotation>
+		<annotation cp="🕴" type="tts">hombre trajeado levitando</annotation>
 		<annotation cp="👯">fiesta | mujeres | orejas de conejo | personas | personas con orejas de conejo</annotation>
 		<annotation cp="👯" type="tts">personas con orejas de conejo</annotation>
 		<annotation cp="👯‍♂">bailar | fiesta | hombre | hombres con orejas de conejo | orejas de conejo</annotation>
@@ -537,34 +903,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👯‍♀" type="tts">mujeres con orejas de conejo</annotation>
 		<annotation cp="🧖">persona en una sauna | sauna | vapor</annotation>
 		<annotation cp="🧖" type="tts">persona en una sauna</annotation>
-		<annotation cp="🧖‍♀">mujer en una sauna | sauna | vapor</annotation>
-		<annotation cp="🧖‍♀" type="tts">mujer en una sauna</annotation>
 		<annotation cp="🧖‍♂">hombre en una sauna | sauna | vapor</annotation>
 		<annotation cp="🧖‍♂" type="tts">hombre en una sauna</annotation>
+		<annotation cp="🧖‍♀">mujer en una sauna | sauna | vapor</annotation>
+		<annotation cp="🧖‍♀" type="tts">mujer en una sauna</annotation>
 		<annotation cp="🧗">alpinista | escalador | persona escalando</annotation>
 		<annotation cp="🧗" type="tts">persona escalando</annotation>
-		<annotation cp="🧗‍♀">alpinista | escaladora | mujer escalando</annotation>
-		<annotation cp="🧗‍♀" type="tts">mujer escalando</annotation>
 		<annotation cp="🧗‍♂">alpinista | escalador | hombre escalando</annotation>
 		<annotation cp="🧗‍♂" type="tts">hombre escalando</annotation>
-		<annotation cp="🧘">meditación | persona en posición de loto | yoga</annotation>
-		<annotation cp="🧘" type="tts">persona en posición de loto</annotation>
-		<annotation cp="🧘‍♀">meditación | mujer en posición de loto | yoga</annotation>
-		<annotation cp="🧘‍♀" type="tts">mujer en posición de loto</annotation>
-		<annotation cp="🧘‍♂">hombre en posición de loto | meditación | yoga</annotation>
-		<annotation cp="🧘‍♂" type="tts">hombre en posición de loto</annotation>
-		<annotation cp="🛀">bañera | baño | persona | persona en la bañera</annotation>
-		<annotation cp="🛀" type="tts">persona en la bañera</annotation>
-		<annotation cp="🛌">dormir | hotel | persona en la cama</annotation>
-		<annotation cp="🛌" type="tts">persona en la cama</annotation>
-		<annotation cp="🕴">hombre | hombre trajeado levitando | levitar | negocios | traje</annotation>
-		<annotation cp="🕴" type="tts">hombre trajeado levitando</annotation>
-		<annotation cp="🗣">cabeza | cabeza parlante | cara | hablar | silueta</annotation>
-		<annotation cp="🗣" type="tts">cabeza parlante</annotation>
-		<annotation cp="👤">busto | personas | silueta | silueta de busto</annotation>
-		<annotation cp="👤" type="tts">silueta de busto</annotation>
-		<annotation cp="👥">bustos | dos siluetas de bustos | personas | siluetas</annotation>
-		<annotation cp="👥" type="tts">dos siluetas de bustos</annotation>
+		<annotation cp="🧗‍♀">alpinista | escaladora | mujer escalando</annotation>
+		<annotation cp="🧗‍♀" type="tts">mujer escalando</annotation>
 		<annotation cp="🤺">deporte | esgrima | esgrimista | espada | persona</annotation>
 		<annotation cp="🤺" type="tts">esgrima</annotation>
 		<annotation cp="🏇">caballo | caballo de carreras | carrera de caballos | carreras | jinete</annotation>
@@ -621,11 +969,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">hombre en bicicleta de montaña</annotation>
 		<annotation cp="🚵‍♀">bicicleta | ciclista | montaña | mountain bike | mujer en bicicleta de montaña</annotation>
 		<annotation cp="🚵‍♀" type="tts">mujer en bicicleta de montaña</annotation>
-		<annotation cp="🏎">carreras | coche | coche de carreras</annotation>
-		<annotation cp="🏎" type="tts">coche de carreras</annotation>
-		<annotation cp="🏍">carreras | moto | motocicleta | vehículo</annotation>
-		<annotation cp="🏍" type="tts">moto</annotation>
-		<annotation cp="🤸">acrobacia | gimnasia | persona haciendo voltereta | persona haciendo voltereta lateral | pirueta | voltereta</annotation>
+		<annotation cp="🤸">acrobacia | gimnasia | persona haciendo voltereta lateral | pirueta | voltereta</annotation>
 		<annotation cp="🤸" type="tts">persona haciendo voltereta lateral</annotation>
 		<annotation cp="🤸‍♂">deporte | gimnasia | hombre | hombre haciendo una voltereta lateral | voltereta</annotation>
 		<annotation cp="🤸‍♂" type="tts">hombre haciendo una voltereta lateral</annotation>
@@ -655,110 +999,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤹‍♂" type="tts">hombre haciendo malabares</annotation>
 		<annotation cp="🤹‍♀">malabares | malabarismo | malabarista | mujer | mujer haciendo malabares</annotation>
 		<annotation cp="🤹‍♀" type="tts">mujer haciendo malabares</annotation>
-		<annotation cp="👫">hombre | hombre y mujer de la mano | mano | mujer | pareja</annotation>
-		<annotation cp="👫" type="tts">hombre y mujer de la mano</annotation>
-		<annotation cp="👬">dos hombres de la mano | gays | hombre | mano | pareja</annotation>
-		<annotation cp="👬" type="tts">dos hombres de la mano</annotation>
-		<annotation cp="👭">dos mujeres de la mano | lesbianas | mano | mujer | pareja</annotation>
-		<annotation cp="👭" type="tts">dos mujeres de la mano</annotation>
+		<annotation cp="🧘">meditación | persona en posición de loto | yoga</annotation>
+		<annotation cp="🧘" type="tts">persona en posición de loto</annotation>
+		<annotation cp="🧘‍♂">hombre en posición de loto | meditación | yoga</annotation>
+		<annotation cp="🧘‍♂" type="tts">hombre en posición de loto</annotation>
+		<annotation cp="🧘‍♀">meditación | mujer en posición de loto | yoga</annotation>
+		<annotation cp="🧘‍♀" type="tts">mujer en posición de loto</annotation>
+		<annotation cp="🛀">bañera | baño | persona | persona en la bañera</annotation>
+		<annotation cp="🛀" type="tts">persona en la bañera</annotation>
+		<annotation cp="🛌">dormir | hotel | persona en la cama</annotation>
+		<annotation cp="🛌" type="tts">persona en la cama</annotation>
+		<annotation cp="🧑‍🤝‍🧑">dos personas dándose la mano | mano | pareja | persona</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">dos personas dándose la mano</annotation>
+		<annotation cp="👭">lesbianas | mujeres | mujeres de la mano | novias | pareja</annotation>
+		<annotation cp="👭" type="tts">mujeres de la mano</annotation>
+		<annotation cp="👫">hombre | hombre y mujer de la mano | mujer | mujer y hombre de la mano | novios | pareja</annotation>
+		<annotation cp="👫" type="tts">mujer y hombre de la mano</annotation>
+		<annotation cp="👬">gays | hombres | hombres de la mano | novios | pareja</annotation>
+		<annotation cp="👬" type="tts">hombres de la mano</annotation>
 		<annotation cp="💏">beso | personas | romance</annotation>
 		<annotation cp="💏" type="tts">beso</annotation>
 		<annotation cp="💑">amor | corazón | hombre y mujer enamorados | pareja | pareja enamorada | personas</annotation>
 		<annotation cp="💑" type="tts">pareja enamorada</annotation>
 		<annotation cp="👪">familia | madre | niño | padre | personas</annotation>
 		<annotation cp="👪" type="tts">familia</annotation>
-		<annotation cp="🤳">autofoto | cámara | selfi | selfie | teléfono</annotation>
-		<annotation cp="🤳" type="tts">selfi</annotation>
-		<annotation cp="💪">bíceps | cómic | flexionado | fuerte | músculo</annotation>
-		<annotation cp="💪" type="tts">bíceps flexionado</annotation>
-		<annotation cp="🦵">extremidad | patada | pierna</annotation>
-		<annotation cp="🦵" type="tts">pierna</annotation>
-		<annotation cp="🦶">patada | pie | pisotón</annotation>
-		<annotation cp="🦶" type="tts">pie</annotation>
-		<annotation cp="👈">dedo | dorso de mano con índice a la izquierda | índice | izquierda | mano</annotation>
-		<annotation cp="👈" type="tts">dorso de mano con índice a la izquierda</annotation>
-		<annotation cp="👉">dedo | derecha | dorso de mano con índice a la derecha | índice | mano</annotation>
-		<annotation cp="👉" type="tts">dorso de mano con índice a la derecha</annotation>
-		<annotation cp="☝">apuntar | arriba | dedo | dedo índice hacia arriba | mano</annotation>
-		<annotation cp="☝" type="tts">dedo índice hacia arriba</annotation>
-		<annotation cp="👆">apuntar | arriba | dedo | dorso de mano con índice hacia arriba | mano</annotation>
-		<annotation cp="👆" type="tts">dorso de mano con índice hacia arriba</annotation>
-		<annotation cp="🖕">corazón | dedo | dedo corazón hacia arriba | mano | peineta</annotation>
-		<annotation cp="🖕" type="tts">dedo corazón hacia arriba</annotation>
-		<annotation cp="👇">abajo | apuntar | dedo | dorso de mano con índice hacia abajo | mano</annotation>
-		<annotation cp="👇" type="tts">dorso de mano con índice hacia abajo</annotation>
-		<annotation cp="✌">mano | mano con señal de victoria | señal de victoria | victoria</annotation>
-		<annotation cp="✌" type="tts">mano con señal de victoria</annotation>
-		<annotation cp="🤞">cruzar | dedos | dedos cruzados | mano | suerte</annotation>
-		<annotation cp="🤞" type="tts">dedos cruzados</annotation>
-		<annotation cp="🖖">mano | saludo | spock | vulcano</annotation>
-		<annotation cp="🖖" type="tts">saludo vulcano</annotation>
-		<annotation cp="🤘">cuernos | dedo | mano | mano haciendo el signo de cuernos | rock</annotation>
-		<annotation cp="🤘" type="tts">mano haciendo el signo de cuernos</annotation>
-		<annotation cp="🤙">llamar | mano | mano haciendo el gesto de llamar | meñique | pulgar</annotation>
-		<annotation cp="🤙" type="tts">mano haciendo el gesto de llamar</annotation>
-		<annotation cp="🖐">abierta | dedo | mano</annotation>
-		<annotation cp="🖐" type="tts">mano abierta</annotation>
-		<annotation cp="✋">levantada | mano</annotation>
-		<annotation cp="✋" type="tts">mano levantada</annotation>
-		<annotation cp="👌">aprobación | mano | ok | señal de aprobación con la mano</annotation>
-		<annotation cp="👌" type="tts">señal de aprobación con la mano</annotation>
-		<annotation cp="👍">arriba | mano | pulgar | pulgar hacia arriba | señal</annotation>
-		<annotation cp="👍" type="tts">pulgar hacia arriba</annotation>
-		<annotation cp="👎">abajo | mano | pulgar | pulgar hacia abajo | señal</annotation>
-		<annotation cp="👎" type="tts">pulgar hacia abajo</annotation>
-		<annotation cp="✊">cerrado | mano | puñetazo | puño | puño en alto</annotation>
-		<annotation cp="✊" type="tts">puño en alto</annotation>
-		<annotation cp="👊">puñetazo | puño | puño cerrado</annotation>
-		<annotation cp="👊" type="tts">puño cerrado</annotation>
-		<annotation cp="🤛">izquierda | puño | puño hacia la izquierda</annotation>
-		<annotation cp="🤛" type="tts">puño hacia la izquierda</annotation>
-		<annotation cp="🤜">derecha | puño | puño hacia la derecha</annotation>
-		<annotation cp="🤜" type="tts">puño hacia la derecha</annotation>
-		<annotation cp="🤚">dorso | dorso de la mano | levantado | mano</annotation>
-		<annotation cp="🤚" type="tts">dorso de la mano</annotation>
-		<annotation cp="👋">agitar | mano | mano saludando | saludar | saludo</annotation>
-		<annotation cp="👋" type="tts">mano saludando</annotation>
-		<annotation cp="🤟">gesto de te quiero | mano | quiero</annotation>
-		<annotation cp="🤟" type="tts">gesto de te quiero</annotation>
-		<annotation cp="✍">cuerpo | escribir | lápiz | mano | mano escribiendo</annotation>
-		<annotation cp="✍" type="tts">mano escribiendo</annotation>
-		<annotation cp="👏">aplaudir | manos | manos aplaudiendo | palmas | señal</annotation>
-		<annotation cp="👏" type="tts">manos aplaudiendo</annotation>
-		<annotation cp="👐">abiertas | manos</annotation>
-		<annotation cp="👐" type="tts">manos abiertas</annotation>
-		<annotation cp="🙌">celebración | gesto | hurra | mano | manos levantadas celebrando</annotation>
-		<annotation cp="🙌" type="tts">manos levantadas celebrando</annotation>
-		<annotation cp="🤲">oración | palmas hacia arriba juntas</annotation>
-		<annotation cp="🤲" type="tts">palmas hacia arriba juntas</annotation>
-		<annotation cp="🙏">mano | manos en oración | oración | orar | rezar</annotation>
-		<annotation cp="🙏" type="tts">manos en oración</annotation>
-		<annotation cp="🤝">acuerdo | apretón | apretón de manos | manos</annotation>
-		<annotation cp="🤝" type="tts">apretón de manos</annotation>
-		<annotation cp="💅">cosmética | esmalte | manicura | pintarse las uñas | uñas</annotation>
-		<annotation cp="💅" type="tts">pintarse las uñas</annotation>
-		<annotation cp="👂">cuerpo | oreja</annotation>
-		<annotation cp="👂" type="tts">oreja</annotation>
-		<annotation cp="👃">cuerpo | nariz</annotation>
-		<annotation cp="👃" type="tts">nariz</annotation>
+		<annotation cp="🗣">cabeza | cabeza parlante | cara | hablar | silueta</annotation>
+		<annotation cp="🗣" type="tts">cabeza parlante</annotation>
+		<annotation cp="👤">busto | personas | silueta | silueta de busto</annotation>
+		<annotation cp="👤" type="tts">silueta de busto</annotation>
+		<annotation cp="👥">bustos | dos siluetas de bustos | personas | siluetas</annotation>
+		<annotation cp="👥" type="tts">dos siluetas de bustos</annotation>
 		<annotation cp="👣">cuerpo | huellas | huellas de pies | pies</annotation>
 		<annotation cp="👣" type="tts">huellas de pies</annotation>
-		<annotation cp="👀">cara | ojos</annotation>
-		<annotation cp="👀" type="tts">ojos</annotation>
-		<annotation cp="👁">cuerpo | ojo</annotation>
-		<annotation cp="👁" type="tts">ojo</annotation>
-		<annotation cp="👁‍🗨">bocadillo de texto | ojo | ojo en bocadillo de texto | testigo</annotation>
-		<annotation cp="👁‍🗨" type="tts">ojo en bocadillo de texto</annotation>
-		<annotation cp="🧠">cerebro | inteligente</annotation>
-		<annotation cp="🧠" type="tts">cerebro</annotation>
-		<annotation cp="🦴">esqueleto | hueso</annotation>
-		<annotation cp="🦴" type="tts">hueso</annotation>
-		<annotation cp="🦷">dentista | diente</annotation>
-		<annotation cp="🦷" type="tts">diente</annotation>
-		<annotation cp="👅">cuerpo | lengua</annotation>
-		<annotation cp="👅" type="tts">lengua</annotation>
-		<annotation cp="👄">boca | cara | cuerpo | labios</annotation>
-		<annotation cp="👄" type="tts">boca</annotation>
 		<annotation cp="🦰">pelirrojo | pelo | rojizo | rojo</annotation>
 		<annotation cp="🦰" type="tts">pelo pelirrojo</annotation>
 		<annotation cp="🦱">afro | bucle | pelo rizado | rizado | rizo | tirabuzón</annotation>
@@ -767,166 +1039,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">pelo blanco</annotation>
 		<annotation cp="🦲">afeitado | bola de billar | calvo | quimioterapia | sin pelo</annotation>
 		<annotation cp="🦲" type="tts">sin pelo</annotation>
-		<annotation cp="💋">beso | labios | marca de beso | romance</annotation>
-		<annotation cp="💋" type="tts">marca de beso</annotation>
-		<annotation cp="💘">amor | corazón | corazón con flecha | emoción | flecha</annotation>
-		<annotation cp="💘" type="tts">corazón con flecha</annotation>
-		<annotation cp="💝">corazón | corazón con lazo | emoción | lazo | san valentín</annotation>
-		<annotation cp="💝" type="tts">corazón con lazo</annotation>
-		<annotation cp="💖">amor | brillante | corazón brillante | emoción</annotation>
-		<annotation cp="💖" type="tts">corazón brillante</annotation>
-		<annotation cp="💗">corazón | creciente | emocionado | latido | nervioso</annotation>
-		<annotation cp="💗" type="tts">corazón creciente</annotation>
-		<annotation cp="💓">amor | corazón | corazón latiendo | emoción | latido</annotation>
-		<annotation cp="💓" type="tts">corazón latiendo</annotation>
-		<annotation cp="💞">corazón | corazones giratorios | giratorio</annotation>
-		<annotation cp="💞" type="tts">corazones giratorios</annotation>
-		<annotation cp="💕">amantes | amor | corazón | dos corazones</annotation>
-		<annotation cp="💕" type="tts">dos corazones</annotation>
-		<annotation cp="💌">amor | carta | carta de amor | corazón | correo</annotation>
-		<annotation cp="💌" type="tts">carta de amor</annotation>
-		<annotation cp="❣">corazón | exclamación | exclamación de corazón | puntuación</annotation>
-		<annotation cp="❣" type="tts">exclamación de corazón</annotation>
-		<annotation cp="💔">corazón | emoción | partido | roto</annotation>
-		<annotation cp="💔" type="tts">corazón roto</annotation>
-		<annotation cp="❤">corazón | emoción | rojo</annotation>
-		<annotation cp="❤" type="tts">corazón rojo</annotation>
-		<annotation cp="🧡">corazón | emoción | naranja</annotation>
-		<annotation cp="🧡" type="tts">corazón naranja</annotation>
-		<annotation cp="💛">amarillo | corazón | emoción</annotation>
-		<annotation cp="💛" type="tts">corazón amarillo</annotation>
-		<annotation cp="💚">corazón | emoción | verde</annotation>
-		<annotation cp="💚" type="tts">corazón verde</annotation>
-		<annotation cp="💙">azul | corazón | emoción</annotation>
-		<annotation cp="💙" type="tts">corazón azul</annotation>
-		<annotation cp="💜">corazón | emoción | morado</annotation>
-		<annotation cp="💜" type="tts">corazón morado</annotation>
-		<annotation cp="🖤">corazón | negro</annotation>
-		<annotation cp="🖤" type="tts">corazón negro</annotation>
-		<annotation cp="💟">adorno de corazón | corazón</annotation>
-		<annotation cp="💟" type="tts">adorno de corazón</annotation>
-		<annotation cp="💤">cómic | dormir | símbolo de sueño | sueño | zzz</annotation>
-		<annotation cp="💤" type="tts">símbolo de sueño</annotation>
-		<annotation cp="💢">cómic | enfadado | enfado | símbolo de enfado</annotation>
-		<annotation cp="💢" type="tts">símbolo de enfado</annotation>
-		<annotation cp="💣">bomba | cómic | emoción</annotation>
-		<annotation cp="💣" type="tts">bomba</annotation>
-		<annotation cp="💥">colisión | cómic</annotation>
-		<annotation cp="💥" type="tts">colisión</annotation>
-		<annotation cp="💦">cómic | emoción | gotas de sudor | sudor</annotation>
-		<annotation cp="💦" type="tts">gotas de sudor</annotation>
-		<annotation cp="💨">carrera | cómic | correr | humo | salir corriendo</annotation>
-		<annotation cp="💨" type="tts">salir corriendo</annotation>
-		<annotation cp="💫">cómic | emoción | estrella | mareo | símbolo de mareo</annotation>
-		<annotation cp="💫" type="tts">símbolo de mareo</annotation>
-		<annotation cp="💬">bocadillo | bocadillo de diálogo | cómic | conversación | diálogo</annotation>
-		<annotation cp="💬" type="tts">bocadillo de diálogo</annotation>
-		<annotation cp="🗨">bocadillo | bocadillo de diálogo por la izquierda | burbuja | conversación | diálogo</annotation>
-		<annotation cp="🗨" type="tts">bocadillo de diálogo por la izquierda</annotation>
-		<annotation cp="🗯">bocadillo | bocadillo de enfado por la derecha | cabreo | enfado | rabia</annotation>
-		<annotation cp="🗯" type="tts">bocadillo de enfado por la derecha</annotation>
-		<annotation cp="💭">bocadillo | bocadillo de pensamiento | burbuja | cómic | pensamiento</annotation>
-		<annotation cp="💭" type="tts">bocadillo de pensamiento</annotation>
-		<annotation cp="🕳">agujero | orificio</annotation>
-		<annotation cp="🕳" type="tts">agujero</annotation>
-		<annotation cp="👓">accesorios | gafas | ojo | ropa</annotation>
-		<annotation cp="👓" type="tts">gafas</annotation>
-		<annotation cp="🕶">gafas | gafas de sol | ojo | oscuras | sol</annotation>
-		<annotation cp="🕶" type="tts">gafas de sol</annotation>
-		<annotation cp="🥽">gafas | gafas de protección | nadar | protección ocular | soldar</annotation>
-		<annotation cp="🥽" type="tts">gafas de protección</annotation>
-		<annotation cp="🥼">bata de laboratorio | científico | doctor | experimento | médico</annotation>
-		<annotation cp="🥼" type="tts">bata de laboratorio</annotation>
-		<annotation cp="👔">accesorio | corbata | ropa</annotation>
-		<annotation cp="👔" type="tts">corbata</annotation>
-		<annotation cp="👕">camiseta | ropa</annotation>
-		<annotation cp="👕" type="tts">camiseta</annotation>
-		<annotation cp="👖">pantalones | ropa | vaqueros</annotation>
-		<annotation cp="👖" type="tts">vaqueros</annotation>
-		<annotation cp="🧣">abrigo | bufanda | cuello</annotation>
-		<annotation cp="🧣" type="tts">bufanda</annotation>
-		<annotation cp="🧤">guantes | mano</annotation>
-		<annotation cp="🧤" type="tts">guantes</annotation>
-		<annotation cp="🧥">abrigo | chaquetón</annotation>
-		<annotation cp="🧥" type="tts">abrigo</annotation>
-		<annotation cp="🧦">calcetines | pies | ropa</annotation>
-		<annotation cp="🧦" type="tts">calcetines</annotation>
-		<annotation cp="👗">mujer | ropa | vestido</annotation>
-		<annotation cp="👗" type="tts">vestido</annotation>
-		<annotation cp="👘">japonés | kimono | ropa</annotation>
-		<annotation cp="👘" type="tts">kimono</annotation>
-		<annotation cp="👙">baño | bikini | playa | ropa</annotation>
-		<annotation cp="👙" type="tts">bikini</annotation>
-		<annotation cp="👚">blusa | camisa | femenina | ropa | ropa de mujer</annotation>
-		<annotation cp="👚" type="tts">ropa de mujer</annotation>
-		<annotation cp="👛">accesorios | cartera | complementos | monedero | mujer</annotation>
-		<annotation cp="👛" type="tts">monedero</annotation>
-		<annotation cp="👜">accesorios | bolso | complementos | mujer</annotation>
-		<annotation cp="👜" type="tts">bolso</annotation>
-		<annotation cp="👝">accesorios | bolso | bolso de mano | cartera | complementos</annotation>
-		<annotation cp="👝" type="tts">bolso de mano</annotation>
-		<annotation cp="🛍">bolsa | bolsas de compras | compra</annotation>
-		<annotation cp="🛍" type="tts">bolsas de compras</annotation>
-		<annotation cp="🎒">colegio | mochila | mochila escolar</annotation>
-		<annotation cp="🎒" type="tts">mochila escolar</annotation>
-		<annotation cp="👞">calzado | hombre | ropa | zapato | zapato de hombre</annotation>
-		<annotation cp="👞" type="tts">zapato de hombre</annotation>
-		<annotation cp="👟">calzado | correr | ropa | tenis | zapatilla deportiva</annotation>
-		<annotation cp="👟" type="tts">zapatilla deportiva</annotation>
-		<annotation cp="🥾">bota | bota de senderismo | camping | mochilero | senderismo</annotation>
-		<annotation cp="🥾" type="tts">bota de senderismo</annotation>
-		<annotation cp="🥿">bailarina | calzado | mujer | zapato</annotation>
-		<annotation cp="🥿" type="tts">bailarina</annotation>
-		<annotation cp="👠">mujer | tacón | zapato | zapato de tacón</annotation>
-		<annotation cp="👠" type="tts">zapato de tacón</annotation>
-		<annotation cp="👡">calzado | mujer | ropa | sandalia | sandalia de mujer</annotation>
-		<annotation cp="👡" type="tts">sandalia de mujer</annotation>
-		<annotation cp="👢">bota | bota de mujer | calzado | mujer | ropa</annotation>
-		<annotation cp="👢" type="tts">bota de mujer</annotation>
-		<annotation cp="👑">accesorios | complementos | corona | reina | rey</annotation>
-		<annotation cp="👑" type="tts">corona</annotation>
-		<annotation cp="👒">accesorio | mujer | ropa | sombrero | sombrero de mujer</annotation>
-		<annotation cp="👒" type="tts">sombrero de mujer</annotation>
-		<annotation cp="🎩">chistera | copa | ropa | sombrero | sombrero de copa</annotation>
-		<annotation cp="🎩" type="tts">sombrero de copa</annotation>
-		<annotation cp="🎓">birrete | celebración | gorro | graduación</annotation>
-		<annotation cp="🎓" type="tts">birrete</annotation>
-		<annotation cp="🧢">béisbol | gorra | gorra con visera | visera</annotation>
-		<annotation cp="🧢" type="tts">gorra con visera</annotation>
-		<annotation cp="⛑">ayuda | cara | casco | casco con una cruz blanca | cruz</annotation>
-		<annotation cp="⛑" type="tts">casco con una cruz blanca</annotation>
-		<annotation cp="📿">collar | cuentas | religión | rosario</annotation>
-		<annotation cp="📿" type="tts">rosario</annotation>
-		<annotation cp="💄">barra | cosmética | labios | maquillaje | pintalabios</annotation>
-		<annotation cp="💄" type="tts">pintalabios</annotation>
-		<annotation cp="💍">anillo | diamante</annotation>
-		<annotation cp="💍" type="tts">anillo</annotation>
-		<annotation cp="💎">diamante | gema | joya | piedra | preciosa</annotation>
-		<annotation cp="💎" type="tts">piedra preciosa</annotation>
 		<annotation cp="🐵">animal | cara | cara de mono | mono</annotation>
 		<annotation cp="🐵" type="tts">cara de mono</annotation>
 		<annotation cp="🐒">macaco | mono | simio</annotation>
 		<annotation cp="🐒" type="tts">mono</annotation>
 		<annotation cp="🦍">animal | cara | gorila</annotation>
 		<annotation cp="🦍" type="tts">gorila</annotation>
+		<annotation cp="🦧">mono | orangután | primate | simio</annotation>
+		<annotation cp="🦧" type="tts">orangután</annotation>
 		<annotation cp="🐶">animal | cara | cara de perro | perro</annotation>
 		<annotation cp="🐶" type="tts">cara de perro</annotation>
 		<annotation cp="🐕">cachorro | perrete | perrito | perro</annotation>
 		<annotation cp="🐕" type="tts">perro</annotation>
+		<annotation cp="🦮">accesibilidad | ciego | guía | invidente | lazarillo | perro guía</annotation>
+		<annotation cp="🦮" type="tts">perro guía</annotation>
+		<annotation cp="🐕‍🦺">accesibilidad | apoyo | asistencia | perro | perro de servicio | servicio</annotation>
+		<annotation cp="🐕‍🦺" type="tts">perro de servicio</annotation>
 		<annotation cp="🐩">caniche | perrito | perro</annotation>
 		<annotation cp="🐩" type="tts">caniche</annotation>
-		<annotation cp="🐺">cara | cara de lobo | lobo</annotation>
-		<annotation cp="🐺" type="tts">cara de lobo</annotation>
-		<annotation cp="🦊">animal | cara | cara de zorro | zorro</annotation>
-		<annotation cp="🦊" type="tts">cara de zorro</annotation>
-		<annotation cp="🦝">astuto | curioso | ladino | mapache</annotation>
+		<annotation cp="🐺">cara | lobo</annotation>
+		<annotation cp="🐺" type="tts">lobo</annotation>
+		<annotation cp="🦊">animal | cara | zorro</annotation>
+		<annotation cp="🦊" type="tts">zorro</annotation>
+		<annotation cp="🦝">astuto | curioso | ladino | mapache | maquillaje | ojeras</annotation>
 		<annotation cp="🦝" type="tts">mapache</annotation>
 		<annotation cp="🐱">animal | cara | cara de gato | gato</annotation>
 		<annotation cp="🐱" type="tts">cara de gato</annotation>
 		<annotation cp="🐈">gatete | gato | minino</annotation>
 		<annotation cp="🐈" type="tts">gato</annotation>
-		<annotation cp="🦁">cara | cara de león | leo | león | zodiaco</annotation>
-		<annotation cp="🦁" type="tts">cara de león</annotation>
+		<annotation cp="🐈‍⬛">gato | mala suerte | negro</annotation>
+		<annotation cp="🐈‍⬛" type="tts">gato negro</annotation>
+		<annotation cp="🦁">cara | leo | león | zodiaco</annotation>
+		<annotation cp="🦁" type="tts">león</annotation>
 		<annotation cp="🐯">animal | cara de tigre | tigre</annotation>
 		<annotation cp="🐯" type="tts">cara de tigre</annotation>
 		<annotation cp="🐅">felino | tigre</annotation>
@@ -937,8 +1081,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐴" type="tts">cara de caballo</annotation>
 		<annotation cp="🐎">caballo | caballo corriendo | caballo de carrera | ecuestre</annotation>
 		<annotation cp="🐎" type="tts">caballo</annotation>
-		<annotation cp="🦄">cara | cara de unicornio | unicornio</annotation>
-		<annotation cp="🦄" type="tts">cara de unicornio</annotation>
+		<annotation cp="🦄">cara | unicornio</annotation>
+		<annotation cp="🦄" type="tts">unicornio</annotation>
 		<annotation cp="🦓">cebra | raya</annotation>
 		<annotation cp="🦓" type="tts">cebra</annotation>
 		<annotation cp="🦌">animal | cara | ciervo</annotation>
@@ -985,8 +1129,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐁" type="tts">ratón</annotation>
 		<annotation cp="🐀">rata | roedor</annotation>
 		<annotation cp="🐀" type="tts">rata</annotation>
-		<annotation cp="🐹">animal | cara | cara de hámster | hámster | mascota</annotation>
-		<annotation cp="🐹" type="tts">cara de hámster</annotation>
+		<annotation cp="🐹">animal | cara | hámster | mascota</annotation>
+		<annotation cp="🐹" type="tts">hámster</annotation>
 		<annotation cp="🐰">animal | cara | cara de conejo | conejo</annotation>
 		<annotation cp="🐰" type="tts">cara de conejo</annotation>
 		<annotation cp="🐇">conejito | conejo | gazapo</annotation>
@@ -997,12 +1141,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦔" type="tts">erizo</annotation>
 		<annotation cp="🦇">animal | murciélago | vampiro</annotation>
 		<annotation cp="🦇" type="tts">murciélago</annotation>
-		<annotation cp="🐻">animal | cara | cara de oso | oso</annotation>
-		<annotation cp="🐻" type="tts">cara de oso</annotation>
+		<annotation cp="🐻">animal | cara | oso</annotation>
+		<annotation cp="🐻" type="tts">oso</annotation>
+		<annotation cp="🐻‍❄">ártico | blanco | oso | polar</annotation>
+		<annotation cp="🐻‍❄" type="tts">oso polar</annotation>
 		<annotation cp="🐨">bambú | koala</annotation>
 		<annotation cp="🐨" type="tts">koala</annotation>
-		<annotation cp="🐼">animal | cara | cara de oso panda | oso panda | panda</annotation>
-		<annotation cp="🐼" type="tts">cara de oso panda</annotation>
+		<annotation cp="🐼">animal | cara | oso panda | panda</annotation>
+		<annotation cp="🐼" type="tts">panda</annotation>
+		<annotation cp="🦥">gandul | lento | perezoso | vago</annotation>
+		<annotation cp="🦥" type="tts">perezoso</annotation>
+		<annotation cp="🦦">bromista | juguetón | nutria | pesca</annotation>
+		<annotation cp="🦦" type="tts">nutria</annotation>
+		<annotation cp="🦨">apestar | hedor | mal olor | mofeta | peste | tufo</annotation>
+		<annotation cp="🦨" type="tts">mofeta</annotation>
 		<annotation cp="🦘">australia | canguro | marsupial | salto</annotation>
 		<annotation cp="🦘" type="tts">canguro</annotation>
 		<annotation cp="🦡">ratel | tejón | tejón de la miel | tejón melero</annotation>
@@ -1035,12 +1187,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">cisne</annotation>
 		<annotation cp="🦉">ave | búho | lechuza | pájaro</annotation>
 		<annotation cp="🦉" type="tts">búho</annotation>
+		<annotation cp="🦩">extravangante | flamenco | ostentoso | tropical</annotation>
+		<annotation cp="🦩" type="tts">flamenco</annotation>
 		<annotation cp="🦚">ave | orgulloso | pavo | pavo real | plumas</annotation>
 		<annotation cp="🦚" type="tts">pavo real</annotation>
 		<annotation cp="🦜">ave | hablar | loro | papagayo | pirata</annotation>
 		<annotation cp="🦜" type="tts">loro</annotation>
-		<annotation cp="🐸">animal | cara | cara de rana | rana</annotation>
-		<annotation cp="🐸" type="tts">cara de rana</annotation>
+		<annotation cp="🐸">animal | cara | rana</annotation>
+		<annotation cp="🐸" type="tts">rana</annotation>
 		<annotation cp="🐊">caimán | cocodrilo</annotation>
 		<annotation cp="🐊" type="tts">cocodrilo</annotation>
 		<annotation cp="🐢">galápago | tortuga</annotation>
@@ -1075,14 +1229,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐙" type="tts">pulpo</annotation>
 		<annotation cp="🐚">animal | concha | concha de mar</annotation>
 		<annotation cp="🐚" type="tts">concha de mar</annotation>
-		<annotation cp="🦀">animal | cáncer | cangrejo | zodiaco</annotation>
-		<annotation cp="🦀" type="tts">cangrejo</annotation>
-		<annotation cp="🦞">langosta | marisco | pinzas</annotation>
-		<annotation cp="🦞" type="tts">langosta</annotation>
-		<annotation cp="🦐">camarón | comida | gamba | langostino | marisco</annotation>
-		<annotation cp="🦐" type="tts">gamba</annotation>
-		<annotation cp="🦑">calamar | comida | molusco</annotation>
-		<annotation cp="🦑" type="tts">calamar</annotation>
 		<annotation cp="🐌">caracol | caracola | molusco</annotation>
 		<annotation cp="🐌" type="tts">caracol</annotation>
 		<annotation cp="🦋">bonito | insecto | mariposa</annotation>
@@ -1199,10 +1345,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌶" type="tts">chile picante</annotation>
 		<annotation cp="🥒">comida | pepinillo | pepino | verdura</annotation>
 		<annotation cp="🥒" type="tts">pepino</annotation>
-		<annotation cp="🥬">bok choy | col | kale | lechuga | pak choi | verdura de hoja | verdura de hoja verde</annotation>
+		<annotation cp="🥬">bok choy | col | kale | lechuga | pak choi | verdura de hoja verde</annotation>
 		<annotation cp="🥬" type="tts">verdura de hoja verde</annotation>
 		<annotation cp="🥦">brócoli | col | repollo</annotation>
 		<annotation cp="🥦" type="tts">brócoli</annotation>
+		<annotation cp="🧄">ajo | condimento | vampiro</annotation>
+		<annotation cp="🧄" type="tts">ajo</annotation>
+		<annotation cp="🧅">cebolla | condimento | llorar</annotation>
+		<annotation cp="🧅" type="tts">cebolla</annotation>
 		<annotation cp="🍄">champiñón | hongo | seta</annotation>
 		<annotation cp="🍄" type="tts">champiñón</annotation>
 		<annotation cp="🥜">cacahuete | cacahuetes | comida | fruto seco | verdura</annotation>
@@ -1221,6 +1371,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥯" type="tts">bagel</annotation>
 		<annotation cp="🥞">comida | dulce | pancakes | postre | tortita | tortitas</annotation>
 		<annotation cp="🥞" type="tts">tortitas</annotation>
+		<annotation cp="🧇">gofre | waffle</annotation>
+		<annotation cp="🧇" type="tts">gofre</annotation>
 		<annotation cp="🧀">cuña | cuña de queso | queso | trozo</annotation>
 		<annotation cp="🧀" type="tts">cuña de queso</annotation>
 		<annotation cp="🍖">carne | carne con hueso | hueso | restaurante</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">burrito</annotation>
 		<annotation cp="🥙">comida | durum | falafel | kebab | pan de pita | pan relleno</annotation>
 		<annotation cp="🥙" type="tts">pan relleno</annotation>
+		<annotation cp="🧆">albóndiga | falafel | garbanzo</annotation>
+		<annotation cp="🧆" type="tts">falafel</annotation>
 		<annotation cp="🥚">comida | huevo</annotation>
 		<annotation cp="🥚" type="tts">huevo</annotation>
 		<annotation cp="🍳">cocinar | freír | huevo | sartén</annotation>
@@ -1261,6 +1415,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">ensalada</annotation>
 		<annotation cp="🍿">maíz | palomitas</annotation>
 		<annotation cp="🍿" type="tts">palomitas</annotation>
+		<annotation cp="🧈">lácteo | mantequilla</annotation>
+		<annotation cp="🧈" type="tts">mantequilla</annotation>
 		<annotation cp="🧂">condimento | sal | salero</annotation>
 		<annotation cp="🧂" type="tts">sal</annotation>
 		<annotation cp="🥫">comida enlatada | conserva | lata</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">galleta de la fortuna</annotation>
 		<annotation cp="🥡">caja para llevar | recipiente para llevar | restaurante</annotation>
 		<annotation cp="🥡" type="tts">caja para llevar</annotation>
+		<annotation cp="🦀">animal | cáncer | cangrejo | zodiaco</annotation>
+		<annotation cp="🦀" type="tts">cangrejo</annotation>
+		<annotation cp="🦞">langosta | marisco | pinzas</annotation>
+		<annotation cp="🦞" type="tts">langosta</annotation>
+		<annotation cp="🦐">camarón | comida | gamba | langostino | marisco</annotation>
+		<annotation cp="🦐" type="tts">gamba</annotation>
+		<annotation cp="🦑">calamar | comida | molusco</annotation>
+		<annotation cp="🦑" type="tts">calamar</annotation>
+		<annotation cp="🦪">buceo | ostra | perla</annotation>
+		<annotation cp="🦪" type="tts">ostra</annotation>
 		<annotation cp="🍦">cucurucho | cucurucho de helado | dulce | helado | helado de cucurucho | restaurante</annotation>
 		<annotation cp="🍦" type="tts">cucurucho de helado</annotation>
 		<annotation cp="🍧">granizado hawaiano | helado | hielo | postre | raspado</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">vaso de whisky</annotation>
 		<annotation cp="🥤">refresco | vaso con pajita | zumo</annotation>
 		<annotation cp="🥤" type="tts">vaso con pajita</annotation>
+		<annotation cp="🧃">brick | cartón | envase | tetrabrik | zumo</annotation>
+		<annotation cp="🧃" type="tts">tetrabrik</annotation>
+		<annotation cp="🧉">bebida | infusión | mate</annotation>
+		<annotation cp="🧉" type="tts">mate</annotation>
+		<annotation cp="🧊">cubito de hielo | frío | iceberg</annotation>
+		<annotation cp="🧊" type="tts">cubito de hielo</annotation>
 		<annotation cp="🥢">cubiertos | hashi | palillos</annotation>
 		<annotation cp="🥢" type="tts">palillos</annotation>
 		<annotation cp="🍽">cuchillo | cuchillo y tenedor con un plato | plato | restaurante | tenedor</annotation>
@@ -1367,11 +1539,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔪" type="tts">cuchillo de cocina</annotation>
 		<annotation cp="🏺">acuario | ánfora | beber | jarra | zodiaco</annotation>
 		<annotation cp="🏺" type="tts">ánfora</annotation>
-		<annotation cp="🌍">áfrica | europa | globo terráqueo mostrando europa y áfrica | globo terráqueo mostrando Europa y África | mundo | tierra</annotation>
+		<annotation cp="🌍">áfrica | europa | globo terráqueo mostrando europa y áfrica | globo terráqueo mostrando Europa y África | mundo | planeta | tierra</annotation>
 		<annotation cp="🌍" type="tts">globo terráqueo mostrando Europa y África</annotation>
-		<annotation cp="🌎">américa | globo | globo terráqueo mostrando américa | globo terráqueo mostrando América | mundo | tierra</annotation>
+		<annotation cp="🌎">américa | globo | globo terráqueo mostrando américa | globo terráqueo mostrando América | mundo | planeta | tierra</annotation>
 		<annotation cp="🌎" type="tts">globo terráqueo mostrando América</annotation>
-		<annotation cp="🌏">asia | australia | globo terráqueo mostrando asia y australia | globo terráqueo mostrando Asia y Australia | mundo | tierra</annotation>
+		<annotation cp="🌏">asia | australia | globo terráqueo mostrando asia y australia | globo terráqueo mostrando Asia y Australia | mundo | planeta | tierra</annotation>
 		<annotation cp="🌏" type="tts">globo terráqueo mostrando Asia y Australia</annotation>
 		<annotation cp="🌐">globo | globo terráqueo con meridianos | meridianos | mundo | tierra</annotation>
 		<annotation cp="🌐" type="tts">globo terráqueo con meridianos</annotation>
@@ -1379,7 +1551,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗺" type="tts">mapa mundial</annotation>
 		<annotation cp="🗾">japón | mapa | mapa de japón | mapa de Japón</annotation>
 		<annotation cp="🗾" type="tts">mapa de Japón</annotation>
-		<annotation cp="🧭">brújula | magnético | navegación | orientación</annotation>
+		<annotation cp="🧭">brújula | compás | magnético | navegación | orientación</annotation>
 		<annotation cp="🧭" type="tts">brújula</annotation>
 		<annotation cp="🏔">frío | montaña | montaña con nieve | nieve</annotation>
 		<annotation cp="🏔" type="tts">montaña con nieve</annotation>
@@ -1443,7 +1615,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏰" type="tts">castillo europeo</annotation>
 		<annotation cp="💒">boda | iglesia | iglesia celebrando boda | romance</annotation>
 		<annotation cp="💒" type="tts">iglesia celebrando boda</annotation>
-		<annotation cp="🗼">tokio | torre | torre de tokio | Torre de Tokio</annotation>
+		<annotation cp="🗼">tokio | torre | Torre de Tokio</annotation>
 		<annotation cp="🗼" type="tts">Torre de Tokio</annotation>
 		<annotation cp="🗽">estatua | estatua de la libertad | Estatua de la Libertad | libertad</annotation>
 		<annotation cp="🗽" type="tts">Estatua de la Libertad</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">iglesia</annotation>
 		<annotation cp="🕌">islam | mezquita | religión</annotation>
 		<annotation cp="🕌" type="tts">mezquita</annotation>
+		<annotation cp="🛕">hindú | templo</annotation>
+		<annotation cp="🛕" type="tts">templo hindú</annotation>
 		<annotation cp="🕍">judaísmo | religión | sinagoga</annotation>
 		<annotation cp="🕍" type="tts">sinagoga</annotation>
 		<annotation cp="⛩">japón | religión | santuario | santuario sintoísta | sintoísmo</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">puente de noche</annotation>
 		<annotation cp="♨">aguas termales | termas | vapor</annotation>
 		<annotation cp="♨" type="tts">aguas termales</annotation>
-		<annotation cp="🌌">espacio | galaxia | vía láctea | Vía Láctea</annotation>
-		<annotation cp="🌌" type="tts">Vía Láctea</annotation>
 		<annotation cp="🎠">caballo | caballo de tiovivo | entretenimiento | tiovivo</annotation>
 		<annotation cp="🎠" type="tts">caballo de tiovivo</annotation>
 		<annotation cp="🎡">atracciones | entretenimiento | feria | noria | noria de feria</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">camión articulado</annotation>
 		<annotation cp="🚜">agricultura | tractor | vehículo</annotation>
 		<annotation cp="🚜" type="tts">tractor</annotation>
+		<annotation cp="🏎">carreras | coche | coche de carreras</annotation>
+		<annotation cp="🏎" type="tts">coche de carreras</annotation>
+		<annotation cp="🏍">carreras | moto | motocicleta | vehículo</annotation>
+		<annotation cp="🏍" type="tts">moto</annotation>
+		<annotation cp="🛵">escúter | moto | scooter</annotation>
+		<annotation cp="🛵" type="tts">scooter</annotation>
+		<annotation cp="🦽">accesibilidad | silla de ruedas manual</annotation>
+		<annotation cp="🦽" type="tts">silla de ruedas manual</annotation>
+		<annotation cp="🦼">accesibilidad | silla de ruedas eléctrica</annotation>
+		<annotation cp="🦼" type="tts">silla de ruedas eléctrica</annotation>
+		<annotation cp="🛺">mototaxi | rickshaw | tuk tuk</annotation>
+		<annotation cp="🛺" type="tts">mototaxi</annotation>
 		<annotation cp="🚲">bici | bicicleta | vehículo</annotation>
 		<annotation cp="🚲" type="tts">bicicleta</annotation>
 		<annotation cp="🛴">patinete</annotation>
 		<annotation cp="🛴" type="tts">patinete</annotation>
 		<annotation cp="🛹">monopatín | skateboard | tabla</annotation>
 		<annotation cp="🛹" type="tts">monopatín</annotation>
-		<annotation cp="🛵">escúter | moto | scooter</annotation>
-		<annotation cp="🛵" type="tts">scooter</annotation>
 		<annotation cp="🚏">autobús | parada | parada de autobús</annotation>
 		<annotation cp="🚏" type="tts">parada de autobús</annotation>
 		<annotation cp="🛣">autopista | carretera</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">avión despegando</annotation>
 		<annotation cp="🛬">aeroplano | avión | avión aterrizando | llegada | vehículo</annotation>
 		<annotation cp="🛬" type="tts">avión aterrizando</annotation>
+		<annotation cp="🪂">ala delta | paracaídas | paracaidismo | paravela | volar</annotation>
+		<annotation cp="🪂" type="tts">paracaídas</annotation>
 		<annotation cp="💺">asiento | asiento de transporte | plaza | silla</annotation>
 		<annotation cp="💺" type="tts">asiento de transporte</annotation>
 		<annotation cp="🚁">aspas | helicóptero | rotores | vehículo | volar</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">luna llena con cara</annotation>
 		<annotation cp="🌞">brillante | cara | sol | sol con cara</annotation>
 		<annotation cp="🌞" type="tts">sol con cara</annotation>
+		<annotation cp="🪐">planeta con anillos | saturnino | saturno</annotation>
+		<annotation cp="🪐" type="tts">planeta con anillos</annotation>
 		<annotation cp="⭐">estrella | estrella blanca mediana</annotation>
 		<annotation cp="⭐" type="tts">estrella blanca mediana</annotation>
 		<annotation cp="🌟">brillante | estrella | resplandeciente</annotation>
 		<annotation cp="🌟" type="tts">estrella brillante</annotation>
 		<annotation cp="🌠">estrella | estrella fugaz | lluvia</annotation>
 		<annotation cp="🌠" type="tts">estrella fugaz</annotation>
+		<annotation cp="🌌">espacio | galaxia | vía láctea | Vía Láctea</annotation>
+		<annotation cp="🌌" type="tts">Vía Láctea</annotation>
 		<annotation cp="☁">nube | tiempo</annotation>
 		<annotation cp="☁" type="tts">nube</annotation>
 		<annotation cp="⛅">nube | sol | sol con nubes | sol detrás de una nube</annotation>
@@ -1763,17 +1951,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☃" type="tts">muñeco de nieve con nieve</annotation>
 		<annotation cp="⛄">muñeco de nieve | muñeco de nieve sin nieve | nieve</annotation>
 		<annotation cp="⛄" type="tts">muñeco de nieve</annotation>
-		<annotation cp="☄">cometa | espacio</annotation>
-		<annotation cp="☄" type="tts">cometa</annotation>
+		<annotation cp="☄">cometa | espacio | meteorito</annotation>
+		<annotation cp="☄" type="tts">meteorito</annotation>
 		<annotation cp="🔥">fuego | llama</annotation>
 		<annotation cp="🔥" type="tts">fuego</annotation>
 		<annotation cp="💧">agua | cómic | gota | sudor</annotation>
 		<annotation cp="💧" type="tts">gota</annotation>
 		<annotation cp="🌊">mar | océano | ola | ola de mar</annotation>
 		<annotation cp="🌊" type="tts">ola de mar</annotation>
-		<annotation cp="🎃">calabaza | calabaza de halloween | calabaza de Halloween | celebración | halloween | linterna</annotation>
+		<annotation cp="🎃">calabaza | calabaza de Halloween | celebración | halloween | linterna</annotation>
 		<annotation cp="🎃" type="tts">calabaza de Halloween</annotation>
-		<annotation cp="🎄">árbol | árbol de navidad | árbol de Navidad | celebración | navidad</annotation>
+		<annotation cp="🎄">abeto de Navidad | árbol | árbol de Navidad | celebración | navidad</annotation>
 		<annotation cp="🎄" type="tts">árbol de Navidad</annotation>
 		<annotation cp="🎆">celebración | fuegos artificiales</annotation>
 		<annotation cp="🎆" type="tts">fuegos artificiales</annotation>
@@ -1781,7 +1969,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎇" type="tts">bengala</annotation>
 		<annotation cp="🧨">dinamita | explosivo | fuegos artificiales | petardo</annotation>
 		<annotation cp="🧨" type="tts">petardo</annotation>
-		<annotation cp="✨">bengala | chispas | estrellas | estrellas centelleantes</annotation>
+		<annotation cp="✨">* | bengala | chispas | estrellas</annotation>
 		<annotation cp="✨" type="tts">chispas</annotation>
 		<annotation cp="🎈">celebración | globo</annotation>
 		<annotation cp="🎈" type="tts">globo</annotation>
@@ -1869,6 +2057,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">patín de hielo</annotation>
 		<annotation cp="🎣">caña | caña de pescar | entretenimiento | esparcimiento | pesca | pez</annotation>
 		<annotation cp="🎣" type="tts">caña de pescar</annotation>
+		<annotation cp="🤿">bucear | buzo | esnórquel | máscara | máscara de buceo | tubo</annotation>
+		<annotation cp="🤿" type="tts">máscara de buceo</annotation>
 		<annotation cp="🎽">banda | camiseta con banda | camiseta de correr | camiseta sin mangas | deporte</annotation>
 		<annotation cp="🎽" type="tts">camiseta sin mangas</annotation>
 		<annotation cp="🎿">deporte | esquí | esquíes | esquís</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">piedra de curling</annotation>
 		<annotation cp="🎯">blanco | diana | en el blanco | juego</annotation>
 		<annotation cp="🎯" type="tts">diana</annotation>
+		<annotation cp="🪀">dieta | efecto | fluctuar | juguete | yoyó</annotation>
+		<annotation cp="🪀" type="tts">yoyó</annotation>
+		<annotation cp="🪁">cometa | juguete | planear | viento | volar</annotation>
+		<annotation cp="🪁" type="tts">cometa</annotation>
 		<annotation cp="🎱">8 | billar | bola negra de billar | bola ocho | juego</annotation>
 		<annotation cp="🎱" type="tts">bola negra de billar</annotation>
 		<annotation cp="🔮">adivinación | bola | bola de cristal | buena fortuna | cristal</annotation>
@@ -1893,8 +2087,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎰" type="tts">máquina tragaperras</annotation>
 		<annotation cp="🎲">dado | juego</annotation>
 		<annotation cp="🎲" type="tts">dado</annotation>
-		<annotation cp="🧩">conectar | pieza | pista | puzle | rompecabezas</annotation>
-		<annotation cp="🧩" type="tts">puzle</annotation>
+		<annotation cp="🧩">conectar | pieza | pieza de puzle | pista | puzle | rompecabezas</annotation>
+		<annotation cp="🧩" type="tts">pieza de puzle</annotation>
 		<annotation cp="🧸">juguete | osito de peluche | oso | peluche</annotation>
 		<annotation cp="🧸" type="tts">osito de peluche</annotation>
 		<annotation cp="♠">carta | juego | palo | palo de picas | picas</annotation>
@@ -1923,6 +2117,92 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">hilo</annotation>
 		<annotation cp="🧶">bola | croché | ovillo | punto | tejer</annotation>
 		<annotation cp="🧶" type="tts">ovillo</annotation>
+		<annotation cp="👓">accesorios | gafas | ojo | ropa</annotation>
+		<annotation cp="👓" type="tts">gafas</annotation>
+		<annotation cp="🕶">gafas | gafas de sol | ojo | oscuras | sol</annotation>
+		<annotation cp="🕶" type="tts">gafas de sol</annotation>
+		<annotation cp="🥽">gafas | gafas de protección | nadar | protección ocular | soldar</annotation>
+		<annotation cp="🥽" type="tts">gafas de protección</annotation>
+		<annotation cp="🥼">bata de laboratorio | científico | doctor | experimento | médico</annotation>
+		<annotation cp="🥼" type="tts">bata de laboratorio</annotation>
+		<annotation cp="🦺">chaleco | chaleco de seguridad | emergencia | seguridad</annotation>
+		<annotation cp="🦺" type="tts">chaleco de seguridad</annotation>
+		<annotation cp="👔">accesorio | corbata | ropa</annotation>
+		<annotation cp="👔" type="tts">corbata</annotation>
+		<annotation cp="👕">camiseta | ropa</annotation>
+		<annotation cp="👕" type="tts">camiseta</annotation>
+		<annotation cp="👖">pantalones | ropa | vaqueros</annotation>
+		<annotation cp="👖" type="tts">vaqueros</annotation>
+		<annotation cp="🧣">abrigo | bufanda | cuello</annotation>
+		<annotation cp="🧣" type="tts">bufanda</annotation>
+		<annotation cp="🧤">guantes | mano</annotation>
+		<annotation cp="🧤" type="tts">guantes</annotation>
+		<annotation cp="🧥">abrigo | chaquetón</annotation>
+		<annotation cp="🧥" type="tts">abrigo</annotation>
+		<annotation cp="🧦">calcetines | pies | ropa</annotation>
+		<annotation cp="🧦" type="tts">calcetines</annotation>
+		<annotation cp="👗">mujer | ropa | vestido</annotation>
+		<annotation cp="👗" type="tts">vestido</annotation>
+		<annotation cp="👘">japonés | kimono | ropa</annotation>
+		<annotation cp="👘" type="tts">kimono</annotation>
+		<annotation cp="🥻">prenda | ropa | sari | vestido</annotation>
+		<annotation cp="🥻" type="tts">sari</annotation>
+		<annotation cp="🩱">bañador | traje de baño de una pieza</annotation>
+		<annotation cp="🩱" type="tts">traje de baño de una pieza</annotation>
+		<annotation cp="🩲">bañador | bragas | braguitas | calzoncillos | ropa interior | slip</annotation>
+		<annotation cp="🩲" type="tts">ropa interior</annotation>
+		<annotation cp="🩳">bañador | bermudas | calzoncillos | pantalones cortos | ropa interior | shorts</annotation>
+		<annotation cp="🩳" type="tts">pantalones cortos</annotation>
+		<annotation cp="👙">baño | bikini | playa | ropa</annotation>
+		<annotation cp="👙" type="tts">bikini</annotation>
+		<annotation cp="👚">blusa | camisa | femenina | ropa | ropa de mujer</annotation>
+		<annotation cp="👚" type="tts">ropa de mujer</annotation>
+		<annotation cp="👛">accesorios | cartera | complementos | monedero | mujer</annotation>
+		<annotation cp="👛" type="tts">monedero</annotation>
+		<annotation cp="👜">accesorios | bolso | complementos | mujer</annotation>
+		<annotation cp="👜" type="tts">bolso</annotation>
+		<annotation cp="👝">accesorios | bolso | bolso de mano | cartera | complementos</annotation>
+		<annotation cp="👝" type="tts">bolso de mano</annotation>
+		<annotation cp="🛍">bolsa | bolsas de compras | compra</annotation>
+		<annotation cp="🛍" type="tts">bolsas de compras</annotation>
+		<annotation cp="🎒">colegio | mochila | mochila escolar</annotation>
+		<annotation cp="🎒" type="tts">mochila escolar</annotation>
+		<annotation cp="👞">calzado | hombre | ropa | zapato | zapato de hombre</annotation>
+		<annotation cp="👞" type="tts">zapato de hombre</annotation>
+		<annotation cp="👟">calzado | correr | ropa | tenis | zapatilla deportiva</annotation>
+		<annotation cp="👟" type="tts">zapatilla deportiva</annotation>
+		<annotation cp="🥾">bota | bota de senderismo | camping | mochilero | senderismo</annotation>
+		<annotation cp="🥾" type="tts">bota de senderismo</annotation>
+		<annotation cp="🥿">bailarina | calzado | mujer | zapato</annotation>
+		<annotation cp="🥿" type="tts">bailarina</annotation>
+		<annotation cp="👠">mujer | tacón | zapato | zapato de tacón</annotation>
+		<annotation cp="👠" type="tts">zapato de tacón</annotation>
+		<annotation cp="👡">calzado | mujer | ropa | sandalia | sandalia de mujer</annotation>
+		<annotation cp="👡" type="tts">sandalia de mujer</annotation>
+		<annotation cp="🩰">bailar | balé | ballet | danza | zapatillas de ballet</annotation>
+		<annotation cp="🩰" type="tts">zapatillas de ballet</annotation>
+		<annotation cp="👢">bota | bota de mujer | calzado | mujer | ropa</annotation>
+		<annotation cp="👢" type="tts">bota de mujer</annotation>
+		<annotation cp="👑">accesorios | complementos | corona | reina | rey</annotation>
+		<annotation cp="👑" type="tts">corona</annotation>
+		<annotation cp="👒">accesorio | mujer | ropa | sombrero | sombrero de mujer</annotation>
+		<annotation cp="👒" type="tts">sombrero de mujer</annotation>
+		<annotation cp="🎩">chistera | copa | ropa | sombrero | sombrero de copa</annotation>
+		<annotation cp="🎩" type="tts">sombrero de copa</annotation>
+		<annotation cp="🎓">birrete | celebración | gorro | graduación</annotation>
+		<annotation cp="🎓" type="tts">birrete</annotation>
+		<annotation cp="🧢">béisbol | gorra | gorra con visera | visera</annotation>
+		<annotation cp="🧢" type="tts">gorra con visera</annotation>
+		<annotation cp="⛑">ayuda | cara | casco | casco con una cruz blanca | cruz</annotation>
+		<annotation cp="⛑" type="tts">casco con una cruz blanca</annotation>
+		<annotation cp="📿">collar | cuentas | religión | rosario</annotation>
+		<annotation cp="📿" type="tts">rosario</annotation>
+		<annotation cp="💄">barra | cosmética | labios | maquillaje | pintalabios</annotation>
+		<annotation cp="💄" type="tts">pintalabios</annotation>
+		<annotation cp="💍">anillo | diamante</annotation>
+		<annotation cp="💍" type="tts">anillo</annotation>
+		<annotation cp="💎">diamante | gema | joya | piedra | preciosa</annotation>
+		<annotation cp="💎" type="tts">piedra preciosa</annotation>
 		<annotation cp="🔇">altavoz | altavoz con marca de cancelación | altavoz silenciado | mute | silencio</annotation>
 		<annotation cp="🔇" type="tts">altavoz silenciado</annotation>
 		<annotation cp="🔈">altavoz a volumen bajo | volumen bajo</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">trompeta</annotation>
 		<annotation cp="🎻">instrumento | instrumento musical | música | violín</annotation>
 		<annotation cp="🎻" type="tts">violín</annotation>
+		<annotation cp="🪕">banjo | banyo | cuerda | instrumento | música</annotation>
+		<annotation cp="🪕" type="tts">banjo</annotation>
 		<annotation cp="🥁">baquetas | música | tambor</annotation>
 		<annotation cp="🥁" type="tts">tambor</annotation>
 		<annotation cp="📱">celular | móvil | teléfono</annotation>
@@ -2007,7 +2289,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💿" type="tts">disco óptico</annotation>
 		<annotation cp="📀">disco | disco DVD | dvd</annotation>
 		<annotation cp="📀" type="tts">disco DVD</annotation>
-		<annotation cp="🧮">ábaco | cálculo</annotation>
+		<annotation cp="🧮">ábaco | cálculo | contar | matemáticas</annotation>
 		<annotation cp="🧮" type="tts">ábaco</annotation>
 		<annotation cp="🎥">cámara | cámara de cine | cine | entretenimiento | película</annotation>
 		<annotation cp="🎥" type="tts">cámara de cine</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">linterna</annotation>
 		<annotation cp="🏮">izakaya | lámpara japonesa | lámpara roja | linterna izakaya | linterna japonesa | restaurante</annotation>
 		<annotation cp="🏮" type="tts">lámpara japonesa</annotation>
+		<annotation cp="🪔">aceite | diya | lámpara | lámpara de aceite</annotation>
+		<annotation cp="🪔" type="tts">lámpara de aceite</annotation>
 		<annotation cp="📔">cuaderno | cuaderno con tapa decorativa | decoración | tapa</annotation>
 		<annotation cp="📔" type="tts">cuaderno con tapa decorativa</annotation>
 		<annotation cp="📕">cerrado | libro</annotation>
@@ -2125,8 +2409,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="✏" type="tts">lápiz</annotation>
 		<annotation cp="✒">bolígrafo | escribir | pluma | pluma negra | tinta</annotation>
 		<annotation cp="✒" type="tts">pluma negra</annotation>
-		<annotation cp="🖋">bolígrafo | escribir | pluma | tinta</annotation>
-		<annotation cp="🖋" type="tts">pluma</annotation>
+		<annotation cp="🖋">bolígrafo | escribir | estilográfica | pluma | tinta</annotation>
+		<annotation cp="🖋" type="tts">estilográfica</annotation>
 		<annotation cp="🖊">boli | bolígrafo | escribir</annotation>
 		<annotation cp="🖊" type="tts">bolígrafo</annotation>
 		<annotation cp="🖌">pincel | pintar</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">llave antigua</annotation>
 		<annotation cp="🔨">herramienta | martillo</annotation>
 		<annotation cp="🔨" type="tts">martillo</annotation>
+		<annotation cp="🪓">cortar | dividir | hacha | hachuela | madera | talar</annotation>
+		<annotation cp="🪓" type="tts">hacha</annotation>
 		<annotation cp="⛏">herramienta | mina | pico</annotation>
 		<annotation cp="⛏" type="tts">pico</annotation>
 		<annotation cp="⚒">herramienta | martillo | martillo y pico | pico</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">tornillo de banco</annotation>
 		<annotation cp="⚖">balanza | justicia | libra | peso | zodiaco</annotation>
 		<annotation cp="⚖" type="tts">balanza</annotation>
+		<annotation cp="🦯">accesibilidad | bastón | ceguera | ciega | ciego | invidente</annotation>
+		<annotation cp="🦯" type="tts">bastón</annotation>
 		<annotation cp="🔗">eslabón</annotation>
 		<annotation cp="🔗" type="tts">eslabón</annotation>
 		<annotation cp="⛓">cadena | cadenas</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">antena de satélite</annotation>
 		<annotation cp="💉">aguja | jeringa | jeringuilla | medicina | médico</annotation>
 		<annotation cp="💉" type="tts">jeringuilla</annotation>
+		<annotation cp="🩸">donación de sangre | donar sangre | gota de sangre | herida | medicina | sangre</annotation>
+		<annotation cp="🩸" type="tts">gota de sangre</annotation>
 		<annotation cp="💊">comprimido | medicina | médico | pastilla | píldora</annotation>
 		<annotation cp="💊" type="tts">píldora</annotation>
+		<annotation cp="🩹">apósito | tirita</annotation>
+		<annotation cp="🩹" type="tts">tirita</annotation>
+		<annotation cp="🩺">corazón | doctor | estetoscopio | fonendoscopio | latido | medicina | médico</annotation>
+		<annotation cp="🩺" type="tts">estetoscopio</annotation>
 		<annotation cp="🚪">puerta</annotation>
 		<annotation cp="🚪" type="tts">puerta</annotation>
 		<annotation cp="🛏">cama | dormir | hotel</annotation>
 		<annotation cp="🛏" type="tts">cama</annotation>
 		<annotation cp="🛋">hotel | lámpara | sofá | sofá y lámpara</annotation>
 		<annotation cp="🛋" type="tts">sofá y lámpara</annotation>
+		<annotation cp="🪑">asiento | sentarse | silla</annotation>
+		<annotation cp="🪑" type="tts">silla</annotation>
 		<annotation cp="🚽">baño | inodoro | váter | wc</annotation>
 		<annotation cp="🚽" type="tts">inodoro</annotation>
 		<annotation cp="🚿">agua | baño | ducha</annotation>
 		<annotation cp="🚿" type="tts">ducha</annotation>
 		<annotation cp="🛁">bañera | baño</annotation>
 		<annotation cp="🛁" type="tts">bañera</annotation>
+		<annotation cp="🪒">afeitado | afeitar | afilado | barbero | cuchilla de afeitar | navaja</annotation>
+		<annotation cp="🪒" type="tts">cuchilla de afeitar</annotation>
 		<annotation cp="🧴">bote de crema | champú | crema | hidratante | protector solar</annotation>
 		<annotation cp="🧴" type="tts">bote de crema</annotation>
 		<annotation cp="🧷">imperdible | pañal | punk rock</annotation>
@@ -2495,60 +2793,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📛" type="tts">etiqueta identificativa</annotation>
 		<annotation cp="🔰">amarillo | japonés | principiante | símbolo japonés para principiante | verde</annotation>
 		<annotation cp="🔰" type="tts">símbolo japonés para principiante</annotation>
-		<annotation cp="⭕">círculo | o | rojo</annotation>
-		<annotation cp="⭕" type="tts">círculo rojo</annotation>
-		<annotation cp="✅">marca | marca de verificación blanca | selección | verificación</annotation>
-		<annotation cp="✅" type="tts">marca de verificación blanca</annotation>
-		<annotation cp="☑">marca | recuadro | selección | verificación | verificación en un recuadro</annotation>
-		<annotation cp="☑" type="tts">verificación en un recuadro</annotation>
-		<annotation cp="✔">marca | marca de verificación negra | selección | verificación</annotation>
-		<annotation cp="✔" type="tts">marca de verificación negra</annotation>
-		<annotation cp="✖">cancelar | marca | selección | verificación | X de multiplicación</annotation>
-		<annotation cp="✖" type="tts">X de multiplicación</annotation>
-		<annotation cp="❌">cancelar | cruz | marca de cruz | marca de tachado | tachar</annotation>
+		<annotation cp="⭕">aro | círculo | círculo rojo hueco | o | rojo</annotation>
+		<annotation cp="⭕" type="tts">círculo rojo hueco</annotation>
+		<annotation cp="✅">✓ | botón | botón de marca de verificación | marca | selección | verificación</annotation>
+		<annotation cp="✅" type="tts">botón de marca de verificación</annotation>
+		<annotation cp="☑">✓ | casilla | casilla con marca de verificación | marca | selección | verificación</annotation>
+		<annotation cp="☑" type="tts">casilla con marca de verificación</annotation>
+		<annotation cp="✔">✓ | marca | marca de verificación | selección | verificación</annotation>
+		<annotation cp="✔" type="tts">marca de verificación</annotation>
+		<annotation cp="✖">× | cancelar | marca | multiplicación | prohibido | signo de multiplicación | x</annotation>
+		<annotation cp="✖" type="tts">multiplicación</annotation>
+		<annotation cp="❌">× | cancelar | cruz | marca de cruz | marca de tachado | tachar | x</annotation>
 		<annotation cp="❌" type="tts">marca de cruz</annotation>
-		<annotation cp="❎">cuadrado | marca | marca de cruz en un cuadrado | selección | x</annotation>
-		<annotation cp="❎" type="tts">marca de cruz en un cuadrado</annotation>
-		<annotation cp="➕">más | signo</annotation>
-		<annotation cp="➕" type="tts">signo más</annotation>
-		<annotation cp="➖">menos | signo</annotation>
-		<annotation cp="➖" type="tts">signo menos</annotation>
-		<annotation cp="➗">división | signo | signo de división</annotation>
-		<annotation cp="➗" type="tts">signo de división</annotation>
+		<annotation cp="❎">× | botón con marca de cruz | casilla | cruz | marca | x</annotation>
+		<annotation cp="❎" type="tts">botón con marca de cruz</annotation>
+		<annotation cp="➕">+ | más | signo | suma</annotation>
+		<annotation cp="➕" type="tts">más</annotation>
+		<annotation cp="➖">- | − | menos | resta | signo</annotation>
+		<annotation cp="➖" type="tts">menos</annotation>
+		<annotation cp="➗">÷ | división | signo | signo de división</annotation>
+		<annotation cp="➗" type="tts">división</annotation>
 		<annotation cp="➰">bucle | giro | tirabuzón</annotation>
 		<annotation cp="➰" type="tts">bucle</annotation>
 		<annotation cp="➿">bucle | doble</annotation>
 		<annotation cp="➿" type="tts">bucle doble</annotation>
 		<annotation cp="〽">alternancia | marca | marca de alternancia</annotation>
 		<annotation cp="〽" type="tts">marca de alternancia</annotation>
-		<annotation cp="✳">asterisco | asterisco de ocho puntas</annotation>
+		<annotation cp="✳">* | asterisco | asterisco de ocho puntas</annotation>
 		<annotation cp="✳" type="tts">asterisco de ocho puntas</annotation>
-		<annotation cp="✴">estrella | estrella de ocho puntas</annotation>
+		<annotation cp="✴">* | estrella | estrella de ocho puntas</annotation>
 		<annotation cp="✴" type="tts">estrella de ocho puntas</annotation>
-		<annotation cp="❇">chispa</annotation>
+		<annotation cp="❇">* | chispa</annotation>
 		<annotation cp="❇" type="tts">chispa</annotation>
-		<annotation cp="‼">exclamación | exclamación doble | puntuación</annotation>
+		<annotation cp="‼">!! | exclamación | exclamación doble | puntuación | sorpresa</annotation>
 		<annotation cp="‼" type="tts">exclamación doble</annotation>
-		<annotation cp="⁉">exclamación | exclamación e interrogación | interrogación | pregunta | puntuación</annotation>
+		<annotation cp="⁉">! | !? | ? | exclamación | exclamación e interrogación | interrogación | pregunta | puntuación</annotation>
 		<annotation cp="⁉" type="tts">exclamación e interrogación</annotation>
-		<annotation cp="❓">interrogación | interrogación roja | pregunta | puntuación</annotation>
-		<annotation cp="❓" type="tts">interrogación roja</annotation>
-		<annotation cp="❔">interrogación | interrogación blanca | pregunta | puntuación</annotation>
+		<annotation cp="❓">? | interrogación | pregunta | puntuación | signo de interrogación</annotation>
+		<annotation cp="❓" type="tts">signo de interrogación</annotation>
+		<annotation cp="❔">? | interrogación | interrogación blanca | pregunta | puntuación</annotation>
 		<annotation cp="❔" type="tts">interrogación blanca</annotation>
-		<annotation cp="❕">exclamación | exclamación blanca | puntuación</annotation>
+		<annotation cp="❕">! | exclamación | exclamación blanca | puntuación</annotation>
 		<annotation cp="❕" type="tts">exclamación blanca</annotation>
-		<annotation cp="❗">exclamación | exclamación roja | puntuación</annotation>
-		<annotation cp="❗" type="tts">exclamación roja</annotation>
+		<annotation cp="❗">! | exclamación | puntuación | signo de exclamación</annotation>
+		<annotation cp="❗" type="tts">signo de exclamación</annotation>
 		<annotation cp="〰">guion | marca de sonido largo | ondulado</annotation>
 		<annotation cp="〰" type="tts">guion ondulado</annotation>
-		<annotation cp="©">copyright | símbolo de copyright</annotation>
-		<annotation cp="©" type="tts">símbolo de copyright</annotation>
-		<annotation cp="®">marca registrada | símbolo de marca registrada</annotation>
-		<annotation cp="®" type="tts">símbolo de marca registrada</annotation>
+		<annotation cp="©">c | copyright | símbolo</annotation>
+		<annotation cp="©" type="tts">copyright</annotation>
+		<annotation cp="®">marca registrada | r | símbolo de marca registrada</annotation>
+		<annotation cp="®" type="tts">marca registrada</annotation>
 		<annotation cp="™">marca comercial | símbolo de marca comercial</annotation>
 		<annotation cp="™" type="tts">símbolo de marca comercial</annotation>
-		<annotation cp="💯">100 | cien puntos | pleno | puntos</annotation>
-		<annotation cp="💯" type="tts">cien puntos</annotation>
 		<annotation cp="🔠">abcd | letras | letras latinas mayúsculas | mayúsculas</annotation>
 		<annotation cp="🔠" type="tts">letras latinas mayúsculas</annotation>
 		<annotation cp="🔡">abcd | letras | letras latinas minúsculas | minúsculas</annotation>
@@ -2629,28 +2925,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🈵" type="tts">ideograma japonés para &quot;completo&quot;</annotation>
 		<annotation cp="🔴">círculo | círculo rojo grande | geometría | rojo</annotation>
 		<annotation cp="🔴" type="tts">círculo rojo grande</annotation>
+		<annotation cp="🟠">círculo | naranja</annotation>
+		<annotation cp="🟠" type="tts">círculo naranja</annotation>
+		<annotation cp="🟡">amarillo | círculo</annotation>
+		<annotation cp="🟡" type="tts">círculo amarillo</annotation>
+		<annotation cp="🟢">círculo | verde</annotation>
+		<annotation cp="🟢" type="tts">círculo verde</annotation>
 		<annotation cp="🔵">azul | círculo | círculo azul grande | geometría</annotation>
 		<annotation cp="🔵" type="tts">círculo azul grande</annotation>
-		<annotation cp="⚪">círculo | círculo blanco | geometría</annotation>
-		<annotation cp="⚪" type="tts">círculo blanco</annotation>
+		<annotation cp="🟣">círculo | lila | morado | púrpura</annotation>
+		<annotation cp="🟣" type="tts">círculo morado</annotation>
+		<annotation cp="🟤">círculo | marrón</annotation>
+		<annotation cp="🟤" type="tts">círculo marrón</annotation>
 		<annotation cp="⚫">círculo | círculo negro | geometría</annotation>
 		<annotation cp="⚫" type="tts">círculo negro</annotation>
-		<annotation cp="⬜">blanco | cuadrado | cuadrado blanco grande | geometría</annotation>
-		<annotation cp="⬜" type="tts">cuadrado blanco grande</annotation>
+		<annotation cp="⚪">círculo | círculo blanco | geometría</annotation>
+		<annotation cp="⚪" type="tts">círculo blanco</annotation>
+		<annotation cp="🟥">cuadrado | rojo</annotation>
+		<annotation cp="🟥" type="tts">cuadrado rojo</annotation>
+		<annotation cp="🟧">cuadrado | naranja</annotation>
+		<annotation cp="🟧" type="tts">cuadrado naranja</annotation>
+		<annotation cp="🟨">amarillo | cuadrado</annotation>
+		<annotation cp="🟨" type="tts">cuadrado amarillo</annotation>
+		<annotation cp="🟩">cuadrado | verde</annotation>
+		<annotation cp="🟩" type="tts">cuadrado verde</annotation>
+		<annotation cp="🟦">azul | cuadrado</annotation>
+		<annotation cp="🟦" type="tts">cuadrado azul</annotation>
+		<annotation cp="🟪">cuadrado | lila | morado | púrpura</annotation>
+		<annotation cp="🟪" type="tts">cuadrado morado</annotation>
+		<annotation cp="🟫">cuadrado | marrón</annotation>
+		<annotation cp="🟫" type="tts">cuadrado marrón</annotation>
 		<annotation cp="⬛">cuadrado | cuadrado negro grande | geometría | negro</annotation>
 		<annotation cp="⬛" type="tts">cuadrado negro grande</annotation>
+		<annotation cp="⬜">blanco | cuadrado | cuadrado blanco grande | geometría</annotation>
+		<annotation cp="⬜" type="tts">cuadrado blanco grande</annotation>
 		<annotation cp="◼">cuadrado | cuadrado negro mediano | geometría | negro</annotation>
 		<annotation cp="◼" type="tts">cuadrado negro mediano</annotation>
 		<annotation cp="◻">blanco | cuadrado | cuadrado blanco mediano | geometría</annotation>
 		<annotation cp="◻" type="tts">cuadrado blanco mediano</annotation>
-		<annotation cp="◽">blanco | cuadrado | cuadrado blanco mediano-pequeño | geometría</annotation>
-		<annotation cp="◽" type="tts">cuadrado blanco mediano-pequeño</annotation>
 		<annotation cp="◾">cuadrado | cuadrado negro mediano-pequeño | geometría | negro</annotation>
 		<annotation cp="◾" type="tts">cuadrado negro mediano-pequeño</annotation>
-		<annotation cp="▫">blanco | cuadrado | cuadrado blanco pequeño | geometría</annotation>
-		<annotation cp="▫" type="tts">cuadrado blanco pequeño</annotation>
+		<annotation cp="◽">blanco | cuadrado | cuadrado blanco mediano-pequeño | geometría</annotation>
+		<annotation cp="◽" type="tts">cuadrado blanco mediano-pequeño</annotation>
 		<annotation cp="▪">cuadrado | cuadrado negro pequeño | geometría | negro</annotation>
 		<annotation cp="▪" type="tts">cuadrado negro pequeño</annotation>
+		<annotation cp="▫">blanco | cuadrado | cuadrado blanco pequeño | geometría</annotation>
+		<annotation cp="▫" type="tts">cuadrado blanco pequeño</annotation>
 		<annotation cp="🔶">geometría | naranja | rombo | rombo naranja grande</annotation>
 		<annotation cp="🔶" type="tts">rombo naranja grande</annotation>
 		<annotation cp="🔷">azul | geometría | rombo | rombo azul grande</annotation>
@@ -2667,10 +2987,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">rombo con pétalo</annotation>
 		<annotation cp="🔘">botón | botón de opción | opción</annotation>
 		<annotation cp="🔘" type="tts">botón de opción</annotation>
-		<annotation cp="🔲">botón | botón cuadrado con borde negro | cuadrado</annotation>
-		<annotation cp="🔲" type="tts">botón cuadrado con borde negro</annotation>
 		<annotation cp="🔳">botón | botón cuadrado con borde blanco | cuadrado</annotation>
 		<annotation cp="🔳" type="tts">botón cuadrado con borde blanco</annotation>
+		<annotation cp="🔲">botón | botón cuadrado con borde negro | cuadrado</annotation>
+		<annotation cp="🔲" type="tts">botón cuadrado con borde negro</annotation>
 		<annotation cp="🏁">bandera | bandera de cuadros | carreras | cuadros | deporte | motor</annotation>
 		<annotation cp="🏁" type="tts">bandera de cuadros</annotation>
 		<annotation cp="🚩">bandera | bandera de localización triangular | bandera informativa de localización | bandera triangular | localización</annotation>
@@ -2681,6 +3001,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏴" type="tts">bandera negra</annotation>
 		<annotation cp="🏳">bandera | blanca | ondear</annotation>
 		<annotation cp="🏳" type="tts">bandera blanca</annotation>
+		<annotation cp="🏳‍⚧">azul | bandera | blanco | LGTB | rosa | transgénero</annotation>
+		<annotation cp="🏳‍⚧" type="tts">bandera transgénero</annotation>
 		<annotation cp="🏳‍🌈">arcoíris | bandera | bandera del arcoíris</annotation>
 		<annotation cp="🏳‍🌈" type="tts">bandera del arcoíris</annotation>
 		<annotation cp="🏴‍☠">bandera pirata | botín | Jolly Roger | pirata | tesoro</annotation>

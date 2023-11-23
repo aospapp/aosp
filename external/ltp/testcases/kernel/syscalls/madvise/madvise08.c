@@ -1,19 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2016 Richard Palethorpe <richiejp@f-m.fm>
  * Copyright (c) 2017 SUSE LLC
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 /*
  * Check that memory marked with MADV_DONTDUMP is not included in a core dump
@@ -53,8 +41,11 @@
 
 static int dfd;
 static void *fmem;
-static char cpattern[CORENAME_MAX_SIZE];
-static int restore_cpattern;
+
+static const char * const save_restore[] = {
+	CORE_PATTERN,
+	NULL,
+};
 
 static void setup(void)
 {
@@ -82,10 +73,6 @@ static void setup(void)
 	if (!(0x1 & filter))
 		tst_brk(TCONF, "Anonymous private memory is not dumpable.");
 
-	SAFE_FILE_SCANF(CORE_PATTERN, "%s[^\n]", cpattern);
-	restore_cpattern = 1;
-	tst_res(TINFO, "System core pattern is '%s'", cpattern);
-
 	SAFE_GETCWD(cwd, sizeof(cwd));
 	snprintf(tmpcpattern, sizeof(tmpcpattern), "%s/dump-%%p", cwd);
 	tst_res(TINFO, "Temporary core pattern is '%s'", tmpcpattern);
@@ -111,9 +98,6 @@ static void setup(void)
 
 static void cleanup(void)
 {
-	if (restore_cpattern)
-		SAFE_FILE_PRINTF(CORE_PATTERN, "%s", cpattern);
-
 	if (fmem)
 		SAFE_MUNMAP(fmem, FMEMSIZE);
 
@@ -233,5 +217,6 @@ static struct tst_test test = {
 	.min_kver = "3.4.0",
 	.needs_tmpdir = 1,
 	.needs_root = 1,
-	.forks_child = 1
+	.forks_child = 1,
+	.save_restore = save_restore
 };

@@ -708,7 +708,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     Map<CapitalizationContextUsage,boolean[]> capitalization = null;
 
     /**
-     * Returns era strings. For example: "AD" and "BC".
+     * Returns abbreviated era strings. For example: "AD" and "BC".
      * @return the era strings.
      */
     public String[] getEras() {
@@ -716,7 +716,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     }
 
     /**
-     * Sets era strings. For example: "AD" and "BC".
+     * Sets abbreviated era strings. For example: "AD" and "BC".
      * @param newEras the new era strings.
      */
     public void setEras(String[] newEras) {
@@ -724,7 +724,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     }
 
     /**
-     * <strong>[icu]</strong> Returns era name strings. For example: "Anno Domini" and "Before Christ".
+     * <strong>[icu]</strong> Returns full era name strings. For example: "Anno Domini" and "Before Christ".
      * @return the era strings.
      */
     public String[] getEraNames() {
@@ -732,25 +732,31 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     }
 
     /**
-     * <strong>[icu]</strong> Sets era name strings. For example: "Anno Domini" and "Before Christ".
+     * <strong>[icu]</strong> Sets full era name strings. For example: "Anno Domini" and "Before Christ".
      * @param newEraNames the new era strings.
      */
     public void setEraNames(String[] newEraNames) {
         eraNames = duplicate(newEraNames);
     }
 
-    // Android patch (http://b/30464240) start: Add getter for narrow eras.
     /**
      * <strong>[icu]</strong> Returns narrow era name strings. For example: "A" and "B".
-     * @return the era strings.
-     * @deprecated This API is ICU internal only.
+     * @return the narrow era strings.
      * @hide draft / provisional / internal are hidden on Android
      */
-    @Deprecated
+    @libcore.api.IntraCoreApi
     public String[] getNarrowEras() {
         return duplicate(narrowEras);
     }
-    // Android patch end.
+
+    /**
+     * <strong>[icu]</strong> Sets narrow era name strings. For example: "A" and "B".
+     * @param newNarrowEras the new narrow era strings.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public void setNarrowEras(String[] newNarrowEras) {
+        narrowEras = duplicate(newNarrowEras);
+    }
 
     /**
      * Returns month strings. For example: "January", "February", etc.
@@ -1430,6 +1436,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         DateFormatSymbols that = (DateFormatSymbols) obj;
         return (Utility.arrayEquals(eras, that.eras)
                 && Utility.arrayEquals(eraNames, that.eraNames)
+                && Utility.arrayEquals(narrowEras, that.narrowEras)
                 && Utility.arrayEquals(months, that.months)
                 && Utility.arrayEquals(shortMonths, that.shortMonths)
                 && Utility.arrayEquals(narrowMonths, that.narrowMonths)
@@ -2180,6 +2187,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @libcore.api.IntraCoreApi
     @Deprecated
     public DateFormatSymbols(ULocale locale, String calType) {
         initializeData(locale, calType);
@@ -2311,7 +2319,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * @see android.icu.util.ULocale#ACTUAL_LOCALE
      * @hide draft / provisional / internal are hidden on Android
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public final ULocale getLocale(ULocale.Type type) {
         return type == ULocale.ACTUAL_LOCALE ?
             this.actualLocale : this.validLocale;

@@ -78,6 +78,15 @@ class security_kASLR(test.test):
             logging.info("kASLR not available on this architecture")
             return
 
+        # sys_exit was split into __x64_sys_exit and __ia32_sys_exit
+        # from kernel v4.17 onwards. Change target_symbol to
+        # arch specific version
+        if utils.compare_versions(kernel_ver, "4.19") > 0:
+            if arch == 'x86_64':
+                self.target_symbol = '__x64_sys_exit'
+            else:
+                self.target_symbol = '__ia32_sys_exit'
+
         kallsyms_filename = os.path.join(self.resultsdir, 'kallsyms')
         address_count = {}
 

@@ -2,15 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "fxbarcode/oned/BC_OnedCode39Writer.h"
+
 #include <cstring>
 
-#include "fxbarcode/oned/BC_OnedCode39Writer.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
 
 // 3 wide and 6 narrow modules per char. 1 space between chars.
-const int MODULES_PER_CHAR = 3 * 3 + 6 * 1 + 1;
+constexpr int MODULES_PER_CHAR = 3 * 3 + 6 + 1;
 
 // '*' is added as the first and last char.
 const int DELIMITER_CHARS = 2;
@@ -49,6 +50,8 @@ TEST(OnedCode39WriterTest, SetWideNarrowRatio) {
       "###   # # # ### "  // U
       "### ### # #   # "  // M
       "#   # ### ### #";  // * End
+  for (size_t i = 0; i < strlen(expected); i++)
+    EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
   FX_Free(encoded);
 
   writer.SetWideNarrowRatio(2);
@@ -63,6 +66,8 @@ TEST(OnedCode39WriterTest, SetWideNarrowRatio) {
       "##  # # # ## "  // U
       "## ## # #  # "  // M
       "#  # ## ## #";  // * End
+  for (size_t i = 0; i < strlen(expected); i++)
+    EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
   FX_Free(encoded);
 }
 
@@ -79,9 +84,8 @@ TEST(OnedCode39WriterTest, Encode) {
   expected =
       "#   # ### ### # "  // * Start
       "#   # ### ### #";  // * End
-  for (size_t i = 0; i < strlen(expected); i++) {
+  for (size_t i = 0; i < strlen(expected); i++)
     EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
-  }
   FX_Free(encoded);
 
   encoded = writer.Encode("123", BCFORMAT_CODE_39, width, height);
@@ -93,9 +97,8 @@ TEST(OnedCode39WriterTest, Encode) {
       "# ###   # # ### "  // 2
       "### ###   # # # "  // 3
       "#   # ### ### #";  // * End
-  for (size_t i = 0; i < strlen(expected); i++) {
+  for (size_t i = 0; i < strlen(expected); i++)
     EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
-  }
   FX_Free(encoded);
 
   encoded = writer.Encode("PDFIUM", BCFORMAT_CODE_39, width, height);
@@ -110,9 +113,8 @@ TEST(OnedCode39WriterTest, Encode) {
       "###   # # # ### "  // U
       "### ### # #   # "  // M
       "#   # ### ### #";  // * End
-  for (size_t i = 0; i < strlen(expected); i++) {
+  for (size_t i = 0; i < strlen(expected); i++)
     EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
-  }
   FX_Free(encoded);
 
   encoded = writer.Encode("A -$%./+Z", BCFORMAT_CODE_39, width, height);
@@ -130,9 +132,8 @@ TEST(OnedCode39WriterTest, Encode) {
       "#   # #   #   # "  // +
       "#   ### ### # # "  // Z
       "#   # ### ### #";  // * End
-  for (size_t i = 0; i < strlen(expected); i++) {
+  for (size_t i = 0; i < strlen(expected); i++)
     EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
-  }
   FX_Free(encoded);
 }
 
@@ -156,9 +157,8 @@ TEST(OnedCode39WriterTest, Checksum) {
       "### ###   # # # "  // 3 (3)
       "# ###   ### # # "  // 6 (6 = (1 + 2 + 3) % 43)
       "#   # ### ### #";  // * End
-  for (size_t i = 0; i < strlen(expected); i++) {
+  for (size_t i = 0; i < strlen(expected); i++)
     EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
-  }
   FX_Free(encoded);
 
   encoded = writer.Encode("PDFIUM", BCFORMAT_CODE_39, width, height);
@@ -175,9 +175,8 @@ TEST(OnedCode39WriterTest, Checksum) {
       "### ### # #   # "  // M (22)
       "###   # # ### # "  // . (37 = (25 + 13 + 15 + 18 + 30 + 22) % 43)
       "#   # ### ### #";  // * End
-  for (size_t i = 0; i < strlen(expected); i++) {
+  for (size_t i = 0; i < strlen(expected); i++)
     EXPECT_EQ(expected[i] != ' ', !!encoded[i]) << i;
-  }
   FX_Free(encoded);
 }
 

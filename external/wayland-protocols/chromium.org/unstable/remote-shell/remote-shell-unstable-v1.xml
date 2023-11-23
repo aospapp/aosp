@@ -38,7 +38,7 @@
     reset.
   </description>
 
-  <interface name="zcr_remote_shell_v1" version="20">
+  <interface name="zcr_remote_shell_v1" version="26">
     <description summary="remote_shell">
       The global interface that allows clients to turn a wl_surface into a
       "real window" which is remotely managed but can be stacked, activated
@@ -199,7 +199,7 @@
     <event name="display_info" since="19">
       <description summary="extra display information">
 	[Deprecated] Sends display size in pixels and display identification data, typically
-	in EDID format. Followed by a "workspace_info" event for the same display.
+	in EDID format. Preceded by a "workspace" event for the same display.
       </description>
       <arg name="display_id_hi" type="uint"/>
       <arg name="display_id_lo" type="uint"/>
@@ -237,7 +237,7 @@
 
   </interface>
 
-  <interface name="zcr_remote_surface_v1" version="20">
+  <interface name="zcr_remote_surface_v1" version="26">
     <description summary="A desktop window">
       An interface that may be implemented by a wl_surface, for
       implementations that provide a desktop-style user interface
@@ -276,6 +276,7 @@
       </description>
       <entry name="normal" value="1" summary="normal app window"/>
       <entry name="system_ui" value="2" summary="window is treated as systemui"/>
+      <entry name="hidden_in_overview" value="3" summary="window is normal, but hidden in overview"/>
     </enum>
 
     <request name="destroy" type="destructor">
@@ -694,6 +695,7 @@
 	     summary="the window bounds is moved due to other WM operations"/>
       <entry name="resize" value="6"
 	     summary="the window bounds is reiszed due to other WM operations"/>
+      <entry name="move_pip" value="7" summary="the window bounds is resized for PIP"/>
     </enum>
 
     <event name="bounds_changed" since="10">
@@ -1013,6 +1015,44 @@
 	Unblock server side IME. Some events can be handled by server side IME,
 	while others can still be sent through Wayland protocol. See the
 	description of set_ime_blocked for detail.
+      </description>
+    </request>
+
+    <!-- Version 23 additions -->
+    <enum name="zoom_change">
+      <description summary="zoom level change">
+	Zoom level change.
+      </description>
+      <entry name="in" value="0" summary="zoom in"/>
+      <entry name="out" value="1" summary="zoom out"/>
+      <entry name="reset" value="2" summary="reset zoom level"/>
+    </enum>
+
+    <event name="change_zoom_level" since="23">
+      <description summary="change zoom level">
+	Request application zoom level change.
+      </description>
+      <arg name="change" type="int" summary="zoom_change"/>
+    </event>
+
+    <!-- Version 25 additions -->
+    <request name="set_accessibility_id" since="25">
+      <description summary="set accessibility ID to the surface">
+        Set accessibility window ID to the surface
+      </description>
+      <arg name="id" type="int" summary="Accessibility ID. Negative number causes to unset existing accessibility ID from the surface."/>
+    </request>
+
+    <!-- Version 26 additions -->
+    <request name="set_pip_original_window" since="26">
+      <description summary="set the pip original window">
+        Set this surface the original window for the current PIP window.
+      </description>
+    </request>
+
+    <request name="unset_pip_original_window" since="26">
+      <description summary="unset the pip original window">
+        Unset this surface the original window for the current PIP window.
       </description>
     </request>
   </interface>

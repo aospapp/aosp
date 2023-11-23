@@ -17,7 +17,7 @@
 %                                  July 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -308,6 +308,11 @@ MagickExport void DestroyXResources(void)
       {
         (void) XFreePixmap(windows->display,magick_windows[i]->shadow_stipple);
         magick_windows[i]->shadow_stipple=(Pixmap) NULL;
+      }
+    if (magick_windows[i]->matte_image != (XImage *) NULL)
+      {
+        XDestroyImage(magick_windows[i]->matte_image);
+        magick_windows[i]->matte_image=(XImage *) NULL;
       }
     if (magick_windows[i]->ximage != (XImage *) NULL)
       {
@@ -5049,21 +5054,16 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
       if ((crop_info.width != 0) && (crop_info.height != 0))
         {
           Image
-            *clone_image,
             *crop_image;
 
           /*
             Crop image as defined by the cropping rectangle.
           */
-          clone_image=CloneImage(image,0,0,MagickTrue,exception);
-          if (clone_image != (Image *) NULL)
+          crop_image=CropImage(image,&crop_info,exception);
+          if (crop_image != (Image *) NULL)
             {
-              crop_image=CropImage(clone_image,&crop_info,exception);
-              if (crop_image != (Image *) NULL)
-                {
-                  image=DestroyImage(image);
-                  image=crop_image;
-                }
+              image=DestroyImage(image);
+              image=crop_image;
             }
         }
       status=XGetWMName(display,target,&window_name);
@@ -5528,6 +5528,7 @@ MagickPrivate MagickBooleanType XMakeImage(Display *display,
       segment_info[1].shmaddr=(char *) NULL;
       ximage=XShmCreateImage(display,window->visual,(unsigned int) depth,format,
         (char *) NULL,&segment_info[1],width,height);
+      length=0;
       if (ximage == (XImage *) NULL)
         window->shared_memory=MagickFalse;
       else
@@ -5896,7 +5897,8 @@ static void XMakeImageLSBFirst(const XResourceInfo *resource_info,
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
   canvas=image;
   if ((window->immutable == MagickFalse) &&
-      (image->storage_class == DirectClass) && (image->alpha_trait != UndefinedPixelTrait))
+      (image->storage_class == DirectClass) &&
+      (image->alpha_trait != UndefinedPixelTrait))
     {
       char
         size[MagickPathExtent];
@@ -6706,8 +6708,8 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           /*
             Convert to 8 bit color-mapped X canvas.
           */
-          if (resource_info->color_recovery &&
-              resource_info->quantize_info->dither_method != NoDitherMethod)
+          if ((resource_info->color_recovery != MagickFalse) &&
+              (resource_info->quantize_info->dither_method != NoDitherMethod))
             {
               XDitherImage(canvas,ximage,exception);
               break;
@@ -6870,8 +6872,8 @@ static void XMakeImageMSBFirst(const XResourceInfo *resource_info,
           /*
             Convert to 8 bit continuous-tone X canvas.
           */
-          if (resource_info->color_recovery &&
-              resource_info->quantize_info->dither_method != NoDitherMethod)
+          if ((resource_info->color_recovery != MagickFalse) &&
+              (resource_info->quantize_info->dither_method != NoDitherMethod))
             {
               XDitherImage(canvas,ximage,exception);
               break;
@@ -8528,7 +8530,8 @@ MagickPrivate void XMakeWindow(Display *display,Window parent,char **argv,
       window_info->shape=MagickFalse;
 #endif
     }
-  if (window_info->shared_memory)
+  window_info->shape=MagickFalse;  /* Fedora 30 has a broken shape extention */
+  if (window_info->shared_memory != MagickFalse)
     {
 #if defined(MAGICKCORE_HAVE_SHARED_MEMORY)
       /*
@@ -9315,6 +9318,7 @@ static Window XSelectWindow(Display *display,RectangleInfo *crop_info)
   target_window=(Window) NULL;
   x_offset=0;
   y_offset=0;
+  (void) XGrabServer(display);
   do
   {
     if ((crop_info->width*crop_info->height) >= MinimumCropArea)
@@ -9383,6 +9387,7 @@ static Window XSelectWindow(Display *display,RectangleInfo *crop_info)
         break;
     }
   } while ((target_window == (Window) NULL) || (presses > 0));
+  (void) XUngrabServer(display);
   (void) XUngrabPointer(display,CurrentTime);
   (void) XFreeCursor(display,target_cursor);
   (void) XFreeGC(display,annotate_context);
@@ -9939,6 +9944,7 @@ MagickExport Image *XImportImage(const ImageInfo *image_info,
   assert(ximage_info != (XImportInfo *) NULL);
   assert(exception != (ExceptionInfo *) NULL);
   assert(exception->signature == MagickCoreSignature);
+  (void) ximage_info;
   (void) exception;
   return((Image *) NULL);
 }

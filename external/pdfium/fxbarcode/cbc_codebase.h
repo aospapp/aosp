@@ -26,17 +26,20 @@ class CBC_CodeBase {
   virtual ~CBC_CodeBase();
 
   virtual BC_TYPE GetType() = 0;
-  virtual bool Encode(const WideStringView& contents) = 0;
+  virtual bool Encode(WideStringView contents) = 0;
   virtual bool RenderDevice(CFX_RenderDevice* device,
                             const CFX_Matrix* matrix) = 0;
 
+  bool SetTextLocation(BC_TEXT_LOC location);
+  bool SetWideNarrowRatio(int8_t ratio);
+  bool SetStartChar(char start);
+  bool SetEndChar(char end);
+  bool SetErrorCorrectionLevel(int32_t level);
   bool SetCharEncoding(int32_t encoding);
   bool SetModuleHeight(int32_t moduleHeight);
   bool SetModuleWidth(int32_t moduleWidth);
   bool SetHeight(int32_t height);
   bool SetWidth(int32_t width);
-  void SetBackgroundColor(FX_ARGB backgroundColor);
-  void SetBarcodeColor(FX_ARGB foregroundColor);
 
  protected:
   std::unique_ptr<CBC_Writer> m_pBCWriter;

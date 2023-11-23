@@ -7,6 +7,7 @@
 #ifndef __GENERIC_PHY_H
 #define __GENERIC_PHY_H
 
+struct ofnode_phandle_args;
 
 /**
  * struct phy - A handle to (allowing control of) a single phy port.
@@ -269,7 +270,7 @@ static inline int generic_phy_get_by_name(struct udevice *user, const char *phy_
  */
 static inline bool generic_phy_valid(struct phy *phy)
 {
-	return phy->dev != NULL;
+	return phy && phy->dev;
 }
 
 #endif /*__GENERIC_PHY_H */

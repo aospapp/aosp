@@ -1,6 +1,9 @@
-#!/usr/bin/env python2
-#
-#  Copyright 2015 Google Inc. All Rights Reserved
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """The script to generate a cleanup script after setup.sh.
 
 This script takes a set of flags, telling it what setup.sh changed
@@ -69,20 +72,22 @@ def Main(argv):
 
   if options.old_link or options.renamed_tree:
     if not options.tree_existed:
-      Usage(parser, 'If --tree_existed is False, cannot have '
-            '--renamed_tree or --old_link')
+      Usage(
+          parser, 'If --tree_existed is False, cannot have '
+          '--renamed_tree or --old_link')
 
   if options.old_link and options.renamed_tree:
     Usage(parser, '--old_link and --renamed_tree are incompatible options.')
 
   if options.tree_existed:
     if not options.old_link and not options.renamed_tree:
-      Usage(parser, 'If --tree_existed is True, then must have either '
-            '--old_link or --renamed_tree')
+      Usage(
+          parser, 'If --tree_existed is True, then must have either '
+          '--old_link or --renamed_tree')
 
   out_filename = 'cros_pkg/' + options.board + '_cleanup.sh'
 
-  with open(out_filename, 'w') as out_file:
+  with open(out_filename, 'w', encoding='utf-8') as out_file:
     out_file.write('#!/bin/bash\n\n')
     # First, remove the 'new' soft link.
     out_file.write('sudo rm /build/%s\n' % options.board)
@@ -100,8 +105,8 @@ def Main(argv):
           original_link = original_link[1:]
         if original_link[-1] == "'":
           original_link = original_link[:-1]
-        out_file.write('sudo ln -s %s /build/%s\n' % (original_link,
-                                                      options.board))
+        out_file.write(
+            'sudo ln -s %s /build/%s\n' % (original_link, options.board))
     out_file.write('\n')
     # Remove common.sh file
     out_file.write('rm common/common.sh\n')

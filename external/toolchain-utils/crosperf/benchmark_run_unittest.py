@@ -1,20 +1,21 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Testing of benchmark_run."""
 
 from __future__ import print_function
 
-import mock
-import unittest
 import inspect
-
-from cros_utils import logger
+import unittest
+import unittest.mock as mock
 
 import benchmark_run
 
+from cros_utils import logger
 from suite_runner import MockSuiteRunner
 from suite_runner import SuiteRunner
 from label import MockLabel
@@ -48,8 +49,10 @@ class BenchmarkRunTest(unittest.TestCase):
 
     self.test_label = MockLabel(
         'test1',
+        'build',
         'image1',
         'autotest_dir',
+        'debug_dir',
         '/tmp/test_benchmark_run',
         'x86-alex',
         'chromeos2-row1-rack4-host9.cros',
@@ -57,7 +60,8 @@ class BenchmarkRunTest(unittest.TestCase):
         cache_dir='',
         cache_only=False,
         log_level='average',
-        compiler='gcc')
+        compiler='gcc',
+        skylab=False)
 
     self.test_cache_conditions = [
         CacheConditions.CACHE_FILE_EXISTS, CacheConditions.CHECKSUMS_MATCH
@@ -70,8 +74,10 @@ class BenchmarkRunTest(unittest.TestCase):
   def testDryRun(self):
     my_label = MockLabel(
         'test1',
+        'build',
         'image1',
         'autotest_dir',
+        'debug_dir',
         '/tmp/test_benchmark_run',
         'x86-alex',
         'chromeos2-row1-rack4-host9.cros',
@@ -79,7 +85,8 @@ class BenchmarkRunTest(unittest.TestCase):
         cache_dir='',
         cache_only=False,
         log_level='average',
-        compiler='gcc')
+        compiler='gcc',
+        skylab=False)
 
     logging_level = 'average'
     m = MockMachineManager('/tmp/chromeos_root', 0, logging_level, '')
@@ -92,8 +99,16 @@ class BenchmarkRunTest(unittest.TestCase):
         False,  # rm_chroot_tmp
         '',  # perf_args
         suite='telemetry_Crosperf')  # suite
+    dut_conf = {
+        'cooldown_time': 5,
+        'cooldown_temp': 45,
+        'governor': 'powersave',
+        'cpu_usage': 'big_only',
+        'cpu_freq_pct': 80,
+    }
     b = benchmark_run.MockBenchmarkRun('test run', bench, my_label, 1, [], m,
-                                       logger.GetLogger(), logging_level, '')
+                                       logger.GetLogger(), logging_level, '',
+                                       dut_conf)
     b.cache = MockResultsCache()
     b.suite_runner = MockSuiteRunner()
     b.start()
@@ -102,9 +117,10 @@ class BenchmarkRunTest(unittest.TestCase):
     # since the last time this test was updated:
     args_list = [
         'self', 'name', 'benchmark', 'label', 'iteration', 'cache_conditions',
-        'machine_manager', 'logger_to_use', 'log_level', 'share_cache'
+        'machine_manager', 'logger_to_use', 'log_level', 'share_cache',
+        'dut_config'
     ]
-    arg_spec = inspect.getargspec(benchmark_run.BenchmarkRun.__init__)
+    arg_spec = inspect.getfullargspec(benchmark_run.BenchmarkRun.__init__)
     self.assertEqual(len(arg_spec.args), len(args_list))
     self.assertEqual(arg_spec.args, args_list)
 
@@ -120,30 +136,30 @@ class BenchmarkRunTest(unittest.TestCase):
     br = benchmark_run.BenchmarkRun(
         'test_run', self.test_benchmark, self.test_label, 1,
         self.test_cache_conditions, self.mock_machine_manager, self.mock_logger,
-        'average', '')
+        'average', '', {})
 
     def MockLogOutput(msg, print_to_console=False):
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       del print_to_console
       self.log_output.append(msg)
 
     def MockLogError(msg, print_to_console=False):
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       del print_to_console
       self.log_error.append(msg)
 
     def MockRecordStatus(msg):
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       self.status.append(msg)
 
     def FakeReadCache():
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       br.cache = mock.Mock(spec=ResultsCache)
       self.called_ReadCache = True
       return 0
 
     def FakeReadCacheSucceed():
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       br.cache = mock.Mock(spec=ResultsCache)
       br.result = mock.Mock(spec=Result)
       br.result.out = 'result.out stuff'
@@ -153,29 +169,29 @@ class BenchmarkRunTest(unittest.TestCase):
       return 0
 
     def FakeReadCacheException():
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       raise RuntimeError('This is an exception test; it is supposed to happen')
 
     def FakeAcquireMachine():
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       mock_machine = MockCrosMachine('chromeos1-row3-rack5-host7.cros',
                                      'chromeos', 'average')
       return mock_machine
 
     def FakeRunTest(_machine):
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       mock_result = mock.Mock(spec=Result)
       mock_result.retval = 0
       return mock_result
 
     def FakeRunTestFail(_machine):
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       mock_result = mock.Mock(spec=Result)
       mock_result.retval = 1
       return mock_result
 
     def ResetTestValues():
-      'Helper function for test_run.'
+      """Helper function for test_run."""
       self.log_output = []
       self.log_error = []
       self.status = []
@@ -260,14 +276,14 @@ class BenchmarkRunTest(unittest.TestCase):
     br = benchmark_run.BenchmarkRun(
         'test_run', self.test_benchmark, self.test_label, 1,
         self.test_cache_conditions, self.mock_machine_manager, self.mock_logger,
-        'average', '')
+        'average', '', {})
 
     def GetLastEventPassed():
-      'Helper function for test_terminate_pass'
+      """Helper function for test_terminate_pass"""
       return benchmark_run.STATUS_SUCCEEDED
 
     def RecordStub(status):
-      'Helper function for test_terminate_pass'
+      """Helper function for test_terminate_pass"""
       self.status = status
 
     self.status = benchmark_run.STATUS_SUCCEEDED
@@ -287,14 +303,14 @@ class BenchmarkRunTest(unittest.TestCase):
     br = benchmark_run.BenchmarkRun(
         'test_run', self.test_benchmark, self.test_label, 1,
         self.test_cache_conditions, self.mock_machine_manager, self.mock_logger,
-        'average', '')
+        'average', '', {})
 
     def GetLastEventFailed():
-      'Helper function for test_terminate_fail'
+      """Helper function for test_terminate_fail"""
       return benchmark_run.STATUS_FAILED
 
     def RecordStub(status):
-      'Helper function for test_terminate_fail'
+      """Helper function for test_terminate_fail"""
       self.status = status
 
     self.status = benchmark_run.STATUS_SUCCEEDED
@@ -314,7 +330,7 @@ class BenchmarkRunTest(unittest.TestCase):
     br = benchmark_run.BenchmarkRun(
         'test_run', self.test_benchmark, self.test_label, 1,
         self.test_cache_conditions, self.mock_machine_manager, self.mock_logger,
-        'average', '')
+        'average', '', {})
 
     br.terminated = True
     self.assertRaises(Exception, br.AcquireMachine)
@@ -331,10 +347,10 @@ class BenchmarkRunTest(unittest.TestCase):
     br = benchmark_run.BenchmarkRun(
         'test_run', self.test_benchmark, self.test_label, 1,
         self.test_cache_conditions, self.mock_machine_manager, self.mock_logger,
-        'average', '')
+        'average', '', {})
 
     def MockLogError(err_msg):
-      'Helper function for test_get_extra_autotest_args'
+      """Helper function for test_get_extra_autotest_args"""
       self.err_msg = err_msg
 
     self.mock_logger.LogError = MockLogError
@@ -346,19 +362,15 @@ class BenchmarkRunTest(unittest.TestCase):
     result = br.GetExtraAutotestArgs()
     self.assertEqual(
         result,
-        "--profiler=custom_perf --profiler_args='perf_options=\"record -a -e "
-        "cycles\"'")
-
-    self.test_benchmark.suite = 'telemetry'
-    result = br.GetExtraAutotestArgs()
-    self.assertEqual(result, '')
-    self.assertEqual(self.err_msg, 'Telemetry does not support profiler.')
+        '--profiler=custom_perf --profiler_args=\'perf_options="record -a -e '
+        'cycles"\'')
 
     self.test_benchmark.perf_args = 'record -e cycles'
     self.test_benchmark.suite = 'test_that'
     result = br.GetExtraAutotestArgs()
     self.assertEqual(result, '')
-    self.assertEqual(self.err_msg, 'test_that does not support profiler.')
+    self.assertEqual(self.err_msg,
+                     'Non-telemetry benchmark does not support profiler.')
 
     self.test_benchmark.perf_args = 'junk args'
     self.test_benchmark.suite = 'telemetry_Crosperf'
@@ -370,7 +382,7 @@ class BenchmarkRunTest(unittest.TestCase):
     br = benchmark_run.BenchmarkRun(
         'test_run', self.test_benchmark, self.test_label, 1,
         self.test_cache_conditions, self.mock_machine_manager, self.mock_logger,
-        'average', '')
+        'average', '', {})
 
     self.status = []
 
@@ -385,27 +397,27 @@ class BenchmarkRunTest(unittest.TestCase):
     br.RunTest(mock_machine)
 
     self.assertTrue(br.run_completed)
-    self.assertEqual(self.status, [
-        benchmark_run.STATUS_IMAGING, benchmark_run.STATUS_RUNNING
-    ])
+    self.assertEqual(
+        self.status,
+        [benchmark_run.STATUS_IMAGING, benchmark_run.STATUS_RUNNING])
 
     self.assertEqual(br.machine_manager.ImageMachine.call_count, 1)
     br.machine_manager.ImageMachine.assert_called_with(mock_machine,
                                                        self.test_label)
     self.assertEqual(mock_runner.call_count, 1)
-    mock_runner.assert_called_with(mock_machine.name, br.label, br.benchmark,
-                                   '', br.profiler_args)
+    mock_runner.assert_called_with(mock_machine, br.label, br.benchmark, '',
+                                   br.profiler_args)
 
     self.assertEqual(mock_result.call_count, 1)
     mock_result.assert_called_with(
         self.mock_logger, 'average', self.test_label, None, "{'Score':100}", '',
-        0, 'page_cycler.netsim.top_10', 'telemetry_Crosperf')
+        0, 'page_cycler.netsim.top_10', 'telemetry_Crosperf', '')
 
   def test_set_cache_conditions(self):
     br = benchmark_run.BenchmarkRun(
         'test_run', self.test_benchmark, self.test_label, 1,
         self.test_cache_conditions, self.mock_machine_manager, self.mock_logger,
-        'average', '')
+        'average', '', {})
 
     phony_cache_conditions = [123, 456, True, False]
 

@@ -40,7 +40,6 @@
 #define V_OSCK			26000000	/* Clock output from T2 */
 #define V_SCLK			(V_OSCK >> 1)
 
-#define CONFIG_MISC_INIT_R
 #define CONFIG_SKIP_LOWLEVEL_INIT		/* X-Loader set everything up */
 
 #define CONFIG_CMDLINE_TAG	/* enable passing kernel command line string */
@@ -51,7 +50,6 @@
 /*
  * Size of malloc() pool
  */
-#define CONFIG_ENV_SIZE			(128 << 10)
 #define CONFIG_UBI_SIZE			(512 << 10)
 #define CONFIG_SYS_MALLOC_LEN		(CONFIG_ENV_SIZE + CONFIG_UBI_SIZE + \
 					(128 << 10))
@@ -73,7 +71,6 @@
  * select serial console configuration
  */
 #define CONFIG_SYS_NS16550_COM3		OMAP34XX_UART3
-#define CONFIG_SERIAL3			3		/* UART3 on RX-51 */
 
 /* allow to overwrite serial and ethaddr */
 #define CONFIG_ENV_OVERWRITE
@@ -93,8 +90,6 @@
 /*
  * TWL4030
  */
-#define CONFIG_TWL4030_LED
-#define CONFIG_TWL4030_KEYPAD
 
 #define GPIO_SLIDE			71
 
@@ -147,8 +142,6 @@
 #ifdef ONENAND_SUPPORT
 
 #define CONFIG_SYS_ONENAND_BASE		ONENAND_MAP
-#define CONFIG_MTD_DEVICE
-#define CONFIG_MTD_PARTITIONS
 
 #endif
 
@@ -260,30 +253,6 @@ int rx51_kp_getc(struct stdio_dev *sdev);
 	"bootmenu_delay=30\0" \
 	""
 
-#define CONFIG_PREBOOT \
-	"setenv mmcnum 1; setenv mmcpart 1;" \
-	"setenv mmcscriptfile bootmenu.scr;" \
-	"if run switchmmc; then " \
-		"setenv mmcdone true;" \
-		"setenv mmctype fat;" \
-		"if run scriptload; then true; else " \
-			"setenv mmctype ext2;" \
-			"if run scriptload; then true; else " \
-				"setenv mmctype ext4;" \
-				"if run scriptload; then true; else " \
-					"setenv mmcdone false;" \
-				"fi;" \
-			"fi;" \
-		"fi;" \
-		"if ${mmcdone}; then " \
-			"run scriptboot;" \
-		"fi;" \
-	"fi;" \
-	"if run slide; then true; else " \
-		"setenv bootmenu_delay 0;" \
-		"setenv bootdelay 0;" \
-	"fi"
-
 #define CONFIG_POSTBOOTMENU \
 	"echo;" \
 	"echo Extra commands:;" \
@@ -300,8 +269,6 @@ int rx51_kp_getc(struct stdio_dev *sdev);
 	"run emmcboot;" \
 	"run attachboot;" \
 	"echo"
-
-#define CONFIG_MENU_SHOW
 
 /*
  * Miscellaneous configurable options
@@ -324,7 +291,6 @@ int rx51_kp_getc(struct stdio_dev *sdev);
 /*
  * Physical Memory Map
  */
-#define CONFIG_NR_DRAM_BANKS		2
 #define PHYS_SDRAM_1			OMAP34XX_SDRC_CS0
 
 /*

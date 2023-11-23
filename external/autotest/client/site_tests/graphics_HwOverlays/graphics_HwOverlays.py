@@ -37,18 +37,18 @@ class graphics_HwOverlays(graphics_utils.GraphicsTest,
     def cleanup(self):
         super(graphics_HwOverlays, self).cleanup()
 
-    def set_rotation_to_zero(self, cr):
+    def set_rotation_to_zero(self, display_facade):
         # Set rotation to 0 (portrait) otherwise tablet platforms might not get
         # overlays.
-        facade = facade_resource.FacadeResource(cr)
-
-        display_facade = display_facade_native.DisplayFacadeNative(facade)
         internal_display_id = display_facade.get_internal_display_id()
 
         logging.info("Internal display ID is %s", internal_display_id)
         display_facade.set_display_rotation(internal_display_id, rotation=0)
 
     def run_once(self, html_file, data_file_url = None):
+        """Normalizes the environment, starts a Chrome environment, and
+        executes the test in `html_file`.
+        """
         if not graphics_utils.is_drm_atomic_supported():
             logging.info('Skipping test: platform does not support DRM atomic')
             return
@@ -63,7 +63,15 @@ class graphics_HwOverlays(graphics_utils.GraphicsTest,
                            extension_paths=[constants.DISPLAY_TEST_EXTENSION],
                            autotest_ext=True,
                            init_network_controller=True) as cr:
-            self.set_rotation_to_zero(cr)
+            facade = facade_resource.FacadeResource(cr)
+            display_facade = display_facade_native.DisplayFacadeNative(facade)
+            # TODO(crbug.com/927103): Run on an external monitor if one is
+            # present.
+            if not display_facade.has_internal_display():
+                logging.info('Skipping test: platform has no internal display')
+                return
+
+            self.set_rotation_to_zero(display_facade)
 
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
 

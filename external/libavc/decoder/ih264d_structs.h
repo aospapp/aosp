@@ -190,6 +190,7 @@ typedef struct pic_buffer_t
     /* ! */
     UWORD32 u4_ts;
     UWORD8 u1_pic_struct;/* Refer to SEI table D-1 */
+    sei s_sei_pic;
 
 } pic_buffer_t;
 
@@ -1005,6 +1006,11 @@ typedef struct _DecStruct
     UWORD8 *pu1_temp_mc_buffer;
 
     struct _sei *ps_sei;
+    struct _sei *ps_sei_parse;
+    struct _sei s_sei_export;
+
+    void *pv_disp_sei_params;
+
     UWORD8 u1_pic_struct_copy;
     /* Variables required for cropping */
     UWORD16 u2_disp_width;
@@ -1053,6 +1059,7 @@ typedef struct _DecStruct
                          struct _DecMbInfo * ps_cur_mb_info,
                          const UWORD16 u2_mbxn_mb);
     UWORD8 u1_init_dec_flag;
+    WORD32 i4_reorder_depth;
     prev_seq_params_t s_prev_seq_params;
     UWORD8 u1_cur_mb_fld_dec_flag; /* current Mb fld or Frm */
 
@@ -1315,7 +1322,7 @@ typedef struct _DecStruct
      *
      */
     WORD32 i4_degrade_pic_cnt;
-
+    WORD32 i4_display_index;
     UWORD32 u4_pic_buf_got;
 
     /**

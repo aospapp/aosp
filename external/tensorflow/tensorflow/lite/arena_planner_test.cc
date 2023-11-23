@@ -15,11 +15,12 @@ limitations under the License.
 #include "tensorflow/lite/arena_planner.h"
 
 #include <cstdarg>
+#include <cstdint>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorflow/lite/testing/util.h"
 #include "tensorflow/core/platform/logging.h"
+#include "tensorflow/lite/testing/util.h"
 
 namespace tflite {
 namespace {
@@ -137,6 +138,7 @@ class TestGraphInfo : public GraphInfo {
   const TfLiteNode& node(size_t index) const override {
     return graph_->nodes()[index];
   }
+  size_t node_index(size_t index) const override { return index; }
   const std::vector<int>& inputs() const override { return graph_->inputs(); }
   const std::vector<int>& outputs() const override { return graph_->outputs(); }
   const std::vector<int>& variables() const override {
@@ -180,24 +182,45 @@ class ArenaPlannerTest : public ::testing::Test {
     CHECK(planner_->ExecuteAllocations(start, end) == kTfLiteOk);
   }
 
+  void ReleaseNonPersistentMemory() {
+    CHECK(planner_->ReleaseNonPersistentMemory() == kTfLiteOk);
+  }
+
+  void AcquireNonPersistentMemory() {
+    CHECK(planner_->AcquireNonPersistentMemory() == kTfLiteOk);
+  }
+
+  void ResetAllocationsAfter(int node) {
+    CHECK(planner_->ResetAllocationsAfter(node) == kTfLiteOk);
+  }
+
+  bool HasNonPersistentMemory() {
+    return planner_ && planner_->HasNonPersistentMemory();
+  }
+
   // Returns the actual offset of a given tensor, relative to the start of its
   // arena.
-  int64_t GetOffset(int tensor_index) {
+  std::ptrdiff_t GetOffset(int tensor_index) {
     const TfLiteTensor& tensor = (*graph_->tensors())[tensor_index];
-    return reinterpret_cast<int64_t>(tensor.data.raw) -
+    return reinterpret_cast<std::intptr_t>(tensor.data.raw) -
            planner_->BasePointer(tensor.allocation_type);
   }
 
   // Returns the first aligned offset after a given tensor.
-  int64_t GetOffsetAfter(int tensor_index) {
+  std::ptrdiff_t GetOffsetAfter(int tensor_index) {
     const TfLiteTensor& tensor = (*graph_->tensors())[tensor_index];
-    int64_t offset = GetOffset(tensor_index) + tensor.bytes;
+    std::ptrdiff_t offset = GetOffset(tensor_index) + tensor.bytes;
     // We must make sure the offset is aligned to kDefaultArenaAlignment.
     if (offset % kTensorAlignment != 0) {
       offset += kTensorAlignment - offset % kTensorAlignment;
     }
     return offset;
-  };
+  }
+
+  // Returns if the given tensor is unallocated or not.
+  bool IsUnallocated(int tensor_index) {
+    return (*graph_->tensors())[tensor_index].data.raw == nullptr;
+  }
 
   TfLiteContext context_;
   TestGraph* graph_;
@@ -206,6 +229,18 @@ class ArenaPlannerTest : public ::testing::Test {
 
 TEST_F(ArenaPlannerTest, EmptyGraph) {
   TestGraph graph({}, {}, {});
+  SetGraph(&graph);
+  Execute(0, 10);
+}
+
+TEST_F(ArenaPlannerTest, DeallocationOfInputTensor) {
+  // This is a negative TC, which will try to make sure that no allocation for
+  // input tensors is done, when making call with negative node_index, since
+  // previous check was doing comparison of node_index which was int and
+  // unsigned int, implicit conversion was passing this case, as the negative
+  // number was converted to unsigned it making it invalid.The new check
+  // takes care of this problem and removes the warning as well.
+  TestGraph graph({-1}, {}, {1});
   SetGraph(&graph);
   Execute(0, 10);
 }
@@ -304,6 +339,37 @@ TEST_F(ArenaPlannerTest, SimpleGraphWithTemporary) {
   EXPECT_EQ(GetOffset(3), 0);
 }
 
+TEST_F(ArenaPlannerTest, SimpleGraphWithResetAllocationsAfter) {
+  TestGraph graph({0, 1},
+                  {
+                      /* in, out, tmp */
+                      {{0, 1}, {2}, {}},   // First op
+                      {{2, 0}, {4}, {5}},  // Second op, with temporary
+                      {{4}, {3}, {}}       // Third op
+                  },
+                  {3});
+  SetGraph(&graph);
+  Execute(0, 10);
+
+  // Alloc(+) and dealloc(-) order: +0 +1 +2 -1 +5 +4 -2 -0 -5 +3 -4
+  EXPECT_EQ(GetOffset(0), 0);
+  EXPECT_EQ(GetOffset(1), GetOffsetAfter(0));
+  EXPECT_EQ(GetOffset(2), GetOffsetAfter(1));
+  EXPECT_EQ(GetOffset(5), GetOffsetAfter(2));
+  EXPECT_EQ(GetOffset(4), GetOffsetAfter(5));
+  EXPECT_EQ(GetOffset(3), 0);
+
+  // Reset allocations after the first node
+  ResetAllocationsAfter(0);
+
+  EXPECT_EQ(GetOffset(0), 0);
+  EXPECT_EQ(GetOffset(1), GetOffsetAfter(0));
+  EXPECT_EQ(GetOffset(2), GetOffsetAfter(1));
+  EXPECT_TRUE(IsUnallocated(3));
+  EXPECT_TRUE(IsUnallocated(4));
+  EXPECT_TRUE(IsUnallocated(5));
+}
+
 TEST_F(ArenaPlannerTest, SimpleGraphWithOptionals) {
   TestGraph graph({0, -1, 1},
                   {
@@ -391,7 +457,7 @@ TEST_F(ArenaPlannerTest, SimpleGraphWithDynamicTensor) {
                   },
                   {3});
 
-  // Make #1 dynaic so it does not get allocated.
+  // Make #1 dynamic so it does not get allocated.
   (*graph.tensors())[1].allocation_type = kTfLiteDynamic;
 
   SetGraph(&graph);
@@ -420,10 +486,6 @@ TEST_F(ArenaPlannerTest, LargerGraphAndStepwiseAllocation) {
                   {10});
   SetGraph(&graph);
 
-  auto is_unallocated = [&](int tensor_index) {
-    return (*graph.tensors())[tensor_index].data.raw == nullptr;
-  };
-
   // The allocation plan is made at the beginning and is independent of
   // the execution steps. Here's the allocation order:
   //   Op0: +0 +1 +2 +3
@@ -437,13 +499,13 @@ TEST_F(ArenaPlannerTest, LargerGraphAndStepwiseAllocation) {
   EXPECT_EQ(GetOffset(1), GetOffsetAfter(0));
   EXPECT_EQ(GetOffset(2), GetOffsetAfter(1));
   EXPECT_EQ(GetOffset(3), GetOffsetAfter(2));
-  EXPECT_TRUE(is_unallocated(6));
-  EXPECT_TRUE(is_unallocated(4));
-  EXPECT_TRUE(is_unallocated(5));
-  EXPECT_TRUE(is_unallocated(7));
-  EXPECT_TRUE(is_unallocated(9));
-  EXPECT_TRUE(is_unallocated(8));
-  EXPECT_TRUE(is_unallocated(10));
+  EXPECT_TRUE(IsUnallocated(6));
+  EXPECT_TRUE(IsUnallocated(4));
+  EXPECT_TRUE(IsUnallocated(5));
+  EXPECT_TRUE(IsUnallocated(7));
+  EXPECT_TRUE(IsUnallocated(9));
+  EXPECT_TRUE(IsUnallocated(8));
+  EXPECT_TRUE(IsUnallocated(10));
 
   Execute(1, 1);
   EXPECT_EQ(GetOffset(0), 0);
@@ -453,10 +515,10 @@ TEST_F(ArenaPlannerTest, LargerGraphAndStepwiseAllocation) {
   EXPECT_EQ(GetOffset(6), GetOffsetAfter(3));
   EXPECT_EQ(GetOffset(4), GetOffsetAfter(6));
   EXPECT_EQ(GetOffset(5), GetOffsetAfter(4));
-  EXPECT_TRUE(is_unallocated(7));
-  EXPECT_TRUE(is_unallocated(9));
-  EXPECT_TRUE(is_unallocated(8));
-  EXPECT_TRUE(is_unallocated(10));
+  EXPECT_TRUE(IsUnallocated(7));
+  EXPECT_TRUE(IsUnallocated(9));
+  EXPECT_TRUE(IsUnallocated(8));
+  EXPECT_TRUE(IsUnallocated(10));
 
   Execute(2, 2);
   EXPECT_EQ(GetOffset(0), 0);
@@ -470,9 +532,9 @@ TEST_F(ArenaPlannerTest, LargerGraphAndStepwiseAllocation) {
   // its deallocation freed up 24 bytes due to the alignment requirements in
   // the arena. That means we can fit #7 in the same space!
   EXPECT_EQ(GetOffset(7), GetOffsetAfter(3));
-  EXPECT_TRUE(is_unallocated(9));
-  EXPECT_TRUE(is_unallocated(8));
-  EXPECT_TRUE(is_unallocated(10));
+  EXPECT_TRUE(IsUnallocated(9));
+  EXPECT_TRUE(IsUnallocated(8));
+  EXPECT_TRUE(IsUnallocated(10));
 
   Execute(3, 3);
   EXPECT_EQ(GetOffset(0), 0);
@@ -487,7 +549,7 @@ TEST_F(ArenaPlannerTest, LargerGraphAndStepwiseAllocation) {
   // for #9, so it goes at the end.
   EXPECT_EQ(GetOffset(9), GetOffsetAfter(5));
   EXPECT_EQ(GetOffset(8), GetOffsetAfter(9));
-  EXPECT_TRUE(is_unallocated(10));
+  EXPECT_TRUE(IsUnallocated(10));
 
   Execute(4, 4);
   EXPECT_EQ(GetOffset(0), 0);
@@ -529,6 +591,56 @@ TEST_F(ArenaPlannerTest, ModifiedGraph) {
   SwapGraph(&pruned_graph);
   Execute(0, 10);
 
+  EXPECT_EQ(GetOffset(0), 0);
+  EXPECT_EQ(GetOffset(1), GetOffsetAfter(0));
+  EXPECT_EQ(GetOffset(3), GetOffsetAfter(1));
+}
+
+TEST_F(ArenaPlannerTest, ModifiedGraph_DeallocateNonPersistentArena) {
+  TestGraph graph({0, 1},
+                  {
+                      /* in, out, tmp */
+                      {{0, 1}, {2}, {}},     // First op
+                      {{2, 0}, {4, 5}, {}},  // Second op
+                      {{4, 5}, {3}, {}}      // Third op
+                  },
+                  {3});
+  SetGraph(&graph, /*preserve_inputs=*/true);
+  Execute(0, 10);
+
+  // Should be no-ops, since ReleaseNonPersistentMemory() hasn't been called.
+  AcquireNonPersistentMemory();
+  AcquireNonPersistentMemory();
+
+  EXPECT_TRUE(HasNonPersistentMemory());
+
+  // Release non-persistent arena.
+  ReleaseNonPersistentMemory();
+  EXPECT_FALSE(HasNonPersistentMemory());
+  // Offsets should be zero.
+  EXPECT_EQ(GetOffset(0), 0);
+  EXPECT_EQ(GetOffset(1), 0);
+  EXPECT_EQ(GetOffset(3), 0);
+
+  // Now update the graph data used by the existing allocator. It should behave
+  // as if it had been recreated with the new graph.
+  TestGraph pruned_graph({0, 1},
+                         {
+                             /* in, out, tmp */
+                             {{0, 1}, {3}, {}},  // First op
+                         },
+                         {3});
+  SwapGraph(&pruned_graph);
+  Execute(0, 10);
+
+  // Should be a no-op.
+  AcquireNonPersistentMemory();
+  EXPECT_TRUE(HasNonPersistentMemory());
+
+  // Release & acquire non-persistent memory.
+  ReleaseNonPersistentMemory();
+  AcquireNonPersistentMemory();
+  // Offset checks from previous test should still apply.
   EXPECT_EQ(GetOffset(0), 0);
   EXPECT_EQ(GetOffset(1), GetOffsetAfter(0));
   EXPECT_EQ(GetOffset(3), GetOffsetAfter(1));

@@ -1,28 +1,33 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2019 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14482 $"/>
+		<version number="$Revision$"/>
 		<language type="ku"/>
 	</identity>
 	<annotations>
+		<annotation cp="🧒">zarok</annotation>
 		<annotation cp="🧒" type="tts">zarok</annotation>
+		<annotation cp="👧">keç</annotation>
 		<annotation cp="👧" type="tts">keç</annotation>
+		<annotation cp="🧑">kes</annotation>
 		<annotation cp="🧑" type="tts">kes</annotation>
+		<annotation cp="👨">mêr</annotation>
 		<annotation cp="👨" type="tts">mêr</annotation>
+		<annotation cp="👩">jin</annotation>
 		<annotation cp="👩" type="tts">jin</annotation>
-		<annotation cp="🐵">meymûn | rû</annotation>
+		<annotation cp="🐵">meymûn | rû | rûyê meymûnê</annotation>
 		<annotation cp="🐵" type="tts">rûyê meymûnê</annotation>
 		<annotation cp="🐒">heywan | meymûn</annotation>
 		<annotation cp="🐒" type="tts">meymûn</annotation>
 		<annotation cp="🦍">gorîl | heywan</annotation>
 		<annotation cp="🦍" type="tts">gorîl</annotation>
-		<annotation cp="🐶">heywan | kûçik | rû</annotation>
+		<annotation cp="🐶">heywan | kûçik | rû | rûyê kûçikê</annotation>
 		<annotation cp="🐶" type="tts">rûyê kûçikê</annotation>
 		<annotation cp="🐕">heywan | kûçik</annotation>
 		<annotation cp="🐕" type="tts">kûçik</annotation>
@@ -30,26 +35,33 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🍇" type="tts">tirî</annotation>
 		<annotation cp="🍉">fêkî | zebeş</annotation>
 		<annotation cp="🍉" type="tts">zebeş</annotation>
+		<annotation cp="🍋">lîmon</annotation>
 		<annotation cp="🍋" type="tts">lîmon</annotation>
 		<annotation cp="🍌">fêkî | mûz</annotation>
 		<annotation cp="🍌" type="tts">mûz</annotation>
+		<annotation cp="🥭">mango</annotation>
 		<annotation cp="🥭" type="tts">mango</annotation>
-		<annotation cp="🍎">fêkî | sêv | sor</annotation>
+		<annotation cp="🍎">fêkî | sêv | sêva sor | sor</annotation>
 		<annotation cp="🍎" type="tts">sêva sor</annotation>
-		<annotation cp="🍏">fêkî | kesk | sêv</annotation>
+		<annotation cp="🍏">fêkî | kesk | sêv | sêva kesk</annotation>
 		<annotation cp="🍏" type="tts">sêva kesk</annotation>
 		<annotation cp="🍐">fêkî | hirmî</annotation>
 		<annotation cp="🍐" type="tts">hirmî</annotation>
 		<annotation cp="🍑">fêkî | xox</annotation>
 		<annotation cp="🍑" type="tts">xox</annotation>
+		<annotation cp="🍒">gêraz</annotation>
 		<annotation cp="🍒" type="tts">gêraz</annotation>
 		<annotation cp="🍅">firengî | riwek | sebze</annotation>
 		<annotation cp="🍅" type="tts">firengî</annotation>
+		<annotation cp="🥥">giwêza hindê</annotation>
 		<annotation cp="🥥" type="tts">giwêza hindê</annotation>
 		<annotation cp="🥑">avokado | fêkî | xwarin</annotation>
 		<annotation cp="🥑" type="tts">avokado</annotation>
 		<annotation cp="🍆">balîcan | sebze</annotation>
 		<annotation cp="🍆" type="tts">balîcan</annotation>
+		<annotation cp="🥔">kartol</annotation>
 		<annotation cp="🥔" type="tts">kartol</annotation>
+		<annotation cp="🏠">E416</annotation>
+		<annotation cp="🏠" type="tts">E416</annotation>
 	</annotations>
 </ldml>

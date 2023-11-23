@@ -19,7 +19,7 @@ __contributors__ = [
     "Alex Yu",
 ]
 __license__ = "MIT"
-__version__ = '0.12.1'
+__version__ = '0.15.0'
 
 import base64
 import calendar
@@ -76,7 +76,7 @@ if ssl is not None:
 
 
 def _ssl_wrap_socket(
-    sock, key_file, cert_file, disable_validation, ca_certs, ssl_version, hostname
+    sock, key_file, cert_file, disable_validation, ca_certs, ssl_version, hostname, key_password
 ):
     if disable_validation:
         cert_reqs = ssl.CERT_NONE
@@ -90,11 +90,16 @@ def _ssl_wrap_socket(
         context.verify_mode = cert_reqs
         context.check_hostname = cert_reqs != ssl.CERT_NONE
         if cert_file:
-            context.load_cert_chain(cert_file, key_file)
+            if key_password:
+                context.load_cert_chain(cert_file, key_file, key_password)
+            else:
+                context.load_cert_chain(cert_file, key_file)
         if ca_certs:
             context.load_verify_locations(ca_certs)
         return context.wrap_socket(sock, server_hostname=hostname)
     else:
+        if key_password:
+            raise NotSupportedOnThisPlatform("Certificate with password is not supported.")
         return ssl.wrap_socket(
             sock,
             keyfile=key_file,
@@ -106,7 +111,7 @@ def _ssl_wrap_socket(
 
 
 def _ssl_wrap_socket_unsupported(
-    sock, key_file, cert_file, disable_validation, ca_certs, ssl_version, hostname
+    sock, key_file, cert_file, disable_validation, ca_certs, ssl_version, hostname, key_password
 ):
     if not disable_validation:
         raise CertificateValidationUnsupported(
@@ -114,6 +119,8 @@ def _ssl_wrap_socket_unsupported(
             "the ssl module installed. To avoid this error, install "
             "the ssl module, or explicity disable validation."
         )
+    if key_password:
+        raise NotSupportedOnThisPlatform("Certificate with password is not supported.")
     ssl_sock = socket.ssl(sock, key_file, cert_file)
     return httplib.FakeSocket(sock, ssl_sock)
 
@@ -978,8 +985,13 @@ class Credentials(object):
 class KeyCerts(Credentials):
     """Identical to Credentials except that
     name/password are mapped to key/cert."""
+    def add(self, key, cert, domain, password):
+        self.credentials.append((domain.lower(), key, cert, password))
 
-    pass
+    def iter(self, domain):
+        for (cdomain, key, cert, password) in self.credentials:
+            if cdomain == "" or domain == cdomain:
+                yield (key, cert, password)
 
 
 class AllHosts(object):
@@ -1150,7 +1162,6 @@ class HTTPConnectionWithTimeout(httplib.HTTPConnection):
             raise ProxiesUnavailableError(
                 "Proxy support missing but proxy use was requested!"
             )
-        msg = "getaddrinfo returns an empty list"
         if self.proxy_info and self.proxy_info.isgood():
             use_proxy = True
             proxy_type, proxy_host, proxy_port, proxy_rdns, proxy_user, proxy_pass, proxy_headers = (
@@ -1164,7 +1175,9 @@ class HTTPConnectionWithTimeout(httplib.HTTPConnection):
 
             host = self.host
             port = self.port
-
+        
+        socket_err = None
+        
         for res in socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM):
             af, socktype, proto, canonname, sa = res
             try:
@@ -1206,7 +1219,8 @@ class HTTPConnectionWithTimeout(httplib.HTTPConnection):
                     self.sock.connect((self.host, self.port) + sa[2:])
                 else:
                     self.sock.connect(sa)
-            except socket.error as msg:
+            except socket.error as e:
+                socket_err = e
                 if self.debuglevel > 0:
                     print("connect fail: (%s, %s)" % (self.host, self.port))
                     if use_proxy:
@@ -1229,7 +1243,7 @@ class HTTPConnectionWithTimeout(httplib.HTTPConnection):
                 continue
             break
         if not self.sock:
-            raise socket.error(msg)
+            raise socket_err or socket.error("getaddrinfo returns an empty list")
 
 
 class HTTPSConnectionWithTimeout(httplib.HTTPSConnection):
@@ -1253,10 +1267,19 @@ class HTTPSConnectionWithTimeout(httplib.HTTPSConnection):
         ca_certs=None,
         disable_ssl_certificate_validation=False,
         ssl_version=None,
+        key_password=None,
     ):
-        httplib.HTTPSConnection.__init__(
-            self, host, port=port, key_file=key_file, cert_file=cert_file, strict=strict
-        )
+        if key_password:
+            httplib.HTTPSConnection.__init__(self, host, port=port, strict=strict)
+            self._context.load_cert_chain(cert_file, key_file, key_password)
+            self.key_file = key_file
+            self.cert_file = cert_file
+            self.key_password = key_password
+        else:
+            httplib.HTTPSConnection.__init__(
+                self, host, port=port, key_file=key_file, cert_file=cert_file, strict=strict
+            )
+            self.key_password = None
         self.timeout = timeout
         self.proxy_info = proxy_info
         if ca_certs is None:
@@ -1317,7 +1340,6 @@ class HTTPSConnectionWithTimeout(httplib.HTTPSConnection):
     def connect(self):
         "Connect to a host on a given (SSL) port."
 
-        msg = "getaddrinfo returns an empty list"
         if self.proxy_info and self.proxy_info.isgood():
             use_proxy = True
             proxy_type, proxy_host, proxy_port, proxy_rdns, proxy_user, proxy_pass, proxy_headers = (
@@ -1331,7 +1353,9 @@ class HTTPSConnectionWithTimeout(httplib.HTTPSConnection):
 
             host = self.host
             port = self.port
-
+            
+        socket_err = None
+        
         address_info = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
         for family, socktype, proto, canonname, sockaddr in address_info:
             try:
@@ -1366,6 +1390,7 @@ class HTTPSConnectionWithTimeout(httplib.HTTPSConnection):
                     self.ca_certs,
                     self.ssl_version,
                     self.host,
+                    self.key_password,
                 )
                 if self.debuglevel > 0:
                     print("connect: (%s, %s)" % (self.host, self.port))
@@ -1413,7 +1438,8 @@ class HTTPSConnectionWithTimeout(httplib.HTTPSConnection):
                     raise
             except (socket.timeout, socket.gaierror):
                 raise
-            except socket.error as msg:
+            except socket.error as e:
+                socket_err = e
                 if self.debuglevel > 0:
                     print("connect fail: (%s, %s)" % (self.host, self.port))
                     if use_proxy:
@@ -1436,7 +1462,7 @@ class HTTPSConnectionWithTimeout(httplib.HTTPSConnection):
                 continue
             break
         if not self.sock:
-            raise socket.error(msg)
+            raise socket_err or socket.error("getaddrinfo returns an empty list")
 
 
 SCHEME_TO_CONNECTION = {
@@ -1515,7 +1541,10 @@ class AppEngineHttpsConnection(httplib.HTTPSConnection):
         ca_certs=None,
         disable_ssl_certificate_validation=False,
         ssl_version=None,
+        key_password=None,
     ):
+        if key_password:
+            raise NotSupportedOnThisPlatform("Certificate with password is not supported.")
         httplib.HTTPSConnection.__init__(
             self,
             host,
@@ -1649,6 +1678,16 @@ class Http(object):
         # Keep Authorization: headers on a redirect.
         self.forward_authorization_headers = False
 
+    def close(self):
+        """Close persistent connections, clear sensitive data.
+        Not thread-safe, requires external synchronization against concurrent requests.
+        """
+        existing, self.connections = self.connections, {}
+        for _, c in existing.iteritems():
+            c.close()
+        self.certificates.clear()
+        self.clear_credentials()
+
     def __getstate__(self):
         state_dict = copy.copy(self.__dict__)
         # In case request is augmented by some foreign object such as
@@ -1680,10 +1719,10 @@ class Http(object):
         any time a request requires authentication."""
         self.credentials.add(name, password, domain)
 
-    def add_certificate(self, key, cert, domain):
+    def add_certificate(self, key, cert, domain, password=None):
         """Add a key and cert that will be used
         any time a request requires authentication."""
-        self.certificates.add(key, cert, domain)
+        self.certificates.add(key, cert, domain, password)
 
     def clear_credentials(self):
         """Remove all the names and passwords
@@ -1925,7 +1964,7 @@ class Http(object):
         a string that contains the response entity body.
         """
         conn_key = ''
-        
+
         try:
             if headers is None:
                 headers = {}
@@ -1958,6 +1997,7 @@ class Http(object):
                             ca_certs=self.ca_certs,
                             disable_ssl_certificate_validation=self.disable_ssl_certificate_validation,
                             ssl_version=self.ssl_version,
+                            key_password=certs[0][2],
                         )
                     else:
                         conn = self.connections[conn_key] = connection_type(
@@ -2140,7 +2180,7 @@ class Http(object):
                 conn = self.connections.pop(conn_key, None)
                 if conn:
                     conn.close()
-                    
+
             if self.force_exception_to_status_code:
                 if isinstance(e, HttpLib2ErrorWithResponse):
                     response = e.response

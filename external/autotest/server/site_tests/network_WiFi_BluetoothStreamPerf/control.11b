@@ -7,7 +7,7 @@ NAME = 'network_WiFi_BluetoothStreamPerf.11b'
 ATTRIBUTES = 'suite:wifi_perf'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
-DEPENDENCIES = 'wificell, chameleon, audio_board'
+DEPENDENCIES = 'wificell, chameleon:bt_a2dp_sink'
 
 DOC = """
 This test uses netperf to measure the maximal receiving and transmitting

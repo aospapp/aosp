@@ -7,6 +7,7 @@
 #include "fpdfsdk/pwl/cpwl_list_box.h"
 
 #include <sstream>
+#include <utility>
 
 #include "core/fxge/cfx_renderdevice.h"
 #include "fpdfsdk/pwl/cpwl_edit.h"
@@ -64,17 +65,13 @@ void CPWL_List_Notify::IOnInvalidateRect(CFX_FloatRect* pRect) {
   m_pList->InvalidateRect(pRect);
 }
 
-CPWL_ListBox::CPWL_ListBox()
-    : m_pList(new CPWL_ListCtrl),
-      m_bMouseDown(false),
-      m_bHoverSel(false),
-      m_pFillerNotify(nullptr) {}
+CPWL_ListBox::CPWL_ListBox(
+    const CreateParams& cp,
+    std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData)
+    : CPWL_Wnd(cp, std::move(pAttachedData)),
+      m_pList(pdfium::MakeUnique<CPWL_ListCtrl>()) {}
 
-CPWL_ListBox::~CPWL_ListBox() {}
-
-ByteString CPWL_ListBox::GetClassName() const {
-  return "CPWL_ListBox";
-}
+CPWL_ListBox::~CPWL_ListBox() = default;
 
 void CPWL_ListBox::OnCreated() {
   m_pList->SetFontMap(GetFontMap());
@@ -83,7 +80,7 @@ void CPWL_ListBox::OnCreated() {
 
   SetHoverSel(HasFlag(PLBS_HOVERSEL));
   m_pList->SetMultipleSel(HasFlag(PLBS_MULTIPLESEL));
-  m_pList->SetFontSize(GetCreationParams().fFontSize);
+  m_pList->SetFontSize(GetCreationParams()->fFontSize);
 
   m_bHoverSel = HasFlag(PLBS_HOVERSEL);
 }
@@ -111,15 +108,13 @@ void CPWL_ListBox::DrawThisAppearance(CFX_RenderDevice* pDevice,
     CFX_PointF ptOffset(rcItem.left, (rcItem.top + rcItem.bottom) * 0.5f);
     if (CPWL_EditImpl* pEdit = m_pList->GetItemEdit(i)) {
       CFX_FloatRect rcContent = pEdit->GetContentRect();
-      if (rcContent.Width() > rcClient.Width())
-        rcItem.Intersect(rcList);
-      else
-        rcItem.Intersect(rcClient);
+      rcItem.Intersect(rcContent.Width() > rcClient.Width() ? rcList
+                                                            : rcClient);
     }
 
+    IPWL_SystemHandler* pSysHandler = GetSystemHandler();
     if (m_pList->IsItemSelected(i)) {
-      CFX_SystemHandler* pSysHandler = GetSystemHandler();
-      if (pSysHandler && pSysHandler->IsSelectionImplemented()) {
+      if (pSysHandler->IsSelectionImplemented()) {
         CPWL_EditImpl::DrawEdit(pDevice, mtUser2Device, m_pList->GetItemEdit(i),
                                 GetTextColor().ToFXColor(255), rcList, ptOffset,
                                 nullptr, pSysHandler, m_pFormFiller.Get());
@@ -133,7 +128,6 @@ void CPWL_ListBox::DrawThisAppearance(CFX_RenderDevice* pDevice,
                                 m_pFormFiller.Get());
       }
     } else {
-      CFX_SystemHandler* pSysHandler = GetSystemHandler();
       CPWL_EditImpl::DrawEdit(pDevice, mtUser2Device, m_pList->GetItemEdit(i),
                               GetTextColor().ToFXColor(255), rcList, ptOffset,
                               nullptr, pSysHandler, nullptr);
@@ -246,10 +240,6 @@ void CPWL_ListBox::ScrollWindowVertically(float pos) {
   m_pList->SetScrollPos(CFX_PointF(0, pos));
 }
 
-void CPWL_ListBox::KillFocus() {
-  CPWL_Wnd::KillFocus();
-}
-
 bool CPWL_ListBox::RePosChildWnd() {
   if (!CPWL_Wnd::RePosChildWnd())
     return false;
@@ -262,7 +252,7 @@ bool CPWL_ListBox::OnNotifySelectionChanged(bool bKeyDown, uint32_t nFlag) {
   if (!m_pFillerNotify)
     return false;
 
-  CPWL_Wnd::ObservedPtr thisObserved(this);
+  ObservedPtr<CPWL_Wnd> thisObserved(this);
 
   WideString swChange = GetText();
   WideString strChangeEx;
@@ -294,7 +284,7 @@ void CPWL_ListBox::AddString(const WideString& str) {
   m_pList->AddString(str);
 }
 
-WideString CPWL_ListBox::GetText() const {
+WideString CPWL_ListBox::GetText() {
   return m_pList->GetText();
 }
 
@@ -310,6 +300,10 @@ void CPWL_ListBox::Select(int32_t nItemIndex) {
   m_pList->Select(nItemIndex);
 }
 
+void CPWL_ListBox::Deselect(int32_t nItemIndex) {
+  m_pList->Deselect(nItemIndex);
+}
+
 void CPWL_ListBox::SetCaret(int32_t nItemIndex) {
   m_pList->SetCaret(nItemIndex);
 }
@@ -323,7 +317,7 @@ void CPWL_ListBox::ScrollToListItem(int32_t nItemIndex) {
 }
 
 void CPWL_ListBox::ResetContent() {
-  m_pList->Empty();
+  m_pList->Clear();
 }
 
 void CPWL_ListBox::Reset() {

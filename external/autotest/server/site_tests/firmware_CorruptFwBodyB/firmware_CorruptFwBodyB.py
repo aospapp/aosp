@@ -36,6 +36,7 @@ class firmware_CorruptFwBodyB(FirmwareTest):
         super(firmware_CorruptFwBodyB, self).cleanup()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         RO_enabled = (self.faft_client.bios.get_preamble_flags('b') &
                       vboot.PREAMBLE_USE_RO_NORMAL)
         logging.info("Corrupt firmware body B.")

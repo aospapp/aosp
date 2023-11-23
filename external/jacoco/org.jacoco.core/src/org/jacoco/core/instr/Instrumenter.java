@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,9 +24,11 @@ import java.util.zip.ZipOutputStream;
 import org.jacoco.core.internal.ContentTypeDetector;
 import org.jacoco.core.internal.InputStreams;
 import org.jacoco.core.internal.Pack200Streams;
+import org.jacoco.core.internal.data.CRC64;
 import org.jacoco.core.internal.flow.ClassProbesAdapter;
 import org.jacoco.core.internal.instr.ClassInstrumenter;
 import org.jacoco.core.internal.instr.IProbeArrayStrategy;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.jacoco.core.internal.instr.ProbeArrayStrategyFactory;
 import org.jacoco.core.internal.instr.SignatureRemover;
 import org.jacoco.core.runtime.IExecutionDataAccessorGenerator;
@@ -67,15 +69,9 @@ public class Instrumenter {
 		signatureRemover.setActive(flag);
 	}
 
-	/**
-	 * Creates a instrumented version of the given class if possible.
-	 * 
-	 * @param reader
-	 *            definition of the class as ASM reader
-	 * @return instrumented definition
-	 * 
-	 */
-	public byte[] instrument(final ClassReader reader) {
+	private byte[] instrument(final byte[] source) {
+		final long classId = CRC64.classId(source);
+		final ClassReader reader = InstrSupport.classReaderFor(source);
 		final ClassWriter writer = new ClassWriter(reader, 0) {
 			@Override
 			protected String getCommonSuperClass(final String type1,
@@ -84,9 +80,11 @@ public class Instrumenter {
 			}
 		};
 		final IProbeArrayStrategy strategy = ProbeArrayStrategyFactory
-				.createFor(reader, accessorGenerator);
+				.createFor(classId, reader, accessorGenerator);
+		final int version = InstrSupport.getMajorVersion(reader);
 		final ClassVisitor visitor = new ClassProbesAdapter(
-				new ClassInstrumenter(strategy, writer), true);
+				new ClassInstrumenter(strategy, writer),
+				InstrSupport.needsFrames(version));
 		reader.accept(visitor, ClassReader.EXPAND_FRAMES);
 		return writer.toByteArray();
 	}
@@ -105,7 +103,7 @@ public class Instrumenter {
 	public byte[] instrument(final byte[] buffer, final String name)
 			throws IOException {
 		try {
-			return instrument(new ClassReader(buffer));
+			return instrument(buffer);
 		} catch (final RuntimeException e) {
 			throw instrumentError(name, e);
 		}

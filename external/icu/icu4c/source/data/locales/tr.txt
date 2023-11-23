@@ -15,10 +15,10 @@ tr{
     }
     ExemplarCharacters{"[a b c ç d e f g ğ h ı i İ j k l m n o ö p r s ş t u ü v y z]"}
     ExemplarCharactersIndex{"[A B C Ç D E F G H I İ J K L M N O Ö P Q R S Ş T U Ü V W X Y Z]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -218,7 +218,7 @@ tr{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -460,6 +460,49 @@ tr{
                 yyyyQQQQ{"G y/QQQQ"}
             }
             intervalFormats{
+                Bh{
+                    B{"B h – B h"}
+                    h{"B h–h"}
+                }
+                Bhm{
+                    B{"B h:mm – B h:mm"}
+                    h{"B h:mm–h:mm"}
+                    m{"B h:mm–h:mm"}
+                }
+                GyM{
+                    G{"GGGGG MM.y – GGGGG MM.y"}
+                    M{"GGGGG MM.y – MM.y"}
+                    y{"GGGGG MM.y – MM.y"}
+                }
+                GyMEd{
+                    G{"GGGGG dd.MM.y E – GGGGG dd.MM.y E"}
+                    M{"GGGGG dd.MM.y E – dd.MM.y E"}
+                    d{"GGGGG dd.MM.y E – dd.MM.y E"}
+                    y{"GGGGG dd.MM.y E – dd.MM.y E"}
+                }
+                GyMMM{
+                    G{"G MMM y G – G MMM y"}
+                    M{"G MMM – MMM y"}
+                    y{"G MMM y – MMM y"}
+                }
+                GyMMMEd{
+                    G{"d MMM y E – d MMM y E"}
+                    M{"G d MMM E – d MMM E y"}
+                    d{"G d MMM E – d MMM E y"}
+                    y{"G d MMM y E – d MMM y E"}
+                }
+                GyMMMd{
+                    G{"G d MMM y – G d MMM y"}
+                    M{"G d MMM – d MMM y"}
+                    d{"G d–d MMM y"}
+                    y{"G d MMM y – d MMM y"}
+                }
+                GyMd{
+                    G{"GGGGG dd.MM.y GGGGG – dd.MM.y"}
+                    M{"GGGGG dd.MM.y – dd.MM.y"}
+                    d{"GGGGG dd.MM.y – dd.MM.y"}
+                    y{"GGGGG dd.MM.y – dd.MM.y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -812,6 +855,49 @@ tr{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"B h – B h"}
+                    h{"B h–h"}
+                }
+                Bhm{
+                    B{"B h:mm – B h:mm"}
+                    h{"B h:mm–h:mm"}
+                    m{"B h:mm–h:mm"}
+                }
+                GyM{
+                    G{"GGGGG MM.y – GGGGG MM.y"}
+                    M{"GGGGG MM.y – MM.y"}
+                    y{"GGGGG MM.y – MM.y"}
+                }
+                GyMEd{
+                    G{"GGGGG dd.MM.y E – GGGGG dd.MM.y E"}
+                    M{"GGGGG dd.MM.y E – dd.MM.y E"}
+                    d{"GGGGG dd.MM.y E – dd.MM.y E"}
+                    y{"GGGGG dd.MM.y E – dd.MM.y E"}
+                }
+                GyMMM{
+                    G{"G MMM y – G MMM y"}
+                    M{"G MMM–MMM y"}
+                    y{"G MMM y – MMM y"}
+                }
+                GyMMMEd{
+                    G{"G d MMM y E – G d MMM y E"}
+                    M{"G d MMM E – d MMM E y"}
+                    d{"G d MMM E – d MMM E y"}
+                    y{"G d MMM y E – d MMM y E"}
+                }
+                GyMMMd{
+                    G{"G d MMM y – G d MMM y"}
+                    M{"G d MMM – d MMM y"}
+                    d{"G d–d MMM y"}
+                    y{"G d MMM y – d MMM y"}
+                }
+                GyMd{
+                    G{"GGGGG dd.MM.y – GGGGG dd.MM.y"}
+                    M{"GGGGG dd.MM.y – dd.MM.y"}
+                    d{"GGGGG dd.MM.y – dd.MM.y"}
+                    y{"GGGGG dd.MM.y – dd.MM.y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1059,7 +1145,7 @@ tr{
                         "Kislev",
                         "Tevet",
                         "Şevat",
-                        "Veadar",
+                        "Adar Rişon",
                         "Adar",
                         "Nisan",
                         "İyar",
@@ -1067,7 +1153,7 @@ tr{
                         "Tamuz",
                         "Av",
                         "Elul",
-                        "Adar II",
+                        "Veadar",
                     }
                     wide{
                         "Tişri",
@@ -1075,7 +1161,7 @@ tr{
                         "Kislev",
                         "Tevet",
                         "Şevat",
-                        "Veadar",
+                        "Adar Rişon",
                         "Adar",
                         "Nisan",
                         "İyar",
@@ -1083,7 +1169,7 @@ tr{
                         "Tamuz",
                         "Av",
                         "Elul",
-                        "Adar II",
+                        "Veadar",
                     }
                 }
                 stand-alone{
@@ -1093,7 +1179,7 @@ tr{
                         "Kislev",
                         "Tevet",
                         "Şevat",
-                        "Veadar",
+                        "Adar Rişon",
                         "Adar",
                         "Nisan",
                         "İyar",
@@ -1101,7 +1187,7 @@ tr{
                         "Tamuz",
                         "Av",
                         "Elul",
-                        "Adar II",
+                        "Veadar",
                     }
                     wide{
                         "Tişri",
@@ -1109,7 +1195,7 @@ tr{
                         "Kislev",
                         "Tevet",
                         "Şevat",
-                        "Veadar",
+                        "Adar Rişon",
                         "Adar",
                         "Nisan",
                         "İyar",
@@ -1117,7 +1203,7 @@ tr{
                         "Tamuz",
                         "Av",
                         "Elul",
-                        "Adar II",
+                        "Veadar",
                     }
                 }
             }
@@ -1769,6 +1855,11 @@ tr{
         }
         quarter-narrow{
             dn{"çyr."}
+            relative{
+                "-1"{"geçen çyr."}
+                "0"{"bu çyr."}
+                "1"{"gelecek çyr."}
+            }
             relativeTime{
                 future{
                     one{"{0} çyr. sonra"}
@@ -1782,6 +1873,11 @@ tr{
         }
         quarter-short{
             dn{"çyr."}
+            relative{
+                "-1"{"geçen çyr."}
+                "0"{"bu çyr."}
+                "1"{"gelecek çyr."}
+            }
             relativeTime{
                 future{
                     one{"{0} çyr. sonra"}
@@ -2111,6 +2207,11 @@ tr{
         }
         week-narrow{
             dn{"hf."}
+            relative{
+                "-1"{"geçen hf."}
+                "0"{"bu hf."}
+                "1"{"gelecek hf."}
+            }
             relativePeriod{"{0} haftası"}
             relativeTime{
                 future{
@@ -2125,6 +2226,11 @@ tr{
         }
         week-short{
             dn{"hf."}
+            relative{
+                "-1"{"geçen hf."}
+                "0"{"bu hf."}
+                "1"{"gelecek hf."}
+            }
             relativePeriod{"{0} haftası"}
             relativeTime{
                 future{
@@ -2240,6 +2346,10 @@ tr{
             end{"{0} ve {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
         }
         standard-short{
             2{"{0} ve {1}"}

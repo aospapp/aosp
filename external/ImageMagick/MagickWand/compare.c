@@ -17,7 +17,7 @@
 %                               December 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -82,132 +82,107 @@
 
 static MagickBooleanType CompareUsage(void)
 {
-  const char
-    **p;
-
   static const char
-    *channel_operators[]=
-    {
-      "-separate            separate an image channel into a grayscale image",
-      (char *) NULL
-    },
-    *miscellaneous[]=
-    {
-      "-channel mask        set the image channel mask",
-      "-debug events        display copious debugging information",
-      "-help                print program options",
-      "-list type           print a list of supported option arguments",
-      "-log format          format of debugging information",
-      (char *) NULL
-    },
-    *operators[]=
-    {
-      "-brightness-contrast geometry",
-      "                     improve brightness / contrast of the image",
-      "-distort method args",
-      "                     distort images according to given method and args",
-      "-level value         adjust the level of image contrast",
-      "-resize geometry     resize the image",
-      "-rotate degrees      apply Paeth rotation to the image",
-      "-sigmoidal-contrast geometry",
-      "                     increase the contrast without saturating highlights or",
-      "-trim                trim image edges",
-      "-write filename      write images to this file",
-      (char *) NULL
-    },
-    *sequence_operators[]=
-    {
-      "-crop geometry       cut out a rectangular region of the image",
-      (char *) NULL
-    },
-    *settings[]=
-    {
-      "-alpha option        on, activate, off, deactivate, set, opaque, copy",
-      "                     transparent, extract, background, or shape",
-      "-authenticate password",
-      "                     decipher image with this password",
-      "-background color    background color",
-      "-colorspace type     alternate image colorspace",
-      "-compose operator    set image composite operator",
-      "-compress type       type of pixel compression when writing the image",
-      "-decipher filename   convert cipher pixels to plain pixels",
-      "-define format:option",
-      "                     define one or more image format options",
-      "-density geometry    horizontal and vertical density of the image",
-      "-depth value         image depth",
-      "-dissimilarity-threshold value",
-      "                     maximum distortion for (sub)image match",
-      "-encipher filename   convert plain pixels to cipher pixels",
-      "-extract geometry    extract area from image",
-      "-format \"string\"     output formatted image characteristics",
-      "-fuzz distance       colors within this distance are considered equal",
-      "-gravity type        horizontal and vertical text placement",
-      "-highlight-color color",
-      "                     empasize pixel differences with this color",
-      "-identify            identify the format and characteristics of the image",
-      "-interlace type      type of image interlacing scheme",
-      "-limit type value    pixel cache resource limit",
-      "-lowlight-color color",
-      "                     de-emphasize pixel differences with this color",
-      "-metric type         measure differences between images with this metric",
-      "-monitor             monitor progress",
-      "-negate              replace every pixel with its complementary color ",
-      "-profile filename    add, delete, or apply an image profile",
-      "-quality value       JPEG/MIFF/PNG compression level",
-      "-quiet               suppress all warning messages",
-      "-quantize colorspace reduce colors in this colorspace",
-      "-read-mask filename  associate a read mask with the image",
-      "-regard-warnings     pay attention to warning messages",
-      "-respect-parentheses settings remain in effect until parenthesis boundary",
-      "-sampling-factor geometry",
-      "                     horizontal and vertical sampling factor",
-      "-seed value          seed a new sequence of pseudo-random numbers",
-      "-set attribute value set an image attribute",
-      "-quality value       JPEG/MIFF/PNG compression level",
-      "-repage geometry     size and location of an image canvas",
-      "-similarity-threshold value",
-      "                     minimum distortion for (sub)image match",
-      "-size geometry       width and height of image",
-      "-subimage-search     search for subimage",
-      "-synchronize         synchronize image to storage device",
-      "-taint               declare the image as modified",
-      "-transparent-color color",
-      "                     transparent color",
-      "-type type           image type",
-      "-verbose             print detailed information about the image",
-      "-version             print version information",
-      "-virtual-pixel method",
-      "                     virtual pixel access method",
-      "-write-mask filename  associate a write mask with the image",
-      (char *) NULL
-    },
-    *stack_operators[]=
-    {
-      "-delete indexes      delete the image from the image sequence",
-      (char *) NULL
-    };
+    channel_operators[] =
+      "  -separate            separate an image channel into a grayscale image",
+    miscellaneous[] =
+      "  -channel mask        set the image channel mask\n"
+      "  -debug events        display copious debugging information\n"
+      "  -help                print program options\n"
+      "  -list type           print a list of supported option arguments\n"
+      "  -log format          format of debugging information",
+    operators[] =
+      "  -brightness-contrast geometry\n"
+      "                       improve brightness / contrast of the image\n"
+      "  -distort method args\n"
+      "                       distort images according to given method and args\n"
+      "  -level value         adjust the level of image contrast\n"
+      "  -resize geometry     resize the image\n"
+      "  -rotate degrees      apply Paeth rotation to the image\n"
+      "  -sigmoidal-contrast geometry\n"
+      "                       increase the contrast without saturating highlights or\n"
+      "  -trim                trim image edges\n"
+      "  -write filename      write images to this file",
+    sequence_operators[] =
+      "  -crop geometry       cut out a rectangular region of the image",
+    settings[] =
+      "  -alpha option        on, activate, off, deactivate, set, opaque, copy\n"
+      "                       transparent, extract, background, or shape\n"
+      "  -authenticate password\n"
+      "                       decipher image with this password\n"
+      "  -background color    background color\n"
+      "  -colorspace type     alternate image colorspace\n"
+      "  -compose operator    set image composite operator\n"
+      "  -compress type       type of pixel compression when writing the image\n"
+      "  -decipher filename   convert cipher pixels to plain pixels\n"
+      "  -define format:option\n"
+      "                       define one or more image format options\n"
+      "  -density geometry    horizontal and vertical density of the image\n"
+      "  -depth value         image depth\n"
+      "  -dissimilarity-threshold value\n"
+      "                       maximum distortion for (sub)image match\n"
+      "  -encipher filename   convert plain pixels to cipher pixels\n"
+      "  -extract geometry    extract area from image\n"
+      "  -format \"string\"     output formatted image characteristics\n"
+      "  -fuzz distance       colors within this distance are considered equal\n"
+      "  -gravity type        horizontal and vertical text placement\n"
+      "  -highlight-color color\n"
+      "                       empasize pixel differences with this color\n"
+      "  -identify            identify the format and characteristics of the image\n"
+      "  -interlace type      type of image interlacing scheme\n"
+      "  -limit type value    pixel cache resource limit\n"
+      "  -lowlight-color color\n"
+      "                       de-emphasize pixel differences with this color\n"
+      "  -metric type         measure differences between images with this metric\n"
+      "  -monitor             monitor progress\n"
+      "  -negate              replace every pixel with its complementary color \n"
+      "  -passphrase filename get the passphrase from this file\n"
+      "  -precision value     maximum number of significant digits to print\n"
+      "  -profile filename    add, delete, or apply an image profile\n"
+      "  -quality value       JPEG/MIFF/PNG compression level\n"
+      "  -quiet               suppress all warning messages\n"
+      "  -quantize colorspace reduce colors in this colorspace\n"
+      "  -read-mask filename  associate a read mask with the image\n"
+      "  -regard-warnings     pay attention to warning messages\n"
+      "  -respect-parentheses settings remain in effect until parenthesis boundary\n"
+      "  -sampling-factor geometry\n"
+      "                       horizontal and vertical sampling factor\n"
+      "  -seed value          seed a new sequence of pseudo-random numbers\n"
+      "  -set attribute value set an image attribute\n"
+      "  -quality value       JPEG/MIFF/PNG compression level\n"
+      "  -repage geometry     size and location of an image canvas\n"
+      "  -similarity-threshold value\n"
+      "                       minimum distortion for (sub)image match\n"
+      "  -size geometry       width and height of image\n"
+      "  -subimage-search     search for subimage\n"
+      "  -synchronize         synchronize image to storage device\n"
+      "  -taint               declare the image as modified\n"
+      "  -transparent-color color\n"
+      "                       transparent color\n"
+      "  -type type           image type\n"
+      "  -verbose             print detailed information about the image\n"
+      "  -version             print version information\n"
+      "  -virtual-pixel method\n"
+      "                       virtual pixel access method\n"
+      "  -write-mask filename  associate a write mask with the image",
+    stack_operators[] =
+      "  -delete indexes      delete the image from the image sequence";
 
   ListMagickVersion(stdout);
   (void) printf("Usage: %s [options ...] image reconstruct difference\n",
     GetClientName());
   (void) printf("\nImage Settings:\n");
-  for (p=settings; *p != (char *) NULL; p++)
-    (void) printf("  %s\n",*p);
+  (void) puts(settings);
   (void) printf("\nImage Operators:\n");
-  for (p=operators; *p != (char *) NULL; p++)
-    (void) printf("  %s\n",*p);
+  (void) puts(operators);
   (void) printf("\nImage Channel Operators:\n");
-  for (p=channel_operators; *p != (char *) NULL; p++)
-    (void) printf("  %s\n",*p);
+  (void) puts(channel_operators);
   (void) printf("\nImage Sequence Operators:\n");
-  for (p=sequence_operators; *p != (char *) NULL; p++)
-    (void) printf("  %s\n",*p);
+  (void) puts(sequence_operators);
   (void) printf("\nImage Stack Operators:\n");
-  for (p=stack_operators; *p != (char *) NULL; p++)
-    (void) printf("  %s\n",*p);
+  (void) puts(stack_operators);
   (void) printf("\nMiscellaneous Options:\n");
-  for (p=miscellaneous; *p != (char *) NULL; p++)
-    (void) printf("  %s\n",*p);
+  (void) puts(miscellaneous);
   (void) printf(
     "\nBy default, the image format of 'file' is determined by its magic\n");
   (void) printf(
@@ -715,7 +690,7 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
             if (i == (ssize_t) argc)
               ThrowCompareException(OptionError,"MissingArgument",option);
             gravity=ParseCommandOption(MagickGravityOptions,MagickFalse,
-              argv[i]); 
+              argv[i]);
             if (gravity < 0)
               ThrowCompareException(OptionError,"UnrecognizedGravityType",
                 argv[i]);
@@ -874,6 +849,26 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
       }
       case 'p':
       {
+        if (LocaleCompare("passphrase",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowCompareException(OptionError,"MissingArgument",option);
+            break;
+          }
+        if (LocaleCompare("precision",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowCompareException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowCompareInvalidArgumentException(option,argv[i]);
+            break;
+          }
         if (LocaleCompare("profile",option+1) == 0)
           {
             i++;
@@ -1247,7 +1242,8 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
             case PeakAbsoluteErrorMetric:
             case RootMeanSquaredErrorMetric:
             {
-              (void) FormatLocaleFile(stderr,"%g (%g)",QuantumRange*distortion,
+              (void) FormatLocaleFile(stderr,"%.*g (%.*g)",GetMagickPrecision(),
+                QuantumRange*distortion,GetMagickPrecision(),
                 (double) distortion);
               break;
             }
@@ -1258,22 +1254,25 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
             case StructuralSimilarityErrorMetric:
             case StructuralDissimilarityErrorMetric:
             {
-              (void) FormatLocaleFile(stderr,"%g",distortion);
+              (void) FormatLocaleFile(stderr,"%.*g",GetMagickPrecision(),
+                distortion);
               break;
             }
             case MeanErrorPerPixelErrorMetric:
             {
-              (void) FormatLocaleFile(stderr,"%g (%g, %g)",distortion,
-                image->error.normalized_mean_error,
-                image->error.normalized_maximum_error);
+              (void) FormatLocaleFile(stderr,"%.*g (%.*g, %.*g)",
+                GetMagickPrecision(),distortion,
+                GetMagickPrecision(),image->error.normalized_mean_error,
+                GetMagickPrecision(),image->error.normalized_maximum_error);
               break;
             }
             case UndefinedErrorMetric:
               break;
           }
           if (subimage_search != MagickFalse)
-            (void) FormatLocaleFile(stderr," @ %.20g,%.20g",(double)
-              difference_image->page.x,(double) difference_image->page.y);
+            (void) FormatLocaleFile(stderr," @ %.20g,%.20g",
+              (double) difference_image->page.x,
+              (double) difference_image->page.y);
         }
       else
         {
@@ -1302,56 +1301,72 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
                 case RGBColorspace:
                 default:
                 {
-                  (void) FormatLocaleFile(stderr,"    red: %g (%g)\n",
-                    QuantumRange*channel_distortion[RedPixelChannel],
+                  (void) FormatLocaleFile(stderr,"    red: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[RedPixelChannel],GetMagickPrecision(),
                     channel_distortion[RedPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    green: %g (%g)\n",
-                    QuantumRange*channel_distortion[GreenPixelChannel],
+                  (void) FormatLocaleFile(stderr,"    green: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[GreenPixelChannel],GetMagickPrecision(),
                     channel_distortion[GreenPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    blue: %g (%g)\n",
-                    QuantumRange*channel_distortion[BluePixelChannel],
+                  (void) FormatLocaleFile(stderr,"    blue: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[BluePixelChannel],GetMagickPrecision(),
                     channel_distortion[BluePixelChannel]);
                   if (image->alpha_trait != UndefinedPixelTrait)
-                    (void) FormatLocaleFile(stderr,"    alpha: %g (%g)\n",
-                      QuantumRange*channel_distortion[AlphaPixelChannel],
+                    (void) FormatLocaleFile(stderr,"    alpha: %.*g (%.*g)\n",
+                      GetMagickPrecision(),QuantumRange*
+                      channel_distortion[AlphaPixelChannel],
+                      GetMagickPrecision(),
                       channel_distortion[AlphaPixelChannel]);
                   break;
                 }
                 case CMYKColorspace:
                 {
-                  (void) FormatLocaleFile(stderr,"    cyan: %g (%g)\n",
-                    QuantumRange*channel_distortion[CyanPixelChannel],
+                  (void) FormatLocaleFile(stderr,"    cyan: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[CyanPixelChannel],GetMagickPrecision(),
                     channel_distortion[CyanPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    magenta: %g (%g)\n",
-                    QuantumRange*channel_distortion[MagentaPixelChannel],
+                  (void) FormatLocaleFile(stderr,"    magenta: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[MagentaPixelChannel],
+                    GetMagickPrecision(),
                     channel_distortion[MagentaPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    yellow: %g (%g)\n",
-                    QuantumRange*channel_distortion[YellowPixelChannel],
+                  (void) FormatLocaleFile(stderr,"    yellow: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[YellowPixelChannel],GetMagickPrecision(),
                     channel_distortion[YellowPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    black: %g (%g)\n",
-                    QuantumRange*channel_distortion[BlackPixelChannel],
+                  (void) FormatLocaleFile(stderr,"    black: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[BlackPixelChannel],GetMagickPrecision(),
                     channel_distortion[BlackPixelChannel]);
                   if (image->alpha_trait != UndefinedPixelTrait)
-                    (void) FormatLocaleFile(stderr,"    alpha: %g (%g)\n",
-                      QuantumRange*channel_distortion[AlphaPixelChannel],
+                    (void) FormatLocaleFile(stderr,"    alpha: %.*g (%.*g)\n",
+                      GetMagickPrecision(),QuantumRange*
+                      channel_distortion[AlphaPixelChannel],
+                      GetMagickPrecision(),
                       channel_distortion[AlphaPixelChannel]);
                   break;
                 }
                 case LinearGRAYColorspace:
                 case GRAYColorspace:
                 {
-                  (void) FormatLocaleFile(stderr,"    gray: %g (%g)\n",
-                    QuantumRange*channel_distortion[GrayPixelChannel],
+                  (void) FormatLocaleFile(stderr,"    gray: %.*g (%.*g)\n",
+                    GetMagickPrecision(),QuantumRange*
+                    channel_distortion[GrayPixelChannel],GetMagickPrecision(),
                     channel_distortion[GrayPixelChannel]);
                   if (image->alpha_trait != UndefinedPixelTrait)
-                    (void) FormatLocaleFile(stderr,"    alpha: %g (%g)\n",
-                      QuantumRange*channel_distortion[AlphaPixelChannel],
+                    (void) FormatLocaleFile(stderr,"    alpha: %.*g (%.*g)\n",
+                      GetMagickPrecision(),QuantumRange*
+                      channel_distortion[AlphaPixelChannel],
+                      GetMagickPrecision(),
                       channel_distortion[AlphaPixelChannel]);
                   break;
                 }
               }
-              (void) FormatLocaleFile(stderr,"    all: %g (%g)\n",
-                QuantumRange*channel_distortion[MaxPixelChannels],
+              (void) FormatLocaleFile(stderr,"    all: %.*g (%.*g)\n",
+                GetMagickPrecision(),QuantumRange*
+                channel_distortion[MaxPixelChannels],GetMagickPrecision(),
                 channel_distortion[MaxPixelChannels]);
               break;
             }
@@ -1367,53 +1382,59 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
                 case RGBColorspace:
                 default:
                 {
-                  (void) FormatLocaleFile(stderr,"    red: %g\n",
-                    channel_distortion[RedPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    green: %g\n",
-                    channel_distortion[GreenPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    blue: %g\n",
-                    channel_distortion[BluePixelChannel]);
+                  (void) FormatLocaleFile(stderr,"    red: %.*g\n",
+                    GetMagickPrecision(),channel_distortion[RedPixelChannel]);
+                  (void) FormatLocaleFile(stderr,"    green: %.*g\n",
+                    GetMagickPrecision(),channel_distortion[GreenPixelChannel]);
+                  (void) FormatLocaleFile(stderr,"    blue: %.*g\n",
+                    GetMagickPrecision(),channel_distortion[BluePixelChannel]);
                   if (image->alpha_trait != UndefinedPixelTrait)
-                    (void) FormatLocaleFile(stderr,"    alpha: %g\n",
-                      channel_distortion[AlphaPixelChannel]);
+                    (void) FormatLocaleFile(stderr,"    alpha: %.*g\n",
+                      GetMagickPrecision(),
+                       channel_distortion[AlphaPixelChannel]);
                   break;
                 }
                 case CMYKColorspace:
                 {
-                  (void) FormatLocaleFile(stderr,"    cyan: %g\n",
-                    channel_distortion[CyanPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    magenta: %g\n",
+                  (void) FormatLocaleFile(stderr,"    cyan: %.*g\n",
+                    GetMagickPrecision(),channel_distortion[CyanPixelChannel]);
+                  (void) FormatLocaleFile(stderr,"    magenta: %.*g\n",
+                    GetMagickPrecision(),
                     channel_distortion[MagentaPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    yellow: %g\n",
+                  (void) FormatLocaleFile(stderr,"    yellow: %.*g\n",
+                    GetMagickPrecision(),
                     channel_distortion[YellowPixelChannel]);
-                  (void) FormatLocaleFile(stderr,"    black: %g\n",
+                  (void) FormatLocaleFile(stderr,"    black: %.*g\n",
+                    GetMagickPrecision(),
                     channel_distortion[BlackPixelChannel]);
                   if (image->alpha_trait != UndefinedPixelTrait)
-                    (void) FormatLocaleFile(stderr,"    alpha: %g\n",
+                    (void) FormatLocaleFile(stderr,"    alpha: %.*g\n",
+                      GetMagickPrecision(),
                       channel_distortion[AlphaPixelChannel]);
                   break;
                 }
                 case LinearGRAYColorspace:
                 case GRAYColorspace:
                 {
-                  (void) FormatLocaleFile(stderr,"    gray: %g\n",
-                    channel_distortion[GrayPixelChannel]);
+                  (void) FormatLocaleFile(stderr,"    gray: %.*g\n",
+                    GetMagickPrecision(),channel_distortion[GrayPixelChannel]);
                   if (image->alpha_trait != UndefinedPixelTrait)
-                    (void) FormatLocaleFile(stderr,"    alpha: %g\n",
+                    (void) FormatLocaleFile(stderr,"    alpha: %.*g\n",
+                      GetMagickPrecision(),
                       channel_distortion[AlphaPixelChannel]);
                   break;
                 }
               }
-              (void) FormatLocaleFile(stderr,"    all: %g\n",
-                channel_distortion[MaxPixelChannels]);
+              (void) FormatLocaleFile(stderr,"    all: %.*g\n",
+                GetMagickPrecision(),channel_distortion[MaxPixelChannels]);
               break;
             }
             case MeanErrorPerPixelErrorMetric:
             {
-              (void) FormatLocaleFile(stderr,"    %g (%g, %g)\n",
-                channel_distortion[MaxPixelChannels],
-                image->error.normalized_mean_error,
-                image->error.normalized_maximum_error);
+              (void) FormatLocaleFile(stderr,"    %.*g (%.*g, %.*g)\n",
+                GetMagickPrecision(),channel_distortion[MaxPixelChannels],
+                GetMagickPrecision(),image->error.normalized_mean_error,
+                GetMagickPrecision(),image->error.normalized_maximum_error);
               break;
             }
             case UndefinedErrorMetric:

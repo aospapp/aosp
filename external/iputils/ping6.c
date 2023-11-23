@@ -81,7 +81,12 @@ char copyright[] =
 #endif
 
 #include "ping6_niquery.h"
-#include "in6_flowlabel.h"
+/* The in6_flowlabel.h file in the iputils distribution exists to provide
+ * kernel flowlabel API definitions that are not in the userspace headers
+ * because they are linux-specific. It's not needed on Android because Android
+ * exposes the kernel definitions to userspace directly.
+ * #include "in6_flowlabel.h"
+ */
 
 #ifndef SOL_IPV6
 #define SOL_IPV6 IPPROTO_IPV6

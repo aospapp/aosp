@@ -22,17 +22,17 @@ class firmware_Cr50Password(Cr50Test):
 
         # Set the password
         self.set_ccd_password(self.PASSWORD)
-        if self.cr50.get_ccd_info()['Password'] != 'set':
+        if self.cr50.password_is_reset():
             raise error.TestFail('Failed to set password')
 
         # Test 'ccd reset' clears the password
         self.cr50.send_command('ccd reset')
-        if self.cr50.get_ccd_info()['Password'] != 'none':
+        if not self.cr50.password_is_reset():
             raise error.TestFail('ccd reset did not clear the password')
 
         # Set the password again while cr50 is open
         self.set_ccd_password(self.PASSWORD)
-        if self.cr50.get_ccd_info()['Password'] != 'set':
+        if self.cr50.password_is_reset():
             raise error.TestFail('Failed to set password')
 
         # Make sure we can't overwrite the password
@@ -53,12 +53,12 @@ class firmware_Cr50Password(Cr50Test):
                               expect_error=True)
         # Make sure you can clear the password when the console is open
         self.set_ccd_password('clear:' + self.PASSWORD)
-        if self.cr50.get_ccd_info()['Password'] != 'none':
+        if not self.cr50.password_is_reset():
             raise error.TestFail('Failed to clear password')
 
         # Make sure you can set some other password after it is cleared
         self.set_ccd_password(self.NEW_PASSWORD)
-        if self.cr50.get_ccd_info()['Password'] != 'set':
+        if self.cr50.password_is_reset():
             raise error.TestFail('Failed to clear password')
 
 

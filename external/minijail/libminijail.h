@@ -19,13 +19,34 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 
+/*
+ * Rust's bindgen needs the actual definition of sock_fprog in order to
+ * generate usable bindings.
+ */
+#ifdef USE_BINDGEN
+#include <linux/filter.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* Possible exit status codes returned by minijail_wait(). */
 enum {
+	/* Command can be found but cannot be run */
+	MINIJAIL_ERR_NO_ACCESS = 126,
+
+	/* Command cannot be found */
+	MINIJAIL_ERR_NO_COMMAND = 127,
+
+	/* (MINIJAIL_ERR_SIG_BASE + n) if process killed by signal n != SIGSYS */
+	MINIJAIL_ERR_SIG_BASE = 128,
+
 	MINIJAIL_ERR_PRELOAD = 252,
+
+	/* Process killed by SIGSYS */
 	MINIJAIL_ERR_JAIL = 253,
+
 	MINIJAIL_ERR_INIT = 254,
 };
 
@@ -159,6 +180,9 @@ int minijail_add_to_cgroup(struct minijail *j, const char *path);
  * signals to the jailed child process.
  */
 int minijail_forward_signals(struct minijail *j);
+
+/* The jailed child process should call setsid() to create a new session. */
+int minijail_create_session(struct minijail *j);
 
 /*
  * minijail_enter_chroot: enables chroot() restriction for @j
@@ -341,6 +365,22 @@ int minijail_run_pid_pipes(struct minijail *j, const char *filename,
 
 /*
  * Run the specified command in the given minijail, execve(2)-style.
+ * Pass |envp| as the full environment for the child.
+ * Update |*pchild_pid| with the pid of the child.
+ * Update |*pstdin_fd| with a fd that allows writing to the child's
+ * standard input.
+ * Update |*pstdout_fd| with a fd that allows reading from the child's
+ * standard output.
+ * Update |*pstderr_fd| with a fd that allows reading from the child's
+ * standard error.
+ */
+int minijail_run_env_pid_pipes(struct minijail *j, const char *filename,
+			       char *const argv[], char *const envp[],
+			       pid_t *pchild_pid, int *pstdin_fd,
+			       int *pstdout_fd, int *pstderr_fd);
+
+/*
+ * Run the specified command in the given minijail, execve(2)-style.
  * Update |*pchild_pid| with the pid of the child.
  * Update |*pstdin_fd| with a fd that allows writing to the child's
  * standard input.
@@ -388,14 +428,28 @@ int minijail_run_env_pid_pipes_no_preload(struct minijail *j,
 pid_t minijail_fork(struct minijail *j);
 
 /*
- * Kill the specified minijail. The minijail must have been created with pid
- * namespacing; if it was, all processes inside it are atomically killed.
+ * Send SIGTERM to the process in the minijail and wait for it to terminate.
+ *
+ * Return the same nonnegative exit status as minijail_wait(), or a negative
+ * error code (eg -ESRCH if the process has already been waited for).
+ *
+ * This is most useful if the minijail has been created with PID namespacing
+ * since, in this case, all processes inside it are atomically killed.
  */
 int minijail_kill(struct minijail *j);
 
 /*
- * Wait for all processes in the specified minijail to exit. Returns the exit
- * status of the _first_ process spawned in the jail.
+ * Wait for the first process spawned in the specified minijail to exit, and
+ * return its exit status. A process can only be waited once.
+ *
+ * Return:
+ *   A negative error code if the process cannot be waited for (eg -ECHILD if no
+ *   process has been started or if the process has already been waited for).
+ *   MINIJAIL_ERR_NO_COMMAND if command cannot be found.
+ *   MINIJAIL_ERR_NO_ACCESS if command cannot be run.
+ *   MINIJAIL_ERR_JAIL if process was killed by SIGSYS.
+ *   (MINIJAIL_ERR_SIG_BASE  + n) if process was killed by signal n != SIGSYS.
+ *   (n & 0xFF) if process finished by returning code n.
  */
 int minijail_wait(struct minijail *j);
 

@@ -11,7 +11,6 @@
 /* DDR */
 #define CONFIG_DIMM_SLOTS_PER_CTLR	1
 #define CONFIG_CHIP_SELECTS_PER_CTRL	1
-#define CONFIG_NR_DRAM_BANKS		2
 #define CONFIG_SYS_SDRAM_SIZE		0x20000000
 #define CONFIG_CHIP_SELECTS_PER_CTRL	1
 #define CONFIG_CMD_MEMINFO
@@ -61,12 +60,17 @@
 	"installer=load usb 0:2 $load_addr "	\
 		   "/flex_installer_arm64.itb; "	\
 		   "bootm $load_addr#$board\0"	\
-	"qspi_bootcmd=echo Trying load from qspi..;"	\
+	"qspi_bootcmd=pfe stop; echo Trying load from qspi..;"	\
 		"sf probe && sf read $load_addr "	\
 		"$kernel_addr $kernel_size && bootm $load_addr#$board\0"
 
 #undef CONFIG_BOOTCOMMAND
+#ifdef CONFIG_TFABOOT
+#undef QSPI_NOR_BOOTCOMMAND
+#define QSPI_NOR_BOOTCOMMAND "pfe stop;run distro_bootcmd;run qspi_bootcmd"
+#else
 #define CONFIG_BOOTCOMMAND "pfe stop;run distro_bootcmd;run qspi_bootcmd"
+#endif
 
 #define CONFIG_CMD_MEMINFO
 #define CONFIG_SYS_MEMTEST_START	0x80000000

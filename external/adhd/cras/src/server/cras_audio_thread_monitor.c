@@ -23,8 +23,8 @@ static void take_snapshot(enum CRAS_AUDIO_THREAD_EVENT_TYPE event_type)
 {
 	struct cras_audio_thread_snapshot *snapshot;
 
-	snapshot = (struct cras_audio_thread_snapshot*)
-		calloc(1, sizeof(struct cras_audio_thread_snapshot));
+	snapshot = (struct cras_audio_thread_snapshot *)calloc(
+		1, sizeof(struct cras_audio_thread_snapshot));
 	struct timespec now_time;
 	clock_gettime(CLOCK_MONOTONIC_RAW, &now_time);
 	snapshot->timestamp = now_time;
@@ -35,8 +35,8 @@ static void take_snapshot(enum CRAS_AUDIO_THREAD_EVENT_TYPE event_type)
 }
 
 static void cras_audio_thread_event_message_init(
-		struct cras_audio_thread_event_message *msg,
-		enum CRAS_AUDIO_THREAD_EVENT_TYPE event_type)
+	struct cras_audio_thread_event_message *msg,
+	enum CRAS_AUDIO_THREAD_EVENT_TYPE event_type)
 {
 	msg->header.type = CRAS_MAIN_AUDIO_THREAD_EVENT;
 	msg->header.length = sizeof(*msg);
@@ -46,36 +46,33 @@ static void cras_audio_thread_event_message_init(
 int cras_audio_thread_event_send(enum CRAS_AUDIO_THREAD_EVENT_TYPE event_type)
 {
 	struct cras_audio_thread_event_message msg;
-	int err;
 	cras_audio_thread_event_message_init(&msg, event_type);
-	err = cras_main_message_send(&msg.header);
-	if (err < 0) {
-		syslog(LOG_ERR, "Failed to send audio thread event message %d",
-		       event_type);
-		return err;
-	}
-	return 0;
+	return cras_main_message_send(&msg.header);
 }
 
-int cras_audio_thread_debug()
+int cras_audio_thread_event_debug()
 {
 	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_DEBUG);
 }
 
-int cras_audio_thread_busyloop()
+int cras_audio_thread_event_busyloop()
 {
 	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_BUSYLOOP);
 }
 
-int cras_audio_thread_underrun()
+int cras_audio_thread_event_underrun()
 {
 	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_UNDERRUN);
 }
 
-int cras_audio_thread_severe_underrun()
+int cras_audio_thread_event_severe_underrun()
 {
-	return cras_audio_thread_event_send(
-		AUDIO_THREAD_EVENT_SEVERE_UNDERRUN);
+	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_SEVERE_UNDERRUN);
+}
+
+int cras_audio_thread_event_drop_samples()
+{
+	return cras_audio_thread_event_send(AUDIO_THREAD_EVENT_DROP_SAMPLES);
 }
 
 static struct timespec last_event_snapshot_time[AUDIO_THREAD_EVENT_TYPE_COUNT];
@@ -86,9 +83,9 @@ static struct timespec last_event_snapshot_time[AUDIO_THREAD_EVENT_TYPE_COUNT];
  * for the same event type. Events with the same event type within 30 seconds
  * will be ignored by the handle function.
  */
-static void handle_audio_thread_event_message(
-		struct cras_main_message *msg,
-		void *arg) {
+static void handle_audio_thread_event_message(struct cras_main_message *msg,
+					      void *arg)
+{
 	struct cras_audio_thread_event_message *audio_thread_msg =
 		(struct cras_audio_thread_event_message *)msg;
 	struct timespec now_time;
@@ -96,7 +93,7 @@ static void handle_audio_thread_event_message(
 	/*
 	 * Skip invalid event types
 	 */
-	if(audio_thread_msg->event_type >= AUDIO_THREAD_EVENT_TYPE_COUNT)
+	if (audio_thread_msg->event_type >= AUDIO_THREAD_EVENT_TYPE_COUNT)
 		return;
 
 	struct timespec *last_snapshot_time =
@@ -109,10 +106,9 @@ static void handle_audio_thread_event_message(
 	 */
 	struct timespec diff_time;
 	subtract_timespecs(&now_time, last_snapshot_time, &diff_time);
-	if((last_snapshot_time->tv_sec == 0 &&
-	    last_snapshot_time->tv_nsec == 0) ||
-	   diff_time.tv_sec >= MIN_WAIT_SECOND)
-	{
+	if ((last_snapshot_time->tv_sec == 0 &&
+	     last_snapshot_time->tv_nsec == 0) ||
+	    diff_time.tv_sec >= MIN_WAIT_SECOND) {
 		take_snapshot(audio_thread_msg->event_type);
 		*last_snapshot_time = now_time;
 	}
@@ -120,8 +116,8 @@ static void handle_audio_thread_event_message(
 
 int cras_audio_thread_monitor_init()
 {
-	memset(last_event_snapshot_time,
-	       0, sizeof(struct timespec) * AUDIO_THREAD_EVENT_TYPE_COUNT);
+	memset(last_event_snapshot_time, 0,
+	       sizeof(struct timespec) * AUDIO_THREAD_EVENT_TYPE_COUNT);
 	cras_main_message_add_handler(CRAS_MAIN_AUDIO_THREAD_EVENT,
 				      handle_audio_thread_event_message, NULL);
 	return 0;

@@ -15,8 +15,11 @@ uk{
     }
     ExemplarCharacters{"[а б в г ґ д е є ж з и і ї й к л м н о п р с т у ф х ц ч ш щ ь ю я ʼ]"}
     ExemplarCharactersIndex{"[А Б В Г Ґ Д Е Є Ж З И І Ї Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ю Я]"}
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{"[\\- – , ; \\: ! ? . ' ’ \u0022 “ „ « » ( ) \\[ \\] \\{ \\} § @ * / \\\\ №]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‑ – , ; \\: ! ? . ' ’ \u0022 “ „ « » ( ) \\[ \\] \\{ \\} § @ * / \\\\ №"
+        "]"
+    }
     MoreInformation{"?"}
     NumberElements{
         default{"latn"}
@@ -290,7 +293,7 @@ uk{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -560,6 +563,53 @@ uk{
                 yyyyQQQQ{"QQQQ y 'р'. G"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"y 'р'. G – y 'р'. G"}
+                    y{"y–y 'рр'. G"}
+                }
+                GyM{
+                    G{"MM.y G – MM.y G"}
+                    M{"MM.y – MM.y G"}
+                    y{"MM.y – MM.y G"}
+                }
+                GyMEd{
+                    G{"ccc, dd.MM.y G – ccc, dd.MM.y G"}
+                    M{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    d{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    y{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                }
+                GyMMM{
+                    G{"LLL y 'р'. G – LLL y 'р'. G"}
+                    M{"LLL – LLL y 'р'. G"}
+                    y{"LLL y – LLL y 'рр'. G"}
+                }
+                GyMMMEd{
+                    G{"ccc, d MMM y 'р'. G – ccc, d MMM y 'р'. G"}
+                    M{"ccc, d MMM – ccc, d MMM y 'р'. G"}
+                    d{"ccc, d MMM – ccc, d MMM y 'р'. G"}
+                    y{"ccc, d MMM y – ccc, d MMM y 'рр'. G"}
+                }
+                GyMMMd{
+                    G{"d MMM y 'р'. G – d MMM y 'р'. G"}
+                    M{"d MMM – d MMM y 'р'. G"}
+                    d{"d–d MMM y 'р'. G"}
+                    y{"d MMM y – d MMM y 'рр'. G"}
+                }
+                GyMd{
+                    G{"dd.MM.y G – dd.MM.y G"}
+                    M{"dd.MM.y – dd.MM.y G"}
+                    d{"dd.MM.y – dd.MM.y G"}
+                    y{"dd.MM.y – dd.MM.y G"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -888,6 +938,10 @@ uk{
                     "до н. е.",
                     "н. е.",
                 }
+                abbreviated%variant{
+                    "до н. е.",
+                    "н. е.",
+                }
                 narrow{
                     "до н.е.",
                     "н.е.",
@@ -902,6 +956,53 @@ uk{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"y 'р'. G – y 'р'. G"}
+                    y{"y–y 'рр'. G"}
+                }
+                GyM{
+                    G{"MM.y G – MM.y G"}
+                    M{"MM.y – MM.y G"}
+                    y{"MM.y – MM.y G"}
+                }
+                GyMEd{
+                    G{"ccc, dd.MM.y G – ccc, dd.MM.y G"}
+                    M{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    d{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    y{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                }
+                GyMMM{
+                    G{"LLL y 'р'. G – LLL y 'р'. G"}
+                    M{"LLL – LLL y 'р'. G"}
+                    y{"LLL y – LLL y 'рр'. G"}
+                }
+                GyMMMEd{
+                    G{"ccc, d MMM y 'р'. G – ccc, d MMM y 'р'. G"}
+                    M{"ccc, d MMM – ccc, d MMM y 'р'. G"}
+                    d{"ccc, d MMM – ccc, d MMM y 'р'. G"}
+                    y{"ccc, d MMM y – ccc, d MMM y 'рр'. G"}
+                }
+                GyMMMd{
+                    G{"d MMM y 'р'. G – d MMM y 'р'. G"}
+                    M{"d MMM – d MMM y 'р'. G"}
+                    d{"d–d MMM y 'р'. G"}
+                    y{"d MMM y – d MMM y 'рр'. G"}
+                }
+                GyMd{
+                    G{"dd.MM.y G – dd.MM.y G"}
+                    M{"dd.MM.y – dd.MM.y G"}
+                    d{"dd.MM.y – dd.MM.y G"}
+                    y{"dd.MM.y – dd.MM.y G"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1683,7 +1784,7 @@ uk{
         }
     }
     characterLabel{
-        activities{"Заняття"}
+        activities{"активність"}
         african_scripts{"африканське письмо"}
         american_scripts{"американське письмо"}
         animal{"тварина"}
@@ -1698,7 +1799,7 @@ uk{
         currency_symbols{"символ валюти"}
         dash_connector{"тире чи сполучний знак"}
         digits{"цифра"}
-        dingbats{"Дінгбати"}
+        dingbats{"дінгбати"}
         divination_symbols{"символ віщування"}
         downwards_arrows{"стрілка вниз"}
         downwards_upwards_arrows{"стрілка вниз-вгору"}
@@ -1749,7 +1850,7 @@ uk{
         place{"місце"}
         plant{"рослина"}
         punctuation{"пунктуація"}
-        rightwards_arrows{"Стрілки вправо"}
+        rightwards_arrows{"стрілки вправо"}
         sign_standard_symbols{"знак чи символ"}
         small_form_variant{"малі варіанти"}
         smiley{"смайлик"}
@@ -1765,7 +1866,7 @@ uk{
         travel_places{"подорож чи місце"}
         upwards_arrows{"стрілки вгору"}
         variant_forms{"варіант"}
-        vocalic_jamo{"Корейські голосні"}
+        vocalic_jamo{"корейські голосні"}
         weather{"погода"}
         western_asian_scripts{"західноазійське письмо"}
         whitespace{"пробіл"}
@@ -2177,9 +2278,9 @@ uk{
         month-narrow{
             dn{"м"}
             relative{
-                "-1"{"минулого місяця"}
-                "0"{"цього місяця"}
-                "1"{"наступного місяця"}
+                "-1"{"мин. міс."}
+                "0"{"цього міс."}
+                "1"{"наст. міс."}
             }
             relativeTime{
                 future{
@@ -2241,7 +2342,7 @@ uk{
             }
         }
         quarter-narrow{
-            dn{"кв."}
+            dn{"кв"}
             relative{
                 "-1"{"минулого кв."}
                 "0"{"цього кв."}
@@ -2708,9 +2809,9 @@ uk{
         week-short{
             dn{"тиж."}
             relative{
-                "-1"{"минулого тижня"}
+                "-1"{"мин. тижня"}
                 "0"{"цього тижня"}
-                "1"{"наступного тижня"}
+                "1"{"наст. тижня"}
             }
             relativePeriod{"тиждень з {0}"}
             relativeTime{
@@ -2758,7 +2859,7 @@ uk{
         year{
             dn{"рік"}
             relative{
-                "-1"{"торік"}
+                "-1"{"минулого року"}
                 "0"{"цього року"}
                 "1"{"наступного року"}
             }
@@ -2782,7 +2883,7 @@ uk{
             relative{
                 "-1"{"торік"}
                 "0"{"цього року"}
-                "1"{"наступного року"}
+                "1"{"наст. р."}
             }
             relativeTime{
                 future{
@@ -2803,8 +2904,8 @@ uk{
             dn{"р."}
             relative{
                 "-1"{"торік"}
-                "0"{"цього року"}
-                "1"{"наступного року"}
+                "0"{"цьогоріч"}
+                "1"{"наст. року"}
             }
             relativeTime{
                 future{
@@ -2844,6 +2945,10 @@ uk{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
+        }
         standard-short{
             2{"{0} і {1}"}
             end{"{0} і {1}"}
@@ -2857,14 +2962,10 @@ uk{
             start{"{0}, {1}"}
         }
         unit-narrow{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
         unit-short{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }

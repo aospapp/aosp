@@ -19,7 +19,6 @@ package com.googlecode.android_scripting.facade;
 import android.app.AlarmManager;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
@@ -33,6 +32,7 @@ import android.telephony.TelephonyManager;
 import android.view.WindowManager;
 
 import com.android.internal.widget.LockPatternUtils;
+import com.android.internal.widget.LockscreenCredential;
 
 import com.googlecode.android_scripting.BaseApplication;
 import com.googlecode.android_scripting.FutureActivityTaskExecutor;
@@ -270,8 +270,9 @@ public class SettingsFacade extends RpcReceiver {
         // mLockPatternUtils.setLockPatternEnabled(true, UserHandle.myUserId());
         mLockPatternUtils.setLockScreenDisabled(false, UserHandle.myUserId());
         mLockPatternUtils.setCredentialRequiredToDecrypt(true);
-        mLockPatternUtils.saveLockPassword(password, previousPassword,
-                DevicePolicyManager.PASSWORD_QUALITY_NUMERIC, UserHandle.myUserId());
+        mLockPatternUtils.setLockCredential(LockscreenCredential.createPassword(password),
+                LockscreenCredential.createPasswordOrNone(previousPassword),
+                UserHandle.myUserId());
     }
 
     @Rpc(description = "Disable screen lock password on the device. Note that disabling the " +
@@ -283,9 +284,9 @@ public class SettingsFacade extends RpcReceiver {
                           description = "The current password used to lock the device")
             @RpcDefault("1111")
             @RpcOptional String currentPassword) {
-        byte[] currentPasswordBytes = currentPassword != null ? currentPassword.getBytes()
-                : null;
-        mLockPatternUtils.clearLock(currentPasswordBytes, UserHandle.myUserId());
+        mLockPatternUtils.setLockCredential(LockscreenCredential.createNone(),
+                LockscreenCredential.createPasswordOrNone(currentPassword),
+                UserHandle.myUserId());
         mLockPatternUtils.setLockScreenDisabled(true, UserHandle.myUserId());
     }
 

@@ -89,12 +89,12 @@ class audio_Aplay(test.test):
     """Checks that simple aplay functions correctly."""
     version = 1
 
-    def run_once(self, duration=1, output_node="INTERNAL_SPEAKER"):
+    def run_once(self, duration=1, test_headphone=False):
         """Run aplay and verify its output is as expected.
 
         @param duration: The duration to run aplay in seconds.
-        @param output_node: The type of output device to test. It should be
-                            INTERNAL_SPEAKER or HEADPHONE.
+        @param test_headphone: If the value is true, test a headphone. If false,
+                               test an internal speaker.
         """
 
         # Check CRAS server is alive. If not, restart it and wait a second to
@@ -105,12 +105,18 @@ class audio_Aplay(test.test):
             time.sleep(1)
 
         # Skip test if there is no internal speaker on the board.
-        if output_node == "INTERNAL_SPEAKER":
+        if not test_headphone:
             board_type = utils.get_board_type()
             board_name = utils.get_board()
             if not audio_spec.has_internal_speaker(board_type, board_name):
                 logging.debug("No internal speaker. Skipping the test.")
                 return
+
+        if test_headphone:
+            output_node = audio_spec.get_headphone_node(utils.get_board())
+        else:
+            output_node = "INTERNAL_SPEAKER"
+        logging.debug("Test output device %s", output_node)
 
         cras_utils.set_single_selected_output_node(output_node)
 

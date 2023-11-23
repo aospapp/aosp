@@ -320,7 +320,8 @@ class platform_ExternalUsbPeripherals(test.test):
         self.plug_peripherals(False)
         self.action_logout()
         self.host.servo.set('dut_hub1_rst1','on')
-        self.host.reboot()
+        self.host.run('reboot now', ignore_status=True)
+        self.host.test_wait_for_boot()
 
 
     def run_once(self, host, client_autotest, action_sequence, repeat,
@@ -346,7 +347,7 @@ class platform_ExternalUsbPeripherals(test.test):
         action_sequence = action_sequence.upper()
         actions = action_sequence.split(',')
         boot_id = 0
-        self. detect_crash = crash_detector.CrashDetector(self.host)
+        self.detect_crash = crash_detector.CrashDetector(self.host)
         self.detect_crash.remove_crash_files()
 
         # Run camera client test to gather media_V4L2_test binary.

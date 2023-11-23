@@ -13,12 +13,14 @@ test_source_files := $(call find-files-in-subdirs, $(test_source_directory), "*T
 test_source_files := $(filter-out org/robolectric/shadows/SQLiteCursorTest.java, $(test_source_files))
 
 # Build the command that honors the test class filter, if any.
-test_filter_command := $(if $(ROBOTEST_FILTER),grep -E "$(ROBOTEST_FILTER)",cat)
+test_filter_command := $(if $(ROBOTEST_FILTER),grep -E "$(ROBOTEST_FILTER)",)
 
 # Convert the test source file paths into package names by removing ".java" extension and replacing "/" with "."
-test_class_names := $(subst /,., $(basename $(test_source_files)))
+test_class_names := $(sort $(subst /,., $(basename $(test_source_files))))
 # Remove whitespace and sort the tests in alphabetical order.
-test_class_names := $(sort $(shell echo '$(test_class_names)' | tr ' ' '\n' | $(test_filter_command)))
+ifdef test_filter_command
+  test_class_names := $(sort $(shell echo '$(test_class_names)' | tr ' ' '\n' | $(test_filter_command)))
+endif
 
 include $(BUILD_SYSTEM)/base_rules.mk
 
@@ -33,7 +35,7 @@ ifdef test_resources_directory
 endif
 
 # Define rules that copy android-all jars to the intermediates folder.
-local_android_all_source_jar := $(call intermediates-dir-for, JAVA_LIBRARIES, robolectric_android-all-stub, , COMMON)/classes-with-res.jar
+local_android_all_source_jar := $(call intermediates-dir-for, JAVA_LIBRARIES, robolectric_android-all-stub, , COMMON)/classes.jar
 android_all_source_dir := prebuilts/misc/common/robolectric/android-all
 android_all_target_dir := $(intermediates)/android-all
 copy_android_all_jar_pairs := \
@@ -49,7 +51,8 @@ copy_android_all_jar_pairs := \
   $(android_all_source_dir)/android-all-8.0.0_r4-robolectric-r1.jar:$(android_all_target_dir)/android-all-8.0.0_r4-robolectric-r1.jar \
   $(android_all_source_dir)/android-all-8.1.0-robolectric-4611349.jar:$(android_all_target_dir)/android-all-8.1.0-robolectric-4611349.jar \
   $(android_all_source_dir)/android-all-9-robolectric-4913185-2.jar:$(android_all_target_dir)/android-all-9-robolectric-4913185-2.jar \
-  $(local_android_all_source_jar):$(android_all_target_dir)/android-all-Q-robolectric-r0.jar
+  $(android_all_source_dir)/android-all-9plus-robolectric-5616371.jar:$(android_all_target_dir)/android-all-9plus-robolectric-5616371.jar \
+  $(local_android_all_source_jar):$(android_all_target_dir)/android-all-R-robolectric-r0.jar
 copy_android_all_jars := $(call copy-many-files, $(copy_android_all_jar_pairs))
 
 # If debugging the tests was requested, set up the JVM parameters to enable it.

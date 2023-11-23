@@ -20,7 +20,6 @@ import android.os.Looper;
 import android.telephony.CellInfo;
 import android.telephony.DataConnectionRealTimeInfo;
 import android.telephony.PhoneStateListener;
-import android.telephony.PhysicalChannelConfig;
 import android.telephony.PreciseCallState;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
@@ -363,35 +362,6 @@ public class TelephonyStateListeners {
             mSignalStrengths = signalStrength;
             mEventFacade.postEvent(
                 TelephonyConstants.EventSignalStrengthChanged, signalStrength);
-        }
-    }
-
-    public static class PhysicalChannelConfigurationChangeListener extends PhoneStateListener {
-
-        private final EventFacade mEventFacade;
-        public List<PhysicalChannelConfig> mConfigs;
-        public static final int sListeningStates =
-                PhoneStateListener.LISTEN_PHYSICAL_CHANNEL_CONFIGURATION;
-        public PhysicalChannelConfigurationChangeListener(EventFacade ef) {
-            super();
-            mEventFacade = ef;
-        }
-
-        public PhysicalChannelConfigurationChangeListener(EventFacade ef, int subId) {
-            super();
-            mEventFacade = ef;
-        }
-
-        public PhysicalChannelConfigurationChangeListener(
-                EventFacade ef, int subId, Looper looper) {
-            super(looper);
-            mEventFacade = ef;
-        }
-
-        @Override
-        public void onPhysicalChannelConfigurationChanged(List<PhysicalChannelConfig> config) {
-            mEventFacade.postEvent(
-                TelephonyConstants.EventPhysicalChannelConfigChanged, config);
         }
     }
 

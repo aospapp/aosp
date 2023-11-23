@@ -12,6 +12,7 @@
  */
 
 #include <common.h>
+#include <time.h>
 #include <linux/types.h>
 #include <asm/arch/ep93xx.h>
 #include <asm/io.h>
@@ -66,14 +67,9 @@ unsigned long long get_ticks(void)
 	return sys_ticks;
 }
 
-unsigned long get_timer_masked(void)
-{
-	return get_ticks();
-}
-
 unsigned long get_timer(unsigned long base)
 {
-	return get_timer_masked() - base;
+	return get_ticks() - base;
 }
 
 void __udelay(unsigned long usec)

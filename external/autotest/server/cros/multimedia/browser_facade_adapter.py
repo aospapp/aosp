@@ -128,3 +128,12 @@ class BrowserFacadeRemoteAdapter(object):
         """
         return self._browser_proxy.evaluate_javascript(
                 tab_descriptor, expression, timeout)
+
+
+    def get_tab_urls(self):
+        """Gets urls from current Chrome tabs.
+
+        @returns: A list of str objects which contain urls from current Chrome
+        tabs.
+        """
+        return self._browser_proxy.get_tab_urls()

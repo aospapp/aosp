@@ -19,8 +19,6 @@
 #include "ieee802_11.h"
 
 
-#ifdef CONFIG_IEEE80211W
-
 u8 * hostapd_eid_assoc_comeback_time(struct hostapd_data *hapd,
 				     struct sta_info *sta, u8 *eid)
 {
@@ -114,7 +112,8 @@ void ieee802_11_send_sa_query_req(struct hostapd_data *hapd,
 		end += oci_ie_len;
 	}
 #endif /* CONFIG_OCV */
-	if (hostapd_drv_send_mlme(hapd, mgmt, end - (u8 *) mgmt, 0) < 0)
+	if (hostapd_drv_send_mlme(hapd, mgmt, end - (u8 *) mgmt, 0, NULL, 0, 0)
+	    < 0)
 		wpa_printf(MSG_INFO, "ieee802_11_send_sa_query_req: send failed");
 
 	os_free(mgmt);
@@ -195,7 +194,8 @@ static void ieee802_11_send_sa_query_resp(struct hostapd_data *hapd,
 		end += oci_ie_len;
 	}
 #endif /* CONFIG_OCV */
-	if (hostapd_drv_send_mlme(hapd, resp, end - (u8 *) resp, 0) < 0)
+	if (hostapd_drv_send_mlme(hapd, resp, end - (u8 *) resp, 0, NULL, 0, 0)
+	    < 0)
 		wpa_printf(MSG_INFO, "ieee80211_mgmt_sa_query_request: send failed");
 
 	os_free(resp);
@@ -304,8 +304,6 @@ void ieee802_11_sa_query_action(struct hostapd_data *hapd,
 	ap_sta_stop_sa_query(hapd, sta);
 }
 
-#endif /* CONFIG_IEEE80211W */
-
 
 static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
 {
@@ -379,6 +377,11 @@ static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
 		    wpa_key_mgmt_fils(hapd->conf->wpa_key_mgmt))
 			*pos |= 0x01;
 #endif /* CONFIG_FILS */
+#ifdef CONFIG_IEEE80211AX
+		if (hapd->iconf->ieee80211ax &&
+		    hostapd_get_he_twt_responder(hapd, IEEE80211_MODE_AP))
+			*pos |= 0x40; /* Bit 78 - TWT responder */
+#endif /* CONFIG_IEEE80211AX */
 		break;
 	case 10: /* Bits 80-87 */
 #ifdef CONFIG_SAE
@@ -394,6 +397,8 @@ static void hostapd_ext_capab_byte(struct hostapd_data *hapd, u8 *pos, int idx)
 					       * Identifiers Used Exclusively */
 		}
 #endif /* CONFIG_SAE */
+		if (hapd->conf->beacon_prot)
+			*pos |= 0x10; /* Bit 84 - Beacon Protection Enabled */
 		break;
 	}
 }
@@ -404,14 +409,22 @@ u8 * hostapd_eid_ext_capab(struct hostapd_data *hapd, u8 *eid)
 	u8 *pos = eid;
 	u8 len = 0, i;
 
-	if (hapd->conf->tdls & (TDLS_PROHIBIT | TDLS_PROHIBIT_CHAN_SWITCH))
+	if (hapd->conf->qos_map_set_len ||
+	    (hapd->conf->tdls & (TDLS_PROHIBIT | TDLS_PROHIBIT_CHAN_SWITCH)))
 		len = 5;
-	if (len < 4 && hapd->conf->interworking)
+	if (len < 4 &&
+	    (hapd->conf->time_advertisement == 2 || hapd->conf->interworking))
 		len = 4;
-	if (len < 3 && hapd->conf->wnm_sleep_mode)
+	if (len < 3 &&
+	    (hapd->conf->wnm_sleep_mode || hapd->conf->bss_transition))
 		len = 3;
-	if (len < 1 && hapd->iconf->obss_interval)
+	if (len < 1 &&
+	    (hapd->iconf->obss_interval ||
+	     (hapd->iface->drv_flags & WPA_DRIVER_FLAGS_AP_CSA)))
 		len = 1;
+	if (len < 2 &&
+	    (hapd->conf->proxy_arp || hapd->conf->coloc_intf_reporting))
+		len = 2;
 	if (len < 7 && hapd->conf->ssid.utf8_ssid)
 		len = 7;
 	if (len < 9 &&
@@ -434,12 +447,19 @@ u8 * hostapd_eid_ext_capab(struct hostapd_data *hapd, u8 *eid)
 	     !wpa_key_mgmt_fils(hapd->conf->wpa_key_mgmt)) && len < 10)
 		len = 10;
 #endif /* CONFIG_FILS */
+#ifdef CONFIG_IEEE80211AX
+	if (len < 10 && hapd->iconf->ieee80211ax &&
+	    hostapd_get_he_twt_responder(hapd, IEEE80211_MODE_AP))
+		len = 10;
+#endif /* CONFIG_IEEE80211AX */
 #ifdef CONFIG_SAE
 	if (len < 11 && hapd->conf->wpa &&
 	    wpa_key_mgmt_sae(hapd->conf->wpa_key_mgmt) &&
 	    hostapd_sae_pw_id_in_use(hapd->conf))
 		len = 11;
 #endif /* CONFIG_SAE */
+	if (len < 11 && hapd->conf->beacon_prot)
+		len = 11;
 	if (len < hapd->iface->extended_capa_len)
 		len = hapd->iface->extended_capa_len;
 	if (len == 0)
@@ -854,6 +874,36 @@ u8 * hostapd_eid_owe_trans(struct hostapd_data *hapd, u8 *eid,
 }
 
 
+size_t hostapd_eid_dpp_cc_len(struct hostapd_data *hapd)
+{
+#ifdef CONFIG_DPP2
+	if (hapd->conf->dpp_configurator_connectivity)
+		return 6;
+#endif /* CONFIG_DPP2 */
+	return 0;
+}
+
+
+u8 * hostapd_eid_dpp_cc(struct hostapd_data *hapd, u8 *eid, size_t len)
+{
+#ifdef CONFIG_DPP2
+	u8 *pos = eid;
+
+	if (!hapd->conf->dpp_configurator_connectivity || len < 6)
+		return pos;
+
+	*pos++ = WLAN_EID_VENDOR_SPECIFIC;
+	*pos++ = 4;
+	WPA_PUT_BE24(pos, OUI_WFA);
+	pos += 3;
+	*pos++ = DPP_CC_OUI_TYPE;
+
+	return pos;
+#endif /* CONFIG_DPP2 */
+	return eid;
+}
+
+
 void ap_copy_sta_supp_op_classes(struct sta_info *sta,
 				 const u8 *supp_op_classes,
 				 size_t supp_op_classes_len)
@@ -1000,3 +1050,25 @@ int get_tx_parameters(struct sta_info *sta, int ap_max_chanwidth,
 	return 0;
 }
 #endif /* CONFIG_OCV */
+
+
+u8 * hostapd_eid_rsnxe(struct hostapd_data *hapd, u8 *eid, size_t len)
+{
+	u8 *pos = eid;
+
+	if (!(hapd->conf->wpa & WPA_PROTO_RSN) ||
+	    !wpa_key_mgmt_sae(hapd->conf->wpa_key_mgmt) ||
+	    (hapd->conf->sae_pwe != 1 && hapd->conf->sae_pwe != 2 &&
+	     !hostapd_sae_pw_id_in_use(hapd->conf)) ||
+	    hapd->conf->sae_pwe == 3 ||
+	    len < 3)
+		return pos;
+
+	*pos++ = WLAN_EID_RSNX;
+	*pos++ = 1;
+	/* bits 0-3 = 0 since only one octet of Extended RSN Capabilities is
+	 * used for now */
+	*pos++ = BIT(WLAN_RSNX_CAPAB_SAE_H2E);
+
+	return pos;
+}

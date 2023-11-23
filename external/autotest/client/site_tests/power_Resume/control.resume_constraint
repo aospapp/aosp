@@ -20,4 +20,6 @@ how many seconds it took to resume. As a precaution it will ensure your
 network interface is UP after it has resumed.
 """
 
+job.add_sysinfo_command('cbmem -c', logfile='bios_log', on_every_test=True)
+job.add_sysinfo_command('cbmem -t', logfile='bios_times', on_every_test=True)
 job.run_test('power_Resume', constraints=['seconds_system_resume <= 1.0'])

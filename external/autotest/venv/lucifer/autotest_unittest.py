@@ -52,6 +52,20 @@ def test_load(name, expected):
         import_module.assert_called_once_with(expected)
 
 
+@pytest.mark.parametrize('name,expected', [
+        ('scheduler.models', 'autotest_lib.scheduler.models'),
+])
+def test_deferred_load(name, expected):
+    """Test deferred_load()."""
+    with mock.patch('importlib.import_module', autospec=True) as import_module:
+        module = autotest.deferred_load(name)
+        assert import_module.call_count == 0
+        autotest.monkeypatch()
+        # Force module import by accessing an attribute.
+        getattr(module, '__dict__')
+        import_module.assert_called_with(expected)
+
+
 def test_load_without_patch_fails():
     """Test load() without patch."""
     with mock.patch.object(autotest, '_setup_done', False):

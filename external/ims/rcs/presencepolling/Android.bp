@@ -27,10 +27,6 @@
 java_defaults {
     name: "presence_polling_defaults",
     srcs: ["src/**/*.java"],
-    libs: [
-        "ims-common",
-        "telephony-common",
-    ],
     static_libs: ["com.android.ims.rcsmanager"],
     platform_apis: true,
     certificate: "platform",

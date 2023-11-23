@@ -1253,6 +1253,7 @@ static WORD32 impeg2d_init_thread_dec_ctxt(dec_state_t *ps_dec,
     ps_dec_thd->ps_func_forw_or_back = ps_dec->ps_func_forw_or_back;
     ps_dec_thd->pv_deinterlacer_ctxt = ps_dec->pv_deinterlacer_ctxt;
     ps_dec_thd->ps_deint_pic = ps_dec->ps_deint_pic;
+    ps_dec_thd->pu1_deint_fmt_buf = ps_dec->pu1_deint_fmt_buf;
 
     return 0;
 }

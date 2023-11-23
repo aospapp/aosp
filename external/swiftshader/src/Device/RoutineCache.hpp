@@ -19,33 +19,16 @@
 
 #include "Reactor/Reactor.hpp"
 
-namespace sw
-{
-	using namespace rr;
+namespace sw {
 
-	template<class State>
-	class RoutineCache : public LRUCache<State, Routine>
-	{
-	public:
-		RoutineCache(int n, const char *precache = 0);
-		~RoutineCache();
+using namespace rr;
 
-	private:
-		const char *precache;
-		#if defined(_WIN32)
-		HMODULE precacheDLL;
-		#endif
-	};
+template<class State>
+using RoutineCache = LRUCache<State, std::shared_ptr<Routine>>;
 
-	template<class State>
-	RoutineCache<State>::RoutineCache(int n, const char *precache) : LRUCache<State, Routine>(n), precache(precache)
-	{
-	}
+template<class State, class FunctionType>
+using RoutineCacheT = LRUCache<State, RoutineT<FunctionType>>;
 
-	template<class State>
-	RoutineCache<State>::~RoutineCache()
-	{
-	}
-}
+}  // namespace sw
 
-#endif   // sw_RoutineCache_hpp
+#endif  // sw_RoutineCache_hpp

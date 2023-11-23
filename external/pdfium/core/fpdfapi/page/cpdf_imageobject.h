@@ -7,15 +7,16 @@
 #ifndef CORE_FPDFAPI_PAGE_CPDF_IMAGEOBJECT_H_
 #define CORE_FPDFAPI_PAGE_CPDF_IMAGEOBJECT_H_
 
-#include <memory>
-
 #include "core/fpdfapi/page/cpdf_pageobject.h"
 #include "core/fxcrt/fx_coordinates.h"
+#include "core/fxcrt/retain_ptr.h"
 
+class CFX_DIBitmap;
 class CPDF_Image;
 
-class CPDF_ImageObject : public CPDF_PageObject {
+class CPDF_ImageObject final : public CPDF_PageObject {
  public:
+  explicit CPDF_ImageObject(int32_t content_stream);
   CPDF_ImageObject();
   ~CPDF_ImageObject() override;
 
@@ -27,8 +28,10 @@ class CPDF_ImageObject : public CPDF_PageObject {
   const CPDF_ImageObject* AsImage() const override;
 
   void CalcBoundingBox();
-  RetainPtr<CPDF_Image> GetImage() const { return m_pImage; }
   void SetImage(const RetainPtr<CPDF_Image>& pImage);
+  RetainPtr<CPDF_Image> GetImage() const;
+  RetainPtr<CFX_DIBitmap> GetIndependentBitmap() const;
+
   void set_matrix(const CFX_Matrix& matrix) { m_Matrix = matrix; }
   const CFX_Matrix& matrix() const { return m_Matrix; }
 

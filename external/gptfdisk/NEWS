@@ -1,5 +1,223 @@
-0.8.11 (?/?/2014):
+1.0.5 (?/?/2020):
+-----------------
+
+- Fixed typos and minor formatting issues in man pages
+
+- Changed number of columns in type code output ("sgdisk -L" and equivalents
+  in gdisk and cgdisk) from 3 to 2, since some descriptions are long enough
+  that they're ambiguous with three columns.
+
+1.0.4 (7/5/2018):
+-----------------
+
+- Added some explicit copy constructors and made some other tweaks to avoid
+  compiler warnings.
+
+- The macOS binary for sgdisk is now a pure 64-bit build; I'm no longer
+  supporting 32-bit builds of sgdisk. The gdisk and cgdisk binaries remain
+  "fat" 32-/64-bit builds. The reason for dropping the 32-bit support from
+  sgdisk is that I've re-built my macOS development system, and I had
+  trouble building a "fat" binary with the fresh install of the popt
+  libraries upon which sgdisk relies. 32-bit support for the other binaries
+  is now officially deprecated, too.
+
+- Added search feature to partition type list functions ("L" on main menu of
+  gdisk and "L" when entered in response to the "Hex code or GUID" prompt in
+  gdisk and sgdisk). This feature filters the partition type list to those
+  which include the search term in their GPT fdisk descriptions. For
+  instance, typing "Linux" shows only partitions with "Linux" in their
+  descriptions. Note that the search/filter is case-sensitive. If <Enter> is
+  pressed, no filter is applied.
+
+- Change to Makefile.mac to use standard libncurses rather than a 3rd-party
+  version; should help with cgdisk compatibility.
+
+- Minor bug fix in alignment of internal data structures.
+
+- Minor bug fix in handling of damaged disks. Also, GPT fdisk now reports
+  more information on what data structures are damaged when a damaged disk
+  is detected.
+
+- Added type code for Apple APFS (7C3457EF-0000-11AA-AA11-00306543ECAC,
+  0xaf0a).
+
+- Added type code for Atari TOS basic data (0xa200,
+  734E5AFE-F61A-11E6-BC64-92361F002671).
+
+- Added type codes for Linux dm-crypt (0x8308,
+  7FFEC5C9-2D00-49B7-8941-3EA10A5586B7) and LUKS (0x8309,
+  CA7D7CCB-63ED-4C53-861C-1742536059CC) partitions.
+
+- Added 18 Ceph partition type codes.
+
+- Added 52 (yes, 52!) Android partition type codes.
+
+- Changed "Creating new GPT entries" message to read "Creating new
+  GPT entries in memory" because the latter is clearer, particularly when
+  using sgdisk with a non-destructive option, like "-p".
+
+1.0.3 (7/27/2017):
 ------------------
+
+- Fixed a major bug that caused invalid partition tables to be generated
+  when creating a new partition table (that is, partitioning a blank disk or
+  converting from MBR).
+
+1.0.2 (7/26/2017):
+------------------
+
+- On Linux, the p/-p/--print command now shows the disk's model name, as
+  reported in /sys/block/sda/device/model (or equivalent filenames for other
+  disks). This feature does not yet work on other platforms, on which the
+  model name line is omitted from the output. This line is also not shown
+  when accessing disk image files, even on Linux.
+
+- GPT fdisk can now report both the physical and logical sector sizes of
+  disks, but only on 2.6.32 and later Linux kernels. The verify feature now
+  uses the larger of the set alignment and physical/logical block sizes for
+  testing alignment, and setting alignment to something other than an exact
+  multiple of the ratio of the physical to logical block size results in a
+  warning.
+
+- Addition of new verification checks, mostly (but not exclusively) related
+  to the new j/-j/--move-main-table option.
+
+- Added new option: 'j' on the experts' menu in gdisk;
+  '-j/--move-main-table={sector}' in sgdisk. This option enables relocating
+  the main partition table from sector 2 (the default location) to somewhere
+  else on the disk. The main reason I know of to do this is if the disk is
+  to be used with a system-on-chip (SoC) computer, some of which require the
+  boot loader to be located at sector 2. If you pass this option the default
+  value of 2, it has the effect of reducing the padding placed between the
+  main partition table and the first usable sector value created by the
+  Linux fdisk tool.
+
+- Updated man pages with new recommendations for ESP and BIOS Boot Partition
+  sizes.
+
+- Added four type codes (AF06 through AF09) for Apple SoftRAID (Status,
+  Scratch, Volume, and Cache).
+
+- Added two type codes for the Open Network Install Environment (ONIE):
+  0xe100 (7412F7D5-A156-4B13-81DC-867174929325) and 0xe101
+  (D4E6E2CD-4469-46F3-B5CB-1BFF57AFC149).
+
+- Added thirteen type codes for Android partitions (0xa000 through
+  0xa00c).
+
+- Added type code for QNX6 (aka QNX Power-Safe) filesystem: 0xb300, for
+  CEF5A9AD-73BC-4601-89F3-CDEEEEE321A1.
+
+- Removed stray debug message ("REALLY setting name!") from sgdisk,
+  when setting new name via -c option.
+
+1.0.1 (10/18/2015):
+-------------------
+
+- Created uninstall-fixparts and uninstall-gdisk scripts for OS X. As the
+  names imply, these scripts remove the files installed by the fixparts and
+  gdisk packages, respectively.
+
+- Fixed bug that caused -N/--largest-new option to sgdisk to fail when
+  fed a "0" option.
+
+- Fixed bug that caused input glitches in EFI version of gdisk.
+
+- Fixed bug that caused sgdisk to not return an appropriate error code
+  when it encountered a write error when saving changes.
+
+- Fixed bug that caused cgdisk's "Info" display to under-report the
+  partition's size by one sector.
+
+- OS X 10.11 includes new security features that prevent GPT fdisk from
+  working unless these features are disabled. To do so, you must boot to a
+  Recovery HD system, open a Terminal, type "csrutil disable", and reboot
+  into the normal system. You can re-enable the security features by
+  repeating the process, but specify "enable" rather than "disable". I've
+  added a message pointing users to a Web page explaining how to disable
+  this feature when gdisk detects that it can't write to the disk under OS
+  X. If you know of a way around this (including code changes to gdisk),
+  please contact me.
+
+- I've updated the OS X installation location from the Unix-standard
+  /usr/sbin (and related locations for documentation) to /usr/local/bin
+  (and related locations for documentation). This is Just Plain Crazy from
+  a Unix point of view, but Apple has to be Apple and do things just a
+  little bit differently.
+
+- I've updated my OS X environment to OS X 10.11 and LLVM 7.0.0. This has
+  also meant installing fresh versions of popt and ncurses from MacPorts,
+  which may require upgrading popt to get sgdisk working on some systems.
+  (gdisk, cgdisk, and fixparts should continue to work normally on all
+  systems.) The OS X binaries are now "fat" (32- and 64-bit) versions,
+  which should have no noticeable effect unless you have a Mac with broken
+  32-bit support, in which case the binaries will now work.
+
+- Changed the default name of 0xab00 partitions from "Apple boot" to
+  "Recovery HD", since the latter is the name that Apple gives these
+  partitions. Also, I discovered through painful experience that OS X
+  flakes out and won't boot if the name is something other than "Recovery
+  HD", so it really has to have the right name!
+
+- Changed the OpenBSD type codes (0xa600 and 0xa601): 0xa600 is now
+  824CC7A0-36A8-11E3-890A-952519AD3F61 (OpenBSD disklabel) and 0xa601 is
+  now gone. Previously, 0xa600 was 516E7CB4-6ECF-11D6-8FF8-00022D09712B, a
+  duplicate of the FreeBSD disklabel, and 0xa601 was
+  824CC7A0-36A8-11E3-890A-952519AD3F61. OpenBSD is now officially
+  supporting 824CC7A0-36A8-11E3-890A-952519AD3F61 as a disklabel type,
+  though. It's unclear what, if anything, OpenBSD will use for
+  non-disklabel type codes at the moment.
+
+- Added GUID 0311FC50-01CA-4725-AD77-9ADBB20ACE98 (0xbc00) for
+  Acronis Secure Zone backup partitions.
+
+- Fixed bug that caused random crashes on ppc64el systems (and perhaps
+  others).
+
+- Added GUID C91818F9-8025-47AF-89D2-F030D7000C2C (0x3900) for Plan 9.
+
+- Added GUID 69DAD710-2CE4-4E3C-B16C-21A1D49ABED3 (0x8307) for 32-bit ARM
+  Linux root (/) partition, as per the Freedesktop.org Discoverable
+  Partition Spec
+  (http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/).
+
+- Edited man pages to clarify that default alignment is to 1MiB boundaries;
+  this translates to 2048 sectors on disks with 512-byte sectors, but it
+  will be something else on disks with other sector sizes.
+
+- Changed behavior of -z/--zap and -Z/--zap-all options to sgdisk so that
+  if a subsequent command causes changes, they'll be written to disk.
+  Previously, doing something like "sgdisk --zap-all --clear /dev/sdd"
+  would wipe the disk but not create a partition table; to create a blank
+  table you'd need to do "sgdisk --zap-all --clear --mbrtogpt /dev/sdd",
+  which is a bit odd and counter-intuitive, to the point of arguably being
+  a bug.
+
+1.0.0 (3/16/2015):
+------------------
+
+- I'm now building a binary package of gdisk_x64.efi, using the UEFI GPT
+  fdisk package.
+
+- Added partition type for OpenBSD data
+  (824CC7A0-36A8-11E3-890A-952519AD3F61/0xa601). Also mapped 0xa600 to the
+  FreeBSD disklabel type code (516E7CB4-6ECF-11D6-8FF8-00022D09712B). I'm
+  not sure that's 100% correct, but since I can't find references to an
+  OpenBSD disklabel GPT type code, it seems the best choice at the moment.
+
+- Added partition type for Windows Storage Spaces
+  (E75CAF8F-F680-4CEE-AFA3-B001E56EFC2D/0x4202)
+
+- Added -O/--print-mbr option to sgdisk, enabling easier display of MBR
+  data structures without invoking gdisk.
+
+- Updated warning message: "EBR describes a logical partition" now reads
+  "EBR points to an EBR," which is more technically correct.
+
+- Altered warning displayed when run from Windows on non-GPT disk, because
+  Windows on UEFI-based systems is becoming more common.
+
+- Fixed spurious "1" return value in gdisk.
 
 - Small code changes to support compilation as EFI application with the
   UEFI GPT fdisk library
@@ -9,7 +227,7 @@
   (https://github.com/ceph/ceph/blob/9bcc42a3e6b08521694b5c0228b2c6ed7b3d312e/src/ceph-disk#L76-L81):
   4FBD7E29-9D25-41B8-AFD0-062C0CEFF05D/0xf800 (Ceph OSD),
   4FBD7E29-9D25-41B8-AFD0-5EC00CEFF05D/0xf801 (Ceph dm-crypt OSD),
-  BFBFAFE7-A34F-448A-9A5B-6213EB736C22/0xf802 (Ceph journal),
+  45B0969E-9B03-4F30-B4C6-B4B80CEFF106/0xf802 (Ceph journal),
   45B0969E-9B03-4F30-B4C6-5EC00CEFF106/0xf803 (Ceph dm-crypt journal),
   89C57F98-2FE5-4DC0-89C1-F3AD0CEFF2BE/0xf804 (Ceph disk in creation), and
   89C57F98-2FE5-4DC0-89C1-5EC00CEFF2BE/0xf805 (Ceph dm-crypt disk in

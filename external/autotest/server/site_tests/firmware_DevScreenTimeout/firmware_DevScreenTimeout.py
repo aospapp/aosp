@@ -29,9 +29,9 @@ class firmware_DevScreenTimeout(FirmwareTest):
     # If the margin is too small and firmware initialization is too fast,
     # the test will fail incorrectly.
     TIMEOUT_MARGIN = 5
+    RUN_SHELL_READY_TIME_MARGIN = 5
 
     fw_time_record = {}
-
 
     def record_fw_boot_time(self, tag):
         """Record the current firmware boot time with the tag.
@@ -39,6 +39,7 @@ class firmware_DevScreenTimeout(FirmwareTest):
         @param tag: A tag about this boot.
         @raise TestError: If the firmware-boot-time file does not exist.
         """
+        time.sleep(self.RUN_SHELL_READY_TIME_MARGIN)
         [fw_time] = self.faft_client.system.run_shell_command_get_output(
                 'cat /tmp/firmware-boot-time')
         logging.info('Got firmware boot time [%s]: %s', tag, fw_time)
@@ -55,20 +56,21 @@ class firmware_DevScreenTimeout(FirmwareTest):
         # On tablets/detachables, eliminate the time taken for pressing volume
         # down button (HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1) to calculate the
         # firmware boot time of quick dev boot.
-        if self.faft_config.fw_bypasser_type == 'tablet_detachable_bypasser':
+        if self.faft_config.mode_switcher_type == 'tablet_detachable_switcher':
             self.fw_time_record['quick_bypass_boot'] -= \
                             (self.switcher.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1)
-            logging.info("Firmware boot time [quick_bypass_boot] after "
-                         "eliminating the volume down button press time "
-                         "(%.1f seconds): %s",
-                         self.switcher.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1,
-                         self.fw_time_record['quick_bypass_boot'])
+            logging.info(
+                    "Firmware boot time [quick_bypass_boot] after "
+                    "eliminating the volume down button press time "
+                    "(%.1f seconds): %s",
+                    self.switcher.HOLD_VOL_DOWN_BUTTON_BYPASS + 0.1,
+                    self.fw_time_record['quick_bypass_boot'])
         got_timeout = (self.fw_time_record['timeout_boot'] -
                        self.fw_time_record['quick_bypass_boot'])
         logging.info('Estimated developer firmware timeout: %s', got_timeout)
 
         if (abs(got_timeout - self.faft_config.dev_screen_timeout) >
-                self.TIMEOUT_MARGIN):
+                    self.TIMEOUT_MARGIN):
             raise error.TestFail(
                     'The developer firmware timeout does not match our spec: '
                     'expected %.2f +/- %.2f but got %.2f.' %
@@ -78,8 +80,8 @@ class firmware_DevScreenTimeout(FirmwareTest):
     def initialize(self, host, cmdline_args):
         super(firmware_DevScreenTimeout, self).initialize(host, cmdline_args)
         # NA error check point for this test
-        if (self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser' and
-                self.faft_config.fw_bypasser_type != 'tablet_detachable_bypasser'):
+        if self.faft_config.mode_switcher_type not in (
+                'keyboard_dev_switcher', 'tablet_detachable_switcher'):
             raise error.TestNAError("This test is only valid on devices with "
                                     "screens.")
         # This test is run on developer mode only.
@@ -87,12 +89,13 @@ class firmware_DevScreenTimeout(FirmwareTest):
         self.setup_usbkey(usbkey=False)
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Always expected developer mode firmware A boot.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '1',
-                              'mainfw_act': 'A',
-                              'mainfw_type': 'developer',
-                              }))
+                'devsw_boot': '1',
+                'mainfw_act': 'A',
+                'mainfw_type': 'developer',
+        }))
 
         # To add an extra reboot before the measurement
         # to avoid TPM reset too long

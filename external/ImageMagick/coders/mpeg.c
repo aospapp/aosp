@@ -17,7 +17,7 @@
 %                                 July 1999                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -266,6 +266,12 @@ ModuleExport size_t RegisterMPEGImage(void)
   entry=AcquireMagickInfo("MPEG","AVI","Microsoft Audio/Visual Interleaved");
   entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
   entry->magick=(IsImageFormatHandler *) IsAVI;
+  entry->flags^=CoderBlobSupportFlag;
+  (void) RegisterMagickInfo(entry);
+  entry=AcquireMagickInfo("MPEG","FLV","Flash Video Stream");
+  entry->decoder=(DecodeImageHandler *) ReadMPEGImage;
+  entry->encoder=(EncodeImageHandler *) WriteMPEGImage;
+  entry->magick=(IsImageFormatHandler *) IsMPEG;
   entry->flags^=CoderBlobSupportFlag;
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("MPEG","MKV","Multimedia Container");

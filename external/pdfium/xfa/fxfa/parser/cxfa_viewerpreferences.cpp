@@ -6,9 +6,12 @@
 
 #include "xfa/fxfa/parser/cxfa_viewerpreferences.h"
 
+#include "fxjs/xfa/cjx_node.h"
+#include "third_party/base/ptr_util.h"
+
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kViewerPreferencesPropertyData[] = {
     {XFA_Element::PrintScaling, 1, 0},
     {XFA_Element::Enforce, 1, 0},
     {XFA_Element::NumberOfCopies, 1, 0},
@@ -18,13 +21,12 @@ const CXFA_Node::PropertyData kPropertyData[] = {
     {XFA_Element::DuplexOption, 1, 0},
     {XFA_Element::ADBE_JSDebugger, 1, 0},
     {XFA_Element::PickTrayByPDFSize, 1, 0},
-    {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+};
+
+const CXFA_Node::AttributeData kViewerPreferencesAttributeData[] = {
     {XFA_Attribute::Desc, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Lock, XFA_AttributeType::Integer, (void*)0},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"viewerPreferences";
+};
 
 }  // namespace
 
@@ -35,8 +37,8 @@ CXFA_ViewerPreferences::CXFA_ViewerPreferences(CXFA_Document* doc,
                 XFA_XDPPACKET_Config,
                 XFA_ObjectType::Node,
                 XFA_Element::ViewerPreferences,
-                kPropertyData,
-                kAttributeData,
-                kName) {}
+                kViewerPreferencesPropertyData,
+                kViewerPreferencesAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_ViewerPreferences::~CXFA_ViewerPreferences() {}
+CXFA_ViewerPreferences::~CXFA_ViewerPreferences() = default;

@@ -4,6 +4,8 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
+#include <env.h>
 #include <spl.h>
 #include <asm/io.h>
 #include <fsl_ifc.h>
@@ -11,6 +13,7 @@
 #include <fsl_csu.h>
 #include <asm/arch/fdt.h>
 #include <asm/arch/ppa.h>
+#include <asm/arch/soc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -22,6 +25,9 @@ u32 spl_boot_device(void)
 #ifdef CONFIG_SPL_NAND_SUPPORT
 	return BOOT_DEVICE_NAND;
 #endif
+#ifdef CONFIG_QSPI_BOOT
+	return BOOT_DEVICE_NOR;
+#endif
 	return 0;
 }
 
@@ -29,7 +35,7 @@ u32 spl_boot_device(void)
 
 void spl_board_init(void)
 {
-#if defined(CONFIG_SECURE_BOOT) && defined(CONFIG_FSL_LSCH2)
+#if defined(CONFIG_NXP_ESBC) && defined(CONFIG_FSL_LSCH2)
 	/*
 	 * In case of Secure Boot, the IBR configures the SMMU
 	 * to allow only Secure transactions.
@@ -52,6 +58,7 @@ void spl_board_init(void)
 
 void board_init_f(ulong dummy)
 {
+	icache_enable();
 	/* Clear global data */
 	memset((void *)gd, 0, sizeof(gd_t));
 	board_early_init_f();
@@ -101,6 +108,9 @@ void board_init_f(ulong dummy)
 	gd->arch.tlb_addr = (gd->ram_top - gd->arch.tlb_size) & ~(0x10000 - 1);
 	gd->arch.tlb_allocated = gd->arch.tlb_addr;
 #endif	/* CONFIG_SPL_FSL_LS_PPA */
+#if defined(CONFIG_QSPI_AHB_INIT) && defined(CONFIG_QSPI_BOOT)
+	qspi_ahb_init();
+#endif
 }
 
 #ifdef CONFIG_SPL_OS_BOOT

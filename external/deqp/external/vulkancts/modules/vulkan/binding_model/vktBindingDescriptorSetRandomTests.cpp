@@ -42,6 +42,8 @@
 #include "vkBuilderUtil.hpp"
 #include "vkCmdUtil.hpp"
 #include "vkTypeUtil.hpp"
+#include "vkObjUtil.hpp"
+
 #include "vktTestGroupUtil.hpp"
 #include "vktTestCase.hpp"
 
@@ -56,6 +58,7 @@
 
 #include <string>
 #include <sstream>
+#include <algorithm>
 
 namespace vkt
 {
@@ -82,6 +85,7 @@ typedef enum
 	STAGE_COMPUTE = 0,
 	STAGE_VERTEX,
 	STAGE_FRAGMENT,
+	STAGE_RAYGEN
 } Stage;
 
 typedef enum
@@ -89,9 +93,6 @@ typedef enum
 	UPDATE_AFTER_BIND_DISABLED = 0,
 	UPDATE_AFTER_BIND_ENABLED,
 } UpdateAfterBind;
-
-const VkFlags allShaderStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-const VkFlags allPipelineStages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 
 struct CaseDef
 {
@@ -105,11 +106,13 @@ struct CaseDef
 	deUint32 maxPerStageStorageImages;
 	deUint32 maxInlineUniformBlocks;
 	deUint32 maxInlineUniformBlockSize;
+	deUint32 maxPerStageInputAttachments;
 	Stage stage;
 	UpdateAfterBind uab;
 	deUint32 seed;
+	VkFlags allShaderStages;
+	VkFlags allPipelineStages;
 };
-
 
 class RandomLayout
 {
@@ -124,7 +127,7 @@ public:
 
 	// These three are indexed by [set][binding]
 	vector<vector<VkDescriptorSetLayoutBinding> > layoutBindings;
-	vector<vector<VkDescriptorBindingFlagsEXT> > layoutBindingFlags;
+	vector<vector<VkDescriptorBindingFlags> > layoutBindingFlags;
 	vector<vector<deUint32> > arraySizes;
 	// size of the variable descriptor (last) binding in each set
 	vector<deUint32> variableDescriptorSizes;
@@ -140,12 +143,6 @@ public:
 	tcu::TestStatus		iterate								(void);
 private:
 	CaseDef				m_data;
-
-	enum
-	{
-		WIDTH = 256,
-		HEIGHT = 256
-	};
 };
 
 DescriptorSetRandomTestInstance::DescriptorSetRandomTestInstance (Context& context, const CaseDef& data)
@@ -183,6 +180,7 @@ DescriptorSetRandomTestCase::~DescriptorSetRandomTestCase	(void)
 
 void DescriptorSetRandomTestCase::checkSupport(Context& context) const
 {
+	// Get needed properties.
 	VkPhysicalDeviceInlineUniformBlockPropertiesEXT inlineUniformProperties;
 	deMemset(&inlineUniformProperties, 0, sizeof(inlineUniformProperties));
 	inlineUniformProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT;
@@ -190,45 +188,31 @@ void DescriptorSetRandomTestCase::checkSupport(Context& context) const
 	VkPhysicalDeviceProperties2 properties;
 	deMemset(&properties, 0, sizeof(properties));
 	properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	void** pNextTail = &properties.pNext;
 
-	if (isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_EXT_inline_uniform_block"))
+	if (context.isDeviceFunctionalitySupported("VK_EXT_inline_uniform_block"))
 	{
-		properties.pNext = &inlineUniformProperties;
+		*pNextTail = &inlineUniformProperties;
+		pNextTail = &inlineUniformProperties.pNext;
 	}
+
+	*pNextTail = NULL;
 
 	context.getInstanceInterface().getPhysicalDeviceProperties2(context.getPhysicalDevice(), &properties);
 
-	VkPhysicalDeviceInlineUniformBlockFeaturesEXT inlineUniformFeatures;
-	deMemset(&inlineUniformFeatures, 0, sizeof(inlineUniformFeatures));
-	inlineUniformFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT;
+	// Get needed features.
+	auto features				= context.getDeviceFeatures2();
+	auto indexingFeatures		= context.getDescriptorIndexingFeatures();
+	auto inlineUniformFeatures	= context.getInlineUniformBlockFeaturesEXT();
 
-	VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures;
-	deMemset(&indexingFeatures, 0, sizeof(indexingFeatures));
-	indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
-
-	VkPhysicalDeviceFeatures2 features;
-	deMemset(&features, 0, sizeof(features));
-	features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-
-	if (isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_EXT_descriptor_indexing") &&
-		isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_EXT_inline_uniform_block"))
-	{
-		indexingFeatures.pNext = &inlineUniformFeatures;
-		features.pNext = &indexingFeatures;
-	}
-	else if (isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_EXT_descriptor_indexing"))
-	{
-		features.pNext = &indexingFeatures;
-	}
-	else if (isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_EXT_inline_uniform_block"))
-	{
-		features.pNext = &inlineUniformFeatures;
-	}
-
-	context.getInstanceInterface().getPhysicalDeviceFeatures2(context.getPhysicalDevice(), &features);
+	// Check needed properties and features
 	if (m_data.stage == STAGE_VERTEX && !features.features.vertexPipelineStoresAndAtomics)
 	{
-		return TCU_THROW(NotSupportedError, "Vertex pipeline stores and atomics not supported");
+		TCU_THROW(NotSupportedError, "Vertex pipeline stores and atomics not supported");
+	}
+	else if (m_data.stage == STAGE_RAYGEN)
+	{
+		context.requireDeviceFunctionality("VK_NV_ray_tracing");
 	}
 
 	if ((m_data.indexType == INDEX_TYPE_PUSHCONSTANT ||
@@ -238,6 +222,7 @@ void DescriptorSetRandomTestCase::checkSupport(Context& context) const
 		 !features.features.shaderStorageBufferArrayDynamicIndexing ||
 		 !features.features.shaderSampledImageArrayDynamicIndexing ||
 		 !features.features.shaderStorageImageArrayDynamicIndexing ||
+		 (m_data.stage == STAGE_FRAGMENT && (!indexingFeatures.shaderInputAttachmentArrayDynamicIndexing)) ||
 		 !indexingFeatures.shaderUniformTexelBufferArrayDynamicIndexing ||
 		 !indexingFeatures.shaderStorageTexelBufferArrayDynamicIndexing))
 	{
@@ -250,18 +235,20 @@ void DescriptorSetRandomTestCase::checkSupport(Context& context) const
 	}
 
 	if ((m_data.maxPerStageUniformBuffers + m_data.maxPerStageStorageBuffers +
-		m_data.maxPerStageSampledImages + m_data.maxPerStageStorageImages) >
+		m_data.maxPerStageSampledImages + m_data.maxPerStageStorageImages +
+		m_data.maxPerStageInputAttachments) >
 		properties.properties.limits.maxPerStageResources)
 	{
 		TCU_THROW(NotSupportedError, "Number of descriptors not supported");
 	}
 
-	if (m_data.maxPerStageUniformBuffers > properties.properties.limits.maxPerStageDescriptorUniformBuffers ||
-		m_data.maxPerStageStorageBuffers > properties.properties.limits.maxPerStageDescriptorStorageBuffers ||
-		m_data.maxUniformBuffersDynamic  > properties.properties.limits.maxDescriptorSetUniformBuffersDynamic ||
-		m_data.maxStorageBuffersDynamic  > properties.properties.limits.maxDescriptorSetStorageBuffersDynamic ||
-		m_data.maxPerStageSampledImages  > properties.properties.limits.maxPerStageDescriptorSampledImages ||
-		m_data.maxPerStageStorageImages  > properties.properties.limits.maxPerStageDescriptorStorageImages)
+	if (m_data.maxPerStageUniformBuffers	> properties.properties.limits.maxPerStageDescriptorUniformBuffers ||
+		m_data.maxPerStageStorageBuffers	> properties.properties.limits.maxPerStageDescriptorStorageBuffers ||
+		m_data.maxUniformBuffersDynamic		> properties.properties.limits.maxDescriptorSetUniformBuffersDynamic ||
+		m_data.maxStorageBuffersDynamic		> properties.properties.limits.maxDescriptorSetStorageBuffersDynamic ||
+		m_data.maxPerStageSampledImages		> properties.properties.limits.maxPerStageDescriptorSampledImages ||
+		m_data.maxPerStageStorageImages		> properties.properties.limits.maxPerStageDescriptorStorageImages ||
+		m_data.maxPerStageInputAttachments	> properties.properties.limits.maxPerStageDescriptorInputAttachments)
 	{
 		TCU_THROW(NotSupportedError, "Number of descriptors not supported");
 	}
@@ -312,6 +299,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 	deUint32 numImage = 0;
 	deUint32 numTexBuffer = 0;
 	deUint32 numInlineUniformBlocks = 0;
+	deUint32 numInputAttachments = 0;
 
 	// TODO: Consider varying these
 	deUint32 minBindings = 0;
@@ -325,7 +313,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 	for (deUint32 s = 0; s < caseDef.numDescriptorSets; ++s)
 	{
 		vector<VkDescriptorSetLayoutBinding> &bindings = randomLayout.layoutBindings[s];
-		vector<VkDescriptorBindingFlagsEXT> &bindingsFlags = randomLayout.layoutBindingFlags[s];
+		vector<VkDescriptorBindingFlags> &bindingsFlags = randomLayout.layoutBindingFlags[s];
 		vector<deUint32> &arraySizes = randomLayout.arraySizes[s];
 		int numBindings = randRange(&rnd, minBindings, maxBindings);
 
@@ -336,7 +324,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 		}
 
 		bindings = vector<VkDescriptorSetLayoutBinding>(numBindings);
-		bindingsFlags = vector<VkDescriptorBindingFlagsEXT>(numBindings);
+		bindingsFlags = vector<VkDescriptorBindingFlags>(numBindings);
 		arraySizes = vector<deUint32>(numBindings);
 	}
 
@@ -360,13 +348,14 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 			VkDescriptorSetLayoutBinding &binding = bindings[b];
 			binding.binding = b;
 			binding.pImmutableSamplers = NULL;
-			binding.stageFlags = allShaderStages;
+			binding.stageFlags = caseDef.allShaderStages;
 
 			// Output image
 			if (s == 0 && b == 0)
 			{
 				binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 				binding.descriptorCount = 1;
+				binding.stageFlags = caseDef.allShaderStages;
 				numImage++;
 				arraySizes[b] = 0;
 				continue;
@@ -375,12 +364,34 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 			binding.descriptorCount = 0;
 
 			// Select a random type of descriptor.
-			int r = randRange(&rnd, 0, (allowDynamicBuffers ? 6 : 4));
-			switch (r)
+			std::map<int, vk::VkDescriptorType> intToType;
+			{
+				int index = 0;
+				intToType[index++] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				intToType[index++] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				intToType[index++] = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+				intToType[index++] = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+				intToType[index++] = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
+				if (caseDef.stage == STAGE_FRAGMENT)
+				{
+					intToType[index++] = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+				}
+				if (allowDynamicBuffers)
+				{
+					intToType[index++] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+					intToType[index++] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+				}
+			}
+
+			int r = randRange(&rnd, 0, static_cast<int>(intToType.size() - 1));
+			DE_ASSERT(r >= 0 && static_cast<size_t>(r) < intToType.size());
+
+			// Add a binding for that descriptor type if possible.
+			binding.descriptorType = intToType[r];
+			switch (binding.descriptorType)
 			{
 			default: DE_ASSERT(0); // Fallthrough
-			case 0:
-				binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 				if (numUBO < caseDef.maxPerStageUniformBuffers)
 				{
 					arraySizes[b] = randRange(&rnd, 0, de::min(maxArray, caseDef.maxPerStageUniformBuffers - numUBO));
@@ -388,8 +399,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 					numUBO += binding.descriptorCount;
 				}
 				break;
-			case 1:
-				binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
 				if (numSSBO < caseDef.maxPerStageStorageBuffers)
 				{
 					arraySizes[b] = randRange(&rnd, 0, de::min(maxArray, caseDef.maxPerStageStorageBuffers - numSSBO));
@@ -397,8 +407,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 					numSSBO += binding.descriptorCount;
 				}
 				break;
-			case 2:
-				binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+			case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
 				if (numImage < caseDef.maxPerStageStorageImages)
 				{
 					arraySizes[b] = randRange(&rnd, 0, de::min(maxArray, caseDef.maxPerStageStorageImages - numImage));
@@ -406,8 +415,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 					numImage += binding.descriptorCount;
 				}
 				break;
-			case 3:
-				binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+			case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
 				if (numTexBuffer < caseDef.maxPerStageSampledImages)
 				{
 					arraySizes[b] = randRange(&rnd, 0, de::min(maxArray, caseDef.maxPerStageSampledImages - numTexBuffer));
@@ -415,10 +423,9 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 					numTexBuffer += binding.descriptorCount;
 				}
 				break;
-			case 4:
+			case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT:
 				if (caseDef.maxInlineUniformBlocks > 0)
 				{
-					binding.descriptorType = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT;
 					if (numInlineUniformBlocks < caseDef.maxInlineUniformBlocks)
 					{
 						arraySizes[b] = randRange(&rnd, 1, (caseDef.maxInlineUniformBlockSize - 16) / 16); // subtract 16 for "ivec4 dummy"
@@ -434,8 +441,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 					binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 				}
 				break;
-			case 5:
-				binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+			case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
 				if (numUBODyn < caseDef.maxUniformBuffersDynamic &&
 					numUBO < caseDef.maxPerStageUniformBuffers)
 				{
@@ -446,8 +452,7 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 					numUBODyn += binding.descriptorCount;
 				}
 				break;
-			case 6:
-				binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+			case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
 				if (numSSBODyn < caseDef.maxStorageBuffersDynamic &&
 					numSSBO < caseDef.maxPerStageStorageBuffers)
 				{
@@ -458,14 +463,24 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 					numSSBODyn += binding.descriptorCount;
 				}
 				break;
+			case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+				if (numInputAttachments < caseDef.maxPerStageInputAttachments)
+				{
+					arraySizes[b] = randRange(&rnd, 0, de::min(maxArray, caseDef.maxPerStageInputAttachments - numInputAttachments));
+					binding.descriptorCount = arraySizes[b] ? arraySizes[b] : 1;
+					numInputAttachments += binding.descriptorCount;
+				}
+				break;
 			}
+
+			binding.stageFlags = ((binding.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) ? (VkFlags)(VK_SHADER_STAGE_FRAGMENT_BIT) : caseDef.allShaderStages);
 		}
 	}
 
 	for (deUint32 s = 0; s < caseDef.numDescriptorSets; ++s)
 	{
 		vector<VkDescriptorSetLayoutBinding> &bindings = randomLayout.layoutBindings[s];
-		vector<VkDescriptorBindingFlagsEXT> &bindingsFlags = randomLayout.layoutBindingFlags[s];
+		vector<VkDescriptorBindingFlags> &bindingsFlags = randomLayout.layoutBindingFlags[s];
 		vector<deUint32> &variableDescriptorSizes = randomLayout.variableDescriptorSizes;
 
 		// Choose a variable descriptor count size. If the feature is not supported, we'll just
@@ -473,11 +488,12 @@ void generateRandomLayout(RandomLayout &randomLayout, const CaseDef &caseDef)
 		if (bindings.size() > 0 &&
 			bindings[bindings.size()-1].descriptorType != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC &&
 			bindings[bindings.size()-1].descriptorType != VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC &&
+			bindings[bindings.size()-1].descriptorType != VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT &&
 			!(s == 0 && bindings.size() == 1) && // Don't cut out the output image binding
 			randRange(&rnd, 1,4) == 1) // 1 in 4 chance
 		{
 
-			bindingsFlags[bindings.size()-1] |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
+			bindingsFlags[bindings.size()-1] |= VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
 			variableDescriptorSizes[s] = randRange(&rnd, 0,bindings[bindings.size()-1].descriptorCount);
 			if (bindings[bindings.size()-1].descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
 			{
@@ -495,11 +511,13 @@ void DescriptorSetRandomTestCase::initPrograms (SourceCollections& programCollec
 
 	std::stringstream decls, checks;
 
-	deUint32 descriptor = 0;
+	deUint32 inputAttachments	= 0;
+	deUint32 descriptor			= 0;
+
 	for (deUint32 s = 0; s < m_data.numDescriptorSets; ++s)
 	{
 		vector<VkDescriptorSetLayoutBinding> &bindings = randomLayout.layoutBindings[s];
-		vector<VkDescriptorBindingFlagsEXT> bindingsFlags = randomLayout.layoutBindingFlags[s];
+		vector<VkDescriptorBindingFlags> bindingsFlags = randomLayout.layoutBindingFlags[s];
 		vector<deUint32> &arraySizes = randomLayout.arraySizes[s];
 		vector<deUint32> &variableDescriptorSizes = randomLayout.variableDescriptorSizes;
 
@@ -527,6 +545,7 @@ void DescriptorSetRandomTestCase::initPrograms (SourceCollections& programCollec
 						array << "[" << arraySizes[b] << "]";
 					}
 				}
+
 				switch (binding.descriptorType)
 				{
 				case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT:
@@ -549,6 +568,10 @@ void DescriptorSetRandomTestCase::initPrograms (SourceCollections& programCollec
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
 					decls << "layout(r32ui, set = " << s << ", binding = " << b << ") uniform uimage2D image" << s << "_" << b << array.str()  << ";\n";
 					break;
+				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+					decls << "layout(input_attachment_index = " << inputAttachments << ", set = " << s << ", binding = " << b << ") uniform isubpassInput attachment" << s << "_" << b << array.str()  << ";\n";
+					inputAttachments += binding.descriptorCount;
+					break;
 				default: DE_ASSERT(0);
 				}
 
@@ -557,7 +580,7 @@ void DescriptorSetRandomTestCase::initPrograms (SourceCollections& programCollec
 					// Don't access descriptors past the end of the allocated range for
 					// variable descriptor count
 					if (b == bindings.size() - 1 &&
-						(bindingsFlags[b] & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT))
+						(bindingsFlags[b] & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT))
 					{
 						if (binding.descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
 						{
@@ -649,6 +672,9 @@ void DescriptorSetRandomTestCase::initPrograms (SourceCollections& programCollec
 						case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
 							checks << "  temp = imageLoad(image" << s << "_" << b << ind.str() << ", 0).x;\n";
 							break;
+						case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+							checks << "  temp = subpassLoad(attachment" << s << "_" << b << ind.str() << ").r;\n";
+							break;
 						default: DE_ASSERT(0);
 						}
 						if (m_data.indexType == INDEX_TYPE_DEPENDENT || m_data.indexType == INDEX_TYPE_RUNTIME_SIZE)
@@ -705,6 +731,26 @@ void DescriptorSetRandomTestCase::initPrograms (SourceCollections& programCollec
 			programCollection.glslSources.add("test") << glu::ComputeSource(css.str());
 			break;
 		}
+	case STAGE_RAYGEN:
+	{
+		std::stringstream css;
+		css <<
+			"#version 460 core\n"
+			"#extension GL_EXT_nonuniform_qualifier : enable\n"
+			"#extension GL_NV_ray_tracing : require\n"
+			<< pushdecl.str()
+			<< decls.str() <<
+			"void main()\n"
+			"{\n"
+			"  int accum = 0, temp;\n"
+			<< checks.str() <<
+			"  uvec4 color = (accum != 0) ? uvec4(0,0,0,0) : uvec4(1,0,0,1);\n"
+			"  imageStore(image0_0, ivec2(gl_LaunchIDNV.xy), color);\n"
+			"}\n";
+
+		programCollection.glslSources.add("test") << glu::RaygenSource(css.str());
+		break;
+	}
 	case STAGE_VERTEX:
 		{
 			std::stringstream vss;
@@ -765,104 +811,55 @@ TestInstance* DescriptorSetRandomTestCase::createInstance (Context& context) con
 	return new DescriptorSetRandomTestInstance(context, m_data);
 }
 
-VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			bufferSize,
-										 const VkBufferUsageFlags	usage)
-{
-	const VkBufferCreateInfo bufferCreateInfo =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
-		DE_NULL,								// const void*			pNext;
-		(VkBufferCreateFlags)0,					// VkBufferCreateFlags	flags;
-		bufferSize,								// VkDeviceSize			size;
-		usage,									// VkBufferUsageFlags	usage;
-		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
-		0u,										// deUint32				queueFamilyIndexCount;
-		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
-	};
-	return bufferCreateInfo;
-}
-
-Move<VkDescriptorSet> makeDescriptorSet (const DeviceInterface&			vk,
-										 const VkDevice					device,
-										 const void*					pNext,
-										 const VkDescriptorPool			descriptorPool,
-										 const VkDescriptorSetLayout	setLayout)
-{
-	const VkDescriptorSetAllocateInfo allocateParams =
-	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,		// VkStructureType				sType;
-		pNext,												// const void*					pNext;
-		descriptorPool,										// VkDescriptorPool				descriptorPool;
-		1u,													// deUint32						setLayoutCount;
-		&setLayout,											// const VkDescriptorSetLayout*	pSetLayouts;
-	};
-	return allocateDescriptorSet(vk, device, &allocateParams);
-}
-
-VkBufferImageCopy makeBufferImageCopy (const VkExtent3D					extent,
-									   const VkImageSubresourceLayers	subresourceLayers)
-{
-	const VkBufferImageCopy copyParams =
-	{
-		0ull,										//	VkDeviceSize				bufferOffset;
-		0u,											//	deUint32					bufferRowLength;
-		0u,											//	deUint32					bufferImageHeight;
-		subresourceLayers,							//	VkImageSubresourceLayers	imageSubresource;
-		makeOffset3D(0, 0, 0),						//	VkOffset3D					imageOffset;
-		extent,										//	VkExtent3D					imageExtent;
-	};
-	return copyParams;
-}
-
 tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 {
-	const DeviceInterface&	vk						= m_context.getDeviceInterface();
-	const VkDevice			device					= m_context.getDevice();
-	Allocator&				allocator				= m_context.getDefaultAllocator();
+	const InstanceInterface&	vki					= m_context.getInstanceInterface();
+	const DeviceInterface&		vk					= m_context.getDeviceInterface();
+	const VkDevice				device				= m_context.getDevice();
+	const VkPhysicalDevice		physicalDevice		= m_context.getPhysicalDevice();
+	Allocator&					allocator			= m_context.getDefaultAllocator();
 
 	RandomLayout randomLayout(m_data.numDescriptorSets);
 	generateRandomLayout(randomLayout, m_data);
 
-
+	// Get needed properties.
 	VkPhysicalDeviceProperties2 properties;
 	deMemset(&properties, 0, sizeof(properties));
 	properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 
-	m_context.getInstanceInterface().getPhysicalDeviceProperties2(m_context.getPhysicalDevice(), &properties);
+	VkPhysicalDeviceRayTracingPropertiesNV rayTracingProperties;
+	deMemset(&rayTracingProperties, 0, sizeof(rayTracingProperties));
+	rayTracingProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
 
-	VkPhysicalDeviceInlineUniformBlockFeaturesEXT inlineUniformFeatures;
-	deMemset(&inlineUniformFeatures, 0, sizeof(inlineUniformFeatures));
-	inlineUniformFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT;
-
-	VkPhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures;
-	deMemset(&indexingFeatures, 0, sizeof(indexingFeatures));
-	indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
-
-	VkPhysicalDeviceFeatures2 features;
-	deMemset(&features, 0, sizeof(features));
-	features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-
-	if (isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), "VK_EXT_descriptor_indexing") &&
-		isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), "VK_EXT_inline_uniform_block"))
+	if (m_context.isDeviceFunctionalitySupported("VK_NV_ray_tracing"))
 	{
-		indexingFeatures.pNext = &inlineUniformFeatures;
-		features.pNext = &indexingFeatures;
-	}
-	else if (isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), "VK_EXT_descriptor_indexing"))
-	{
-		features.pNext = &indexingFeatures;
-	}
-	else if (isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), "VK_EXT_inline_uniform_block"))
-	{
-		features.pNext = &inlineUniformFeatures;
+		properties.pNext = &rayTracingProperties;
 	}
 
-	m_context.getInstanceInterface().getPhysicalDeviceFeatures2(m_context.getPhysicalDevice(), &features);
+	vki.getPhysicalDeviceProperties2(physicalDevice, &properties);
+
+	// Get needed features.
+	auto descriptorIndexingSupported	= m_context.isDeviceFunctionalitySupported("VK_EXT_descriptor_indexing");
+	auto indexingFeatures				= m_context.getDescriptorIndexingFeatures();
+	auto inlineUniformFeatures			= m_context.getInlineUniformBlockFeaturesEXT();
 
 	deRandom rnd;
 	deRandom_init(&rnd, m_data.seed);
 
-	VkPipelineBindPoint bindPoint = m_data.stage == STAGE_COMPUTE ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS;
+	VkPipelineBindPoint bindPoint;
+
+	switch (m_data.stage)
+	{
+	case STAGE_COMPUTE:
+		bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+		break;
+	case STAGE_RAYGEN:
+		bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_NV;
+		break;
+	default:
+		bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		break;
+	}
 
 	DE_ASSERT(m_data.numDescriptorSets <= 32);
 	Move<vk::VkDescriptorSetLayout>	descriptorSetLayouts[32];
@@ -873,7 +870,7 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 	for (deUint32 s = 0; s < m_data.numDescriptorSets; ++s)
 	{
 		vector<VkDescriptorSetLayoutBinding> &bindings = randomLayout.layoutBindings[s];
-		vector<VkDescriptorBindingFlagsEXT> &bindingsFlags = randomLayout.layoutBindingFlags[s];
+		vector<VkDescriptorBindingFlags> &bindingsFlags = randomLayout.layoutBindingFlags[s];
 		vector<deUint32> &variableDescriptorSizes = randomLayout.variableDescriptorSizes;
 
 		VkDescriptorPoolCreateFlags poolCreateFlags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
@@ -885,7 +882,8 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 			numDescriptors += binding.descriptorCount;
 
 			// Randomly choose some bindings to use update-after-bind, if it is supported
-			if (m_data.uab == UPDATE_AFTER_BIND_ENABLED &&
+			if (descriptorIndexingSupported &&
+				m_data.uab == UPDATE_AFTER_BIND_ENABLED &&
 				randRange(&rnd, 1, 8) == 1 && // 1 in 8 chance
 				(binding.descriptorType != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER			|| indexingFeatures.descriptorBindingUniformBufferUpdateAfterBind) &&
 				(binding.descriptorType != VK_DESCRIPTOR_TYPE_STORAGE_IMAGE				|| indexingFeatures.descriptorBindingStorageImageUpdateAfterBind) &&
@@ -893,38 +891,39 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 				(binding.descriptorType != VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER		|| indexingFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind) &&
 				(binding.descriptorType != VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER		|| indexingFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind) &&
 				(binding.descriptorType != VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT	|| inlineUniformFeatures.descriptorBindingInlineUniformBlockUpdateAfterBind) &&
+				(binding.descriptorType != VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) &&
 				(binding.descriptorType != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) &&
 				(binding.descriptorType != VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC))
 			{
-				bindingsFlags[b] |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+				bindingsFlags[b] |= VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
 				layoutCreateFlags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
 				poolCreateFlags |= VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
 			}
 
 			if (!indexingFeatures.descriptorBindingVariableDescriptorCount)
 			{
-				bindingsFlags[b] &= ~VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT;
+				bindingsFlags[b] &= ~VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
 			}
 		}
 
 		// Create a layout and allocate a descriptor set for it.
 
-		const VkDescriptorSetLayoutBindingFlagsCreateInfoEXT bindingFlagsInfo =
+		const VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo =
 		{
 			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT,	// VkStructureType						sType;
 			DE_NULL,																// const void*							pNext;
 			(deUint32)bindings.size(),												// uint32_t								bindingCount;
-			bindings.empty() ? DE_NULL : &bindingsFlags[0],							// const VkDescriptorBindingFlagsEXT*	pBindingFlags;
+			bindings.empty() ? DE_NULL : bindingsFlags.data(),						// const VkDescriptorBindingFlags*	pBindingFlags;
 		};
 
 		const VkDescriptorSetLayoutCreateInfo setLayoutCreateInfo =
 		{
 			vk::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-			&bindingFlagsInfo,
+			(descriptorIndexingSupported ? &bindingFlagsInfo : DE_NULL),
 
 			layoutCreateFlags,
 			(deUint32)bindings.size(),
-			bindings.empty() ? DE_NULL : &bindings[0]
+			bindings.empty() ? DE_NULL : bindings.data()
 		};
 
 		descriptorSetLayouts[s] = vk::createDescriptorSetLayout(vk, device, &setLayoutCreateInfo);
@@ -936,6 +935,10 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 		poolBuilder.addType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, m_data.maxStorageBuffersDynamic);
 		poolBuilder.addType(VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, m_data.maxPerStageSampledImages);
 		poolBuilder.addType(VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, m_data.maxPerStageStorageImages);
+		if (m_data.maxPerStageInputAttachments > 0u)
+		{
+			poolBuilder.addType(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, m_data.maxPerStageInputAttachments);
+		}
 		poolBuilder.addType(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1);
 		if (m_data.maxInlineUniformBlocks)
 		{
@@ -952,9 +955,9 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 		descriptorPools[s] = poolBuilder.build(vk, device, poolCreateFlags, 1u,
 											   m_data.maxInlineUniformBlocks ? &inlineUniformBlockPoolCreateInfo : DE_NULL);
 
-		VkDescriptorSetVariableDescriptorCountAllocateInfoEXT variableCountInfo =
+		VkDescriptorSetVariableDescriptorCountAllocateInfo variableCountInfo =
 		{
-			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT,	// VkStructureType	sType;
+			VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO,		// VkStructureType	sType;
 			DE_NULL,																		// const void*		pNext;
 			0,																				// uint32_t			descriptorSetCount;
 			DE_NULL,																		// const uint32_t*	pDescriptorCounts;
@@ -962,21 +965,22 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 
 		const void *pNext = DE_NULL;
 		if (bindings.size() > 0 &&
-			bindingsFlags[bindings.size()-1] & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT)
+			bindingsFlags[bindings.size()-1] & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT)
 		{
 			variableCountInfo.descriptorSetCount = 1;
 			variableCountInfo.pDescriptorCounts = &variableDescriptorSizes[s];
 			pNext = &variableCountInfo;
 		}
 
-		descriptorSets[s] = makeDescriptorSet(vk, device, pNext, *descriptorPools[s], *descriptorSetLayouts[s]);
+		descriptorSets[s] = makeDescriptorSet(vk, device, *descriptorPools[s], *descriptorSetLayouts[s], pNext);
 	}
 
-
-	VkDeviceSize	align = de::max(de::max(de::max(properties.properties.limits.minTexelBufferOffsetAlignment,
-													properties.properties.limits.minUniformBufferOffsetAlignment),
-													properties.properties.limits.minStorageBufferOffsetAlignment),
-													(VkDeviceSize)sizeof(deUint32));
+	// Create a buffer to hold data for all descriptors.
+	VkDeviceSize	align = std::max({
+		properties.properties.limits.minTexelBufferOffsetAlignment,
+		properties.properties.limits.minUniformBufferOffsetAlignment,
+		properties.properties.limits.minStorageBufferOffsetAlignment,
+		(VkDeviceSize)sizeof(deUint32)});
 
 	de::MovePtr<BufferWithMemory> buffer;
 	buffer = de::MovePtr<BufferWithMemory>(new BufferWithMemory(
@@ -988,14 +992,169 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 													MemoryRequirement::HostVisible));
 	deUint8 *bufferPtr = (deUint8 *)buffer->getAllocation().getHostPtr();
 
-	typedef vk::Unique<vk::VkBufferView>					BufferViewHandleUp;
-	typedef de::SharedPtr<BufferViewHandleUp>				BufferViewHandleSp;
+	// Count the total number of input attachments and create images for them.
+	deUint32 inputAttachmentCount = 0u;
+	for (const auto& bindings	: randomLayout.layoutBindings)
+	for (const auto& binding	: bindings)
+	{
+		if (binding.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
+			inputAttachmentCount += binding.descriptorCount;
+	}
 
-	vector<BufferViewHandleSp>	bufferViews(de::max(1u,numDescriptors));
+	const deUint32 queueFamilyIndex = m_context.getUniversalQueueFamilyIndex();
 
-	// Create a buffer and view for each descriptor. Fill descriptor 'd'
-	// with an integer value equal to 'd'.
-	int descriptor = 0;
+	vector<Move<VkImage>>	inputAttachments;
+	const VkImageCreateInfo imgCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,										// VkStructureType			sType;
+		DE_NULL,																	// const void*				pNext;
+		0u,																			// VkImageCreateFlags		flags;
+		VK_IMAGE_TYPE_2D,															// VkImageType				imageType;
+		VK_FORMAT_R32_SINT,															// VkFormat					format;
+		{ DIM, DIM, 1u },															// VkExtent3D				extent;
+		1u,																			// deUint32					mipLevels;
+		1u,																			// deUint32					arrayLayers;
+		VK_SAMPLE_COUNT_1_BIT,														// VkSampleCountFlagBits	samples;
+		VK_IMAGE_TILING_OPTIMAL,													// VkImageTiling			tiling;
+		(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT),	// VkImageUsageFlags		usage;
+		VK_SHARING_MODE_EXCLUSIVE,													// VkSharingMode			sharingMode;
+		1u,																			// deUint32					queueFamilyIndexCount;
+		&queueFamilyIndex,															// const deUint32*			pQueueFamilyIndices;
+		VK_IMAGE_LAYOUT_UNDEFINED													// VkImageLayout			initialLayout;
+
+	};
+	for (const auto& bindings	: randomLayout.layoutBindings)
+	for (const auto& binding	: bindings)
+	{
+		if (binding.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
+		{
+			for (deUint32 d = 0; d < binding.descriptorCount; ++d)
+			{
+				inputAttachments.push_back(createImage(vk, device, &imgCreateInfo));
+			}
+		}
+	}
+
+	de::MovePtr<Allocation> inputAttachmentAlloc;
+	VkDeviceSize			imageBlockSize = 0u;
+
+	if (inputAttachmentCount > 0u)
+	{
+		VkMemoryRequirements	imageReqs		= getImageMemoryRequirements(vk, device, inputAttachments.back().get());
+		VkDeviceSize			mod				= imageReqs.size % imageReqs.alignment;
+
+		// Create memory for every input attachment image.
+		imageBlockSize	= imageReqs.size + ((mod == 0u) ? 0u : (imageReqs.alignment - mod));
+		imageReqs.size	= imageBlockSize * inputAttachmentCount;
+		inputAttachmentAlloc = allocator.allocate(imageReqs, MemoryRequirement::Any);
+	}
+
+	// Bind memory to each input attachment and create an image view.
+	VkImageViewCreateInfo		inputAttachmentViewParams =
+	{
+		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,		// VkStructureType			sType;
+		DE_NULL,										// const void*				pNext;
+		0u,												// VkImageViewCreateFlags	flags;
+		DE_NULL,										// VkImage					image;
+		VK_IMAGE_VIEW_TYPE_2D,							// VkImageViewType			viewType;
+		VK_FORMAT_R32_SINT,								// VkFormat					format;
+		{												// VkComponentMapping		channels;
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY
+		},
+		{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }	// VkImageSubresourceRange	subresourceRange;
+	};
+	vector<Move<VkImageView>>	inputAttachmentViews;
+	deUint32					attachmentIndex = 0;
+
+	for (const auto& bindings	: randomLayout.layoutBindings)
+	for (const auto& binding	: bindings)
+	{
+		if (binding.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
+		{
+			for (deUint32 d = 0; d < binding.descriptorCount; ++d)
+			{
+				vk::VkImage img = *inputAttachments[attachmentIndex];
+
+				VK_CHECK(vk.bindImageMemory(device, img, inputAttachmentAlloc->getMemory(), inputAttachmentAlloc->getOffset() + attachmentIndex * imageBlockSize));
+
+				inputAttachmentViewParams.image = img;
+				inputAttachmentViews.push_back(createImageView(vk, device, &inputAttachmentViewParams));
+
+				++attachmentIndex;
+			}
+		}
+	}
+
+	// Create a view for each descriptor. Fill descriptor 'd' with an integer
+	// value equal to 'd'. Skip inline uniform blocks and use images for input
+	// attachments.
+
+	Move<VkCommandPool>				cmdPool						= createCommandPool(vk, device, 0, queueFamilyIndex);
+	const VkQueue					queue						= m_context.getUniversalQueue();
+	Move<VkCommandBuffer>			cmdBuffer					= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+	const VkImageSubresourceRange	clearRange					=
+	{
+		VK_IMAGE_ASPECT_COLOR_BIT,	// VkImageAspectFlags	aspectMask;
+		0u,			// deUint32				baseMipLevel;
+		1u,			// deUint32				levelCount;
+		0u,			// deUint32				baseArrayLayer;
+		1u			// deUint32				layerCount;
+	};
+
+	VkImageMemoryBarrier			preImageBarrier				=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,				// VkStructureType		sType
+		DE_NULL,											// const void*			pNext
+		0u,													// VkAccessFlags		srcAccessMask
+		VK_ACCESS_TRANSFER_WRITE_BIT,						// VkAccessFlags		dstAccessMask
+		VK_IMAGE_LAYOUT_UNDEFINED,							// VkImageLayout		oldLayout
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,				// VkImageLayout		newLayout
+		VK_QUEUE_FAMILY_IGNORED,							// uint32_t				srcQueueFamilyIndex
+		VK_QUEUE_FAMILY_IGNORED,							// uint32_t				dstQueueFamilyIndex
+		DE_NULL,											// VkImage				image
+		{
+			VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspectMask
+			0u,										// uint32_t				baseMipLevel
+			1u,										// uint32_t				mipLevels,
+			0u,										// uint32_t				baseArray
+			1u,										// uint32_t				arraySize
+		}
+	};
+
+	VkImageMemoryBarrier			postImageBarrier			=
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		// VkStructureType			sType;
+		DE_NULL,									// const void*				pNext;
+		VK_ACCESS_TRANSFER_WRITE_BIT,				// VkAccessFlags			srcAccessMask;
+		VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,		// VkAccessFlags			dstAccessMask;
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,		// VkImageLayout			oldLayout;
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,	// VkImageLayout			newLayout;
+		VK_QUEUE_FAMILY_IGNORED,					// deUint32					srcQueueFamilyIndex;
+		VK_QUEUE_FAMILY_IGNORED,					// deUint32					dstQueueFamilyIndex;
+		DE_NULL,									// VkImage					image;
+		clearRange,									// VkImageSubresourceRange	subresourceRange;
+	};
+
+	vk::VkClearColorValue			clearValue;
+	clearValue.uint32[0] = 0u;
+	clearValue.uint32[1] = 0u;
+	clearValue.uint32[2] = 0u;
+	clearValue.uint32[3] = 0u;
+
+	beginCommandBuffer(vk, *cmdBuffer, 0u);
+
+	int descriptor	= 0;
+	attachmentIndex = 0;
+
+	typedef vk::Unique<vk::VkBufferView>		BufferViewHandleUp;
+	typedef de::SharedPtr<BufferViewHandleUp>	BufferViewHandleSp;
+
+	vector<BufferViewHandleSp>					bufferViews(de::max(1u,numDescriptors));
+
 	for (deUint32 s = 0; s < m_data.numDescriptorSets; ++s)
 	{
 		vector<VkDescriptorSetLayoutBinding> &bindings = randomLayout.layoutBindings[s];
@@ -1007,7 +1166,8 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 			{
 				continue;
 			}
-			if (binding.descriptorType != VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
+			if (binding.descriptorType != VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT &&
+				binding.descriptorType != VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)
 			{
 				for (deUint32 d = descriptor; d < descriptor + binding.descriptorCount; ++d)
 				{
@@ -1029,33 +1189,46 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 				}
 				descriptor += binding.descriptorCount;
 			}
-			else
+			else if (binding.descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
 			{
 				// subtract 16 for "ivec4 dummy"
 				DE_ASSERT(binding.descriptorCount >= 16);
 				descriptor += binding.descriptorCount - 16;
 			}
+			else
+			{
+				// Input attachment.
+				for (deUint32 d = descriptor; d < descriptor + binding.descriptorCount; ++d)
+				{
+					VkImage img = *inputAttachments[attachmentIndex];
+
+					preImageBarrier.image	= img;
+					clearValue.uint32[0]	= d;
+					postImageBarrier.image	= img;
+
+					vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, &preImageBarrier);
+					vk.cmdClearColorImage(*cmdBuffer, img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearValue, 1, &clearRange);
+					vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, &postImageBarrier);
+
+					++attachmentIndex;
+				}
+				descriptor += binding.descriptorCount;
+			}
 		}
 	}
 
+	// Flush modified memory.
 	flushMappedMemoryRange(vk, device, buffer->getAllocation().getMemory(), buffer->getAllocation().getOffset(), VK_WHOLE_SIZE);
 
-	const VkQueue					queue					= m_context.getUniversalQueue();
-	Move<VkCommandPool>				cmdPool					= createCommandPool(vk, device, 0, m_context.getUniversalQueueFamilyIndex());
-	Move<VkCommandBuffer>			cmdBuffer				= allocateCommandBuffer(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-
-	beginCommandBuffer(vk, *cmdBuffer, 0u);
-
 	// Push constants are used for dynamic indexing. PushConstant[i] = i.
-
-	const VkPushConstantRange pushConstRange =
+	const VkPushConstantRange			pushConstRange			=
 	{
-		allShaderStages,		// VkShaderStageFlags	stageFlags
+		m_data.allShaderStages,	// VkShaderStageFlags	stageFlags
 		0,						// deUint32				offset
 		128						// deUint32				size
 	};
 
-	vector<vk::VkDescriptorSetLayout>	descriptorSetLayoutsRaw(m_data.numDescriptorSets);
+	vector<vk::VkDescriptorSetLayout>	descriptorSetLayoutsRaw	(m_data.numDescriptorSets);
 	for (size_t i = 0; i < m_data.numDescriptorSets; ++i)
 	{
 		descriptorSetLayoutsRaw[i] = descriptorSetLayouts[i].get();
@@ -1079,7 +1252,7 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 		// PushConstant[i] = i
 		for (deUint32 i = 0; i < (deUint32)(128 / sizeof(deUint32)); ++i)
 		{
-			vk.cmdPushConstants(*cmdBuffer, *pipelineLayout, allShaderStages,
+			vk.cmdPushConstants(*cmdBuffer, *pipelineLayout, m_data.allShaderStages,
 								(deUint32)(i * sizeof(deUint32)), (deUint32)sizeof(deUint32), &i);
 		}
 	}
@@ -1122,10 +1295,10 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 		VK_IMAGE_VIEW_TYPE_2D,						// VkImageViewType			viewType;
 		VK_FORMAT_R32_UINT,							// VkFormat					format;
 		{
-			VK_COMPONENT_SWIZZLE_R,					// VkComponentSwizzle	r;
-			VK_COMPONENT_SWIZZLE_G,					// VkComponentSwizzle	g;
-			VK_COMPONENT_SWIZZLE_B,					// VkComponentSwizzle	b;
-			VK_COMPONENT_SWIZZLE_A					// VkComponentSwizzle	a;
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY
 		},											// VkComponentMapping		 components;
 		{
 			VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspectFlags	aspectMask;
@@ -1144,11 +1317,13 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 	imageViewCreateInfo.image = **image;
 	imageView = createImageView(vk, device, &imageViewCreateInfo, NULL);
 
-	descriptor = 0;
+	descriptor		= 0;
+	attachmentIndex	= 0;
+
 	for (deUint32 s = 0; s < m_data.numDescriptorSets; ++s)
 	{
 		vector<VkDescriptorSetLayoutBinding> &bindings = randomLayout.layoutBindings[s];
-		vector<VkDescriptorBindingFlagsEXT> &bindingsFlags = randomLayout.layoutBindingFlags[s];
+		vector<VkDescriptorBindingFlags> &bindingsFlags = randomLayout.layoutBindingFlags[s];
 		vector<deUint32> &arraySizes = randomLayout.arraySizes[s];
 		vector<deUint32> &variableDescriptorSizes = randomLayout.variableDescriptorSizes;
 
@@ -1162,10 +1337,10 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 		int vecIndex = 0;
 		int numDynamic = 0;
 
-		vector<VkDescriptorUpdateTemplateEntry> imgTemplateEntriesBefore, imgTemplateEntriesAfter,
-												bufTemplateEntriesBefore, bufTemplateEntriesAfter,
-												texelBufTemplateEntriesBefore, texelBufTemplateEntriesAfter,
-												inlineTemplateEntriesBefore, inlineTemplateEntriesAfter;
+		vector<VkDescriptorUpdateTemplateEntry> imgTemplateEntriesBefore,		imgTemplateEntriesAfter,
+												bufTemplateEntriesBefore,		bufTemplateEntriesAfter,
+												texelBufTemplateEntriesBefore,	texelBufTemplateEntriesAfter,
+												inlineTemplateEntriesBefore,	inlineTemplateEntriesAfter;
 
 		for (size_t b = 0; b < bindings.size(); ++b)
 		{
@@ -1175,13 +1350,13 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 			// Construct the declaration for the binding
 			if (binding.descriptorCount > 0)
 			{
-				bool updateAfterBind = !!(bindingsFlags[b] & VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT);
+				bool updateAfterBind = !!(bindingsFlags[b] & VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
 				for (deUint32 ai = 0; ai < de::max(1u, arraySizes[b]); ++ai, descriptor += descriptorIncrement)
 				{
 					// Don't access descriptors past the end of the allocated range for
 					// variable descriptor count
 					if (b == bindings.size() - 1 &&
-						(bindingsFlags[b] & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT))
+						(bindingsFlags[b] & VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT))
 					{
 						if (binding.descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
 						{
@@ -1198,33 +1373,45 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 					}
 
 					// output image
-					imageInfoVec[vecIndex] = makeDescriptorImageInfo(DE_NULL, *imageView, VK_IMAGE_LAYOUT_GENERAL);
-
-					if (binding.descriptorType != VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
+					switch (binding.descriptorType)
 					{
+					case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+						// Output image.
+						imageInfoVec[vecIndex] = makeDescriptorImageInfo(DE_NULL, *imageView, VK_IMAGE_LAYOUT_GENERAL);
+						break;
+					case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+						imageInfoVec[vecIndex] = makeDescriptorImageInfo(DE_NULL, inputAttachmentViews[attachmentIndex].get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+						++attachmentIndex;
+						break;
+					case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT:
+						// Handled below.
+						break;
+					default:
+						// Other descriptor types.
 						bufferInfoVec[vecIndex] = makeDescriptorBufferInfo(**buffer, descriptor*align, sizeof(deUint32));
 						bufferViewVec[vecIndex] = **bufferViews[descriptor];
+						break;
 					}
 
 					descriptorNumber[descriptor] = descriptor;
 
 					VkWriteDescriptorSet w =
 					{
-						VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,							// sType
-						DE_NULL,														// pNext
-						*descriptorSets[s],												// dstSet
-						(deUint32)b,													// binding
-						ai,																// dstArrayElement
-						1u,																// descriptorCount
-						binding.descriptorType,											// descriptorType
-						&imageInfoVec[vecIndex],										// pImageInfo
-						&bufferInfoVec[vecIndex],										// pBufferInfo
-						&bufferViewVec[vecIndex],										// pTexelBufferView
+						VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,		// sType
+						DE_NULL,									// pNext
+						*descriptorSets[s],							// dstSet
+						(deUint32)b,								// binding
+						ai,											// dstArrayElement
+						1u,											// descriptorCount
+						binding.descriptorType,						// descriptorType
+						&imageInfoVec[vecIndex],					// pImageInfo
+						&bufferInfoVec[vecIndex],					// pBufferInfo
+						&bufferViewVec[vecIndex],					// pTexelBufferView
 					};
 
 					if (binding.descriptorType == VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT)
 					{
-						VkWriteDescriptorSetInlineUniformBlockEXT inlineUniformBlock =
+						VkWriteDescriptorSetInlineUniformBlockEXT iuBlock =
 						{
 							VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK_EXT,	// VkStructureType	sType;
 							DE_NULL,															// const void*		pNext;
@@ -1232,7 +1419,7 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 							&descriptorNumber[descriptor],										// const void*		pData;
 						};
 
-						inlineInfoVec[vecIndex] = inlineUniformBlock;
+						inlineInfoVec[vecIndex] = iuBlock;
 						w.dstArrayElement = ai*16 + 16; // add 16 to skip "ivec4 dummy"
 						w.pNext = &inlineInfoVec[vecIndex];
 						w.descriptorCount = sizeof(deUint32);
@@ -1252,6 +1439,7 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 					{
 					default: DE_ASSERT(0); // Fallthrough
 					case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+					case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
 						templateEntry.offset = vecIndex * sizeof(VkDescriptorImageInfo);
 						(updateAfterBind ? imgTemplateEntriesAfter : imgTemplateEntriesBefore).push_back(templateEntry);
 						break;
@@ -1313,10 +1501,10 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 
 			void *templateVectorData[] =
 			{
-				&imageInfoVec[0],
-				&bufferInfoVec[0],
-				&bufferViewVec[0],
-				&descriptorNumber[0],
+				imageInfoVec.data(),
+				bufferInfoVec.data(),
+				bufferViewVec.data(),
+				descriptorNumber.data(),
 			};
 
 			vector<VkDescriptorUpdateTemplateEntry> *templateVectorsBefore[] =
@@ -1335,12 +1523,12 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 				&inlineTemplateEntriesAfter,
 			};
 
-			for (size_t i = 0; i < sizeof(templateVectorsBefore) / sizeof(templateVectorsBefore[0]); ++i)
+			for (size_t i = 0; i < DE_LENGTH_OF_ARRAY(templateVectorsBefore); ++i)
 			{
 				if (templateVectorsBefore[i]->size())
 				{
 					templateCreateInfo.descriptorUpdateEntryCount = (deUint32)templateVectorsBefore[i]->size();
-					templateCreateInfo.pDescriptorUpdateEntries = &((*templateVectorsBefore[i])[0]);
+					templateCreateInfo.pDescriptorUpdateEntries = templateVectorsBefore[i]->data();
 					Move<VkDescriptorUpdateTemplate> descriptorUpdateTemplate = createDescriptorUpdateTemplate(vk, device, &templateCreateInfo, NULL);
 					vk.updateDescriptorSetWithTemplate(device, descriptorSets[s].get(), *descriptorUpdateTemplate, templateVectorData[i]);
 				}
@@ -1348,12 +1536,12 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 
 			vk.cmdBindDescriptorSets(*cmdBuffer, bindPoint, *pipelineLayout, s, 1, &descriptorSets[s].get(), numDynamic, &zeros[0]);
 
-			for (size_t i = 0; i < sizeof(templateVectorsAfter) / sizeof(templateVectorsAfter[0]); ++i)
+			for (size_t i = 0; i < DE_LENGTH_OF_ARRAY(templateVectorsAfter); ++i)
 			{
 				if (templateVectorsAfter[i]->size())
 				{
 					templateCreateInfo.descriptorUpdateEntryCount = (deUint32)templateVectorsAfter[i]->size();
-					templateCreateInfo.pDescriptorUpdateEntries = &((*templateVectorsAfter[i])[0]);
+					templateCreateInfo.pDescriptorUpdateEntries = templateVectorsAfter[i]->data();
 					Move<VkDescriptorUpdateTemplate> descriptorUpdateTemplate = createDescriptorUpdateTemplate(vk, device, &templateCreateInfo, NULL);
 					vk.updateDescriptorSetWithTemplate(device, descriptorSets[s].get(), *descriptorUpdateTemplate, templateVectorData[i]);
 				}
@@ -1379,6 +1567,8 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 	Move<VkPipeline> pipeline;
 	Move<VkRenderPass> renderPass;
 	Move<VkFramebuffer> framebuffer;
+
+	de::MovePtr<BufferWithMemory> sbtBuffer;
 
 	if (m_data.stage == STAGE_COMPUTE)
 	{
@@ -1407,48 +1597,143 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 		};
 		pipeline = createComputePipeline(vk, device, DE_NULL, &pipelineCreateInfo, NULL);
 	}
+	else if (m_data.stage == STAGE_RAYGEN)
+	{
+		const Unique<VkShaderModule>	shader(createShaderModule(vk, device, m_context.getBinaryCollection().get("test"), 0));
+
+		const VkPipelineShaderStageCreateInfo	shaderCreateInfo =
+		{
+			VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			DE_NULL,
+			(VkPipelineShaderStageCreateFlags)0,
+			VK_SHADER_STAGE_RAYGEN_BIT_NV,								// stage
+			*shader,													// shader
+			"main",
+			DE_NULL,													// pSpecializationInfo
+		};
+
+		VkRayTracingShaderGroupCreateInfoNV group =
+		{
+			VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV,
+			DE_NULL,
+			VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_NV,			// type
+			0,														// generalShader
+			VK_SHADER_UNUSED_NV,									// closestHitShader
+			VK_SHADER_UNUSED_NV,									// anyHitShader
+			VK_SHADER_UNUSED_NV,									// intersectionShader
+		};
+
+		VkRayTracingPipelineCreateInfoNV pipelineCreateInfo = {
+			VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_NV,	// sType
+			DE_NULL,												// pNext
+			0,														// flags
+			1,														// stageCount
+			&shaderCreateInfo,										// pStages
+			1,														// groupCount
+			&group,													// pGroups
+			0,														// maxRecursionDepth
+			*pipelineLayout,										// layout
+			(vk::VkPipeline)0,										// basePipelineHandle
+			0u,														// basePipelineIndex
+		};
+
+		pipeline = createRayTracingPipelineNV(vk, device, DE_NULL, &pipelineCreateInfo, NULL);
+
+		sbtBuffer = de::MovePtr<BufferWithMemory>(new BufferWithMemory(
+			vk, device, allocator, makeBufferCreateInfo(rayTracingProperties.shaderGroupHandleSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_RAY_TRACING_BIT_NV), MemoryRequirement::HostVisible));
+
+		deUint32 *ptr = (deUint32 *)sbtBuffer->getAllocation().getHostPtr();
+		invalidateMappedMemoryRange(vk, device, sbtBuffer->getAllocation().getMemory(), sbtBuffer->getAllocation().getOffset(), rayTracingProperties.shaderGroupHandleSize);
+
+		vk.getRayTracingShaderGroupHandlesNV(device, *pipeline, 0, 1, rayTracingProperties.shaderGroupHandleSize, ptr);
+	}
 	else
 	{
-
-		const vk::VkSubpassDescription		subpassDesc			=
+		const VkAttachmentDescription	attachmentDescription	=
 		{
-			(vk::VkSubpassDescriptionFlags)0,
-			vk::VK_PIPELINE_BIND_POINT_GRAPHICS,					// pipelineBindPoint
-			0u,														// inputCount
-			DE_NULL,												// pInputAttachments
-			0u,														// colorCount
-			DE_NULL,												// pColorAttachments
-			DE_NULL,												// pResolveAttachments
-			DE_NULL,												// depthStencilAttachment
-			0u,														// preserveCount
-			DE_NULL,												// pPreserveAttachments
+			// Input attachment
+			(VkAttachmentDescriptionFlags)0,			// VkAttachmentDescriptionFlags	flags
+			VK_FORMAT_R32_SINT,							// VkFormat						format
+			VK_SAMPLE_COUNT_1_BIT,						// VkSampleCountFlagBits		samples
+			VK_ATTACHMENT_LOAD_OP_LOAD,					// VkAttachmentLoadOp			loadOp
+			VK_ATTACHMENT_STORE_OP_STORE,				// VkAttachmentStoreOp			storeOp
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,			// VkAttachmentLoadOp			stencilLoadOp
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,			// VkAttachmentStoreOp			stencilStoreOp
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,	// VkImageLayout				initialLayout
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL	// VkImageLayout				finalLayout
 		};
-		const vk::VkRenderPassCreateInfo	renderPassParams	=
+
+		vector<VkAttachmentDescription> attachmentDescriptions	(inputAttachments.size(), attachmentDescription);
+		vector<VkAttachmentReference>	attachmentReferences;
+
+		attachmentReferences.reserve(inputAttachments.size());
+		VkAttachmentReference attachmentReference =
 		{
-			vk::VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,			// sType
-			DE_NULL,												// pNext
-			(vk::VkRenderPassCreateFlags)0,
-			0u,														// attachmentCount
-			DE_NULL,												// pAttachments
-			1u,														// subpassCount
-			&subpassDesc,											// pSubpasses
-			0u,														// dependencyCount
-			DE_NULL,												// pDependencies
+			0u,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+		for (size_t i = 0; i < inputAttachments.size(); ++i)
+		{
+			attachmentReference.attachment = static_cast<deUint32>(i);
+			attachmentReferences.push_back(attachmentReference);
+		}
+
+		const VkSubpassDescription		subpassDesc				=
+		{
+			(VkSubpassDescriptionFlags)0,											// VkSubpassDescriptionFlags	flags
+			VK_PIPELINE_BIND_POINT_GRAPHICS,										// VkPipelineBindPoint			pipelineBindPoint
+			static_cast<deUint32>(attachmentReferences.size()),						// deUint32						inputAttachmentCount
+			(attachmentReferences.empty() ? DE_NULL : attachmentReferences.data()),	// const VkAttachmentReference*	pInputAttachments
+			0u,																		// deUint32						colorAttachmentCount
+			DE_NULL,																// const VkAttachmentReference*	pColorAttachments
+			DE_NULL,																// const VkAttachmentReference*	pResolveAttachments
+			DE_NULL,																// const VkAttachmentReference*	pDepthStencilAttachment
+			0u,																		// deUint32						preserveAttachmentCount
+			DE_NULL																	// const deUint32*				pPreserveAttachments
+		};
+
+		const VkSubpassDependency		subpassDependency		=
+		{
+			VK_SUBPASS_EXTERNAL,							// deUint32				srcSubpass
+			0,												// deUint32				dstSubpass
+			VK_PIPELINE_STAGE_TRANSFER_BIT,					// VkPipelineStageFlags	srcStageMask
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,			// VkPipelineStageFlags	dstStageMask
+			VK_ACCESS_TRANSFER_WRITE_BIT,					// VkAccessFlags		srcAccessMask
+			VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT,	//	dstAccessMask
+			VK_DEPENDENCY_BY_REGION_BIT						// VkDependencyFlags	dependencyFlags
+		};
+
+		const VkRenderPassCreateInfo	renderPassParams		=
+		{
+			VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,				// VkStructureTypei					sType
+			DE_NULL,												// const void*						pNext
+			(VkRenderPassCreateFlags)0,								// VkRenderPassCreateFlags			flags
+			static_cast<deUint32>(attachmentDescriptions.size()),	// deUint32							attachmentCount
+			attachmentDescriptions.data(),							// const VkAttachmentDescription*	pAttachments
+			1u,														// deUint32							subpassCount
+			&subpassDesc,											// const VkSubpassDescription*		pSubpasses
+			1u,														// deUint32							dependencyCount
+			&subpassDependency										// const VkSubpassDependency*		pDependencies
 		};
 
 		renderPass = createRenderPass(vk, device, &renderPassParams);
 
+		vector<VkImageView> rawInputAttachmentViews;
+		rawInputAttachmentViews.reserve(inputAttachmentViews.size());
+		transform(begin(inputAttachmentViews), end(inputAttachmentViews), back_inserter(rawInputAttachmentViews),
+				  [](const Move<VkImageView>& ptr) { return ptr.get(); });
+
 		const vk::VkFramebufferCreateInfo	framebufferParams	=
 		{
-			vk::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,	// sType
-			DE_NULL,										// pNext
+			vk::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,			// sType
+			DE_NULL,												// pNext
 			(vk::VkFramebufferCreateFlags)0,
-			*renderPass,									// renderPass
-			0u,												// attachmentCount
-			DE_NULL,										// pAttachments
-			DIM,											// width
-			DIM,											// height
-			1u,												// layers
+			*renderPass,											// renderPass
+			static_cast<deUint32>(rawInputAttachmentViews.size()),	// attachmentCount
+			rawInputAttachmentViews.data(),							// pAttachments
+			DIM,													// width
+			DIM,													// height
+			1u,														// layers
 		};
 
 		framebuffer = createFramebuffer(vk, device, &framebufferParams);
@@ -1625,12 +1910,21 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 
 	memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	memBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-	vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, allPipelineStages,
+	vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, m_data.allPipelineStages,
 		0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 
 	if (m_data.stage == STAGE_COMPUTE)
 	{
 		vk.cmdDispatch(*cmdBuffer, DIM, DIM, 1);
+	}
+	else if (m_data.stage == STAGE_RAYGEN)
+	{
+		vk.cmdTraceRaysNV(*cmdBuffer,
+			**sbtBuffer, 0,
+			DE_NULL, 0, 0,
+			DE_NULL, 0, 0,
+			DE_NULL, 0, 0,
+			DIM, DIM, 1);
 	}
 	else
 	{
@@ -1651,7 +1945,7 @@ tcu::TestStatus DescriptorSetRandomTestInstance::iterate (void)
 
 	memBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
 	memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-	vk.cmdPipelineBarrier(*cmdBuffer, allPipelineStages, VK_PIPELINE_STAGE_TRANSFER_BIT,
+	vk.cmdPipelineBarrier(*cmdBuffer, m_data.allPipelineStages, VK_PIPELINE_STAGE_TRANSFER_BIT,
 		0, 1, &memBarrier, 0, DE_NULL, 0, DE_NULL);
 
 	const VkBufferImageCopy copyRegion = makeBufferImageCopy(makeExtent3D(DIM, DIM, 1u),
@@ -1722,6 +2016,13 @@ tcu::TestCaseGroup*	createDescriptorSetRandomTests (tcu::TestContext& testCtx)
 		{ 4096,			"sbolimithigh",		"high ssbo limit"			},
 	};
 
+	TestGroupCase iaCases[] =
+	{
+		{ 0,			"noia",				"no input attachments"					},
+		{ 4,			"ialimitlow",		"spec minmax input attachment limit"	},
+		{ 64,			"ialimithigh",		"high input attachment limit"			},
+	};
+
 	static const struct
 	{
 		deUint32				texCount;
@@ -1752,11 +2053,13 @@ tcu::TestCaseGroup*	createDescriptorSetRandomTests (tcu::TestContext& testCtx)
 		{ STAGE_COMPUTE,	"comp",		"compute"	},
 		{ STAGE_FRAGMENT,	"frag",		"fragment"	},
 		{ STAGE_VERTEX,		"vert",		"vertex"	},
+		{ STAGE_RAYGEN,		"rgen",		"raygen"	},
 	};
 
 	TestGroupCase uabCases[] =
 	{
 		{ UPDATE_AFTER_BIND_DISABLED,	"nouab",	"no update after bind"		},
+		{ UPDATE_AFTER_BIND_ENABLED,	"uab",		"enable update after bind"	},
 	};
 
 	for (int setsNdx = 0; setsNdx < DE_LENGTH_OF_ARRAY(setsCases); setsNdx++)
@@ -1783,29 +2086,47 @@ tcu::TestCaseGroup*	createDescriptorSetRandomTests (tcu::TestContext& testCtx)
 								bool updateAfterBind = (UpdateAfterBind)uabCases[uabNdx].count == UPDATE_AFTER_BIND_ENABLED;
 								for (int stageNdx = 0; stageNdx < DE_LENGTH_OF_ARRAY(stageCases); stageNdx++)
 								{
+									Stage currentStage = static_cast<Stage>(stageCases[stageNdx].count);
 									de::MovePtr<tcu::TestCaseGroup> stageGroup(new tcu::TestCaseGroup(testCtx, stageCases[stageNdx].name, stageCases[stageNdx].description));
-									deUint32 numSeeds = (setsCases[setsNdx].count == 4 && uboNdx == 0 && sboNdx == 0 && imgNdx == 0 && iubNdx == 0) ? 10 : 1;
-									for (deUint32 rnd = 0; rnd < numSeeds; ++rnd)
+									for (int iaNdx = 0; iaNdx < DE_LENGTH_OF_ARRAY(iaCases); ++iaNdx)
 									{
-										CaseDef c =
+										if (currentStage == STAGE_FRAGMENT || iaCases[iaNdx].count == 0u)
 										{
-											(IndexType)indexCases[indexNdx].count,							// IndexType indexType;
-											setsCases[setsNdx].count,										// deUint32 numDescriptorSets;
-											uboCases[uboNdx].count,											// deUint32 maxPerStageUniformBuffers;
-											8,																// deUint32 maxUniformBuffersDynamic;
-											sboCases[sboNdx].count,											// deUint32 maxPerStageStorageBuffers;
-											4,																// deUint32 maxStorageBuffersDynamic;
-											imgCases[imgNdx].texCount,										// deUint32 maxPerStageSampledImages;
-											imgCases[imgNdx].imgCount,										// deUint32 maxPerStageStorageImages;
-											iubCases[iubNdx].iubCount,										// deUint32 maxInlineUniformBlocks;
-											iubCases[iubNdx].iubSize,										// deUint32 maxInlineUniformBlockSize;
-											(Stage)stageCases[stageNdx].count,								// Stage stage;
-											(UpdateAfterBind)uabCases[uabNdx].count,						// UpdateAfterBind uab;
-											seed++,															// deUint32 seed;
-										};
+											de::MovePtr<tcu::TestCaseGroup> iaGroup(new tcu::TestCaseGroup(testCtx, iaCases[iaNdx].name, iaCases[iaNdx].description));
+											deUint32 numSeeds = (setsCases[setsNdx].count == 4 && uboNdx == 0 && sboNdx == 0 && imgNdx == 0 && iubNdx == 0 && iaNdx < 2) ? 10 : 1;
+											for (deUint32 rnd = 0; rnd < numSeeds; ++rnd)
+											{
+												VkFlags allShaderStages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+												VkFlags allPipelineStages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+												if ((Stage)stageCases[stageNdx].count == STAGE_RAYGEN) {
+													allShaderStages |= VK_SHADER_STAGE_RAYGEN_BIT_NV;
+													allPipelineStages |= VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV;
+												}
+												CaseDef c =
+												{
+													(IndexType)indexCases[indexNdx].count,							// IndexType indexType;
+													setsCases[setsNdx].count,										// deUint32 numDescriptorSets;
+													uboCases[uboNdx].count,											// deUint32 maxPerStageUniformBuffers;
+													8,																// deUint32 maxUniformBuffersDynamic;
+													sboCases[sboNdx].count,											// deUint32 maxPerStageStorageBuffers;
+													4,																// deUint32 maxStorageBuffersDynamic;
+													imgCases[imgNdx].texCount,										// deUint32 maxPerStageSampledImages;
+													imgCases[imgNdx].imgCount,										// deUint32 maxPerStageStorageImages;
+													iubCases[iubNdx].iubCount,										// deUint32 maxInlineUniformBlocks;
+													iubCases[iubNdx].iubSize,										// deUint32 maxInlineUniformBlockSize;
+													iaCases[iaNdx].count,											// deUint32 maxPerStageInputAttachments;
+													currentStage,													// Stage stage;
+													(UpdateAfterBind)uabCases[uabNdx].count,						// UpdateAfterBind uab;
+													seed++,															// deUint32 seed;
+													allShaderStages,												// VkFlags allShaderStages;
+													allPipelineStages,												// VkFlags allPipelineStages;
+												};
 
-										string name = de::toString(rnd);
-										stageGroup->addChild(new DescriptorSetRandomTestCase(testCtx, name.c_str(), "test", c));
+												string name = de::toString(rnd);
+												iaGroup->addChild(new DescriptorSetRandomTestCase(testCtx, name.c_str(), "test", c));
+											}
+											stageGroup->addChild(iaGroup.release());
+										}
 									}
 									(updateAfterBind ? uabGroup : iubGroup)->addChild(stageGroup.release());
 								}

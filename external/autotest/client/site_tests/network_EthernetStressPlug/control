@@ -8,8 +8,7 @@ PURPOSE = "Stress-test Ethernet plug/unplug"
 CRITERIA = """
 This test fails if device fails to obtain dhcp through ethernet.
 """
-ATTRIBUTES = "suite:stress_experimental"
-
+# Note: This is now only for manual run.
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "network"

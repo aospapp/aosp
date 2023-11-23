@@ -37,7 +37,7 @@ errcode_t e2fsck_allocate_context(e2fsck_t *ret)
 
 	time_env = getenv("E2FSCK_TIME");
 	if (time_env)
-		context->now = strtoul(time_env, NULL, 0);
+		context->now = (time_t) strtoull(time_env, NULL, 0);
 	else {
 		context->now = time(0);
 		if (context->now < 1262322000) /* January 1 2010 */
@@ -158,6 +158,10 @@ errcode_t e2fsck_reset_context(e2fsck_t ctx)
 		ext2fs_u32_list_free(ctx->encrypted_dirs);
 		ctx->encrypted_dirs = 0;
 	}
+	if (ctx->casefolded_dirs) {
+		ext2fs_u32_list_free(ctx->casefolded_dirs);
+		ctx->casefolded_dirs = 0;
+	}
 	if (ctx->inode_count) {
 		ext2fs_free_icount(ctx->inode_count);
 		ctx->inode_count = 0;
@@ -215,6 +219,13 @@ void e2fsck_free_context(e2fsck_t ctx)
 	if (ctx->logf)
 		fclose(ctx->logf);
 
+	if (ctx->problem_log_fn)
+		free(ctx->problem_log_fn);
+
+	if (ctx->problem_logf) {
+		fputs("</problem_log>\n", ctx->problem_logf);
+		fclose(ctx->problem_logf);
+	}
 	ext2fs_free_mem(&ctx);
 }
 

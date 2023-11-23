@@ -36,7 +36,8 @@ _BUG_TEMPLATE = {
     'cc': []
 }
 
-args_dict['timeout_mins'] = 960
+args_dict['max_runtime_mins'] = 960
+args_dict['timeout_mins'] = 1440
 args_dict['file_bugs'] = False
 args_dict['name'] = 'crosbolt_perf_perbuild'
 args_dict['job'] = job

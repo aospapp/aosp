@@ -5,7 +5,6 @@
 # This module provides helper method to parse /etc/lsb-release file to extract
 # various information.
 
-import logging
 import os
 import re
 
@@ -118,13 +117,6 @@ def is_moblab(lsb_release_content=None):
 
     if os.path.exists(constants.LSB_RELEASE):
         return _lsbrelease_search(r'.*moblab')
-
-    try:
-        from chromite.lib import cros_build_lib
-        if cros_build_lib.IsInsideChroot():
-            return None
-    except ImportError as e:
-        logging.error('Unable to determine if this is a moblab system: %s', e)
 
 
 def is_jetstream(lsb_release_content=None):

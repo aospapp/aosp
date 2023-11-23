@@ -9,12 +9,12 @@
 
 #include <memory>
 
-#include "core/fdrm/crypto/fx_crypt.h"
+#include "core/fdrm/fx_crypt.h"
 #include "core/fxcrt/cfx_binarybuf.h"
-#include "core/fxcrt/fx_memory.h"
+#include "core/fxcrt/fx_memory_wrappers.h"
 #include "core/fxcrt/fx_string.h"
 #include "core/fxcrt/fx_system.h"
-#include "core/fxcrt/retain_ptr.h"
+#include "third_party/base/span.h"
 
 class CPDF_Dictionary;
 class CPDF_Object;
@@ -22,22 +22,16 @@ class CPDF_SecurityHandler;
 
 class CPDF_CryptoHandler {
  public:
-  CPDF_CryptoHandler(int cipher, const uint8_t* key, int keylen);
+  CPDF_CryptoHandler(int cipher, const uint8_t* key, size_t keylen);
   ~CPDF_CryptoHandler();
 
   static bool IsSignatureDictionary(const CPDF_Dictionary* dictionary);
 
-  std::unique_ptr<CPDF_Object> DecryptObjectTree(
-      std::unique_ptr<CPDF_Object> object);
-
-  uint32_t EncryptGetSize(uint32_t objnum,
-                          uint32_t version,
-                          const uint8_t* src_buf,
-                          uint32_t src_size);
+  bool DecryptObjectTree(RetainPtr<CPDF_Object> object);
+  size_t EncryptGetSize(pdfium::span<const uint8_t> source) const;
   bool EncryptContent(uint32_t objnum,
-                      uint32_t version,
-                      const uint8_t* src_buf,
-                      uint32_t src_size,
+                      uint32_t gennum,
+                      pdfium::span<const uint8_t> source,
                       uint8_t* dest_buf,
                       uint32_t& dest_size);
 
@@ -48,8 +42,7 @@ class CPDF_CryptoHandler {
   void* DecryptStart(uint32_t objnum, uint32_t gennum);
   ByteString Decrypt(uint32_t objnum, uint32_t gennum, const ByteString& str);
   bool DecryptStream(void* context,
-                     const uint8_t* src_buf,
-                     uint32_t src_size,
+                     pdfium::span<const uint8_t> source,
                      CFX_BinaryBuf& dest_buf);
   bool DecryptFinish(void* context, CFX_BinaryBuf& dest_buf);
 
@@ -57,22 +50,20 @@ class CPDF_CryptoHandler {
   void CryptBlock(bool bEncrypt,
                   uint32_t objnum,
                   uint32_t gennum,
-                  const uint8_t* src_buf,
-                  uint32_t src_size,
+                  pdfium::span<const uint8_t> source,
                   uint8_t* dest_buf,
                   uint32_t& dest_size);
   void* CryptStart(uint32_t objnum, uint32_t gennum, bool bEncrypt);
   bool CryptStream(void* context,
-                   const uint8_t* src_buf,
-                   uint32_t src_size,
+                   pdfium::span<const uint8_t> source,
                    CFX_BinaryBuf& dest_buf,
                    bool bEncrypt);
   bool CryptFinish(void* context, CFX_BinaryBuf& dest_buf, bool bEncrypt);
 
-  uint8_t m_EncryptKey[32];
-  int m_KeyLen;
-  int m_Cipher;
+  const size_t m_KeyLen;
+  const int m_Cipher;
   std::unique_ptr<CRYPT_aes_context, FxFreeDeleter> m_pAESContext;
+  uint8_t m_EncryptKey[32];
 };
 
 #endif  // CORE_FPDFAPI_PARSER_CPDF_CRYPTO_HANDLER_H_

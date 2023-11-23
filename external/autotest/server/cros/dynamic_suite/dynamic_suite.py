@@ -239,6 +239,7 @@ class _SuiteSpec(object):
             job_keyvals=None,
             test_args=None,
             child_dependencies=(),
+            test_names=None,
             **dargs):
         """
         Vets arguments for reimage_and_run() and populates self with supplied
@@ -300,6 +301,8 @@ class _SuiteSpec(object):
                           test that will be actually ran.
         @param child_dependencies: (optional) list of dependency strings
                 to be added as dependencies to child jobs.
+        @param test_names: (optional) if provided, Suite will consist of the
+                tests named in this list.
         @param **dargs: these arguments will be ignored.  This allows us to
                         deprecate and remove arguments in ToT while not
                         breaking branch builds.
@@ -334,7 +337,7 @@ class _SuiteSpec(object):
         self.test_args = test_args
         self.child_dependencies = child_dependencies
 
-        self._init_predicate(predicate)
+        self._init_predicate(predicate, test_names)
         self._init_suite_dependencies(suite_dependencies)
         self._init_devserver(devserver_url)
         self._init_test_source_build(test_source_build)
@@ -358,13 +361,17 @@ class _SuiteSpec(object):
                         'reimage_and_run() needs %s=<%r>'
                         % (key, expected_type))
 
-    def _init_predicate(self, predicate):
+    def _init_predicate(self, predicate, test_names):
         """Initialize predicate attribute."""
-        if predicate is None:
-            self.predicate = Suite.name_in_tag_predicate(self.name)
-        else:
-            self.predicate = predicate
+        if test_names:
+            self.predicate = Suite.test_name_in_list_predicate(test_names)
+            return
 
+        if predicate:
+            self.predicate = predicate
+            return
+
+        self.predicate = Suite.name_in_tag_predicate(self.name)
 
     def _init_suite_dependencies(self, suite_dependencies):
         """Initialize suite dependencies attribute."""
@@ -627,3 +634,21 @@ def _stage_artifacts_for_build(devserver, build):
     except dev_server.DevServerException as e:
         # If we can't get the control files, there's nothing to run.
         raise error.AsynchronousBuildFailure(e)
+
+
+# This function is used by the cros_test_platform suite, to unwrap json-decoded
+# arguments from the cros_test_platform recipe and convert them to byte string.
+#
+# It should not be used for other purposes. It exists in this module simply
+# to limit the number of necessary module imports in cros_test_platform.
+def byteify(input):
+    """Walk a json object, turning unicode strings into byte strings."""
+    if isinstance(input, dict):
+        return {byteify(key): byteify(value)
+                for key, value in input.iteritems()}
+    elif isinstance(input, list):
+        return [byteify(element) for element in input]
+    elif isinstance(input, unicode):
+        return input.encode('utf-8')
+    else:
+        return input

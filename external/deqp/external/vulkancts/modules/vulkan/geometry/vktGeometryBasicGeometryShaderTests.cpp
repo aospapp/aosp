@@ -40,6 +40,7 @@
 #include "vkCmdUtil.hpp"
 #include "vkMemUtil.hpp"
 #include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 #include "tcuTextureUtil.hpp"
 
 #include <string>
@@ -561,8 +562,9 @@ public:
 													 const char*		description,
 													 const vector<int>	pattern);
 
-	void					initPrograms			(SourceCollections&			sourceCollections) const;
-	virtual TestInstance*	createInstance			(Context&					context) const;
+	void					initPrograms			(SourceCollections&	sourceCollections) const;
+	virtual TestInstance*	createInstance			(Context&			context) const;
+	virtual void			checkSupport			(Context&			context) const;
 
 protected:
 	const vector<int> m_pattern;
@@ -573,6 +575,11 @@ GeometryOutputCountTest::GeometryOutputCountTest (TestContext& testCtx, const ch
 	, m_pattern	(pattern)
 {
 
+}
+
+void GeometryOutputCountTest::checkSupport (Context& context) const
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER);
 }
 
 void GeometryOutputCountTest::initPrograms (SourceCollections& sourceCollections) const
@@ -602,6 +609,10 @@ void GeometryOutputCountTest::initPrograms (SourceCollections& sourceCollections
 			<< "layout(triangle_strip, max_vertices = " << max_vertices << ") out;\n"
 			<< "layout(location = 0) in highp vec4 v_geom_FragColor[];\n"
 			<< "layout(location = 0) out highp vec4 v_frag_FragColor;\n"
+			<< "out gl_PerVertex\n"
+			<< "{\n"
+			<< "	vec4 gl_Position;\n"
+			<< "};\n"
 			<< "void main (void)\n"
 			<< "{\n"
 			<< "	const highp float rowHeight = 2.0 / float(" << m_pattern.size() << ");\n"
@@ -654,6 +665,7 @@ public:
 													 const ShaderInstancingMode	mode);
 	void					initPrograms			(SourceCollections&			sourceCollections) const;
 	virtual TestInstance*	createInstance			(Context&					context) const;
+	virtual void			checkSupport			(Context&					context) const;
 protected:
 	const VaryingSource			m_test;
 	const ShaderInstancingMode	m_mode;
@@ -664,6 +676,11 @@ VaryingOutputCountCase::VaryingOutputCountCase (TestContext& testCtx, const char
 	, m_test	(test)
 	, m_mode	(mode)
 {
+}
+
+void VaryingOutputCountCase::checkSupport (Context& context) const
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER);
 }
 
 void VaryingOutputCountCase::initPrograms (SourceCollections& sourceCollections) const
@@ -719,6 +736,10 @@ void VaryingOutputCountCase::initPrograms (SourceCollections& sourceCollections)
 				src	<< "layout(triangle_strip, max_vertices = 128) out;\n"
 					<< "layout(location = 0) in highp vec4 v_geom_emitCount[];\n"
 					<< "layout(location = 0) out highp vec4 v_frag_FragColor;\n"
+					<< "out gl_PerVertex\n"
+					<< "{\n"
+					<< "	vec4 gl_Position;\n"
+					<< "};\n"
 					<< "void main (void)\n"
 					<< "{\n"
 					<< "	highp vec4 attrEmitCounts = v_geom_emitCount[0];\n"
@@ -744,6 +765,10 @@ void VaryingOutputCountCase::initPrograms (SourceCollections& sourceCollections)
 					<< "	ivec4 u_emitCount;\n"
 					<< "} emit;\n"
 					<< "layout(location = 0) out highp vec4 v_frag_FragColor;\n"
+					<< "out gl_PerVertex\n"
+					<< "{\n"
+					<< "	vec4 gl_Position;\n"
+					<< "};\n"
 					<< "void main (void)\n"
 					<< "{\n"
 					<< "	mediump int primitiveNdx = " << ((instanced) ? ("gl_InvocationID") : ("int(v_geom_vertexNdx[0].x)")) << ";\n"
@@ -774,6 +799,10 @@ void VaryingOutputCountCase::initPrograms (SourceCollections& sourceCollections)
 					<< "layout(location = 0) in highp vec4 v_geom_vertexNdx[];\n"
 					<< "layout(binding = 0) uniform highp sampler2D u_sampler;\n"
 					<< "layout(location = 0) out highp vec4 v_frag_FragColor;\n"
+					<< "out gl_PerVertex\n"
+					<< "{\n"
+					<< "	vec4 gl_Position;\n"
+					<< "};\n"
 					<< "void main (void)\n"
 					<< "{\n"
 					<< "	highp float primitiveNdx = " << ((instanced) ? ("float(gl_InvocationID)") : ("v_geom_vertexNdx[0].x")) << ";\n"
@@ -842,6 +871,7 @@ public:
 														const bool			flag = false);
 	void					initPrograms				(SourceCollections&	sourceCollections) const;
 	virtual TestInstance*	createInstance				(Context&			context) const;
+	virtual void			checkSupport				(Context&			context) const;
 protected:
 	const VariableTest	m_test;
 	const bool			m_flag;
@@ -853,6 +883,15 @@ BuiltinVariableRenderTest::BuiltinVariableRenderTest (TestContext& testCtx, cons
 	, m_flag	(flag)
 {
 }
+
+void BuiltinVariableRenderTest::checkSupport (Context& context) const
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_GEOMETRY_SHADER);
+
+	if (m_test == TEST_POINT_SIZE)
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE);
+}
+
 
 void BuiltinVariableRenderTest::initPrograms (SourceCollections& sourceCollections) const
 {
@@ -1018,8 +1057,6 @@ void BuiltinVariableRenderTest::initPrograms (SourceCollections& sourceCollectio
 
 TestInstance* BuiltinVariableRenderTest::createInstance (Context& context) const
 {
-	if (m_test == TEST_POINT_SIZE && !checkPointSize(context.getInstanceInterface(), context.getPhysicalDevice()))
-			TCU_THROW(NotSupportedError, "Missing feature: pointSize");
 	return new BuiltinVariableRenderTestInstance(context, getName(), m_test, m_flag);
 }
 

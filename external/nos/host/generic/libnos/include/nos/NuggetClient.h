@@ -42,6 +42,7 @@ public:
      * Passing an empty device name causes the default device to be selected.
      */
     NuggetClient(const std::string& device_name);
+    NuggetClient(const char* device_name);
 
     ~NuggetClient() override;
 

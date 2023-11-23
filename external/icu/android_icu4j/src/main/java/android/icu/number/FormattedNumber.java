@@ -3,104 +3,108 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 package android.icu.number;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.AttributedCharacterIterator;
 import java.text.FieldPosition;
 import java.util.Arrays;
 
+import android.icu.impl.FormattedStringBuilder;
+import android.icu.impl.FormattedValueStringBuilderImpl;
+import android.icu.impl.Utility;
 import android.icu.impl.number.DecimalQuantity;
-import android.icu.impl.number.NumberStringBuilder;
+import android.icu.text.ConstrainedFieldPosition;
+import android.icu.text.FormattedValue;
 import android.icu.text.PluralRules.IFixedDecimal;
-import android.icu.util.ICUUncheckedIOException;
 
 /**
  * The result of a number formatting operation. This class allows the result to be exported in several
  * data types, including a String, an AttributedCharacterIterator, and a BigDecimal.
  *
+ * Instances of this class are immutable and thread-safe.
+ *
  * @see NumberFormatter
- * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
-public class FormattedNumber {
-    final NumberStringBuilder nsb;
+public class FormattedNumber implements FormattedValue {
+    final FormattedStringBuilder string;
     final DecimalQuantity fq;
 
-    FormattedNumber(NumberStringBuilder nsb, DecimalQuantity fq) {
-        this.nsb = nsb;
+    FormattedNumber(FormattedStringBuilder nsb, DecimalQuantity fq) {
+        this.string = nsb;
         this.fq = fq;
     }
 
     /**
-     * Creates a String representation of the the formatted number.
-     *
-     * @return a String containing the localized number.
-     * @see NumberFormatter
-     * @hide draft / provisional / internal are hidden on Android
+     * {@inheritDoc}
      */
     @Override
     public String toString() {
-        return nsb.toString();
+        return string.toString();
     }
 
     /**
-     * Append the formatted number to an Appendable, such as a StringBuilder. This may be slightly more
-     * efficient than creating a String.
+     * {@inheritDoc}
      *
-     * <p>
-     * If an IOException occurs when appending to the Appendable, an unchecked
-     * {@link ICUUncheckedIOException} is thrown instead.
-     *
-     * @param appendable
-     *            The Appendable to which to append the formatted number string.
-     * @return The same Appendable, for chaining.
-     * @see Appendable
-     * @see NumberFormatter
      * @hide draft / provisional / internal are hidden on Android
      */
-    public <A extends Appendable> A appendTo(A appendable) {
-        try {
-            appendable.append(nsb);
-        } catch (IOException e) {
-            // Throw as an unchecked exception to avoid users needing try/catch
-            throw new ICUUncheckedIOException(e);
-        }
-        return appendable;
+    @Override
+    public int length() {
+        return string.length();
     }
 
     /**
-     * Determines the start (inclusive) and end (exclusive) indices of the next occurrence of the given
-     * <em>field</em> in the output string. This allows you to determine the locations of, for example,
-     * the integer part, fraction part, or symbols.
+     * {@inheritDoc}
      *
-     * <p>
-     * If multiple different field attributes are needed, this method can be called repeatedly, or if
-     * <em>all</em> field attributes are needed, consider using getFieldIterator().
-     *
-     * <p>
-     * If a field occurs multiple times in an output string, such as a grouping separator, this method
-     * will only ever return the first occurrence. Use getFieldIterator() to access all occurrences of an
-     * attribute.
-     *
-     * @param fieldPosition
-     *            The FieldPosition to populate with the start and end indices of the desired field.
-     * @deprecated ICU 62 Use {@link #nextFieldPosition} instead. This method will be removed in a future
-     *             release. See http://bugs.icu-project.org/trac/ticket/13746
-     * @see android.icu.text.NumberFormat.Field
-     * @see NumberFormatter
+     * @hide draft / provisional / internal are hidden on Android
      */
-    @Deprecated
-    public void populateFieldPosition(FieldPosition fieldPosition) {
-        // in case any users were depending on the old behavior:
-        fieldPosition.setBeginIndex(0);
-        fieldPosition.setEndIndex(0);
-        nextFieldPosition(fieldPosition);
+    @Override
+    public char charAt(int index) {
+        return string.charAt(index);
     }
 
     /**
-     * Determines the start and end indices of the next occurrence of the given <em>field</em> in the
-     * output string. This allows you to determine the locations of, for example, the integer part,
-     * fraction part, or symbols.
+     * {@inheritDoc}
+     *
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Override
+    public CharSequence subSequence(int start, int end) {
+        return string.subString(start, end);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @hide unsupported on Android
+     */
+    @Override
+    public <A extends Appendable> A appendTo(A appendable) {
+        return Utility.appendTo(string, appendable);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Override
+    public boolean nextPosition(ConstrainedFieldPosition cfpos) {
+        return FormattedValueStringBuilderImpl.nextPosition(string, cfpos, null);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public AttributedCharacterIterator toCharacterIterator() {
+        return FormattedValueStringBuilderImpl.toCharacterIterator(string, null);
+    }
+
+    /**
+     * Determines the start (inclusive) and end (exclusive) indices of the next occurrence of the
+     * given <em>field</em> in the output string. This allows you to determine the locations of,
+     * for example, the integer part, fraction part, or symbols.
+     * <p>
+     * This is a simpler but less powerful alternative to {@link #nextPosition}.
      * <p>
      * If a field occurs just once, calling this method will find that occurrence and return it. If a
      * field occurs multiple times, this method may be called repeatedly with the following pattern:
@@ -113,7 +117,7 @@ public class FormattedNumber {
      * </pre>
      * <p>
      * This method is useful if you know which field to query. If you want all available field position
-     * information, use {@link #toCharacterIterator()}.
+     * information, use {@link #nextPosition} or {@link #toCharacterIterator()}.
      *
      * @param fieldPosition
      *            Input+output variable. On input, the "field" property determines which field to look
@@ -129,45 +133,7 @@ public class FormattedNumber {
      */
     public boolean nextFieldPosition(FieldPosition fieldPosition) {
         fq.populateUFieldPosition(fieldPosition);
-        return nsb.nextFieldPosition(fieldPosition);
-    }
-
-    /**
-     * Export the formatted number as an AttributedCharacterIterator. This allows you to determine which
-     * characters in the output string correspond to which <em>fields</em>, such as the integer part,
-     * fraction part, and sign.
-     * <p>
-     * If information on only one field is needed, consider using populateFieldPosition() instead.
-     *
-     * @return An AttributedCharacterIterator, containing information on the field attributes of the
-     *         number string.
-     * @deprecated ICU 62 Use {@link #toCharacterIterator} instead. This method will be removed in a future
-     *             release. See http://bugs.icu-project.org/trac/ticket/13746
-     * @see android.icu.text.NumberFormat.Field
-     * @see AttributedCharacterIterator
-     * @see NumberFormatter
-     */
-    @Deprecated
-    public AttributedCharacterIterator getFieldIterator() {
-        return nsb.toCharacterIterator();
-    }
-
-    /**
-     * Export the formatted number as an AttributedCharacterIterator. This allows you to determine which
-     * characters in the output string correspond to which <em>fields</em>, such as the integer part,
-     * fraction part, and sign.
-     * <p>
-     * If information on only one field is needed, use {@link #nextFieldPosition(FieldPosition)} instead.
-     *
-     * @return An AttributedCharacterIterator, containing information on the field attributes of the
-     *         number string.
-     * @see android.icu.text.NumberFormat.Field
-     * @see AttributedCharacterIterator
-     * @see NumberFormatter
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    public AttributedCharacterIterator toCharacterIterator() {
-        return nsb.toCharacterIterator();
+        return FormattedValueStringBuilderImpl.nextFieldPosition(string, fieldPosition);
     }
 
     /**
@@ -177,7 +143,6 @@ public class FormattedNumber {
      *
      * @return A BigDecimal representation of the formatted number.
      * @see NumberFormatter
-     * @hide draft / provisional / internal are hidden on Android
      */
     public BigDecimal toBigDecimal() {
         return fq.toBigDecimal();
@@ -199,10 +164,10 @@ public class FormattedNumber {
      */
     @Override
     public int hashCode() {
-        // NumberStringBuilder and BigDecimal are mutable, so we can't call
+        // FormattedStringBuilder and BigDecimal are mutable, so we can't call
         // #equals() or #hashCode() on them directly.
-        return Arrays.hashCode(nsb.toCharArray())
-                ^ Arrays.hashCode(nsb.toFieldArray())
+        return Arrays.hashCode(string.toCharArray())
+                ^ Arrays.hashCode(string.toFieldArray())
                 ^ fq.toBigDecimal().hashCode();
     }
 
@@ -219,11 +184,11 @@ public class FormattedNumber {
             return false;
         if (!(other instanceof FormattedNumber))
             return false;
-        // NumberStringBuilder and BigDecimal are mutable, so we can't call
+        // FormattedStringBuilder and BigDecimal are mutable, so we can't call
         // #equals() or #hashCode() on them directly.
         FormattedNumber _other = (FormattedNumber) other;
-        return Arrays.equals(nsb.toCharArray(), _other.nsb.toCharArray())
-                && Arrays.equals(nsb.toFieldArray(), _other.nsb.toFieldArray())
+        return Arrays.equals(string.toCharArray(), _other.string.toCharArray())
+                && Arrays.equals(string.toFieldArray(), _other.string.toFieldArray())
                 && fq.toBigDecimal().equals(_other.fq.toBigDecimal());
     }
 }

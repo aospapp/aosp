@@ -1,4 +1,4 @@
-/* grep.c - print lines what match given regular expression
+/* grep.c - show lines matching regular expressions
  *
  * Copyright 2013 CE Strake <strake888 at gmail.com>
  *
@@ -10,7 +10,7 @@
 * echo hello | grep -f </dev/null
 *
 
-USE_GREP(NEWTOY(grep, "(color):;S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rsvwcl(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EFw]", TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
+USE_GREP(NEWTOY(grep, "(line-buffered)(color):;(exclude-dir)*S(exclude)*M(include)*ZzEFHIab(byte-offset)h(no-filename)ino(only-matching)rRsvwcl(files-with-matches)q(quiet)(silent)e*f*C#B#A#m#x[!wx][!EFw]", TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
 USE_EGREP(OLDTOY(egrep, grep, TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
 USE_FGREP(OLDTOY(fgrep, grep, TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
 
@@ -29,8 +29,10 @@ config GREP
 
     file search:
     -r  Recurse into subdirectories (defaults FILE to ".")
+    -R  Recurse into subdirectories and symlinks to directories
     -M  Match filename pattern (--include)
     -S  Skip filename pattern (--exclude)
+    --exclude-dir=PATTERN  Skip directory pattern
     -I  Ignore binary files
 
     match type:
@@ -67,7 +69,7 @@ config FGREP
 
 GLOBALS(
   long m, A, B, C;
-  struct arg_list *f, *e, *M, *S;
+  struct arg_list *f, *e, *M, *S, *exclude_dir;
   char *color;
 
   char *purple, *cyan, *red, *green, *grey;
@@ -173,21 +175,21 @@ static void do_grep(int fd, char *name)
 
         for (seek = TT.e; seek; seek = seek->next) {
           if (FLAG(x)) {
-            if ((FLAG(i) ? strcasecmp : strcmp)(seek->arg, line)) s = line;
+            if (!(FLAG(i) ? strcasecmp : strcmp)(seek->arg, line)) s = line;
           } else if (!*seek->arg) {
+            // No need to set fseek.next because this will match every line.
             seek = &fseek;
             fseek.arg = s = line;
-            break;
-          }
-          if (FLAG(i)) s = strcasestr(line, seek->arg);
-          else s = strstr(line, seek->arg);
+          } else if (FLAG(i)) s = strcasestr(start, seek->arg);
+          else s = strstr(start, seek->arg);
+
           if (s) break;
         }
 
         if (s) {
           rc = 0;
-          mm->rm_so = (s-line);
-          mm->rm_eo = (s-line)+strlen(seek->arg);
+          mm->rm_so = (s-start);
+          mm->rm_eo = (s-start)+strlen(seek->arg);
         } else rc = 1;
 
       // Handle regex matches
@@ -273,7 +275,7 @@ static void do_grep(int fd, char *name)
 
       if (!FLAG(c)) {
         long bcount = 1 + offset + (start-line) + (FLAG(o) ? mm->rm_so : 0);
- 
+
         if (bin) printf("Binary file %s matches\n", name);
         else if (FLAG(o))
           outline(start+mm->rm_so, ':', name, lcount, bcount,
@@ -281,7 +283,7 @@ static void do_grep(int fd, char *name)
         else {
           while (dlb) {
             struct double_list *dl = dlist_pop(&dlb);
-            unsigned *uu = (void *)(dl->data+((strlen(dl->data)+1)|3)+1);
+            unsigned *uu = (void *)(dl->data+(strlen(dl->data)|3)+1);
 
             outline(dl->data, '-', name, lcount-before, uu[0]+1, uu[1]);
             free(dl->data);
@@ -324,10 +326,10 @@ static void do_grep(int fd, char *name)
         discard = 0;
       }
       if (discard && TT.B) {
-        unsigned *uu, ul = (ulen+1)|3;
+        unsigned *uu, ul = (ulen|3)+1;
 
         line = xrealloc(line, ul+8);
-        uu = (void *)(line+ul+1);
+        uu = (void *)(line+ul);
         uu[0] = offset-len;
         uu[1] = ulen;
         dlist_add(&dlb, line);
@@ -396,20 +398,14 @@ static void parse_regex(void)
   TT.e = list;
 
   if (!FLAG(F)) {
-    int i;
-
     // Convert regex list
     for (al = TT.e; al; al = al->next) {
       struct reg *shoe;
 
       if (FLAG(o) && !*al->arg) continue;
       dlist_add_nomalloc(&TT.reg, (void *)(shoe = xmalloc(sizeof(struct reg))));
-      i = regcomp(&shoe->r, al->arg,
-                  (REG_EXTENDED*!!FLAG(E)) | (REG_ICASE*!!FLAG(i)));
-      if (i) {
-        regerror(i, &shoe->r, toybuf, sizeof(toybuf));
-        error_exit("bad REGEX '%s': %s", al->arg, toybuf);
-      }
+      xregcomp(&shoe->r, al->arg,
+               (REG_EXTENDED*!!FLAG(E))|(REG_ICASE*!!FLAG(i)));
     }
     dlist_terminate(TT.reg);
   }
@@ -417,14 +413,17 @@ static void parse_regex(void)
 
 static int do_grep_r(struct dirtree *new)
 {
+  struct arg_list *al;
   char *name;
 
   if (!new->parent) TT.tried++;
   if (!dirtree_notdotdot(new)) return 0;
-  if (S_ISDIR(new->st.st_mode)) return DIRTREE_RECURSE;
+  if (S_ISDIR(new->st.st_mode)) {
+    for (al = TT.exclude_dir; al; al = al->next)
+      if (!fnmatch(al->arg, new->name, 0)) return 0;
+    return DIRTREE_RECURSE|(FLAG(R)?DIRTREE_SYMFOLLOW:0);
+  }
   if (TT.S || TT.M) {
-    struct arg_list *al;
-
     for (al = TT.S; al; al = al->next)
       if (!fnmatch(al->arg, new->name, 0)) return 0;
 
@@ -460,6 +459,8 @@ void grep_main(void)
     TT.green = "\033[32m";
     TT.grey = "\033[0m";
   } else TT.purple = TT.cyan = TT.red = TT.green = TT.grey = "";
+
+  if (FLAG(R)) toys.optflags |= FLAG_r;
 
   // Grep exits with 2 for errors
   toys.exitval = 2;

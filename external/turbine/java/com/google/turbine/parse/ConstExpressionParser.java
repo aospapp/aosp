@@ -31,7 +31,7 @@ import com.google.turbine.tree.Tree.Expression;
 import com.google.turbine.tree.Tree.Ident;
 import com.google.turbine.tree.TurbineOperatorKind;
 import java.util.Optional;
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** A parser for compile-time constant expressions. */
 public class ConstExpressionParser {
@@ -419,8 +419,7 @@ public class ConstExpressionParser {
     return new Tree.Unary(position, expr, op);
   }
 
-  @Nullable
-  private Tree.Expression qualIdent() {
+  private Tree.@Nullable Expression qualIdent() {
     int pos = position;
     ImmutableList.Builder<Ident> bits = ImmutableList.builder();
     bits.add(ident());

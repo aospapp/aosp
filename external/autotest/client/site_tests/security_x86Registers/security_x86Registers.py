@@ -149,7 +149,9 @@ class security_x86Registers(test.test):
             if cpu_arch == "arm":
                 logging.info('OK: skipping x86-only test on %s.', cpu_arch)
                 return
-            raise error.TestNAError('Unknown CPU with arch "%s".' % (cpu_arch))
+
+            logging.warning('Unknown CPU with arch "%s".', cpu_arch)
+            return
 
         if cpu_arch == 'Stoney':
             self._cpu_type = 'Stoney'

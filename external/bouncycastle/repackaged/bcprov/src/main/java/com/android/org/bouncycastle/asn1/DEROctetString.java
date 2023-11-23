@@ -16,7 +16,7 @@ public class DEROctetString
      *
      * @param string the octets making up the octet string.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public DEROctetString(
         byte[]  string)

@@ -16,10 +16,9 @@ package com.google.common.collect;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
-
 import java.util.Comparator;
-
-import javax.annotation.Nullable;
+import java.util.Spliterator;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * List returned by {@code ImmutableSortedSet.asList()} when the set isn't empty.
@@ -31,8 +30,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("serial")
 final class ImmutableSortedAsList<E> extends RegularImmutableAsList<E>
     implements SortedIterable<E> {
-  ImmutableSortedAsList(
-      ImmutableSortedSet<E> backingSet, ImmutableList<E> backingList) {
+  ImmutableSortedAsList(ImmutableSortedSet<E> backingSet, ImmutableList<E> backingList) {
     super(backingSet, backingList);
   }
 
@@ -41,15 +39,17 @@ final class ImmutableSortedAsList<E> extends RegularImmutableAsList<E>
     return (ImmutableSortedSet<E>) super.delegateCollection();
   }
 
-  @Override public Comparator<? super E> comparator() {
+  @Override
+  public Comparator<? super E> comparator() {
     return delegateCollection().comparator();
   }
 
   // Override indexOf() and lastIndexOf() to be O(log N) instead of O(N).
 
-  @GwtIncompatible("ImmutableSortedSet.indexOf")
+  @GwtIncompatible // ImmutableSortedSet.indexOf
   // TODO(cpovirk): consider manual binary search under GWT to preserve O(log N) lookup
-  @Override public int indexOf(@Nullable Object target) {
+  @Override
+  public int indexOf(@Nullable Object target) {
     int index = delegateCollection().indexOf(target);
 
     // TODO(kevinb): reconsider if it's really worth making feeble attempts at
@@ -60,8 +60,9 @@ final class ImmutableSortedAsList<E> extends RegularImmutableAsList<E>
     return (index >= 0 && get(index).equals(target)) ? index : -1;
   }
 
-  @GwtIncompatible("ImmutableSortedSet.indexOf")
-  @Override public int lastIndexOf(@Nullable Object target) {
+  @GwtIncompatible // ImmutableSortedSet.indexOf
+  @Override
+  public int lastIndexOf(@Nullable Object target) {
     return indexOf(target);
   }
 
@@ -71,7 +72,7 @@ final class ImmutableSortedAsList<E> extends RegularImmutableAsList<E>
     return indexOf(target) >= 0;
   }
 
-  @GwtIncompatible("super.subListUnchecked does not exist; inherited subList is valid if slow")
+  @GwtIncompatible // super.subListUnchecked does not exist; inherited subList is valid if slow
   /*
    * TODO(cpovirk): if we start to override indexOf/lastIndexOf under GWT, we'll want some way to
    * override subList to return an ImmutableSortedAsList for better performance. Right now, I'm not
@@ -79,8 +80,16 @@ final class ImmutableSortedAsList<E> extends RegularImmutableAsList<E>
    */
   @Override
   ImmutableList<E> subListUnchecked(int fromIndex, int toIndex) {
-    return new RegularImmutableSortedSet<E>(
-        super.subListUnchecked(fromIndex, toIndex), comparator())
-        .asList();
+    ImmutableList<E> parentSubList = super.subListUnchecked(fromIndex, toIndex);
+    return new RegularImmutableSortedSet<E>(parentSubList, comparator()).asList();
+  }
+
+  @Override
+  public Spliterator<E> spliterator() {
+    return CollectSpliterators.indexed(
+        size(),
+        ImmutableList.SPLITERATOR_CHARACTERISTICS | Spliterator.SORTED | Spliterator.DISTINCT,
+        delegateList()::get,
+        comparator());
   }
 }

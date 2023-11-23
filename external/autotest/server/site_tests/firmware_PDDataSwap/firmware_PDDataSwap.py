@@ -24,14 +24,11 @@ class firmware_PDDataSwap(FirmwareTest):
 
     PD_ROLE_DELAY = 0.5
     PD_CONNECT_DELAY = 4
-    PLANKTON_PORT = 0
     DATA_SWAP_ITERATIONS = 10
     # Upward facing port data role
     UFP = 'UFP'
     # Downward facing port data role
     DFP = 'DFP'
-    # Plankton initiated data swap request
-    PLANKTON_SWAP_REQ = 'pd %d swap data' % PLANKTON_PORT
     # Swap Result Tables
     swap_attempt = {
         ('rx', DFP): 0,
@@ -46,34 +43,34 @@ class firmware_PDDataSwap(FirmwareTest):
         ('tx', UFP): 0
     }
 
-    def _verify_plankton_connection(self, port):
-        """Verify if DUT to Plankton PD connection
+    def _verify_pdtester_connection(self, port):
+        """Verify if DUT to PDTester PD connection
 
-        This method checks for a Plankton PD connection for the
+        This method checks for a PDTester PD connection for the
         given port by first verifying if a PD connection is present.
-        If found, then it uses a Plankton feature to force a PD disconnect.
+        If found, then it uses a PDTester feature to force a PD disconnect.
         If the port is no longer in the connected state, and following
         a delay, is found to be back in the connected state, then
-        a DUT pd to Plankton connection is verified.
+        a DUT pd to PDTester connection is verified.
 
         @param port: DUT pd port to test
 
-        @returns True if DUT to Plankton pd connection is verified
+        @returns True if DUT to PDTester pd connection is verified
         """
         DISCONNECT_TIME_SEC = 2
-        # plankton console command to force PD disconnect
-        disc_cmd = 'fake_disconnect 100 %d' % (DISCONNECT_TIME_SEC*1000)
-        # Only check for Plankton if DUT has active PD connection
+        # pdtester console command to force PD disconnect
+        disc_cmd = 'fakedisconnect 100 %d' % (DISCONNECT_TIME_SEC*1000)
+        # Only check for PDTester if DUT has active PD connection
         if self.dut_pd_utils.is_pd_connected(port):
             # Attempt to force PD disconnection
-            self.plankton_pd_utils.send_pd_command(disc_cmd)
+            self.pdtester_pd_utils.send_pd_command(disc_cmd)
             time.sleep(self.PD_ROLE_DELAY)
             # Verify that DUT PD port is no longer connected
             if self.dut_pd_utils.is_pd_connected(port) == False:
                 # Wait for disconnect timer and give time to reconnect
                 time.sleep(self.PD_CONNECT_DELAY + DISCONNECT_TIME_SEC)
                 if self.dut_pd_utils.is_pd_connected(port):
-                    logging.info('Plankton connection verfied on port %d', port)
+                    logging.info('PDTester connection verfied on port %d', port)
                     return True
             else:
                 # Could have disconnected other port, allow it to reconnect
@@ -81,15 +78,15 @@ class firmware_PDDataSwap(FirmwareTest):
                 time.sleep(self.PD_CONNECT_DELAY + DISCONNECT_TIME_SEC)
         return False
 
-    def _find_dut_to_plankton_connection(self):
-        """Find the PD port which is connected to Plankton
+    def _find_dut_to_pdtester_connection(self):
+        """Find the PD port which is connected to PDTester
 
         @returns DUT pd port number if found, None otherwise
         """
         for port in xrange(self.dut_pd_utils.PD_MAX_PORTS):
-            # Check for DUT to Plankton connection on port
-            if self._verify_plankton_connection(port):
-                # Plankton PD connection found so exit
+            # Check for DUT to PDTester connection on port
+            if self._verify_pdtester_connection(port):
+                # PDTester PD connection found so exit
                 return port
         return None
 
@@ -118,27 +115,27 @@ class firmware_PDDataSwap(FirmwareTest):
             return self.DFP
 
     def _change_dut_power_role(self, port):
-        """Force power role change via Plankton
+        """Force power role change via PDTester
 
         @param port: port of DUT PD connection
 
         @returns True is power role change is successful
         """
-        PLANKTON_SRC_VOLTAGE = 5
-        PLANKTON_SNK_VOLTAGE = 0
+        PDTESTER_SRC_VOLTAGE = 5
+        PDTESTER_SNK_VOLTAGE = 0
         pd_state = self.dut_pd_utils.get_pd_state(port)
         if pd_state == self.dut_pd_utils.SRC_CONNECT:
             # DUT is currently a SRC, so change to SNK
-            # Use Plankton method to ensure power role change
-            self.plankton.charge(PLANKTON_SRC_VOLTAGE)
+            # Use PDTester method to ensure power role change
+            self.pdtester.charge(PDTESTER_SRC_VOLTAGE)
         else:
             # DUT is currently a SNK, so change it to a SRC.
-            self.plankton.charge(PLANKTON_SNK_VOLTAGE)
+            self.pdtester.charge(PDTESTER_SNK_VOLTAGE)
         # Wait for change to take place
         time.sleep(self.PD_CONNECT_DELAY)
-        plankton_state = self.plankton_pd_utils.get_pd_state(0)
-        # Current Plankton state should equal DUT state when called
-        return bool(pd_state == plankton_state)
+        pdtester_state = self.pdtester_pd_utils.get_pd_state(self.pdtester_port)
+        # Current PDTester state should equal DUT state when called
+        return bool(pd_state == pdtester_state)
 
     def _send_data_swap_get_reply(self, console, port):
         """Send data swap request, get PD control msg reply
@@ -170,7 +167,7 @@ class firmware_PDDataSwap(FirmwareTest):
 
         Even if data swap capability is advertised, a PD device is allowed
         to reject the request. Therefore, not swapping isn't itself a
-        failure. When Plankton is used to initate the request, the debug
+        failure. When PDTester is used to initate the request, the debug
         mode is enabled which allows the control message from the DUT to
         be analyzed. If the swap does not occur, but the request is rejected
         by the DUT then that is not counted as a failure.
@@ -192,9 +189,9 @@ class firmware_PDDataSwap(FirmwareTest):
             # Not using debug mode, so there is no reply message
             ctrl = 0
         else:
-            # Initiate swap request from Plankton
-            console = self.plankton_pd_utils
-            ctrl  = self._send_data_swap_get_reply(console, self.PLANKTON_PORT)
+            # Initiate swap request from PDTester
+            console = self.pdtester_pd_utils
+            ctrl  = self._send_data_swap_get_reply(console, self.pdtester_port)
 
         time.sleep(self.PD_ROLE_DELAY)
         # Get DUT current data role
@@ -213,7 +210,7 @@ class firmware_PDDataSwap(FirmwareTest):
         Even if the DUT advertises support, it can
         reject swap requests when already in the desired data role. For
         example many devices will not swap if already in DFP mode.
-        However, Plankton should always accept a request. Therefore,
+        However, PDTester should always accept a request. Therefore,
         when a swap failed on a rx swap, then that is followed by
         a tx swap attempt.
 
@@ -229,14 +226,14 @@ class firmware_PDDataSwap(FirmwareTest):
             if (direction == 'rx' and
                     ctrl_msg ==
                     self.dut_pd_utils.PD_CONTROL_MSG_DICT['Reject']):
-                # Use plankton initated swap to change roles
+                # Use pdtester initated swap to change roles
                 self._attempt_data_swap(pd_port, 'tx')
 
     def _test_data_swap_reject(self, pd_port):
         """Verify that data swap request is rejected
 
         This tests the case where the DUT doesn't advertise support
-        for data swaps. A data request is sent by Plankton, and then
+        for data swaps. A data request is sent by PDTester, and then
         the control message checked to ensure the request was rejected.
         In addition, the data role and connection state are verified
         to remain unchanged.
@@ -246,9 +243,9 @@ class firmware_PDDataSwap(FirmwareTest):
         # Get current DUT data role
         dut_data_role = self._get_data_role(self.dut_pd_utils, pd_port)
         dut_connect_state = self.dut_pd_utils.get_pd_state(pd_port)
-        # Send swap command from Plankton and get reply
-        ctrl_msg = self._send_data_swap_get_reply(self.plankton_pd_utils,
-                                                  self.PLANKTON_PORT)
+        # Send swap command from PDTester and get reply
+        ctrl_msg = self._send_data_swap_get_reply(self.pdtester_pd_utils,
+                                                  self.pdtester_port)
         if ctrl_msg != self.dut_pd_utils.PD_CONTROL_MSG_DICT['Reject']:
             raise error.TestFail('Data Swap Req not rejected, returned %r' %
                                  ctrl_msg)
@@ -262,8 +259,9 @@ class firmware_PDDataSwap(FirmwareTest):
         if curr_dr != dut_data_role:
             raise error.TestFail('Unexpected PD data role change')
 
-    def initialize(self, host, cmdline_args):
+    def initialize(self, host, cmdline_args, flip_cc=False):
         super(firmware_PDDataSwap, self).initialize(host, cmdline_args)
+        self.setup_pdtester(flip_cc)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.usbpd.send_command('chan 0')
@@ -283,25 +281,28 @@ class firmware_PDDataSwap(FirmwareTest):
         6. Repeat DUT received data swap requests
 
         """
+        # TODO(b/35573842): Refactor to use PDPortPartner to probe the port
+        self.pdtester_port = 1 if 'servo_v4' in self.pdtester.servo_type else 0
+
         # create objects for pd utilities
         self.dut_pd_utils = pd_console.PDConsoleUtils(self.usbpd)
-        self.plankton_pd_utils = pd_console.PDConsoleUtils(self.plankton)
+        self.pdtester_pd_utils = pd_console.PDConsoleUtils(self.pdtester)
 
         # Make sure PD support exists in the UART console
         if self.dut_pd_utils.verify_pd_console() == False:
             raise error.TestFail("pd command not present on console!")
 
         # Type C connection (PD contract) should exist at this point
-        # For this test, the DUT must be connected to a Plankton.
-        pd_port = self._find_dut_to_plankton_connection()
+        # For this test, the DUT must be connected to a PDTester.
+        pd_port = self._find_dut_to_pdtester_connection()
         if pd_port == None:
-            raise error.TestFail("DUT to Plankton PD connection not found")
+            raise error.TestFail("DUT to PDTester PD connection not found")
         dut_connect_state = self.dut_pd_utils.get_pd_state(pd_port)
         logging.info('Initial DUT connect state = %s', dut_connect_state)
 
         # Determine if DUT supports data role swaps
-        dr_swap_allowed = self.plankton_pd_utils.is_pd_flag_set(
-                self.PLANKTON_PORT, 'data_swap')
+        dr_swap_allowed = self.pdtester_pd_utils.is_pd_flag_set(
+                self.pdtester_port, 'data_swap')
         # Get current DUT data role
         dut_data_role = self._get_data_role(self.dut_pd_utils, pd_port)
         logging.info('Starting DUT Data Role = %r', dut_data_role)
@@ -320,13 +321,17 @@ class firmware_PDDataSwap(FirmwareTest):
 
             # If DUT supports Power Role swap then attempt to change roles.
             # This way, data role swaps will be tested in both configurations.
-            if self.plankton_pd_utils.is_pd_flag_set(
-                     self.PLANKTON_PORT, 'power_swap'):
+            if self.pdtester_pd_utils.is_pd_flag_set(
+                     self.pdtester_port, 'power_swap'):
                 logging.info('\nDUT advertises Power Swap Support')
                 # Attempt to swap power roles
                 power_swap = self._change_dut_power_role(pd_port)
                 if power_swap:
-                    self._execute_data_role_swap_test(pd_port)
+                    try:
+                        self._execute_data_role_swap_test(pd_port)
+                    finally:
+                        # Swap power role, back to the original
+                        self._change_dut_power_role(pd_port)
                 else:
                     logging.warn('Power swap not successful!')
                     logging.warn('Only tested with DUT in %s state',

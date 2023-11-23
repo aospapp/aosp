@@ -39,11 +39,12 @@ class platform_ActivateDate(test.test):
             time.sleep(poll_interval)
 
         if not success:
-          error.TestFail('Failed to set activation date')
+          raise error.TestFail('Failed to set activation date')
 
         # After this reboot, vpd_get_value ActivateDate should be set already
         # because this is what prevents the init script from executing again.
         host.reboot()
 
         if not host.run('vpd_get_value ActivateDate').stdout:
-          error.TestFail('ActivateDate should be set correctly after reboot')
+          raise error.TestFail(
+              'ActivateDate should be set correctly after reboot')

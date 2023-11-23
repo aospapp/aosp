@@ -42,10 +42,14 @@ class LinuxSystem(object):
     CAPABILITY_SUPPLICANT_ROAMING = "supplicant_roaming"
     BRIDGE_INTERFACE_NAME = 'br0'
     HOSTAP_BRIDGE_INTERFACE_PREFIX = 'hostapbr'
+    IFB_INTERFACE_PREFIX = 'ifb'
     MIN_SPATIAL_STREAMS = 2
     MAC_BIT_LOCAL = 0x2  # Locally administered.
     MAC_BIT_MULTICAST = 0x1
     MAC_RETRY_LIMIT = 1000
+
+    _UMA_EVENTS = '/var/lib/metrics/uma-events'
+    _LOG_PATH_PREFIX = '/tmp/autotest-'
 
 
     @property
@@ -81,6 +85,12 @@ class LinuxSystem(object):
         or to re-establish a good state after a reboot.
 
         """
+        # hostapd, tcpdump, netperf, etc., may leave behind logs, pcap files,
+        # etc., which can fill up tmpfs. Clear them out now.
+        self.host.run('rm -rf %s*' % self._LOG_PATH_PREFIX)
+        self._logdir = self.host.run('mktemp -d %sXXXXXX' %
+                self._LOG_PATH_PREFIX).stdout.strip()
+
         # Command locations.
         cmd_iw = path_utils.must_be_installed('/usr/sbin/iw', host=self.host)
         self.cmd_ip = path_utils.must_be_installed('/usr/sbin/ip',
@@ -90,7 +100,7 @@ class LinuxSystem(object):
 
         self._packet_capturer = packet_capturer.get_packet_capturer(
                 self.host, host_description=self.role, cmd_ip=self.cmd_ip,
-                cmd_iw=cmd_iw, ignore_failures=True)
+                cmd_iw=cmd_iw, ignore_failures=True, logdir=self.logdir)
         self.iw_runner = iw_runner.IwRunner(remote_host=self.host,
                                             command_iw=cmd_iw)
 
@@ -121,6 +131,12 @@ class LinuxSystem(object):
         self._ping_runner = ping_runner.PingRunner(host=self.host)
         self._bridge_interface = None
         self._virtual_ethernet_pair = None
+
+        # TODO(crbug.com/839164): some routers fill their stateful partition
+        # with uncollected metrics.
+        if self.host.path_exists(self._UMA_EVENTS):
+            self.host.run('truncate -s 0 %s' % self._UMA_EVENTS,
+                          ignore_status=True)
 
 
     @property
@@ -311,11 +327,11 @@ class LinuxSystem(object):
 
 
     def start_capture(self, frequency,
-                      ht_type=None, snaplen=None, filename=None):
+                      width_type=None, snaplen=None, filename=None):
         """Start a packet capture.
 
         @param frequency int frequency of channel to capture on.
-        @param ht_type string one of (None, 'HT20', 'HT40+', 'HT40-').
+        @param width_type object width type from iw_runner.
         @param snaplen int number of bytes to retain per capture frame.
         @param filename string filename to write capture to.
 
@@ -326,12 +342,12 @@ class LinuxSystem(object):
         full_interface = [net_dev for net_dev in self._interfaces
                           if net_dev.if_name == self._capture_interface][0]
         # If this is the only interface on this phy, we ought to configure
-        # the phy with a channel and ht_type.  Otherwise, inherit the settings
-        # of the phy as they stand.
+        # the phy with a channel and a width.  Otherwise, inherit the
+        # settings of the phy as they stand.
         if len([net_dev for net_dev in self._interfaces
                 if net_dev.phy == full_interface.phy]) == 1:
             self._packet_capturer.configure_raw_monitor(
-                    self._capture_interface, frequency, ht_type=ht_type)
+                    self._capture_interface, frequency, width_type=width_type)
         else:
             self.host.run('%s link set %s up' %
                           (self.cmd_ip, self._capture_interface))
@@ -740,3 +756,11 @@ class LinuxSystem(object):
         """
         logging.info('Pinging from the %s.', self.role)
         return self._ping_runner.ping(ping_config)
+
+
+    @property
+    def logdir(self):
+        """Return a directory for storing temporary logs.
+        @return string path to temporary log directory.
+        """
+        return self._logdir

@@ -9,27 +9,30 @@ import java.text.AttributedCharacterIterator;
 import java.text.FieldPosition;
 import java.util.Arrays;
 
+import android.icu.impl.FormattedStringBuilder;
+import android.icu.impl.FormattedValueStringBuilderImpl;
 import android.icu.impl.number.DecimalQuantity;
-import android.icu.impl.number.NumberStringBuilder;
 import android.icu.number.NumberRangeFormatter.RangeIdentityResult;
+import android.icu.text.ConstrainedFieldPosition;
+import android.icu.text.FormattedValue;
 import android.icu.util.ICUUncheckedIOException;
 
 /**
  * The result of a number range formatting operation. This class allows the result to be exported in several data types,
  * including a String, an AttributedCharacterIterator, and a BigDecimal.
  *
+ * Instances of this class are immutable and thread-safe.
+ *
  * @author sffc
  * @see NumberRangeFormatter
- * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
-public class FormattedNumberRange {
-    final NumberStringBuilder string;
+public class FormattedNumberRange implements FormattedValue {
+    final FormattedStringBuilder string;
     final DecimalQuantity quantity1;
     final DecimalQuantity quantity2;
     final RangeIdentityResult identityResult;
 
-    FormattedNumberRange(NumberStringBuilder string, DecimalQuantity quantity1, DecimalQuantity quantity2,
+    FormattedNumberRange(FormattedStringBuilder string, DecimalQuantity quantity1, DecimalQuantity quantity2,
             RangeIdentityResult identityResult) {
         this.string = string;
         this.quantity1 = quantity1;
@@ -38,11 +41,7 @@ public class FormattedNumberRange {
     }
 
     /**
-     * Creates a String representation of the the formatted number range.
-     *
-     * @return a String containing the localized number range.
-     * @see NumberRangeFormatter
-     * @hide draft / provisional / internal are hidden on Android
+     * {@inheritDoc}
      */
     @Override
     public String toString() {
@@ -50,20 +49,11 @@ public class FormattedNumberRange {
     }
 
     /**
-     * Append the formatted number range to an Appendable, such as a StringBuilder. This may be slightly more efficient
-     * than creating a String.
+     * {@inheritDoc}
      *
-     * <p>
-     * If an IOException occurs when appending to the Appendable, an unchecked {@link ICUUncheckedIOException} is thrown
-     * instead.
-     *
-     * @param appendable
-     *            The Appendable to which to append the formatted number range string.
-     * @return The same Appendable, for chaining.
-     * @see Appendable
-     * @see NumberRangeFormatter
-     * @hide draft / provisional / internal are hidden on Android
+     * @hide unsupported on Android
      */
+    @Override
     public <A extends Appendable> A appendTo(A appendable) {
         try {
             appendable.append(string);
@@ -72,6 +62,46 @@ public class FormattedNumberRange {
             throw new ICUUncheckedIOException(e);
         }
         return appendable;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Override
+    public char charAt(int index) {
+        return string.charAt(index);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Override
+    public int length() {
+        return string.length();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Override
+    public CharSequence subSequence(int start, int end) {
+        return string.subString(start, end);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Override
+    public boolean nextPosition(ConstrainedFieldPosition cfpos) {
+        return FormattedValueStringBuilderImpl.nextPosition(string, cfpos, null);
     }
 
     /**
@@ -103,25 +133,15 @@ public class FormattedNumberRange {
      * @hide draft / provisional / internal are hidden on Android
      */
     public boolean nextFieldPosition(FieldPosition fieldPosition) {
-        return string.nextFieldPosition(fieldPosition);
+        return FormattedValueStringBuilderImpl.nextFieldPosition(string, fieldPosition);
     }
 
     /**
-     * Export the formatted number range as an AttributedCharacterIterator. This allows you to determine which
-     * characters in the output string correspond to which <em>fields</em>, such as the integer part, fraction part, and
-     * sign.
-     * <p>
-     * If information on only one field is needed, use {@link #nextFieldPosition(FieldPosition)} instead.
-     *
-     * @return An AttributedCharacterIterator, containing information on the field attributes of the number range
-     *         string.
-     * @see android.icu.text.NumberFormat.Field
-     * @see AttributedCharacterIterator
-     * @see NumberRangeFormatter
-     * @hide draft / provisional / internal are hidden on Android
+     * {@inheritDoc}
      */
+    @Override
     public AttributedCharacterIterator toCharacterIterator() {
-        return string.toCharacterIterator();
+        return FormattedValueStringBuilderImpl.toCharacterIterator(string, null);
     }
 
     /**
@@ -131,7 +151,6 @@ public class FormattedNumberRange {
      * @return A BigDecimal representation of the first formatted number.
      * @see NumberRangeFormatter
      * @see #getSecondBigDecimal
-     * @hide draft / provisional / internal are hidden on Android
      */
     public BigDecimal getFirstBigDecimal() {
         return quantity1.toBigDecimal();
@@ -144,7 +163,6 @@ public class FormattedNumberRange {
      * @return A BigDecimal representation of the second formatted number.
      * @see NumberRangeFormatter
      * @see #getFirstBigDecimal
-     * @hide draft / provisional / internal are hidden on Android
      */
     public BigDecimal getSecondBigDecimal() {
         return quantity2.toBigDecimal();
@@ -158,7 +176,6 @@ public class FormattedNumberRange {
      * @return A RangeIdentityType indicating the resulting identity situation in the formatted number range.
      * @see NumberRangeFormatter
      * @see NumberRangeFormatter.RangeIdentityFallback
-     * @hide draft / provisional / internal are hidden on Android
      */
     public RangeIdentityResult getIdentityResult() {
         return identityResult;
@@ -171,7 +188,7 @@ public class FormattedNumberRange {
      */
     @Override
     public int hashCode() {
-        // NumberStringBuilder and BigDecimal are mutable, so we can't call
+        // FormattedStringBuilder and BigDecimal are mutable, so we can't call
         // #equals() or #hashCode() on them directly.
         return Arrays.hashCode(string.toCharArray()) ^ Arrays.hashCode(string.toFieldArray())
                 ^ quantity1.toBigDecimal().hashCode() ^ quantity2.toBigDecimal().hashCode();
@@ -190,7 +207,7 @@ public class FormattedNumberRange {
             return false;
         if (!(other instanceof FormattedNumberRange))
             return false;
-        // NumberStringBuilder and BigDecimal are mutable, so we can't call
+        // FormattedStringBuilder and BigDecimal are mutable, so we can't call
         // #equals() or #hashCode() on them directly.
         FormattedNumberRange _other = (FormattedNumberRange) other;
         return Arrays.equals(string.toCharArray(), _other.string.toCharArray())

@@ -18,9 +18,11 @@ project(LibProtobufMutator CXX)
 enable_language(C)
 enable_language(CXX)
 
+option(LIB_PROTO_MUTATOR_TESTING "Enable test building" ON)
 option(LIB_PROTO_MUTATOR_DOWNLOAD_PROTOBUF
        "Automatically download working protobuf" OFF)
 option(LIB_PROTO_MUTATOR_WITH_ASAN "Enable address sanitizer" OFF)
+option(PKG_CONFIG_PATH "Directory to install pkgconfig file" "share/pkgconfig")
 set(LIB_PROTO_MUTATOR_FUZZER_LIBRARIES "" CACHE STRING "Fuzzing engine libs")
 
 # External dependencies
@@ -44,6 +46,21 @@ set(CMAKE_CXX_STANDARD 11)
 
 include_directories(${PROJECT_SOURCE_DIR})
 
+if (MSVC)
+  option(LIB_PROTO_MUTATOR_MSVC_STATIC_RUNTIME "Link static runtime libraries" ON)
+  if (LIB_PROTO_MUTATOR_DOWNLOAD_PROTOBUF OR LIB_PROTO_MUTATOR_MSVC_STATIC_RUNTIME)
+    # This is the default for protobuf with MSVC
+    # http://www.cmake.org/Wiki/CMake_FAQ#How_can_I_build_my_MSVC_application_with_a_static_runtime.3F
+    foreach(flag_var
+        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      if(${flag_var} MATCHES "/MD")
+        string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
+      endif(${flag_var} MATCHES "/MD")
+    endforeach(flag_var)
+  endif (LIB_PROTO_MUTATOR_DOWNLOAD_PROTOBUF OR LIB_PROTO_MUTATOR_MSVC_STATIC_RUNTIME)
+endif (MSVC)
+
 set(CMAKE_REQUIRED_FLAGS "-fsanitize=address")
 check_cxx_compiler_flag(-fsanitize=address LIB_PROTO_MUTATOR_HAS_SANITIZE_ADDRESS)
 check_cxx_compiler_flag("-fsanitize=address -fsanitize-address-use-after-scope"
@@ -64,10 +81,12 @@ unset(CMAKE_REQUIRED_FLAGS)
 
 check_cxx_compiler_flag(-Wstring-conversion LIB_PROTO_MUTATOR_HAS_WSTRING_CONVERSION)
 
-set(EXTRA_FLAGS "-fno-exceptions -Werror -Wall")
-if (LIB_PROTO_MUTATOR_HAS_WSTRING_CONVERSION)
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -Wstring-conversion")
-endif()
+if (NOT MSVC)
+  set(EXTRA_FLAGS "-fno-exceptions -Werror -Wall")
+  if (LIB_PROTO_MUTATOR_HAS_WSTRING_CONVERSION)
+    set(EXTRA_FLAGS "${EXTRA_FLAGS} -Wstring-conversion")
+  endif()
+endif(NOT MSVC)
 
 if (LIB_PROTO_MUTATOR_WITH_ASAN)
   if (LIB_PROTO_MUTATOR_HAS_SANITIZE_ADDRESS)
@@ -110,15 +129,19 @@ else()
   include_directories(${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
-enable_testing()
+set(LIB_DIR "lib${LIB_SUFFIX}")
 
-include(googletest)
+if (LIB_PROTO_MUTATOR_TESTING)
+  enable_testing()
 
-if (NOT LIB_PROTO_MUTATOR_CTEST_JOBS)
-  ProcessorCount(LIB_PROTO_MUTATOR_CTEST_JOBS)
+  include(googletest)
+
+  if (NOT LIB_PROTO_MUTATOR_CTEST_JOBS)
+    ProcessorCount(LIB_PROTO_MUTATOR_CTEST_JOBS)
+  endif()
+  add_custom_target(check
+                    COMMAND ${CMAKE_CTEST_COMMAND} -j${LIB_PROTO_MUTATOR_CTEST_JOBS} --output-on-failure)
 endif()
-add_custom_target(check
-                  COMMAND ${CMAKE_CTEST_COMMAND} -j${LIB_PROTO_MUTATOR_CTEST_JOBS} --output-on-failure)
 
 add_subdirectory(src)
 
@@ -127,3 +150,8 @@ if (NOT "${LIB_PROTO_MUTATOR_FUZZER_LIBRARIES}" STREQUAL "" OR
   add_subdirectory(examples EXCLUDE_FROM_ALL)
 endif()
 
+configure_file("libprotobuf-mutator.pc.in" "libprotobuf-mutator.pc" @ONLY)
+install(FILES "${CMAKE_BINARY_DIR}/libprotobuf-mutator.pc"
+  DESTINATION ${PKG_CONFIG_PATH})
+install(DIRECTORY ./port ./src DESTINATION include/libprotobuf-mutator
+  FILES_MATCHING PATTERN "*.h")

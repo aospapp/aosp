@@ -43,6 +43,12 @@ class AudioExtensionHandler(object):
 
 
     @facade_resource.retry_chrome_call
+    def get_audio_api_availability(self):
+        """Gets whether the chrome.audio is available."""
+        return self._extension.EvaluateJavaScript("chrome.audio") != None
+
+
+    @facade_resource.retry_chrome_call
     def get_audio_devices(self, device_filter=None):
         """Gets the audio device info from Chrome audio API.
 

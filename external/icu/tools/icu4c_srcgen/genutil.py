@@ -40,9 +40,9 @@ site.addsitedir(android_path('external/clang/bindings/python'))
 import clang.cindex  # pylint: disable=import-error,wrong-import-position
 
 # TODO: Do not hardcode clang version. http://b/119270767
-CLANG_REVISION = 'r346389b'
-CLANG_LIB_VERSION = '8svn'
-CLANG_HEADER_VERSION = '8.0.6'
+CLANG_REVISION = 'r365631c'
+CLANG_LIB_VERSION = '9svn'
+CLANG_HEADER_VERSION = '9.0.8'
 CLANG_PATH = android_path('prebuilts/clang/host/linux-x86/clang-%s' % CLANG_REVISION)
 
 
@@ -197,7 +197,7 @@ class DeclaredFunctionsParser(object):
     def get_all_cpp_headers(self):
         """Return all C++ header names in icu4c/source/test/hdrtst/cxxfiles.txt"""
         cpp_headers = []
-        with open(android_path('external/icu/icu4c/source/test/hdrtst/cxxfiles.txt'),
+        with open(android_path('external/icu/tools/icu4c_srcgen/cxxfiles.txt'),
                   'r') as f:
             for line in f:
                 line = line.strip()

@@ -615,24 +615,24 @@ deInt64 signExtend (deUint64 src, int bits)
 	return (deInt64) src;
 }
 
-void convertFP16 (const void*	fp16Ptr,
-				  FloatFormat	internalFormat,
-				  float&		resultMin,
-				  float&		resultMax)
+void convertFP16 (const void*						fp16Ptr,
+				  const de::SharedPtr<FloatFormat>&	internalFormat,
+				  float&							resultMin,
+				  float&							resultMax)
 {
 	const Float16  fp16(*(const deUint16*) fp16Ptr);
-	const Interval fpInterval = internalFormat.roundOut(Interval(fp16.asDouble()), false);
+	const Interval fpInterval = internalFormat->roundOut(Interval(fp16.asDouble()), false);
 
 	resultMin = (float) fpInterval.lo();
 	resultMax = (float) fpInterval.hi();
 }
 
-void convertNormalizedInt (deInt64		num,
-						   int			numBits,
-						   bool			isSigned,
-						   FloatFormat	internalFormat,
-						   float&		resultMin,
-						   float&		resultMax)
+void convertNormalizedInt (deInt64									num,
+						   int										numBits,
+						   bool										isSigned,
+						   const de::SharedPtr<tcu::FloatFormat>&	internalFormat,
+						   float&									resultMin,
+						   float&									resultMax)
 {
 	DE_ASSERT(numBits > 0);
 
@@ -643,9 +643,10 @@ void convertNormalizedInt (deInt64		num,
 		--exp;
 
 	const double div = (double) (((deUint64) 1 << exp) - 1);
+	const double value = de::max(c / div, -1.0);
 
-	Interval resultInterval(de::max(c / div, -1.0));
-	resultInterval = internalFormat.roundOut(resultInterval, false);
+	Interval resultInterval(value - internalFormat->ulp(value), value + internalFormat->ulp(value));
+	resultInterval = internalFormat->roundOut(resultInterval, false);
 
 	resultMin = (float) resultInterval.lo();
 	resultMax = (float) resultInterval.hi();
@@ -653,7 +654,7 @@ void convertNormalizedInt (deInt64		num,
 
 bool isPackedType (const TextureFormat::ChannelType type)
 {
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	switch (type)
 	{
@@ -666,6 +667,8 @@ bool isPackedType (const TextureFormat::ChannelType type)
 		case TextureFormat::UNORM_INT_101010:
 		case TextureFormat::SNORM_INT_1010102_REV:
 		case TextureFormat::UNORM_INT_1010102_REV:
+		case TextureFormat::SSCALED_INT_1010102_REV:
+		case TextureFormat::USCALED_INT_1010102_REV:
 			return true;
 
 		default:
@@ -678,7 +681,7 @@ void getPackInfo (const TextureFormat texFormat,
 				  IVec4& bitOffsets,
 				  int& baseTypeBytes)
 {
-	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(TextureFormat::CHANNELTYPE_LAST == 48);
 
 	switch (texFormat.type)
 	{
@@ -725,12 +728,14 @@ void getPackInfo (const TextureFormat texFormat,
 			break;
 
 		case TextureFormat::SNORM_INT_1010102_REV:
+		case TextureFormat::SSCALED_INT_1010102_REV:
 			bitSizes = IVec4(2, 10, 10, 10);
 			bitOffsets = IVec4(0, 2, 12, 22);
 			baseTypeBytes = 4;
 			break;
 
 		case TextureFormat::UNORM_INT_1010102_REV:
+		case TextureFormat::USCALED_INT_1010102_REV:
 			bitSizes = IVec4(2, 10, 10, 10);
 			bitOffsets = IVec4(0, 2, 12, 22);
 			baseTypeBytes = 4;
@@ -769,11 +774,11 @@ deUint64 readChannel (const void* ptr,
 	return result;
 }
 
-void convertNormalizedFormat (const void*	pixelPtr,
-							  TextureFormat	texFormat,
-							  FloatFormat	internalFormat,
-							  Vec4&			resultMin,
-							  Vec4&			resultMax)
+void convertNormalizedFormat (const void*										pixelPtr,
+							  TextureFormat										texFormat,
+							  const std::vector<de::SharedPtr<FloatFormat>>&	internalFormat,
+							  Vec4&												resultMin,
+							  Vec4&												resultMax)
 {
     TextureSwizzle				readSwizzle	= getChannelReadSwizzle(texFormat.order);
 	const TextureChannelClass	chanClass	= getTextureChannelClass(texFormat.type);
@@ -878,16 +883,37 @@ void convertNormalizedFormat (const void*	pixelPtr,
 				chanVal = (deInt64) chanUVal;
 			}
 
-			convertNormalizedInt(chanVal, chanBits, isSigned, internalFormat, resultMin[compNdx], resultMax[compNdx]);
+			convertNormalizedInt(chanVal, chanBits, isSigned, internalFormat[compNdx], resultMin[compNdx], resultMax[compNdx]);
+
+			// Special handling for components represented as 1 bit. In this case the only possible
+			// converted values are 0.0 and 1.0, even after using roundOut() to account for the min
+			// and max range of the converted value. For 1 bit values the min will always equal max.
+			// To better reflect actual implementations sampling and filtering of converted 1 bit
+			// values we need to modify the min/max range to include at least one ULP of the
+			// internalFormat we're using. So if we're using 8 bit fractional precision for the
+			// conversion instead a 1 bit value of "0" resulting in [0.0 .. 0.0] it will instead
+			// be [0.0 .. 0.00390625], and a value of "1" resulting in [1.0 .. 1.0] will instead
+			// be [0.99609375 .. 1.0]. Later when these values are used for calculating the
+			// reference sampled and filtered values there will be a range that implementations
+			// can fall between. Without this change, even after the reference sampling and filtering
+			// calculations, there will be zero tolerance in the acceptable range since min==max
+			// leaving zero room for rounding errors and arithmetic precision in the implementation.
+			if (chanBits == 1)
+			{
+				if (resultMin[compNdx] == 1.0f)
+					resultMin[compNdx] -= float(internalFormat[compNdx]->ulp(1.0));
+				if (resultMax[compNdx] == 0.0f)
+					resultMax[compNdx] += float(internalFormat[compNdx]->ulp(0.0));
+			}
 		}
 	}
 }
 
-void convertFloatFormat (const void*	pixelPtr,
-						 TextureFormat	texFormat,
-						 FloatFormat	internalFormat,
-						 Vec4&			resultMin,
-						 Vec4&			resultMax)
+void convertFloatFormat (const void*									pixelPtr,
+						 TextureFormat									texFormat,
+						 const std::vector<de::SharedPtr<FloatFormat>>&	internalFormat,
+						 Vec4&											resultMin,
+						 Vec4&											resultMax)
 {
 	DE_ASSERT(getTextureChannelClass(texFormat.type) == TEXTURECHANNELCLASS_FLOATING_POINT);
 
@@ -913,7 +939,7 @@ void convertFloatFormat (const void*	pixelPtr,
 		}
 		else if (texFormat.type == TextureFormat::HALF_FLOAT)
 		{
-			convertFP16((const deUint16*) pixelPtr + chan, internalFormat, resultMin[compNdx], resultMax[compNdx]);
+			convertFP16((const deUint16*) pixelPtr + chan, internalFormat[compNdx], resultMin[compNdx], resultMax[compNdx]);
 		}
 		else
 		{
@@ -924,11 +950,11 @@ void convertFloatFormat (const void*	pixelPtr,
 
 } // anonymous
 
-void convertFormat (const void*		pixelPtr,
-					TextureFormat	texFormat,
-					FloatFormat		internalFormat,
-					Vec4&			resultMin,
-					Vec4&			resultMax)
+void convertFormat (const void*										pixelPtr,
+					TextureFormat									texFormat,
+					const std::vector<de::SharedPtr<FloatFormat>>&	internalFormat,
+					Vec4&											resultMin,
+					Vec4&											resultMax)
 {
 	const TextureChannelClass	chanClass	 = getTextureChannelClass(texFormat.type);
 

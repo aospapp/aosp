@@ -32,7 +32,7 @@ import java.util.Arrays;
  * shown inside the setup flow. This includes things like parsing extras passed by Wizard Manager,
  * and invoking Wizard Manager to start the next action.
  */
-public class WizardManagerHelper {
+public final class WizardManagerHelper {
 
   private static final String ACTION_NEXT = "com.android.wizard.NEXT";
 
@@ -216,4 +216,6 @@ public class WizardManagerHelper {
           || isDeferredSetupWizard(originalIntent);
     }
   }
+
+  private WizardManagerHelper() {}
 }

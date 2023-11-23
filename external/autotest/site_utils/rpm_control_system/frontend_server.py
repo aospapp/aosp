@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -18,7 +18,6 @@ from MultiThreadedXMLRPCServer import MultiThreadedXMLRPCServer
 from rpm_infrastructure_exception import RPMInfrastructureException
 
 import common
-from autotest_lib.server import frontend
 from autotest_lib.site_utils.rpm_control_system import utils
 
 DEFAULT_RPM_COUNT = 0
@@ -94,7 +93,6 @@ class RPMFrontendServer(object):
         self._mapping_last_modified = os.path.getmtime(MAPPING_FILE)
         self._servo_interface = utils.load_servo_interface_mapping()
         self._rpm_dict = {}
-        self._afe = frontend.AFE()
         self._rpm_info = utils.LRUCache(size=LRU_SIZE)
         self._email_handler = email_handler
 
@@ -150,6 +148,14 @@ class RPMFrontendServer(object):
         @raise RPMInfrastructureException: No dispatchers are available or can
                                            be reached.
         """
+        new_state = new_state.upper()
+        if new_state not in VALID_STATE_VALUES:
+            logging.error('Received request to set device %s to invalid '
+                          'state %s', device_hostname, new_state)
+            return False
+        logging.info('Received request to set device: %s to state: %s',
+                     device_hostname, new_state)
+
         powerunit_info = utils.PowerUnitInfo(
                 device_hostname=device_hostname,
                 powerunit_type=utils.PowerUnitInfo.POWERUNIT_TYPES.RPM,
@@ -163,42 +169,6 @@ class RPMFrontendServer(object):
             # Retry forwarding the request.
             return self.set_power_via_rpm(device_hostname, rpm_hostname,
                                           rpm_outlet, hydra_hostname, new_state)
-
-
-    def queue_request(self, device_hostname, new_state):
-        """
-        Forwards a request to change a device's (a dut or a servo) power state
-        to the appropriate dispatcher server.
-
-        This call will block until the forwarded request returns.
-
-        @param device_hostname: Hostname of the device whose power state we want
-                                to change.
-        @param new_state: [ON, OFF, CYCLE] State to which we want to set the
-                          device's outlet to.
-
-        @return: True if the attempt to change power state was successful,
-                 False otherwise.
-
-        @raise RPMInfrastructureException: No dispatchers are available or can
-                                           be reached.
-        """
-        # Remove any DNS Zone information and simplify down to just the hostname.
-        device_hostname = device_hostname.split('.')[0]
-        new_state = new_state.upper()
-        # Put new_state in all uppercase letters
-        if new_state not in VALID_STATE_VALUES:
-            logging.error('Received request to set device %s to invalid '
-                          'state %s', device_hostname, new_state)
-            return False
-        logging.info('Received request to set device: %s to state: %s',
-                     device_hostname, new_state)
-        powerunit_info = self._get_powerunit_info(device_hostname)
-        try:
-            return self._queue_once(powerunit_info, new_state)
-        except DispatcherDownException:
-            # Retry forwarding the request.
-            return self.queue_request(device_hostname, new_state)
 
 
     def _queue_once(self, powerunit_info, new_state):
@@ -253,34 +223,6 @@ class RPMFrontendServer(object):
         return True
 
 
-    def _get_powerunit_info(self, device_hostname):
-        """Get the power management unit information for a device.
-
-        A device could be a chromeos dut or a servo.
-        1) ChromeOS dut
-        Chromeos dut is managed by RPM. The related information
-        we need to know include rpm hostname, rpm outlet, hydra hostname.
-        Such information can be retrieved from afe_host_attributes table
-        from afe. A local LRU cache is used avoid hitting afe too often.
-
-        2) Servo
-        Servo is managed by POE. The related information we need to know
-        include poe hostname, poe interface. Such information is
-        stored in a local file and read into memory.
-
-        @param device_hostname: A string representing the device's hostname.
-
-        @returns: A PowerUnitInfo object.
-        @raises RPMInfrastructureException if failed to get the power
-                unit info.
-
-        """
-        if device_hostname.endswith('servo'):
-            return self._get_poe_powerunit_info(device_hostname)
-        else:
-            return self._get_rpm_powerunit_info(device_hostname)
-
-
     def _get_poe_powerunit_info(self, device_hostname):
         """Get the power management unit information for a POE controller.
 
@@ -313,39 +255,6 @@ class RPMFrontendServer(object):
                         powerunit_hostname=switch_if_tuple[0],
                         outlet=switch_if_tuple[1],
                         hydra_hostname=None)
-
-
-
-    def _get_rpm_powerunit_info(self, device_hostname):
-        """Get the power management unit information for an RPM controller.
-
-        Chromeos dut is managed by RPM. The related information
-        we need to know include rpm hostname, rpm outlet, hydra hostname.
-        Such information can be retrieved from afe_host_attributes table
-        from afe. A local LRU cache is used avoid hitting afe too often.
-
-        @param device_hostname: A string representing the device's hostname.
-
-        @returns: A PowerUnitInfo object.
-        @raises RPMInfrastructureException if failed to get the power
-                unit info.
-
-        """
-        with self._lock:
-            # Regular DUTs are managed by RPMs.
-            if device_hostname in self._rpm_info:
-                return self._rpm_info[device_hostname]
-            else:
-                hosts = self._afe.get_hosts(hostname=device_hostname)
-                if not hosts:
-                    raise RPMInfrastructureException(
-                            'Can not retrieve rpm information '
-                            'from AFE for %s, no host found.' % device_hostname)
-                else:
-                    info = utils.PowerUnitInfo.get_powerunit_info(hosts[0])
-                    self._rpm_info[device_hostname] = info
-                    return info
-
 
 
     def _get_dispatcher(self, powerunit_info):

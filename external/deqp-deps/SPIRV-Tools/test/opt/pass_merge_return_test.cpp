@@ -268,7 +268,7 @@ TEST_F(MergeReturnPassTest, StructuredControlFlowWithUnreachableMerge) {
 ; CHECK: [[true:%\w+]] = OpConstantTrue
 ; CHECK: OpFunction
 ; CHECK: [[var:%\w+]] = OpVariable [[:%\w+]] Function [[false]]
-; CHECK: OpLoopMerge [[return_block:%\w+]]
+; CHECK: OpSelectionMerge [[return_block:%\w+]]
 ; CHECK: OpSelectionMerge [[merge_lab:%\w+]]
 ; CHECK: OpBranchConditional [[cond:%\w+]] [[if_lab:%\w+]] [[then_lab:%\w+]]
 ; CHECK: [[if_lab]] = OpLabel
@@ -314,7 +314,7 @@ TEST_F(MergeReturnPassTest, StructuredControlFlowAddPhi) {
 ; CHECK: [[true:%\w+]] = OpConstantTrue
 ; CHECK: OpFunction
 ; CHECK: [[var:%\w+]] = OpVariable [[:%\w+]] Function [[false]]
-; CHECK: OpLoopMerge [[dummy_loop_merge:%\w+]]
+; CHECK: OpSelectionMerge [[dummy_loop_merge:%\w+]]
 ; CHECK: OpSelectionMerge [[merge_lab:%\w+]]
 ; CHECK: OpBranchConditional [[cond:%\w+]] [[if_lab:%\w+]] [[then_lab:%\w+]]
 ; CHECK: [[if_lab]] = OpLabel
@@ -364,7 +364,7 @@ TEST_F(MergeReturnPassTest, StructuredControlDecoration) {
 ; CHECK: [[true:%\w+]] = OpConstantTrue
 ; CHECK: OpFunction
 ; CHECK: [[var:%\w+]] = OpVariable [[:%\w+]] Function [[false]]
-; CHECK: OpLoopMerge [[return_block:%\w+]]
+; CHECK: OpSelectionMerge [[return_block:%\w+]]
 ; CHECK: OpSelectionMerge [[merge_lab:%\w+]]
 ; CHECK: OpBranchConditional [[cond:%\w+]] [[if_lab:%\w+]] [[then_lab:%\w+]]
 ; CHECK: [[if_lab]] = OpLabel
@@ -411,7 +411,7 @@ TEST_F(MergeReturnPassTest, SplitBlockUsedInPhi) {
   const std::string before =
       R"(
 ; CHECK: OpFunction
-; CHECK: OpLoopMerge [[dummy_loop_merge:%\w+]]
+; CHECK: OpSelectionMerge [[dummy_loop_merge:%\w+]]
 ; CHECK: OpLoopMerge [[loop_merge:%\w+]]
 ; CHECK: [[loop_merge]] = OpLabel
 ; CHECK: OpBranchConditional {{%\w+}} [[dummy_loop_merge]] [[old_code_path:%\w+]]
@@ -525,7 +525,7 @@ TEST_F(MergeReturnPassTest, StructuredControlFlowBothMergeAndHeader) {
       R"(
 ; CHECK: OpFunction
 ; CHECK: [[ret_flag:%\w+]] = OpVariable %_ptr_Function_bool Function %false
-; CHECK: OpLoopMerge [[dummy_loop_merge:%\w+]]
+; CHECK: OpSelectionMerge [[dummy_loop_merge:%\w+]]
 ; CHECK: OpLoopMerge [[loop1_merge:%\w+]] {{%\w+}}
 ; CHECK-NEXT: OpBranchConditional {{%\w+}} [[if_lab:%\w+]] {{%\w+}}
 ; CHECK: [[if_lab]] = OpLabel
@@ -914,7 +914,7 @@ TEST_F(MergeReturnPassTest, NestedLoopMerge) {
   const std::string test =
       R"(
 ; CHECK: OpFunction
-; CHECK: OpLoopMerge [[dummy_loop_merge:%\w+]]
+; CHECK: OpSelectionMerge [[dummy_loop_merge:%\w+]]
 ; CHECK: OpLoopMerge [[outer_loop_merge:%\w+]]
 ; CHECK: OpLoopMerge [[inner_loop_merge:%\w+]]
 ; CHECK: OpSelectionMerge
@@ -1150,7 +1150,6 @@ TEST_F(MergeReturnPassTest, StructuredControlFlowDontChangeEntryPhi) {
       R"(
 ; CHECK: OpFunction %void
 ; CHECK: OpLabel
-; CHECK: OpLabel
 ; CHECK: [[pre_header:%\w+]] = OpLabel
 ; CHECK: [[header:%\w+]] = OpLabel
 ; CHECK-NEXT: OpPhi %bool {{%\w+}} [[pre_header]] [[iv:%\w+]] [[continue:%\w+]]
@@ -1196,7 +1195,6 @@ TEST_F(MergeReturnPassTest, StructuredControlFlowPartialReplacePhi) {
       R"(
 ; CHECK: OpFunction %void
 ; CHECK: OpLabel
-; CHECK: OpLabel
 ; CHECK: [[pre_header:%\w+]] = OpLabel
 ; CHECK: [[header:%\w+]] = OpLabel
 ; CHECK-NEXT: OpPhi
@@ -1206,7 +1204,7 @@ TEST_F(MergeReturnPassTest, StructuredControlFlowPartialReplacePhi) {
 ; CHECK: [[bb:%\w+]] = OpLabel
 ; CHECK-NEXT: [[val:%\w+]] = OpUndef %bool
 ; CHECK: [[merge]] = OpLabel
-; CHECK-NEXT: [[phi1:%\w+]] = OpPhi %bool [[val]] [[bb]] {{%\w+}} [[old_ret_block]]
+; CHECK-NEXT: [[phi1:%\w+]] = OpPhi %bool {{%\w+}} [[old_ret_block]] [[val]] [[bb]]
 ; CHECK: OpBranchConditional {{%\w+}} {{%\w+}} [[bb2:%\w+]]
 ; CHECK: [[bb2]] = OpLabel
 ; CHECK: OpBranch [[header2:%\w+]]
@@ -1254,6 +1252,724 @@ TEST_F(MergeReturnPassTest, StructuredControlFlowPartialReplacePhi) {
   SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
   SinglePassRunAndMatch<MergeReturnPass>(before, false);
 }
+
+TEST_F(MergeReturnPassTest, GeneratePhiInOuterLoop) {
+  const std::string before =
+      R"(
+      ; CHECK: OpSelectionMerge
+      ; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+      ; CHECK-NEXT: [[def_bb1]] = OpLabel
+      ; CHECK: OpLoopMerge [[merge:%\w+]] [[continue:%\w+]]
+      ; CHECK: [[continue]] = OpLabel
+      ; CHECK-NEXT: [[undef:%\w+]] = OpUndef
+      ; CHECK: [[merge]] = OpLabel
+      ; CHECK-NEXT: [[phi:%\w+]] = OpPhi %bool {{%\w+}} {{%\w+}} [[undef]] [[continue]]
+      ; CHECK: OpCopyObject %bool [[phi]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %4 "main"
+               OpExecutionMode %4 OriginUpperLeft
+               OpSource ESSL 310
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+       %bool = OpTypeBool
+          %8 = OpTypeFunction %bool
+      %false = OpConstantFalse %bool
+          %4 = OpFunction %void None %3
+          %5 = OpLabel
+         %63 = OpFunctionCall %bool %9
+               OpReturn
+               OpFunctionEnd
+          %9 = OpFunction %bool None %8
+         %10 = OpLabel
+               OpBranch %31
+         %31 = OpLabel
+               OpLoopMerge %33 %34 None
+               OpBranch %32
+         %32 = OpLabel
+               OpSelectionMerge %34 None
+               OpBranchConditional %false %46 %34
+         %46 = OpLabel
+               OpLoopMerge %51 %52 None
+               OpBranch %53
+         %53 = OpLabel
+               OpBranchConditional %false %50 %51
+         %50 = OpLabel
+               OpReturnValue %false
+         %52 = OpLabel
+               OpBranch %46
+         %51 = OpLabel
+               OpBranch %34
+         %34 = OpLabel
+         %64 = OpUndef %bool
+               OpBranchConditional %false %31 %33
+         %33 = OpLabel
+               OpBranch %28
+         %28 = OpLabel
+         %60 = OpCopyObject %bool %64
+               OpBranch %17
+         %17 = OpLabel
+               OpReturnValue %false
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(before, false);
+}
+
+TEST_F(MergeReturnPassTest, SerialLoopsUpdateBlockMapping) {
+  // #2455: This test case triggers phi insertions that use previously inserted
+  // phis. Without the fix, it fails to validate.
+  const std::string spirv = R"(
+; CHECK: OpSelectionMerge
+; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+; CHECK-NEXT: [[def_bb1]] = OpLabel
+; CHECK: OpLoopMerge
+; CHECK: OpLoopMerge
+; CHECK: OpLoopMerge [[merge:%\w+]]
+; CHECK: [[def:%\w+]] = OpFOrdLessThan
+; CHECK: [[merge]] = OpLabel
+; CHECK-NEXT: [[phi:%\w+]] = OpPhi {{%\w+}} {{%\w+}} {{%\w+}} [[def]]
+; CHECK: OpLoopMerge [[merge:%\w+]] [[cont:%\w+]]
+; CHECK: [[cont]] = OpLabel
+; CHECK-NEXT: OpBranchConditional [[phi]]
+; CHECK-NOT: [[def]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %4 "main" %53
+               OpExecutionMode %4 OriginUpperLeft
+               OpSource ESSL 310
+               OpDecorate %20 RelaxedPrecision
+               OpDecorate %27 RelaxedPrecision
+               OpDecorate %53 BuiltIn FragCoord
+          %2 = OpTypeVoid
+          %3 = OpTypeFunction %2
+          %6 = OpTypeFloat 32
+          %7 = OpTypeVector %6 3
+          %8 = OpTypeFunction %7
+         %11 = OpTypeBool
+         %12 = OpConstantFalse %11
+         %15 = OpConstant %6 1
+         %16 = OpConstantComposite %7 %15 %15 %15
+         %18 = OpTypeInt 32 1
+         %19 = OpTypePointer Function %18
+         %21 = OpConstant %18 1
+         %28 = OpConstant %18 0
+         %31 = OpTypePointer Function %11
+         %33 = OpConstantTrue %11
+         %51 = OpTypeVector %6 4
+         %52 = OpTypePointer Input %51
+         %53 = OpVariable %52 Input
+         %54 = OpTypeInt 32 0
+         %55 = OpConstant %54 0
+         %56 = OpTypePointer Input %6
+         %59 = OpConstant %6 0
+         %76 = OpUndef %18
+         %77 = OpUndef %11
+         %78 = OpUndef %6
+          %4 = OpFunction %2 None %3
+          %5 = OpLabel
+         %75 = OpFunctionCall %7 %9
+               OpReturn
+               OpFunctionEnd
+          %9 = OpFunction %7 None %8
+         %10 = OpLabel
+         %20 = OpVariable %19 Function
+               OpBranch %14
+         %14 = OpLabel
+               OpBranch %22
+         %22 = OpLabel
+         %27 = OpLoad %18 %20
+               OpLoopMerge %24 %25 None
+               OpBranch %24
+         %25 = OpLabel
+               OpBranch %22
+         %24 = OpLabel
+               OpBranch %34
+         %34 = OpLabel
+               OpLoopMerge %36 %40 None
+               OpBranch %35
+         %35 = OpLabel
+               OpBranchConditional %77 %39 %40
+         %39 = OpLabel
+               OpReturnValue %16
+         %40 = OpLabel
+               OpBranchConditional %12 %34 %36
+         %36 = OpLabel
+               OpBranch %43
+         %43 = OpLabel
+               OpLoopMerge %45 %49 None
+               OpBranch %44
+         %44 = OpLabel
+               OpBranchConditional %77 %48 %49
+         %48 = OpLabel
+               OpReturnValue %16
+         %49 = OpLabel
+         %60 = OpFOrdLessThan %11 %15 %59
+               OpBranchConditional %12 %43 %45
+         %45 = OpLabel
+               OpBranch %62
+         %62 = OpLabel
+               OpLoopMerge %64 %68 None
+               OpBranch %63
+         %63 = OpLabel
+               OpBranchConditional %77 %67 %68
+         %67 = OpLabel
+               OpReturnValue %16
+         %68 = OpLabel
+               OpBranchConditional %60 %62 %64
+         %64 = OpLabel
+               OpReturnValue %16
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(spirv, true);
+}
+
+TEST_F(MergeReturnPassTest, InnerLoopMergeIsOuterLoopContinue) {
+  const std::string before =
+      R"(
+      ; CHECK: OpSelectionMerge
+      ; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+      ; CHECK-NEXT: [[def_bb1]] = OpLabel
+      ; CHECK-NEXT: OpBranch [[outer_loop_header:%\w+]]
+      ; CHECK: [[outer_loop_header]] = OpLabel
+      ; CHECK-NEXT: OpLoopMerge [[outer_loop_merge:%\w+]] [[outer_loop_continue:%\w+]] None
+      ; CHECK: [[outer_loop_continue]] = OpLabel
+      ; CHECK-NEXT: OpBranch [[outer_loop_header]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource ESSL 310
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+       %bool = OpTypeBool
+          %6 = OpTypeFunction %bool
+       %true = OpConstantTrue %bool
+          %2 = OpFunction %void None %4
+          %8 = OpLabel
+          %9 = OpFunctionCall %bool %10
+               OpReturn
+               OpFunctionEnd
+         %10 = OpFunction %bool None %6
+         %11 = OpLabel
+               OpBranch %12
+         %12 = OpLabel
+               OpLoopMerge %13 %14 None
+               OpBranchConditional %true %15 %13
+         %15 = OpLabel
+               OpLoopMerge %14 %16 None
+               OpBranchConditional %true %17 %14
+         %17 = OpLabel
+               OpReturnValue %true
+         %16 = OpLabel
+               OpBranch %15
+         %14 = OpLabel
+               OpBranch %12
+         %13 = OpLabel
+               OpReturnValue %true
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(before, false);
+}
+
+TEST_F(MergeReturnPassTest, BreakFromLoopUseNoLongerDominated) {
+  const std::string spirv = R"(
+; CHECK: [[undef:%\w+]] = OpUndef
+; CHECK: OpSelectionMerge
+; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+; CHECK-NEXT: [[def_bb1]] = OpLabel
+; CHECK: OpLoopMerge [[merge:%\w+]] [[cont:%\w+]]
+; CHECK-NEXT: OpBranch [[body:%\w+]]
+; CHECK: [[body]] = OpLabel
+; CHECK-NEXT: OpSelectionMerge [[non_ret:%\w+]]
+; CHECK-NEXT: OpBranchConditional {{%\w+}} [[ret:%\w+]] [[non_ret]]
+; CHECK: [[ret]] = OpLabel
+; CHECK-NEXT: OpStore
+; CHECK-NEXT: OpBranch [[merge]]
+; CHECK: [[non_ret]] = OpLabel
+; CHECK-NEXT: [[def:%\w+]] = OpLogicalNot
+; CHECK-NEXT: OpBranchConditional {{%\w+}} [[break:%\w+]] [[cont]]
+; CHECK: [[break]] = OpLabel
+; CHECK-NEXT: OpBranch [[merge]]
+; CHECK: [[cont]] = OpLabel
+; CHECK-NEXT: OpBranchConditional {{%\w+}} {{%\w+}} [[merge]]
+; CHECK: [[merge]] = OpLabel
+; CHECK-NEXT: [[phi:%\w+]] = OpPhi {{%\w+}} [[undef]] [[ret]] [[def]] [[break]] [[def]] [[cont]]
+; CHECK: OpLogicalNot {{%\w+}} [[phi]]
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %func "func"
+OpExecutionMode %func LocalSize 1 1 1
+%void = OpTypeVoid
+%void_fn = OpTypeFunction %void
+%bool = OpTypeBool
+%true = OpConstantTrue %bool
+%func = OpFunction %void None %void_fn
+%1 = OpLabel
+OpBranch %2
+%2 = OpLabel
+OpLoopMerge %8 %7 None
+OpBranch %3
+%3 = OpLabel
+OpSelectionMerge %5 None
+OpBranchConditional %true %4 %5
+%4 = OpLabel
+OpReturn
+%5 = OpLabel
+%def = OpLogicalNot %bool %true
+OpBranchConditional %true %6 %7
+%6 = OpLabel
+OpBranch %8
+%7 = OpLabel
+OpBranchConditional %true %2 %8
+%8 = OpLabel
+OpBranch %9
+%9 = OpLabel
+%use = OpLogicalNot %bool %def
+OpReturn
+OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(spirv, true);
+}
+
+TEST_F(MergeReturnPassTest, TwoBreaksFromLoopUsesNoLongerDominated) {
+  const std::string spirv = R"(
+; CHECK: [[undef:%\w+]] = OpUndef
+; CHECK: OpSelectionMerge
+; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+; CHECK-NEXT: [[def_bb1]] = OpLabel
+; CHECK: OpLoopMerge [[merge:%\w+]] [[cont:%\w+]]
+; CHECK-NEXT: OpBranch [[body:%\w+]]
+; CHECK: [[body]] = OpLabel
+; CHECK-NEXT: OpSelectionMerge [[body2:%\w+]]
+; CHECK-NEXT: OpBranchConditional {{%\w+}} [[ret1:%\w+]] [[body2]]
+; CHECK: [[ret1]] = OpLabel
+; CHECK-NEXT: OpStore
+; CHECK-NEXT: OpBranch [[merge]]
+; CHECK: [[body2]] = OpLabel
+; CHECK-NEXT: [[def1:%\w+]] = OpLogicalNot
+; CHECK-NEXT: OpSelectionMerge [[body3:%\w+]]
+; CHECK-NEXT: OpBranchConditional {{%\w+}} [[ret2:%\w+]] [[body3:%\w+]]
+; CHECK: [[ret2]] = OpLabel
+; CHECK-NEXT: OpStore
+; CHECK-NEXT: OpBranch [[merge]]
+; CHECK: [[body3]] = OpLabel
+; CHECK-NEXT: [[def2:%\w+]] = OpLogicalAnd
+; CHECK-NEXT: OpBranchConditional {{%\w+}} [[break:%\w+]] [[cont]]
+; CHECK: [[break]] = OpLabel
+; CHECK-NEXT: OpBranch [[merge]]
+; CHECK: [[cont]] = OpLabel
+; CHECK-NEXT: OpBranchConditional {{%\w+}} {{%\w+}} [[merge]]
+; CHECK: [[merge]] = OpLabel
+; CHECK-NEXT: [[phi1:%\w+]] = OpPhi {{%\w+}} [[undef]] [[ret1]] [[undef]] [[ret2]] [[def1]] [[break]] [[def1]] [[cont]]
+; CHECK-NEXT: [[phi2:%\w+]] = OpPhi {{%\w+}} [[undef]] [[ret1]] [[undef]] [[ret2]] [[def2]] [[break]] [[def2]] [[cont]]
+; CHECK: OpLogicalNot {{%\w+}} [[phi1]]
+; CHECK: OpLogicalAnd {{%\w+}} [[phi2]]
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %func "func"
+OpExecutionMode %func LocalSize 1 1 1
+%void = OpTypeVoid
+%void_fn = OpTypeFunction %void
+%bool = OpTypeBool
+%true = OpConstantTrue %bool
+%func = OpFunction %void None %void_fn
+%1 = OpLabel
+OpBranch %2
+%2 = OpLabel
+OpLoopMerge %10 %9 None
+OpBranch %3
+%3 = OpLabel
+OpSelectionMerge %5 None
+OpBranchConditional %true %4 %5
+%4 = OpLabel
+OpReturn
+%5 = OpLabel
+%def1 = OpLogicalNot %bool %true
+OpSelectionMerge %7 None
+OpBranchConditional %true %6 %7
+%6 = OpLabel
+OpReturn
+%7 = OpLabel
+%def2 = OpLogicalAnd %bool %true %true
+OpBranchConditional %true %8 %9
+%8 = OpLabel
+OpBranch %10
+%9 = OpLabel
+OpBranchConditional %true %2 %10
+%10 = OpLabel
+OpBranch %11
+%11 = OpLabel
+%use1 = OpLogicalNot %bool %def1
+%use2 = OpLogicalAnd %bool %def2 %true
+OpReturn
+OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(spirv, true);
+}
+
+TEST_F(MergeReturnPassTest, PredicateBreakBlock) {
+  const std::string spirv = R"(
+; IDs are being preserved so we can rely on basic block labels.
+; CHECK: [[undef:%\w+]] = OpUndef
+; CHECK: [[undef:%\w+]] = OpUndef
+; CHECK: %13 = OpLabel
+; CHECK-NEXT: [[def:%\w+]] = OpLogicalNot
+; CHECK: %8 = OpLabel
+; CHECK-NEXT: [[phi:%\w+]] = OpPhi {{%\w+}} [[undef]] {{%\w+}} [[undef]] {{%\w+}} [[def]] %13 [[undef]] {{%\w+}}
+; CHECK: OpLogicalAnd {{%\w+}} [[phi]]
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %1 "func"
+OpExecutionMode %1 LocalSize 1 1 1
+%void = OpTypeVoid
+%3 = OpTypeFunction %void
+%bool = OpTypeBool
+%true = OpUndef %bool
+%1 = OpFunction %void None %3
+%6 = OpLabel
+OpBranch %7
+%7 = OpLabel
+OpLoopMerge %8 %9 None
+OpBranch %10
+%10 = OpLabel
+OpSelectionMerge %11 None
+OpBranchConditional %true %12 %13
+%12 = OpLabel
+OpLoopMerge %14 %15 None
+OpBranch %16
+%16 = OpLabel
+OpReturn
+%15 = OpLabel
+OpBranch %12
+%14 = OpLabel
+OpUnreachable
+%13 = OpLabel
+%17 = OpLogicalNot %bool %true
+OpBranch %8
+%11 = OpLabel
+OpUnreachable
+%9 = OpLabel
+OpBranch %7
+%8 = OpLabel
+OpBranch %18
+%18 = OpLabel
+%19 = OpLogicalAnd %bool %17 %true
+OpReturn
+OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(spirv, true);
+}
+
+TEST_F(MergeReturnPassTest, SingleReturnInLoop) {
+  const std::string predefs =
+      R"(OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpSource ESSL 310
+%void = OpTypeVoid
+%7 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%9 = OpTypeFunction %float
+%float_1 = OpConstant %float 1
+)";
+
+  const std::string caller =
+      R"(
+; CHECK: OpFunction
+; CHECK: OpFunctionEnd
+%main = OpFunction %void None %7
+%22 = OpLabel
+%30 = OpFunctionCall %float %f_
+OpReturn
+OpFunctionEnd
+)";
+
+  const std::string callee =
+      R"(
+; CHECK: OpFunction
+; CHECK: OpLoopMerge [[merge:%\w+]]
+; CHECK: [[merge]] = OpLabel
+; CHECK: OpReturnValue
+; CHECK-NEXT: OpFunctionEnd
+%f_ = OpFunction %float None %9
+%33 = OpLabel
+OpBranch %34
+%34 = OpLabel
+OpLoopMerge %35 %36 None
+OpBranch %37
+%37 = OpLabel
+OpReturnValue %float_1
+%36 = OpLabel
+OpBranch %34
+%35 = OpLabel
+OpUnreachable
+OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(predefs + caller + callee, true);
+}
+
+TEST_F(MergeReturnPassTest, MergeToMergeBranch) {
+  const std::string text =
+      R"(
+; CHECK: [[new_undef:%\w+]] = OpUndef %uint
+; CHECK: OpSelectionMerge
+; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+; CHECK-NEXT: [[def_bb1]] = OpLabel
+; CHECK: OpLoopMerge [[merge1:%\w+]]
+; CHECK: OpLoopMerge [[merge2:%\w+]]
+; CHECK: [[merge1]] = OpLabel
+; CHECK-NEXT: OpPhi %uint [[new_undef]] [[merge2]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %2 "main"
+               OpExecutionMode %2 LocalSize 100 1 1
+               OpSource ESSL 310
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+       %uint = OpTypeInt 32 0
+     %uint_1 = OpConstant %uint 1
+       %bool = OpTypeBool
+      %false = OpConstantFalse %bool
+     %uint_0 = OpConstant %uint 0
+        %int = OpTypeInt 32 1
+      %int_0 = OpConstant %int 0
+      %int_1 = OpConstant %int 1
+         %13 = OpUndef %bool
+          %2 = OpFunction %void None %4
+         %14 = OpLabel
+               OpBranch %15
+         %15 = OpLabel
+               OpLoopMerge %16 %17 None
+               OpBranch %18
+         %18 = OpLabel
+               OpLoopMerge %19 %20 None
+               OpBranchConditional %13 %21 %19
+         %21 = OpLabel
+               OpReturn
+         %20 = OpLabel
+               OpBranch %18
+         %19 = OpLabel
+         %22 = OpUndef %uint
+               OpBranch %23
+         %23 = OpLabel
+               OpBranch %16
+         %17 = OpLabel
+               OpBranch %15
+         %16 = OpLabel
+         %24 = OpCopyObject %uint %22
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(text, true);
+}
+
+TEST_F(MergeReturnPassTest, PhiInSecondMerge) {
+  //  Add and use a phi in the second merge block from the return.
+  const std::string text =
+      R"(
+; CHECK: OpSelectionMerge
+; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+; CHECK-NEXT: [[def_bb1]] = OpLabel
+; CHECK: OpLoopMerge [[merge_bb:%\w+]] [[continue_bb:%\w+]]
+; CHECK: [[continue_bb]] = OpLabel
+; CHECK-NEXT: [[val:%\w+]] = OpUndef %float
+; CHECK: [[merge_bb]] = OpLabel
+; CHECK-NEXT: [[phi:%\w+]] = OpPhi %float {{%\w+}} {{%\w+}} [[val]] [[continue_bb]]
+; CHECK-NOT: OpLabel
+; CHECK: OpBranchConditional {{%\w+}} {{%\w+}} [[old_merge:%\w+]]
+; CHECK: [[old_merge]] = OpLabel
+; CHECK-NEXT: OpConvertFToS %int [[phi]]
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource ESSL 310
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+        %int = OpTypeInt 32 1
+      %float = OpTypeFloat 32
+       %bool = OpTypeBool
+          %8 = OpUndef %bool
+          %2 = OpFunction %void None %4
+          %9 = OpLabel
+               OpBranch %10
+         %10 = OpLabel
+               OpLoopMerge %11 %12 None
+               OpBranch %13
+         %13 = OpLabel
+               OpLoopMerge %18 %14 None
+               OpBranchConditional %8 %15 %18
+         %15 = OpLabel
+               OpReturn
+         %14 = OpLabel
+               OpBranch %13
+         %18 = OpLabel
+               OpBranch %12
+         %12 = OpLabel
+         %16 = OpUndef %float
+               OpBranchConditional %8 %10 %11
+         %11 = OpLabel
+         %17 = OpConvertFToS %int %16
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(text, true);
+}
+
+TEST_F(MergeReturnPassTest, ReturnsInSwitch) {
+  //  Cannot branch directly to dummy switch merge block from original switch.
+  //  Must branch to merge block of original switch and then do predicated
+  //  branch to merge block of dummy switch.
+  const std::string text =
+      R"(
+; CHECK: OpSelectionMerge [[dummy_merge_bb:%\w+]]
+; CHECK-NEXT: OpSwitch {{%\w+}} [[def_bb1:%\w+]]
+; CHECK-NEXT: [[def_bb1]] = OpLabel
+; CHECK: OpSelectionMerge
+; CHECK-NEXT: OpSwitch {{%\w+}} [[inner_merge_bb:%\w+]] 0 {{%\w+}} 1 {{%\w+}}
+; CHECK: OpBranch [[inner_merge_bb]]
+; CHECK: OpBranch [[inner_merge_bb]]
+; CHECK-NEXT: [[inner_merge_bb]] = OpLabel
+; CHECK: OpBranchConditional {{%\w+}} [[dummy_merge_bb]] {{%\w+}}
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %PSMain "PSMain" %_entryPointOutput_color
+               OpExecutionMode %PSMain OriginUpperLeft
+               OpSource HLSL 500
+               OpMemberDecorate %cb 0 Offset 0
+               OpMemberDecorate %cb 1 Offset 16
+               OpMemberDecorate %cb 2 Offset 32
+               OpMemberDecorate %cb 3 Offset 48
+               OpDecorate %cb Block
+               OpDecorate %_ DescriptorSet 0
+               OpDecorate %_ Binding 0
+               OpDecorate %_entryPointOutput_color Location 0
+       %void = OpTypeVoid
+          %3 = OpTypeFunction %void
+      %float = OpTypeFloat 32
+    %v4float = OpTypeVector %float 4
+          %8 = OpTypeFunction %v4float
+        %int = OpTypeInt 32 1
+         %cb = OpTypeStruct %v4float %v4float %v4float %int
+%_ptr_Uniform_cb = OpTypePointer Uniform %cb
+          %_ = OpVariable %_ptr_Uniform_cb Uniform
+      %int_3 = OpConstant %int 3
+%_ptr_Uniform_int = OpTypePointer Uniform %int
+      %int_0 = OpConstant %int 0
+%_ptr_Uniform_v4float = OpTypePointer Uniform %v4float
+      %int_1 = OpConstant %int 1
+      %int_2 = OpConstant %int 2
+    %float_0 = OpConstant %float 0
+    %float_1 = OpConstant %float 1
+         %45 = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_1
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+%_entryPointOutput_color = OpVariable %_ptr_Output_v4float Output
+     %PSMain = OpFunction %void None %3
+          %5 = OpLabel
+         %50 = OpFunctionCall %v4float %BlendValue_
+               OpStore %_entryPointOutput_color %50
+               OpReturn
+               OpFunctionEnd
+%BlendValue_ = OpFunction %v4float None %8
+         %10 = OpLabel
+         %21 = OpAccessChain %_ptr_Uniform_int %_ %int_3
+         %22 = OpLoad %int %21
+               OpSelectionMerge %25 None
+               OpSwitch %22 %25 0 %23 1 %24
+         %23 = OpLabel
+         %28 = OpAccessChain %_ptr_Uniform_v4float %_ %int_0
+         %29 = OpLoad %v4float %28
+               OpReturnValue %29
+         %24 = OpLabel
+         %31 = OpAccessChain %_ptr_Uniform_v4float %_ %int_0
+         %32 = OpLoad %v4float %31
+         %34 = OpAccessChain %_ptr_Uniform_v4float %_ %int_1
+         %35 = OpLoad %v4float %34
+         %37 = OpAccessChain %_ptr_Uniform_v4float %_ %int_2
+         %38 = OpLoad %v4float %37
+         %39 = OpFMul %v4float %35 %38
+         %40 = OpFAdd %v4float %32 %39
+               OpReturnValue %40
+         %25 = OpLabel
+               OpReturnValue %45
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  SinglePassRunAndMatch<MergeReturnPass>(text, true);
+}
+
+TEST_F(MergeReturnPassTest, UnreachableMergeAndContinue) {
+  // Make sure that the pass can handle a single block that is both a merge and
+  // a continue.
+  const std::string text =
+      R"(
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource ESSL 310
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+       %bool = OpTypeBool
+       %true = OpConstantTrue %bool
+          %2 = OpFunction %void None %4
+          %7 = OpLabel
+               OpBranch %8
+          %8 = OpLabel
+               OpLoopMerge %9 %10 None
+               OpBranch %11
+         %11 = OpLabel
+               OpSelectionMerge %10 None
+               OpBranchConditional %true %12 %13
+         %12 = OpLabel
+               OpReturn
+         %13 = OpLabel
+               OpReturn
+         %10 = OpLabel
+               OpBranch %8
+          %9 = OpLabel
+               OpUnreachable
+               OpFunctionEnd
+)";
+
+  SetAssembleOptions(SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS);
+  auto result = SinglePassRunAndDisassemble<MergeReturnPass>(text, true, true);
+
+  // Not looking for any particular output.  Other tests do that.
+  // Just want to make sure the check for unreachable blocks does not emit an
+  // error.
+  EXPECT_EQ(Pass::Status::SuccessWithChange, std::get<1>(result));
+}
+
 }  // namespace
 }  // namespace opt
 }  // namespace spvtools

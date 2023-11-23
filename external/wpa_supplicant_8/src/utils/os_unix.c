@@ -51,10 +51,16 @@ struct os_alloc_trace {
 
 void os_sleep(os_time_t sec, os_time_t usec)
 {
+#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200809L)
+	const struct timespec req = { sec, usec * 1000 };
+
+	nanosleep(&req, NULL);
+#else
 	if (sec)
 		sleep(sec);
 	if (usec)
 		usleep(usec);
+#endif
 }
 
 
@@ -333,6 +339,8 @@ char * os_rel2abs_path(const char *rel_path)
 
 int os_program_init(void)
 {
+	unsigned int seed;
+
 #ifdef ANDROID
 	struct __user_cap_header_struct header;
 	struct __user_cap_data_struct cap;
@@ -384,6 +392,9 @@ int os_program_init(void)
 	cap.inheritable = 0;
 	capset(&header, &cap);
 #endif /* ANDROID */
+
+	if (os_get_random((unsigned char *) &seed, sizeof(seed)) == 0)
+		srandom(seed);
 
 	return 0;
 }

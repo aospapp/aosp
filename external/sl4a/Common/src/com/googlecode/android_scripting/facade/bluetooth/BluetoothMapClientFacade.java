@@ -119,7 +119,7 @@ public class BluetoothMapClientFacade extends RpcReceiver {
         if (sMapProfile == null) return false;
         BluetoothDevice mDevice = BluetoothFacade.getDevice(
                 mBluetoothAdapter.getBondedDevices(), device);
-        Log.d("Connecting to device " + mDevice.getAliasName());
+        Log.d("Connecting to device " + mDevice.getAlias());
         return sMapProfile.connect(mDevice);
     }
 

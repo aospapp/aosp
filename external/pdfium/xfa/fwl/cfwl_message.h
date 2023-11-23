@@ -11,26 +11,30 @@
 
 #include "core/fxcrt/fx_string.h"
 #include "core/fxcrt/fx_system.h"
-
-class CFWL_Widget;
+#include "core/fxcrt/observed_ptr.h"
+#include "xfa/fwl/cfwl_widget.h"
 
 class CFWL_Message {
  public:
   enum class Type { Key, KillFocus, Mouse, MouseWheel, SetFocus };
 
-  explicit CFWL_Message(Type type);
-  CFWL_Message(Type type, CFWL_Widget* pSrcTarget);
-  CFWL_Message(Type type, CFWL_Widget* pSrcTarget, CFWL_Widget* pDstTarget);
   virtual ~CFWL_Message();
 
-  virtual std::unique_ptr<CFWL_Message> Clone();
   Type GetType() const { return m_type; }
+  CFWL_Widget* GetSrcTarget() const { return m_pSrcTarget.Get(); }
+  CFWL_Widget* GetDstTarget() const { return m_pDstTarget.Get(); }
+  void SetSrcTarget(CFWL_Widget* pWidget) { m_pSrcTarget.Reset(pWidget); }
+  void SetDstTarget(CFWL_Widget* pWidget) { m_pDstTarget.Reset(pWidget); }
 
-  CFWL_Widget* m_pSrcTarget;
-  CFWL_Widget* m_pDstTarget;
+ protected:
+  CFWL_Message(Type type, CFWL_Widget* pSrcTarget, CFWL_Widget* pDstTarget);
+  CFWL_Message(const CFWL_Message& that) = delete;
+  CFWL_Message& operator=(const CFWL_Message& that) = delete;
 
  private:
-  Type m_type;
+  const Type m_type;
+  ObservedPtr<CFWL_Widget> m_pSrcTarget;
+  ObservedPtr<CFWL_Widget> m_pDstTarget;
 };
 
 #endif  // XFA_FWL_CFWL_MESSAGE_H_

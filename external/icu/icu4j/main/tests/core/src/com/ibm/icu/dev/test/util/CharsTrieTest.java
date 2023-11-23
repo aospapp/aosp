@@ -637,6 +637,27 @@ public class CharsTrieTest extends TestFmwk {
         checkIterator(CharsTrie.iterator(trieChars, 0, 0), data);
     }
 
+    @Test
+    public void TestClone() throws CloneNotSupportedException {
+        final StringAndValue[] data={
+            new StringAndValue("a", 1),
+            new StringAndValue("ab", 100),
+            new StringAndValue("abc", 300),
+            new StringAndValue("az", 999)
+        };
+        CharsTrie trie = buildTrie(data, data.length, StringTrieBuilder.Option.SMALL);
+        assertEquals("a result", BytesTrie.Result.INTERMEDIATE_VALUE, trie.next('a'));
+        assertEquals("a value", 1, trie.getValue());
+        CharsTrie clone = trie.clone();
+        trie = null;
+        assertEquals("ab result", BytesTrie.Result.INTERMEDIATE_VALUE, clone.next('b'));
+        assertEquals("ab value", 100, clone.getValue());
+        CharsTrie copy = new CharsTrie(clone);
+        clone = null;
+        assertEquals("abc result", BytesTrie.Result.FINAL_VALUE, copy.next('c'));
+        assertEquals("abc value", 300, copy.getValue());
+    }
+
     private void checkData(StringAndValue data[]) {
         checkData(data, data.length);
     }
@@ -653,6 +674,7 @@ public class CharsTrieTest extends TestFmwk {
         checkFirst(trie, data, dataLength);
         checkNext(trie, data, dataLength);
         checkNextWithState(trie, data, dataLength);
+        checkNextWithState64(trie, data, dataLength);
         checkNextString(trie, data, dataLength);
         checkIterator(trie, data, dataLength);
     }
@@ -854,6 +876,54 @@ public class CharsTrieTest extends TestFmwk {
                       result!=trie.current()) {
                 errln("trie does not seem to contain "+data[i].s+
                       " after saveState/next(rest)/resetToState");
+            } else if(trie.getValue()!=data[i].value) {
+                errln(String.format("trie value for %s is %d=0x%x instead of expected %d=0x%x",
+                                    data[i].s,
+                                    trie.getValue(), trie.getValue(),
+                                    data[i].value, data[i].value));
+            }
+            trie.reset();
+        }
+    }
+
+    private void checkNextWithState64(CharsTrie trie, StringAndValue[] data, int dataLength) {
+        assertNotEquals("trie(initial state).getState64()!=0", 0, trie.getState64());
+        for(int i=0; i<dataLength; ++i) {
+            String expectedString=data[i].s;
+            int stringLength=expectedString.length();
+            int partialLength=stringLength/3;
+            for(int j=0; j<partialLength; ++j) {
+                if(!trie.next(expectedString.charAt(j)).matches()) {
+                    errln("trie.next()=BytesTrie.Result.NO_MATCH for a prefix of "+data[i].s);
+                    return;
+                }
+            }
+            long state = trie.getState64();
+            assertNotEquals("trie.getState64()!=0", 0, state);
+            BytesTrie.Result resultAtState=trie.current();
+            BytesTrie.Result result;
+            int valueAtState=-99;
+            if(resultAtState.hasValue()) {
+                valueAtState=trie.getValue();
+            }
+            result=trie.next(0);  // mismatch
+            if(result!=BytesTrie.Result.NO_MATCH || result!=trie.current()) {
+                errln("trie.next(0) matched after part of "+data[i].s);
+            }
+            if( resultAtState!=trie.resetToState64(state).current() ||
+                (resultAtState.hasValue() && valueAtState!=trie.getValue())
+            ) {
+                errln("trie.next(part of "+data[i].s+") changes current()/getValue() after "+
+                      "getState64/next(0)/resetToState64");
+            } else if(!(result=trie.next(expectedString, partialLength, stringLength)).hasValue() ||
+                      result!=trie.current()) {
+                errln("trie.next(rest of "+data[i].s+") does not seem to contain "+data[i].s+" after "+
+                      "getState64/next(0)/resetToState64");
+            } else if(!(result=trie.resetToState64(state).
+                                next(expectedString, partialLength, stringLength)).hasValue() ||
+                      result!=trie.current()) {
+                errln("trie does not seem to contain "+data[i].s+
+                      " after getState64/next(rest)/resetToState64");
             } else if(trie.getValue()!=data[i].value) {
                 errln(String.format("trie value for %s is %d=0x%x instead of expected %d=0x%x",
                                     data[i].s,

@@ -201,7 +201,8 @@ class Backchannel(object):
 
     def _get_default_route(self):
         """Retrieves default route information."""
-        cmd = "route -n | awk '/^0.0.0.0/ { print $2, $8 }'"
+        # Get default routes and parse out the gateway and interface.
+        cmd = "ip -4 route show table 0 | awk '/^default via/ { print $3, $5 }'"
         return self._run(cmd).stdout.split('\n')[0]
 
 

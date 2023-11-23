@@ -38,9 +38,9 @@ class ServerTestDashboard(power_dashboard.BaseDashboard):
         """
 
         board = self._host.get_board().replace('board:', '')
-        platform = self._host.get_platform()
+        platform = self._host.get_platform_from_mosys()
 
-        if not platform.startswith(board):
+        if platform and not platform.startswith(board):
             board += '_' + platform
 
         if self._host.has_hammer():

@@ -10,10 +10,10 @@ import android.icu.util.ULocale;
 /**
  * A NumberRangeFormatter that does not yet have a locale. In order to format, a locale must be specified.
  *
+ * Instances of this class are immutable and thread-safe.
+ *
  * @author sffc
  * @see NumberRangeFormatter
- * @hide Only a subset of ICU is exposed in Android
- * @hide draft / provisional / internal are hidden on Android
  */
 public class UnlocalizedNumberRangeFormatter extends NumberRangeFormatterSettings<UnlocalizedNumberRangeFormatter> {
 
@@ -40,7 +40,6 @@ public class UnlocalizedNumberRangeFormatter extends NumberRangeFormatterSetting
      * @param locale
      *            The locale to use when loading data for number range formatting.
      * @return The fluent chain
-     * @hide draft / provisional / internal are hidden on Android
      */
     public LocalizedNumberRangeFormatter locale(Locale locale) {
         return new LocalizedNumberRangeFormatter(this, KEY_LOCALE, ULocale.forLocale(locale));
@@ -53,7 +52,6 @@ public class UnlocalizedNumberRangeFormatter extends NumberRangeFormatterSetting
      *            The locale to use when loading data for number range formatting.
      * @return The fluent chain
      * @see #locale(Locale)
-     * @hide draft / provisional / internal are hidden on Android
      */
     public LocalizedNumberRangeFormatter locale(ULocale locale) {
         return new LocalizedNumberRangeFormatter(this, KEY_LOCALE, locale);

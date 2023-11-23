@@ -105,7 +105,7 @@
 #else
 /* for linux or sgi */
 #include <sys/uio.h>		/* readv(2)/writev(2) */
-#include <string.h>		/* bzero */
+#include <string.h>
 #endif
 #if defined(__linux__) || defined(__sun) || defined(__hpux) || defined(_AIX)
 #if !defined(UCLINUX) && !defined(__UCLIBC__)
@@ -1869,7 +1869,7 @@ int lio_wait4asyncio(int method, int fd, struct aiocb *aiocbp)
 		cnt = 0;
 		while (1) {
 			ret = aio_error(aiocbp);
-			if ((ret == 0) || (ret != EINPROGRESS)) {
+			if (ret != EINPROGRESS) {
 				break;
 			}
 			++cnt;

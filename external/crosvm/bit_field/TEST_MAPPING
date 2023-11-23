@@ -1,0 +1,16 @@
+{
+  "presubmit": [
+    {
+      "name": "bit_field_tests_test_enum",
+      "host": true
+    },
+    {
+      "name": "bit_field_tests_test_tuple_struct",
+      "host": true
+    },
+    {
+      "name": "bit_field_tests_bit_field",
+      "host": true
+    }
+  ]
+}

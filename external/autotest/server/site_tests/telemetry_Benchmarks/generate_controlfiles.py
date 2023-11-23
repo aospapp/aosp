@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 """
 This file generates all telemetry_Benchmarks control files from a master list.
@@ -30,7 +30,6 @@ PERF_PER_BUILD_TESTS = (
     'kraken',
     'loading.desktop',
     'octane',
-    'page_cycler_v2.typical_25',
     'rendering.desktop',
     'speedometer',
     'speedometer2',

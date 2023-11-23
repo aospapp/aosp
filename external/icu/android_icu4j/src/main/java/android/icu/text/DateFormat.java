@@ -1215,6 +1215,32 @@ public abstract class DateFormat extends UFormat {
     @Deprecated
     public static final String HOUR_TZ = "jz";
 
+    /**
+     * Constant for Unicode string name of new (in 2019) Japanese calendar era,
+     * root/English abbreviated version (ASCII-range characters).
+     * @deprecated This API is ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public static final String JP_ERA_2019_ROOT = "Reiwa";
+
+    /**
+     * Constant for Unicode string name of new (in 2019) Japanese calendar era,
+     * Japanese abbreviated version (Han, or fullwidth Latin for testing).
+     * @deprecated This API is ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public static final String JP_ERA_2019_JA = "\u4EE4\u548C";
+
+    /**
+     * Constant for Unicode string name of new (in 2019) Japanese calendar era,
+     * root and Japanese narrow version (ASCII-range characters).
+     * @deprecated This API is ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public static final String JP_ERA_2019_NARROW = "R";
 
     /**
      * Gets the time formatter with the default formatting style
@@ -2019,6 +2045,9 @@ public abstract class DateFormat extends UFormat {
      */
     public final static DateFormat getInstanceForSkeleton(
         Calendar cal, String skeleton, ULocale locale) {
+        if (cal != null) {
+            locale = locale.setKeywordValue("calendar", cal.getType());
+        }
         DateTimePatternGenerator generator = DateTimePatternGenerator.getInstance(locale);
         final String bestPattern = generator.getBestPattern(skeleton);
         SimpleDateFormat format = new SimpleDateFormat(bestPattern, locale);

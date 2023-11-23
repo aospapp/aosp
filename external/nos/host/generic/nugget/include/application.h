@@ -72,6 +72,7 @@ typedef const void * const __private;
 #define APP_ID_KEYMASTER         0x02
 #define APP_ID_WEAVER            0x03
 #define APP_ID_PROTOBUF          0x04
+#define APP_ID_IDENTITY          0x05
 
 /* Fake apps used only for testing */
 #define APP_ID_AVB_TEST          0x11
@@ -168,15 +169,17 @@ typedef void (write_to_app_fn_t)(uint32_t command,
  * @param  Id        The Application ID, defined above
  * @param  Name      A human-readable string identifying the application
  * @param  Version   An app-specific uint32_t number, for compability purposes
- * @param  From_fn   A pointer to the app's read_from_app_fnt_t handler
+ * @param  From_fn   A pointer to the app's read_from_app_fn_t handler
  * @param  To_fn     A pointer to the app's write_to_app_fn_t handler
+ * @param  Data      App's private data
  */
-#define DECLARE_APPLICATION_DATAGRAM(Id, Name, Version, From_fn, To_fn) \
-    const struct app_info __keep CONCAT2(app_, Id)                      \
-      __attribute__((section(".rodata.app_info")))                      \
-      = { .api = { .id = Id,                                            \
-             .from_fn = From_fn, .to_fn = To_fn},                       \
-          .version = Version, .name = Name }
+#define DECLARE_APPLICATION_DATAGRAM(Id, Name, Version, From_fn, To_fn, Data) \
+  const struct app_info __keep CONCAT2(app_, Id)                        \
+    __attribute__((section(".rodata.app_info")))                        \
+    = { .api = { .id = Id,                                              \
+                 .from_fn = From_fn, .to_fn = To_fn,                    \
+                 .data = Data},                                         \
+        .version = Version, .name = Name }
 
 /****************************************************************************/
 /* Transport API */
@@ -240,7 +243,7 @@ struct transport_status {
 /* Flags used in the status message */
 #define STATUS_FLAG_WORKING 0x0001 /* added in v1 */
 
-/* Pre-calculated CRCs for different status responses set by in the interrupt
+/* Pre-calculated CRCs for different status responses set in the interrupt
  * context where the CRC would otherwise not be calculated. */
 #define STATUS_CRC_FOR_IDLE              0x54c1
 #define STATUS_CRC_FOR_WORKING           0x2101
@@ -303,18 +306,29 @@ void app_reply(struct app_transport *st, uint32_t status, uint16_t reply_len);
 enum app_status {
   /* A few values are common to all applications */
   APP_SUCCESS = 0,
-  APP_ERROR_BOGUS_ARGS,      /* caller being stupid */
-  APP_ERROR_INTERNAL,        /* application being stupid */
-  APP_ERROR_TOO_MUCH,        /* caller sent too much data */
-  APP_ERROR_IO,              /* problem sending or receiving data */
-  APP_ERROR_RPC,             /* problem during RPC communication */
-  APP_ERROR_CHECKSUM,        /* checksum failed, only used within protocol */
-  APP_ERROR_BUSY,            /* the app is already working on a commnad */
-  APP_ERROR_TIMEOUT,         /* the app took too long to respond */
+  APP_ERROR_BOGUS_ARGS, /* caller being stupid */
+  APP_ERROR_INTERNAL,   /* application being stupid */
+  APP_ERROR_TOO_MUCH,   /* caller sent too much data */
+  APP_ERROR_IO,         /* problem sending or receiving data */
+  APP_ERROR_RPC,        /* problem during RPC communication */
+  APP_ERROR_CHECKSUM,   /* checksum failed, only used within protocol */
+  APP_ERROR_BUSY,       /* the app is already working on a commnad */
+  APP_ERROR_TIMEOUT,    /* the app took too long to respond */
   /* more? */
 
+  /*
+   * Applications can define their own app-specific error codes.  For example,
+   * app_foobar.h can do:
+   *
+   *	#define APP_ERROR_FOOBAR_BAZ (APP_SPECIFIC_ERROR + 0)
+   *
+   * Do not use (APP_SPECIFIC_ERROR + N) directly in your code, because the
+   * error definition, firmware which generates it, and host code which
+   * interprets it are all in different repos.  You'll never be able to keep
+   * the constants straight without using a #define or enum in your app's
+   * header file that everyone can share.
+   */
   APP_SPECIFIC_ERROR = 0x20, /* "should be enough for anybody" */
-  /* App-specific error codes can use APP_SPECIFIC_ERROR+0, +1, +2, ... */
 
   /* For debugging, returning a line number might be helpful */
   APP_LINE_NUMBER_BASE = 0x70000000,

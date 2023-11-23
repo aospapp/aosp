@@ -360,6 +360,7 @@ accept4 366
 fanotify_init 367
 fanotify_mark 368
 prlimit64 369
+syncfs 373
 process_vm_readv 376
 process_vm_writev 377
 kcmp 378
@@ -369,3 +370,4 @@ mlock2 390
 copy_file_range 391
 preadv2 392
 pwritev2 393
+pidfd_send_signal 424

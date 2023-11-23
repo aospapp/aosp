@@ -8,7 +8,6 @@ import logging
 import time
 
 from autotest_lib.client.cros.chameleon import audio_level
-from autotest_lib.client.cros.chameleon import chameleon_audio_ids as ids
 from autotest_lib.client.cros.chameleon import chameleon_bluetooth_audio
 
 
@@ -171,14 +170,7 @@ class WidgetLink(object):
 class AudioBusLink(WidgetLink):
     """The abstraction of widget link using audio bus on audio board.
 
-    This class handles two tasks.
-    1. Audio bus routing.
-    2. Plug/unplug jack using the widget handler on the DUT side.
-
-    Note that audio jack is shared by headphone and external microphone on
-    Cros device. So plugging/unplugging headphone widget will also affect
-    external microphone. This should be handled outside of this class
-    when we need to support complicated test case.
+    This class handles the Audio bus routing.
 
     Properties:
         _audio_bus: An AudioBus object.
@@ -201,9 +193,6 @@ class AudioBusLink(WidgetLink):
         @param widget: An AudioWidget object.
 
         """
-        if widget.audio_port.host == 'Cros':
-            widget.handler.plug()
-
         self._audio_bus.connect(widget.audio_port.port_id)
 
         logging.info(
@@ -217,9 +206,6 @@ class AudioBusLink(WidgetLink):
         @param widget: An AudioWidget object.
 
         """
-        if widget.audio_port.host == 'Cros':
-            widget.handler.unplug()
-
         self._audio_bus.disconnect(widget.audio_port.port_id)
 
         logging.info(
@@ -233,9 +219,6 @@ class AudioBusLink(WidgetLink):
         @param widget: An AudioWidget object.
 
         """
-        if widget.audio_port.host == 'Cros':
-            widget.handler.plug()
-
         self._audio_bus.connect(widget.audio_port.port_id)
 
         logging.info(
@@ -249,9 +232,6 @@ class AudioBusLink(WidgetLink):
         @param widget: An AudioWidget object.
 
         """
-        if widget.audio_port.host == 'Cros':
-            widget.handler.unplug()
-
         self._audio_bus.disconnect(widget.audio_port.port_id)
         logging.info(
                 'Unplugged audio board bus %d output from %s',
@@ -433,8 +413,7 @@ class HDMIWidgetLink(WidgetLink):
 
         """
         board = self._cros_host.get_board().split(':')[1]
-        if board in ['peach_pit', 'peach_pi', 'daisy', 'daisy_spring',
-                     'daisy_skate', 'cyan', 'celes', 'nyan_big', 'lars']:
+        if board in ['cyan', 'celes', 'lars']:
             logging.info('Need extra plug/unplug on board %s', board)
             for _ in xrange(3):
                 handler.plug()

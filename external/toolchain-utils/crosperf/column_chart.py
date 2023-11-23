@@ -1,4 +1,8 @@
-# Copyright 2011 Google Inc. All Rights Reserved.
+# -*- coding: utf-8 -*-
+# Copyright 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Module to draw column chart."""
 
 
@@ -7,7 +11,7 @@ class ColumnChart(object):
 
   def __init__(self, title, width, height):
     self.title = title
-    self.chart_div = filter(str.isalnum, title)
+    self.chart_div = ''.join(t for t in title if t.isalnum())
     self.width = width
     self.height = height
     self.columns = []

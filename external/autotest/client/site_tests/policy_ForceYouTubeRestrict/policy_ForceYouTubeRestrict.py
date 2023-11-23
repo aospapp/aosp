@@ -12,7 +12,7 @@ from autotest_lib.client.cros.enterprise import enterprise_policy_base
 VERIFY_VIDEO_NOT_LOADED_CMD = ("document.getElementById"
     "('error-screen').innerText;")
 RESTRICTED_ONLY_ON_STRICT = 'https://www.youtube.com/watch?v=Fmwfmee2ZTE'
-RESTRICTED_ON_MODERATE = 'https://www.youtube.com/watch?v=feM0xeOLcYI'
+RESTRICTED_ON_MODERATE = 'https://www.youtube.com/watch?v=yR79oLrI1g4'
 SEARCH_QUERY = 'https://www.youtube.com/results?search_query=adult'
 RESTRICTED_MODE_TOGGLE_ENABLED = 'aria-disabled="false"'
 RESTRICTED_MODE_TOGGLE_DISABLED = 'aria-disabled="true"'

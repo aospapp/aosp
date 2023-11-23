@@ -74,7 +74,7 @@
 *******************************************************************************
 */
 #define MAXVERSION_STRLEN       511
-#ifdef __ANDROID__
+#ifdef ANDROID
 #define VERSION(version_string, codec_name, codec_release_type, codec_release_ver, codec_vendor)    \
     snprintf(version_string, MAXVERSION_STRLEN,                                                     \
              "@(#)Id:%s_%s Ver:%s Released by %s",                                                  \

@@ -143,7 +143,7 @@ class network_EthCapsServer(test.test):
           ethname: string of ethernet device under test
         """
         if not client_ip:
-            error.TestError("Must provide client's IP address to test")
+            raise error.TestError("Must provide client's IP address to test")
 
         sleep_secs = 20
 

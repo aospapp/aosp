@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 zu{
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -129,6 +129,7 @@ zu{
                 other{"{0}%"}
             }
             permille{
+                dnam{"permille"}
                 one{"{0}‰"}
                 other{"{0}‰"}
             }
@@ -230,6 +231,10 @@ zu{
                 one{"{0} usuku"}
                 other{"{0} izinsuku"}
                 per{"{0}/d"}
+            }
+            decade{
+                one{"{0} dec"}
+                other{"{0} decades"}
             }
             hour{
                 dnam{"amahora"}
@@ -357,6 +362,12 @@ zu{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            megapixel{
+                one{"{0} MP"}
+                other{"{0} megapixels"}
             }
         }
         length{
@@ -591,8 +602,8 @@ zu{
             }
             knot{
                 dnam{"knot"}
-                one{"{0} knots"}
-                other{"{0} knots"}
+                one{"{0} amafindo"}
+                other{"{0} amafindo"}
             }
             meter-per-second{
                 dnam{"m/s"}
@@ -818,8 +829,8 @@ zu{
             }
             minute{
                 dnam{"amaminithi"}
-                one{"{0} min"}
-                other{"{0} min"}
+                one{"{0} umzuzu"}
+                other{"{0} umzuzu"}
             }
             month{
                 dnam{"izinyanga"}
@@ -947,6 +958,9 @@ zu{
                 dnam{"acre"}
                 one{"{0} ac"}
                 other{"{0} ac"}
+            }
+            dunam{
+                dnam{"dunams"}
             }
             hectare{
                 dnam{"hectare"}
@@ -1147,7 +1161,6 @@ zu{
                 dnam{"amaminithi"}
                 one{"{0} iminithi"}
                 other{"{0} iminithi"}
-                per{"{0}/min"}
             }
             month{
                 dnam{"izinyanga"}

@@ -7,8 +7,6 @@
 #ifndef XFA_FWL_CFWL_PUSHBUTTON_H_
 #define XFA_FWL_CFWL_PUSHBUTTON_H_
 
-#include <memory>
-
 #include "xfa/fwl/cfwl_widget.h"
 #include "xfa/fwl/cfwl_widgetproperties.h"
 
@@ -19,7 +17,7 @@ class CFWL_MessageMouse;
 class CFX_DIBitmap;
 class CFWL_Widget;
 
-class CFWL_PushButton : public CFWL_Widget {
+class CFWL_PushButton final : public CFWL_Widget {
  public:
   explicit CFWL_PushButton(const CFWL_App*);
   ~CFWL_PushButton() override;
@@ -46,9 +44,9 @@ class CFWL_PushButton : public CFWL_Widget {
   void OnMouseLeave(CFWL_MessageMouse* pMsg);
   void OnKeyDown(CFWL_MessageKey* pMsg);
 
+  bool m_bBtnDown = false;
   CFX_RectF m_rtClient;
   CFX_RectF m_rtCaption;
-  bool m_bBtnDown;
 };
 
 #endif  // XFA_FWL_CFWL_PUSHBUTTON_H_

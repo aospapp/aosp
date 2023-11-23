@@ -26,7 +26,7 @@ class RandomMACAddressTestBase(wifi_cell_test_base.WiFiCellTestBase):
     DEFAULT_NUM_SCANS = 5
 
     def initialize(self, host):
-        super(RandomMACAddressTestBase, self).initialize(host)
+        """Generate the HostapConfig used by the AP."""
         self._ap_config = hostap_config.HostapConfig(channel=1)
 
 
@@ -44,7 +44,7 @@ class RandomMACAddressTestBase(wifi_cell_test_base.WiFiCellTestBase):
         logging.debug('Starting packet capture')
         self.context.capture_host.start_capture(
                 self._ap_config.frequency,
-                ht_type=self._ap_config.ht_packet_capture_mode)
+                width_type=self._ap_config.packet_capture_mode)
 
 
     def request_scans(self, num_scans=DEFAULT_NUM_SCANS):

@@ -9,8 +9,8 @@ en_SH{
         }
         SHP{
             "£",
-            "St. Helena Pound",
+            "St Helena Pound",
         }
     }
-    Version{"2.1.38.69"}
+    Version{"36.1"}
 }

@@ -1,6 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 #
-# Copyright 2011 Google Inc. All Rights Reserved.
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Script to image a ChromeOS device.
 
 This script images a remote ChromeOS device with a specific image."
@@ -238,11 +242,6 @@ def DoImage(argv):
       cmd_executer.CrosRunCommand(
           command, chromeos_root=options.chromeos_root, machine=options.remote)
 
-      real_src_dir = os.path.join(
-          os.path.realpath(options.chromeos_root), 'src')
-      real_chroot_dir = os.path.join(
-          os.path.realpath(options.chromeos_root), 'chroot')
-
       # Check to see if cros flash will work for the remote machine.
       CheckForCrosFlash(options.chromeos_root, options.remote, log_level)
 
@@ -261,7 +260,7 @@ def DoImage(argv):
       command = ' '.join(cros_flash_args)
 
       # Workaround for crosbug.com/35684.
-      os.chmod(misc.GetChromeOSKeyFile(options.chromeos_root), 0600)
+      os.chmod(misc.GetChromeOSKeyFile(options.chromeos_root), 0o600)
 
       if log_level == 'average':
         cmd_executer.SetLogLevel('verbose')
@@ -289,7 +288,7 @@ def DoImage(argv):
       # If this is a non-local image, then the ret returned from
       # EnsureMachineUp is the one that will be returned by this function;
       # in that case, make sure the value in 'ret' is appropriate.
-      if not local_image and ret == True:
+      if not local_image and ret:
         ret = 0
       else:
         ret = 1
@@ -312,16 +311,24 @@ def DoImage(argv):
         TryRemountPartitionAsRW(options.chromeos_root, options.remote,
                                 log_level)
 
-      if found == False:
+      if not found:
         temp_dir = os.path.dirname(located_image)
         l.LogOutput('Deleting temp image dir: %s' % temp_dir)
         shutil.rmtree(temp_dir)
+      l.LogOutput('Image updated.')
     else:
-      l.LogOutput('Checksums match. Skipping reimage')
-    return ret
+      l.LogOutput('Checksums match, skip image update and reboot.')
+      command = 'reboot && exit'
+      _ = cmd_executer.CrosRunCommand(
+          command, chromeos_root=options.chromeos_root, machine=options.remote)
+      # Wait 30s after reboot.
+      time.sleep(30)
+
   finally:
     if should_unlock:
       locks.ReleaseLock(list(options.remote.split()), options.chromeos_root)
+
+  return ret
 
 
 def LocateOrCopyImage(chromeos_root, image, board=None):
@@ -338,8 +345,8 @@ def LocateOrCopyImage(chromeos_root, image, board=None):
     return [True, image]
 
   # First search within the existing build dirs for any matching files.
-  images_glob = ('%s/src/build/images/%s/*/*.bin' % (chromeos_root_realpath,
-                                                     board_glob))
+  images_glob = (
+      '%s/src/build/images/%s/*/*.bin' % (chromeos_root_realpath, board_glob))
   images_list = glob.glob(images_glob)
   for potential_image in images_list:
     if filecmp.cmp(potential_image, image):
@@ -359,10 +366,10 @@ def LocateOrCopyImage(chromeos_root, image, board=None):
   return [False, new_image]
 
 
-def GetImageMountCommand(chromeos_root, image, rootfs_mp, stateful_mp):
+def GetImageMountCommand(image, rootfs_mp, stateful_mp):
   image_dir = os.path.dirname(image)
   image_file = os.path.basename(image)
-  mount_command = ('cd ~/trunk/src/scripts &&'
+  mount_command = ('cd /mnt/host/source/src/scripts &&'
                    './mount_gpt_image.sh --from=%s --image=%s'
                    ' --safe --read_only'
                    ' --rootfs_mountpt=%s'
@@ -379,7 +386,7 @@ def MountImage(chromeos_root,
                unmount=False,
                extra_commands=''):
   cmd_executer = command_executer.GetCommandExecuter(log_level=log_level)
-  command = GetImageMountCommand(chromeos_root, image, rootfs_mp, stateful_mp)
+  command = GetImageMountCommand(image, rootfs_mp, stateful_mp)
   if unmount:
     command = '%s --unmount' % command
   if extra_commands:
@@ -400,8 +407,7 @@ def IsImageModdedForTest(chromeos_root, image, log_level):
   rootfs_mp = rootfs_mp.strip()
   stateful_mp = stateful_mp.strip()
   lsb_release_file = os.path.join(rootfs_mp, 'etc/lsb-release')
-  extra = (
-      'grep CHROMEOS_RELEASE_DESCRIPTION %s | grep -i test' % lsb_release_file)
+  extra = ('grep CHROMEOS_RELEASE_TRACK %s | grep -i test' % lsb_release_file)
   output = MountImage(
       chromeos_root,
       image,
@@ -440,10 +446,7 @@ def VerifyChromeChecksum(chromeos_root, image, remote, log_level):
   [_, o, _] = cmd_executer.CrosRunCommandWOutput(
       command, chromeos_root=chromeos_root, machine=remote)
   device_chrome_checksum = o.split()[0]
-  if image_chrome_checksum.strip() == device_chrome_checksum.strip():
-    return True
-  else:
-    return False
+  return image_chrome_checksum.strip() == device_chrome_checksum.strip()
 
 
 # Remount partition as writable.
@@ -459,7 +462,7 @@ def TryRemountPartitionAsRW(chromeos_root, remote, log_level):
     ## Safely ignore.
     l.LogWarning('Failed to remount partition as rw, '
                  'probably the image was not built with '
-                 "\"--noenable_rootfs_verification\", "
+                 '"--noenable_rootfs_verification", '
                  'you can safely ignore this.')
   else:
     l.LogOutput('Re-mounted partition as writable.')

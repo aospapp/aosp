@@ -1,14 +1,15 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Machine Manager module."""
 
+from __future__ import division
 from __future__ import print_function
 
 import collections
-import file_lock_machine
 import hashlib
-import image_chromeos
 import math
 import os.path
 import re
@@ -16,6 +17,8 @@ import sys
 import threading
 import time
 
+import file_lock_machine
+import image_chromeos
 import test_flag
 from cros_utils import command_executer
 from cros_utils import logger
@@ -61,6 +64,7 @@ class CrosMachine(object):
     self.checksum_string = None
     self.meminfo = None
     self.phys_kbytes = None
+    self.cooldown_wait_time = 0
     self.ce = cmd_exec or command_executer.GetCommandExecuter(
         log_level=self.log_level)
     self.SetUpChecksumInfo()
@@ -83,6 +87,12 @@ class CrosMachine(object):
     if ret:
       return False
     return True
+
+  def AddCooldownWaitTime(self, wait_time):
+    self.cooldown_wait_time += wait_time
+
+  def GetCooldownWaitTime(self):
+    return self.cooldown_wait_time
 
   def _ParseMemoryInfo(self):
     line = self.meminfo.splitlines()[0]
@@ -116,8 +126,8 @@ class CrosMachine(object):
     self.phys_kbytes = phys_kbytes
 
   def _GetMemoryInfo(self):
-    #TODO yunlian: when the machine in rebooting, it will not return
-    #meminfo, the assert does not catch it either
+    # TODO yunlian: when the machine in rebooting, it will not return
+    # meminfo, the assert does not catch it either
     command = 'cat /proc/meminfo'
     ret, self.meminfo, _ = self.ce.CrosRunCommandWOutput(
         command, machine=self.name, chromeos_root=self.chromeos_root)
@@ -141,9 +151,8 @@ class CrosMachine(object):
 
   def _GetMD5Checksum(self, ss):
     if ss:
-      return hashlib.md5(ss).hexdigest()
-    else:
-      return ''
+      return hashlib.md5(ss.encode('utf-8')).hexdigest()
+    return ''
 
   def _GetMachineID(self):
     command = 'dump_vpd_log --full --stdout'
@@ -151,7 +160,7 @@ class CrosMachine(object):
         command, machine=self.name, chromeos_root=self.chromeos_root)
     b = if_out.splitlines()
     a = [l for l in b if 'Product' in l]
-    if len(a):
+    if a:
       self.machine_id = a[0]
       return
     command = 'ifconfig'
@@ -159,11 +168,11 @@ class CrosMachine(object):
         command, machine=self.name, chromeos_root=self.chromeos_root)
     b = if_out.splitlines()
     a = [l for l in b if 'HWaddr' in l]
-    if len(a):
+    if a:
       self.machine_id = '_'.join(a)
       return
     a = [l for l in b if 'ether' in l]
-    if len(a):
+    if a:
       self.machine_id = '_'.join(a)
       return
     assert 0, 'Could not get machine_id from machine: %s' % self.name
@@ -184,10 +193,10 @@ class MachineManager(object):
   This class contains methods and calls to lock, unlock and image
   machines and distribute machines to each benchmark run.  The assumption is
   that all of the machines for the experiment have been globally locked
-  (using an AFE server) in the ExperimentRunner, but the machines still need
-  to be locally locked/unlocked (allocated to benchmark runs) to prevent
-  multiple benchmark runs within the same experiment from trying to use the
-  same machine at the same time.
+  in the ExperimentRunner, but the machines still need to be locally
+  locked/unlocked (allocated to benchmark runs) to prevent multiple benchmark
+  runs within the same experiment from trying to use the same machine at the
+  same time.
   """
 
   def __init__(self,
@@ -254,7 +263,8 @@ class MachineManager(object):
         image_chromeos.__file__, '--no_lock',
         '--chromeos_root=%s' % chromeos_root,
         '--image=%s' % label.chromeos_image,
-        '--image_args=%s' % label.image_args, '--remote=%s' % machine.name,
+        '--image_args=%s' % label.image_args,
+        '--remote=%s' % machine.name,
         '--logging_level=%s' % self.log_level
     ]
     if label.board:
@@ -401,10 +411,10 @@ class MachineManager(object):
         self.acquire_timeout -= sleep_time
 
       if self.acquire_timeout < 0:
-        self.logger.LogFatal(
-            'Could not acquire any of the '
-            "following machines: '%s'" % ', '.join(machine.name
-                                                   for machine in machines))
+        self.logger.LogFatal('Could not acquire any of the '
+                             "following machines: '%s'" % ', '.join(
+                                 machine.name for machine in machines))
+
 
 ###      for m in self._machines:
 ###        if (m.locked and time.time() - m.released_time < 10 and
@@ -506,7 +516,7 @@ class MachineManager(object):
           dic[machine.cpuinfo].append(label.name)
           break
     output_segs = []
-    for key, v in dic.iteritems():
+    for key, v in dic.items():
       output = ' '.join(v)
       output += '\n-------------------\n'
       output += key
@@ -621,10 +631,11 @@ power management:
     self.test_run = None
     self.chromeos_root = chromeos_root
     self.checksum_string = re.sub(r'\d', '', name)
-    #In test, we assume "lumpy1", "lumpy2" are the same machine.
+    # In test, we assume "lumpy1", "lumpy2" are the same machine.
     self.machine_checksum = self._GetMD5Checksum(self.checksum_string)
     self.log_level = log_level
     self.label = None
+    self.cooldown_wait_time = 0
     self.ce = command_executer.GetCommandExecuter(log_level=self.log_level)
     self._GetCPUInfo()
 
@@ -674,8 +685,8 @@ class MockMachineManager(MachineManager):
         return machine
     return None
 
-  def ImageMachine(self, machine_name, label):
-    if machine_name or label:
+  def ImageMachine(self, machine, label):
+    if machine or label:
       return 0
     return 1
 

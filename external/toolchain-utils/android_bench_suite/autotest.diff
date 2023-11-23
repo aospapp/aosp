@@ -49,7 +49,7 @@ index 000000000..b233b586a
 +                        'binderThroughputTest > /data/local/tmp/bench_result'
 +                        % os.getenv('TEST_MODE'))
 +        # Next 4 runs add to bench_result
-+        for i in xrange(4):
++        for i in range(4):
 +          self.client.run('taskset %s /data/local/tmp/'
 +                          'binderThroughputTest >> '
 +                          '/data/local/tmp/bench_result'
@@ -165,11 +165,11 @@ index 000000000..dd6af0b53
 +                               'bench_result'), 'w') as f:
 +
 +          # There are two benchmarks, chrome and camera.
-+          for i in xrange(2):
++          for i in range(2):
 +            f.write('Test %d:\n' % i)
 +            total_time = 0
 +            # Run benchmark for several times for accurancy
-+            for j in xrange(3):
++            for j in range(3):
 +              f.write('Iteration %d: ' % j)
 +              result = self.client.run('time taskset %s dex2oat'
 +                         ' --dex-file=data/local/tmp/dex2oat_input/test%d.apk'
@@ -739,7 +739,7 @@ index 000000000..b317bd0f3
 +                        ' > /data/local/tmp/bench_result'
 +                        % os.getenv('TEST_MODE'))
 +        # Next 4 runs add to bench_result
-+        for i in xrange(4):
++        for i in range(4):
 +          self.client.run('taskset %s /data/local/tmp/synthmark'
 +                          ' >> /data/local/tmp/bench_result'
 +                          % os.getenv('TEST_MODE'))

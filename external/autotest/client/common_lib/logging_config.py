@@ -35,6 +35,8 @@ class VarLogMessageFormatter(logging.Formatter):
         # On Brillo the logger binary is not available. Disable after error.
         if self._should_respew:
             try:
+                if isinstance(s, unicode):
+                    s = s.encode('utf8')
                 os.system('logger -t "autotest" "%s"' % utils.sh_escape(s))
             except OSError:
                 self._should_respew = False

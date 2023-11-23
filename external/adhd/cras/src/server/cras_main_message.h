@@ -33,8 +33,7 @@ struct cras_main_message {
 };
 
 /* Callback function to handle main thread message. */
-typedef void (*cras_message_callback)(struct cras_main_message *msg,
-				      void *arg);
+typedef void (*cras_message_callback)(struct cras_main_message *msg, void *arg);
 
 /* Sends a message to main thread. */
 int cras_main_message_send(struct cras_main_message *msg);

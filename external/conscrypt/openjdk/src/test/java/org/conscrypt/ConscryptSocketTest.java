@@ -24,8 +24,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyListOf;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -35,7 +35,6 @@ import java.net.Socket;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.PrivateKey;
-import java.security.Security;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.Callable;
@@ -55,31 +54,20 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 @RunWith(Parameterized.class)
 public class ConscryptSocketTest {
     private static final long TIMEOUT_SECONDS = 5;
     private static final char[] EMPTY_PASSWORD = new char[0];
-
-    @BeforeClass
-    public static void installConscrypt() {
-        TestUtils.installConscryptAsDefaultProvider();
-    }
-
-    @AfterClass
-    public static void removeConscrypt() {
-        Security.removeProvider(TestUtils.getConscryptProvider().getName());
-    }
 
     /**
      * Factories for underlying sockets.
@@ -297,6 +285,9 @@ public class ConscryptSocketTest {
             AbstractConscryptSocket socket =
                     socketType.newClientSocket(createContext(), listener, underlyingSocketType);
             socket.setHostname(hostname);
+            // getApplicationProtocol should initially return null and not trigger handshake:
+            // b/146235331
+            assertNull(Conscrypt.getApplicationProtocol(socket));
             if (alpnProtocols != null) {
                 Conscrypt.setApplicationProtocols(socket, alpnProtocols);
             }
@@ -386,6 +377,16 @@ public class ConscryptSocketTest {
             }
         }
 
+        void doHandshakeSuccess() throws Exception {
+            doHandshake();
+            if (clientException != null) {
+                throw clientException;
+            }
+            if (serverException != null) {
+                throw serverException;
+            }
+        }
+
         void doHandshake() throws Exception {
             ServerSocket listener = newServerSocket();
             Future<AbstractConscryptSocket> clientFuture = handshake(listener, clientHooks);
@@ -421,7 +422,7 @@ public class ConscryptSocketTest {
     @Test
     public void test_handshake() throws Exception {
         TestConnection connection = new TestConnection(new X509Certificate[] {cert, ca}, certKey);
-        connection.doHandshake();
+        connection.doHandshakeSuccess();
 
         assertTrue(connection.clientHooks.isHandshakeCompleted);
         assertTrue(connection.serverHooks.isHandshakeCompleted);
@@ -438,7 +439,7 @@ public class ConscryptSocketTest {
         c.clientHooks.alpnProtocols = clientAlpnProtocols;
         c.serverHooks.alpnProtocols = serverAlpnProtocols;
 
-        c.doHandshake();
+        c.doHandshakeSuccess();
 
         assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.client));
         assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.server));
@@ -471,11 +472,11 @@ public class ConscryptSocketTest {
 
         // Configure server selector
         ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
-        when(selector.selectApplicationProtocol(any(SSLSocket.class), anyListOf(String.class)))
+        when(selector.selectApplicationProtocol(any(SSLSocket.class), ArgumentMatchers.<String>anyList()))
                 .thenReturn("spdy/2");
         c.serverHooks.alpnProtocolSelector = selector;
 
-        c.doHandshake();
+        c.doHandshakeSuccess();
 
         assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.client));
         assertEquals("spdy/2", Conscrypt.getApplicationProtocol(c.server));
@@ -491,7 +492,7 @@ public class ConscryptSocketTest {
 
         // Configure server selector
         ApplicationProtocolSelector selector = Mockito.mock(ApplicationProtocolSelector.class);
-        when(selector.selectApplicationProtocol(any(SSLSocket.class), anyListOf(String.class)))
+        when(selector.selectApplicationProtocol(any(SSLSocket.class), ArgumentMatchers.<String>anyList()))
                 .thenReturn("h2");
         c.serverHooks.alpnProtocolSelector = selector;
 
@@ -506,7 +507,7 @@ public class ConscryptSocketTest {
         TestConnection connection =
                 new TestConnection(new X509Certificate[] {certEmbedded, ca}, certKey);
 
-        connection.doHandshake();
+        connection.doHandshakeSuccess();
 
         assertTrue(connection.clientHooks.isHandshakeCompleted);
         assertTrue(connection.serverHooks.isHandshakeCompleted);
@@ -518,7 +519,7 @@ public class ConscryptSocketTest {
 
         connection.serverHooks.ocspResponse = readTestFile("ocsp-response.der");
 
-        connection.doHandshake();
+        connection.doHandshakeSuccess();
 
         assertTrue(connection.clientHooks.isHandshakeCompleted);
         assertTrue(connection.serverHooks.isHandshakeCompleted);
@@ -530,7 +531,7 @@ public class ConscryptSocketTest {
 
         connection.serverHooks.sctTLSExtension = readTestFile("ct-signed-timestamp-list");
 
-        connection.doHandshake();
+        connection.doHandshakeSuccess();
 
         assertTrue(connection.clientHooks.isHandshakeCompleted);
         assertTrue(connection.serverHooks.isHandshakeCompleted);
@@ -626,15 +627,23 @@ public class ConscryptSocketTest {
 
     @Test
     public void savedSessionWorksAfterClose() throws Exception {
+        String alpnProtocol = "spdy/2";
+        String[] alpnProtocols = new String[]{alpnProtocol};
         TestConnection connection = new TestConnection(new X509Certificate[] {cert, ca}, certKey);
-        connection.doHandshake();
+        connection.clientHooks.alpnProtocols = alpnProtocols;
+        connection.serverHooks.alpnProtocols = alpnProtocols;
+        connection.doHandshakeSuccess();
 
         SSLSession session = connection.client.getSession();
         String cipherSuite = session.getCipherSuite();
+        String protocol = session.getProtocol();
+        assertEquals(alpnProtocol, Conscrypt.getApplicationProtocol(connection.client));
 
         connection.client.close();
 
         assertEquals(cipherSuite, session.getCipherSuite());
+        assertEquals(protocol, session.getProtocol());
+        assertEquals(alpnProtocol, Conscrypt.getApplicationProtocol(connection.client));
     }
 
     private static ServerSocket newServerSocket() throws IOException {

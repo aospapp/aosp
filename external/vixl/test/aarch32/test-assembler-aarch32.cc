@@ -3534,7 +3534,6 @@ TEST_T32(near_branch_fuzz) {
   seed48(seed);
 
   const int label_count = 31;
-  bool allbound;
   Label* l;
 
   // Use multiple iterations, as each produces a different predictably random
@@ -3552,8 +3551,6 @@ TEST_T32(near_branch_fuzz) {
   // ratio in the sequence is fixed at 4:1 by the ratio of cases.
   for (int case_count = 6; case_count < 37; case_count++) {
     for (int iter = 0; iter < iterations; iter++) {
-      // Reset local state.
-      allbound = false;
       l = new Label[label_count];
 
       // Set r0 != 0 to force no branches to be taken. Also acts as a marker
@@ -3602,11 +3599,11 @@ TEST_T32(near_branch_fuzz) {
 
         // If all labels have been bound, exit the inner loop and finalise the
         // code.
-        allbound = true;
+        bool all_bound = true;
         for (int i = 0; i < label_count; i++) {
-          allbound = allbound && l[i].IsBound();
+          all_bound = all_bound && l[i].IsBound();
         }
-        if (allbound) break;
+        if (all_bound) break;
       }
 
       // Ensure that the veneer pools are emitted, to keep each branch/bind test
@@ -3623,7 +3620,9 @@ TEST_T32(near_branch_fuzz) {
 }
 
 
-TEST_T32(near_branch_and_literal_fuzz) {
+static void NearBranchAndLiteralFuzzHelper(InstructionSet isa,
+                                           int shard_count,
+                                           int shard_offset) {
   SETUP();
   START();
 
@@ -3632,7 +3631,6 @@ TEST_T32(near_branch_and_literal_fuzz) {
 
   const int label_count = 15;
   const int literal_count = 31;
-  bool allbound;
   Label* labels;
   uint64_t* literal_values;
   Literal<uint64_t>* literals[literal_count];
@@ -3641,6 +3639,7 @@ TEST_T32(near_branch_and_literal_fuzz) {
   // sequence.
   const int iterations = 128;
   const int n_cases = 20;
+  VIXL_CHECK((iterations % shard_count) == 0);
 
   int loop_count = 0;
   __ Mov(r1, 0);
@@ -3670,12 +3669,11 @@ TEST_T32(near_branch_and_literal_fuzz) {
   for (uint32_t window = 5; window < 14; window++) {
     for (uint32_t ratio = 0; ratio < static_cast<uint32_t>(n_cases - window);
          ratio++) {
-      for (int iter = 0; iter < iterations; iter++) {
+      for (int iter = shard_offset; iter < iterations; iter += shard_count) {
         Label fail;
         Label end;
 
         // Reset local state.
-        allbound = false;
         labels = new Label[label_count];
 
         // Create new literal values.
@@ -3858,11 +3856,11 @@ TEST_T32(near_branch_and_literal_fuzz) {
 
           // If all labels have been bound, exit the inner loop and finalise the
           // code.
-          allbound = true;
+          bool all_bound = true;
           for (int i = 0; i < label_count; i++) {
-            allbound = allbound && labels[i].IsBound();
+            all_bound = all_bound && labels[i].IsBound();
           }
-          if (allbound) break;
+          if (all_bound) break;
         }
 
         __ B(&end);
@@ -3889,6 +3887,21 @@ TEST_T32(near_branch_and_literal_fuzz) {
   ASSERT_EQUAL_32(42, r4);
 }
 
+TEST_T32(near_branch_and_literal_fuzz_0) {
+  NearBranchAndLiteralFuzzHelper(isa, 4, 0);
+}
+
+TEST_T32(near_branch_and_literal_fuzz_1) {
+  NearBranchAndLiteralFuzzHelper(isa, 4, 1);
+}
+
+TEST_T32(near_branch_and_literal_fuzz_2) {
+  NearBranchAndLiteralFuzzHelper(isa, 4, 2);
+}
+
+TEST_T32(near_branch_and_literal_fuzz_3) {
+  NearBranchAndLiteralFuzzHelper(isa, 4, 3);
+}
 
 #ifdef VIXL_INCLUDE_TARGET_T32
 TEST_NOASM(code_buffer_precise_growth) {

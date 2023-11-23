@@ -56,6 +56,7 @@ struct NineBuffer9
     /* Whether only discard and nooverwrite were used so far
      * for this buffer. Allows some optimization. */
     boolean discard_nooverwrite_only;
+    boolean need_sync_if_nooverwrite;
     struct nine_subbuffer *buf;
 
     /* Specific to managed buffers */
@@ -104,7 +105,9 @@ NineBuffer9_Upload( struct NineBuffer9 *This )
     struct NineDevice9 *device = This->base.base.device;
 
     assert(This->base.pool == D3DPOOL_MANAGED && This->managed.dirty);
-    nine_context_range_upload(device, &This->managed.pending_upload, This->base.resource,
+    nine_context_range_upload(device, &This->managed.pending_upload,
+                              (struct NineUnknown *)This,
+                              This->base.resource,
                               This->managed.dirty_box.x,
                               This->managed.dirty_box.width,
                               (char *)This->managed.data + This->managed.dirty_box.x);
@@ -123,8 +126,11 @@ NineBindBufferToDevice( struct NineDevice9 *device,
             list_add(&buf->managed.list, &device->update_buffers);
         buf->bind_count++;
     }
-    if (old)
+    if (old) {
         old->bind_count--;
+        if (!old->bind_count && old->managed.dirty)
+            list_delinit(&old->managed.list);
+    }
 
     nine_bind(slot, buf);
 }

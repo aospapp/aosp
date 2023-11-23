@@ -356,6 +356,7 @@ TEST_F(AvbToolTest, Info) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          3200 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -397,6 +398,7 @@ static std::string AddHashFooterGetExpectedVBMetaInfo(
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          704 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -477,6 +479,7 @@ void AvbToolTest::AddHashFooterTest(bool sparse_image) {
         "Header Block:             256 bytes\n"
         "Authentication Block:     320 bytes\n"
         "Auxiliary Block:          704 bytes\n"
+        "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
         "Algorithm:                SHA256_RSA2048\n"
         "Rollback Index:           0\n"
         "Flags:                    0\n"
@@ -698,6 +701,7 @@ TEST_F(AvbToolTest, DISABLED_AddHashFooterSparseWithHoleAtTheEnd) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          704 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -783,6 +787,7 @@ TEST_F(AvbToolTest, AddHashFooterWithPersistentDigest) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          704 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -825,6 +830,7 @@ TEST_F(AvbToolTest, AddHashFooterWithNoAB) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          704 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -869,6 +875,7 @@ TEST_F(AvbToolTest, AddHashFooterWithPersistentDigestAndNoAB) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          704 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -939,6 +946,8 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
                                  "Header Block:             256 bytes\n"
                                  "Authentication Block:     320 bytes\n"
                                  "Auxiliary Block:          768 bytes\n"
+                                 "Public key (sha1):        "
+                                 "cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
                                  "Algorithm:                SHA256_RSA2048\n"
                                  "Rollback Index:           0\n"
                                  "Flags:                    0\n"
@@ -968,6 +977,7 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
         "Header Block:             256 bytes\n"
         "Authentication Block:     320 bytes\n"
         "Auxiliary Block:          768 bytes\n"
+        "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
         "Algorithm:                SHA256_RSA2048\n"
         "Rollback Index:           0\n"
         "Flags:                    0\n"
@@ -1003,6 +1013,15 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
                    extracted_vbmeta_path.value().c_str());
   }
 
+  /* Zero the hashtree on a copy of the image. */
+  EXPECT_COMMAND(0,
+                 "cp %s %s.zht",
+                 rootfs_path.value().c_str(),
+                 rootfs_path.value().c_str());
+  EXPECT_COMMAND(0,
+                 "./avbtool zero_hashtree --image %s.zht ",
+                 rootfs_path.value().c_str());
+
   if (sparse_image) {
     EXPECT_COMMAND(0,
                    "mv %s %s.sparse",
@@ -1013,6 +1032,16 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
                    rootfs_path.value().c_str(),
                    rootfs_path.value().c_str());
     EXPECT_COMMAND(0, "rm -f %s.sparse", rootfs_path.value().c_str());
+
+    EXPECT_COMMAND(0,
+                   "mv %s.zht %s.zht.sparse",
+                   rootfs_path.value().c_str(),
+                   rootfs_path.value().c_str());
+    EXPECT_COMMAND(0,
+                   "simg2img %s.zht.sparse %s.zht",
+                   rootfs_path.value().c_str(),
+                   rootfs_path.value().c_str());
+    EXPECT_COMMAND(0, "rm -f %s.zht.sparse", rootfs_path.value().c_str());
   }
 
   // To check that we generate the correct hashtree we can use
@@ -1037,6 +1066,11 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
   // Now check that we can find the VBMeta block again from the footer.
   std::string part_data;
   ASSERT_TRUE(base::ReadFileToString(rootfs_path, &part_data));
+
+  // Also read the zeroed hash-tree version.
+  std::string zht_part_data;
+  ASSERT_TRUE(base::ReadFileToString(
+      base::FilePath(rootfs_path.value() + ".zht"), &zht_part_data));
 
   // Check footer contains correct data.
   AvbFooter f;
@@ -1095,6 +1129,33 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
   EXPECT_EQ("e811611467dcd6e8dc4324e45f706c2bdd51db67",
             mem_to_hexstring(desc_end + o, d.root_digest_len));
 
+  // Check that the zeroed hashtree version differ only by the hashtree + fec
+  // being zeroed out.
+  EXPECT_EQ(part_data.size(), zht_part_data.size());
+  size_t zht_ht_begin = d.tree_offset;
+  size_t zht_ht_end = zht_ht_begin + d.tree_size;
+  size_t zht_fec_begin = zht_ht_end;
+  size_t zht_fec_end = zht_fec_begin + d.fec_size;
+  EXPECT_EQ(0, memcmp(part_data.data(), zht_part_data.data(), zht_ht_begin));
+  EXPECT_NE(0,
+            memcmp(part_data.data() + zht_ht_begin,
+                   zht_part_data.data() + zht_ht_begin,
+                   zht_fec_end - zht_ht_begin));
+  EXPECT_EQ(0,
+            memcmp(part_data.data() + zht_fec_end,
+                   zht_part_data.data() + zht_fec_end,
+                   zht_part_data.size() - zht_fec_end));
+  EXPECT_EQ(0, strncmp(zht_part_data.data() + zht_ht_begin, "ZeRoHaSH", 8));
+  for (size_t n = zht_ht_begin + 8; n < zht_ht_end; n++) {
+    EXPECT_EQ(0, zht_part_data.data()[n]);
+  }
+  if (d.fec_size > 0) {
+    EXPECT_EQ(0, strncmp(zht_part_data.data() + zht_fec_begin, "ZeRoHaSH", 8));
+    for (size_t n = zht_fec_begin + 8; n < zht_fec_end; n++) {
+      EXPECT_EQ(0, zht_part_data.data()[n]);
+    }
+  }
+
   // Check that we correctly generate dm-verity kernel cmdline
   // snippets, if requested.
   base::FilePath vbmeta_dmv_path = testdir_.Append("vbmeta_dm_verity_desc.bin");
@@ -1113,6 +1174,7 @@ void AvbToolTest::AddHashtreeFooterTest(bool sparse_image) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          896 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1222,6 +1284,8 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
                                  "Header Block:             256 bytes\n"
                                  "Authentication Block:     320 bytes\n"
                                  "Auxiliary Block:          768 bytes\n"
+                                 "Public key (sha1):        "
+                                 "cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
                                  "Algorithm:                SHA256_RSA2048\n"
                                  "Rollback Index:           0\n"
                                  "Flags:                    0\n"
@@ -1247,6 +1311,15 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
               InfoImage(rootfs_path));
   }
 
+  /* Zero the hashtree and FEC on a copy of the image. */
+  EXPECT_COMMAND(0,
+                 "cp %s %s.zht",
+                 rootfs_path.value().c_str(),
+                 rootfs_path.value().c_str());
+  EXPECT_COMMAND(0,
+                 "./avbtool zero_hashtree --image %s.zht ",
+                 rootfs_path.value().c_str());
+
   if (sparse_image) {
     EXPECT_COMMAND(0,
                    "mv %s %s.sparse",
@@ -1257,6 +1330,16 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
                    rootfs_path.value().c_str(),
                    rootfs_path.value().c_str());
     EXPECT_COMMAND(0, "rm -f %s.sparse", rootfs_path.value().c_str());
+
+    EXPECT_COMMAND(0,
+                   "mv %s.zht %s.zht.sparse",
+                   rootfs_path.value().c_str(),
+                   rootfs_path.value().c_str());
+    EXPECT_COMMAND(0,
+                   "simg2img %s.zht.sparse %s.zht",
+                   rootfs_path.value().c_str(),
+                   rootfs_path.value().c_str());
+    EXPECT_COMMAND(0, "rm -f %s.zht.sparse", rootfs_path.value().c_str());
   }
 
   /* TODO: would be nice to verify that the FEC data is correct. */
@@ -1264,6 +1347,11 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
   // Now check that we can find the VBMeta block again from the footer.
   std::string part_data;
   ASSERT_TRUE(base::ReadFileToString(rootfs_path, &part_data));
+
+  // Also read the zeroed hash-tree version.
+  std::string zht_part_data;
+  ASSERT_TRUE(base::ReadFileToString(
+      base::FilePath(rootfs_path.value() + ".zht"), &zht_part_data));
 
   // Check footer contains correct data.
   AvbFooter f;
@@ -1324,6 +1412,33 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
   EXPECT_EQ("e811611467dcd6e8dc4324e45f706c2bdd51db67",
             mem_to_hexstring(desc_end + o, d.root_digest_len));
 
+  // Check that the zeroed hashtree version differ only by the hashtree + fec
+  // being zeroed out.
+  EXPECT_EQ(part_data.size(), zht_part_data.size());
+  size_t zht_ht_begin = d.tree_offset;
+  size_t zht_ht_end = zht_ht_begin + d.tree_size;
+  size_t zht_fec_begin = zht_ht_end;
+  size_t zht_fec_end = zht_fec_begin + d.fec_size;
+  EXPECT_EQ(0, memcmp(part_data.data(), zht_part_data.data(), zht_ht_begin));
+  EXPECT_NE(0,
+            memcmp(part_data.data() + zht_ht_begin,
+                   zht_part_data.data() + zht_ht_begin,
+                   zht_fec_end - zht_ht_begin));
+  EXPECT_EQ(0,
+            memcmp(part_data.data() + zht_fec_end,
+                   zht_part_data.data() + zht_fec_end,
+                   zht_part_data.size() - zht_fec_end));
+  EXPECT_EQ(0, strncmp(zht_part_data.data() + zht_ht_begin, "ZeRoHaSH", 8));
+  for (size_t n = zht_ht_begin + 8; n < zht_ht_end; n++) {
+    EXPECT_EQ(0, zht_part_data.data()[n]);
+  }
+  if (d.fec_size > 0) {
+    EXPECT_EQ(0, strncmp(zht_part_data.data() + zht_fec_begin, "ZeRoHaSH", 8));
+    for (size_t n = zht_fec_begin + 8; n < zht_fec_end; n++) {
+      EXPECT_EQ(0, zht_part_data.data()[n]);
+    }
+  }
+
   // Check that we correctly generate dm-verity kernel cmdline
   // snippets, if requested.
   base::FilePath vbmeta_dmv_path = testdir_.Append("vbmeta_dm_verity_desc.bin");
@@ -1342,6 +1457,7 @@ void AvbToolTest::AddHashtreeFooterFECTest(bool sparse_image) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          960 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1451,6 +1567,75 @@ TEST_F(AvbToolTest, AddHashtreeFooterCalcMaxImageSizeWithFEC) {
                  partition_size);
 }
 
+TEST_F(AvbToolTest, AddHashtreeFooterCalcMaxImageSizeWithNoHashtree) {
+  const size_t partition_size = 10 * 1024 * 1024;
+  base::FilePath output_path = testdir_.Append("max_size.txt");
+
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hashtree_footer "
+                 "--no_hashtree "
+                 "--partition_size %zd --calc_max_image_size > %s",
+                 partition_size,
+                 output_path.value().c_str());
+  std::string max_image_size_data;
+  EXPECT_TRUE(base::ReadFileToString(output_path, &max_image_size_data));
+  EXPECT_EQ("10416128\n", max_image_size_data);
+  size_t max_image_size = atoll(max_image_size_data.c_str());
+
+  // vbmeta(64) + footer(4) takes up 68 KiB
+  EXPECT_EQ(68 * 1024ULL, partition_size - max_image_size);
+
+  // Check that we can add a hashtree with an image this size for such
+  // a partition size.
+  base::FilePath system_path = GenerateImage("system", max_image_size);
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hashtree_footer"
+                 " --image %s"
+                 " --no_hashtree"
+                 " --partition_name system"
+                 " --partition_size %zd"
+                 " --salt deadbeef"
+                 " --algorithm SHA512_RSA4096 "
+                 " --key test/data/testkey_rsa4096.pem"
+                 " --internal_release_string \"\"",
+                 system_path.value().c_str(),
+                 partition_size);
+  // with --no_hashtree, Tree/FEC sizes are 0 bytes
+  ASSERT_EQ(
+      "Footer version:           1.0\n"
+      "Image size:               10485760 bytes\n"
+      "Original image size:      10416128 bytes\n"
+      "VBMeta offset:            10416128\n"
+      "VBMeta size:              2112 bytes\n"
+      "--\n"
+      "Minimum libavb version:   1.0\n"
+      "Header Block:             256 bytes\n"
+      "Authentication Block:     576 bytes\n"
+      "Auxiliary Block:          1280 bytes\n"
+      "Public key (sha1):        2597c218aae470a130f61162feaae70afd97f011\n"
+      "Algorithm:                SHA512_RSA4096\n"
+      "Rollback Index:           0\n"
+      "Flags:                    0\n"
+      "Release String:           ''\n"
+      "Descriptors:\n"
+      "    Hashtree descriptor:\n"
+      "      Version of dm-verity:  1\n"
+      "      Image Size:            10416128 bytes\n"
+      "      Tree Offset:           10416128\n"
+      "      Tree Size:             0 bytes\n"
+      "      Data Block Size:       4096 bytes\n"
+      "      Hash Block Size:       4096 bytes\n"
+      "      FEC num roots:         2\n"
+      "      FEC offset:            10416128\n"
+      "      FEC size:              0 bytes\n"
+      "      Hash Algorithm:        sha1\n"
+      "      Partition Name:        system\n"
+      "      Salt:                  deadbeef\n"
+      "      Root Digest:           4215bd42bcc99636f42956ce3d2c7884d6a8093b\n"
+      "      Flags:                 0\n",
+      InfoImage(system_path));
+}
+
 TEST_F(AvbToolTest, AddHashtreeFooterWithPersistentDigest) {
   size_t partition_size = 10 * 1024 * 1024;
   base::FilePath path = GenerateImage("digest_location", partition_size / 2);
@@ -1478,6 +1663,7 @@ TEST_F(AvbToolTest, AddHashtreeFooterWithPersistentDigest) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          768 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1528,6 +1714,7 @@ TEST_F(AvbToolTest, AddHashtreeFooterWithNoAB) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          768 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1580,6 +1767,7 @@ TEST_F(AvbToolTest, AddHashtreeFooterWithPersistentDigestAndNoAB) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          768 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1628,6 +1816,7 @@ TEST_F(AvbToolTest, AddHashtreeFooterNoSizeOrName) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          768 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1691,6 +1880,7 @@ TEST_F(AvbToolTest, KernelCmdlineDescriptor) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          640 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1815,6 +2005,7 @@ TEST_F(AvbToolTest, CalculateKernelCmdlineChainedAndWithFlags) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          1216 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -1867,6 +2058,7 @@ TEST_F(AvbToolTest, CalculateKernelCmdlineChainedAndWithFlags) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          1280 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -2032,6 +2224,7 @@ TEST_F(AvbToolTest, ChainedPartition) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          1152 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -2145,6 +2338,7 @@ TEST_F(AvbToolTest, AppendVBMetaImage) {
       "Header Block:             256 bytes\n"
       "Authentication Block:     320 bytes\n"
       "Auxiliary Block:          576 bytes\n"
+      "Public key (sha1):        cdbb77177f731920bbe0a0f94f84d9038ae0617d\n"
       "Algorithm:                SHA256_RSA2048\n"
       "Rollback Index:           0\n"
       "Flags:                    0\n"
@@ -2390,6 +2584,68 @@ TEST_F(AvbToolTest, VerifyImageWithHashAndHashtree) {
                      testdir_.Append("system.img").value().c_str());
     }
   }
+}
+
+TEST_F(AvbToolTest, VerifyImageWithHashAndZeroedHashtree) {
+  const size_t system_partition_size = 10 * 1024 * 1024;
+  const size_t system_image_size = 8 * 1024 * 1024;
+  base::FilePath system_path = GenerateImage("system.img", system_image_size);
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "--partition_size %zd --partition_name system "
+                 "--internal_release_string \"\" ",
+                 system_path.value().c_str(),
+                 system_partition_size);
+
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"),
+                      base::StringPrintf("--include_descriptors_from_image %s ",
+                                         system_path.value().c_str()));
+
+  EXPECT_COMMAND(0,
+                 "./avbtool verify_image --image %s --accept_zeroed_hashtree",
+                 vbmeta_image_path_.value().c_str());
+
+  EXPECT_COMMAND(
+      0, "./avbtool zero_hashtree --image %s", system_path.value().c_str());
+
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image --image %s",
+                 vbmeta_image_path_.value().c_str());
+
+  EXPECT_COMMAND(0,
+                 "./avbtool verify_image --image %s --accept_zeroed_hashtree",
+                 vbmeta_image_path_.value().c_str());
+}
+
+TEST_F(AvbToolTest, VerifyImageWithNoHashtree) {
+  const size_t system_partition_size = 10 * 1024 * 1024;
+  const size_t system_image_size = 8 * 1024 * 1024;
+  base::FilePath system_path = GenerateImage("system.img", system_image_size);
+  EXPECT_COMMAND(0,
+                 "./avbtool add_hashtree_footer --salt d00df00d --image %s "
+                 "--partition_size %zd --partition_name system "
+                 "--no_hashtree "
+                 "--internal_release_string \"\" ",
+                 system_path.value().c_str(),
+                 system_partition_size);
+
+  GenerateVBMetaImage("vbmeta.img",
+                      "SHA256_RSA2048",
+                      0,
+                      base::FilePath("test/data/testkey_rsa2048.pem"),
+                      base::StringPrintf("--include_descriptors_from_image %s ",
+                                         system_path.value().c_str()));
+
+  EXPECT_COMMAND(1,
+                 "./avbtool verify_image --image %s",
+                 vbmeta_image_path_.value().c_str());
+
+  EXPECT_COMMAND(0,
+                 "./avbtool verify_image --image %s --accept_zeroed_hashtree",
+                 vbmeta_image_path_.value().c_str());
 }
 
 TEST_F(AvbToolTest, VerifyImageWithHashAndHashtreeCorruptHash) {

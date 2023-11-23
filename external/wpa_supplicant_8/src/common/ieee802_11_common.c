@@ -130,6 +130,12 @@ static int ieee802_11_parse_vendor_specific(const u8 *pos, size_t elen,
 			elems->multi_ap = pos;
 			elems->multi_ap_len = elen;
 			break;
+		case OWE_OUI_TYPE:
+			/* OWE Transition Mode element */
+			break;
+		case DPP_CC_OUI_TYPE:
+			/* DPP Configurator Connectivity element */
+			break;
 		default:
 			wpa_printf(MSG_MSGDUMP, "Unknown WFA "
 				   "information element ignored "
@@ -206,6 +212,8 @@ static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 	ext_id = *pos++;
 	elen--;
 
+	elems->frag_ies.last_eid_ext = 0;
+
 	switch (ext_id) {
 	case WLAN_EID_EXT_ASSOC_DELAY_INFO:
 		if (elen != 1)
@@ -245,9 +253,9 @@ static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 		elems->key_delivery = pos;
 		elems->key_delivery_len = elen;
 		break;
-	case WLAN_EID_EXT_FILS_WRAPPED_DATA:
-		elems->fils_wrapped_data = pos;
-		elems->fils_wrapped_data_len = elen;
+	case WLAN_EID_EXT_WRAPPED_DATA:
+		elems->wrapped_data = pos;
+		elems->wrapped_data_len = elen;
 		break;
 	case WLAN_EID_EXT_FILS_PUBLIC_KEY:
 		if (elen < 1)
@@ -271,12 +279,24 @@ static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 		elems->password_id_len = elen;
 		break;
 	case WLAN_EID_EXT_HE_CAPABILITIES:
+		if (elen < HE_CAPABILITIES_IE_MIN_LEN)
+			break;
 		elems->he_capabilities = pos;
 		elems->he_capabilities_len = elen;
+		break;
+	case WLAN_EID_EXT_HE_OPERATION:
+		if (elen < HE_OPERATION_IE_MIN_LEN)
+			break;
+		elems->he_operation = pos;
+		elems->he_operation_len = elen;
 		break;
 	case WLAN_EID_EXT_OCV_OCI:
 		elems->oci = pos;
 		elems->oci_len = elen;
+		break;
+	case WLAN_EID_EXT_SHORT_SSID_LIST:
+		elems->short_ssid_list = pos;
+		elems->short_ssid_list_len = elen;
 		break;
 	default:
 		if (show_errors) {
@@ -287,7 +307,36 @@ static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 		return -1;
 	}
 
+	if (elen == 254)
+		elems->frag_ies.last_eid_ext = ext_id;
+
 	return 0;
+}
+
+
+static void ieee802_11_parse_fragment(struct frag_ies_info *frag_ies,
+				      const u8 *pos, u8 elen)
+{
+	if (frag_ies->n_frags >= MAX_NUM_FRAG_IES_SUPPORTED) {
+		wpa_printf(MSG_MSGDUMP, "Too many element fragments - skip");
+		return;
+	}
+
+	/*
+	 * Note: while EID == 0 is a valid ID (SSID IE), it should not be
+	 * fragmented.
+	 */
+	if (!frag_ies->last_eid) {
+		wpa_printf(MSG_MSGDUMP,
+			   "Fragment without a valid last element - skip");
+		return;
+	}
+
+	frag_ies->frags[frag_ies->n_frags].ie = pos;
+	frag_ies->frags[frag_ies->n_frags].ie_len = elen;
+	frag_ies->frags[frag_ies->n_frags].eid = frag_ies->last_eid;
+	frag_ies->frags[frag_ies->n_frags].eid_ext = frag_ies->last_eid_ext;
+	frag_ies->n_frags++;
 }
 
 
@@ -321,6 +370,11 @@ ParseRes ieee802_11_parse_elems(const u8 *start, size_t len,
 				wpa_printf(MSG_DEBUG,
 					   "Ignored too long SSID element (elen=%u)",
 					   elen);
+				break;
+			}
+			if (elems->ssid) {
+				wpa_printf(MSG_MSGDUMP,
+					   "Ignored duplicated SSID element");
 				break;
 			}
 			elems->ssid = pos;
@@ -360,6 +414,10 @@ ParseRes ieee802_11_parse_elems(const u8 *start, size_t len,
 		case WLAN_EID_RSN:
 			elems->rsn_ie = pos;
 			elems->rsn_ie_len = elen;
+			break;
+		case WLAN_EID_RSNX:
+			elems->rsnxe = pos;
+			elems->rsnxe_len = elen;
 			break;
 		case WLAN_EID_PWR_CAPABILITY:
 			if (elen < 2)
@@ -504,7 +562,7 @@ ParseRes ieee802_11_parse_elems(const u8 *start, size_t len,
 			elems->dils_len = elen;
 			break;
 		case WLAN_EID_FRAGMENT:
-			/* TODO */
+			ieee802_11_parse_fragment(&elems->frag_ies, pos, elen);
 			break;
 		case WLAN_EID_EXTENSION:
 			if (ieee802_11_parse_extension(pos, elen, elems,
@@ -520,6 +578,12 @@ ParseRes ieee802_11_parse_elems(const u8 *start, size_t len,
 				   id, elen);
 			break;
 		}
+
+		if (id != WLAN_EID_FRAGMENT && elen == 255)
+			elems->frag_ies.last_eid = id;
+
+		if (id == WLAN_EID_EXTENSION && !elems->frag_ies.last_eid_ext)
+			elems->frag_ies.last_eid = 0;
 	}
 
 	if (!for_each_element_completed(elem, start, len)) {
@@ -704,7 +768,7 @@ enum hostapd_hw_mode ieee80211_freq_to_chan(int freq, u8 *channel)
 {
 	u8 op_class;
 
-	return ieee80211_freq_to_channel_ext(freq, 0, VHT_CHANWIDTH_USE_HT,
+	return ieee80211_freq_to_channel_ext(freq, 0, CHANWIDTH_USE_HT,
 					     &op_class, channel);
 }
 
@@ -714,13 +778,14 @@ enum hostapd_hw_mode ieee80211_freq_to_chan(int freq, u8 *channel)
  * for HT40 and VHT. DFS channels are not covered.
  * @freq: Frequency (MHz) to convert
  * @sec_channel: 0 = non-HT40, 1 = sec. channel above, -1 = sec. channel below
- * @vht: VHT channel width (VHT_CHANWIDTH_*)
+ * @chanwidth: VHT/EDMG channel width (CHANWIDTH_*)
  * @op_class: Buffer for returning operating class
  * @channel: Buffer for returning channel number
  * Returns: hw_mode on success, NUM_HOSTAPD_MODES on failure
  */
 enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
-						   int sec_channel, int vht,
+						   int sec_channel,
+						   int chanwidth,
 						   u8 *op_class, u8 *channel)
 {
 	u8 vht_opclass;
@@ -734,7 +799,7 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 		if ((freq - 2407) % 5)
 			return NUM_HOSTAPD_MODES;
 
-		if (vht)
+		if (chanwidth)
 			return NUM_HOSTAPD_MODES;
 
 		/* 2.407 GHz, channels 1..13 */
@@ -751,7 +816,7 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 	}
 
 	if (freq == 2484) {
-		if (sec_channel || vht)
+		if (sec_channel || chanwidth)
 			return NUM_HOSTAPD_MODES;
 
 		*op_class = 82; /* channel 14 */
@@ -768,14 +833,14 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 		return HOSTAPD_MODE_IEEE80211A;
 	}
 
-	switch (vht) {
-	case VHT_CHANWIDTH_80MHZ:
+	switch (chanwidth) {
+	case CHANWIDTH_80MHZ:
 		vht_opclass = 128;
 		break;
-	case VHT_CHANWIDTH_160MHZ:
+	case CHANWIDTH_160MHZ:
 		vht_opclass = 129;
 		break;
-	case VHT_CHANWIDTH_80P80MHZ:
+	case CHANWIDTH_80P80MHZ:
 		vht_opclass = 130;
 		break;
 	default:
@@ -869,13 +934,57 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 		return HOSTAPD_MODE_IEEE80211A;
 	}
 
-	/* 56.16 GHz, channel 1..4 */
-	if (freq >= 56160 + 2160 * 1 && freq <= 56160 + 2160 * 4) {
-		if (sec_channel || vht)
+	if (freq > 5940 && freq <= 7105) {
+		int bw;
+		u8 idx = (freq - 5940) / 5;
+
+		bw = center_idx_to_bw_6ghz(idx);
+		if (bw < 0)
 			return NUM_HOSTAPD_MODES;
 
-		*channel = (freq - 56160) / 2160;
-		*op_class = 180;
+		*channel = idx;
+		*op_class = 131 + bw;
+		return HOSTAPD_MODE_IEEE80211A;
+	}
+
+	/* 56.16 GHz, channel 1..6 */
+	if (freq >= 56160 + 2160 * 1 && freq <= 56160 + 2160 * 6) {
+		if (sec_channel)
+			return NUM_HOSTAPD_MODES;
+
+		switch (chanwidth) {
+		case CHANWIDTH_USE_HT:
+		case CHANWIDTH_2160MHZ:
+			*channel = (freq - 56160) / 2160;
+			*op_class = 180;
+			break;
+		case CHANWIDTH_4320MHZ:
+			/* EDMG channels 9 - 13 */
+			if (freq > 56160 + 2160 * 5)
+				return NUM_HOSTAPD_MODES;
+
+			*channel = (freq - 56160) / 2160 + 8;
+			*op_class = 181;
+			break;
+		case CHANWIDTH_6480MHZ:
+			/* EDMG channels 17 - 20 */
+			if (freq > 56160 + 2160 * 4)
+				return NUM_HOSTAPD_MODES;
+
+			*channel = (freq - 56160) / 2160 + 16;
+			*op_class = 182;
+			break;
+		case CHANWIDTH_8640MHZ:
+			/* EDMG channels 25 - 27 */
+			if (freq > 56160 + 2160 * 3)
+				return NUM_HOSTAPD_MODES;
+
+			*channel = (freq - 56160) / 2160 + 24;
+			*op_class = 183;
+			break;
+		default:
+			return NUM_HOSTAPD_MODES;
+		}
 
 		return HOSTAPD_MODE_IEEE80211AD;
 	}
@@ -887,27 +996,39 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 int ieee80211_chaninfo_to_channel(unsigned int freq, enum chan_width chanwidth,
 				  int sec_channel, u8 *op_class, u8 *channel)
 {
-	int vht = CHAN_WIDTH_UNKNOWN;
+	int cw = CHAN_WIDTH_UNKNOWN;
 
 	switch (chanwidth) {
 	case CHAN_WIDTH_UNKNOWN:
 	case CHAN_WIDTH_20_NOHT:
 	case CHAN_WIDTH_20:
 	case CHAN_WIDTH_40:
-		vht = VHT_CHANWIDTH_USE_HT;
+		cw = CHANWIDTH_USE_HT;
 		break;
 	case CHAN_WIDTH_80:
-		vht = VHT_CHANWIDTH_80MHZ;
+		cw = CHANWIDTH_80MHZ;
 		break;
 	case CHAN_WIDTH_80P80:
-		vht = VHT_CHANWIDTH_80P80MHZ;
+		cw = CHANWIDTH_80P80MHZ;
 		break;
 	case CHAN_WIDTH_160:
-		vht = VHT_CHANWIDTH_160MHZ;
+		cw = CHANWIDTH_160MHZ;
+		break;
+	case CHAN_WIDTH_2160:
+		cw = CHANWIDTH_2160MHZ;
+		break;
+	case CHAN_WIDTH_4320:
+		cw = CHANWIDTH_4320MHZ;
+		break;
+	case CHAN_WIDTH_6480:
+		cw = CHANWIDTH_6480MHZ;
+		break;
+	case CHAN_WIDTH_8640:
+		cw = CHANWIDTH_8640MHZ;
 		break;
 	}
 
-	if (ieee80211_freq_to_channel_ext(freq, sec_channel, vht, op_class,
+	if (ieee80211_freq_to_channel_ext(freq, sec_channel, cw, op_class,
 					  channel) == NUM_HOSTAPD_MODES) {
 		wpa_printf(MSG_WARNING,
 			   "Cannot determine operating class and channel (freq=%u chanwidth=%d sec_channel=%d)",
@@ -989,10 +1110,22 @@ static int ieee80211_chan_to_freq_us(u8 op_class, u8 chan)
 		if (chan < 149 || chan > 165)
 			return -1;
 		return 5000 + 5 * chan;
-	case 34: /* 60 GHz band, channels 1..3 */
-		if (chan < 1 || chan > 3)
+	case 34: /* 60 GHz band, channels 1..8 */
+		if (chan < 1 || chan > 8)
 			return -1;
 		return 56160 + 2160 * chan;
+	case 37: /* 60 GHz band, EDMG CB2, channels 9..15 */
+		if (chan < 9 || chan > 15)
+			return -1;
+		return 56160 + 2160 * (chan - 8);
+	case 38: /* 60 GHz band, EDMG CB3, channels 17..22 */
+		if (chan < 17 || chan > 22)
+			return -1;
+		return 56160 + 2160 * (chan - 16);
+	case 39: /* 60 GHz band, EDMG CB4, channels 25..29 */
+		if (chan < 25 || chan > 29)
+			return -1;
+		return 56160 + 2160 * (chan - 24);
 	}
 	return -1;
 }
@@ -1027,10 +1160,22 @@ static int ieee80211_chan_to_freq_eu(u8 op_class, u8 chan)
 		if (chan < 149 || chan > 169)
 			return -1;
 		return 5000 + 5 * chan;
-	case 18: /* 60 GHz band, channels 1..4 */
-		if (chan < 1 || chan > 4)
+	case 18: /* 60 GHz band, channels 1..6 */
+		if (chan < 1 || chan > 6)
 			return -1;
 		return 56160 + 2160 * chan;
+	case 21: /* 60 GHz band, EDMG CB2, channels 9..11 */
+		if (chan < 9 || chan > 11)
+			return -1;
+		return 56160 + 2160 * (chan - 8);
+	case 22: /* 60 GHz band, EDMG CB3, channels 17..18 */
+		if (chan < 17 || chan > 18)
+			return -1;
+		return 56160 + 2160 * (chan - 16);
+	case 23: /* 60 GHz band, EDMG CB4, channels 25 */
+		if (chan != 25)
+			return -1;
+		return 56160 + 2160 * (chan - 24);
 	}
 	return -1;
 }
@@ -1071,10 +1216,22 @@ static int ieee80211_chan_to_freq_jp(u8 op_class, u8 chan)
 		if (chan < 100 || chan > 140)
 			return -1;
 		return 5000 + 5 * chan;
-	case 59: /* 60 GHz band, channels 1..4 */
-		if (chan < 1 || chan > 3)
+	case 59: /* 60 GHz band, channels 1..6 */
+		if (chan < 1 || chan > 6)
 			return -1;
 		return 56160 + 2160 * chan;
+	case 62: /* 60 GHz band, EDMG CB2, channels 9..11 */
+		if (chan < 9 || chan > 11)
+			return -1;
+		return 56160 + 2160 * (chan - 8);
+	case 63: /* 60 GHz band, EDMG CB3, channels 17..18 */
+		if (chan < 17 || chan > 18)
+			return -1;
+		return 56160 + 2160 * (chan - 16);
+	case 64: /* 60 GHz band, EDMG CB4, channel 25 */
+		if (chan != 25)
+			return -1;
+		return 56160 + 2160 * (chan - 24);
 	}
 	return -1;
 }
@@ -1159,10 +1316,30 @@ static int ieee80211_chan_to_freq_global(u8 op_class, u8 chan)
 		if (chan < 36 || chan > 128)
 			return -1;
 		return 5000 + 5 * chan;
-	case 180: /* 60 GHz band, channels 1..4 */
-		if (chan < 1 || chan > 4)
+	case 131: /* UHB channels, 20 MHz: 1, 5, 9.. */
+	case 132: /* UHB channels, 40 MHz: 3, 11, 19.. */
+	case 133: /* UHB channels, 80 MHz: 7, 23, 39.. */
+	case 134: /* UHB channels, 160 MHz: 15, 47, 79.. */
+	case 135: /* UHB channels, 80+80 MHz: 7, 23, 39.. */
+		if (chan < 1 || chan > 233)
+			return -1;
+		return 5940 + chan * 5;
+	case 180: /* 60 GHz band, channels 1..8 */
+		if (chan < 1 || chan > 8)
 			return -1;
 		return 56160 + 2160 * chan;
+	case 181: /* 60 GHz band, EDMG CB2, channels 9..15 */
+		if (chan < 9 || chan > 15)
+			return -1;
+		return 56160 + 2160 * (chan - 8);
+	case 182: /* 60 GHz band, EDMG CB3, channels 17..22 */
+		if (chan < 17 || chan > 22)
+			return -1;
+		return 56160 + 2160 * (chan - 16);
+	case 183: /* 60 GHz band, EDMG CB4, channel 25..29 */
+		if (chan < 25 || chan > 29)
+			return -1;
+		return 56160 + 2160 * (chan - 24);
 	}
 	return -1;
 }
@@ -1317,6 +1494,186 @@ const char * fc2str(u16 fc)
 }
 
 
+const char * reason2str(u16 reason)
+{
+#define R2S(r) case WLAN_REASON_ ## r: return #r;
+	switch (reason) {
+	R2S(UNSPECIFIED)
+	R2S(PREV_AUTH_NOT_VALID)
+	R2S(DEAUTH_LEAVING)
+	R2S(DISASSOC_DUE_TO_INACTIVITY)
+	R2S(DISASSOC_AP_BUSY)
+	R2S(CLASS2_FRAME_FROM_NONAUTH_STA)
+	R2S(CLASS3_FRAME_FROM_NONASSOC_STA)
+	R2S(DISASSOC_STA_HAS_LEFT)
+	R2S(STA_REQ_ASSOC_WITHOUT_AUTH)
+	R2S(PWR_CAPABILITY_NOT_VALID)
+	R2S(SUPPORTED_CHANNEL_NOT_VALID)
+	R2S(BSS_TRANSITION_DISASSOC)
+	R2S(INVALID_IE)
+	R2S(MICHAEL_MIC_FAILURE)
+	R2S(4WAY_HANDSHAKE_TIMEOUT)
+	R2S(GROUP_KEY_UPDATE_TIMEOUT)
+	R2S(IE_IN_4WAY_DIFFERS)
+	R2S(GROUP_CIPHER_NOT_VALID)
+	R2S(PAIRWISE_CIPHER_NOT_VALID)
+	R2S(AKMP_NOT_VALID)
+	R2S(UNSUPPORTED_RSN_IE_VERSION)
+	R2S(INVALID_RSN_IE_CAPAB)
+	R2S(IEEE_802_1X_AUTH_FAILED)
+	R2S(CIPHER_SUITE_REJECTED)
+	R2S(TDLS_TEARDOWN_UNREACHABLE)
+	R2S(TDLS_TEARDOWN_UNSPECIFIED)
+	R2S(SSP_REQUESTED_DISASSOC)
+	R2S(NO_SSP_ROAMING_AGREEMENT)
+	R2S(BAD_CIPHER_OR_AKM)
+	R2S(NOT_AUTHORIZED_THIS_LOCATION)
+	R2S(SERVICE_CHANGE_PRECLUDES_TS)
+	R2S(UNSPECIFIED_QOS_REASON)
+	R2S(NOT_ENOUGH_BANDWIDTH)
+	R2S(DISASSOC_LOW_ACK)
+	R2S(EXCEEDED_TXOP)
+	R2S(STA_LEAVING)
+	R2S(END_TS_BA_DLS)
+	R2S(UNKNOWN_TS_BA)
+	R2S(TIMEOUT)
+	R2S(PEERKEY_MISMATCH)
+	R2S(AUTHORIZED_ACCESS_LIMIT_REACHED)
+	R2S(EXTERNAL_SERVICE_REQUIREMENTS)
+	R2S(INVALID_FT_ACTION_FRAME_COUNT)
+	R2S(INVALID_PMKID)
+	R2S(INVALID_MDE)
+	R2S(INVALID_FTE)
+	R2S(MESH_PEERING_CANCELLED)
+	R2S(MESH_MAX_PEERS)
+	R2S(MESH_CONFIG_POLICY_VIOLATION)
+	R2S(MESH_CLOSE_RCVD)
+	R2S(MESH_MAX_RETRIES)
+	R2S(MESH_CONFIRM_TIMEOUT)
+	R2S(MESH_INVALID_GTK)
+	R2S(MESH_INCONSISTENT_PARAMS)
+	R2S(MESH_INVALID_SECURITY_CAP)
+	R2S(MESH_PATH_ERROR_NO_PROXY_INFO)
+	R2S(MESH_PATH_ERROR_NO_FORWARDING_INFO)
+	R2S(MESH_PATH_ERROR_DEST_UNREACHABLE)
+	R2S(MAC_ADDRESS_ALREADY_EXISTS_IN_MBSS)
+	R2S(MESH_CHANNEL_SWITCH_REGULATORY_REQ)
+	R2S(MESH_CHANNEL_SWITCH_UNSPECIFIED)
+	}
+	return "UNKNOWN";
+#undef R2S
+}
+
+
+const char * status2str(u16 status)
+{
+#define S2S(s) case WLAN_STATUS_ ## s: return #s;
+	switch (status) {
+	S2S(SUCCESS)
+	S2S(UNSPECIFIED_FAILURE)
+	S2S(TDLS_WAKEUP_ALTERNATE)
+	S2S(TDLS_WAKEUP_REJECT)
+	S2S(SECURITY_DISABLED)
+	S2S(UNACCEPTABLE_LIFETIME)
+	S2S(NOT_IN_SAME_BSS)
+	S2S(CAPS_UNSUPPORTED)
+	S2S(REASSOC_NO_ASSOC)
+	S2S(ASSOC_DENIED_UNSPEC)
+	S2S(NOT_SUPPORTED_AUTH_ALG)
+	S2S(UNKNOWN_AUTH_TRANSACTION)
+	S2S(CHALLENGE_FAIL)
+	S2S(AUTH_TIMEOUT)
+	S2S(AP_UNABLE_TO_HANDLE_NEW_STA)
+	S2S(ASSOC_DENIED_RATES)
+	S2S(ASSOC_DENIED_NOSHORT)
+	S2S(SPEC_MGMT_REQUIRED)
+	S2S(PWR_CAPABILITY_NOT_VALID)
+	S2S(SUPPORTED_CHANNEL_NOT_VALID)
+	S2S(ASSOC_DENIED_NO_SHORT_SLOT_TIME)
+	S2S(ASSOC_DENIED_NO_HT)
+	S2S(R0KH_UNREACHABLE)
+	S2S(ASSOC_DENIED_NO_PCO)
+	S2S(ASSOC_REJECTED_TEMPORARILY)
+	S2S(ROBUST_MGMT_FRAME_POLICY_VIOLATION)
+	S2S(UNSPECIFIED_QOS_FAILURE)
+	S2S(DENIED_INSUFFICIENT_BANDWIDTH)
+	S2S(DENIED_POOR_CHANNEL_CONDITIONS)
+	S2S(DENIED_QOS_NOT_SUPPORTED)
+	S2S(REQUEST_DECLINED)
+	S2S(INVALID_PARAMETERS)
+	S2S(REJECTED_WITH_SUGGESTED_CHANGES)
+	S2S(INVALID_IE)
+	S2S(GROUP_CIPHER_NOT_VALID)
+	S2S(PAIRWISE_CIPHER_NOT_VALID)
+	S2S(AKMP_NOT_VALID)
+	S2S(UNSUPPORTED_RSN_IE_VERSION)
+	S2S(INVALID_RSN_IE_CAPAB)
+	S2S(CIPHER_REJECTED_PER_POLICY)
+	S2S(TS_NOT_CREATED)
+	S2S(DIRECT_LINK_NOT_ALLOWED)
+	S2S(DEST_STA_NOT_PRESENT)
+	S2S(DEST_STA_NOT_QOS_STA)
+	S2S(ASSOC_DENIED_LISTEN_INT_TOO_LARGE)
+	S2S(INVALID_FT_ACTION_FRAME_COUNT)
+	S2S(INVALID_PMKID)
+	S2S(INVALID_MDIE)
+	S2S(INVALID_FTIE)
+	S2S(REQUESTED_TCLAS_NOT_SUPPORTED)
+	S2S(INSUFFICIENT_TCLAS_PROCESSING_RESOURCES)
+	S2S(TRY_ANOTHER_BSS)
+	S2S(GAS_ADV_PROTO_NOT_SUPPORTED)
+	S2S(NO_OUTSTANDING_GAS_REQ)
+	S2S(GAS_RESP_NOT_RECEIVED)
+	S2S(STA_TIMED_OUT_WAITING_FOR_GAS_RESP)
+	S2S(GAS_RESP_LARGER_THAN_LIMIT)
+	S2S(REQ_REFUSED_HOME)
+	S2S(ADV_SRV_UNREACHABLE)
+	S2S(REQ_REFUSED_SSPN)
+	S2S(REQ_REFUSED_UNAUTH_ACCESS)
+	S2S(INVALID_RSNIE)
+	S2S(U_APSD_COEX_NOT_SUPPORTED)
+	S2S(U_APSD_COEX_MODE_NOT_SUPPORTED)
+	S2S(BAD_INTERVAL_WITH_U_APSD_COEX)
+	S2S(ANTI_CLOGGING_TOKEN_REQ)
+	S2S(FINITE_CYCLIC_GROUP_NOT_SUPPORTED)
+	S2S(CANNOT_FIND_ALT_TBTT)
+	S2S(TRANSMISSION_FAILURE)
+	S2S(REQ_TCLAS_NOT_SUPPORTED)
+	S2S(TCLAS_RESOURCES_EXCHAUSTED)
+	S2S(REJECTED_WITH_SUGGESTED_BSS_TRANSITION)
+	S2S(REJECT_WITH_SCHEDULE)
+	S2S(REJECT_NO_WAKEUP_SPECIFIED)
+	S2S(SUCCESS_POWER_SAVE_MODE)
+	S2S(PENDING_ADMITTING_FST_SESSION)
+	S2S(PERFORMING_FST_NOW)
+	S2S(PENDING_GAP_IN_BA_WINDOW)
+	S2S(REJECT_U_PID_SETTING)
+	S2S(REFUSED_EXTERNAL_REASON)
+	S2S(REFUSED_AP_OUT_OF_MEMORY)
+	S2S(REJECTED_EMERGENCY_SERVICE_NOT_SUPPORTED)
+	S2S(QUERY_RESP_OUTSTANDING)
+	S2S(REJECT_DSE_BAND)
+	S2S(TCLAS_PROCESSING_TERMINATED)
+	S2S(TS_SCHEDULE_CONFLICT)
+	S2S(DENIED_WITH_SUGGESTED_BAND_AND_CHANNEL)
+	S2S(MCCAOP_RESERVATION_CONFLICT)
+	S2S(MAF_LIMIT_EXCEEDED)
+	S2S(MCCA_TRACK_LIMIT_EXCEEDED)
+	S2S(DENIED_DUE_TO_SPECTRUM_MANAGEMENT)
+	S2S(ASSOC_DENIED_NO_VHT)
+	S2S(ENABLEMENT_DENIED)
+	S2S(RESTRICTION_FROM_AUTHORIZED_GDB)
+	S2S(AUTHORIZATION_DEENABLED)
+	S2S(FILS_AUTHENTICATION_FAILURE)
+	S2S(UNKNOWN_AUTHENTICATION_SERVER)
+	S2S(UNKNOWN_PASSWORD_IDENTIFIER)
+	S2S(SAE_HASH_TO_ELEMENT)
+	}
+	return "UNKNOWN";
+#undef S2S
+}
+
+
 int mb_ies_info_by_ies(struct mb_ies_info *info, const u8 *ies_buf,
 		       size_t ies_len)
 {
@@ -1409,7 +1766,17 @@ const struct oper_class_map global_op_class[] = {
 	{ HOSTAPD_MODE_IEEE80211A, 128, 36, 161, 4, BW80, P2P_SUPP },
 	{ HOSTAPD_MODE_IEEE80211A, 129, 50, 114, 16, BW160, P2P_SUPP },
 	{ HOSTAPD_MODE_IEEE80211A, 130, 36, 161, 4, BW80P80, P2P_SUPP },
-	{ HOSTAPD_MODE_IEEE80211AD, 180, 1, 4, 1, BW2160, P2P_SUPP },
+	{ HOSTAPD_MODE_IEEE80211A, 131, 1, 233, 4, BW20, P2P_SUPP },
+
+	/*
+	 * IEEE Std 802.11ad-2012 and P802.ay/D5.0 60 GHz operating classes.
+	 * Class 180 has the legacy channels 1-6. Classes 181-183 include
+	 * channels which implement channel bonding features.
+	 */
+	{ HOSTAPD_MODE_IEEE80211AD, 180, 1, 6, 1, BW2160, P2P_SUPP },
+	{ HOSTAPD_MODE_IEEE80211AD, 181, 9, 13, 1, BW4320, P2P_SUPP },
+	{ HOSTAPD_MODE_IEEE80211AD, 182, 17, 20, 1, BW6480, P2P_SUPP },
+	{ HOSTAPD_MODE_IEEE80211AD, 183, 25, 27, 1, BW8640, P2P_SUPP },
 	{ -1, 0, 0, 0, 0, BW20, NO_P2P_SUPP }
 };
 
@@ -1723,6 +2090,63 @@ int oper_class_bw_to_int(const struct oper_class_map *map)
 }
 
 
+int center_idx_to_bw_6ghz(u8 idx)
+{
+	/* channels: 1, 5, 9, 13... */
+	if ((idx & 0x3) == 0x1)
+		return 0; /* 20 MHz */
+	/* channels 3, 11, 19... */
+	if ((idx & 0x7) == 0x3)
+		return 1; /* 40 MHz */
+	/* channels 7, 23, 39.. */
+	if ((idx & 0xf) == 0x7)
+		return 2; /* 80 MHz */
+	/* channels 15, 47, 79...*/
+	if ((idx & 0x1f) == 0xf)
+		return 3; /* 160 MHz */
+
+	return -1;
+}
+
+
+int is_6ghz_freq(int freq)
+{
+	if (freq < 5940 || freq > 7105)
+		return 0;
+
+	if (center_idx_to_bw_6ghz((freq - 5940) / 5) < 0)
+		return 0;
+
+	return 1;
+}
+
+
+int is_6ghz_op_class(u8 op_class)
+{
+	return op_class >= 131 && op_class <= 135;
+}
+
+
+int is_6ghz_psc_frequency(int freq)
+{
+	int i;
+
+	if (!is_6ghz_freq(freq))
+		return 0;
+	if ((((freq - 5940) / 5) & 0x3) != 0x1)
+		return 0;
+
+	i = (freq - 5940 + 55) % 80;
+	if (i == 0)
+		i = (freq - 5940 + 55) / 80;
+
+	if (i >= 1 && i <= 15)
+		return 1;
+
+	return 0;
+}
+
+
 int ieee802_11_parse_candidate_list(const char *pos, u8 *nei_rep,
 				    size_t nei_rep_len)
 {
@@ -1830,4 +2254,538 @@ int ieee802_11_ext_capab(const u8 *ie, unsigned int capab)
 	if (!ie || ie[1] <= capab / 8)
 		return 0;
 	return !!(ie[2 + capab / 8] & BIT(capab % 8));
+}
+
+
+void hostapd_encode_edmg_chan(int edmg_enable, u8 edmg_channel,
+			      int primary_channel,
+			      struct ieee80211_edmg_config *edmg)
+{
+	if (!edmg_enable) {
+		edmg->channels = 0;
+		edmg->bw_config = 0;
+		return;
+	}
+
+	/* Only EDMG CB1 and EDMG CB2 contiguous channels supported for now */
+	switch (edmg_channel) {
+	case EDMG_CHANNEL_9:
+		edmg->channels = EDMG_CHANNEL_9_SUBCHANNELS;
+		edmg->bw_config = EDMG_BW_CONFIG_5;
+		return;
+	case EDMG_CHANNEL_10:
+		edmg->channels = EDMG_CHANNEL_10_SUBCHANNELS;
+		edmg->bw_config = EDMG_BW_CONFIG_5;
+		return;
+	case EDMG_CHANNEL_11:
+		edmg->channels = EDMG_CHANNEL_11_SUBCHANNELS;
+		edmg->bw_config = EDMG_BW_CONFIG_5;
+		return;
+	case EDMG_CHANNEL_12:
+		edmg->channels = EDMG_CHANNEL_12_SUBCHANNELS;
+		edmg->bw_config = EDMG_BW_CONFIG_5;
+		return;
+	case EDMG_CHANNEL_13:
+		edmg->channels = EDMG_CHANNEL_13_SUBCHANNELS;
+		edmg->bw_config = EDMG_BW_CONFIG_5;
+		return;
+	default:
+		if (primary_channel > 0 && primary_channel < 7) {
+			edmg->channels = BIT(primary_channel - 1);
+			edmg->bw_config = EDMG_BW_CONFIG_4;
+		} else {
+			edmg->channels = 0;
+			edmg->bw_config = 0;
+		}
+		break;
+	}
+}
+
+
+/* Check if the requested EDMG configuration is a subset of the allowed
+ * EDMG configuration. */
+int ieee802_edmg_is_allowed(struct ieee80211_edmg_config allowed,
+			    struct ieee80211_edmg_config requested)
+{
+	/*
+	 * The validation check if the requested EDMG configuration
+	 * is a subset of the allowed EDMG configuration:
+	 * 1. Check that the requested channels are part (set) of the allowed
+	 * channels.
+	 * 2. P802.11ay defines the values of bw_config between 4 and 15.
+	 * (bw config % 4) will give us 4 groups inside bw_config definition,
+	 * inside each group we can check the subset just by comparing the
+	 * bw_config value.
+	 * Between this 4 groups, there is no subset relation - as a result of
+	 * the P802.11ay definition.
+	 * bw_config defined by IEEE P802.11ay/D4.0, 9.4.2.251, Table 13.
+	 */
+	if (((requested.channels & allowed.channels) != requested.channels) ||
+	    ((requested.bw_config % 4) > (allowed.bw_config % 4)) ||
+	    requested.bw_config > allowed.bw_config)
+		return 0;
+
+	return 1;
+}
+
+
+int op_class_to_bandwidth(u8 op_class)
+{
+	switch (op_class) {
+	case 81:
+	case 82:
+		return 20;
+	case 83: /* channels 1..9; 40 MHz */
+	case 84: /* channels 5..13; 40 MHz */
+		return 40;
+	case 115: /* channels 36,40,44,48; indoor only */
+		return 20;
+	case 116: /* channels 36,44; 40 MHz; indoor only */
+	case 117: /* channels 40,48; 40 MHz; indoor only */
+		return 40;
+	case 118: /* channels 52,56,60,64; dfs */
+		return 20;
+	case 119: /* channels 52,60; 40 MHz; dfs */
+	case 120: /* channels 56,64; 40 MHz; dfs */
+		return 40;
+	case 121: /* channels 100-140 */
+		return 20;
+	case 122: /* channels 100-142; 40 MHz */
+	case 123: /* channels 104-136; 40 MHz */
+		return 40;
+	case 124: /* channels 149,153,157,161 */
+	case 125: /* channels 149,153,157,161,165,169 */
+		return 20;
+	case 126: /* channels 149,157; 40 MHz */
+	case 127: /* channels 153,161; 40 MHz */
+		return 40;
+	case 128: /* center freqs 42, 58, 106, 122, 138, 155; 80 MHz */
+		return 80;
+	case 129: /* center freqs 50, 114; 160 MHz */
+		return 160;
+	case 130: /* center freqs 42, 58, 106, 122, 138, 155; 80+80 MHz */
+		return 80;
+	case 131: /* UHB channels, 20 MHz: 1, 5, 9.. */
+		return 20;
+	case 132: /* UHB channels, 40 MHz: 3, 11, 19.. */
+		return 40;
+	case 133: /* UHB channels, 80 MHz: 7, 23, 39.. */
+		return 80;
+	case 134: /* UHB channels, 160 MHz: 15, 47, 79.. */
+	case 135: /* UHB channels, 80+80 MHz: 7, 23, 39.. */
+		return 160;
+	case 180: /* 60 GHz band, channels 1..8 */
+		return 2160;
+	case 181: /* 60 GHz band, EDMG CB2, channels 9..15 */
+		return 4320;
+	case 182: /* 60 GHz band, EDMG CB3, channels 17..22 */
+		return 6480;
+	case 183: /* 60 GHz band, EDMG CB4, channel 25..29 */
+		return 8640;
+	}
+
+	return 20;
+}
+
+
+int op_class_to_ch_width(u8 op_class)
+{
+	switch (op_class) {
+	case 81:
+	case 82:
+		return CHANWIDTH_USE_HT;
+	case 83: /* channels 1..9; 40 MHz */
+	case 84: /* channels 5..13; 40 MHz */
+		return CHANWIDTH_USE_HT;
+	case 115: /* channels 36,40,44,48; indoor only */
+		return CHANWIDTH_USE_HT;
+	case 116: /* channels 36,44; 40 MHz; indoor only */
+	case 117: /* channels 40,48; 40 MHz; indoor only */
+		return CHANWIDTH_USE_HT;
+	case 118: /* channels 52,56,60,64; dfs */
+		return CHANWIDTH_USE_HT;
+	case 119: /* channels 52,60; 40 MHz; dfs */
+	case 120: /* channels 56,64; 40 MHz; dfs */
+		return CHANWIDTH_USE_HT;
+	case 121: /* channels 100-140 */
+		return CHANWIDTH_USE_HT;
+	case 122: /* channels 100-142; 40 MHz */
+	case 123: /* channels 104-136; 40 MHz */
+		return CHANWIDTH_USE_HT;
+	case 124: /* channels 149,153,157,161 */
+	case 125: /* channels 149,153,157,161,165,169 */
+		return CHANWIDTH_USE_HT;
+	case 126: /* channels 149,157; 40 MHz */
+	case 127: /* channels 153,161; 40 MHz */
+		return CHANWIDTH_USE_HT;
+	case 128: /* center freqs 42, 58, 106, 122, 138, 155; 80 MHz */
+		return CHANWIDTH_80MHZ;
+	case 129: /* center freqs 50, 114; 160 MHz */
+		return CHANWIDTH_160MHZ;
+	case 130: /* center freqs 42, 58, 106, 122, 138, 155; 80+80 MHz */
+		return CHANWIDTH_80P80MHZ;
+	case 131: /* UHB channels, 20 MHz: 1, 5, 9.. */
+		return CHANWIDTH_USE_HT;
+	case 132: /* UHB channels, 40 MHz: 3, 11, 19.. */
+		return CHANWIDTH_USE_HT;
+	case 133: /* UHB channels, 80 MHz: 7, 23, 39.. */
+		return CHANWIDTH_80MHZ;
+	case 134: /* UHB channels, 160 MHz: 15, 47, 79.. */
+		return CHANWIDTH_160MHZ;
+	case 135: /* UHB channels, 80+80 MHz: 7, 23, 39.. */
+		return CHANWIDTH_80P80MHZ;
+	case 180: /* 60 GHz band, channels 1..8 */
+		return CHANWIDTH_2160MHZ;
+	case 181: /* 60 GHz band, EDMG CB2, channels 9..15 */
+		return CHANWIDTH_4320MHZ;
+	case 182: /* 60 GHz band, EDMG CB3, channels 17..22 */
+		return CHANWIDTH_6480MHZ;
+	case 183: /* 60 GHz band, EDMG CB4, channel 25..29 */
+		return CHANWIDTH_8640MHZ;
+	}
+	return CHANWIDTH_USE_HT;
+}
+
+struct wpabuf * ieee802_11_defrag_data(struct ieee802_11_elems *elems,
+				       u8 eid, u8 eid_ext,
+				       const u8 *data, u8 len)
+{
+	struct frag_ies_info *frag_ies = &elems->frag_ies;
+	struct wpabuf *buf;
+	unsigned int i;
+
+	if (!elems || !data || !len)
+		return NULL;
+
+	buf = wpabuf_alloc_copy(data, len);
+	if (!buf)
+		return NULL;
+
+	for (i = 0; i < frag_ies->n_frags; i++) {
+		int ret;
+
+		if (frag_ies->frags[i].eid != eid ||
+		    frag_ies->frags[i].eid_ext != eid_ext)
+			continue;
+
+		ret = wpabuf_resize(&buf, frag_ies->frags[i].ie_len);
+		if (ret < 0) {
+			wpabuf_free(buf);
+			return NULL;
+		}
+
+		/* Copy only the fragment data (without the EID and length) */
+		wpabuf_put_data(buf, frag_ies->frags[i].ie,
+				frag_ies->frags[i].ie_len);
+	}
+
+	return buf;
+}
+
+
+struct wpabuf * ieee802_11_defrag(struct ieee802_11_elems *elems,
+				  u8 eid, u8 eid_ext)
+{
+	const u8 *data;
+	u8 len;
+
+	/*
+	 * TODO: Defragmentation mechanism can be supported for all IEs. For now
+	 * handle only those that are used (or use ieee802_11_defrag_data()).
+	 */
+	switch (eid) {
+	case WLAN_EID_EXTENSION:
+		switch (eid_ext) {
+		case WLAN_EID_EXT_FILS_HLP_CONTAINER:
+			data = elems->fils_hlp;
+			len = elems->fils_hlp_len;
+			break;
+		case WLAN_EID_EXT_WRAPPED_DATA:
+			data = elems->wrapped_data;
+			len = elems->wrapped_data_len;
+			break;
+		default:
+			wpa_printf(MSG_DEBUG,
+				   "Defragmentation not supported. eid_ext=%u",
+				   eid_ext);
+			return NULL;
+		}
+		break;
+	default:
+		wpa_printf(MSG_DEBUG,
+			   "Defragmentation not supported. eid=%u", eid);
+		return NULL;
+	}
+
+	return ieee802_11_defrag_data(elems, eid, eid_ext, data, len);
+}
+
+/* Parse HT capabilities to get maximum number of supported spatial streams */
+static int parse_ht_mcs_set_for_max_nss(
+				struct ieee80211_ht_capabilities *htcaps,
+				u8 parse_for_rx)
+{
+	int max_nss_rx = 1;
+	if (htcaps == NULL)
+		return max_nss_rx;
+	int i;
+	for (i = 4; i >= 1; i--) {
+		if (htcaps->supported_mcs_set[i - 1] > 0) {
+			max_nss_rx = i;
+			break;
+		}
+	}
+	if (parse_for_rx)
+		return max_nss_rx;
+	u8 supported_tx_mcs_set = htcaps->supported_mcs_set[12];
+	u8 tx_mcs_set_defined = supported_tx_mcs_set & 0x1;
+	u8 tx_rx_mcs_set_not_equal = (supported_tx_mcs_set >> 1) & 0x1;
+	if (tx_mcs_set_defined && tx_rx_mcs_set_not_equal) {
+		int max_nss_tx_field_value = (supported_tx_mcs_set >> 2) & 0x3;
+		// The maximum number of Tx streams is 1 more than the field value.
+		return max_nss_tx_field_value + 1;
+	}
+	return max_nss_rx;
+}
+
+
+/* Parse MCS map to get maximum number of supported spatial streams */
+static int parse_mcs_map_for_max_nss (u16 mcs_map, int max_streams_allowed)
+{
+	int max_nss = 1;
+	int i;
+	for (i = max_streams_allowed; i >= 1; i--) {
+		int stream_map = (mcs_map >> ((i - 1) * 2)) & 0x3;
+		// 3 means unsupported
+		if (stream_map != 3) {
+			max_nss = i;
+			break;
+		}
+	}
+	return max_nss;
+}
+
+
+/* Parse capabilities IEs to get maximum number of supported spatial streams */
+int get_max_nss_capability(struct ieee802_11_elems *elems, int parse_for_rx)
+{
+	int max_nss = 1;
+	struct ieee80211_ht_capabilities *htcaps =
+		(struct ieee80211_ht_capabilities *) elems->ht_capabilities;
+	struct ieee80211_vht_capabilities *vhtcaps =
+		(struct ieee80211_vht_capabilities *) elems->vht_capabilities;
+	struct ieee80211_he_capabilities *hecaps =
+		(struct ieee80211_he_capabilities *) elems->he_capabilities;
+	if (htcaps) {
+		int max_nss_ht = parse_ht_mcs_set_for_max_nss(htcaps, parse_for_rx);
+		if (max_nss_ht > max_nss)
+			max_nss = max_nss_ht;
+	}
+	le16 mcs_map;
+	if (vhtcaps) {
+		mcs_map = (parse_for_rx) ? vhtcaps->vht_supported_mcs_set.rx_map :
+			vhtcaps->vht_supported_mcs_set.tx_map;
+		int max_nss_vht = parse_mcs_map_for_max_nss(
+			le_to_host16(mcs_map), VHT_RX_NSS_MAX_STREAMS);
+		if (max_nss_vht > max_nss)
+			max_nss = max_nss_vht;
+	}
+	if (hecaps) {
+		mcs_map = (parse_for_rx) ? hecaps->he_basic_supported_mcs_set.rx_map :
+			hecaps->he_basic_supported_mcs_set.tx_map;
+		int max_nss_he = parse_mcs_map_for_max_nss(
+			le_to_host16(mcs_map), HE_NSS_MAX_STREAMS);
+		if (max_nss_he > max_nss)
+			max_nss = max_nss_he;
+	}
+	return max_nss;
+}
+
+
+/* Parse VHT/HE capabilities IEs to get supported channel width */
+struct supported_chan_width get_supported_channel_width(
+				struct ieee802_11_elems *elems)
+{
+	struct supported_chan_width supported_width;
+	supported_width.is_160_supported = 0;
+	supported_width.is_80p80_supported = 0;
+	if (elems == NULL)
+		return supported_width;
+
+	struct ieee80211_vht_capabilities *vhtcaps =
+		(struct ieee80211_vht_capabilities *) elems->vht_capabilities;
+	struct ieee80211_he_capabilities *hecaps =
+		(struct ieee80211_he_capabilities *) elems->he_capabilities;
+
+	if (vhtcaps) {
+		le32 vht_capabilities_info =
+			le_to_host32(vhtcaps->vht_capabilities_info);
+		if (vht_capabilities_info & VHT_CAP_SUPP_CHAN_WIDTH_160MHZ)
+			supported_width.is_160_supported = 1;
+		if (vht_capabilities_info & VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ)
+			supported_width.is_80p80_supported = 1;
+	}
+	if (hecaps) {
+		u8 channel_width_set =
+        	hecaps->he_phy_capab_info[HE_PHYCAP_CHANNEL_WIDTH_SET_IDX];
+		if (channel_width_set & HE_PHYCAP_CHANNEL_WIDTH_SET_160MHZ_IN_5G)
+			supported_width.is_160_supported = 1;
+		if (channel_width_set & HE_PHYCAP_CHANNEL_WIDTH_SET_80PLUS80MHZ_IN_5G)
+			supported_width.is_80p80_supported = 1;
+	}
+	wpa_printf(MSG_DEBUG, " IE indicate 160 supported: %u, 80+80 supported: %u",
+        supported_width.is_160_supported, supported_width.is_80p80_supported);
+	return supported_width;
+}
+
+/*
+ * Parse VHT operation info fields to get operation channel width
+ * note that VHT operation info fields could come from VHT operation IE
+ * or from HE operation IE
+ */
+static enum chan_width get_vht_operation_channel_width(
+				struct ieee80211_vht_operation_info *vht_oper_info)
+{
+	enum chan_width channel_width = CHAN_WIDTH_UNKNOWN;
+	u8 seg0, seg1;
+	switch (vht_oper_info->vht_op_info_chwidth) {
+	case 1:
+		seg0 = vht_oper_info->vht_op_info_chan_center_freq_seg0_idx;
+		seg1 = vht_oper_info->vht_op_info_chan_center_freq_seg1_idx;
+		if (seg1 && abs(seg1 - seg0) == 8)
+			channel_width = CHAN_WIDTH_160;
+		else if (seg1)
+			channel_width = CHAN_WIDTH_80P80;
+		else
+			channel_width = CHAN_WIDTH_80;
+		break;
+	case 2:
+		channel_width = CHAN_WIDTH_160;
+		break;
+	case 3:
+		channel_width = CHAN_WIDTH_80P80;
+		break;
+	default:
+		break;
+	}
+	wpa_printf(MSG_DEBUG, " VHT operation CBW: %u", channel_width);
+	return channel_width;
+}
+
+/* Parse 6GHz operation info fields to get operation channel width */
+static enum chan_width get_6ghz_operation_channel_width(
+				struct ieee80211_6ghz_operation_info * six_ghz_oper_info)
+{
+	enum chan_width channel_width = CHAN_WIDTH_UNKNOWN;
+	u8 seg0, seg1;
+	switch (six_ghz_oper_info->control & SIX_GHZ_CONTROL_CHANNEL_WIDTH_MASK) {
+	case 0:
+		channel_width = CHAN_WIDTH_20;
+		break;
+	case 1:
+		channel_width = CHAN_WIDTH_40;
+		break;
+	case 2:
+		channel_width = CHAN_WIDTH_80;
+		break;
+	case 3:
+		seg0 = six_ghz_oper_info->chan_center_freq_seg0_idx;
+		seg1 = six_ghz_oper_info->chan_center_freq_seg1_idx;
+		if (abs(seg1 - seg0) == 8)
+			channel_width = CHAN_WIDTH_160;
+		else
+			channel_width = CHAN_WIDTH_80P80;
+		break;
+	default:
+		break;
+	}
+	wpa_printf(MSG_DEBUG, " 6GHz operation CBW: %u", channel_width);
+	return channel_width;
+}
+
+
+/* Parse HE operation IE to get HE operation channel width */
+static enum chan_width get_he_operation_channel_width(
+				struct ieee80211_he_operation *he_oper,
+				int he_oper_len)
+{
+	enum chan_width channel_width = CHAN_WIDTH_UNKNOWN;
+	u8 is_6ghz_info_present =
+		(he_oper->he_oper_params & HE_OPERATION_6GHZ_OPER_INFO) ? 1 : 0;
+	u8 is_vht_info_present =
+		(he_oper->he_oper_params & HE_OPERATION_VHT_OPER_INFO) ? 1 : 0;
+	u8 is_cohosted_bss_present =
+		(he_oper->he_oper_params & HE_OPERATION_COHOSTED_BSS) ? 1 : 0;
+	int expected_len = HE_OPERATION_IE_MIN_LEN
+		+ (is_6ghz_info_present ? HE_OPERATION_6GHZ_OPER_INFO_LEN : 0)
+		+ (is_vht_info_present ? HE_OPERATION_VHT_OPER_INFO_LEN : 0)
+		+ (is_cohosted_bss_present
+		? HE_OPERATION_COHOSTED_BSSID_INDICATOR_LEN : 0);
+	if (he_oper_len < expected_len)
+		return channel_width;
+
+	const u8 *he_oper_u8 = (const u8 *) he_oper;
+	if (is_6ghz_info_present) {
+		struct ieee80211_6ghz_operation_info *six_ghz_oper_info =
+			(struct ieee80211_6ghz_operation_info *)
+			(he_oper_u8 + HE_OPERATION_IE_MIN_LEN
+			+ (is_vht_info_present ? HE_OPERATION_VHT_OPER_INFO_LEN : 0)
+			+ (is_cohosted_bss_present
+			? HE_OPERATION_COHOSTED_BSSID_INDICATOR_LEN : 0));
+		channel_width = get_6ghz_operation_channel_width(six_ghz_oper_info);
+	}
+	if (channel_width == CHAN_WIDTH_UNKNOWN && is_vht_info_present) {
+		struct ieee80211_vht_operation_info *vht_oper_info  =
+			(struct ieee80211_vht_operation_info *)
+			(he_oper_u8 + HE_OPERATION_IE_MIN_LEN);
+		channel_width = get_vht_operation_channel_width(vht_oper_info);
+	}
+	wpa_printf(MSG_DEBUG, " HE operation CBW: %u", channel_width);
+	return channel_width;
+}
+
+/* Parse HT/VHT/HE operation IEs to get operation channel width */
+enum chan_width get_operation_channel_width(struct ieee802_11_elems *elems)
+{
+	enum chan_width channel_width = CHAN_WIDTH_UNKNOWN;
+	if (elems == NULL)
+		return channel_width;
+
+	struct ieee80211_ht_operation *ht_oper =
+	    (struct ieee80211_ht_operation *) elems->ht_operation;
+	struct ieee80211_vht_operation_info *vht_oper_info =
+	    (struct ieee80211_vht_operation_info *) elems->vht_operation;
+	struct ieee80211_he_operation *he_oper =
+	    (struct ieee80211_he_operation *) elems->he_operation;
+	if (he_oper)
+		channel_width = get_he_operation_channel_width(
+			he_oper, elems->he_operation_len);
+
+	if (channel_width == CHAN_WIDTH_UNKNOWN && vht_oper_info)
+		channel_width = get_vht_operation_channel_width(vht_oper_info);
+
+	if (channel_width == CHAN_WIDTH_UNKNOWN && ht_oper) {
+		u8 sec_chan_offset =
+			ht_oper->ht_param & HT_INFO_HT_PARAM_SECONDARY_CHNL_OFF_MASK;
+		channel_width = (sec_chan_offset == 0) ? CHAN_WIDTH_20 : CHAN_WIDTH_40;
+	}
+	wpa_printf(MSG_DEBUG, " overall operation CBW: %u", channel_width);
+	return channel_width;
+}
+
+/*
+ * Get STA operation channel width from AP's operation channel width and
+ *  STA's supported channel width
+ */
+enum chan_width get_sta_operation_chan_width(
+				enum chan_width ap_operation_chan_width,
+				struct supported_chan_width sta_supported_chan_width)
+{
+	if (ap_operation_chan_width == CHAN_WIDTH_160)
+		return (sta_supported_chan_width.is_160_supported)
+			? CHAN_WIDTH_160 : CHAN_WIDTH_80;
+	if (ap_operation_chan_width == CHAN_WIDTH_80P80)
+		return (sta_supported_chan_width.is_80p80_supported)
+			? CHAN_WIDTH_80P80 : CHAN_WIDTH_80;
+	return ap_operation_chan_width;
 }

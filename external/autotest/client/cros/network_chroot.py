@@ -37,7 +37,8 @@ class NetworkChroot(object):
     # Includes directories containing the system bus socket and machine ID.
     DBUS_BRIDGE_DIRECTORIES = ('run/dbus/', 'var/lib/dbus/')
 
-    ROOT_DIRECTORIES = ('etc',  'tmp', 'var', 'var/log', 'run', 'run/lock')
+    ROOT_DIRECTORIES = ('etc', 'etc/ssl', 'tmp', 'var', 'var/log', 'run',
+                        'run/lock')
     ROOT_SYMLINKS = (
         ('var/run', '/run'),
         ('var/lock', '/run/lock'),
@@ -47,7 +48,8 @@ class NetworkChroot(object):
     STARTUP_PID_FILE = 'run/vpn_startup.pid'
     STARTUP_SLEEPER_PID_FILE = 'run/vpn_sleeper.pid'
     COPIED_CONFIG_FILES = [
-        'etc/ld.so.cache'
+        'etc/ld.so.cache',
+        'etc/ssl/openssl.cnf.compat'
     ]
     CONFIG_FILE_TEMPLATES = {
         STARTUP:
@@ -81,6 +83,7 @@ class NetworkChroot(object):
         self._copied_config_files = list(self.COPIED_CONFIG_FILES)
         self._config_file_templates = self.CONFIG_FILE_TEMPLATES.copy()
         self._config_file_values = self.CONFIG_FILE_VALUES.copy()
+        self._env = dict(os.environ)
 
         self._config_file_values.update({
             'local-interface-name': interface,
@@ -159,6 +162,14 @@ class NetworkChroot(object):
         self._config_file_templates[self.STARTUP] += '%s\n' % command
 
 
+    def add_environment(self, env_dict):
+        """Add variables to the chroot environment.
+
+        @param env_dict dict dictionary containing environment variables
+        """
+        self._env.update(env_dict)
+
+
     def get_log_contents(self):
         """Return the logfiles from the chroot."""
         return utils.system_output("head -10000 %s" %
@@ -221,7 +232,8 @@ class NetworkChroot(object):
 
     def make_chroot(self):
         """Make a chroot filesystem."""
-        self._temp_dir = utils.system_output('mktemp -d /tmp/chroot.XXXXXXXXX')
+        self._temp_dir = utils.system_output(
+                'mktemp -d /usr/local/tmp/chroot.XXXXXXXXX')
         utils.system('chmod go+rX %s' % self._temp_dir)
         for rootdir in self._root_directories:
             os.mkdir(self.chroot_path(rootdir))
@@ -267,9 +279,13 @@ class NetworkChroot(object):
         @param ignore_status bool set to true if a failure should be ignored.
 
         """
-        utils.system('minijail0 -e -C %s %s' %
-                     (self._temp_dir, ' '.join(self._jail_args + args)),
-                     ignore_status=ignore_status)
+        utils.run('minijail0 -e -C %s %s' %
+                  (self._temp_dir, ' '.join(self._jail_args + args)),
+                  timeout=None,
+                  ignore_status=ignore_status,
+                  stdout_tee=utils.TEE_TO_LOGS,
+                  stderr_tee=utils.TEE_TO_LOGS,
+                  env=self._env)
 
 
     def write_configs(self):

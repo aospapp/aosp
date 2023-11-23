@@ -7,36 +7,31 @@
 #ifndef FXJS_CJS_ICON_H_
 #define FXJS_CJS_ICON_H_
 
-#include "fxjs/JS_Define.h"
+#include "fxjs/cjs_object.h"
+#include "fxjs/js_define.h"
 
-class Icon : public CJS_EmbedObj {
- public:
-  explicit Icon(CJS_Object* pJSObject);
-  ~Icon() override;
-
-  CJS_Return get_name(CJS_Runtime* pRuntime);
-  CJS_Return set_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
-
-  WideString GetIconName() const { return m_swIconName; }
-  void SetIconName(WideString name) { m_swIconName = name; }
-
- private:
-  WideString m_swIconName;
-};
-
-class CJS_Icon : public CJS_Object {
+class CJS_Icon final : public CJS_Object {
  public:
   static int GetObjDefnID();
   static void DefineJSObjects(CFXJS_Engine* pEngine);
 
-  explicit CJS_Icon(v8::Local<v8::Object> pObject) : CJS_Object(pObject) {}
-  ~CJS_Icon() override {}
+  CJS_Icon(v8::Local<v8::Object> pObject, CJS_Runtime* pRuntime);
+  ~CJS_Icon() override;
 
-  JS_STATIC_PROP(name, name, Icon);
+  WideString GetIconName() const { return m_swIconName; }
+  void SetIconName(WideString name) { m_swIconName = name; }
+
+  JS_STATIC_PROP(name, name, CJS_Icon)
 
  private:
   static int ObjDefnID;
+  static const char kName[];
   static const JSPropertySpec PropertySpecs[];
+
+  CJS_Result get_name(CJS_Runtime* pRuntime);
+  CJS_Result set_name(CJS_Runtime* pRuntime, v8::Local<v8::Value> vp);
+
+  WideString m_swIconName;
 };
 
 #endif  // FXJS_CJS_ICON_H_

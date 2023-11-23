@@ -52,21 +52,30 @@ cc_defaults {
 
 cc_library_static {
     name: "libgmock_ndk",
-    defaults: ["gmock_ndk", "gmock_flags"],
+    defaults: [
+        "gmock_ndk",
+        "gmock_flags",
+    ],
     srcs: ["src/gmock-all.cc"],
     static_libs: ["libgtest_ndk_c++"],
 }
 
 cc_library_static {
     name: "libgmock_main_ndk",
-    defaults: ["gmock_ndk", "gmock_flags"],
+    defaults: [
+        "gmock_ndk",
+        "gmock_flags",
+    ],
     srcs: ["src/gmock_main.cc"],
     static_libs: ["libgtest_ndk_c++"],
 }
 
 cc_library_static {
     name: "libgmock",
-    defaults: ["gmock_defaults", "gmock_flags"],
+    defaults: [
+        "gmock_defaults",
+        "gmock_flags",
+    ],
     srcs: ["src/gmock-all.cc"],
     rtti: true,
     static_libs: ["libgtest"],
@@ -75,7 +84,10 @@ cc_library_static {
 
 cc_library_static {
     name: "libgmock_main",
-    defaults: ["gmock_defaults", "gmock_flags"],
+    defaults: [
+        "gmock_defaults",
+        "gmock_flags",
+    ],
     srcs: ["src/gmock_main.cc"],
     static_libs: ["libgtest"],
     vendor_available: true,
@@ -84,14 +96,18 @@ cc_library_static {
 // Deprecated: use libgmock instead
 cc_library_host_static {
     name: "libgmock_host",
-    defaults: ["gmock_defaults", "gmock_flags"],
+    defaults: [
+        "gmock_defaults",
+        "gmock_flags",
+    ],
     whole_static_libs: ["libgmock"],
 }
 
 cc_library_host_static {
     name: "libgmock_main_host",
-    defaults: ["gmock_defaults", "gmock_flags"],
+    defaults: [
+        "gmock_defaults",
+        "gmock_flags",
+    ],
     whole_static_libs: ["libgmock_main"],
 }
-
-// Tests are in the Android.mk. Run with external/googletest/run_tests.py.

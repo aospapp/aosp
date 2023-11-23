@@ -16,78 +16,74 @@
 #define sw_SetupProcessor_hpp
 
 #include "Context.hpp"
+#include "Memset.hpp"
 #include "RoutineCache.hpp"
-#include "Pipeline/VertexShader.hpp"
-#include "Pipeline/PixelShader.hpp"
 #include "System/Types.hpp"
+#include <Pipeline/SpirvShader.hpp>
 
-namespace sw
+namespace sw {
+
+struct Primitive;
+struct Triangle;
+struct Polygon;
+struct Vertex;
+struct DrawCall;
+struct DrawData;
+
+using SetupFunction = FunctionT<int(Primitive *primitive, const Triangle *triangle, const Polygon *polygon, const DrawData *draw)>;
+
+class SetupProcessor
 {
-	struct Primitive;
-	struct Triangle;
-	struct Polygon;
-	struct Vertex;
-	struct DrawCall;
-	struct DrawData;
-
-	class SetupProcessor
+public:
+	struct States : Memset<States>
 	{
-	public:
-		struct States
-		{
-			unsigned int computeHash();
+		States()
+		    : Memset(this, 0)
+		{}
 
-			bool isDrawPoint               : 1;
-			bool isDrawLine                : 1;
-			bool isDrawTriangle            : 1;
-			bool interpolateZ              : 1;
-			bool interpolateW              : 1;
-			bool perspective               : 1;
-			unsigned int positionRegister  : BITS(VERTEX_OUTPUT_LAST);
-			unsigned int pointSizeRegister : BITS(VERTEX_OUTPUT_LAST);
-			CullMode cullMode              : BITS(CULL_LAST);
-			bool twoSidedStencil           : 1;
-			bool slopeDepthBias            : 1;
-			bool vFace                     : 1;
-			unsigned int multiSample       : 3;   // 1, 2 or 4
-			bool rasterizerDiscard         : 1;
+		uint32_t computeHash();
 
-			struct Gradient
-			{
-				unsigned char attribute : BITS(VERTEX_OUTPUT_LAST);
-				bool flat               : 1;
-				bool wrap               : 1;
-			};
+		bool isDrawPoint : 1;
+		bool isDrawLine : 1;
+		bool isDrawTriangle : 1;
+		bool applySlopeDepthBias : 1;
+		bool interpolateZ : 1;
+		bool interpolateW : 1;
+		VkFrontFace frontFace : BITS(VK_FRONT_FACE_MAX_ENUM);
+		VkCullModeFlags cullMode : BITS(VK_CULL_MODE_FLAG_BITS_MAX_ENUM);
+		unsigned int multiSampleCount : 3;  // 1, 2 or 4
+		bool enableMultiSampling : 1;
+		bool rasterizerDiscard : 1;
+		unsigned int numClipDistances : 4;  // [0 - 8]
+		unsigned int numCullDistances : 4;  // [0 - 8]
 
-			Gradient gradient[MAX_FRAGMENT_INPUTS][4];
-		};
-
-		struct State : States
-		{
-			State(int i = 0);
-
-			bool operator==(const State &states) const;
-
-			unsigned int hash;
-		};
-
-		typedef bool (*RoutinePointer)(Primitive *primitive, const Triangle *triangle, const Polygon *polygon, const DrawData *draw);
-
-		SetupProcessor(Context *context);
-
-		~SetupProcessor();
-
-	protected:
-		State update() const;
-		Routine *routine(const State &state);
-
-		void setRoutineCacheSize(int cacheSize);
-
-	private:
-		Context *const context;
-
-		RoutineCache<State> *routineCache;
+		SpirvShader::InterfaceComponent gradient[MAX_INTERFACE_COMPONENTS];
 	};
-}
 
-#endif   // sw_SetupProcessor_hpp
+	struct State : States
+	{
+		bool operator==(const State &states) const;
+
+		uint32_t hash;
+	};
+
+	using RoutineType = SetupFunction::RoutineType;
+
+	SetupProcessor();
+
+	~SetupProcessor();
+
+protected:
+	State update(const sw::Context *context) const;
+	RoutineType routine(const State &state);
+
+	void setRoutineCacheSize(int cacheSize);
+
+private:
+	using RoutineCacheType = RoutineCacheT<State, SetupFunction::CFunctionType>;
+	RoutineCacheType *routineCache;
+};
+
+}  // namespace sw
+
+#endif  // sw_SetupProcessor_hpp

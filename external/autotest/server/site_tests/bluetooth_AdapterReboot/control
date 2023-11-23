@@ -9,7 +9,6 @@ AUTHOR = 'rjahagir'
 NAME = 'bluetooth_AdapterReboot'
 PURPOSE = 'Test bluetooth adapter state with rebooting the DUT.'
 CRITERIA = 'Adapter should power on or off with correct parameters.'
-ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_sanity'
 TIME = 'SHORT' # This takes about 5 minutes on cyan.
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'

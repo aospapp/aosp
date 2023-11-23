@@ -6,21 +6,19 @@
 
 #include "xfa/fxfa/parser/cxfa_decimal.h"
 
-#include "fxjs/xfa/cjx_decimal.h"
+#include "fxjs/xfa/cjx_object.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kDecimalAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::FracDigits, XFA_AttributeType::Integer, (void*)2},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::LeadDigits, XFA_AttributeType::Integer, (void*)-1},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"decimal";
+};
 
 }  // namespace
 
@@ -30,9 +28,8 @@ CXFA_Decimal::CXFA_Decimal(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::ContentNode,
                 XFA_Element::Decimal,
-                nullptr,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Decimal>(this)) {}
+                {},
+                kDecimalAttributeData,
+                pdfium::MakeUnique<CJX_Object>(this)) {}
 
-CXFA_Decimal::~CXFA_Decimal() {}
+CXFA_Decimal::~CXFA_Decimal() = default;

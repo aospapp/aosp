@@ -31,8 +31,8 @@
 
 package org.jf.dexlib2;
 
-import com.beust.jcommander.internal.Maps;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.jf.dexlib2.DexFileFactory.DexEntryFinder;
 import org.jf.dexlib2.DexFileFactory.DexFileNotFoundException;
 import org.jf.dexlib2.DexFileFactory.MultipleMatchingDexEntriesException;
@@ -222,10 +222,6 @@ public class DexEntryFinderTest {
                 return entry;
             }
             return null;
-        }
-
-        @Nonnull @Override public Opcodes getOpcodes() {
-            return Opcodes.getDefault();
         }
     }
 }

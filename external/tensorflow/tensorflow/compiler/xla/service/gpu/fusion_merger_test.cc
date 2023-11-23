@@ -15,6 +15,10 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/gpu/fusion_merger.h"
 
+#include <vector>
+
+#include "absl/types/span.h"
+#include "tensorflow/compiler/xla/service/gpu/gpu_fusible.h"
 #include "tensorflow/compiler/xla/service/gpu/instruction_fusion.h"
 #include "tensorflow/compiler/xla/service/hlo_matchers.h"
 #include "tensorflow/compiler/xla/service/hlo_parser.h"
@@ -40,7 +44,7 @@ class FusionMergerTest : public HloTestBase {};
 //                   Tuple
 //
 TEST_F(FusionMergerTest, MergeSharedFusionInstruction) {
-  auto module = ParseHloString(R"(
+  auto module = ParseAndReturnVerifiedModule(R"(
 HloModule MergeSharedFusionInstruction
 
 comp.3 {
@@ -105,9 +109,9 @@ ENTRY MergeSharedFusionInstruction.Computation0 {
 // This is because the bytes read by Fusion2 (when replicated if the instruction
 // is merged into Fusion0 and Fusion1) would exceed the bytes transferred
 // threshold.
-TEST_F(FusionMergerTest, BytesTransferredThresholdExeceeded) {
-  auto module = ParseHloString(R"(
-HloModule BytesTransferredThresholdExeceeded
+TEST_F(FusionMergerTest, BytesTransferredThresholdExceeded) {
+  auto module = ParseAndReturnVerifiedModule(R"(
+HloModule BytesTransferredThresholdExceeded
 
 comp.2 {
   state.param_1.1 = (f32[4]{0}, f32[4]{0}, f32[4]{0}, f32[4]{0}) parameter(0)
@@ -134,7 +138,7 @@ comp {
   ROOT add.5 = f32[4]{0} add(multiply.2, constant.param_1.1)
 }
 
-ENTRY BytesTransferredThresholdExeceeded.Computation2 {
+ENTRY BytesTransferredThresholdExceeded.Computation2 {
   constant = f32[4]{0} constant({1, 1, 1, 1})
   state = (f32[4]{0}, f32[4]{0}, f32[4]{0}, f32[4]{0}) parameter(0)
   fusion.2 = f32[4]{0} fusion(state), kind=kLoop, calls=comp.2
@@ -153,9 +157,9 @@ ENTRY BytesTransferredThresholdExeceeded.Computation2 {
 // Fusion2 is merged into Fusion0 and Fusion1, because bytes read from Param by
 // Fusion2 is reduced for this test which makes the merge operation into its
 // operand below the bytes transferred threshold.
-TEST_F(FusionMergerTest, BytesTransferredThresholdNotExeceeded) {
-  auto module = ParseHloString(R"(
-HloModule BytesTransferredThresholdNotExeceeded
+TEST_F(FusionMergerTest, BytesTransferredThresholdNotExceeded) {
+  auto module = ParseAndReturnVerifiedModule(R"(
+HloModule BytesTransferredThresholdNotExceeded
 
 comp.2 {
   state.param_1.1 = (f32[4]{0}, f32[4]{0}, f32[4]{0}) parameter(0)
@@ -180,7 +184,7 @@ comp {
   ROOT add.4 = f32[4]{0} add(multiply.2, constant.param_1.1)
 }
 
-ENTRY BytesTransferredThresholdNotExeceeded.Computation2 {
+ENTRY BytesTransferredThresholdNotExceeded.Computation2 {
   constant = f32[4]{0} constant({1, 1, 1, 1})
   state = (f32[4]{0}, f32[4]{0}, f32[4]{0}) parameter(0)
   fusion.2 = f32[4]{0} fusion(state), kind=kLoop, calls=comp.2
@@ -197,12 +201,12 @@ ENTRY BytesTransferredThresholdNotExeceeded.Computation2 {
 // Check that we're willing to merge f1_computation into f2_computation, even
 // though f2 is an input fusion node.
 TEST_F(FusionMergerTest, WillMergeIntoInputFusion) {
-  auto module = ParseHloString(R"(
+  auto module = ParseAndReturnVerifiedModule(R"(
     HloModule m
 
     f1_computation {
-      f1_p0 = f32[10]{0} parameter(0)
-      ROOT f1_root = f32[10]{0} add(f1_p0, f1_p0)
+      f1_p0 = f32[32]{0} parameter(0)
+      ROOT f1_root = f32[32]{0} add(f1_p0, f1_p0)
     }
 
     add_computation {
@@ -212,16 +216,16 @@ TEST_F(FusionMergerTest, WillMergeIntoInputFusion) {
     }
 
     f2_computation {
-      f2_p0 = f32[10]{0} parameter(0)
-      f2_mul = f32[10]{0} multiply(f2_p0, f2_p0)
+      f2_p0 = f32[32]{0} parameter(0)
+      f2_mul = f32[32]{0} multiply(f2_p0, f2_p0)
       f2_zero = f32[] constant(0)
       ROOT f2_root = f32[] reduce(f2_mul, f2_zero), dimensions={0},
              to_apply=add_computation
     }
 
     ENTRY entry {
-      p0 = f32[10]{0} parameter(0)
-      f1 = f32[10]{0} fusion(p0), kind=kLoop, calls=f1_computation
+      p0 = f32[32]{0} parameter(0)
+      f1 = f32[32]{0} fusion(p0), kind=kLoop, calls=f1_computation
       ROOT f2 = f32[] fusion(f1), kind=kInput, calls=f2_computation
     })")
                     .ValueOrDie();
@@ -231,7 +235,7 @@ TEST_F(FusionMergerTest, WillMergeIntoInputFusion) {
 }
 
 TEST_F(FusionMergerTest, WillNotMergeReduceUnfriendlyLayouts) {
-  auto module = ParseHloString(R"(
+  auto module = ParseAndReturnVerifiedModule(R"(
     HloModule m
 
     f1_computation {
@@ -263,9 +267,53 @@ TEST_F(FusionMergerTest, WillNotMergeReduceUnfriendlyLayouts) {
   EXPECT_FALSE(FusionMerger().Run(module.get()).ValueOrDie());
 }
 
+// Check that we limit the number of operands to fusions we create.
+TEST_F(FusionMergerTest, AvoidsLargeFusion) {
+  constexpr int64 kNumParams = kMaxOperandsAndOutputsPerFusion + 1;
+
+  // Compute
+  //   p0 + p1 + p2 + ... + pn,
+  // Use so many parameters that they do not fit into one fusion.
+  auto module = CreateNewVerifiedModule();
+  HloComputation::Builder b(TestName());
+  Shape shape = ShapeUtil::MakeShape(F32, {10, 100});
+
+  std::vector<HloInstruction*> entry_params;
+
+  for (int64 i = 0; i < kNumParams; ++i) {
+    entry_params.push_back(
+        b.AddInstruction(HloInstruction::CreateParameter(i, shape, "p")));
+  }
+  auto make_fusion = [&](absl::Span<HloInstruction* const> params) {
+    // Build a fusion computation for calculating the sum of all parameters.
+    HloComputation::Builder sub_builder("subcomp");
+    HloInstruction* sum = nullptr;
+    for (int64 i = 0; i < params.size(); ++i) {
+      auto p = sub_builder.AddInstruction(
+          HloInstruction::CreateParameter(i, shape, "p"));
+      if (sum == nullptr) {
+        sum = p;
+      } else {
+        sum = sub_builder.AddInstruction(
+            HloInstruction::CreateBinary(shape, HloOpcode::kAdd, sum, p));
+      }
+    }
+    HloComputation* subcomp =
+        module->AddEmbeddedComputation(sub_builder.Build());
+    return HloInstruction::CreateFusion(
+        shape, HloInstruction::FusionKind::kLoop, params, subcomp);
+  };
+  auto fusion = b.AddInstruction(
+      make_fusion(absl::MakeSpan(entry_params)
+                      .subspan(0, kMaxOperandsAndOutputsPerFusion)));
+  b.AddInstruction(make_fusion({entry_params.back(), fusion}));
+  module->AddEntryComputation(b.Build());
+  EXPECT_FALSE(FusionMerger().Run(module.get()).ValueOrDie());
+}
+
 // TODO(b/119692968): Remove this test once fusion emitter is fixed.
 TEST_F(FusionMergerTest, WillNotMergeIfFusionEmitterIsInefficient) {
-  auto module = ParseHloString(R"(
+  auto module = ParseAndReturnVerifiedModule(R"(
     HloModule m
 
     %fused_computation (param_0.10: f32[6]) -> f32[1] {

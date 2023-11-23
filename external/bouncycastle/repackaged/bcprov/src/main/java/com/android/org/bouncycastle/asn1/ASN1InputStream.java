@@ -26,7 +26,7 @@ public class ASN1InputStream
 
     private final byte[][] tmpBuffers;
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public ASN1InputStream(
         InputStream is)
@@ -40,7 +40,7 @@ public class ASN1InputStream
      * 
      * @param input array containing ASN.1 encoded data.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public ASN1InputStream(
         byte[] input)
@@ -217,7 +217,7 @@ public class ASN1InputStream
         return new ASN1InputStream(dIn).buildEncodableVector();
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public ASN1Primitive readObject()
         throws IOException

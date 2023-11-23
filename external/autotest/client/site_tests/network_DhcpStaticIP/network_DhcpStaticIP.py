@@ -7,6 +7,7 @@ from autotest_lib.client.cros import dhcp_handling_rule
 from autotest_lib.client.cros import dhcp_packet
 from autotest_lib.client.cros import dhcp_test_base
 from autotest_lib.client.cros import shill_temporary_profile
+from autotest_lib.client.cros.networking import shill_context
 
 class network_DhcpStaticIP(dhcp_test_base.DhcpTestBase):
     """DHCP test which confirms static IP functionality"""
@@ -28,58 +29,40 @@ class network_DhcpStaticIP(dhcp_test_base.DhcpTestBase):
     CONFIGURE_STATIC_IP_ADDRESS = 'ip-address'
     CONFIGURE_STATIC_IP_DNS_SERVERS = 'dns-servers'
 
-    def configure_static_ip(self, service, params):
-        """Configures the Static IP parameters for the Ethernet interface
-        |interface_name| and applies those parameters to the interface by
-        forcing a re-connect.
+    def create_static_ip_config(self, params):
+        """Creates the configuration dictionary for a StaticIPConfig, given a
+        list of parameters.
 
-        @param service object the Service DBus interface to configure.
-        @param params list of static parameters to set on the service.
+        @param params list of static parameters to configure.
+        @return dict containing the relevant StaticIPConfig parameters.
 
         """
-
         self._static_ip_options = {}
+        config = {}
         if self.CONFIGURE_STATIC_IP_ADDRESS in params:
             subnet_mask = self.ethernet_pair.interface_subnet_mask
             static_ip_address = dhcp_test_base.DhcpTestBase.rewrite_ip_suffix(
                     subnet_mask,
                     self.server_ip,
                     self.STATIC_IP_SUFFIX)
+            config['Address'] = static_ip_address
+
             prefix_len = self.ethernet_pair.interface_prefix
-            service.SetProperty('StaticIP.Address', static_ip_address)
-            service.SetProperty('StaticIP.Prefixlen', prefix_len)
+            config['Prefixlen'] = prefix_len
+
             self._static_ip_options[dhcp_packet.OPTION_REQUESTED_IP] = (
                     static_ip_address)
         if self.CONFIGURE_STATIC_IP_DNS_SERVERS in params:
-            service.SetProperty('StaticIP.NameServers',
-                                ','.join(self.STATIC_IP_NAME_SERVERS))
+            config['NameServers'] = self.STATIC_IP_NAME_SERVERS
             self._static_ip_options[dhcp_packet.OPTION_DNS_SERVERS] = (
                     self.STATIC_IP_NAME_SERVERS)
-        service.Disconnect()
-        service.Connect()
-
-
-    def clear_static_ip(self, service, params):
-        """Clears configuration of Static IP parameters for the Ethernet
-        interface and forces a re-connect.
-
-        @param service object the Service DBus interface to clear properties.
-        @param params list of static parameters to clear from the service.
-
-        """
-        if self.CONFIGURE_STATIC_IP_ADDRESS in params:
-            service.ClearProperty('StaticIP.Address')
-            service.ClearProperty('StaticIP.Prefixlen')
-        if self.CONFIGURE_STATIC_IP_DNS_SERVERS in params:
-            service.ClearProperty('StaticIP.NameServers')
-        service.Disconnect()
-        service.Connect()
+        return config
 
 
     def check_saved_ip(self, service, options):
         """Check the properties of the Ethernet service to make sure that
         the address provided by the DHCP server is properly added to the
-        "Saved.Address".
+        SavedIPConfig.
 
         @param service object the Service DBus interface to clear properties.
         @param options dict parameters that were used to configure the DHCP
@@ -88,9 +71,10 @@ class network_DhcpStaticIP(dhcp_test_base.DhcpTestBase):
         """
         intended_ip = options[dhcp_packet.OPTION_REQUESTED_IP]
         properties = service.GetProperties()
-        if intended_ip != properties['SavedIP.Address']:
+        saved_address = properties['SavedIPConfig']['Address']
+        if intended_ip != saved_address:
             raise error.TestFail('Saved IP address %s is not DHCP address %s' %
-                                 (properties['SavedIP.Address'], intended_ip))
+                                 (saved_address, intended_ip))
 
 
     def make_lease_negotiation_rules(self, options):
@@ -139,7 +123,7 @@ class network_DhcpStaticIP(dhcp_test_base.DhcpTestBase):
         connect_result = self.shill_proxy.wait_for_property_in(
                 service,
                 self.shill_proxy.SERVICE_PROPERTY_STATE,
-                ('ready', 'portal', 'online'),
+                self.shill_proxy.SERVICE_CONNECTED_STATES,
                 self.DHCP_SETUP_TIMEOUT_SECONDS)
         (successful, _, association_time) = connect_result
         if not successful:
@@ -230,9 +214,9 @@ class network_DhcpStaticIP(dhcp_test_base.DhcpTestBase):
             self.connect_dynamic_ip(dhcp_options, service)
 
             for params in self._static_param_list:
-                self.configure_static_ip(service, params)
-                self.connect_static_ip(dhcp_options, service, params)
-                self.clear_static_ip(service, params)
+                static_ip_config = self.create_static_ip_config(params)
+                with shill_context.StaticIPContext(service, static_ip_config):
+                    self.connect_static_ip(dhcp_options, service, params)
 
             self.connect_dynamic_ip(dhcp_options, service)
 

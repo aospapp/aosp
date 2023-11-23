@@ -319,6 +319,7 @@ util_dump_resource(FILE *stream, const struct pipe_resource *state)
 
    util_dump_member(stream, uint, state, last_level);
    util_dump_member(stream, uint, state, nr_samples);
+   util_dump_member(stream, uint, state, nr_storage_samples);
    util_dump_member(stream, uint, state, usage);
    util_dump_member(stream, uint, state, bind);
    util_dump_member(stream, uint, state, flags);
@@ -367,7 +368,8 @@ util_dump_rasterizer_state(FILE *stream, const struct pipe_rasterizer_state *sta
    util_dump_member(stream, bool, state, half_pixel_center);
    util_dump_member(stream, bool, state, bottom_edge_rule);
    util_dump_member(stream, bool, state, rasterizer_discard);
-   util_dump_member(stream, bool, state, depth_clip);
+   util_dump_member(stream, bool, state, depth_clip_near);
+   util_dump_member(stream, bool, state, depth_clip_far);
    util_dump_member(stream, bool, state, clip_halfz);
    util_dump_member(stream, uint, state, clip_plane_enable);
 
@@ -787,7 +789,7 @@ util_dump_sampler_view(FILE *stream, const struct pipe_sampler_view *state)
    else {
       util_dump_member(stream, uint, state, u.tex.first_layer);
       util_dump_member(stream, uint, state, u.tex.last_layer);
-      util_dump_member(stream, uint, state, u.tex.last_level);
+      util_dump_member(stream, uint, state, u.tex.first_level);
       util_dump_member(stream, uint, state, u.tex.last_level);
    }
 

@@ -1,7 +1,6 @@
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """This is a server side headphone audio test using the Chameleon board."""
 
 import logging
@@ -14,7 +13,6 @@ from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.server.cros.audio import audio_test
-from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_AudioBasicHeadphone(audio_test.AudioTest):
@@ -30,50 +28,42 @@ class audio_AudioBasicHeadphone(audio_test.AudioTest):
     DELAY_AFTER_BINDING = 0.5
     SILENCE_WAIT = 5
 
-    def run_once(self, host, check_quality=False):
+    def run_once(self, check_quality=False):
         """Running basic headphone audio tests.
 
-        @param host: device under test host
         @param check_quality: flag to check audio quality.
-
         """
-        if not audio_test_utils.has_headphone(host):
-            return
+        if not audio_test_utils.has_audio_jack(self.host):
+            raise error.TestNAError(
+                    'No audio jack for the DUT.'
+                    'Please check label of the host and control file.'
+                    'Please check the host label and test dependency.')
 
         golden_file = audio_test_data.FREQUENCY_TEST_FILE
 
-        chameleon_board = host.chameleon
-        factory = remote_facade_factory.RemoteFacadeFactory(
-                host, results_dir=self.resultsdir)
-
-        chameleon_board.setup_and_reset(self.outputdir)
-
-        widget_factory = chameleon_audio_helper.AudioWidgetFactory(
-                factory, host)
-
-        source = widget_factory.create_widget(
-            chameleon_audio_ids.CrosIds.HEADPHONE)
-        recorder = widget_factory.create_widget(
-            chameleon_audio_ids.ChameleonIds.LINEIN)
-        binder = widget_factory.create_binder(source, recorder)
+        source = self.widget_factory.create_widget(
+                chameleon_audio_ids.CrosIds.HEADPHONE)
+        recorder = self.widget_factory.create_widget(
+                chameleon_audio_ids.ChameleonIds.LINEIN)
+        binder = self.widget_factory.create_binder(source, recorder)
 
         with chameleon_audio_helper.bind_widgets(binder):
-            # Checks the node selected by cras is correct.
             time.sleep(self.DELAY_AFTER_BINDING)
-            audio_facade = factory.create_audio_facade()
 
             audio_test_utils.dump_cros_audio_logs(
-                    host, audio_facade, self.resultsdir, 'after_binding')
+                    self.host, self.facade, self.resultsdir, 'after_binding')
 
-            audio_test_utils.check_audio_nodes(audio_facade, (['HEADPHONE'], None))
+            # Selects and checks the node selected by cras is correct.
+            audio_test_utils.check_and_set_chrome_active_node_types(
+                    self.facade, audio_test_utils.get_headphone_node(self.host),
+                    None)
 
             logging.info('Setting playback data on Cros device')
             source.set_playback_data(golden_file)
 
             # Starts playing, waits for some time, and then starts recording.
             # This is to avoid artifact caused by codec initialization.
-            logging.info('Start playing %s on Cros device',
-                         golden_file.path)
+            logging.info('Start playing %s on Cros device', golden_file.path)
             source.start_playback()
 
             time.sleep(self.DELAY_BEFORE_RECORD_SECONDS)
@@ -91,7 +81,7 @@ class audio_AudioBasicHeadphone(audio_test.AudioTest):
             logging.info('Stopped recording from Chameleon.')
 
             audio_test_utils.dump_cros_audio_logs(
-                    host, audio_facade, self.resultsdir, 'after_recording')
+                    self.host, self.facade, self.resultsdir, 'after_recording')
 
             recorder.read_recorded_binary()
             logging.info('Read recorded binary from Chameleon.')

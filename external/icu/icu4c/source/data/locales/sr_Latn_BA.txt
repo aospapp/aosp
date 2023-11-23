@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sr_Latn_BA{
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     calendar{
         generic{
             intervalFormats{
@@ -25,9 +25,9 @@ sr_Latn_BA{
             }
             availableFormats{
                 MMMMW{
-                    few{"W. 'sjedmica' 'u' MMM"}
-                    one{"W. 'sjedmica' 'u' MMM"}
-                    other{"W. 'sjedmica' 'u' MMM"}
+                    few{"W. 'sjedmica' 'u' MMMM"}
+                    one{"W. 'sjedmica' 'u' MMMM"}
+                    other{"W. 'sjedmica' 'u' MMMM"}
                 }
                 yw{
                     few{"w. 'sjedmica' 'u' Y."}
@@ -84,7 +84,6 @@ sr_Latn_BA{
                         evening1{"veče"}
                         midnight{"ponoć"}
                         morning1{"jutro"}
-                        night1{"noću"}
                         noon{"podne"}
                     }
                     narrow{
@@ -117,7 +116,7 @@ sr_Latn_BA{
                     "nove ere",
                 }
                 wide%variant{
-                    "BCE",
+                    "p. n. e.",
                     "nove ere",
                 }
             }
@@ -145,23 +144,13 @@ sr_Latn_BA{
                     y{"y-MM-dd – y-MM-dd"}
                 }
             }
-            monthNames{
-                stand-alone{
-                    abbreviated{
-                        "jan",
-                        "feb",
-                        "mart",
-                        "apr",
-                        "maj",
-                        "jun",
-                        "jul",
-                        "avg",
-                        "sept",
-                        "okt",
-                        "nov",
-                        "dec",
-                    }
-                }
+        }
+    }
+    fields{
+        week{
+            relative{
+                "-1"{"prethodne nedelje"}
+                "1"{"naredne nedelje"}
             }
         }
     }

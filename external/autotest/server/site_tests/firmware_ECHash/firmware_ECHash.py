@@ -38,10 +38,7 @@ class firmware_ECHash(FirmwareTest):
 
     def get_echash(self):
         """Get the current EC hash via ectool/fwtool."""
-        if self.faft_client.system.has_host():
-            command = 'fwtool ec echash'
-        else:
-            command = 'ectool echash'
+        command = 'ectool echash'
         lines = self.faft_client.system.run_shell_command_get_output(command)
         pattern = re.compile('hash:    ([0-9a-f]{64})')
         for line in lines:
@@ -53,10 +50,7 @@ class firmware_ECHash(FirmwareTest):
 
     def invalidate_echash(self):
         """Invalidate the EC hash by requesting hashing some other part."""
-        if self.faft_client.system.has_host():
-            command = 'fwtool ec echash recalc 0 4'
-        else:
-            command = 'ectool echash recalc 0 4'
+        command = 'ectool echash recalc 0 4'
         self.faft_client.system.run_shell_command(command)
 
     def save_echash_and_invalidate(self):
@@ -76,6 +70,7 @@ class firmware_ECHash(FirmwareTest):
         return recomputed_echash == self.original_echash
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.check_ec_capability():
             raise error.TestNAError("Nothing needs to be tested on this device")
         logging.info("Save the EC hash, invalidate it, and warm reboot.")

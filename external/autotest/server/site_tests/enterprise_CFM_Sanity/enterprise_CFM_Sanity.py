@@ -119,7 +119,7 @@ class enterprise_CFM_Sanity(cfm_base_test.CfmBaseTest):
 
     def run_once(self):
         """Runs the test."""
-        self.cfm_facade.wait_for_hangouts_telemetry_commands()
+        self.cfm_facade.wait_for_telemetry_commands()
         self._hangouts_sanity_test()
         self._peripherals_sanity_test()
         self._diagnostics_sanity_test()

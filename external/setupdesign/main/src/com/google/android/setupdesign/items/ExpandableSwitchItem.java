@@ -23,6 +23,7 @@ import android.graphics.PorterDuff.Mode;
 import android.graphics.drawable.Drawable;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
+import android.os.Bundle;
 import androidx.core.view.AccessibilityDelegateCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
@@ -63,6 +64,22 @@ public class ExpandableSwitchItem extends SwitchItem
               isExpanded()
                   ? AccessibilityActionCompat.ACTION_COLLAPSE
                   : AccessibilityActionCompat.ACTION_EXPAND);
+        }
+
+        @Override
+        public boolean performAccessibilityAction(View view, int action, Bundle args) {
+          boolean result;
+          switch (action) {
+            case AccessibilityNodeInfoCompat.ACTION_COLLAPSE:
+            case AccessibilityNodeInfoCompat.ACTION_EXPAND:
+              setExpanded(!isExpanded());
+              result = true;
+              break;
+            default:
+              result = super.performAccessibilityAction(view, action, args);
+              break;
+          }
+          return result;
         }
       };
 

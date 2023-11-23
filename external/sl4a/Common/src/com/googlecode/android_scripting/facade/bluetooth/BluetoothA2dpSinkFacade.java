@@ -35,7 +35,7 @@ import java.util.List;
 
 public class BluetoothA2dpSinkFacade extends RpcReceiver {
     static final ParcelUuid[] SOURCE_UUIDS = {
-        BluetoothUuid.AudioSource,
+        BluetoothUuid.A2DP_SOURCE,
     };
 
     private final Service mService;
@@ -100,7 +100,7 @@ public class BluetoothA2dpSinkFacade extends RpcReceiver {
                 BluetoothFacade.getDevice(
                         mBluetoothAdapter.getBondedDevices(), deviceStr);
         Log.d("Changing priority of device "
-                + device.getAliasName() + " p: " + priority);
+                + device.getAlias() + " p: " + priority);
         sA2dpSinkProfile.setPriority(device, priority);
     }
 
@@ -144,7 +144,7 @@ public class BluetoothA2dpSinkFacade extends RpcReceiver {
         BluetoothDevice device =
                 BluetoothFacade.getDevice(
                 BluetoothFacade.DiscoveredDevices, deviceStr);
-        Log.d("Connecting to device " + device.getAliasName());
+        Log.d("Connecting to device " + device.getAlias());
         return a2dpSinkConnect(device);
     }
 

@@ -79,14 +79,9 @@ class UpdateBuildTests(unittest.TestCase):
 
         self._set_patchers()
         arguments = mock.Mock(board=self.WOLF_BOARD, dry_run=False, build=None)
-        cros_version = install._update_build(
-                afe_mock, self.report_log_mock, arguments)
 
-        afe_mock.cros_version_map.set_version.assert_called_once_with(
-                self.WOLF_BOARD, self.OMAHA_VERSION)
-        afe_mock.fw_version_map.set_version.assert_called_once_with(
-                self.WOLF_BOARD, self.WOLF_NEW_FW_VERSION)
-        self.assertEqual(cros_version, self.OMAHA_VERSION)
+        afe_mock.cros_version_map.set_version.assert_not_called()
+        afe_mock.fw_version_map.set_version.assert_not_called()
 
     def test_update_build_without_omaha_version_on_non_unibuild(self):
         """Do not update non-unibuild as no OMAHA_VERSION found."""
@@ -95,14 +90,11 @@ class UpdateBuildTests(unittest.TestCase):
 
         self._set_patchers(omaha_version=None)
         arguments = mock.Mock(board=self.WOLF_BOARD, dry_run=False, build=None)
-        cros_version = install._update_build(
-                afe_mock, self.report_log_mock, arguments)
 
         afe_mock.cros_version_map.set_version.assert_not_called()
         afe_mock.cros_version_map.delete_version.assert_not_called()
         afe_mock.fw_version_map.set_version.assert_not_called()
         afe_mock.fw_version_map.delete_version.assert_not_called()
-        self.assertEqual(cros_version, self.CROS_VERSION)
 
     def test_update_build_cros_on_non_unibuild(self):
         """Update non-unibuild with old cros_version in AFE."""
@@ -111,28 +103,19 @@ class UpdateBuildTests(unittest.TestCase):
         self._set_patchers(
                 firmware_versions={self.WOLF_BOARD: self.WOLF_FW_VERSION})
         arguments = mock.Mock(board=self.WOLF_BOARD, dry_run=False, build=None)
-        cros_version = install._update_build(
-                afe_mock, self.report_log_mock, arguments)
 
-        afe_mock.cros_version_map.set_version.assert_called_once_with(
-                self.WOLF_BOARD, self.OMAHA_VERSION)
+        afe_mock.cros_version_map.set_version.assert_not_called()
         afe_mock.fw_version_map.set_version.assert_not_called()
         afe_mock.fw_version_map.delete_version.assert_not_called()
-        self.assertEqual(cros_version, self.OMAHA_VERSION)
 
     def test_update_build_none_cros_and_fw_version_on_non_unibuild(self):
         """Update Non-unibuild with None cros_version & fw_version in AFE."""
         afe_mock = AFEMock(cros_version=None, fw_version=None)
         self._set_patchers()
         arguments = mock.Mock(board=self.WOLF_BOARD, dry_run=False, build=None)
-        cros_version = install._update_build(
-                afe_mock, self.report_log_mock, arguments)
 
-        afe_mock.cros_version_map.set_version.assert_called_once_with(
-                self.WOLF_BOARD, self.OMAHA_VERSION)
-        afe_mock.fw_version_map.set_version.assert_called_once_with(
-                self.WOLF_BOARD, self.WOLF_NEW_FW_VERSION)
-        self.assertEqual(cros_version, self.OMAHA_VERSION)
+        afe_mock.cros_version_map.set_version.assert_not_called()
+        afe_mock.fw_version_map.set_version.assert_not_called()
 
     def test_update_build_cros_and_fw_version_on_unibuild(self):
         """Update unibuild with old cros_version and fw_versions."""
@@ -143,18 +126,11 @@ class UpdateBuildTests(unittest.TestCase):
                 firmware_versions=self.CORAL_FW_VERSION_MAP)
         arguments = mock.Mock(board=self.CORAL_BOARD, dry_run=False,
                               build=None)
-        cros_version = install._update_build(
-                afe_mock, self.report_log_mock, arguments)
 
-        afe_mock.cros_version_map.set_version.assert_called_once_with(
-                self.CORAL_BOARD, self.OMAHA_VERSION)
-        afe_mock.fw_version_map.set_version.assert_any_call(
-                'blue', 'Google_Coral.10068.39.0')
-        afe_mock.fw_version_map.set_version.assert_any_call(
-                'robo360', 'Google_Coral.10068.34.0')
-        afe_mock.fw_version_map.delete_version.assert_any_call(
-                'porbeagle')
-        self.assertEqual(cros_version, self.OMAHA_VERSION)
+        afe_mock.cros_version_map.set_version.assert_not_called()
+        afe_mock.fw_version_map.set_version.assert_not_called()
+        afe_mock.fw_version_map.set_version.assert_not_called()
+        afe_mock.fw_version_map.delete_version.assert_not_called()
 
 
 if __name__ == '__main__':

@@ -7,8 +7,7 @@ DEP_LIBS = libchrome-$(BASE_VER) libcontainer libminijail
 CXXFLAGS += $(shell $(PKG_CONFIG) --cflags $(DEP_LIBS))
 CXXFLAGS += -std=gnu++14 -Werror -Wall
 LDFLAGS += $(shell $(PKG_CONFIG) --libs $(DEP_LIBS))
-# Link gtest statically since the DUT does not have libgtest.so
-LDFLAGS += -Wl,-Bstatic -lgtest -Wl,-Bdynamic
+LDFLAGS += -lgtest
 
 TARGET_UNITTEST = libcontainer_target_test
 

@@ -6,6 +6,10 @@ import logging
 
 from urlparse import urlparse
 
+from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
+
+
 DEFAULT_TIMEOUT = 30
 TELEMETRY_API = 'hrTelemetryApi'
 
@@ -41,22 +45,35 @@ class CfmMeetingsAPI(object):
             timeout=DEFAULT_TIMEOUT)
         logging.info('Reached meetings in-call page.')
 
-    def wait_for_telemetry_commands(self):
-        """Wait for hotrod app to load and telemetry commands to be available.
-        """
-        raise NotImplementedError
-
     def wait_for_oobe_start_page(self):
         """Wait for oobe start screen to launch."""
-        raise NotImplementedError
+        self._webview_context.WaitForJavaScriptCondition(
+            'window.hasOwnProperty("%s") '
+            '&& typeof window.%s.skipOobe === "function"' % (
+                TELEMETRY_API, TELEMETRY_API),
+            timeout=DEFAULT_TIMEOUT)
+        logging.info('Reached oobe page.')
 
     def skip_oobe_screen(self):
         """Skip Chromebox for Meetings oobe screen."""
-        raise NotImplementedError
+        self._execute_telemetry_command('skipOobe()')
+        utils.poll_for_condition(
+                lambda: not self.is_oobe_start_page(),
+                exception=error.TestFail('Not able to skip oobe screen.'),
+                timeout=DEFAULT_TIMEOUT,
+                sleep_interval=1)
+        logging.info('Skipped oobe screen.')
 
     def is_oobe_start_page(self):
         """Check if device is on CFM oobe start screen."""
-        raise NotImplementedError
+        if self._webview_context.EvaluateJavaScript(
+                'window.hasOwnProperty("%s") '
+                '&& typeof window.%s.skipOobe === "function"' % (
+                    TELEMETRY_API, TELEMETRY_API)):
+            logging.info('Is on oobe start page.')
+            return True
+        logging.info('Is not on oobe start page.')
+        return False
 
     # Hangouts commands/functions
     def start_meeting_session(self):

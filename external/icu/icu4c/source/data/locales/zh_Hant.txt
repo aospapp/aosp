@@ -75,12 +75,12 @@ zh_Hant{
         "]"
     }
     ExemplarCharactersIndex{"[一 丁 丈 不 且 丞 並 串 乘 乾 亂 亭 傀 僎 僵 儐 償 儳 儷 儻 叢 嚴 囌 囑 廳]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9 〇 一 七 三 九 二 五 八 六 四]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9 〇 一 七 三 九 二 五 八 六 四]"}
     ExemplarCharactersPunctuation{
-        "[‾ ﹉﹊﹋﹌ _ ＿ ﹍﹎﹏ ︳︴ \\- － ﹣ ‐ – ︲ — ﹘ ︱ , ， ﹐ 、 ﹑ ; ； ﹔ \\: ： ﹕ ! ！ ﹗ ? ？ ﹖ ."
-        " ． ﹒ ‥ ︰ … 。 · ＇ ‘ ’ \u0022 ＂ “ ” 〝 〞 ( （ ﹙ ︵ ) ） ﹚ ︶ \\[ ［ \\] ］ \\{ ｛ ﹛ ︷ "
-        "\\} ｝ ﹜ ︸ 〈 ︿ 〉 ﹀ 《 ︽ 》 ︾ 「 ﹁ 」 ﹂ 『 ﹃ 』 ﹄ 【 ︻ 】 ︼ 〔 ﹝ ︹ 〕 ﹞ ︺ § @ ＠ ﹫ * ＊ ﹡ "
-        "/ ／ \\\\ ＼ ﹨ \\& ＆ ﹠ # ＃ ﹟ % ％ ﹪ ‰ † ‡ ‧ ′ ″ ‵ 〃 ※]"
+        "[‾ ﹉﹊﹋﹌ _ ＿ ﹍﹎﹏ ︳︴ \\- － ﹣ ‐ ‑ – ︲ — ﹘ ︱ , ， ﹐ 、 ﹑ ; ； ﹔ \\: ： ﹕ ! ！ ﹗ ? ？ ﹖"
+        " . ． ﹒ ‥ ︰ … 。 · ＇ ‘ ’ \u0022 ＂ “ ” 〝 〞 ( （ ﹙ ︵ ) ） ﹚ ︶ \\[ ［ \\] ］ \\{ ｛ ﹛ "
+        "︷ \\} ｝ ﹜ ︸ 〈 ︿ 〉 ﹀ 《 ︽ 》 ︾ 「 ﹁ 」 ﹂ 『 ﹃ 』 ﹄ 【 ︻ 】 ︼ 〔 ﹝ ︹ 〕 ﹞ ︺ § @ ＠ ﹫ * ＊ "
+        "﹡ / ／ \\\\ ＼ ﹨ \\& ＆ ﹠ # ＃ ﹟ % ％ ﹪ ‰ † ‡ ‧ ′ ″ ‵ 〃 ※]"
     }
     MoreInformation{"？"}
     NumberElements{
@@ -1376,7 +1376,7 @@ zh_Hant{
             }
         }
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -4183,7 +4183,6 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
-                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -4296,7 +4295,7 @@ zh_Hant{
                 MMM{"LLL"}
                 MMMEd{"M月d日 E"}
                 MMMMW{
-                    other{"MMM的第W週"}
+                    other{"MMMM的第W週"}
                 }
                 MMMMd{"M月d日"}
                 MMMd{"M月d日"}
@@ -4537,7 +4536,6 @@ zh_Hant{
                 d{
                     d{"d日至d日"}
                 }
-                fallback{"{0} – {1}"}
                 h{
                     a{"ah時至ah時"}
                     h{"ah時至h時"}
@@ -5468,7 +5466,7 @@ zh_Hant{
                 "Gy年M月d日",
                 "Gy/M/d",
                 "{1} {0}",
-                "{1} {0}",
+                "{1}{0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -5487,8 +5485,6 @@ zh_Hant{
                 MEd{"M/d（E）"}
                 MMM{"LLL"}
                 MMMEd{"M月d日E"}
-                MMMMd{"MMMM d"}
-                MMMd{"MMM d"}
                 Md{"M/d"}
                 d{"d日"}
                 h{"ah時"}

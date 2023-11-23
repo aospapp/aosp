@@ -34,13 +34,13 @@
 #include <stdbool.h>
 #include "main/glheader.h"
 #include "main/context.h"
-#include "main/dispatch.h"
 #include "main/enums.h"
 #include "main/hash.h"
 #include "main/mtypes.h"
 #include "main/pipelineobj.h"
 #include "main/shaderapi.h"
 #include "main/shaderobj.h"
+#include "main/state.h"
 #include "main/transformfeedback.h"
 #include "main/uniforms.h"
 #include "compiler/glsl/glsl_parser_extras.h"
@@ -532,6 +532,8 @@ _mesa_bind_pipeline(struct gl_context *ctx,
             _mesa_program_init_subroutine_defaults(ctx, prog);
          }
       }
+
+      _mesa_update_vertex_processing_mode(ctx);
    }
 }
 
@@ -1017,14 +1019,14 @@ _mesa_validate_program_pipeline(struct gl_context* ctx,
 
       static GLuint msg_id = 0;
 
-      _mesa_gl_debug(ctx, &msg_id,
-                     MESA_DEBUG_SOURCE_API,
-                     MESA_DEBUG_TYPE_PORTABILITY,
-                     MESA_DEBUG_SEVERITY_MEDIUM,
-                     "glValidateProgramPipeline: pipeline %u does not meet "
-                     "strict OpenGL ES 3.1 requirements and may not be "
-                     "portable across desktop hardware\n",
-                     pipe->Name);
+      _mesa_gl_debugf(ctx, &msg_id,
+                      MESA_DEBUG_SOURCE_API,
+                      MESA_DEBUG_TYPE_PORTABILITY,
+                      MESA_DEBUG_SEVERITY_MEDIUM,
+                      "glValidateProgramPipeline: pipeline %u does not meet "
+                      "strict OpenGL ES 3.1 requirements and may not be "
+                      "portable across desktop hardware\n",
+                      pipe->Name);
    }
 
    pipe->Validated = GL_TRUE;

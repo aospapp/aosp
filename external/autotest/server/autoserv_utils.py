@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -25,7 +25,8 @@ def autoserv_run_job_command(autoserv_directory, machines,
                              use_packaging=True,
                              in_lab=False,
                              host_attributes=None,
-                             use_virtualenv=False):
+                             use_virtualenv=False,
+                             host_info_subdir=''):
     """
     Construct an autoserv command from a job or host queue entry.
 
@@ -63,6 +64,8 @@ def autoserv_run_job_command(autoserv_directory, machines,
                            lab, and probably False in most other use cases
                            (moblab, local testing) until we rollout virtualenv
                            support everywhere. Default: False.
+    @param host_info_subdir: When set, a sub-directory of the results directory
+                             where host info file(s) are stored.
 
     @returns The autoserv command line as a list of executable + parameters.
 
@@ -75,6 +78,9 @@ def autoserv_run_job_command(autoserv_directory, machines,
 
     if results_directory:
         command += ['-r', results_directory]
+    if host_info_subdir:
+        command += ['--local-only-host-info', 'True']
+        command += ['--host-info-subdir', host_info_subdir]
 
     if machines:
         command += ['-m', machines]

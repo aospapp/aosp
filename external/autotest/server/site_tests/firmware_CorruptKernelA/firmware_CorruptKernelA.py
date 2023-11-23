@@ -33,6 +33,7 @@ class firmware_CorruptKernelA(FirmwareTest):
         super(firmware_CorruptKernelA, self).cleanup()
 
     def run_once(self, dev_mode=False):
+        """Runs a single iteration of the test."""
         logging.info("Corrupt kernel A.")
         self.check_state((self.checkers.root_part_checker, 'a'))
         self.faft_client.kernel.corrupt_sig('a')

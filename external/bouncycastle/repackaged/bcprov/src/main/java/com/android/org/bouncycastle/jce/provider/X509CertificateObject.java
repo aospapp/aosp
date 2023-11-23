@@ -87,7 +87,7 @@ public class X509CertificateObject
 
     private PKCS12BagAttributeCarrier   attrCarrier = new PKCS12BagAttributeCarrierImpl();
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public X509CertificateObject(
         com.android.org.bouncycastle.asn1.x509.Certificate    c)

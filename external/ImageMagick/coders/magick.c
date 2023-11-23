@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -13254,24 +13254,26 @@ static MagickBooleanType WriteMAGICKImage(const ImageInfo *image_info,
   if (magick_image == (Image *) NULL)
     ThrowWriterException(ResourceLimitError,exception->reason);
   write_info=CloneImageInfo(image_info);
-
-  /* Set output format */
+  /*
+    Set output format.
+  */
   *write_info->filename='\0';
   value=GetImageOption(image_info,"h:format");
   if (value == (char *) NULL)
     value=GetImageOption(image_info,"magick:format");
-
   if ((value == (char *) NULL) || (IsOptionMember("H",value) != MagickFalse) ||
       (IsOptionMember("MAGICK",value) != MagickFalse))
-    { /* Use default GIF or PNM */
+    {
+      /*
+        Use default GIF or PNM.
+      */
       if (magick_image->storage_class == DirectClass)
         (void) CopyMagickString(write_info->magick,"PNM",MagickPathExtent);
       else
         (void) CopyMagickString(write_info->magick,"GIF",MagickPathExtent);
     }
-  else /* Use the requested format */
-    (void) CopyMagickString(write_info->magick,value,MagickPathExtent);
-
+  else
+    (void) CopyMagickString(write_info->magick,value,MagickPathExtent);  /* use the requested format */
   blob=ImageToBlob(write_info,magick_image,&length,exception);
   magick_image=DestroyImage(magick_image);
   if (blob == (void *) NULL)
@@ -13288,7 +13290,7 @@ static MagickBooleanType WriteMAGICKImage(const ImageInfo *image_info,
     }
   (void) WriteBlobString(image,"/*\n");
   (void) FormatLocaleString(buffer,MagickPathExtent,"  %s (%s).\n",
-    image->filename, write_info->magick);
+    image->filename,write_info->magick);
   (void) DestroyImageInfo(write_info);
   (void) WriteBlobString(image,buffer);
   (void) WriteBlobString(image,"*/\n");
@@ -13299,7 +13301,8 @@ static MagickBooleanType WriteMAGICKImage(const ImageInfo *image_info,
   p=(char *) blob;
   for (i=0; i < (ssize_t) length ; i++)
   {
-    (void) FormatLocaleString(buffer,MagickPathExtent,"0x%02X, ",*p & 0xff);
+    (void) FormatLocaleString(buffer,MagickPathExtent,"0x%02X%s",*p & 0xff,
+      (i+1) < (ssize_t) length ? ", " : "");
     (void) WriteBlobString(image,buffer);
     if (((i+1) % 12) == 0)
       {

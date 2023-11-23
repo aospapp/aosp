@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -14,6 +14,7 @@ from autotest_lib.client.cros import xmlrpc_server
 from autotest_lib.client.cros.power import sys_power
 from autotest_lib.client.cros.power import power_utils
 
+
 class DarkResumeXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
     """Exposes methods called remotely during dark resume autotests.
 
@@ -28,19 +29,14 @@ class DarkResumeXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         super(DarkResumeXmlRpcDelegate, self).__init__()
         self._listener = dark_resume_listener.DarkResumeListener()
 
-
     @xmlrpc_server.dbus_safe(None)
-    def suspend_bg_for_dark_resume(self, suspend_for_secs):
+    def suspend_bg(self, suspend_for_secs):
         """
         Suspends the system for dark resume.
-        @param suspend_for_secs : If not 0, sets a rtc alarm to
+        @param suspend_for_secs : Sets a rtc alarm to
             wake the system after|suspend_for_secs| secs.
         """
-        if suspend_for_secs == 0 :
-            sys_power.suspend_bg_for_dark_resume()
-        else:
-            sys_power.do_suspend(suspend_for_secs)
-
+        sys_power.suspend_bg_for_dark_resume(suspend_for_secs)
 
     @xmlrpc_server.dbus_safe(None)
     def set_stop_resuspend(self, stop_resuspend):
@@ -51,13 +47,11 @@ class DarkResumeXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         """
         self._listener.stop_resuspend(stop_resuspend)
 
-
     @xmlrpc_server.dbus_safe(0)
     def get_dark_resume_count(self):
         """Gets the number of dark resumes that have occurred since
         this listener was created."""
         return self._listener.count
-
 
     @xmlrpc_server.dbus_safe(False)
     def has_lid(self):
@@ -69,15 +63,16 @@ class DarkResumeXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
         return power_utils.has_lid()
 
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    handler = logging.handlers.SysLogHandler(address = '/dev/log')
+    handler = logging.handlers.SysLogHandler(address='/dev/log')
     formatter = logging.Formatter(
-            'dark_resume_xmlrpc_server: [%(levelname)s] %(message)s')
+        'dark_resume_xmlrpc_server: [%(levelname)s] %(message)s')
     handler.setFormatter(formatter)
     logging.getLogger().addHandler(handler)
     logging.debug('dark_resume_xmlrpc_server main...')
     server = xmlrpc_server.XmlRpcServer(
-            'localhost', constants.DARK_RESUME_XMLRPC_SERVER_PORT)
+        'localhost', constants.DARK_RESUME_XMLRPC_SERVER_PORT)
     server.register_delegate(DarkResumeXmlRpcDelegate())
     server.run()

@@ -7,20 +7,19 @@
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_CTS_Instant.arm.CtsPrintTestCases'
 ATTRIBUTES = 'suite:cts_P'
-DEPENDENCIES = 'arc'
+DEPENDENCIES = 'arc, cts_cpu_arm'
 JOB_RETRIES = 1
 TEST_TYPE = 'server'
 TIME = 'MEDIUM'
 MAX_RESULT_SIZE_KB = 512000
 DOC = 'Run module CtsPrintTestCases of the Android Compatibility Test Suite for Instant Apps (CTS Instant) using arm ABI in the ARC++ container.'
 
-def run_CTS(machine):
+def run_TS(machine):
     host_list = [hosts.create_host(machine)]
     job.run_test(
         'cheets_CTS_Instant',
         hosts=host_list,
         iterations=1,
-        needs_push_media=False,
         tag='arm.CtsPrintTestCases',
         test_name='cheets_CTS_Instant.arm.CtsPrintTestCases',
         run_template=['run', 'commandAndExit', 'cts-instant', '--module', 'CtsPrintTestCases'],
@@ -32,4 +31,4 @@ def run_CTS(machine):
         warn_on_test_retry=False,
         timeout=3600)
 
-parallel_simple(run_CTS, machines)
+parallel_simple(run_TS, machines)

@@ -1,28 +1,8 @@
-dnl
+dnl SPDX-License-Identifier: GPL-2.0-or-later
 dnl Copyright (c) Cisco Systems Inc., 2009
-dnl Copyright (c) Linux Test Project, 2010
-dnl
-dnl This program is free software;  you can redistribute it and/or modify
-dnl it under the terms of the GNU General Public License as published by
-dnl the Free Software Foundation; either version 2 of the License, or
-dnl (at your option) any later version.
-dnl
-dnl This program is distributed in the hope that it will be useful,
-dnl but WITHOUT ANY WARRANTY;  without even the implied warranty of
-dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
-dnl the GNU General Public License for more details.
-dnl
-dnl You should have received a copy of the GNU General Public License
-dnl along with this program;  if not, write to the Free Software
-dnl Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
-dnl
+dnl Copyright (c) Linux Test Project, 2019
 dnl Author: Ngie Cooper <yaneurabeya@gmail.com>
-dnl
 
-dnl
-dnl LTP_CHECK_CAPABILITY_SUPPORT
-dnl ----------------------------
-dnl
 AC_DEFUN([LTP_CHECK_CAPABILITY_SUPPORT],[
 AH_TEMPLATE(HAVE_LIBCAP,
 [Define to 1 if you have libcap-2 installed.])
@@ -34,4 +14,19 @@ if test "x$cap_libs" != x; then
 	AC_DEFINE(HAVE_LIBCAP)
 fi
 AC_SUBST(CAP_LIBS,$cap_libs)
+
+AH_TEMPLATE(HAVE_NEWER_LIBCAP,
+[Define to 1 if you have newer libcap-2 installed.])
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+#include <sys/capability.h>
+#include <linux/types.h>
+int main(void) {
+	__u16 a;
+	__u32 b;
+	return 0;
+}])],[has_newer_libcap="yes"])
+
+if test "x$has_newer_libcap" = xyes; then
+	AC_DEFINE(HAVE_NEWER_LIBCAP)
+fi
 ])

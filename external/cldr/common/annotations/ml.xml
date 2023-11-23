@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="ml"/>
 	</identity>
 	<annotations>
@@ -23,52 +23,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏾" type="tts">ഇടത്തരം ഇരുണ്ട ചർമ്മ നിറം</annotation>
 		<annotation cp="🏿">ഇരുണ്ട ചർമ്മ നിറം | ചർമ്മ നിറം | ചർമ്മത്തിന്റെ നിറം-6 | തരം 6</annotation>
 		<annotation cp="🏿" type="tts">ഇരുണ്ട ചർമ്മ നിറം</annotation>
+		<annotation cp="⚧">ഭിന്നലിംഗം | ഭിന്നലിംഗ ചിഹ്നം</annotation>
+		<annotation cp="⚧" type="tts">ഭിന്നലിംഗ ചിഹ്നം</annotation>
+		<annotation cp="🤌">ആക്ഷേപസൂചകം | കൈമുദ്ര | ചോദ്യംചെയ്യൽ | നുള്ളിപ്പിടിച്ച വിരലുകൾ | നുള്ളുക | പരിഹാസം</annotation>
+		<annotation cp="🤌" type="tts">നുള്ളിപ്പിടിച്ച വിരലുകൾ</annotation>
+		<annotation cp="🥲">അഭിമാനമുള്ള | ആശ്വസിക്കുന്ന | കണ്ണീരുള്ള | കണ്ണീരോടെ ചിരിക്കുന്ന മുഖം | ചിരിക്കുന്ന | നന്ദിയുള്ള | സ്പർശിച്ച</annotation>
+		<annotation cp="🥲" type="tts">കണ്ണീരോടെ ചിരിക്കുന്ന മുഖം</annotation>
+		<annotation cp="🥷">ഒളിപ്പിച്ച | നിഞ്ജ | പോരാളി | ശക്തിയുള്ള</annotation>
+		<annotation cp="🥷" type="tts">നിഞ്ജ</annotation>
+		<annotation cp="🥸">അജ്ഞാതമായ | ഗ്ലാസ്സുകൾ | തെറ്റിദ്ധരിപ്പിക്കുന്ന | മുഖം | മൂക്ക്</annotation>
+		<annotation cp="🥸" type="tts">തെറ്റിദ്ധരിപ്പിക്കുന്ന മുഖം</annotation>
+		<annotation cp="🦣">കൊമ്പ് | പ്രാചീന ഗജം | രോമാവൃതം | വലിയ | വംശനാശം</annotation>
+		<annotation cp="🦣" type="tts">പ്രാചീന ഗജം</annotation>
+		<annotation cp="🦤">ഡോഡോ പക്ഷി | മൗറീഷ്യസ് | വലിയ | വംശനാശം</annotation>
+		<annotation cp="🦤" type="tts">ഡോഡോ പക്ഷി</annotation>
+		<annotation cp="🦫">തള്ളമൃഗം | നീർനായ്</annotation>
+		<annotation cp="🦫" type="tts">നീർനായ്</annotation>
+		<annotation cp="🦬">എരുമ | കാട്ടുപോത്ത് | കൂട്ടം | യൂറോപ്യൻ കാട്ടുപോത്ത്</annotation>
+		<annotation cp="🦬" type="tts">കാട്ടുപോത്ത്</annotation>
+		<annotation cp="🦭">കടൽ സിംഹം | സീൽ</annotation>
+		<annotation cp="🦭" type="tts">സീൽ</annotation>
+		<annotation cp="🧋">ചായ | പവിഴം | പാൽ | ബബിൾ | ബബിൾ ടീ</annotation>
+		<annotation cp="🧋" type="tts">ബബിൾ ടീ</annotation>
+		<annotation cp="🩴">ചെരുപ്പുകൾ | ജപ്പാനിലെ ഒരുതരം ചെരിപ്പ് | ബീച്ച് ചെരുപ്പുകൾ | വള്ളിച്ചെരുപ്പുകൾ | വള്ളിച്ചെരുപ്പ് | വാറുകൾ</annotation>
+		<annotation cp="🩴" type="tts">വള്ളിച്ചെരുപ്പ്</annotation>
+		<annotation cp="🪃">ഓസ്ട്രേലിയ | പൂർവസ്ഥിതിയിലേക്ക് തിരിച്ചുവരൽ | പൂവസ്ഥിതി പ്രാപിക്കുക | ബൂമറാങ്</annotation>
+		<annotation cp="🪃" type="tts">ബൂമറാങ്</annotation>
+		<annotation cp="🪄">ഇന്ദ്രജാലം | മന്ത്ര വടി | മന്ത്രവാദിനി | മാന്ത്രികവടി | മായാവി</annotation>
+		<annotation cp="🪄" type="tts">മാന്ത്രികവടി</annotation>
+		<annotation cp="🪅">ആഘോഷം | പാർട്ടി | പിനാറ്റ</annotation>
+		<annotation cp="🪅" type="tts">പിനാറ്റ</annotation>
+		<annotation cp="🪆">നെസ്റ്റിംഗ് | നെസ്റ്റിംഗ് പാവകൾ | പാവ | റഷ്യ</annotation>
+		<annotation cp="🪆" type="tts">നെസ്റ്റിംഗ് പാവകൾ</annotation>
+		<annotation cp="🪖">പട്ടാളക്കാരൻ | മിലിറ്ററി | യോദ്ധാവ് | സൈന്യം | ഹെൽമെറ്റ്</annotation>
+		<annotation cp="🪖" type="tts">മിലിറ്ററി ഹെൽമെറ്റ്</annotation>
+		<annotation cp="🪗">അക്കോർഡിയൻ | കൺസർട്ടീന | സ്ക്വീസ് ബോക്സ്</annotation>
+		<annotation cp="🪗" type="tts">അക്കോർഡിയൻ</annotation>
+		<annotation cp="🪘">കൊട്ട് | കോംഗ | താളം | പെരുമ്പറ | മദ്ദളം</annotation>
+		<annotation cp="🪘" type="tts">മദ്ദളം</annotation>
+		<annotation cp="🪙">നാണയം | നിധി | പണം | ലോഹം | വെള്ളി | സ്വർണ്ണം</annotation>
+		<annotation cp="🪙" type="tts">നാണയം</annotation>
+		<annotation cp="🪚">അറക്കവാൾ | പണിയായുധം | മര ഉരുപ്പടി | മരപ്പണി വാൾ | മരാശാരി</annotation>
+		<annotation cp="🪚" type="tts">മരപ്പണി വാൾ</annotation>
+		<annotation cp="🪛">പണിയായുധം | സ്ക്രൂ | സ്ക്രൂഡ്രൈവർ</annotation>
+		<annotation cp="🪛" type="tts">സ്ക്രൂഡ്രൈവർ</annotation>
+		<annotation cp="🪜">കയറുക | കോണി | കോണിപ്പടി | പടി</annotation>
+		<annotation cp="🪜" type="tts">കോണി</annotation>
+		<annotation cp="🪝">കെണിവെച്ച് പിടിക്കുക | കൊളുത്ത് | ചൂണ്ടക്കൊളുത്ത് | പിടുത്തം | വളവ് | വിൽപ്പന കേന്ദ്രം</annotation>
+		<annotation cp="🪝" type="tts">കൊളുത്ത്</annotation>
+		<annotation cp="🪞">കണ്ണാടി | പ്രതിഫലനം | ലോഹക്കണ്ണാടി | റിഫ്ലക്റ്റർ</annotation>
+		<annotation cp="🪞" type="tts">കണ്ണാടി</annotation>
+		<annotation cp="🪟">ജനൽ | ജാലകം | ദർശനം | ഫ്രെയിം | ശുദ്ധ വായു | സുതാര്യം</annotation>
+		<annotation cp="🪟" type="tts">ജനൽ</annotation>
+		<annotation cp="🪠">പ്ലഞ്ചർ | പ്ലംബർ | ഫോഴ്സ് കപ്പ് | വലിച്ചെടുക്കൽ | ശുചിമുറി</annotation>
+		<annotation cp="🪠" type="tts">പ്ലഞ്ചർ</annotation>
+		<annotation cp="🪡">ചിത്രത്തയ്യൽ | തയ്യൽ | തുന്നലുകൾ | തുന്നൽപ്പണി | ശസ്ത്രക്രിയാ തുന്നലുകൾ | സൂചി</annotation>
+		<annotation cp="🪡" type="tts">തയ്യൽ സൂചി</annotation>
+		<annotation cp="🪢">കുടുക്ക് | കെട്ടുപിണഞ്ഞ | കെട്ട് | ചരട് | നൂൽ | പിണച്ചിൽ</annotation>
+		<annotation cp="🪢" type="tts">കെട്ട്</annotation>
+		<annotation cp="🪣">ചെരുവം | തൊട്ടി | ബക്കറ്റ് | വീപ്പ</annotation>
+		<annotation cp="🪣" type="tts">ബക്കറ്റ്</annotation>
+		<annotation cp="🪤">എലിക്കെണി | എലിപ്പെട്ടി | കെണി | വല | വശീകരണം</annotation>
+		<annotation cp="🪤" type="tts">എലിപ്പെട്ടി</annotation>
+		<annotation cp="🪥">കുളിമുറി | പല്ലുകൾ | പല്ലുതേക്കാനുള്ള ബ്രഷ് | പല്ലുവൃത്തിയാക്കാനുള്ള ബ്രഷ് | പല്ല് സംബന്ധം | ബ്രഷ് | വൃത്തിയാക്കൽ | ശുചിത്വം</annotation>
+		<annotation cp="🪥" type="tts">പല്ലുതേക്കാനുള്ള ബ്രഷ്</annotation>
+		<annotation cp="🪦">കല്ലറക്കല്ല് | കുഴമാടക്കല്ല് | കുഴിമാടം | ശ്മശാനം | സെമിത്തേരി</annotation>
+		<annotation cp="🪦" type="tts">കല്ലറക്കല്ല്</annotation>
+		<annotation cp="🪧">കുത്തിയിരുപ്പ് സമരം | പ്രകടനം | പ്രതിഷേധം | പ്രതീകം | വിളംബരകാർഡ്</annotation>
+		<annotation cp="🪧" type="tts">വിളംബരകാർഡ്</annotation>
+		<annotation cp="🪨">ഉരുളൻ കല്ല് | കല്ല് | ദൃഡമായത് | പാറ | ഭാരമുള്ളത്</annotation>
+		<annotation cp="🪨" type="tts">പാറ</annotation>
+		<annotation cp="🪰">അഴുകൽ | ഈച്ച | കൃമി കീടം | പുഴു | രോഗം</annotation>
+		<annotation cp="🪰" type="tts">ഈച്ച</annotation>
+		<annotation cp="🪱">കൃമി | നീണ്ടുരുണ്ട കൃമി | പരാദം | മണ്ണിര</annotation>
+		<annotation cp="🪱" type="tts">കൃമി</annotation>
+		<annotation cp="🪲">കീടം | ചീവിട് | പ്രാണി</annotation>
+		<annotation cp="🪲" type="tts">ചീവിട്</annotation>
+		<annotation cp="🪳">കീടം | കൂറ | കൃമി കീടം | പാറ്റ</annotation>
+		<annotation cp="🪳" type="tts">കൂറ</annotation>
+		<annotation cp="🪴">ഒന്നിനും കൊള്ളാത്തത് | ചട്ടിയിൽ വളർത്തുന്ന ചെടി | ചെടി | പരിപാലനം | മടുപ്പ് | വളരുക | വീട്</annotation>
+		<annotation cp="🪴" type="tts">ചട്ടിയിൽ വളർത്തുന്ന ചെടി</annotation>
+		<annotation cp="🪵">ഈർന്ന തടി | തടി | പണിത്തരമരം | മുറിത്തടി</annotation>
+		<annotation cp="🪵" type="tts">തടി</annotation>
+		<annotation cp="🪶">തൂവൽ</annotation>
+		<annotation cp="🪶" type="tts">തൂവൽ</annotation>
+		<annotation cp="🫀">അവയവം | പൾസ് | ഹൃദയം | ഹൃദയഘടന | ഹൃദയമിടിപ്പ് | റെസ്പിരേഷൻ</annotation>
+		<annotation cp="🫀" type="tts">ഹൃദയഘടന</annotation>
+		<annotation cp="🫁">അവയവം | ഉച്ഛ്വാസം | നിശ്വാസം | ശ്വാസം | ശ്വാസകോശം | റെസ്പിരേഷൻ</annotation>
+		<annotation cp="🫁" type="tts">ശ്വാസകോശം</annotation>
+		<annotation cp="🫂">ആലിംഗനം | ആലിംഗനം ചെയ്യുന്ന ആളുകൾ | നന്ദി | വിട | ഹലോ</annotation>
+		<annotation cp="🫂" type="tts">ആലിംഗനം ചെയ്യുന്ന ആളുകൾ</annotation>
+		<annotation cp="🫐">ബിൽബെറി | ബെറി | ബ്ലൂ | ബ്ലൂബെറി | ബ്ലൂബെറികൾ</annotation>
+		<annotation cp="🫐" type="tts">ബ്ലൂബെറികൾ</annotation>
+		<annotation cp="🫑">കാപ്സിക്കം | കുരുമുളക് | പച്ചക്കറി | മണി കുരുമുളക്</annotation>
+		<annotation cp="🫑" type="tts">മണി കുരുമുളക്</annotation>
+		<annotation cp="🫒">ഒലീവ് | ഭക്ഷണം</annotation>
+		<annotation cp="🫒" type="tts">ഒലീവ്</annotation>
+		<annotation cp="🫓">അരീപ | നാൻ | പീട | ഫ്ലാറ്റ്ബ്രഡ് | ലാവഷ്</annotation>
+		<annotation cp="🫓" type="tts">ഫ്ലാറ്റ്ബ്രഡ്</annotation>
+		<annotation cp="🫔">ടാമേൽ | മെക്സിക്കൻ | റാപ്ഡ്</annotation>
+		<annotation cp="🫔" type="tts">ടാമേൽ</annotation>
+		<annotation cp="🫕">ചീസ് | ചോക്ലേറ്റ് | പോട്ട് | ഫോണ്ട്യൂ | മെൽറ്റഡ് | സ്വിസ്സ്</annotation>
+		<annotation cp="🫕" type="tts">ഫോണ്ട്യൂ</annotation>
+		<annotation cp="🫖">ചായ | ടീപോട്ട് | പാനീയം | പോട്ട്</annotation>
+		<annotation cp="🫖" type="tts">ടീപോട്ട്</annotation>
+		<annotation cp="🛖">കുടിൽ | കൂടാരം | മറപ്പുര | വീട്</annotation>
+		<annotation cp="🛖" type="tts">കുടിൽ</annotation>
+		<annotation cp="🛗">ആക്സസബിലിറ്റി | എലവേറ്റർ | പൊക്കുക | ലിഫ്റ്റ്</annotation>
+		<annotation cp="🛗" type="tts">എലവേറ്റർ</annotation>
+		<annotation cp="🛻">ട്രക്ക് | പിക്കപ്പ് | പിക്ക്-അപ്പ്</annotation>
+		<annotation cp="🛻" type="tts">പിക്കപ്പ് ട്രക്ക്</annotation>
+		<annotation cp="🛼">റോളർ സ്കേറ്റർ</annotation>
+		<annotation cp="🛼" type="tts">റോളർ സ്കേറ്റർ</annotation>
 		<annotation cp="😀">ഇളിക്കൽ | കളിയാക്കൽ | കളിയാക്കി ചിരിക്കുന്ന മുഖം | മുഖം</annotation>
 		<annotation cp="😀" type="tts">കളിയാക്കി ചിരിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😁">കണ്ണ് | കളിയാക്കൽ | പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന കണ്ണുകളുമായി പ്രസന്നമായ മുഖം | മുഖം</annotation>
-		<annotation cp="😁" type="tts">പുഞ്ചിരിക്കുന്ന കണ്ണുകളുമായി പ്രസന്നമായ മുഖം</annotation>
-		<annotation cp="😂">ആനന്ദം | ആനന്ദാശ്രുക്കളോടെയുള്ള മുഖം | കണ്ണീർ | പൊട്ടിച്ചിരി | മുഖം | സന്തോഷം</annotation>
-		<annotation cp="😂" type="tts">ആനന്ദാശ്രുക്കളോടെയുള്ള മുഖം</annotation>
-		<annotation cp="🤣">ചിരി | ചിരിച്ചുചിരിച്ച് മണ്ണുകപ്പുക | മണ്ണുകപ്പുക | മലർന്നുകിടന്ന് ചിരിക്കുക | മുഖം</annotation>
-		<annotation cp="🤣" type="tts">ചിരിച്ചുചിരിച്ച് മണ്ണുകപ്പുക</annotation>
 		<annotation cp="😃">തുറന്ന | പുഞ്ചിരി | മുഖം | വലിയ കണ്ണുകളുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം | വായ</annotation>
 		<annotation cp="😃" type="tts">വലിയ കണ്ണുകളുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം</annotation>
 		<annotation cp="😄">കണ്ണ് | തുറന്ന | പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടുകൂടിയ ഗോഷ്‌ടിച്ചിരിയുള്ള മുഖം | മുഖം | വായ</annotation>
 		<annotation cp="😄" type="tts">പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടുകൂടിയ ഗോഷ്‌ടിച്ചിരിയുള്ള മുഖം</annotation>
-		<annotation cp="😅">തണുത്ത | തുറന്ന | പുഞ്ചിരി | മുഖം | വിയർപ്പുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം | വിയർപ്പ്</annotation>
-		<annotation cp="😅" type="tts">വിയർപ്പുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😁">കണ്ണ് | കളിയാക്കൽ | പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന കണ്ണുകളുമായി പ്രസന്നമായ മുഖം | മുഖം</annotation>
+		<annotation cp="😁" type="tts">പുഞ്ചിരിക്കുന്ന കണ്ണുകളുമായി പ്രസന്നമായ മുഖം</annotation>
 		<annotation cp="😆">ഇറുക്കിയടച്ച കണ്ണുകളുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം | ഇറുക്കിയടച്ച കണ്ണുകൾ | തുറന്ന | പുഞ്ചിരി | പൊട്ടിച്ചിരി | മുഖം | വായ | സംതൃപ്‌തമായ</annotation>
 		<annotation cp="😆" type="tts">ഇറുക്കിയടച്ച കണ്ണുകളുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😅">തണുത്ത | തുറന്ന | പുഞ്ചിരി | മുഖം | വിയർപ്പുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം | വിയർപ്പ്</annotation>
+		<annotation cp="😅" type="tts">വിയർപ്പുള്ള കളിയാക്കി ചിരിക്കുന്ന മുഖം</annotation>
+		<annotation cp="🤣">ചിരി | ചിരിച്ചുചിരിച്ച് മണ്ണുകപ്പുക | മണ്ണുകപ്പുക | മലർന്നുകിടന്ന് ചിരിക്കുക | മുഖം</annotation>
+		<annotation cp="🤣" type="tts">ചിരിച്ചുചിരിച്ച് മണ്ണുകപ്പുക</annotation>
+		<annotation cp="😂">ആനന്ദം | ആനന്ദാശ്രുക്കളോടെയുള്ള മുഖം | കണ്ണീർ | പൊട്ടിച്ചിരി | മുഖം | സന്തോഷം</annotation>
+		<annotation cp="😂" type="tts">ആനന്ദാശ്രുക്കളോടെയുള്ള മുഖം</annotation>
+		<annotation cp="🙂">ചിരി | ചെറുതായുള്ള മന്ദഹാസം | പുഞ്ചിരി | മന്ദഹസിക്കുന്ന മുഖം | മന്ദഹാസം | മുഖം</annotation>
+		<annotation cp="🙂" type="tts">മന്ദഹസിക്കുന്ന മുഖം</annotation>
+		<annotation cp="🙃">തലകീഴായത് | തലകീഴായി നിൽക്കുന്ന മുഖം | പുഞ്ചിരി | മുഖം</annotation>
+		<annotation cp="🙃" type="tts">തലകീഴായി നിൽക്കുന്ന മുഖം</annotation>
 		<annotation cp="😉">കണ്ണടിക്കൽ | കണ്ണിറുക്കുന്ന മുഖം | പുഞ്ചിരി | മുഖം</annotation>
 		<annotation cp="😉" type="tts">കണ്ണിറുക്കുന്ന മുഖം</annotation>
 		<annotation cp="😊">കണ്ണ് | കവിളിണ | നാണം | പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം | മുഖം</annotation>
 		<annotation cp="😊" type="tts">പുഞ്ചിരിക്കുന്ന കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😋">ആസ്വദിക്കുക | പുഞ്ചിരി | മുഖം | യമ്മി | രുചിയുള്ള | രുചിയുള്ള ഭക്ഷണം കഴിക്കുന്ന മുഖം | സ്വാദ്</annotation>
-		<annotation cp="😋" type="tts">രുചിയുള്ള ഭക്ഷണം കഴിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😎">കണ്ണട | കണ്ണടകൾ | കണ്ണടയുള്ള പുഞ്ചിരിക്കുന്ന മുഖം | കണ്ണ് | കാലാവസ്ഥ | തണുത്ത | തിളക്കം | പുഞ്ചിരി | മുഖം | സൺ | സൺഗ്ലാസ് | സൂര്യൻ</annotation>
-		<annotation cp="😎" type="tts">കണ്ണടയുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😍">കണ്ണ് | പുഞ്ചിരി | മുഖം | സ്‌നേഹം | ഹൃദയം | ഹൃദയാകൃതിയിലുള്ള കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😍" type="tts">ഹൃദയാകൃതിയിലുള്ള കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😘">ചുംബനം | ചുംബനം നൽകുന്ന മുഖം | ചുംബനം നൽകുന്നു | മുഖം | ഹൃദയം</annotation>
-		<annotation cp="😘" type="tts">ചുംബനം നൽകുന്ന മുഖം</annotation>
+		<annotation cp="😇">നിഷ്‌കളങ്കം | പുഞ്ചിരി | പ്രകാശവലയം | പ്രകാശവലയമുള്ള പുഞ്ചിരിക്കുന്ന മുഖം | മാലാഖ | മുഖം</annotation>
+		<annotation cp="😇" type="tts">പ്രകാശവലയമുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
 		<annotation cp="🥰">3 ഹൃദയമുള്ള ചിരിക്കുന്ന മുഖം | ആകർഷണം | ആരാധന | പ്രണയത്തിൽ</annotation>
 		<annotation cp="🥰" type="tts">3 ഹൃദയമുള്ള ചിരിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😗">ചുംബനം | ചുംബിക്കുന്ന മുഖം | മുഖം</annotation>
-		<annotation cp="😗" type="tts">ചുംബിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😙">കണ്ണ് | ചുംബനം | പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടെ ചുംബിക്കുന്ന മുഖം | മുഖം</annotation>
-		<annotation cp="😙" type="tts">പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടെ ചുംബിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😚">അടഞ്ഞ | കണ്ണടച്ച് ചുംബിക്കുന്ന മുഖം | കണ്ണ് | ചുംബനം | മുഖം</annotation>
-		<annotation cp="😚" type="tts">കണ്ണടച്ച് ചുംബിക്കുന്ന മുഖം</annotation>
-		<annotation cp="☺">പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന മുഖം | മുഖം | രൂപത്തിൽ | വിശ്രമം</annotation>
-		<annotation cp="☺" type="tts">പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
-		<annotation cp="🙂">ചിരി | ചെറുതായുള്ള മന്ദഹാസം | പുഞ്ചിരി | മന്ദഹസിക്കുന്ന മുഖം | മന്ദഹാസം | മുഖം</annotation>
-		<annotation cp="🙂" type="tts">മന്ദഹസിക്കുന്ന മുഖം</annotation>
-		<annotation cp="🤗">ആലിംഗനം ചെയ്യുന്ന മുഖം | കെട്ടിപ്പിടിക്കുന്നു | മുഖം | സൗഹൃദം | സ്‌നേഹം പ്രകടിപ്പിക്കുന്നു</annotation>
-		<annotation cp="🤗" type="tts">ആലിംഗനം ചെയ്യുന്ന മുഖം</annotation>
+		<annotation cp="😍">കണ്ണ് | പുഞ്ചിരി | മുഖം | സ്‌നേഹം | ഹൃദയം | ഹൃദയാകൃതിയിലുള്ള കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😍" type="tts">ഹൃദയാകൃതിയിലുള്ള കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
 		<annotation cp="🤩">കണ്ണുകൾ | കളിയാക്കൽ | നക്ഷത്രം | മുഖം | സ്റ്റാർ | സ്റ്റാർ-സ്ട്രക്ക്</annotation>
 		<annotation cp="🤩" type="tts">സ്റ്റാർ-സ്ട്രക്ക്</annotation>
+		<annotation cp="😘">ചുംബനം | ചുംബനം നൽകുന്ന മുഖം | ചുംബനം നൽകുന്നു | മുഖം | ഹൃദയം</annotation>
+		<annotation cp="😘" type="tts">ചുംബനം നൽകുന്ന മുഖം</annotation>
+		<annotation cp="😗">ചുംബനം | ചുംബിക്കുന്ന മുഖം | മുഖം</annotation>
+		<annotation cp="😗" type="tts">ചുംബിക്കുന്ന മുഖം</annotation>
+		<annotation cp="☺">പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന മുഖം | മുഖം | രൂപത്തിൽ | വിശ്രമം</annotation>
+		<annotation cp="☺" type="tts">പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😚">അടഞ്ഞ | കണ്ണടച്ച് ചുംബിക്കുന്ന മുഖം | കണ്ണ് | ചുംബനം | മുഖം</annotation>
+		<annotation cp="😚" type="tts">കണ്ണടച്ച് ചുംബിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😙">കണ്ണ് | ചുംബനം | പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടെ ചുംബിക്കുന്ന മുഖം | മുഖം</annotation>
+		<annotation cp="😙" type="tts">പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടെ ചുംബിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😋">ആസ്വദിക്കുക | പുഞ്ചിരി | മുഖം | യമ്മി | രുചിയുള്ള | രുചിയുള്ള ഭക്ഷണം കഴിക്കുന്ന മുഖം | സ്വാദ്</annotation>
+		<annotation cp="😋" type="tts">രുചിയുള്ള ഭക്ഷണം കഴിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😛">നാവ് | പുറത്തേക്ക് നാവ് നീട്ടുന്ന മുഖം | മുഖം</annotation>
+		<annotation cp="😛" type="tts">പുറത്തേക്ക് നാവ് നീട്ടുന്ന മുഖം</annotation>
+		<annotation cp="😜">കണ്ണടിക്കുക | കണ്ണിറുക്കി, നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം | കണ്ണ് | തമാശ | നാക്ക് | നാക്ക് നീട്ടുന്ന മുഖം | നാവ് | മുഖം</annotation>
+		<annotation cp="😜" type="tts">കണ്ണിറുക്കി, നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം</annotation>
+		<annotation cp="🤪">ഉന്മത്തമായ മുഖം | കണ്ണുകൾ | ചെറുത് | വലുത്</annotation>
+		<annotation cp="🤪" type="tts">ഉന്മത്തമായ മുഖം</annotation>
+		<annotation cp="😝">കണ്ണ് | കണ്ണ് ഇറുക്കിയടച്ച് നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം | നാക്ക് നീട്ടുക | നാവ് | ബീഭത്സമായ | ഭീകരം | മുഖം | സ്വാദ്</annotation>
+		<annotation cp="😝" type="tts">കണ്ണ് ഇറുക്കിയടച്ച് നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം</annotation>
+		<annotation cp="🤑">പണം | പണക്കൊതിയൻ | പണക്കൊതിയുള്ള മുഖം | മുഖം | വായ</annotation>
+		<annotation cp="🤑" type="tts">പണക്കൊതിയുള്ള മുഖം</annotation>
+		<annotation cp="🤗">ആലിംഗനം ചെയ്യുന്ന മുഖം | കെട്ടിപ്പിടിക്കുന്നു | മുഖം | സൗഹൃദം | സ്‌നേഹം പ്രകടിപ്പിക്കുന്നു</annotation>
+		<annotation cp="🤗" type="tts">ആലിംഗനം ചെയ്യുന്ന മുഖം</annotation>
+		<annotation cp="🤭">അമളി | കൈകൊണ്ട് വായ് മൂടിയ മുഖം | ക്ഷമിക്കണം | ശ്ശോ</annotation>
+		<annotation cp="🤭" type="tts">കൈകൊണ്ട് വായ് മൂടിയ മുഖം</annotation>
+		<annotation cp="🤫">നിശബ്‌ദത | നിശബ്‌ദത പാലിക്കാൻ ആവശ്യപ്പെടുന്ന മുഖം | ശൂ | ശ്‌ശ്</annotation>
+		<annotation cp="🤫" type="tts">നിശബ്‌ദത പാലിക്കാൻ ആവശ്യപ്പെടുന്ന മുഖം</annotation>
 		<annotation cp="🤔">ആലോചന | ആലോചനയിൽ മുഴുകിയ മുഖം | മുഖം</annotation>
 		<annotation cp="🤔" type="tts">ആലോചനയിൽ മുഴുകിയ മുഖം</annotation>
+		<annotation cp="🤐">അടയ്‌ക്കുക | മുഖം | വായ | സിപ്പ് പൂട്ടിട്ട മുഖം</annotation>
+		<annotation cp="🤐" type="tts">സിപ്പ് പൂട്ടിട്ട മുഖം</annotation>
 		<annotation cp="🤨">അവിശ്വാസം | പുരികമുയർത്തിയ മുഖം | സംശയം</annotation>
 		<annotation cp="🤨" type="tts">പുരികമുയർത്തിയ മുഖം</annotation>
 		<annotation cp="😐">നിഷ്‌പക്ഷം | നിഷ്‌പക്ഷമായ മുഖം | മുഖം | വികാരമില്ലാത്ത</annotation>
@@ -77,98 +207,26 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😑" type="tts">നിർവികാരമായ മുഖം</annotation>
 		<annotation cp="😶">കണ്ണ് | നിശബ്‌ദം | മുഖം | മൗനം | വായ | വായയില്ലാത്ത മുഖം</annotation>
 		<annotation cp="😶" type="tts">വായയില്ലാത്ത മുഖം</annotation>
-		<annotation cp="🙄">കണ്ണുകൾ | കറങ്ങുന്ന കണ്ണുകളുള്ള മുഖം | കറങ്ങുന്നു | മുഖം</annotation>
-		<annotation cp="🙄" type="tts">കറങ്ങുന്ന കണ്ണുകളുള്ള മുഖം</annotation>
 		<annotation cp="😏">കൃതൃമിച്ചിരിയുള്ള മുഖം | കൃത്രിമച്ചിരി | പുച്ഛം | മുഖം</annotation>
 		<annotation cp="😏" type="tts">കൃതൃമിച്ചിരിയുള്ള മുഖം</annotation>
-		<annotation cp="😣">അസഹനീയമായ | കഠിനാദ്ധ്വാനം കാണിക്കുന്ന മുഖം | നിസ്സഹായമായ | മുഖം</annotation>
-		<annotation cp="😣" type="tts">കഠിനാദ്ധ്വാനം കാണിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😥">ആശ്വാസം | നിരാശ | നിരാശയുണ്ടെങ്കിലും ആശ്വാസഭാവത്തിലുള്ള മുഖം | മുഖം | വിയർപ്പുതുള്ളി | വിയർപ്പ് | ഹൂ</annotation>
-		<annotation cp="😥" type="tts">നിരാശയുണ്ടെങ്കിലും ആശ്വാസഭാവത്തിലുള്ള മുഖം</annotation>
-		<annotation cp="😮">തുറന്ന | തുറന്ന വായയുള്ള മുഖം | മുഖം | വായ | സഹതാപം</annotation>
-		<annotation cp="😮" type="tts">തുറന്ന വായയുള്ള മുഖം</annotation>
-		<annotation cp="🤐">അടയ്‌ക്കുക | മുഖം | വായ | സിപ്പ് പൂട്ടിട്ട മുഖം</annotation>
-		<annotation cp="🤐" type="tts">സിപ്പ് പൂട്ടിട്ട മുഖം</annotation>
-		<annotation cp="😯">അത്ഭുതകരമായ | ആശ്ചര്യമുള്ള | ഞെട്ടൽ | മുഖം | സ്‌തബ്‌ധമായ</annotation>
-		<annotation cp="😯" type="tts">സ്‌തബ്‌ധമായ മുഖം</annotation>
-		<annotation cp="😪">ഉറക്കം | ഉറക്കം തൂങ്ങിയ മുഖം | ഉറക്കം തൂങ്ങുന്ന മുഖം | മുഖം</annotation>
-		<annotation cp="😪" type="tts">ഉറക്കം തൂങ്ങുന്ന മുഖം</annotation>
-		<annotation cp="😫">തളർച്ച | തളർച്ചയുള്ള മുഖം | മുഖം</annotation>
-		<annotation cp="😫" type="tts">തളർച്ചയുള്ള മുഖം</annotation>
-		<annotation cp="😴">ഉറക്കം | ഉറങ്ങുന്ന മുഖം | കൂർക്കംവലി | നിദ്ര | മുഖം</annotation>
-		<annotation cp="😴" type="tts">ഉറങ്ങുന്ന മുഖം</annotation>
-		<annotation cp="😌">ആശ്വാസം | ആശ്വാസമുള്ള മുഖം | മുഖം</annotation>
-		<annotation cp="😌" type="tts">ആശ്വാസമുള്ള മുഖം</annotation>
-		<annotation cp="😛">നാവ് | പുറത്തേക്ക് നാവ് നീട്ടുന്ന മുഖം | മുഖം</annotation>
-		<annotation cp="😛" type="tts">പുറത്തേക്ക് നാവ് നീട്ടുന്ന മുഖം</annotation>
-		<annotation cp="😜">കണ്ണടിക്കുക | കണ്ണിറുക്കി, നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം | കണ്ണ് | തമാശ | നാക്ക് | നാക്ക് നീട്ടുന്ന മുഖം | നാവ് | മുഖം</annotation>
-		<annotation cp="😜" type="tts">കണ്ണിറുക്കി, നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം</annotation>
-		<annotation cp="😝">കണ്ണ് | കണ്ണ് ഇറുക്കിയടച്ച് നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം | നാക്ക് നീട്ടുക | നാവ് | ബീഭത്സമായ | ഭീകരം | മുഖം | സ്വാദ്</annotation>
-		<annotation cp="😝" type="tts">കണ്ണ് ഇറുക്കിയടച്ച് നാവ് പുറത്തേക്ക് നീട്ടുന്ന മുഖം</annotation>
-		<annotation cp="🤤">തുപ്പൽ | തുപ്പൽ ഒലിക്കുന്ന മുഖം | ഭാവം | മുഖം</annotation>
-		<annotation cp="🤤" type="tts">തുപ്പൽ ഒലിക്കുന്ന മുഖം</annotation>
 		<annotation cp="😒">അത്ഭുതമില്ലാത്ത | അസന്തുഷ്‌ടമായ മുഖം | അസന്തുഷ്‌ടി | മുഖം</annotation>
 		<annotation cp="😒" type="tts">അസന്തുഷ്‌ടമായ മുഖം</annotation>
-		<annotation cp="😓">തണുപ്പ് | മുഖം | വിയർക്കുന്ന ദുഃഖിതമായ മുഖം | വിയർപ്പുതുള്ളി | വിയർപ്പ്</annotation>
-		<annotation cp="😓" type="tts">വിയർക്കുന്ന ദുഃഖിതമായ മുഖം</annotation>
-		<annotation cp="😔">ആകുലമായത് | ചിന്താകുലമായ മുഖം | ചിന്താകുലമായത് | ദുഃഖം | മുഖം</annotation>
-		<annotation cp="😔" type="tts">ചിന്താകുലമായ മുഖം</annotation>
-		<annotation cp="😕">ആശയക്കുഴപ്പം | ആശയക്കുഴപ്പമുള്ള മുഖം | മുഖം</annotation>
-		<annotation cp="😕" type="tts">ആശയക്കുഴപ്പമുള്ള മുഖം</annotation>
-		<annotation cp="🙃">തലകീഴായത് | തലകീഴായി നിൽക്കുന്ന മുഖം | പുഞ്ചിരി | മുഖം</annotation>
-		<annotation cp="🙃" type="tts">തലകീഴായി നിൽക്കുന്ന മുഖം</annotation>
-		<annotation cp="🤑">പണം | പണക്കൊതിയൻ | പണക്കൊതിയുള്ള മുഖം | മുഖം | വായ</annotation>
-		<annotation cp="🤑" type="tts">പണക്കൊതിയുള്ള മുഖം</annotation>
-		<annotation cp="😲">അത്ഭുതം | അത്ഭുതം നിറഞ്ഞ മുഖം | ആശ്ചര്യം | ഞെട്ടൽ | പൂർണ്ണമായും | മുഖം</annotation>
-		<annotation cp="😲" type="tts">അത്ഭുതം നിറഞ്ഞ മുഖം</annotation>
-		<annotation cp="☹">അസ്വസ്ഥത | നീരസം | നീരസമുള്ള മുഖം | മുഖം</annotation>
-		<annotation cp="☹" type="tts">നീരസമുള്ള മുഖം</annotation>
-		<annotation cp="🙁">കുറച്ച് നീരസഭാവത്തിലുള്ള മുഖം | നീരസം | മുഖം</annotation>
-		<annotation cp="🙁" type="tts">കുറച്ച് നീരസഭാവത്തിലുള്ള മുഖം</annotation>
-		<annotation cp="😖">മുഖം | മ്ലാനത | മ്ലാനമായ മുഖം</annotation>
-		<annotation cp="😖" type="tts">മ്ലാനമായ മുഖം</annotation>
-		<annotation cp="😞">നിരാശ | നിരാശാഭരിതം | നിരാശാഭരിതമായ മുഖം | മുഖം</annotation>
-		<annotation cp="😞" type="tts">നിരാശാഭരിതമായ മുഖം</annotation>
-		<annotation cp="😟">ആകുലത | ആകുലമായ മുഖം | ആശങ്ക | പരിഭ്രാന്തി | മുഖം</annotation>
-		<annotation cp="😟" type="tts">ആകുലമായ മുഖം</annotation>
-		<annotation cp="😤">ജയം | ദേഷ്യം | ദേഷ്യം കൊണ്ട് നിശ്വസിക്കുന്ന മുഖം | നിശ്വാസം | മുഖം | വിജയം</annotation>
-		<annotation cp="😤" type="tts">ദേഷ്യം കൊണ്ട് നിശ്വസിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😢">കണ്ണീർ | കരച്ചിൽ | കരയുക | കരയുന്ന മുഖം | മുഖം | സങ്കടം</annotation>
-		<annotation cp="😢" type="tts">കരയുന്ന മുഖം</annotation>
-		<annotation cp="😭">ഉറക്കെ കരയുക | കണ്ണീർ | കരയുക | തേങ്ങൽ | പൊട്ടിക്കരയൽ | പൊട്ടിക്കരയുന്ന മുഖം | മുഖം | സങ്കടം</annotation>
-		<annotation cp="😭" type="tts">പൊട്ടിക്കരയുന്ന മുഖം</annotation>
-		<annotation cp="😦">തുറന്ന | തുറന്നവായയുമായി നീരസ ഭാവത്തിലുള്ള മുഖം | നീരസം | മുഖം | മുഖം ചുളിക്കുക | വായ</annotation>
-		<annotation cp="😦" type="tts">തുറന്നവായയുമായി നീരസ ഭാവത്തിലുള്ള മുഖം</annotation>
-		<annotation cp="😧">മനഭ്രാന്തി | മനോവേദന | മനോവേദന നിറഞ്ഞ മുഖം | മുഖം | വിഷമം | സങ്കടം</annotation>
-		<annotation cp="😧" type="tts">മനോവേദന നിറഞ്ഞ മുഖം</annotation>
-		<annotation cp="😨">പേടിച്ച | പേടിച്ചരണ്ട | ഭയം | ഭയചകിതമായ | മുഖം</annotation>
-		<annotation cp="😨" type="tts">ഭയചകിതമായ മുഖം</annotation>
-		<annotation cp="😩">കണ്ണീർ | ക്ഷീണം | ക്ഷീണിച്ച മുഖം | തളർച്ച | മുഖം</annotation>
-		<annotation cp="😩" type="tts">ക്ഷീണിച്ച മുഖം</annotation>
-		<annotation cp="🤯">ഞെട്ടിയത് | പൊട്ടിത്തെറിക്കുന്ന തല</annotation>
-		<annotation cp="🤯" type="tts">പൊട്ടിത്തെറിക്കുന്ന തല</annotation>
+		<annotation cp="🙄">കണ്ണുകൾ | കറങ്ങുന്ന കണ്ണുകളുള്ള മുഖം | കറങ്ങുന്നു | മുഖം</annotation>
+		<annotation cp="🙄" type="tts">കറങ്ങുന്ന കണ്ണുകളുള്ള മുഖം</annotation>
 		<annotation cp="😬">കൊഞ്ഞനം കുത്തുക | ഗോഷ്‌ടി | ഗോഷ്‌ടി കാണിക്കുന്ന മുഖം | മുഖം</annotation>
 		<annotation cp="😬" type="tts">ഗോഷ്‌ടി കാണിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😰">തണുത്ത | തിരക്ക് | തുറന്ന | നീല | മുഖം | വായ | വിയർക്കുന്ന ഉത്‌കണ്ഠാകുലമായ മുഖം | വിയർപ്പുതുള്ളി | വിയർപ്പ്</annotation>
-		<annotation cp="😰" type="tts">വിയർക്കുന്ന ഉത്‌കണ്ഠാകുലമായ മുഖം</annotation>
-		<annotation cp="😱">ചവയ്‌ക്കുക | നിലവിളി | പേടിച്ച | പേടിച്ചരണ്ട | ഭയം | ഭയചകിതമായ | ഭയന്ന് നിലവിളിക്കുന്ന മുഖം | മുഖം</annotation>
-		<annotation cp="😱" type="tts">ഭയന്ന് നിലവിളിക്കുന്ന മുഖം</annotation>
-		<annotation cp="🥵">ചുവന്ന മുഖം | ചൂടുള്ള മുഖം | ചൂടുള്ളത് | ചൂട് | പനിയുള്ള | വിയർത്തത്</annotation>
-		<annotation cp="🥵" type="tts">ചൂടുള്ള മുഖം</annotation>
-		<annotation cp="🥶">തണുത്ത മുഖം | തണുത്തുമരവിച്ചത് | തണുപ്പ് | നീല മുഖമുള്ളത് | മഞ്ഞുപാളി | മരവിച്ചത്</annotation>
-		<annotation cp="🥶" type="tts">തണുത്ത മുഖം</annotation>
-		<annotation cp="😳">ഞെട്ടൽ | മുഖം | ലജ്ജാവഹം | സ്‌തംഭിച്ച</annotation>
-		<annotation cp="😳" type="tts">സ്‌തംഭിച്ച മുഖം</annotation>
-		<annotation cp="🤪">ഉന്മത്തമായ മുഖം | കണ്ണുകൾ | ചെറുത് | വലുത്</annotation>
-		<annotation cp="🤪" type="tts">ഉന്മത്തമായ മുഖം</annotation>
-		<annotation cp="😵">മയക്കം | മയക്കത്തിലാണ്ട മുഖം | മുഖം | മോഹാലസ്യം</annotation>
-		<annotation cp="😵" type="tts">മയക്കത്തിലാണ്ട മുഖം</annotation>
-		<annotation cp="😡">കോപം | ക്രോധം | ചുണ്ടു കൂർപ്പിച്ച മുഖം | ചുവന്ന് | ദേഷ്യപ്പെടുന്നു | ഭ്രാന്ത് | മുഖം | മുഷിച്ചിൽ അനുഭവപ്പെടുന്ന മുഖം</annotation>
-		<annotation cp="😡" type="tts">മുഷിച്ചിൽ അനുഭവപ്പെടുന്ന മുഖം</annotation>
-		<annotation cp="😠">കോപം | കോപാകുലമായ മുഖം | ദേഷ്യം | ഭ്രാന്ത് | മുഖം</annotation>
-		<annotation cp="😠" type="tts">കോപാകുലമായ മുഖം</annotation>
-		<annotation cp="🤬">നിന്ദാവചനം | പ്രാക്ക് | വായിൽ ചിഹ്നങ്ങളുള്ള മുഖം</annotation>
-		<annotation cp="🤬" type="tts">വായിൽ ചിഹ്നങ്ങളുള്ള മുഖം</annotation>
+		<annotation cp="🤥">കള്ളം | കള്ളലക്ഷണം</annotation>
+		<annotation cp="🤥" type="tts">കള്ളലക്ഷണം</annotation>
+		<annotation cp="😌">ആശ്വാസം | ആശ്വാസമുള്ള മുഖം | മുഖം</annotation>
+		<annotation cp="😌" type="tts">ആശ്വാസമുള്ള മുഖം</annotation>
+		<annotation cp="😔">ആകുലമായത് | ചിന്താകുലമായ മുഖം | ചിന്താകുലമായത് | ദുഃഖം | മുഖം</annotation>
+		<annotation cp="😔" type="tts">ചിന്താകുലമായ മുഖം</annotation>
+		<annotation cp="😪">ഉറക്കം | ഉറക്കം തൂങ്ങിയ മുഖം | ഉറക്കം തൂങ്ങുന്ന മുഖം | മുഖം</annotation>
+		<annotation cp="😪" type="tts">ഉറക്കം തൂങ്ങുന്ന മുഖം</annotation>
+		<annotation cp="🤤">തുപ്പൽ | തുപ്പൽ ഒലിക്കുന്ന മുഖം | ഭാവം | മുഖം</annotation>
+		<annotation cp="🤤" type="tts">തുപ്പൽ ഒലിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😴">ഉറക്കം | ഉറങ്ങുന്ന മുഖം | കൂർക്കംവലി | നിദ്ര | മുഖം</annotation>
+		<annotation cp="😴" type="tts">ഉറങ്ങുന്ന മുഖം</annotation>
 		<annotation cp="😷">അസുഖം | ജലദോഷം | ഡോക്‌ടർ | മരുന്ന് | മാസ്‌ക് | മുഖം | മെഡിക്കൽ മാസ്‌കുള്ള മുഖം | മെഡിക്കൽ മാസ്‌ക്ക്</annotation>
 		<annotation cp="😷" type="tts">മെഡിക്കൽ മാസ്‌കുള്ള മുഖം</annotation>
 		<annotation cp="🤒">അസുഖം | തെർമോമീറ്റർ | തെർമോമീറ്ററുള്ള മുഖം | മുഖം | രോഗം</annotation>
@@ -181,40 +239,98 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤮" type="tts">ഛർദ്ദിക്കുന്ന മുഖം</annotation>
 		<annotation cp="🤧">തുമ്മൽ | മുഖം | മൂക്കൊലിക്കുന്ന മുഖം | മൂക്കൊലിപ്പ്</annotation>
 		<annotation cp="🤧" type="tts">മൂക്കൊലിക്കുന്ന മുഖം</annotation>
-		<annotation cp="😇">നിഷ്‌കളങ്കം | പുഞ്ചിരി | പ്രകാശവലയം | പ്രകാശവലയമുള്ള പുഞ്ചിരിക്കുന്ന മുഖം | മാലാഖ | മുഖം</annotation>
-		<annotation cp="😇" type="tts">പ്രകാശവലയമുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
+		<annotation cp="🥵">ചുവന്ന മുഖം | ചൂടുള്ള മുഖം | ചൂടുള്ളത് | ചൂട് | പനിയുള്ള | വിയർത്തത്</annotation>
+		<annotation cp="🥵" type="tts">ചൂടുള്ള മുഖം</annotation>
+		<annotation cp="🥶">തണുത്ത മുഖം | തണുത്തുമരവിച്ചത് | തണുപ്പ് | നീല മുഖമുള്ളത് | മഞ്ഞുപാളി | മരവിച്ചത്</annotation>
+		<annotation cp="🥶" type="tts">തണുത്ത മുഖം</annotation>
+		<annotation cp="🥴">ഉന്മത്തനായ | ചുരുണ്ടിരിക്കുന്ന | മന്ദിച്ച മുഖം | മയക്കം | ലഹരിപിടിച്ചത് | സമചിത്തതയില്ലാത്ത</annotation>
+		<annotation cp="🥴" type="tts">മന്ദിച്ച മുഖം</annotation>
+		<annotation cp="😵">മയക്കം | മയക്കത്തിലാണ്ട മുഖം | മുഖം | മോഹാലസ്യം</annotation>
+		<annotation cp="😵" type="tts">മയക്കത്തിലാണ്ട മുഖം</annotation>
+		<annotation cp="🤯">ഞെട്ടിയത് | പൊട്ടിത്തെറിക്കുന്ന തല</annotation>
+		<annotation cp="🤯" type="tts">പൊട്ടിത്തെറിക്കുന്ന തല</annotation>
 		<annotation cp="🤠">കൗഗേൾ | കൗബോയി | കൗബോയ് തൊപ്പിയുള്ള മുഖം | തൊപ്പി | മുഖം | ഹാറ്റ്</annotation>
 		<annotation cp="🤠" type="tts">കൗബോയ് തൊപ്പിയുള്ള മുഖം</annotation>
 		<annotation cp="🥳">ആഘോഷം | തൊപ്പി | പാർട്ടി | പാർട്ടി ചെയ്യുന്ന മുഖം | ഹോൺ</annotation>
 		<annotation cp="🥳" type="tts">പാർട്ടി ചെയ്യുന്ന മുഖം</annotation>
-		<annotation cp="🥴">ഉന്മത്തനായ | ചുരുണ്ടിരിക്കുന്ന | മന്ദിച്ച മുഖം | മയക്കം | ലഹരിപിടിച്ചത് | സമചിത്തതയില്ലാത്ത</annotation>
-		<annotation cp="🥴" type="tts">മന്ദിച്ച മുഖം</annotation>
-		<annotation cp="🥺">ദയ | നായ്‌കുട്ടികളുടെ കണ്ണുകൾ | യാചിക്കുന്ന മുഖം | യാചിക്കുന്നത്</annotation>
-		<annotation cp="🥺" type="tts">യാചിക്കുന്ന മുഖം</annotation>
-		<annotation cp="🤥">കള്ളം | കള്ളലക്ഷണം</annotation>
-		<annotation cp="🤥" type="tts">കള്ളലക്ഷണം</annotation>
-		<annotation cp="🤫">നിശബ്‌ദത | നിശബ്‌ദത പാലിക്കാൻ ആവശ്യപ്പെടുന്ന മുഖം | ശൂ | ശ്‌ശ്</annotation>
-		<annotation cp="🤫" type="tts">നിശബ്‌ദത പാലിക്കാൻ ആവശ്യപ്പെടുന്ന മുഖം</annotation>
-		<annotation cp="🤭">അമളി | കൈകൊണ്ട് വായ് മൂടിയ മുഖം | ക്ഷമിക്കണം | ശ്ശോ</annotation>
-		<annotation cp="🤭" type="tts">കൈകൊണ്ട് വായ് മൂടിയ മുഖം</annotation>
-		<annotation cp="🧐">ഒറ്റച്ചില്ലുകണ്ണട വച്ച മുഖം | ബലംപിടുത്തം | മസിലുപിടുത്തം | വിരസൻ</annotation>
-		<annotation cp="🧐" type="tts">ഒറ്റച്ചില്ലുകണ്ണട വച്ച മുഖം</annotation>
+		<annotation cp="😎">കണ്ണട | കണ്ണടകൾ | കണ്ണടയുള്ള പുഞ്ചിരിക്കുന്ന മുഖം | കണ്ണ് | കാലാവസ്ഥ | തണുത്ത | തിളക്കം | പുഞ്ചിരി | മുഖം | സൺ | സൺഗ്ലാസ് | സൂര്യൻ</annotation>
+		<annotation cp="😎" type="tts">കണ്ണടയുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
 		<annotation cp="🤓">കിറുക്കൻ | കോമാളി | മുഖം</annotation>
 		<annotation cp="🤓" type="tts">കോമാളി മുഖം</annotation>
+		<annotation cp="🧐">ഒറ്റച്ചില്ലുകണ്ണട വച്ച മുഖം | ബലംപിടുത്തം | മസിലുപിടുത്തം | വിരസൻ</annotation>
+		<annotation cp="🧐" type="tts">ഒറ്റച്ചില്ലുകണ്ണട വച്ച മുഖം</annotation>
+		<annotation cp="😕">ആശയക്കുഴപ്പം | ആശയക്കുഴപ്പമുള്ള മുഖം | മുഖം</annotation>
+		<annotation cp="😕" type="tts">ആശയക്കുഴപ്പമുള്ള മുഖം</annotation>
+		<annotation cp="😟">ആകുലത | ആകുലമായ മുഖം | ആശങ്ക | പരിഭ്രാന്തി | മുഖം</annotation>
+		<annotation cp="😟" type="tts">ആകുലമായ മുഖം</annotation>
+		<annotation cp="🙁">കുറച്ച് നീരസഭാവത്തിലുള്ള മുഖം | നീരസം | മുഖം</annotation>
+		<annotation cp="🙁" type="tts">കുറച്ച് നീരസഭാവത്തിലുള്ള മുഖം</annotation>
+		<annotation cp="☹">അസ്വസ്ഥത | നീരസം | നീരസമുള്ള മുഖം | മുഖം</annotation>
+		<annotation cp="☹" type="tts">നീരസമുള്ള മുഖം</annotation>
+		<annotation cp="😮">തുറന്ന | തുറന്ന വായയുള്ള മുഖം | മുഖം | വായ | സഹതാപം</annotation>
+		<annotation cp="😮" type="tts">തുറന്ന വായയുള്ള മുഖം</annotation>
+		<annotation cp="😯">അത്ഭുതകരമായ | ആശ്ചര്യമുള്ള | ഞെട്ടൽ | മുഖം | സ്‌തബ്‌ധമായ</annotation>
+		<annotation cp="😯" type="tts">സ്‌തബ്‌ധമായ മുഖം</annotation>
+		<annotation cp="😲">അത്ഭുതം | അത്ഭുതം നിറഞ്ഞ മുഖം | ആശ്ചര്യം | ഞെട്ടൽ | പൂർണ്ണമായും | മുഖം</annotation>
+		<annotation cp="😲" type="tts">അത്ഭുതം നിറഞ്ഞ മുഖം</annotation>
+		<annotation cp="😳">ഞെട്ടൽ | മുഖം | ലജ്ജാവഹം | സ്‌തംഭിച്ച</annotation>
+		<annotation cp="😳" type="tts">സ്‌തംഭിച്ച മുഖം</annotation>
+		<annotation cp="🥺">ദയ | നായ്‌കുട്ടികളുടെ കണ്ണുകൾ | യാചിക്കുന്ന മുഖം | യാചിക്കുന്നത്</annotation>
+		<annotation cp="🥺" type="tts">യാചിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😦">തുറന്ന | തുറന്നവായയുമായി നീരസ ഭാവത്തിലുള്ള മുഖം | നീരസം | മുഖം | മുഖം ചുളിക്കുക | വായ</annotation>
+		<annotation cp="😦" type="tts">തുറന്നവായയുമായി നീരസ ഭാവത്തിലുള്ള മുഖം</annotation>
+		<annotation cp="😧">മനഭ്രാന്തി | മനോവേദന | മനോവേദന നിറഞ്ഞ മുഖം | മുഖം | വിഷമം | സങ്കടം</annotation>
+		<annotation cp="😧" type="tts">മനോവേദന നിറഞ്ഞ മുഖം</annotation>
+		<annotation cp="😨">പേടിച്ച | പേടിച്ചരണ്ട | ഭയം | ഭയചകിതമായ | മുഖം</annotation>
+		<annotation cp="😨" type="tts">ഭയചകിതമായ മുഖം</annotation>
+		<annotation cp="😰">തണുത്ത | തിരക്ക് | തുറന്ന | നീല | മുഖം | വായ | വിയർക്കുന്ന ഉത്‌കണ്ഠാകുലമായ മുഖം | വിയർപ്പുതുള്ളി | വിയർപ്പ്</annotation>
+		<annotation cp="😰" type="tts">വിയർക്കുന്ന ഉത്‌കണ്ഠാകുലമായ മുഖം</annotation>
+		<annotation cp="😥">ആശ്വാസം | നിരാശ | നിരാശയുണ്ടെങ്കിലും ആശ്വാസഭാവത്തിലുള്ള മുഖം | മുഖം | വിയർപ്പുതുള്ളി | വിയർപ്പ് | ഹൂ</annotation>
+		<annotation cp="😥" type="tts">നിരാശയുണ്ടെങ്കിലും ആശ്വാസഭാവത്തിലുള്ള മുഖം</annotation>
+		<annotation cp="😢">കണ്ണീർ | കരച്ചിൽ | കരയുക | കരയുന്ന മുഖം | മുഖം | സങ്കടം</annotation>
+		<annotation cp="😢" type="tts">കരയുന്ന മുഖം</annotation>
+		<annotation cp="😭">ഉറക്കെ കരയുക | കണ്ണീർ | കരയുക | തേങ്ങൽ | പൊട്ടിക്കരയൽ | പൊട്ടിക്കരയുന്ന മുഖം | മുഖം | സങ്കടം</annotation>
+		<annotation cp="😭" type="tts">പൊട്ടിക്കരയുന്ന മുഖം</annotation>
+		<annotation cp="😱">ചവയ്‌ക്കുക | നിലവിളി | പേടിച്ച | പേടിച്ചരണ്ട | ഭയം | ഭയചകിതമായ | ഭയന്ന് നിലവിളിക്കുന്ന മുഖം | മുഖം</annotation>
+		<annotation cp="😱" type="tts">ഭയന്ന് നിലവിളിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😖">മുഖം | മ്ലാനത | മ്ലാനമായ മുഖം</annotation>
+		<annotation cp="😖" type="tts">മ്ലാനമായ മുഖം</annotation>
+		<annotation cp="😣">അസഹനീയമായ | കഠിനാദ്ധ്വാനം കാണിക്കുന്ന മുഖം | നിസ്സഹായമായ | മുഖം</annotation>
+		<annotation cp="😣" type="tts">കഠിനാദ്ധ്വാനം കാണിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😞">നിരാശ | നിരാശാഭരിതം | നിരാശാഭരിതമായ മുഖം | മുഖം</annotation>
+		<annotation cp="😞" type="tts">നിരാശാഭരിതമായ മുഖം</annotation>
+		<annotation cp="😓">തണുപ്പ് | മുഖം | വിയർക്കുന്ന ദുഃഖിതമായ മുഖം | വിയർപ്പുതുള്ളി | വിയർപ്പ്</annotation>
+		<annotation cp="😓" type="tts">വിയർക്കുന്ന ദുഃഖിതമായ മുഖം</annotation>
+		<annotation cp="😩">കണ്ണീർ | ക്ഷീണം | ക്ഷീണിച്ച മുഖം | തളർച്ച | മുഖം</annotation>
+		<annotation cp="😩" type="tts">ക്ഷീണിച്ച മുഖം</annotation>
+		<annotation cp="😫">തളർച്ച | തളർച്ചയുള്ള മുഖം | മുഖം</annotation>
+		<annotation cp="😫" type="tts">തളർച്ചയുള്ള മുഖം</annotation>
+		<annotation cp="🥱">കോട്ടുവായിടുന്ന മുഖം | കോട്ടുവായ് | ക്ഷീണിച്ച | മുഷിവുള്ള</annotation>
+		<annotation cp="🥱" type="tts">കോട്ടുവായിടുന്ന മുഖം</annotation>
+		<annotation cp="😤">ജയം | ദേഷ്യം | ദേഷ്യം കൊണ്ട് നിശ്വസിക്കുന്ന മുഖം | നിശ്വാസം | മുഖം | വിജയം</annotation>
+		<annotation cp="😤" type="tts">ദേഷ്യം കൊണ്ട് നിശ്വസിക്കുന്ന മുഖം</annotation>
+		<annotation cp="😡">കോപം | ക്രോധം | ചുണ്ടു കൂർപ്പിച്ച മുഖം | ചുവന്ന് | ദേഷ്യപ്പെടുന്നു | ഭ്രാന്ത് | മുഖം | മുഷിച്ചിൽ അനുഭവപ്പെടുന്ന മുഖം</annotation>
+		<annotation cp="😡" type="tts">മുഷിച്ചിൽ അനുഭവപ്പെടുന്ന മുഖം</annotation>
+		<annotation cp="😠">കോപം | കോപാകുലമായ മുഖം | ദേഷ്യം | ഭ്രാന്ത് | മുഖം</annotation>
+		<annotation cp="😠" type="tts">കോപാകുലമായ മുഖം</annotation>
+		<annotation cp="🤬">നിന്ദാവചനം | പ്രാക്ക് | വായിൽ ചിഹ്നങ്ങളുള്ള മുഖം</annotation>
+		<annotation cp="🤬" type="tts">വായിൽ ചിഹ്നങ്ങളുള്ള മുഖം</annotation>
 		<annotation cp="😈">കൊമ്പുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം | കൊമ്പുകൾ | ചിരി | പുഞ്ചിരി | ഫാന്റസി | മുഖം | മുത്തശ്ശിക്കഥ</annotation>
 		<annotation cp="😈" type="tts">കൊമ്പുകളുള്ള പുഞ്ചിരിക്കുന്ന മുഖം</annotation>
 		<annotation cp="👿">കുട്ടിപ്പിശാച് | ചെകുത്താൻ | പിശാച് | ഫാന്റസി | മുഖം | മുത്തശ്ശിക്കഥ | സത്താൻ</annotation>
 		<annotation cp="👿" type="tts">കുട്ടിപ്പിശാച്</annotation>
+		<annotation cp="💀">തലയോട്ടി | മരണം | മുഖം | മുത്തശ്ശിക്കഥ | രാക്ഷസൻ | ശരീരം</annotation>
+		<annotation cp="💀" type="tts">തലയോട്ടി</annotation>
+		<annotation cp="☠">അപായം | തലയോട്ടി | മരണം | മുഖം | രാക്ഷസൻ | ശരീരം</annotation>
+		<annotation cp="☠" type="tts">അപായം</annotation>
+		<annotation cp="💩">അവശിഷ്‌ടം | കോമിക്ക് | ചാണകം | ചാണക കൂമ്പാരം | മുഖം | രാക്ഷസൻ | സരസമായ</annotation>
+		<annotation cp="💩" type="tts">ചാണക കൂമ്പാരം</annotation>
 		<annotation cp="🤡">കോമാളി | ഭാവം | മുഖം</annotation>
 		<annotation cp="🤡" type="tts">കോമാളി ഭാവം</annotation>
 		<annotation cp="👹">ജന്തു | ജപ്പാനീസ് | ജീവി | ഫാന്റസി | മുഖം | മുത്തശ്ശിക്കഥ | രാക്ഷസൻ</annotation>
 		<annotation cp="👹" type="tts">രാക്ഷസൻ</annotation>
 		<annotation cp="👺">കുട്ടിച്ചാത്തൻ | ജന്തു | ജപ്പാനീസ് | ഫാന്റസി | മുഖം | മുത്തശ്ശിക്കഥ | രാക്ഷസൻ</annotation>
 		<annotation cp="👺" type="tts">കുട്ടിച്ചാത്തൻ</annotation>
-		<annotation cp="💀">തലയോട്ടി | മരണം | മുഖം | മുത്തശ്ശിക്കഥ | രാക്ഷസൻ | ശരീരം</annotation>
-		<annotation cp="💀" type="tts">തലയോട്ടി</annotation>
-		<annotation cp="☠">അപായം | തലയോട്ടി | മരണം | മുഖം | രാക്ഷസൻ | ശരീരം</annotation>
-		<annotation cp="☠" type="tts">അപായം</annotation>
 		<annotation cp="👻">ജന്തു | ജീവി | ഭൂതം | മുഖം | മുത്തശ്ശിക്കഥ | രാക്ഷസൻ</annotation>
 		<annotation cp="👻" type="tts">ഭൂതം</annotation>
 		<annotation cp="👽">അന്യഗ്രഹജീവി | ജന്തു | പറക്കും തളിക | ഫാന്റസി | ബഹിരാകാശം | ഭൗമേതര ജീവി | മുഖം | മുത്തശ്ശിക്കഥ | രാക്ഷസൻ</annotation>
@@ -223,23 +339,21 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👾" type="tts">അന്യഗ്രഹ ഭീകരജീവി</annotation>
 		<annotation cp="🤖">മുഖം | രാക്ഷസൻ | റോബോട്ടിന്റെ മുഖം | റോബോട്ട്</annotation>
 		<annotation cp="🤖" type="tts">റോബോട്ടിന്റെ മുഖം</annotation>
-		<annotation cp="💩">അവശിഷ്‌ടം | കോമിക്ക് | ചാണകം | ചാണക കൂമ്പാരം | മുഖം | രാക്ഷസൻ | സരസമായ</annotation>
-		<annotation cp="💩" type="tts">ചാണക കൂമ്പാരം</annotation>
 		<annotation cp="😺">കളിയാക്കി ചിരിക്കുന്ന പൂച്ച മുഖം | ചിരി | തുറന്ന | പുഞ്ചിരി | പൂച്ച | മുഖം | വായ</annotation>
 		<annotation cp="😺" type="tts">കളിയാക്കി ചിരിക്കുന്ന പൂച്ച മുഖം</annotation>
-		<annotation cp="😸">ഇളിക്കുന്ന പൂച്ച മുഖം | കണ്ണ് | കളിയാക്കൽ | പുഞ്ചിരി | പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടെ കളിയാക്കുന്ന പൂച്ച മുഖം | പുഞ്ചിരിക്കുന്ന കണ്ണുകൾ | പൂച്ച | മുഖം</annotation>
+		<annotation cp="😸">ഇളിക്കുന്ന പൂച്ചമുഖം | കണ്ണ് | കളിയാക്കൽ | പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടെ കളിയാക്കുന്ന പൂച്ച മുഖം | പൂച്ച | മുഖം</annotation>
 		<annotation cp="😸" type="tts">പുഞ്ചിരിക്കുന്ന കണ്ണുകളോടെ കളിയാക്കുന്ന പൂച്ച മുഖം</annotation>
-		<annotation cp="😹">ആനന്ദം | ആനന്ദക്കണ്ണീർ | ആനന്ദാശ്രു | ആനന്ദാശ്രുക്കളുള്ള പൂച്ച മുഖം | കണ്ണീർ | പൂച്ച | മുുഖം | സന്തോഷം</annotation>
+		<annotation cp="😹">ആനന്ദാശ്രു | ആനന്ദാശ്രുക്കളുള്ള പൂച്ച മുഖം | പൂച്ച | സന്തോഷം</annotation>
 		<annotation cp="😹" type="tts">ആനന്ദാശ്രുക്കളുള്ള പൂച്ച മുഖം</annotation>
 		<annotation cp="😻">കണ്ണ് | ചിരി | പുഞ്ചിരി | പൂച്ച | മുുഖം | സ്‌നേഹം | ഹൃദയം | ഹൃദയാകൃതിയിലുള്ള കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന പൂച്ച മുഖം</annotation>
 		<annotation cp="😻" type="tts">ഹൃദയാകൃതിയിലുള്ള കണ്ണുകളുള്ള പുഞ്ചിരിക്കുന്ന പൂച്ച മുഖം</annotation>
-		<annotation cp="😼">നീരസം | പരിഹാസം | പരിഹാസച്ചിരി | പരിഹാസച്ചിരിയുള്ള പൂച്ച മുഖം | പുച്ഛം | പുഞ്ചിരി | പൂച്ച | മുഖം | വാിരോധാഭാസം</annotation>
+		<annotation cp="😼">നീരസം | പരിഹാസം | പരിഹാസച്ചിരി | പരിഹാസച്ചിരിയുള്ള പൂച്ച മുഖം | പുഞ്ചിരി | പൂച്ച</annotation>
 		<annotation cp="😼" type="tts">പരിഹാസച്ചിരിയുള്ള പൂച്ച മുഖം</annotation>
 		<annotation cp="😽">കണ്ണടച്ച് ചുംബിക്കുന്ന പൂച്ചമുഖം | കണ്ണ് | ചുംബനം | പൂച്ച | മുഖം</annotation>
 		<annotation cp="😽" type="tts">കണ്ണടച്ച് ചുംബിക്കുന്ന പൂച്ചമുഖം</annotation>
-		<annotation cp="🙀">അത്ഭുതം | ആശ്ചര്യം | ക്ഷീണം | ക്ഷീണമുള്ള പൂച്ച മുഖം | പൂച്ച | മുഖം | ഹൊ</annotation>
+		<annotation cp="🙀">അത്ഭുതം | ആശ്ചര്യം | ക്ഷീണം | ക്ഷീണമുള്ള പൂച്ച മുഖം | പൂച്ച</annotation>
 		<annotation cp="🙀" type="tts">ക്ഷീണമുള്ള പൂച്ച മുഖം</annotation>
-		<annotation cp="😿">കണ്ണീർ | കരച്ചിൽ | കരയുന്ന പൂച്ച മുഖം | പൂച്ച | മുഖം | സങ്കടം</annotation>
+		<annotation cp="😿">കണ്ണീർ | കരച്ചിൽ | കരയുന്ന പൂച്ച മുഖം | പൂച്ച | സങ്കടം</annotation>
 		<annotation cp="😿" type="tts">കരയുന്ന പൂച്ച മുഖം</annotation>
 		<annotation cp="😾">ചുണ്ടുകൂർപ്പിക്കുക | ദേഷ്യം | പൂച്ച | മുഖം | മുഷിച്ചിൽ അനുഭവപ്പെടുന്ന പൂച്ചമുഖം</annotation>
 		<annotation cp="😾" type="tts">മുഷിച്ചിൽ അനുഭവപ്പെടുന്ന പൂച്ചമുഖം</annotation>
@@ -249,6 +363,172 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🙉" type="tts">മോശമായ കാര്യങ്ങൾ കേൾക്കരുത്</annotation>
 		<annotation cp="🙊">ആംഗ്യം | ഇല്ല | കുരങ്ങൻ | ചെയ്യരുത് | തടയുക | നിരോധിക്കുക | പറയുക | മുഖം | മോശം | മോശമായ കാര്യങ്ങൾ പറയരുത്</annotation>
 		<annotation cp="🙊" type="tts">മോശമായ കാര്യങ്ങൾ പറയരുത്</annotation>
+		<annotation cp="💋">ചുണ്ടുകൾ | ചുംബനം | ചുംബന മുദ്ര | റൊമാൻസ്</annotation>
+		<annotation cp="💋" type="tts">ചുംബന മുദ്ര</annotation>
+		<annotation cp="💌">കത്ത് | പ്രണയം | പ്രണയ ലേഖനം | പ്രണയലേഖനം | റൊമാൻസ്</annotation>
+		<annotation cp="💌" type="tts">പ്രണയ ലേഖനം</annotation>
+		<annotation cp="💘">അമ്പടയാളത്തോടൊപ്പമുള്ള ഹൃദയം | അമ്പ് | പ്രണയം | വികാരം | ഹൃദയം | ഹൃദയവും അമ്പും</annotation>
+		<annotation cp="💘" type="tts">അമ്പടയാളത്തോടൊപ്പമുള്ള ഹൃദയം</annotation>
+		<annotation cp="💝">വാലന്റൈൻ | വികാരം | ഹൃദയം | റിബൺ | റിബൺ ചുറ്റിയ ഹൃദയം</annotation>
+		<annotation cp="💝" type="tts">റിബൺ ചുറ്റിയ ഹൃദയം</annotation>
+		<annotation cp="💖">അത്ഭുതം | ആവേശം | ആശ്ചര്യം | തിളക്കം | തിളങ്ങുന്ന ഹൃദയം | പ്രണയം | വികാരം</annotation>
+		<annotation cp="💖" type="tts">തിളങ്ങുന്ന ഹൃദയം</annotation>
+		<annotation cp="💗">അത്ഭുതം | ആവേശം | ജിജ്ഞാസ | പരിഭ്രാന്തി | പ്രണയം | വികസിക്കുന്ന ഹൃദയം | വികാരം | ഹൃദയം | ഹൃദയതാളം | ഹൃദയമിടിപ്പ്</annotation>
+		<annotation cp="💗" type="tts">വികസിക്കുന്ന ഹൃദയം</annotation>
+		<annotation cp="💓">തുടിപ്പുന്ന ഹൃദയം | തുടിപ്പ് | പ്രണയം | മിടിപ്പ് | വികാരം | സ്പന്ദിക്കുന്ന ഹൃദയം | ഹൃദയം</annotation>
+		<annotation cp="💓" type="tts">സ്പന്ദിക്കുന്ന ഹൃദയം</annotation>
+		<annotation cp="💞">ആരാധനീയം | കറങ്ങുന്ന ഹൃദയങ്ങൾ | ചുറ്റൽ | ചുറ്റുന്ന ഹൃദയങ്ങൾ | പ്രണയം | ഭംഗി | വികാരം | ഹൃദയം</annotation>
+		<annotation cp="💞" type="tts">കറങ്ങുന്ന ഹൃദയങ്ങൾ</annotation>
+		<annotation cp="💕">പ്രണയം | പ്രണയികൾ | രണ്ട് ഹൃദയങ്ങൾ | വികാരം</annotation>
+		<annotation cp="💕" type="tts">രണ്ട് ഹൃദയങ്ങൾ</annotation>
+		<annotation cp="💟">ഹൃദയം | ഹൃദയ അലങ്കാരം</annotation>
+		<annotation cp="💟" type="tts">ഹൃദയ അലങ്കാരം</annotation>
+		<annotation cp="❣">ആശ്ചര്യം | ചിഹ്നം | ഹൃദയം | ഹൃദയാകൃതിയിലുള്ള അടയാളം | ഹൃദയാകൃതിയിലുള്ള ആശ്ചര്യ ചിഹ്നം | ഹൃദയാകൃതിയിലെ ആശ്ചര്യ ചിഹ്നം</annotation>
+		<annotation cp="❣" type="tts">ഹൃദയാകൃതിയിലുള്ള ആശ്ചര്യ ചിഹ്നം</annotation>
+		<annotation cp="💔">തകരുക | തകർന്ന ഹൃദയം | തകർന്നു | ഹൃദയം</annotation>
+		<annotation cp="💔" type="tts">തകർന്ന ഹൃദയം</annotation>
+		<annotation cp="❤">ചുവന്ന ഹൃദയം | ചുവപ്പ് | ഹൃദയം</annotation>
+		<annotation cp="❤" type="tts">ചുവന്ന ഹൃദയം</annotation>
+		<annotation cp="🧡">ഓറഞ്ച് | പ്രണയം | വികാരം | ഹൃദയം</annotation>
+		<annotation cp="🧡" type="tts">ഓറഞ്ച് ഹൃദയം</annotation>
+		<annotation cp="💛">പ്രണയം | മഞ്ഞ | വികാരം | ഹൃദയം</annotation>
+		<annotation cp="💛" type="tts">മഞ്ഞ ഹൃദയം</annotation>
+		<annotation cp="💚">പച്ച | പ്രണയം | വികാരം | ഹൃദയം</annotation>
+		<annotation cp="💚" type="tts">പച്ച ഹൃദയം</annotation>
+		<annotation cp="💙">നീല | പ്രണയം | വികാരം | ഹൃദയം</annotation>
+		<annotation cp="💙" type="tts">നീല ഹൃദയം</annotation>
+		<annotation cp="💜">പർപ്പിൾ | പ്രണയം | വികാരം | ഹൃദയം</annotation>
+		<annotation cp="💜" type="tts">പർപ്പിൾ ഹൃദയം</annotation>
+		<annotation cp="🤎">ബ്രൗൺ | ഹൃദയം</annotation>
+		<annotation cp="🤎" type="tts">ബ്രൗൺ ഹൃദയം</annotation>
+		<annotation cp="🖤">കറുത്ത ഹൃദയം | കറുപ്പ് | തിന്മ | ഹൃദയം</annotation>
+		<annotation cp="🖤" type="tts">കറുത്ത ഹൃദയം</annotation>
+		<annotation cp="🤍">വെളുത്ത ഹൃദയം | വെള്ള | ഹൃദയം</annotation>
+		<annotation cp="🤍" type="tts">വെളുത്ത ഹൃദയം</annotation>
+		<annotation cp="💯">100 | 100 പോയിന്റ് | പൂർണ്ണ സ്കോർ | സ്കോർ</annotation>
+		<annotation cp="💯" type="tts">100 പോയിന്റ്</annotation>
+		<annotation cp="💢">കോപം | കോമിക്ക് | ദേഷ്യം | ദേഷ്യ ചിഹ്നം | ദേഷ്യം ചിഹ്നം | ദേഷ്യപ്പെടൽ | വികാരം</annotation>
+		<annotation cp="💢" type="tts">ദേഷ്യ ചിഹ്നം</annotation>
+		<annotation cp="💥">കൂട്ടിയിടി | കൂട്ടിയിടി ചിഹ്നം | കോമിക്ക് | ബൂം | വികാരം</annotation>
+		<annotation cp="💥" type="tts">കൂട്ടിയിടി</annotation>
+		<annotation cp="💫">കോമിക്ക് | നക്ഷത്രം | ഭ്രമ ചിഹ്നം | മോഹാലസ്യം | വാൽനക്ഷത്രം | വികാരം</annotation>
+		<annotation cp="💫" type="tts">മോഹാലസ്യം</annotation>
+		<annotation cp="💦">കോമിക്ക് | വികാരം | വിയർപ്പ് | വിയർപ്പ് തുള്ളികൾ | വിയർപ്പ് തെറിക്കുന്നു</annotation>
+		<annotation cp="💦" type="tts">വിയർപ്പ് തുള്ളികൾ</annotation>
+		<annotation cp="💨">ഓടുന്നു | കോമിക്ക് | ഡാഷ് | ഡാഷ് ചിഹ്നം | വേഗത</annotation>
+		<annotation cp="💨" type="tts">വേഗത</annotation>
+		<annotation cp="🕳">കുഴി | കൂഴി</annotation>
+		<annotation cp="🕳" type="tts">കുഴി</annotation>
+		<annotation cp="💣">കോമിക്ക് | ബോംബ്</annotation>
+		<annotation cp="💣" type="tts">ബോംബ്</annotation>
+		<annotation cp="💬">കോമിക്ക് | ഡയലോഗ് | ബബിൾ | ബലൂൺ | സംഭാഷണം | സംഭാഷണ ബലൂൺ | സംസാരം</annotation>
+		<annotation cp="💬" type="tts">സംഭാഷണ ബലൂൺ</annotation>
+		<annotation cp="👁‍🗨">കണ്ണ് | ബബിൾ | സംഭാഷണം | സ്പീച്ച് ബബിളിലെ കണ്ണ്</annotation>
+		<annotation cp="👁‍🗨" type="tts">സ്പീച്ച് ബബിളിലെ കണ്ണ്</annotation>
+		<annotation cp="🗨">ഇടത്തേക്കുള്ള സംഭാഷണ ബബിൾ | ഡയലോഗ് | സംഭാഷണം</annotation>
+		<annotation cp="🗨" type="tts">ഇടത്തേക്കുള്ള സംഭാഷണ ബബിൾ</annotation>
+		<annotation cp="🗯">കോപം | ദേഷ്യം | ബബിൾ | ബലൂൺ | വലത്തേക്കുള്ള ദേഷ്യ ബലൂൺ</annotation>
+		<annotation cp="🗯" type="tts">വലത്തേക്കുള്ള ദേഷ്യ ബലൂൺ</annotation>
+		<annotation cp="💭">കോമിക്ക് | ചിന്ത | ചിന്താ ബബിൾ | ചിന്താ ബലൂൺ | ബബിൾ | ബലൂൺ</annotation>
+		<annotation cp="💭" type="tts">ചിന്താ ബലൂൺ</annotation>
+		<annotation cp="💤">ഉറക്കം | കൂർക്കംവലി | കോമിക്ക് | വികാരം</annotation>
+		<annotation cp="💤" type="tts">കൂർക്കംവലി</annotation>
+		<annotation cp="👋">കൈ | കൈ വീശുന്നു | ടാറ്റ | വീശുക | ശരീരം</annotation>
+		<annotation cp="👋" type="tts">കൈ വീശുന്നു</annotation>
+		<annotation cp="🤚">ഉയർത്തിയ പുറം കൈ | ഉയർത്തിയത് | പുറം കൈ</annotation>
+		<annotation cp="🤚" type="tts">ഉയർത്തിയ പുറം കൈ</annotation>
+		<annotation cp="🖐">ഉയർത്തിയ കൈപ്പത്തി | കൈ | പരന്ന കൈ | വിരൽ | ശരീരം</annotation>
+		<annotation cp="🖐" type="tts">ഉയർത്തിയ കൈപ്പത്തി</annotation>
+		<annotation cp="✋">ഉയർത്തിയ കൈ | കൈ | നിവർത്തിയ കൈ | ശരീരം</annotation>
+		<annotation cp="✋" type="tts">ഉയർത്തിയ കൈ</annotation>
+		<annotation cp="🖖">കൈ | വൾക്കൻ സല്യൂട്ട് | വിരൽ | വുൾക്കാൻ | ശരീരം | സ്‌പോക്ക്</annotation>
+		<annotation cp="🖖" type="tts">വൾക്കൻ സല്യൂട്ട്</annotation>
+		<annotation cp="👌">അസലായെന്ന് കാണിക്കുന്ന ചിഹ്നം | കൈ | ശരി | ശരീരം</annotation>
+		<annotation cp="👌" type="tts">അസലായെന്ന് കാണിക്കുന്ന ചിഹ്നം</annotation>
+		<annotation cp="🤏">കുറച്ച് | കുറച്ച് എന്ന് കാണിക്കുന്ന കൈ</annotation>
+		<annotation cp="🤏" type="tts">കുറച്ച് എന്ന് കാണിക്കുന്ന കൈ</annotation>
+		<annotation cp="✌">v ചിഹ്നം | കൈ | വിജയം | വിജയ ചിഹ്നം | വിജയചിഹ്നം | ശരീരം</annotation>
+		<annotation cp="✌" type="tts">വിജയ ചിഹ്നം</annotation>
+		<annotation cp="🤞">കൈ | ഭാഗ്യം | ഭാഗ്യസൂചന | വിരൽ</annotation>
+		<annotation cp="🤞" type="tts">ഭാഗ്യസൂചന</annotation>
+		<annotation cp="🤟">ഐ ലവ് യൂ | കൈ | ഞാൻ നിന്നെ സ്‌നേഹിക്കുന്നു | ഞാൻ നിന്നെ സ്‌നേഹിക്കുന്നു എന്ന ആംഗ്യം | വിരലുകൾ</annotation>
+		<annotation cp="🤟" type="tts">ഞാൻ നിന്നെ സ്‌നേഹിക്കുന്നു എന്ന ആംഗ്യം</annotation>
+		<annotation cp="🤘">ആഘോഷിക്കുക | കൈ | കൊമ്പുകളുടെ ചിഹ്നം | കൊമ്പുകൾ | വിരൽ | ശരീരം</annotation>
+		<annotation cp="🤘" type="tts">കൊമ്പുകളുടെ ചിഹ്നം</annotation>
+		<annotation cp="🤙">കൈ | വിളിക്കാനുള്ള സൂചന | വിളിക്കുക</annotation>
+		<annotation cp="🤙" type="tts">വിളിക്കാനുള്ള സൂചന</annotation>
+		<annotation cp="👈">ഇടത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പുറംകൈ | പോയന്റുചെയ്യുക | വിരൽ | ശരീരം</annotation>
+		<annotation cp="👈" type="tts">ഇടത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
+		<annotation cp="👉">ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പുറംകൈ | പോയന്റുചെയ്യുക | വലത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | വിരൽ | ശരീരം</annotation>
+		<annotation cp="👉" type="tts">വലത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
+		<annotation cp="👆">ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പുറംകൈ | പോയന്റുചെയ്യുക | മുകളിലേക്ക് | മുകളിലേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | വിരൽ | ശരീരം</annotation>
+		<annotation cp="👆" type="tts">മുകളിലേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
+		<annotation cp="🖕">കൈ | നടുവിരൽ | വിരൽ | ശരീരം</annotation>
+		<annotation cp="🖕" type="tts">നടുവിരൽ</annotation>
+		<annotation cp="👇">ഇൻഡക്‌സ് | കൈ | താഴേക്ക് | താഴേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | പുറംകൈ | പോയന്റുചെയ്യുക | വിരൽ | ശരീരം</annotation>
+		<annotation cp="👇" type="tts">താഴേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
+		<annotation cp="☝">ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പോയന്റുചെയ്യുക | മുകളിലേക്ക് | മുകളിലേക്ക് ചൂണ്ടുന്ന വിരൽ | വിരൽ | ശരീരം</annotation>
+		<annotation cp="☝" type="tts">മുകളിലേക്ക് ചൂണ്ടുന്ന വിരൽ</annotation>
+		<annotation cp="👍">ഇഷ്‌ടമായി | കൈ | കൊള്ളാം | നന്നായി | ശരീരം</annotation>
+		<annotation cp="👍" type="tts">കൊള്ളാം</annotation>
+		<annotation cp="👎">ഇഷ്‌ടമായില്ല | കൈ | നല്ലതല്ല | മോശം | ശരീരം</annotation>
+		<annotation cp="👎" type="tts">മോശം</annotation>
+		<annotation cp="✊">ഇടിക്കുക | ഉയർത്തിയ മുഷ്‌ടി | കൈ | നിവർത്തിയ മുഷ്ടി | മുഷ്‌ടി | മുഷ്‌ടി ചുരുട്ടി | ശരീരം</annotation>
+		<annotation cp="✊" type="tts">ഉയർത്തിയ മുഷ്‌ടി</annotation>
+		<annotation cp="👊">ഇടിക്കുക | കൈ | നേരെ വരുന്ന മുഷ്‌ടി | മുഷ്‌‌ടി | മുഷ്‌ടി ചുരുട്ടി | ശരീരം</annotation>
+		<annotation cp="👊" type="tts">നേരെ വരുന്ന മുഷ്‌ടി</annotation>
+		<annotation cp="🤛">ഇടത്തേക്കുള്ള മുഷ്‌ടി | ഇടത്തേക്ക് | ചുരുട്ടുക</annotation>
+		<annotation cp="🤛" type="tts">ഇടത്തേക്കുള്ള മുഷ്‌ടി</annotation>
+		<annotation cp="🤜">ചുരുട്ടുക | വലത്തേക്ക് | വലത്തോട്ട് ചുരുട്ടിയ കൈ</annotation>
+		<annotation cp="🤜" type="tts">വലത്തോട്ട് ചുരുട്ടിയ കൈ</annotation>
+		<annotation cp="👏">കൈ | കൈകൊട്ടൽ ചിഹ്നം | കൈകൊട്ടുക | കൈയ്യടി | ശരീരം</annotation>
+		<annotation cp="👏" type="tts">കൈയ്യടി</annotation>
+		<annotation cp="🙌">ആംഗ്യം | ആഘോഷം | കൈ | കൈ ഉയർത്തുക | കൈകൾ ഉയർത്തുന്ന വ്യക്തി | ശരീരം | ഹുറേയ്</annotation>
+		<annotation cp="🙌" type="tts">കൈകൾ ഉയർത്തുന്ന വ്യക്തി</annotation>
+		<annotation cp="👐">കൈ | ചിഹ്നം | തുറക്കുക | തുറന്ന കൈകൾ | ശരീരം</annotation>
+		<annotation cp="👐" type="tts">തുറന്ന കൈകൾ</annotation>
+		<annotation cp="🤲">ഇരുകൈകളും ഒരുമിച്ചുയർത്തൽ | പ്രാർത്ഥന</annotation>
+		<annotation cp="🤲" type="tts">ഇരുകൈകളും ഒരുമിച്ചുയർത്തൽ</annotation>
+		<annotation cp="🤝">കൈകുലുക്കൽ | സമ്മതം | ഹസ്തദാനം</annotation>
+		<annotation cp="🤝" type="tts">ഹസ്തദാനം</annotation>
+		<annotation cp="🙏">ആംഗ്യം | കുനിയുക | കൂപ്പുക | കൂപ്പുകൈ | കൈ | കൈ കെട്ടുക | ചോദിക്കുക | ദയവായി | നന്ദി | പ്രാർത്ഥന | ശരീരം</annotation>
+		<annotation cp="🙏" type="tts">കൂപ്പുകൈ</annotation>
+		<annotation cp="✍">എഴുതുക | എഴുതുന്ന കൈ | കൈ | കൈയ്യെഴുത്ത് | ശരീരം</annotation>
+		<annotation cp="✍" type="tts">എഴുതുന്ന കൈ</annotation>
+		<annotation cp="💅">കോസ്‌മെറ്റിക്‌സ് | നഖം | നെയിൽ പോളിഷ് | നെയിൽ പോളീഷ് | പരിരക്ഷ | പോളീഷ് | മാനിക്യൂർ | ശരീരം</annotation>
+		<annotation cp="💅" type="tts">നെയിൽ പോളിഷ്</annotation>
+		<annotation cp="🤳">ക്യാമറ | ഫോൺ | സെൽഫി</annotation>
+		<annotation cp="🤳" type="tts">സെൽഫി</annotation>
+		<annotation cp="💪">കൈയ്യിലെ മസിൽ | കോമിക്ക് | മസിൽ | ശ‌ക്തി | ശക്തി കാണിക്കുക | ശരീരം</annotation>
+		<annotation cp="💪" type="tts">കൈയ്യിലെ മസിൽ</annotation>
+		<annotation cp="🦾">ആക്‌സസബിലിറ്റി | കൃത്രിമമായ | യന്ത്രക്കൈ</annotation>
+		<annotation cp="🦾" type="tts">യന്ത്രക്കൈ</annotation>
+		<annotation cp="🦿">ആക്‌സസബിലിറ്റി | കൃത്രിമമായ | യന്ത്രക്കാൽ</annotation>
+		<annotation cp="🦿" type="tts">യന്ത്രക്കാൽ</annotation>
+		<annotation cp="🦵">കാല് | കാൽ | ചവിട്ട്</annotation>
+		<annotation cp="🦵" type="tts">കാല്</annotation>
+		<annotation cp="🦶">കാൽപ്പാദം | ചവിട്ട് | ശക്തമായ ചവിട്ട്</annotation>
+		<annotation cp="🦶" type="tts">കാൽപ്പാദം</annotation>
+		<annotation cp="👂">കാത് | ചെവി | ശരീരം</annotation>
+		<annotation cp="👂" type="tts">ചെവി</annotation>
+		<annotation cp="🦻">ആക്‌സസബിലിറ്റി | കേൾവിത്തകരാറ് | ശ്രവണസഹായി വച്ചിരിക്കുന്ന ചെവി</annotation>
+		<annotation cp="🦻" type="tts">ശ്രവണസഹായി വച്ചിരിക്കുന്ന ചെവി</annotation>
+		<annotation cp="👃">മുഖം | മൂക്ക് | ശരീരം</annotation>
+		<annotation cp="👃" type="tts">മൂക്ക്</annotation>
+		<annotation cp="🧠">തലച്ചോർ | ബുദ്ധി | വിവേകം | സാമർത്ഥ്യം</annotation>
+		<annotation cp="🧠" type="tts">തലച്ചോർ</annotation>
+		<annotation cp="🦷">ദന്തരോഗവിദഗ്ദ്ധൻ | പല്ല്</annotation>
+		<annotation cp="🦷" type="tts">പല്ല്</annotation>
+		<annotation cp="🦴">അസ്ഥികൂടം | എല്ല്</annotation>
+		<annotation cp="🦴" type="tts">എല്ല്</annotation>
+		<annotation cp="👀">കണ്ണുകൾ | കണ്ണ് | മുഖം | ശരീരം</annotation>
+		<annotation cp="👀" type="tts">കണ്ണുകൾ</annotation>
+		<annotation cp="👁">കണ്ണ് | ശരീരം</annotation>
+		<annotation cp="👁" type="tts">കണ്ണ്</annotation>
+		<annotation cp="👅">നാക്ക് | നാവ് | മുഖം | ശരീരം</annotation>
+		<annotation cp="👅" type="tts">നാവ്</annotation>
+		<annotation cp="👄">ചുണ്ടുകൾ | മുഖം | വായ | ശരീരം</annotation>
+		<annotation cp="👄" type="tts">വായ</annotation>
 		<annotation cp="👶">ആളുകൾ | കുഞ്ഞ് | ശിശു</annotation>
 		<annotation cp="👶" type="tts">കുഞ്ഞ്</annotation>
 		<annotation cp="🧒">ആളുകൾ | കുട്ടി | ലിംഗഭേദമില്ല</annotation>
@@ -261,82 +541,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧑" type="tts">മുതിർന്നയാൾ</annotation>
 		<annotation cp="👱">ആളുകൾ | ബ്ലോണ്ട് | സ്വർണ്ണത്തലമുടിയുള്ള വ്യക്തി</annotation>
 		<annotation cp="👱" type="tts">സ്വർണ്ണത്തലമുടിയുള്ള വ്യക്തി</annotation>
+		<annotation cp="🧑‍🍼">കുട്ടി | കുട്ടിക്ക് ഭക്ഷണം കൊടുക്കുന്ന വ്യക്തി | നഴ്സിംഗ് | ഭക്ഷണം കൊടുക്കൽ | വ്യക്തി</annotation>
+		<annotation cp="🧑‍🍼" type="tts">കുട്ടിക്ക് ഭക്ഷണം കൊടുക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="🧑‍🎄">എംഎക്സ് സാൻറക്ലോസ് | സാൻറക്ലോസ്, ക്രിസ്മസ്</annotation>
+		<annotation cp="🧑‍🎄" type="tts">എംഎക്സ് സാൻറക്ലോസ്</annotation>
 		<annotation cp="👨">ആളുകൾ | പുരുഷൻ</annotation>
 		<annotation cp="👨" type="tts">പുരുഷൻ</annotation>
-		<annotation cp="👱‍♂">സുമുഖൻ | സ്വർണ്ണത്തലമുടി | സ്വർണ്ണത്തലമുടിയുള്ളയാൾ</annotation>
-		<annotation cp="👱‍♂" type="tts">സ്വർണ്ണത്തലമുടിയുള്ളയാൾ</annotation>
 		<annotation cp="🧔">താടി | താടിവച്ചയാൾ</annotation>
 		<annotation cp="🧔" type="tts">താടിവച്ചയാൾ</annotation>
+		<annotation cp="👱‍♂">തലമുടി | ബ്ലോണ്ട് | വ്യക്തി | സ്വർണ്ണത്തലമുടിയുള്ള ആൾ | സ്വർണ്ണത്തലമുടിയുള്ളയാൾ</annotation>
+		<annotation cp="👱‍♂" type="tts">സ്വർണ്ണത്തലമുടിയുള്ളയാൾ</annotation>
+		<annotation cp="👨‍🍼">കുട്ടി | കുട്ടിക്ക് ഭക്ഷണം കൊടുക്കുന്ന പുരുഷൻ | നഴ്സിംഗ് | പുരുഷൻ | ഭക്ഷണം കൊടുക്കൽ</annotation>
+		<annotation cp="👨‍🍼" type="tts">കുട്ടിക്ക് ഭക്ഷണം കൊടുക്കുന്ന പുരുഷൻ</annotation>
 		<annotation cp="👩">ആളുകൾ | സ്‌ത്രീ</annotation>
 		<annotation cp="👩" type="tts">സ്‌ത്രീ</annotation>
 		<annotation cp="👱‍♀">സുമുഖ | സ്വർണ്ണത്തലമുടി | സ്വർണ്ണത്തലമുടിയുള്ള സ്ത്രീ</annotation>
 		<annotation cp="👱‍♀" type="tts">സ്വർണ്ണത്തലമുടിയുള്ള സ്ത്രീ</annotation>
+		<annotation cp="👩‍🍼">കുട്ടി | കുട്ടിക്ക് ഭക്ഷണം കൊടുക്കുന്ന സ്ത്രീ | നഴ്സിംഗ് | ഭക്ഷണം കൊടുക്കൽ | സ്ത്രീ</annotation>
+		<annotation cp="👩‍🍼" type="tts">കുട്ടിക്ക് ഭക്ഷണം കൊടുക്കുന്ന സ്ത്രീ</annotation>
 		<annotation cp="🧓">ലിംഗഭേദമില്ല | വയസ്സായ ആൾ | വാർദ്ധക്യം</annotation>
 		<annotation cp="🧓" type="tts">വയസ്സായ ആൾ</annotation>
 		<annotation cp="👴">ആളുകൾ | പുരുഷൻ | പ്രായമായ പുരുഷൻ | വയസ്സായ പുരുഷൻ</annotation>
 		<annotation cp="👴" type="tts">വയസ്സായ പുരുഷൻ</annotation>
 		<annotation cp="👵">ആളുകൾ | പ്രായമായ സ്‌ത്രീ | വയസ്സായ സ്‌ത്രീ | വിയസ്സായ സ്‌ത്രീ | സ്‌ത്രീ</annotation>
 		<annotation cp="👵" type="tts">വയസ്സായ സ്‌ത്രീ</annotation>
+		<annotation cp="🙍">ആംഗ്യം | നീരസം | നീരസഭാവമുള്ള വ്യക്തി | നെറ്റി ചുളിക്കുക</annotation>
+		<annotation cp="🙍" type="tts">നീരസഭാവമുള്ള വ്യക്തി</annotation>
+		<annotation cp="🙍‍♂">നീരസം | നെറ്റി ചുളിക്കൽ | നെറ്റി ചുളിക്കുന്നയാൾ | പുരുഷൻ</annotation>
+		<annotation cp="🙍‍♂" type="tts">നെറ്റി ചുളിക്കുന്നയാൾ</annotation>
+		<annotation cp="🙍‍♀">നീരസം | നെറ്റി ചുളിക്കൽ | നെറ്റി ചുളിക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
+		<annotation cp="🙍‍♀" type="tts">നെറ്റി ചുളിക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🙎">ആംഗ്യം | ചുണ്ടുകൂർപ്പിക്കുക | ദേഷ്യപ്പെടുന്ന വ്യക്തി | ദേഷ്യപ്പെടുന്നു | വ്യക്തി</annotation>
+		<annotation cp="🙎" type="tts">ദേഷ്യപ്പെടുന്ന വ്യക്തി</annotation>
+		<annotation cp="🙎‍♂">ചുണ്ടുകൂർപ്പിക്കൽ | ചുണ്ടുകൂർപ്പിക്കുന്നയാൾ | ദേഷ്യം | പുരുഷൻ</annotation>
+		<annotation cp="🙎‍♂" type="tts">ചുണ്ടുകൂർപ്പിക്കുന്നയാൾ</annotation>
+		<annotation cp="🙎‍♀">ചുണ്ടുകൂർപ്പിക്കൽ | ചുണ്ടുകൂർപ്പിക്കുന്ന സ്ത്രീ | ദേഷ്യം | സ്ത്രീ</annotation>
+		<annotation cp="🙎‍♀" type="tts">ചുണ്ടുകൂർപ്പിക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🙅">ആംഗ്യം | ഇല്ല | കൈ | ചെയ്യരുത് | തടയുക | നിരോധിച്ചു | സമ്മതമല്ലെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
+		<annotation cp="🙅" type="tts">സമ്മതമല്ലെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
+		<annotation cp="🙅‍♂">ആംഗ്യം | പുരുഷൻ | വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്നയാൾ | വിസമ്മതം</annotation>
+		<annotation cp="🙅‍♂" type="tts">വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്നയാൾ</annotation>
+		<annotation cp="🙅‍♀">ആംഗ്യം | വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ | വിസമ്മതം | സ്ത്രീ</annotation>
+		<annotation cp="🙅‍♀" type="tts">വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🙆">ആംഗ്യം | കൈ | നല്ല ഭാവം | ഭാവം | ശരി | സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
+		<annotation cp="🙆" type="tts">സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
+		<annotation cp="🙆‍♂">ആംഗ്യം | പുരുഷൻ | സമ്മതം | സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നയാൾ</annotation>
+		<annotation cp="🙆‍♂" type="tts">സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നയാൾ</annotation>
+		<annotation cp="🙆‍♀">ആംഗ്യം | സമ്മതം | സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
+		<annotation cp="🙆‍♀" type="tts">സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="💁">ആളുകൾ | ഉത്സാഹം | കൈ | വിവരം | വിവര ഡെസ്‌ക്ക് | വിവരങ്ങൾ നൽകുന്ന വ്യക്തി | സഹായം</annotation>
+		<annotation cp="💁" type="tts">വിവരങ്ങൾ നൽകുന്ന വ്യക്തി</annotation>
+		<annotation cp="💁‍♂">പുരുഷൻ | വിവരം | വിവരം നൽകുന്നയാൾ | സഹായം</annotation>
+		<annotation cp="💁‍♂" type="tts">വിവരം നൽകുന്നയാൾ</annotation>
+		<annotation cp="💁‍♀">വിവരം | വിവരം നൽകുന്ന സ്ത്രീ | സഹായം | സ്ത്രീ</annotation>
+		<annotation cp="💁‍♀" type="tts">വിവരം നൽകുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🙋">ആംഗ്യം | ഉയർത്തുക | കൈ | കൈ ഉയർത്തുന്ന സന്തോഷവാനായ വ്യക്തി | സന്തോഷം | സന്തോഷവാനായ വ്യക്തി</annotation>
+		<annotation cp="🙋" type="tts">കൈ ഉയർത്തുന്ന സന്തോഷവാനായ വ്യക്തി</annotation>
+		<annotation cp="🙋‍♂">കൈ ഉയർത്തൽ | കൈ ഉയർത്തുന്നയാൾ | പുരുഷൻ | സന്തോഷം</annotation>
+		<annotation cp="🙋‍♂" type="tts">കൈ ഉയർത്തുന്നയാൾ</annotation>
+		<annotation cp="🙋‍♀">കൈ ഉയർത്തൽ | കൈ ഉയർത്തുന്ന സ്ത്രീ | സന്തോഷം | സ്ത്രീ</annotation>
+		<annotation cp="🙋‍♀" type="tts">കൈ ഉയർത്തുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🧏">ആക്‌സസബിലിറ്റി | കേൾവി | ചെവി | ബധിരനായ വ്യക്തി | ബധിരൻ</annotation>
+		<annotation cp="🧏" type="tts">ബധിരനായ വ്യക്തി</annotation>
+		<annotation cp="🧏‍♂">പുരുഷൻ | ബധിരൻ</annotation>
+		<annotation cp="🧏‍♂" type="tts">ബധിരൻ</annotation>
+		<annotation cp="🧏‍♀">ബധിര | സ്‌ത്രീ</annotation>
+		<annotation cp="🧏‍♀" type="tts">ബധിര</annotation>
+		<annotation cp="🙇">ആംഗ്യം | കുനിയുക | ക്ഷമ | ക്ഷമായാചന | തല കുനിയ്‌ക്കുന്ന വ്യക്തി | മാപ്പ് | വന്ദിക്കുക | വന്ദിക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="🙇" type="tts">തല കുനിയ്‌ക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="🙇‍♂">ക്ഷമാപണം | തല കുനിയ്ക്കൽ | തലകുനിയ്ക്കുന്നയാൾ | പുരുഷൻ</annotation>
+		<annotation cp="🙇‍♂" type="tts">തലകുനിയ്ക്കുന്നയാൾ</annotation>
+		<annotation cp="🙇‍♀">ക്ഷമാപണം | തല കുനിയ്ക്കൽ | തലകുനിയ്ക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
+		<annotation cp="🙇‍♀" type="tts">തലകുനിയ്ക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🤦">അവിശ്വാസം | തലയിൽ കൈ | തലയിൽ കൈവയ്ക്കൽ | മുഖം</annotation>
+		<annotation cp="🤦" type="tts">തലയിൽ കൈവയ്ക്കൽ</annotation>
+		<annotation cp="🤦‍♂">അവിശ്വാസം | തലയിൽ കൈവയ്ക്കൽ | തലയിൽ കൈവയ്ക്കുന്നയാൾ | പുരുഷൻ</annotation>
+		<annotation cp="🤦‍♂" type="tts">തലയിൽ കൈവയ്ക്കുന്നയാൾ</annotation>
+		<annotation cp="🤦‍♀">അവിശ്വാസം | തലയിൽ കൈവയ്ക്കൽ | തലയിൽ കൈവയ്ക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
+		<annotation cp="🤦‍♀" type="tts">തലയിൽ കൈവയ്ക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🤷">അജ്ഞത | അഭിപ്രായവ്യത്യാസം | തോൾ | തോൾ വെട്ടിക്കൽ | സംശയം</annotation>
+		<annotation cp="🤷" type="tts">തോൾ വെട്ടിക്കൽ</annotation>
+		<annotation cp="🤷‍♂">അഭിപ്രായവ്യത്യാസം | അവഗണിക്കൽ | തോൾ | തോൾവെട്ടിക്കുന്നയാൾ | പുരുഷൻ</annotation>
+		<annotation cp="🤷‍♂" type="tts">തോൾവെട്ടിക്കുന്നയാൾ</annotation>
+		<annotation cp="🤷‍♀">അഭിപ്രായവ്യത്യാസം | അവഗണിക്കൽ | തോൾ | തോൾവെട്ടിക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
+		<annotation cp="🤷‍♀" type="tts">തോൾവെട്ടിക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🧑‍⚕">ആരോഗ്യ സേവകൻ | ആരോഗ്യരക്ഷ | ഡോക്ടർ | തെറാപ്പിസ്റ്റ് | നഴ്സ്</annotation>
+		<annotation cp="🧑‍⚕" type="tts">ആരോഗ്യ സേവകൻ</annotation>
 		<annotation cp="👨‍⚕">ആരോഗ്യ പ്രവർത്തകൻ | ആരോഗ്യപാലനം | ഡോക്ടർ | നഴ്സ് | പുരുഷൻ</annotation>
 		<annotation cp="👨‍⚕" type="tts">ആരോഗ്യ പ്രവർത്തകൻ</annotation>
 		<annotation cp="👩‍⚕">ആരോഗ്യ പ്രവർത്തക | ആരോഗ്യപാലനം | ഡോക്ടർ | നഴ്സ് | സ്ത്രീ</annotation>
 		<annotation cp="👩‍⚕" type="tts">ആരോഗ്യ പ്രവർത്തക</annotation>
+		<annotation cp="🧑‍🎓">ബിരുദധാരി | വിദ്യാർത്ഥി</annotation>
+		<annotation cp="🧑‍🎓" type="tts">വിദ്യാർത്ഥി</annotation>
 		<annotation cp="👨‍🎓">ആൺ | വിദ്യാർഥി</annotation>
 		<annotation cp="👨‍🎓" type="tts">വിദ്യാർഥി</annotation>
 		<annotation cp="👩‍🎓">പെൺ | വിദ്യാർഥിനി</annotation>
 		<annotation cp="👩‍🎓" type="tts">വിദ്യാർഥിനി</annotation>
+		<annotation cp="🧑‍🏫">ഗുരു | ടീച്ചർ | പ്രൊഫസർ</annotation>
+		<annotation cp="🧑‍🏫" type="tts">ടീച്ചർ</annotation>
 		<annotation cp="👨‍🏫">അധ്യാപകൻ | പരിശീലകൻ | പുരുഷൻ | പ്രൊഫസർ</annotation>
 		<annotation cp="👨‍🏫" type="tts">അധ്യാപകൻ</annotation>
 		<annotation cp="👩‍🏫">അധ്യാപിക | ടീച്ചർ | പരിശീലക | സ്ത്രീ</annotation>
 		<annotation cp="👩‍🏫" type="tts">അധ്യാപിക</annotation>
+		<annotation cp="🧑‍⚖">തുലാസുകൾ | ന്യായാധിപൻ</annotation>
+		<annotation cp="🧑‍⚖" type="tts">ന്യായാധിപൻ</annotation>
 		<annotation cp="👨‍⚖">കോടതി | ജഡ്ജി | നീതി | പുരുഷൻ</annotation>
 		<annotation cp="👨‍⚖" type="tts">ജഡ്ജി</annotation>
 		<annotation cp="👩‍⚖">കോടതി | നീതി | വനിതാ ജഡ്ജി | സ്ത്രീ</annotation>
 		<annotation cp="👩‍⚖" type="tts">വനിതാ ജഡ്ജി</annotation>
+		<annotation cp="🧑‍🌾">കർഷകൻ</annotation>
+		<annotation cp="🧑‍🌾" type="tts">കർഷകൻ</annotation>
 		<annotation cp="👨‍🌾">കർഷകൻ | കൃഷിക്കാരൻ | പുരുഷൻ</annotation>
-		<annotation cp="👨‍🌾" type="tts">കർഷകൻ</annotation>
+		<annotation cp="👨‍🌾" type="tts">കൃഷിക്കാരൻ</annotation>
 		<annotation cp="👩‍🌾">കർഷക | കൃഷിക്കാരി | സ്ത്രീ</annotation>
 		<annotation cp="👩‍🌾" type="tts">കർഷക</annotation>
+		<annotation cp="🧑‍🍳">അടുക്കളക്കാരൻ | പാചകമുഖ്യൻ</annotation>
+		<annotation cp="🧑‍🍳" type="tts">അടുക്കളക്കാരൻ</annotation>
 		<annotation cp="👨‍🍳">പാചകക്കാരൻ | പുരുഷൻ | ഭക്ഷണം പാകം ചെയ്യുന്നയാൾ</annotation>
 		<annotation cp="👨‍🍳" type="tts">പാചകക്കാരൻ</annotation>
 		<annotation cp="👩‍🍳">പാചകക്കാരി | ഭക്ഷണം പാകം ചെയ്യുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
 		<annotation cp="👩‍🍳" type="tts">പാചകക്കാരി</annotation>
+		<annotation cp="🧑‍🔧">മെക്കാനിക്ക്</annotation>
+		<annotation cp="🧑‍🔧" type="tts">മെക്കാനിക്ക്</annotation>
 		<annotation cp="👨‍🔧">ഇലക്ട്രീഷ്യൻ | പ്ലംബർ | മെക്കാനിക്</annotation>
 		<annotation cp="👨‍🔧" type="tts">മെക്കാനിക്</annotation>
 		<annotation cp="👩‍🔧">പ്ലംബർ | മെക്കാനിക് | വനിതാ ഇലക്ട്രീഷ്യൻ | വനിതാ മെക്കാനിക്</annotation>
 		<annotation cp="👩‍🔧" type="tts">വനിതാ മെക്കാനിക്</annotation>
+		<annotation cp="🧑‍🏭">അസംബ്ലി | തൊഴിലാളി | ഫാക്ടറി | ഫാക്ടറിത്തൊഴിലാളി | വ്യവസായ</annotation>
+		<annotation cp="🧑‍🏭" type="tts">ഫാക്ടറിത്തൊഴിലാളി</annotation>
 		<annotation cp="👨‍🏭">ജോലിക്കാരൻ | ഫാക്ടറി | ഫാക്ടറി ജീവനക്കാരൻ</annotation>
 		<annotation cp="👨‍🏭" type="tts">ഫാക്ടറി ജീവനക്കാരൻ</annotation>
 		<annotation cp="👩‍🏭">ജോലിക്കാരി | ഫാക്ടറി | ഫാക്ടറി ജീവനക്കാരി</annotation>
 		<annotation cp="👩‍🏭" type="tts">ഫാക്ടറി ജീവനക്കാരി</annotation>
+		<annotation cp="🧑‍💼">ആർക്കിടെക്റ്റ് | ഓഫീസ് ജോലിക്കാരൻ | ബിസിനസ് | മാനേജർ | വെള്ളക്കോളർ</annotation>
+		<annotation cp="🧑‍💼" type="tts">ഓഫീസ് ജോലിക്കാരൻ</annotation>
 		<annotation cp="👨‍💼">ഉദ്യോഗസ്ഥൻ | ഓഫീസ് | ഓഫീസ് ജീവനക്കാരൻ | ബിസിനസ്</annotation>
 		<annotation cp="👨‍💼" type="tts">ഓഫീസ് ജീവനക്കാരൻ</annotation>
 		<annotation cp="👩‍💼">ഉദ്യോഗസ്ഥ | ഓഫീസ് | ഓഫീസ് ജീവനക്കാരി | ബിസിനസ്</annotation>
 		<annotation cp="👩‍💼" type="tts">ഓഫീസ് ജീവനക്കാരി</annotation>
+		<annotation cp="🧑‍🔬">ഊർജ്ജതന്ത്രജ്ഞൻ | എഞ്ചിനീയർ | കെമിസ്റ്റ് | ജീവശാസ്ത്രജ്ഞൻ | ശാസ്ത്രകാരൻ</annotation>
+		<annotation cp="🧑‍🔬" type="tts">ശാസ്ത്രകാരൻ</annotation>
 		<annotation cp="👨‍🔬">ഊർജ്ജതന്ത്രജ്ഞൻ | കെമിസ്റ്റ് | ബയോളജിസ്റ്റ് | ശാസ്ത്രജ്ഞൻ</annotation>
 		<annotation cp="👨‍🔬" type="tts">ശാസ്ത്രജ്ഞൻ</annotation>
 		<annotation cp="👩‍🔬">ഊർജ്ജതന്ത്രജ്ഞ | കെമിസ്റ്റ് | ബയോളജിസ്റ്റ് | ശാസ്ത്രജ്ഞ</annotation>
 		<annotation cp="👩‍🔬" type="tts">ശാസ്ത്രജ്ഞ</annotation>
+		<annotation cp="🧑‍💻">ഉപജ്ഞാതാവ് | കോഡർ | ഡെവലപ്പർ | സാങ്കേതിക വിദഗ്ദ്ധൻ | സോഫ്റ്റ്‌വെയർ</annotation>
+		<annotation cp="🧑‍💻" type="tts">സാങ്കേതിക വിദഗ്ദ്ധൻ</annotation>
 		<annotation cp="👨‍💻">എഞ്ചിനീയർ | കോഡർ | ഡെവലപ്പർ | സാങ്കേതിക വിദഗ്ധൻ</annotation>
 		<annotation cp="👨‍💻" type="tts">സാങ്കേതിക വിദഗ്ധൻ</annotation>
 		<annotation cp="👩‍💻">കോഡർ | ഡെവലപ്പർ | വനിത എഞ്ചിനീയർ | സാങ്കേതിക വിദഗ്ധ</annotation>
 		<annotation cp="👩‍💻" type="tts">സാങ്കേതിക വിദഗ്ധ</annotation>
+		<annotation cp="🧑‍🎤">അഭിനേതാവ് | എൻറർടെയിനർ | താരം | പാട്ടുകാരൻ | റോക്ക്</annotation>
+		<annotation cp="🧑‍🎤" type="tts">പാട്ടുകാരൻ</annotation>
 		<annotation cp="👨‍🎤">ഗായകൻ | പാട്ടുകാരൻ | സംഗീതം | സംഗീതജ്ഞൻ</annotation>
 		<annotation cp="👨‍🎤" type="tts">ഗായകൻ</annotation>
 		<annotation cp="👩‍🎤">ഗായിക | പാട്ടുകാരി | സംഗീതം | സംഗീതജ്ഞ</annotation>
 		<annotation cp="👩‍🎤" type="tts">ഗായിക</annotation>
+		<annotation cp="🧑‍🎨">ആർട്ടിസ്റ്റ് | ചായത്തളിക</annotation>
+		<annotation cp="🧑‍🎨" type="tts">ആർട്ടിസ്റ്റ്</annotation>
 		<annotation cp="👨‍🎨">കലാകാരൻ | ചിത്രകാരൻ | സാഹിത്യകാരൻ</annotation>
 		<annotation cp="👨‍🎨" type="tts">കലാകാരൻ</annotation>
 		<annotation cp="👩‍🎨">കലാകാരി | ചിത്രകാരി | സാഹിത്യകാരി</annotation>
 		<annotation cp="👩‍🎨" type="tts">കലാകാരി</annotation>
+		<annotation cp="🧑‍✈">വിമാനം | വൈമാനികൻ</annotation>
+		<annotation cp="🧑‍✈" type="tts">വൈമാനികൻ</annotation>
 		<annotation cp="👨‍✈">പൈലറ്റ് | ഫ്ലൈറ്റ് | വിമാനം</annotation>
 		<annotation cp="👨‍✈" type="tts">പൈലറ്റ്</annotation>
 		<annotation cp="👩‍✈">ഫ്ലൈറ്റ് | വനിതാ പൈലറ്റ് | വിമാനം | സ്ത്രീ</annotation>
 		<annotation cp="👩‍✈" type="tts">വനിതാ പൈലറ്റ്</annotation>
+		<annotation cp="🧑‍🚀">ബഹിരാകാശ യാത്രികൻ | ബഹിരാകാശചാരി | റോക്കറ്റ്</annotation>
+		<annotation cp="🧑‍🚀" type="tts">ബഹിരാകാശചാരി</annotation>
 		<annotation cp="👨‍🚀">പുരുഷൻ | ബഹിരാകാശം | ബഹിരാകാശയാത്രികൻ | റോക്കറ്റ്</annotation>
 		<annotation cp="👨‍🚀" type="tts">ബഹിരാകാശയാത്രികൻ</annotation>
 		<annotation cp="👩‍🚀">ബഹിരാകാശം | ബഹിരാകാശയാത്രിക | സ്ത്രീ | റോക്കറ്റ്</annotation>
 		<annotation cp="👩‍🚀" type="tts">ബഹിരാകാശയാത്രിക</annotation>
+		<annotation cp="🧑‍🚒">അഗ്നിശമന സേനാനി | ഫയർട്രക്ക്</annotation>
+		<annotation cp="🧑‍🚒" type="tts">അഗ്നിശമന സേനാനി</annotation>
 		<annotation cp="👨‍🚒">തീയണയ്ക്കുന്നയാൾ | പുരുഷ അഗ്നിശമനസേനാംഗം | പുരുഷൻ | ഫയർമാൻ</annotation>
 		<annotation cp="👨‍🚒" type="tts">പുരുഷ അഗ്നിശമനസേനാംഗം</annotation>
 		<annotation cp="👩‍🚒">ഫയർ വുമൺ | വനിത അഗ്നിശമനസേനാംഗം | സ്ത്രീ</annotation>
@@ -381,8 +761,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧕" type="tts">ശിരോവസ്‌ത്രമണിഞ്ഞ സ്‌ത്രീ</annotation>
 		<annotation cp="🤵">പുരുഷൻ | വരൻ | സ്യൂട്ട് | സ്യൂട്ട് ധരിച്ചയാൾ</annotation>
 		<annotation cp="🤵" type="tts">സ്യൂട്ട് ധരിച്ചയാൾ</annotation>
-		<annotation cp="👰">ആളുകൾ | മുഖപടം | വധു | വിവാഹം | ശിരോവസ്‌ത്രം | ശിരോവസ്‌ത്രം അണിഞ്ഞ വധു</annotation>
+		<annotation cp="🤵‍♀">സ്ത്രീ | സ്യൂട്ട് | സ്യൂട്ട് ധരിച്ച സ്ത്രീ</annotation>
+		<annotation cp="🤵‍♀" type="tts">സ്യൂട്ട് ധരിച്ച സ്ത്രീ</annotation>
+		<annotation cp="🤵‍♂">പുരുഷൻ | സ്യൂട്ട് | സ്യൂട്ട് ധരിച്ച പുരുഷൻ</annotation>
+		<annotation cp="🤵‍♂" type="tts">സ്യൂട്ട് ധരിച്ച പുരുഷൻ</annotation>
+		<annotation cp="👰">വധു | വിവാഹം | വ്യക്തി | ശിരോവസ്‌ത്രം | ശിരോവസ്‌ത്രം അണിഞ്ഞ വധു | ശിരോവസ്‌ത്രമണിഞ്ഞ വ്യക്തി</annotation>
 		<annotation cp="👰" type="tts">ശിരോവസ്‌ത്രം അണിഞ്ഞ വധു</annotation>
+		<annotation cp="👰‍♀">ശിരോവസ്ത്രം | ശിരോവസ്ത്രമണിഞ്ഞ വനിത | സ്ത്രീ</annotation>
+		<annotation cp="👰‍♀" type="tts">ശിരോവസ്ത്രമണിഞ്ഞ വനിത</annotation>
+		<annotation cp="👰‍♂">പുരുഷൻ | ശിരോവസ്ത്രം | ശിരോവസ്ത്രമണിഞ്ഞ പുരുഷൻ</annotation>
+		<annotation cp="👰‍♂" type="tts">ശിരോവസ്ത്രമണിഞ്ഞ പുരുഷൻ</annotation>
 		<annotation cp="🤰">ഗർഭിണി | സ്ത്രീ</annotation>
 		<annotation cp="🤰" type="tts">ഗർഭിണി</annotation>
 		<annotation cp="🤱">കുഞ്ഞ് | പരിചരണം | മുലയൂട്ടൽ | വാത്സല്യം</annotation>
@@ -395,112 +783,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤶" type="tts">മദർ ക്രിസ്മസ്</annotation>
 		<annotation cp="🦸">അമാനുഷികശക്തി | നല്ലത് | നായകൻ | നായിക | സൂപ്പർഹീറോ</annotation>
 		<annotation cp="🦸" type="tts">സൂപ്പർഹീറോ</annotation>
-		<annotation cp="🦸‍♀">അമാനുഷികശക്തി | നല്ലത് | നായകൻ | നായിക | വുമൺ സൂപ്പർഹീറോ | സ്‌ത്രീ</annotation>
-		<annotation cp="🦸‍♀" type="tts">വുമൺ സൂപ്പർഹീറോ</annotation>
 		<annotation cp="🦸‍♂">അമാനുഷികശക്തി | നല്ലത് | നായകൻ | പുരുഷൻ | മാൻ സൂപ്പർഹീറോ</annotation>
 		<annotation cp="🦸‍♂" type="tts">മാൻ സൂപ്പർഹീറോ</annotation>
+		<annotation cp="🦸‍♀">അമാനുഷികശക്തി | നല്ലത് | നായകൻ | നായിക | വുമൺ സൂപ്പർഹീറോ | സ്‌ത്രീ</annotation>
+		<annotation cp="🦸‍♀" type="tts">വുമൺ സൂപ്പർഹീറോ</annotation>
 		<annotation cp="🦹">അമാനുഷികശക്‌തി | ക്രിമിനൽ | ദുഷ്‌ടത | പ്രതിനായകൻ | സൂപ്പർവില്ലൻ</annotation>
 		<annotation cp="🦹" type="tts">സൂപ്പർവില്ലൻ</annotation>
-		<annotation cp="🦹‍♀">അമാനുഷികശക്തി | ക്രിമിനൽ | ദുഷ്‌ടത | വില്ലൻ | വുമൺ സൂപ്പർവില്ലൻ | സ്‌ത്രീ</annotation>
-		<annotation cp="🦹‍♀" type="tts">വുമൺ സൂപ്പർവില്ലൻ</annotation>
 		<annotation cp="🦹‍♂">അമാനുഷികശക്തി | ക്രിമിനൽ | ദുഷ്‌ടത | പുരുഷൻ | മാൻ സൂപ്പർവില്ലൻ | വില്ലൻ</annotation>
 		<annotation cp="🦹‍♂" type="tts">മാൻ സൂപ്പർവില്ലൻ</annotation>
+		<annotation cp="🦹‍♀">അമാനുഷികശക്തി | ക്രിമിനൽ | ദുഷ്‌ടത | വില്ലൻ | വുമൺ സൂപ്പർവില്ലൻ | സ്‌ത്രീ</annotation>
+		<annotation cp="🦹‍♀" type="tts">വുമൺ സൂപ്പർവില്ലൻ</annotation>
 		<annotation cp="🧙">ജാലവിദ്യ അറിയുന്നയാൾ | മന്ത്രവാദി | മാന്ത്രികൻ</annotation>
 		<annotation cp="🧙" type="tts">ജാലവിദ്യ അറിയുന്നയാൾ</annotation>
-		<annotation cp="🧙‍♀">ജാലവിദ്യക്കാരി | മന്ത്രവാദിനി</annotation>
-		<annotation cp="🧙‍♀" type="tts">ജാലവിദ്യക്കാരി</annotation>
 		<annotation cp="🧙‍♂">ജാലവിദ്യക്കാരൻ | മന്ത്രവാദി</annotation>
 		<annotation cp="🧙‍♂" type="tts">ജാലവിദ്യക്കാരൻ</annotation>
+		<annotation cp="🧙‍♀">ജാലവിദ്യക്കാരി | മന്ത്രവാദിനി</annotation>
+		<annotation cp="🧙‍♀" type="tts">ജാലവിദ്യക്കാരി</annotation>
 		<annotation cp="🧚">ഒബ്റോൺ | ടൈറ്റാനിയ | പുക്ക് | യക്ഷിഗന്ധർവ്വാദികൾ</annotation>
 		<annotation cp="🧚" type="tts">യക്ഷിഗന്ധർവ്വാദികൾ</annotation>
-		<annotation cp="🧚‍♀">ടൈറ്റാനിയ | യക്ഷി</annotation>
-		<annotation cp="🧚‍♀" type="tts">യക്ഷി</annotation>
 		<annotation cp="🧚‍♂">ഒബ്റോൺ | ഗന്ധർവ്വൻ | പുക്ക്</annotation>
 		<annotation cp="🧚‍♂" type="tts">ഗന്ധർവ്വൻ</annotation>
+		<annotation cp="🧚‍♀">ടൈറ്റാനിയ | യക്ഷി</annotation>
+		<annotation cp="🧚‍♀" type="tts">യക്ഷി</annotation>
 		<annotation cp="🧛">അൺഡെഡ് | ഡ്രാക്കുള | രക്തരക്ഷസ്സ്</annotation>
 		<annotation cp="🧛" type="tts">രക്തരക്ഷസ്സ്</annotation>
-		<annotation cp="🧛‍♀">അൺഡെഡ് | പെൺ രക്തരക്ഷസ്സ്</annotation>
-		<annotation cp="🧛‍♀" type="tts">പെൺ രക്തരക്ഷസ്സ്</annotation>
 		<annotation cp="🧛‍♂">അൺഡെഡ് | ആൺ രക്തരക്ഷസ്സ് | ഡ്രാക്കുള</annotation>
 		<annotation cp="🧛‍♂" type="tts">ആൺ രക്തരക്ഷസ്സ്</annotation>
+		<annotation cp="🧛‍♀">അൺഡെഡ് | പെൺ രക്തരക്ഷസ്സ്</annotation>
+		<annotation cp="🧛‍♀" type="tts">പെൺ രക്തരക്ഷസ്സ്</annotation>
 		<annotation cp="🧜">മത്സ്യകന്യക | മത്സ്യനരൻ | മത്സ്യമനുഷ്യൻ</annotation>
 		<annotation cp="🧜" type="tts">മത്സ്യമനുഷ്യൻ</annotation>
-		<annotation cp="🧜‍♀">മത്സ്യകന്യക | മത്സ്യസ്‌ത്രീ</annotation>
-		<annotation cp="🧜‍♀" type="tts">മത്സ്യകന്യക</annotation>
 		<annotation cp="🧜‍♂">ട്രിട്ടോൺ | മത്സ്യനരൻ</annotation>
 		<annotation cp="🧜‍♂" type="tts">മത്സ്യനരൻ</annotation>
+		<annotation cp="🧜‍♀">മത്സ്യകന്യക | മത്സ്യസ്‌ത്രീ</annotation>
+		<annotation cp="🧜‍♀" type="tts">മത്സ്യകന്യക</annotation>
 		<annotation cp="🧝">ദുർഭൂതം | മാന്ത്രികം</annotation>
 		<annotation cp="🧝" type="tts">ദുർഭൂതം</annotation>
-		<annotation cp="🧝‍♀">പെൺ ദുർഭൂതം | മാന്ത്രികം</annotation>
-		<annotation cp="🧝‍♀" type="tts">പെൺ ദുർഭൂതം</annotation>
 		<annotation cp="🧝‍♂">ആൺ ദുർഭൂതം | മാന്ത്രികം</annotation>
 		<annotation cp="🧝‍♂" type="tts">ആൺ ദുർഭൂതം</annotation>
+		<annotation cp="🧝‍♀">പെൺ ദുർഭൂതം | മാന്ത്രികം</annotation>
+		<annotation cp="🧝‍♀" type="tts">പെൺ ദുർഭൂതം</annotation>
 		<annotation cp="🧞">ജിന്ന്</annotation>
 		<annotation cp="🧞" type="tts">ജിന്ന്</annotation>
-		<annotation cp="🧞‍♀">ജിന്ന് | പെൺ ജിന്ന്</annotation>
-		<annotation cp="🧞‍♀" type="tts">പെൺ ജിന്ന്</annotation>
 		<annotation cp="🧞‍♂">ആൺ ജിന്ന് | ജിന്ന്</annotation>
 		<annotation cp="🧞‍♂" type="tts">ആൺ ജിന്ന്</annotation>
+		<annotation cp="🧞‍♀">ജിന്ന് | പെൺ ജിന്ന്</annotation>
+		<annotation cp="🧞‍♀" type="tts">പെൺ ജിന്ന്</annotation>
 		<annotation cp="🧟">അൺഡെഡ് | വാക്കിംഗ് ഡെഡ് | വേതാളം</annotation>
 		<annotation cp="🧟" type="tts">വേതാളം</annotation>
-		<annotation cp="🧟‍♀">അൺഡെഡ് | പെൺ വേതാളം | വാക്കിംഗ് ഡെഡ്</annotation>
-		<annotation cp="🧟‍♀" type="tts">പെൺ വേതാളം</annotation>
 		<annotation cp="🧟‍♂">അൺഡെഡ് | ആൺ വേതാളം | വാക്കിംഗ് ഡെഡ്</annotation>
 		<annotation cp="🧟‍♂" type="tts">ആൺ വേതാളം</annotation>
-		<annotation cp="🙍">ആംഗ്യം | നീരസം | നീരസഭാവമുള്ള വ്യക്തി | നെറ്റി ചുളിക്കുക</annotation>
-		<annotation cp="🙍" type="tts">നീരസഭാവമുള്ള വ്യക്തി</annotation>
-		<annotation cp="🙍‍♂">നീരസം | നെറ്റി ചുളിക്കൽ | നെറ്റി ചുളിക്കുന്നയാൾ | പുരുഷൻ</annotation>
-		<annotation cp="🙍‍♂" type="tts">നെറ്റി ചുളിക്കുന്നയാൾ</annotation>
-		<annotation cp="🙍‍♀">നീരസം | നെറ്റി ചുളിക്കൽ | നെറ്റി ചുളിക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
-		<annotation cp="🙍‍♀" type="tts">നെറ്റി ചുളിക്കുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🙎">ആംഗ്യം | ചുണ്ടുകൂർപ്പിക്കുക | ദേഷ്യപ്പെടുന്ന വ്യക്തി | ദേഷ്യപ്പെടുന്നു | വ്യക്തി</annotation>
-		<annotation cp="🙎" type="tts">ദേഷ്യപ്പെടുന്ന വ്യക്തി</annotation>
-		<annotation cp="🙎‍♂">ചുണ്ടുകൂർപ്പിക്കൽ | ചുണ്ടുകൂർപ്പിക്കുന്നയാൾ | ദേഷ്യം | പുരുഷൻ</annotation>
-		<annotation cp="🙎‍♂" type="tts">ചുണ്ടുകൂർപ്പിക്കുന്നയാൾ</annotation>
-		<annotation cp="🙎‍♀">ചുണ്ടുകൂർപ്പിക്കൽ | ചുണ്ടുകൂർപ്പിക്കുന്ന സ്ത്രീ | ദേഷ്യം | സ്ത്രീ</annotation>
-		<annotation cp="🙎‍♀" type="tts">ചുണ്ടുകൂർപ്പിക്കുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🙅">ആംഗ്യം | ഇല്ല | കൈ | ചെയ്യരുത് | തടയുക | നിരോധിച്ചു | സമ്മതമല്ലെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
-		<annotation cp="🙅" type="tts">സമ്മതമല്ലെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
-		<annotation cp="🙅‍♂">ആംഗ്യം | പുരുഷൻ | വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്നയാൾ | വിസമ്മതം</annotation>
-		<annotation cp="🙅‍♂" type="tts">വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്നയാൾ</annotation>
-		<annotation cp="🙅‍♀">ആംഗ്യം | വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ | വിസമ്മതം | സ്ത്രീ</annotation>
-		<annotation cp="🙅‍♀" type="tts">വിലക്കുന്ന ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🙆">ആംഗ്യം | കൈ | നല്ല ഭാവം | ഭാവം | ശരി | സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
-		<annotation cp="🙆" type="tts">സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നു</annotation>
-		<annotation cp="🙆‍♂">ആംഗ്യം | പുരുഷൻ | സമ്മതം | സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നയാൾ</annotation>
-		<annotation cp="🙆‍♂" type="tts">സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്നയാൾ</annotation>
-		<annotation cp="🙆‍♀">ആംഗ്യം | സമ്മതം | സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
-		<annotation cp="🙆‍♀" type="tts">സമ്മതമെന്ന് ആംഗ്യം കാണിക്കുന്ന സ്ത്രീ</annotation>
-		<annotation cp="💁">ആളുകൾ | ഉത്സാഹം | കൈ | വിവരം | വിവര ഡെസ്‌ക്ക് | വിവരങ്ങൾ നൽകുന്ന വ്യക്തി | സഹായം</annotation>
-		<annotation cp="💁" type="tts">വിവരങ്ങൾ നൽകുന്ന വ്യക്തി</annotation>
-		<annotation cp="💁‍♂">പുരുഷൻ | വിവരം | വിവരം നൽകുന്നയാൾ | സഹായം</annotation>
-		<annotation cp="💁‍♂" type="tts">വിവരം നൽകുന്നയാൾ</annotation>
-		<annotation cp="💁‍♀">വിവരം | വിവരം നൽകുന്ന സ്ത്രീ | സഹായം | സ്ത്രീ</annotation>
-		<annotation cp="💁‍♀" type="tts">വിവരം നൽകുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🙋">ആംഗ്യം | ഉയർത്തുക | കൈ | കൈ ഉയർത്തുന്ന സന്തോഷവാനായ വ്യക്തി | സന്തോഷം | സന്തോഷവാനായ വ്യക്തി</annotation>
-		<annotation cp="🙋" type="tts">കൈ ഉയർത്തുന്ന സന്തോഷവാനായ വ്യക്തി</annotation>
-		<annotation cp="🙋‍♂">കൈ ഉയർത്തൽ | കൈ ഉയർത്തുന്നയാൾ | പുരുഷൻ | സന്തോഷം</annotation>
-		<annotation cp="🙋‍♂" type="tts">കൈ ഉയർത്തുന്നയാൾ</annotation>
-		<annotation cp="🙋‍♀">കൈ ഉയർത്തൽ | കൈ ഉയർത്തുന്ന സ്ത്രീ | സന്തോഷം | സ്ത്രീ</annotation>
-		<annotation cp="🙋‍♀" type="tts">കൈ ഉയർത്തുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🙇">ആംഗ്യം | കുനിയുക | ക്ഷമ | ക്ഷമായാചന | തല കുനിയ്‌ക്കുന്ന വ്യക്തി | മാപ്പ് | വന്ദിക്കുക | വന്ദിക്കുന്ന വ്യക്തി</annotation>
-		<annotation cp="🙇" type="tts">തല കുനിയ്‌ക്കുന്ന വ്യക്തി</annotation>
-		<annotation cp="🙇‍♂">ക്ഷമാപണം | തല കുനിയ്ക്കൽ | തലകുനിയ്ക്കുന്നയാൾ | പുരുഷൻ</annotation>
-		<annotation cp="🙇‍♂" type="tts">തലകുനിയ്ക്കുന്നയാൾ</annotation>
-		<annotation cp="🙇‍♀">ക്ഷമാപണം | തല കുനിയ്ക്കൽ | തലകുനിയ്ക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
-		<annotation cp="🙇‍♀" type="tts">തലകുനിയ്ക്കുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🤦">അവിശ്വാസം | തലയിൽ കൈ | തലയിൽ കൈവയ്ക്കൽ | മുഖം</annotation>
-		<annotation cp="🤦" type="tts">തലയിൽ കൈവയ്ക്കൽ</annotation>
-		<annotation cp="🤦‍♂">അവിശ്വാസം | തലയിൽ കൈവയ്ക്കൽ | തലയിൽ കൈവയ്ക്കുന്നയാൾ | പുരുഷൻ</annotation>
-		<annotation cp="🤦‍♂" type="tts">തലയിൽ കൈവയ്ക്കുന്നയാൾ</annotation>
-		<annotation cp="🤦‍♀">അവിശ്വാസം | തലയിൽ കൈവയ്ക്കൽ | തലയിൽ കൈവയ്ക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
-		<annotation cp="🤦‍♀" type="tts">തലയിൽ കൈവയ്ക്കുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🤷">അജ്ഞത | അഭിപ്രായവ്യത്യാസം | തോൾ | തോൾ വെട്ടിക്കൽ | സംശയം</annotation>
-		<annotation cp="🤷" type="tts">തോൾ വെട്ടിക്കൽ</annotation>
-		<annotation cp="🤷‍♂">അഭിപ്രായവ്യത്യാസം | അവഗണിക്കൽ | തോൾ | തോൾവെട്ടിക്കുന്നയാൾ | പുരുഷൻ</annotation>
-		<annotation cp="🤷‍♂" type="tts">തോൾവെട്ടിക്കുന്നയാൾ</annotation>
-		<annotation cp="🤷‍♀">അഭിപ്രായവ്യത്യാസം | അവഗണിക്കൽ | തോൾ | തോൾവെട്ടിക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
-		<annotation cp="🤷‍♀" type="tts">തോൾവെട്ടിക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🧟‍♀">അൺഡെഡ് | പെൺ വേതാളം | വാക്കിംഗ് ഡെഡ്</annotation>
+		<annotation cp="🧟‍♀" type="tts">പെൺ വേതാളം</annotation>
 		<annotation cp="💆">മസാജ് | മുഖം മസാജ് ചെയ്യുക | മുഖം മസ്സാജ് ചെയ്യുക | സലൂൺ</annotation>
 		<annotation cp="💆" type="tts">മുഖം മസ്സാജ് ചെയ്യുക</annotation>
 		<annotation cp="💆‍♂">പുരുഷൻ | മസാജ് | മുഖം | മുഖം മസ്സാജുചെയ്യിക്കുന്നയാൾ</annotation>
@@ -519,6 +853,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">നടക്കുന്നയാൾ</annotation>
 		<annotation cp="🚶‍♀">കാൽനടയാത്ര | നടക്കുക | നടക്കുന്ന സ്ത്രീ | സ്ത്രീ</annotation>
 		<annotation cp="🚶‍♀" type="tts">നടക്കുന്ന സ്ത്രീ</annotation>
+		<annotation cp="🧍">നിൽക്കുക | നിൽക്കുന്ന വ്യക്തി | നിൽക്കുന്നു</annotation>
+		<annotation cp="🧍" type="tts">നിൽക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="🧍‍♂">നിൽക്കുന്ന പുരുഷൻ | നിൽക്കുന്നു | പുരുഷൻ</annotation>
+		<annotation cp="🧍‍♂" type="tts">നിൽക്കുന്ന പുരുഷൻ</annotation>
+		<annotation cp="🧍‍♀">നിൽക്കുന്ന സ്‌ത്രീ | നിൽക്കുന്നു | സ്‌ത്രീ</annotation>
+		<annotation cp="🧍‍♀" type="tts">നിൽക്കുന്ന സ്‌ത്രീ</annotation>
+		<annotation cp="🧎">മുട്ടുകുത്തിയിരിക്കുന്ന വ്യക്തി | മുട്ടുകുത്തുക | മുട്ടുകുത്തുന്നു</annotation>
+		<annotation cp="🧎" type="tts">മുട്ടുകുത്തിയിരിക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="🧎‍♂">പുരുഷൻ | മുട്ടുകുത്തുന്ന പുരുഷൻ | മുട്ടുകുത്തുന്നു</annotation>
+		<annotation cp="🧎‍♂" type="tts">മുട്ടുകുത്തുന്ന പുരുഷൻ</annotation>
+		<annotation cp="🧎‍♀">മുട്ടുകുത്തുന്ന സ്‌ത്രീ | മുട്ടുകുത്തുന്നു | സ്‌ത്രീ</annotation>
+		<annotation cp="🧎‍♀" type="tts">മുട്ടുകുത്തുന്ന സ്‌ത്രീ</annotation>
+		<annotation cp="🧑‍🦯">അന്ധൻ | ആക്സസബിലിറ്റി | വെളുത്ത വടിയേന്തിയ വ്യക്തി</annotation>
+		<annotation cp="🧑‍🦯" type="tts">വെളുത്ത വടിയേന്തിയ വ്യക്തി</annotation>
+		<annotation cp="👨‍🦯">അന്ധൻ | ആക്‌സസബിലിറ്റി | പുരുഷൻ | പ്രോബിംഗ് വടി പിടിച്ചിരിക്കുന്ന പുരുഷൻ</annotation>
+		<annotation cp="👨‍🦯" type="tts">പ്രോബിംഗ് വടി പിടിച്ചിരിക്കുന്ന പുരുഷൻ</annotation>
+		<annotation cp="👩‍🦯">അന്ധൻ | ആക്‌സബിലിറ്റി | പ്രോബിംഗ് വടി പിടിച്ചിരിക്കുന്ന സ്‌ത്രീ | സ്‌ത്രീ</annotation>
+		<annotation cp="👩‍🦯" type="tts">പ്രോബിംഗ് വടി പിടിച്ചിരിക്കുന്ന സ്‌ത്രീ</annotation>
+		<annotation cp="🧑‍🦼">ആക്സസബിലിറ്റി | ചക്രക്കസേര | യാന്ത്രിക ചക്രക്കസേരയിലിരിക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="🧑‍🦼" type="tts">യാന്ത്രിക ചക്രക്കസേരയിലിരിക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="👨‍🦼">ആക്‌സസബിലിറ്റി | പുരുഷൻ | മോട്ടോറൈസ്‌ഡ് വീൽചെയറിൽ ഇരിക്കുന്ന പുരുഷൻ | വീൽചെയർ</annotation>
+		<annotation cp="👨‍🦼" type="tts">മോട്ടോറൈസ്‌ഡ് വീൽചെയറിൽ ഇരിക്കുന്ന പുരുഷൻ</annotation>
+		<annotation cp="👩‍🦼">ആക്‌സസബിലിറ്റി | മോട്ടോറൈസ്‌ഡ് വീൽചെയറിൽ ഇരിക്കുന്ന സ്‌ത്രീ | വീൽചെയർ | സ്‌ത്രീ</annotation>
+		<annotation cp="👩‍🦼" type="tts">മോട്ടോറൈസ്‌ഡ് വീൽചെയറിൽ ഇരിക്കുന്ന സ്‌ത്രീ</annotation>
+		<annotation cp="🧑‍🦽">ആക്സസബിലിറ്റി | ചക്രക്കസേര | സാധാരണ ചക്രക്കസേരയിലിരിക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="🧑‍🦽" type="tts">സാധാരണ ചക്രക്കസേരയിലിരിക്കുന്ന വ്യക്തി</annotation>
+		<annotation cp="👨‍🦽">ആക്‌സസബിലിറ്റി | പുരുഷൻ | മാന്വൽ വീൽചെയറിൽ ഇരിക്കുന്ന പുരുഷൻ | വീൽചെയർ</annotation>
+		<annotation cp="👨‍🦽" type="tts">മാന്വൽ വീൽചെയറിൽ ഇരിക്കുന്ന പുരുഷൻ</annotation>
+		<annotation cp="👩‍🦽">ആക്‌സസബിലിറ്റി | മാന്വൽ വീൽചെയറിൽ ഇരിക്കുന്ന സ്‌ത്രീ | വീൽചെയർ | സ്‌ത്രീ</annotation>
+		<annotation cp="👩‍🦽" type="tts">മാന്വൽ വീൽചെയറിൽ ഇരിക്കുന്ന സ്‌ത്രീ</annotation>
 		<annotation cp="🏃">ഓടുന്നു | ഓട്ടം | മാരത്തോൺ | സ്‌പോർട്‌സ് | റണ്ണർ</annotation>
 		<annotation cp="🏃" type="tts">റണ്ണർ</annotation>
 		<annotation cp="🏃‍♂">ഓടുന്നയാൾ | ഓട്ടം | മാരത്തോൺ | സ്പോർട്സ്</annotation>
@@ -529,6 +893,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💃" type="tts">നർത്തകി</annotation>
 		<annotation cp="🕺">നർത്തകൻ | നൃത്തം | പുരുഷൻ</annotation>
 		<annotation cp="🕺" type="tts">നർത്തകൻ</annotation>
+		<annotation cp="🕴">പറക്കുന്ന പ്രൊഫഷണൽ | പുരുഷൻ | പ്രൊഫഷണൽ | ബിസിനസ്സ് | സ്യൂട്ട്</annotation>
+		<annotation cp="🕴" type="tts">പറക്കുന്ന പ്രൊഫഷണൽ</annotation>
 		<annotation cp="👯">ചെവി | നർത്തകി | പാർട്ടി ആഘോഷിക്കുന്ന സ്‌ത്രീകൾ | പെൺകുട്ടി | മുയൽക്കുഞ്ഞ് | മുയൽച്ചെവി | സ്‌ത്രീ</annotation>
 		<annotation cp="👯" type="tts">പാർട്ടി ആഘോഷിക്കുന്ന സ്‌ത്രീകൾ</annotation>
 		<annotation cp="👯‍♂">ആഹ്ലാദം | പാർട്ടി | പാർട്ടിയാഘോഷിക്കുന്ന പുരുഷന്മാർ | പുരുഷന്മാർ</annotation>
@@ -537,34 +903,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👯‍♀" type="tts">പാർട്ടിയാഘോഷിക്കുന്ന സ്ത്രീകൾ</annotation>
 		<annotation cp="🧖">ആവി മുറി | ബാഷ്‌പസ്‌നാനം | ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന വ്യക്തി | സ്റ്റീം റൂം</annotation>
 		<annotation cp="🧖" type="tts">ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന വ്യക്തി</annotation>
-		<annotation cp="🧖‍♀">ആവി മുറി | ബാഷ്‌പസ്‌നാനം | ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന സ്‌ത്രീ | സ്റ്റീം റൂം</annotation>
-		<annotation cp="🧖‍♀" type="tts">ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന സ്‌ത്രീ</annotation>
 		<annotation cp="🧖‍♂">ആവി മുറി | ബാഷ്‌പസ്‌നാനം | ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന പുരുഷൻ | സ്റ്റീം റൂം</annotation>
 		<annotation cp="🧖‍♂" type="tts">ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന പുരുഷൻ</annotation>
+		<annotation cp="🧖‍♀">ആവി മുറി | ബാഷ്‌പസ്‌നാനം | ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന സ്‌ത്രീ | സ്റ്റീം റൂം</annotation>
+		<annotation cp="🧖‍♀" type="tts">ബാഷ്‌പസ്‌നാനം ചെയ്യുന്ന സ്‌ത്രീ</annotation>
 		<annotation cp="🧗">ക്ലിംബർ | മലകയറൽ | മലകയറുന്ന വ്യക്തി</annotation>
 		<annotation cp="🧗" type="tts">മലകയറുന്ന വ്യക്തി</annotation>
-		<annotation cp="🧗‍♀">ക്ലിംബർ | മലകയറൽ | മലകയറുന്ന സ്‌ത്രീ</annotation>
-		<annotation cp="🧗‍♀" type="tts">മലകയറുന്ന സ്‌ത്രീ</annotation>
 		<annotation cp="🧗‍♂">ക്ലിംബർ | മലകയറൽ | മലകയറുന്ന പുരുഷൻ</annotation>
 		<annotation cp="🧗‍♂" type="tts">മലകയറുന്ന പുരുഷൻ</annotation>
-		<annotation cp="🧘">ധ്യാനം | പത്മാസനത്തിലുള്ള വ്യക്തി | യോഗ</annotation>
-		<annotation cp="🧘" type="tts">പത്മാസനത്തിലുള്ള വ്യക്തി</annotation>
-		<annotation cp="🧘‍♀">ധ്യാനം | പത്മാസനത്തിലുള്ള സ്‌ത്രീ | യോഗ</annotation>
-		<annotation cp="🧘‍♀" type="tts">പത്മാസനത്തിലുള്ള സ്‌ത്രീ</annotation>
-		<annotation cp="🧘‍♂">ധ്യാനം | പത്മാസനത്തിലുള്ള പുരുഷൻ | യോഗ</annotation>
-		<annotation cp="🧘‍♂" type="tts">പത്മാസനത്തിലുള്ള പുരുഷൻ</annotation>
-		<annotation cp="🛀">കുളി | കുളിക്കുന്നയാൾ | ബാത്ത്‌ടബ്</annotation>
-		<annotation cp="🛀" type="tts">കുളിക്കുന്നയാൾ</annotation>
-		<annotation cp="🛌">ഉറക്കം | കട്ടിലിൽ കിടക്കുന്നയാൾ | ഹോട്ടൽ</annotation>
-		<annotation cp="🛌" type="tts">കട്ടിലിൽ കിടക്കുന്നയാൾ</annotation>
-		<annotation cp="🕴">പറക്കുന്ന പ്രൊഫഷണൽ | പുരുഷൻ | പ്രൊഫഷണൽ | ബിസിനസ്സ് | സ്യൂട്ട്</annotation>
-		<annotation cp="🕴" type="tts">പറക്കുന്ന പ്രൊഫഷണൽ</annotation>
-		<annotation cp="🗣">തല | നിഴൽച്ചിത്രം | പറയുക | മുഖം | സംസാരിക്കുക | സംസാരിക്കുന്നയാൾ | സംസാരിക്കുന്നു</annotation>
-		<annotation cp="🗣" type="tts">സംസാരിക്കുന്നയാൾ</annotation>
-		<annotation cp="👤">നിഴൽ ശരീരം | നിഴൽച്ചിത്രം | ബസ്‌റ്റ് | വ്യക്തിയുടെ നിഴൽച്ചിത്രം | സില്ലൗട്ട്</annotation>
-		<annotation cp="👤" type="tts">വ്യക്തിയുടെ നിഴൽച്ചിത്രം</annotation>
-		<annotation cp="👥">ആളുകൾ | നിഴൽ ശരീരം | നിഴൽച്ചിത്രം | ബസ്‌റ്റ് | വ്യക്തികളുടെ നിഴൽച്ചിത്രം | സില്ലൗട്ട്</annotation>
-		<annotation cp="👥" type="tts">വ്യക്തികളുടെ നിഴൽച്ചിത്രം</annotation>
+		<annotation cp="🧗‍♀">ക്ലിംബർ | മലകയറൽ | മലകയറുന്ന സ്‌ത്രീ</annotation>
+		<annotation cp="🧗‍♀" type="tts">മലകയറുന്ന സ്‌ത്രീ</annotation>
 		<annotation cp="🤺">വാൾ | വാൾപയറ്റുകാരൻ | വാൾപയറ്റ്</annotation>
 		<annotation cp="🤺" type="tts">വാൾപയറ്റുകാരൻ</annotation>
 		<annotation cp="🏇">കുതിര | കുതിരപ്പന്തയം | പന്തയം | സ്പോർട്സ്</annotation>
@@ -621,10 +969,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">സൈക്കിളിൽ മലകയറുന്നയാൾ</annotation>
 		<annotation cp="🚵‍♀">മലകയറ്റം | സൈക്കിളിൽ മലകയറുന്ന സ്ത്രീ | സൈക്കിൾ | സ്ത്രീ</annotation>
 		<annotation cp="🚵‍♀" type="tts">സൈക്കിളിൽ മലകയറുന്ന സ്ത്രീ</annotation>
-		<annotation cp="🏎">കാർ | റേസിംഗ്</annotation>
-		<annotation cp="🏎" type="tts">റേസിംഗ് കാർ</annotation>
-		<annotation cp="🏍">ബൈക്ക് | മോട്ടോർസൈക്കിൾ | റേസിംഗ്</annotation>
-		<annotation cp="🏍" type="tts">മോട്ടോർസൈക്കിൾ</annotation>
 		<annotation cp="🤸">കൈകുത്തി മറിയൽ | ജിംനാസ്റ്റിക്സ്</annotation>
 		<annotation cp="🤸" type="tts">കൈകുത്തി മറിയൽ</annotation>
 		<annotation cp="🤸‍♂">അഭ്യാസി | കൈകുത്തിമറിയുന്നയാൾ | ജിംനാസ്റ്റിക്സ് | പുരുഷൻ</annotation>
@@ -655,110 +999,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤹‍♂" type="tts">അമ്മാനമാട്ടക്കാരൻ</annotation>
 		<annotation cp="🤹‍♀">അഭ്യാസം | അമ്മാനമാട്ടം | അമ്മാനമാട്ടക്കാരി | സ്ത്രീ</annotation>
 		<annotation cp="🤹‍♀" type="tts">അമ്മാനമാട്ടക്കാരി</annotation>
-		<annotation cp="👫">കൈ | കൈകോർക്കൽ | കൈകോർത്ത് നിൽക്കുന്ന ജോടി | കൈകോർത്ത് സ്‌ത്രീയും പുരുഷനും | ജോടികൾ | ദമ്പതികൾ | പിടിക്കുക | പുരുഷൻ | സ്‌ത്രീ</annotation>
-		<annotation cp="👫" type="tts">കൈകോർത്ത് നിൽക്കുന്ന ജോടി</annotation>
-		<annotation cp="👬">ആളുകൾ | ഇരട്ടകൾ | കൈ | കൈകോർത്ത് നിൽക്കുന്ന രണ്ട് പുരുഷന്മാർ | കൈകോർത്ത് രണ്ട് പുരുഷന്മാർ | ജെമിനി | ജോടി | പിടിക്കുക | പുരുഷൻ | രാശിചക്രം</annotation>
-		<annotation cp="👬" type="tts">കൈകോർത്ത് നിൽക്കുന്ന രണ്ട് പുരുഷന്മാർ</annotation>
-		<annotation cp="👭">ആളുകൾ | കൈ | കൈകോർത്ത് നിൽക്കുന്ന രണ്ട് സ്‌ത്രീകൾ | ജോടി | പിടിക്കുക | രണ്ട് സ്ത്രീകൾ കൈകോർത്ത് | സ്‌ത്രീ</annotation>
+		<annotation cp="🧘">ധ്യാനം | പത്മാസനത്തിലുള്ള വ്യക്തി | യോഗ</annotation>
+		<annotation cp="🧘" type="tts">പത്മാസനത്തിലുള്ള വ്യക്തി</annotation>
+		<annotation cp="🧘‍♂">ധ്യാനം | പത്മാസനത്തിലുള്ള പുരുഷൻ | യോഗ</annotation>
+		<annotation cp="🧘‍♂" type="tts">പത്മാസനത്തിലുള്ള പുരുഷൻ</annotation>
+		<annotation cp="🧘‍♀">ധ്യാനം | പത്മാസനത്തിലുള്ള സ്‌ത്രീ | യോഗ</annotation>
+		<annotation cp="🧘‍♀" type="tts">പത്മാസനത്തിലുള്ള സ്‌ത്രീ</annotation>
+		<annotation cp="🛀">കുളി | കുളിക്കുന്നയാൾ | ബാത്ത്‌ടബ്</annotation>
+		<annotation cp="🛀" type="tts">കുളിക്കുന്നയാൾ</annotation>
+		<annotation cp="🛌">ഉറക്കം | കട്ടിലിൽ കിടക്കുന്നയാൾ | ഹോട്ടൽ</annotation>
+		<annotation cp="🛌" type="tts">കട്ടിലിൽ കിടക്കുന്നയാൾ</annotation>
+		<annotation cp="🧑‍🤝‍🧑">ആളുകൾ കൈകോർത്ത് പിടിച്ചിരിക്കുന്നു | കപ്പിൾ | കൈ | കൈകോർക്കൽ | പിടിക്കുക | വ്യക്തി</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">ആളുകൾ കൈകോർത്ത് പിടിച്ചിരിക്കുന്നു</annotation>
+		<annotation cp="👭">ആളുകൾ | കൈകോർത്ത് നിൽക്കുന്ന രണ്ട് സ്‌ത്രീകൾ | ജോടി | പിടിക്കുക | രണ്ട് സ്ത്രീകൾ കൈകോർത്ത്</annotation>
 		<annotation cp="👭" type="tts">കൈകോർത്ത് നിൽക്കുന്ന രണ്ട് സ്‌ത്രീകൾ</annotation>
+		<annotation cp="👫">കൈകോർത്ത് നിൽക്കുന്ന ജോടി | കൈകോർത്ത് സ്‌ത്രീയും പുരുഷനും | ദമ്പതികൾ | പിടിക്കുക | പുരുഷൻ | സ്‌ത്രീ</annotation>
+		<annotation cp="👫" type="tts">കൈകോർത്ത് നിൽക്കുന്ന ജോടി</annotation>
+		<annotation cp="👬">ഇരട്ടകൾ | കൈകോർത്ത് നിൽക്കുന്ന രണ്ട് പുരുഷന്മാർ | ജെമിനി | പിടിക്കുക | രാശിചക്രം</annotation>
+		<annotation cp="👬" type="tts">കൈകോർത്ത് നിൽക്കുന്ന രണ്ട് പുരുഷന്മാർ</annotation>
 		<annotation cp="💏">ഉമ്മ | ചുംബനം | പ്രണയം | പ്രണയ ജോടി | റൊമാൻസ്</annotation>
 		<annotation cp="💏" type="tts">ചുംബനം</annotation>
 		<annotation cp="💑">ആളുകൾ | പ്രണയം | പ്രണയ ജോടി | സ്‌നേഹം | ഹൃദയം | ഹൃദയചിഹ്നം | റൊമാൻസ്</annotation>
 		<annotation cp="💑" type="tts">പ്രണയ ജോടി</annotation>
 		<annotation cp="👪">അച്ഛൻ | അമ്മ | ആളുകൾ | കുടുംബം | കുട്ടി | ഫാമിലി</annotation>
 		<annotation cp="👪" type="tts">കുടുംബം</annotation>
-		<annotation cp="🤳">ക്യാമറ | ഫോൺ | സെൽഫി</annotation>
-		<annotation cp="🤳" type="tts">സെൽഫി</annotation>
-		<annotation cp="💪">കൈയ്യിലെ മസിൽ | കോമിക്ക് | മസിൽ | ശ‌ക്തി | ശക്തി കാണിക്കുക | ശരീരം</annotation>
-		<annotation cp="💪" type="tts">കൈയ്യിലെ മസിൽ</annotation>
-		<annotation cp="🦵">കാല് | കാൽ | ചവിട്ട്</annotation>
-		<annotation cp="🦵" type="tts">കാല്</annotation>
-		<annotation cp="🦶">കാൽപ്പാദം | ചവിട്ട് | ശക്തമായ ചവിട്ട്</annotation>
-		<annotation cp="🦶" type="tts">കാൽപ്പാദം</annotation>
-		<annotation cp="👈">ഇടത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പുറംകൈ | പോയന്റുചെയ്യുക | വിരൽ | ശരീരം</annotation>
-		<annotation cp="👈" type="tts">ഇടത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
-		<annotation cp="👉">ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പുറംകൈ | പോയന്റുചെയ്യുക | വലത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | വിരൽ | ശരീരം</annotation>
-		<annotation cp="👉" type="tts">വലത്തേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
-		<annotation cp="☝">ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പോയന്റുചെയ്യുക | മുകളിലേക്ക് | മുകളിലേക്ക് ചൂണ്ടുന്ന വിരൽ | വിരൽ | ശരീരം</annotation>
-		<annotation cp="☝" type="tts">മുകളിലേക്ക് ചൂണ്ടുന്ന വിരൽ</annotation>
-		<annotation cp="👆">ഇൻഡക്‌സ് | കൈ | ചൂണ്ടുക | പുറംകൈ | പോയന്റുചെയ്യുക | മുകളിലേക്ക് | മുകളിലേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | വിരൽ | ശരീരം</annotation>
-		<annotation cp="👆" type="tts">മുകളിലേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
-		<annotation cp="🖕">കൈ | നടുവിരൽ | വിരൽ | ശരീരം</annotation>
-		<annotation cp="🖕" type="tts">നടുവിരൽ</annotation>
-		<annotation cp="👇">ഇൻഡക്‌സ് | കൈ | താഴേക്ക് | താഴേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ | പുറംകൈ | പോയന്റുചെയ്യുക | വിരൽ | ശരീരം</annotation>
-		<annotation cp="👇" type="tts">താഴേക്ക് ചൂണ്ടുന്ന ചൂണ്ടുവിരൽ</annotation>
-		<annotation cp="✌">v ചിഹ്നം | കൈ | വിജയം | വിജയ ചിഹ്നം | വിജയചിഹ്നം | ശരീരം</annotation>
-		<annotation cp="✌" type="tts">വിജയ ചിഹ്നം</annotation>
-		<annotation cp="🤞">കൈ | ഭാഗ്യം | ഭാഗ്യസൂചന | വിരൽ</annotation>
-		<annotation cp="🤞" type="tts">ഭാഗ്യസൂചന</annotation>
-		<annotation cp="🖖">കൈ | വൾക്കൻ സല്യൂട്ട് | വിരൽ | വുൾക്കാൻ | ശരീരം | സ്‌പോക്ക്</annotation>
-		<annotation cp="🖖" type="tts">വൾക്കൻ സല്യൂട്ട്</annotation>
-		<annotation cp="🤘">ആഘോഷിക്കുക | കൈ | കൊമ്പുകളുടെ ചിഹ്നം | കൊമ്പുകൾ | വിരൽ | ശരീരം</annotation>
-		<annotation cp="🤘" type="tts">കൊമ്പുകളുടെ ചിഹ്നം</annotation>
-		<annotation cp="🤙">കൈ | വിളിക്കാനുള്ള സൂചന | വിളിക്കുക</annotation>
-		<annotation cp="🤙" type="tts">വിളിക്കാനുള്ള സൂചന</annotation>
-		<annotation cp="🖐">ഉയർത്തിയ കൈപ്പത്തി | കൈ | പരന്ന കൈ | വിരൽ | ശരീരം</annotation>
-		<annotation cp="🖐" type="tts">ഉയർത്തിയ കൈപ്പത്തി</annotation>
-		<annotation cp="✋">ഉയർത്തിയ കൈ | കൈ | നിവർത്തിയ കൈ | ശരീരം</annotation>
-		<annotation cp="✋" type="tts">ഉയർത്തിയ കൈ</annotation>
-		<annotation cp="👌">അസലായെന്ന് കാണിക്കുന്ന ചിഹ്നം | കൈ | ശരി | ശരീരം</annotation>
-		<annotation cp="👌" type="tts">അസലായെന്ന് കാണിക്കുന്ന ചിഹ്നം</annotation>
-		<annotation cp="👍">ഇഷ്‌ടമായി | കൈ | കൊള്ളാം | നന്നായി | ശരീരം</annotation>
-		<annotation cp="👍" type="tts">കൊള്ളാം</annotation>
-		<annotation cp="👎">ഇഷ്‌ടമായില്ല | കൈ | നല്ലതല്ല | മോശം | ശരീരം</annotation>
-		<annotation cp="👎" type="tts">മോശം</annotation>
-		<annotation cp="✊">ഇടിക്കുക | ഉയർത്തിയ മുഷ്‌ടി | കൈ | നിവർത്തിയ മുഷ്ടി | മുഷ്‌ടി | മുഷ്‌ടി ചുരുട്ടി | ശരീരം</annotation>
-		<annotation cp="✊" type="tts">ഉയർത്തിയ മുഷ്‌ടി</annotation>
-		<annotation cp="👊">ഇടിക്കുക | കൈ | നേരെ വരുന്ന മുഷ്‌ടി | മുഷ്‌‌ടി | മുഷ്‌ടി ചുരുട്ടി | ശരീരം</annotation>
-		<annotation cp="👊" type="tts">നേരെ വരുന്ന മുഷ്‌ടി</annotation>
-		<annotation cp="🤛">ഇടത്തേക്കുള്ള മുഷ്‌ടി | ഇടത്തേക്ക് | ചുരുട്ടുക</annotation>
-		<annotation cp="🤛" type="tts">ഇടത്തേക്കുള്ള മുഷ്‌ടി</annotation>
-		<annotation cp="🤜">ചുരുട്ടുക | വലത്തേക്ക് | വലത്തോട്ട് ചുരുട്ടിയ കൈ</annotation>
-		<annotation cp="🤜" type="tts">വലത്തോട്ട് ചുരുട്ടിയ കൈ</annotation>
-		<annotation cp="🤚">ഉയർത്തിയ പുറം കൈ | ഉയർത്തിയത് | പുറം കൈ</annotation>
-		<annotation cp="🤚" type="tts">ഉയർത്തിയ പുറം കൈ</annotation>
-		<annotation cp="👋">കൈ | കൈ വീശുന്നു | ടാറ്റ | വീശുക | ശരീരം</annotation>
-		<annotation cp="👋" type="tts">കൈ വീശുന്നു</annotation>
-		<annotation cp="🤟">ഐ ലവ് യൂ | കൈ | ഞാൻ നിന്നെ സ്‌നേഹിക്കുന്നു | ഞാൻ നിന്നെ സ്‌നേഹിക്കുന്നു എന്ന ആംഗ്യം | വിരലുകൾ</annotation>
-		<annotation cp="🤟" type="tts">ഞാൻ നിന്നെ സ്‌നേഹിക്കുന്നു എന്ന ആംഗ്യം</annotation>
-		<annotation cp="✍">എഴുതുക | എഴുതുന്ന കൈ | കൈ | കൈയ്യെഴുത്ത് | ശരീരം</annotation>
-		<annotation cp="✍" type="tts">എഴുതുന്ന കൈ</annotation>
-		<annotation cp="👏">കൈ | കൈകൊട്ടൽ ചിഹ്നം | കൈകൊട്ടുക | കൈയ്യടി | ശരീരം</annotation>
-		<annotation cp="👏" type="tts">കൈയ്യടി</annotation>
-		<annotation cp="👐">കൈ | ചിഹ്നം | തുറക്കുക | തുറന്ന കൈകൾ | ശരീരം</annotation>
-		<annotation cp="👐" type="tts">തുറന്ന കൈകൾ</annotation>
-		<annotation cp="🙌">ആംഗ്യം | ആഘോഷം | കൈ | കൈ ഉയർത്തുക | കൈകൾ ഉയർത്തുന്ന വ്യക്തി | ശരീരം | ഹുറേയ്</annotation>
-		<annotation cp="🙌" type="tts">കൈകൾ ഉയർത്തുന്ന വ്യക്തി</annotation>
-		<annotation cp="🤲">ഇരുകൈകളും ഒരുമിച്ചുയർത്തൽ | പ്രാർത്ഥന</annotation>
-		<annotation cp="🤲" type="tts">ഇരുകൈകളും ഒരുമിച്ചുയർത്തൽ</annotation>
-		<annotation cp="🙏">ആംഗ്യം | കുനിയുക | കൂപ്പുക | കൂപ്പുകൈ | കൈ | കൈ കെട്ടുക | ചോദിക്കുക | ദയവായി | നന്ദി | പ്രാർത്ഥന | ശരീരം</annotation>
-		<annotation cp="🙏" type="tts">കൂപ്പുകൈ</annotation>
-		<annotation cp="🤝">കൈകുലുക്കൽ | സമ്മതം | ഹസ്തദാനം</annotation>
-		<annotation cp="🤝" type="tts">ഹസ്തദാനം</annotation>
-		<annotation cp="💅">കോസ്‌മെറ്റിക്‌സ് | നഖം | നെയിൽ പോളിഷ് | നെയിൽ പോളീഷ് | പരിരക്ഷ | പോളീഷ് | മാനിക്യൂർ | ശരീരം</annotation>
-		<annotation cp="💅" type="tts">നെയിൽ പോളിഷ്</annotation>
-		<annotation cp="👂">കാത് | ചെവി | ശരീരം</annotation>
-		<annotation cp="👂" type="tts">ചെവി</annotation>
-		<annotation cp="👃">മുഖം | മൂക്ക് | ശരീരം</annotation>
-		<annotation cp="👃" type="tts">മൂക്ക്</annotation>
+		<annotation cp="🗣">തല | നിഴൽച്ചിത്രം | പറയുക | മുഖം | സംസാരിക്കുക | സംസാരിക്കുന്നയാൾ | സംസാരിക്കുന്നു</annotation>
+		<annotation cp="🗣" type="tts">സംസാരിക്കുന്നയാൾ</annotation>
+		<annotation cp="👤">നിഴൽ ശരീരം | നിഴൽച്ചിത്രം | ബസ്‌റ്റ് | വ്യക്തിയുടെ നിഴൽച്ചിത്രം | സില്ലൗട്ട്</annotation>
+		<annotation cp="👤" type="tts">വ്യക്തിയുടെ നിഴൽച്ചിത്രം</annotation>
+		<annotation cp="👥">ആളുകൾ | നിഴൽ ശരീരം | നിഴൽച്ചിത്രം | ബസ്‌റ്റ് | വ്യക്തികളുടെ നിഴൽച്ചിത്രം | സില്ലൗട്ട്</annotation>
+		<annotation cp="👥" type="tts">വ്യക്തികളുടെ നിഴൽച്ചിത്രം</annotation>
 		<annotation cp="👣">കാൽപ്പാട് | പാട് | പാദം | പാദമുദ്ര | മുദ്ര | വസ്‌ത്രങ്ങൾ | ശരീരം</annotation>
 		<annotation cp="👣" type="tts">കാൽപ്പാട്</annotation>
-		<annotation cp="👀">കണ്ണുകൾ | കണ്ണ് | മുഖം | ശരീരം</annotation>
-		<annotation cp="👀" type="tts">കണ്ണുകൾ</annotation>
-		<annotation cp="👁">കണ്ണ് | ശരീരം</annotation>
-		<annotation cp="👁" type="tts">കണ്ണ്</annotation>
-		<annotation cp="👁‍🗨">കണ്ണ് | ബബിൾ | സംഭാഷണം | സ്പീച്ച് ബബിളിലെ കണ്ണ്</annotation>
-		<annotation cp="👁‍🗨" type="tts">സ്പീച്ച് ബബിളിലെ കണ്ണ്</annotation>
-		<annotation cp="🧠">തലച്ചോർ | ബുദ്ധി | വിവേകം | സാമർത്ഥ്യം</annotation>
-		<annotation cp="🧠" type="tts">തലച്ചോർ</annotation>
-		<annotation cp="🦴">അസ്ഥികൂടം | എല്ല്</annotation>
-		<annotation cp="🦴" type="tts">എല്ല്</annotation>
-		<annotation cp="🦷">ദന്തരോഗവിദഗ്ദ്ധൻ | പല്ല്</annotation>
-		<annotation cp="🦷" type="tts">പല്ല്</annotation>
-		<annotation cp="👅">നാക്ക് | നാവ് | മുഖം | ശരീരം</annotation>
-		<annotation cp="👅" type="tts">നാവ്</annotation>
-		<annotation cp="👄">ചുണ്ടുകൾ | മുഖം | വായ | ശരീരം</annotation>
-		<annotation cp="👄" type="tts">വായ</annotation>
 		<annotation cp="🦰">ചുവന്ന മുടി | ചുവന്നതല | ജിഞ്ചർ</annotation>
 		<annotation cp="🦰" type="tts">ചുവന്ന മുടി</annotation>
 		<annotation cp="🦱">ആഫ്രോ | ചുരുണ്ട മുടി | ചുരുണ്ടത് | റിംഗ്‌ലെറ്റുകൾ</annotation>
@@ -767,152 +1039,22 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">വെള്ള മുടി</annotation>
 		<annotation cp="🦲">കഷണ്ടി | കഷണ്ടിയായ | കീമോതെറാപ്പി | മുടിയില്ല | മൊട്ടയടിച്ച</annotation>
 		<annotation cp="🦲" type="tts">കഷണ്ടി</annotation>
-		<annotation cp="💋">ചുണ്ടുകൾ | ചുംബനം | ചുംബന മുദ്ര | റൊമാൻസ്</annotation>
-		<annotation cp="💋" type="tts">ചുംബന മുദ്ര</annotation>
-		<annotation cp="💘">അമ്പടയാളത്തോടൊപ്പമുള്ള ഹൃദയം | അമ്പ് | പ്രണയം | വികാരം | ഹൃദയം | ഹൃദയവും അമ്പും</annotation>
-		<annotation cp="💘" type="tts">അമ്പടയാളത്തോടൊപ്പമുള്ള ഹൃദയം</annotation>
-		<annotation cp="💝">വാലന്റൈൻ | വികാരം | ഹൃദയം | റിബൺ | റിബൺ ചുറ്റിയ ഹൃദയം</annotation>
-		<annotation cp="💝" type="tts">റിബൺ ചുറ്റിയ ഹൃദയം</annotation>
-		<annotation cp="💖">അത്ഭുതം | ആവേശം | ആശ്ചര്യം | തിളക്കം | തിളങ്ങുന്ന ഹൃദയം | പ്രണയം | വികാരം</annotation>
-		<annotation cp="💖" type="tts">തിളങ്ങുന്ന ഹൃദയം</annotation>
-		<annotation cp="💗">അത്ഭുതം | ആവേശം | ജിജ്ഞാസ | പരിഭ്രാന്തി | പ്രണയം | വികസിക്കുന്ന ഹൃദയം | വികാരം | ഹൃദയം | ഹൃദയതാളം | ഹൃദയമിടിപ്പ്</annotation>
-		<annotation cp="💗" type="tts">വികസിക്കുന്ന ഹൃദയം</annotation>
-		<annotation cp="💓">തുടിപ്പുന്ന ഹൃദയം | തുടിപ്പ് | പ്രണയം | മിടിപ്പ് | വികാരം | സ്പന്ദിക്കുന്ന ഹൃദയം | ഹൃദയം</annotation>
-		<annotation cp="💓" type="tts">സ്പന്ദിക്കുന്ന ഹൃദയം</annotation>
-		<annotation cp="💞">ആരാധനീയം | കറങ്ങുന്ന ഹൃദയങ്ങൾ | ചുറ്റൽ | ചുറ്റുന്ന ഹൃദയങ്ങൾ | പ്രണയം | ഭംഗി | വികാരം | ഹൃദയം</annotation>
-		<annotation cp="💞" type="tts">കറങ്ങുന്ന ഹൃദയങ്ങൾ</annotation>
-		<annotation cp="💕">പ്രണയം | പ്രണയികൾ | രണ്ട് ഹൃദയങ്ങൾ | വികാരം</annotation>
-		<annotation cp="💕" type="tts">രണ്ട് ഹൃദയങ്ങൾ</annotation>
-		<annotation cp="💌">കത്ത് | പ്രണയം | പ്രണയ ലേഖനം | പ്രണയലേഖനം | റൊമാൻസ്</annotation>
-		<annotation cp="💌" type="tts">പ്രണയ ലേഖനം</annotation>
-		<annotation cp="❣">അടയാളം | ആശ്ചര്യം | ചിഹ്നം | ഹൃദയം | ഹൃദയാകൃതിയിലുള്ള ആശ്ചര്യ ചിഹ്നം</annotation>
-		<annotation cp="❣" type="tts">ഹൃദയാകൃതിയിലുള്ള ആശ്ചര്യ ചിഹ്നം</annotation>
-		<annotation cp="💔">തകരുക | തകർന്ന ഹൃദയം | തകർന്നു | ഹൃദയം</annotation>
-		<annotation cp="💔" type="tts">തകർന്ന ഹൃദയം</annotation>
-		<annotation cp="❤">ചുവന്ന ഹൃദയം | ചുവപ്പ് | ഹൃദയം</annotation>
-		<annotation cp="❤" type="tts">ചുവന്ന ഹൃദയം</annotation>
-		<annotation cp="🧡">ഓറഞ്ച് | പ്രണയം | വികാരം | ഹൃദയം</annotation>
-		<annotation cp="🧡" type="tts">ഓറഞ്ച് ഹൃദയം</annotation>
-		<annotation cp="💛">പ്രണയം | മഞ്ഞ | വികാരം | ഹൃദയം</annotation>
-		<annotation cp="💛" type="tts">മഞ്ഞ ഹൃദയം</annotation>
-		<annotation cp="💚">പച്ച | പ്രണയം | വികാരം | ഹൃദയം</annotation>
-		<annotation cp="💚" type="tts">പച്ച ഹൃദയം</annotation>
-		<annotation cp="💙">നീല | പ്രണയം | വികാരം | ഹൃദയം</annotation>
-		<annotation cp="💙" type="tts">നീല ഹൃദയം</annotation>
-		<annotation cp="💜">പർപ്പിൾ | പ്രണയം | വികാരം | ഹൃദയം</annotation>
-		<annotation cp="💜" type="tts">പർപ്പിൾ ഹൃദയം</annotation>
-		<annotation cp="🖤">കറുത്ത ഹൃദയം | കറുപ്പ് | തിന്മ | ഹൃദയം</annotation>
-		<annotation cp="🖤" type="tts">കറുത്ത ഹൃദയം</annotation>
-		<annotation cp="💟">ഹൃദയം | ഹൃദയ അലങ്കാരം</annotation>
-		<annotation cp="💟" type="tts">ഹൃദയ അലങ്കാരം</annotation>
-		<annotation cp="💤">ഉറക്കം | കൂർക്കംവലി | കോമിക്ക് | വികാരം</annotation>
-		<annotation cp="💤" type="tts">കൂർക്കംവലി</annotation>
-		<annotation cp="💢">കോപം | കോമിക്ക് | ദേഷ്യം | ദേഷ്യ ചിഹ്നം | ദേഷ്യം ചിഹ്നം | ദേഷ്യപ്പെടൽ | വികാരം</annotation>
-		<annotation cp="💢" type="tts">ദേഷ്യ ചിഹ്നം</annotation>
-		<annotation cp="💣">കോമിക്ക് | ബോംബ്</annotation>
-		<annotation cp="💣" type="tts">ബോംബ്</annotation>
-		<annotation cp="💥">കൂട്ടിയിടി | കൂട്ടിയിടി ചിഹ്നം | കോമിക്ക് | ബൂം | വികാരം</annotation>
-		<annotation cp="💥" type="tts">കൂട്ടിയിടി</annotation>
-		<annotation cp="💦">കോമിക്ക് | വികാരം | വിയർപ്പ് | വിയർപ്പ് തുള്ളികൾ | വിയർപ്പ് തെറിക്കുന്നു</annotation>
-		<annotation cp="💦" type="tts">വിയർപ്പ് തുള്ളികൾ</annotation>
-		<annotation cp="💨">ഓടുന്നു | കോമിക്ക് | ഡാഷ് | ഡാഷ് ചിഹ്നം | വേഗത</annotation>
-		<annotation cp="💨" type="tts">വേഗത</annotation>
-		<annotation cp="💫">കോമിക്ക് | നക്ഷത്രം | ഭ്രമ ചിഹ്നം | മോഹാലസ്യം | വാൽനക്ഷത്രം | വികാരം</annotation>
-		<annotation cp="💫" type="tts">മോഹാലസ്യം</annotation>
-		<annotation cp="💬">കോമിക്ക് | ഡയലോഗ് | ബബിൾ | ബലൂൺ | സംഭാഷണം | സംഭാഷണ ബലൂൺ | സംസാരം</annotation>
-		<annotation cp="💬" type="tts">സംഭാഷണ ബലൂൺ</annotation>
-		<annotation cp="🗨">ഇടത്തേക്കുള്ള സംഭാഷണ ബബിൾ | ഡയലോഗ് | സംഭാഷണം</annotation>
-		<annotation cp="🗨" type="tts">ഇടത്തേക്കുള്ള സംഭാഷണ ബബിൾ</annotation>
-		<annotation cp="🗯">കോപം | ദേഷ്യം | ബബിൾ | ബലൂൺ | വലത്തേക്കുള്ള ദേഷ്യ ബലൂൺ</annotation>
-		<annotation cp="🗯" type="tts">വലത്തേക്കുള്ള ദേഷ്യ ബലൂൺ</annotation>
-		<annotation cp="💭">കോമിക്ക് | ചിന്ത | ചിന്താ ബബിൾ | ചിന്താ ബലൂൺ | ബബിൾ | ബലൂൺ</annotation>
-		<annotation cp="💭" type="tts">ചിന്താ ബലൂൺ</annotation>
-		<annotation cp="🕳">കുഴി | കൂഴി</annotation>
-		<annotation cp="🕳" type="tts">കുഴി</annotation>
-		<annotation cp="👓">കണ്ണട | കണ്ണടകൾ | വസ്ത്രം | സൺ ഗ്ലാസ്സ്</annotation>
-		<annotation cp="👓" type="tts">കണ്ണട</annotation>
-		<annotation cp="🕶">കണ്ണട | കണ്ണടകൾ | കണ്ണ് | കറുപ്പ് | സൺഗ്ലാസ്</annotation>
-		<annotation cp="🕶" type="tts">സൺഗ്ലാസ്</annotation>
-		<annotation cp="🥽">കണ്ണടകൾ | കണ്ണിന്റെ സുരക്ഷ | നീന്തൽ | വെൽഡിംഗ്</annotation>
-		<annotation cp="🥽" type="tts">കണ്ണടകൾ</annotation>
-		<annotation cp="🥼">ഡോക്‌ടർ | പരീക്ഷണം | ലാബ് കോട്ട് | ശാസ്‌ത്രജ്ഞൻ</annotation>
-		<annotation cp="🥼" type="tts">ലാബ് കോട്ട്</annotation>
-		<annotation cp="👔">ടൈ | നെക്ക് ടൈ | വസ്ത്രം</annotation>
-		<annotation cp="👔" type="tts">നെക്ക് ടൈ</annotation>
-		<annotation cp="👕">ടീഷർട്ട് | വസ്ത്രം | ഷർട്ട്</annotation>
-		<annotation cp="👕" type="tts">ടീഷർട്ട്</annotation>
-		<annotation cp="👖">ജീൻസ് | ട്രൗസർ | പാന്റ്സ് | വസ്ത്രം</annotation>
-		<annotation cp="👖" type="tts">ജീൻസ്</annotation>
-		<annotation cp="🧣">കഴുത്ത് | ഷാൾ | സ്‌കാർഫ്</annotation>
-		<annotation cp="🧣" type="tts">സ്‌കാർഫ്</annotation>
-		<annotation cp="🧤">കയ്യുറകൾ | കൈ</annotation>
-		<annotation cp="🧤" type="tts">കയ്യുറകൾ</annotation>
-		<annotation cp="🧥">കോട്ട് | ജാക്കറ്റ്</annotation>
-		<annotation cp="🧥" type="tts">കോട്ട്</annotation>
-		<annotation cp="🧦">കാലുറ | സോക്‌സ്</annotation>
-		<annotation cp="🧦" type="tts">സോക്‌സ്</annotation>
-		<annotation cp="👗">വൺ-പീസ് | വസ്ത്രം</annotation>
-		<annotation cp="👗" type="tts">വസ്ത്രം</annotation>
-		<annotation cp="👘">കിമോണോ | ഡ്രസ്സ് | വസ്ത്രം</annotation>
-		<annotation cp="👘" type="tts">കിമോണോ</annotation>
-		<annotation cp="👙">നീന്തൽ വസ്ത്രം | ബിക്കിനി | വസ്ത്രം</annotation>
-		<annotation cp="👙" type="tts">ബിക്കിനി</annotation>
-		<annotation cp="👚">വസ്ത്രം | സ്ത്രീകളുടെ വസ്ത്രം</annotation>
-		<annotation cp="👚" type="tts">സ്ത്രീകളുടെ വസ്ത്രം</annotation>
-		<annotation cp="👛">കോയിൻ | നാണയം | പേഴ്‌സ് | വസ്ത്രം</annotation>
-		<annotation cp="👛" type="tts">പേഴ്‌സ്</annotation>
-		<annotation cp="👜">ബാഗ് | വസ്ത്രം | ഹാൻഡ് ബാഗ്</annotation>
-		<annotation cp="👜" type="tts">ഹാൻഡ് ബാഗ്</annotation>
-		<annotation cp="👝">ക്ലച്ച് ബാഗ് | ബാഗ് | വസ്ത്രം</annotation>
-		<annotation cp="👝" type="tts">ക്ലച്ച് ബാഗ്</annotation>
-		<annotation cp="🛍">ബാഗ് | ഷോപ്പിംഗ് | ഷോപ്പിംഗ് ബാഗുകൾ | ഹോട്ടൽ</annotation>
-		<annotation cp="🛍" type="tts">ഷോപ്പിംഗ് ബാഗുകൾ</annotation>
-		<annotation cp="🎒">ബാഗ് | സഞ്ചി | സ്‌കൂൾ</annotation>
-		<annotation cp="🎒" type="tts">സ്‌കൂൾ ബാഗ്</annotation>
-		<annotation cp="👞">പുരുഷന്മാരുടെ ഷൂ | വസ്ത്രം | ഷൂ</annotation>
-		<annotation cp="👞" type="tts">പുരുഷന്മാരുടെ ഷൂ</annotation>
-		<annotation cp="👟">അത്‌ലറ്റിക് ഷൂ | അത്‌ലെറ്റിക് | വസ്‌ത്രം | ഷൂ | സ്‌നീക്കർ</annotation>
-		<annotation cp="👟" type="tts">അത്‌ലറ്റിക് ഷൂ</annotation>
-		<annotation cp="🥾">ക്യാമ്പിംഗ് | ബാക്ക്‌പാക്കിംഗ് | ബൂട്ട് | ഹൈക്കിംഗ്</annotation>
-		<annotation cp="🥾" type="tts">ഹൈക്കിംഗ് ബൂട്ട്</annotation>
-		<annotation cp="🥿">ഫ്ലാറ്റ് ഷൂ | ബാലറ്റ് ഫ്ലാറ്റ് | സ്ലിപ്പർ | സ്ലിപ്പ്-ഓൺ</annotation>
-		<annotation cp="🥿" type="tts">ഫ്ലാറ്റ് ഷൂ</annotation>
-		<annotation cp="👠">വസ്‌ത്രം | ഷൂ | സ്‌ത്രീ | ഹീൽ | ഹൈ ഹീൽ ഷൂ</annotation>
-		<annotation cp="👠" type="tts">ഹൈ ഹീൽ ഷൂ</annotation>
-		<annotation cp="👡">പാദരക്ഷ | വനിത | വസ്ത്രം | വിമൻസ് സാൻഡൽ | ഷൂ | സാൻഡൽ | സ്‌ത്രീകളുടെ ചെരുപ്പ്</annotation>
-		<annotation cp="👡" type="tts">സ്‌ത്രീകളുടെ ചെരുപ്പ്</annotation>
-		<annotation cp="👢">പാദരക്ഷ | ബൂട്ട് | വനിത | വസ്ത്രം | വിമൻസ് ബൂട്ട് | സ്‌ത്രീകളുടെ ബൂട്ട്</annotation>
-		<annotation cp="👢" type="tts">സ്‌ത്രീകളുടെ ബൂട്ട്</annotation>
-		<annotation cp="👑">കിരീടം | രാജാവ് | രാജ്ഞി | വസ്‌ത്രം</annotation>
-		<annotation cp="👑" type="tts">കിരീടം</annotation>
-		<annotation cp="👒">തൊപ്പി | വനിതാ ഹാറ്റ് | വസ്‌ത്രം | സ്‌ത്രീ | സ്‌ത്രീകളുടെ തൊപ്പി | ഹാറ്റ്</annotation>
-		<annotation cp="👒" type="tts">സ്‌ത്രീകളുടെ തൊപ്പി</annotation>
-		<annotation cp="🎩">ക്യാപ്പ് | ടോപ്പ് | തൊപ്പി | വസ്‌ത്രം | ഹാറ്റ്</annotation>
-		<annotation cp="🎩" type="tts">തൊപ്പി</annotation>
-		<annotation cp="🎓">ആഘോഷം | ക്യാപ്പ് | ഗ്രാജ്യുവേഷൻ ക്യാപ്പ് | ബിരുദം | ബിരുദ ക്യാപ്പ് | ബിരുദദാന തൊപ്പി | വസ്‌ത്രം | ഹാറ്റ്</annotation>
-		<annotation cp="🎓" type="tts">ബിരുദ ക്യാപ്പ്</annotation>
-		<annotation cp="🧢">കളിക്കാരുടെ തൊപ്പി | ബേസ്‌ബോൾ തൊപ്പി</annotation>
-		<annotation cp="🧢" type="tts">കളിക്കാരുടെ തൊപ്പി</annotation>
-		<annotation cp="⛑">കുരിശ് | പരിരക്ഷ | മുഖം | വെളുത്ത കുരിശുള്ള ഹെൽമെറ്റ് | ഹെൽമെറ്റ്</annotation>
-		<annotation cp="⛑" type="tts">വെളുത്ത കുരിശുള്ള ഹെൽമെറ്റ്</annotation>
-		<annotation cp="📿">ജപമാല | നെക്ക്‌ലേസ് | പ്രാർത്ഥന | മണികൾ | മതം | വസ്‌ത്രം</annotation>
-		<annotation cp="📿" type="tts">ജപമാല</annotation>
-		<annotation cp="💄">കോസ്മെറ്റിക്സ് | മെയ്ക്കപ്പ് | ലിപ്‌സ്റ്റിക്ക് | സൗന്ദര്യം</annotation>
-		<annotation cp="💄" type="tts">ലിപ്‌സ്റ്റിക്ക്</annotation>
-		<annotation cp="💍">പ്രണയം | മോതിരം | റിംഗ് | റൊമാൻസ്</annotation>
-		<annotation cp="💍" type="tts">മോതിരം</annotation>
-		<annotation cp="💎">ഡയമണ്ട് | പ്രണയം | വൈരം | വൈരക്കല്ല് | റൊമാൻസ്</annotation>
-		<annotation cp="💎" type="tts">വൈരക്കല്ല്</annotation>
 		<annotation cp="🐵">കുരങ്ങ് | മുഖം | മൃഗം</annotation>
 		<annotation cp="🐵" type="tts">കുരങ്ങ് മുഖം</annotation>
 		<annotation cp="🐒">കുരങ്ങൻ | കുരങ്ങ് | മൃഗം</annotation>
 		<annotation cp="🐒" type="tts">കുരങ്ങ്</annotation>
 		<annotation cp="🦍">ഗോറില്ല | മൃഗം</annotation>
 		<annotation cp="🦍" type="tts">ഗോറില്ല</annotation>
+		<annotation cp="🦧">ഒറാങ്ങ്ഉട്ടാൻ | കുരങ്ങൻ</annotation>
+		<annotation cp="🦧" type="tts">ഒറാങ്ങ്ഉട്ടാൻ</annotation>
 		<annotation cp="🐶">നായ | നായ മുഖം | മൃഗം</annotation>
 		<annotation cp="🐶" type="tts">നായ മുഖം</annotation>
 		<annotation cp="🐕">ഓമന മൃഗം | നായ | നായ്ക്കുട്ടി | പട്ടി | പട്ടിക്കുട്ടി | മൃഗം</annotation>
 		<annotation cp="🐕" type="tts">നായ</annotation>
+		<annotation cp="🦮">അന്ധൻ | ആക്‌സസബിലിറ്റി | ഗൈഡ് നായ | വഴികാട്ടി</annotation>
+		<annotation cp="🦮" type="tts">ഗൈഡ് നായ</annotation>
+		<annotation cp="🐕‍🦺">ആക്‌സസബിലിറ്റി | നായ | സർവ്വീസ് | സഹായം</annotation>
+		<annotation cp="🐕‍🦺" type="tts">സർവ്വീസ് നായ</annotation>
 		<annotation cp="🐩">ഓമന മൃഗം | നായ | പട്ടി | പൂഡിൽ | മൃഗം</annotation>
 		<annotation cp="🐩" type="tts">പൂഡിൽ</annotation>
 		<annotation cp="🐺">ചെന്നായ | മുഖം | മൃഗം</annotation>
@@ -925,6 +1067,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐱" type="tts">പൂച്ച മുഖം</annotation>
 		<annotation cp="🐈">ഓമന മൃഗം | പൂച്ച | മൃഗം</annotation>
 		<annotation cp="🐈" type="tts">പൂച്ച</annotation>
+		<annotation cp="🐈‍⬛">കറുത്ത | നിർഭാഗ്യം | പൂച്ച</annotation>
+		<annotation cp="🐈‍⬛" type="tts">കറുത്ത പൂച്ച</annotation>
 		<annotation cp="🦁">ചിങ്ങരാശി | മുഖം | രാശി ചക്രം | സിംഹം | സിംഹ മുഖം | സോഡിയാക്ക്</annotation>
 		<annotation cp="🦁" type="tts">സിംഹ മുഖം</annotation>
 		<annotation cp="🐯">കടുവ | മുഖം | മൃഗം</annotation>
@@ -999,10 +1143,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦇" type="tts">വവ്വാൽ</annotation>
 		<annotation cp="🐻">കരടി | കരടി മുഖം | മൃഗം</annotation>
 		<annotation cp="🐻" type="tts">കരടി മുഖം</annotation>
+		<annotation cp="🐻‍❄">ആർട്ടിക്ക് | കരടി | വെളുത്ത | ഹിമക്കരടി</annotation>
+		<annotation cp="🐻‍❄" type="tts">ഹിമക്കരടി</annotation>
 		<annotation cp="🐨">കൊയല | കൊയല കരടി | മൃഗം</annotation>
 		<annotation cp="🐨" type="tts">കൊയല</annotation>
 		<annotation cp="🐼">പാണ്ട മുഖം | പാൻഡ | മൃഗം</annotation>
 		<annotation cp="🐼" type="tts">പാണ്ട മുഖം</annotation>
+		<annotation cp="🦥">തേവാങ്ക് | പതുക്കെ | മടി</annotation>
+		<annotation cp="🦥" type="tts">തേവാങ്ക്</annotation>
+		<annotation cp="🦦">കളിക്കുന്നത് | നീർനായ | മീൻപിടുത്തം</annotation>
+		<annotation cp="🦦" type="tts">നീർനായ</annotation>
+		<annotation cp="🦨">കുട്ടിസ്രാങ്ക് | ദുർഗന്ധം</annotation>
+		<annotation cp="🦨" type="tts">കുട്ടിസ്രാങ്ക്</annotation>
 		<annotation cp="🦘">ഓസ്‌ട്രേലിയ | കംഗാരു | കംഗാരു കുട്ടി | ചാട്ടം | സഞ്ചിയുള്ളത്</annotation>
 		<annotation cp="🦘" type="tts">കംഗാരു</annotation>
 		<annotation cp="🦡">തറക്കരടി | തുരപ്പൻ‌കരടി | നിരന്തരം ശല്യപ്പെടുത്തുക</annotation>
@@ -1035,6 +1187,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">അരയന്നം</annotation>
 		<annotation cp="🦉">പക്ഷി | മൂങ്ങ</annotation>
 		<annotation cp="🦉" type="tts">മൂങ്ങ</annotation>
+		<annotation cp="🦩">ഉഷ്‌ണമേഖലയിലുള്ളത് | വർണ്ണപ്പകിട്ടുള്ള | ഹംസം</annotation>
+		<annotation cp="🦩" type="tts">ഹംസം</annotation>
 		<annotation cp="🦚">അഭിമാനം | ആൺമയിൽ | പക്ഷി | പെൺമയിൽ | പ്രകടിപ്പിക്കുന്നത്</annotation>
 		<annotation cp="🦚" type="tts">ആൺമയിൽ</annotation>
 		<annotation cp="🦜">തത്ത | പക്ഷി | പൈറേറ്റ് | സംസാരിക്കുക</annotation>
@@ -1075,14 +1229,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐙" type="tts">നീരാളി</annotation>
 		<annotation cp="🐚">കക്ക | ചിപ്പി | ശംഖ് | ഷെൽ</annotation>
 		<annotation cp="🐚" type="tts">ചിപ്പി</annotation>
-		<annotation cp="🦀">ഞണ്ട് | രാശി ചക്രം</annotation>
-		<annotation cp="🦀" type="tts">ഞണ്ട്</annotation>
-		<annotation cp="🦞">കടൽവിഭവം | കൊഞ്ച് | ജന്തുക്കളുടെ നഖം | ബിസ്‌ക്</annotation>
-		<annotation cp="🦞" type="tts">കൊഞ്ച്</annotation>
-		<annotation cp="🦐">കൊഞ്ച് | ചെമ്മീൻ | മൽസ്യം | മീൻ</annotation>
-		<annotation cp="🦐" type="tts">ചെമ്മീൻ</annotation>
-		<annotation cp="🦑">കണവ | കൂന്തൾ | മൽസ്യം</annotation>
-		<annotation cp="🦑" type="tts">കൂന്തൾ</annotation>
 		<annotation cp="🐌">ഒച്ച് | പ്രാണി | മൃഗം</annotation>
 		<annotation cp="🐌" type="tts">ഒച്ച്</annotation>
 		<annotation cp="🦋">ചിത്രശലഭം | പൂമ്പാറ്റ</annotation>
@@ -1165,7 +1311,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🍌" type="tts">വാഴപ്പഴം</annotation>
 		<annotation cp="🍍">കൈതച്ചക്ക | പഴം | പുറുത്തിച്ചക്ക | പൈനാപ്പിൾ</annotation>
 		<annotation cp="🍍" type="tts">കൈതച്ചക്ക</annotation>
-		<annotation cp="🥭" draft="contributed">മാങ്ങ</annotation>
+		<annotation cp="🥭">മാങ്ങ</annotation>
 		<annotation cp="🥭" type="tts">മാങ്ങ</annotation>
 		<annotation cp="🍎">ആപ്പിൾ | ചുവന്ന ആപ്പിൾ | പഴം | റെഡ്</annotation>
 		<annotation cp="🍎" type="tts">ചുവന്ന ആപ്പിൾ</annotation>
@@ -1199,10 +1345,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌶" type="tts">ചുവന്ന മുളക്</annotation>
 		<annotation cp="🥒">പച്ചക്കറി | ഭക്ഷണം | വെള്ളരിക്ക</annotation>
 		<annotation cp="🥒" type="tts">വെള്ളരിക്ക</annotation>
-		<annotation cp="🥬" draft="contributed">പച്ചില നിറഞ്ഞ</annotation>
+		<annotation cp="🥬">പച്ചില നിറഞ്ഞ</annotation>
 		<annotation cp="🥬" type="tts">പച്ചില നിറഞ്ഞ</annotation>
 		<annotation cp="🥦">പച്ചക്കറി | ബ്രോക്കോളി</annotation>
 		<annotation cp="🥦" type="tts">ബ്രോക്കോളി</annotation>
+		<annotation cp="🧄">വെളുത്തുള്ളി | സ്വാദിഷ്‌ഠമാക്കൽ</annotation>
+		<annotation cp="🧄" type="tts">വെളുത്തുള്ളി</annotation>
+		<annotation cp="🧅">ഉള്ളി | സ്വാദിഷ്‌ഠമാക്കൽ</annotation>
+		<annotation cp="🧅" type="tts">ഉള്ളി</annotation>
 		<annotation cp="🍄">കൂൺ | സസ്യം</annotation>
 		<annotation cp="🍄" type="tts">കൂൺ</annotation>
 		<annotation cp="🥜">കടല | നിലക്കടല | ഭക്ഷണം</annotation>
@@ -1217,10 +1367,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥖" type="tts">ബാഗെറ്റ് ബ്രെഡ്</annotation>
 		<annotation cp="🥨">പ്രെറ്റ്‌സൽ | ഭക്ഷണം | യൂറോപ്പ്</annotation>
 		<annotation cp="🥨" type="tts">പ്രെറ്റ്‌സൽ</annotation>
-		<annotation cp="🥯" draft="contributed">ബാഗെൽ</annotation>
+		<annotation cp="🥯">ബാഗെൽ</annotation>
 		<annotation cp="🥯" type="tts">ബാഗെൽ</annotation>
 		<annotation cp="🥞">കേക്ക് | പാൻ കേക്ക് | ഭക്ഷണം</annotation>
 		<annotation cp="🥞" type="tts">പാൻ കേക്ക്</annotation>
+		<annotation cp="🧇">ഇരുമ്പ് | ഉറപ്പില്ലാത്തത് | വേഫിൾ</annotation>
+		<annotation cp="🧇" type="tts">വേഫിൾ</annotation>
 		<annotation cp="🧀">ചീസ് | പാൽക്കട്ടി</annotation>
 		<annotation cp="🧀" type="tts">പാൽക്കട്ടി</annotation>
 		<annotation cp="🍖">എല്ലിൽ മാംസം | എല്ല്ല് | ഭക്ഷണം | മാംസം | ഹോട്ടൽ</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">ബറീറ്റോ</annotation>
 		<annotation cp="🥙">കബാബ് | ബ്രെഡ് | സ്റ്റഫ് ചെയ്ത ഫ്ലാറ്റ്‌ബ്രെഡ് | സ്റ്റഫ് ചെയ്തത്</annotation>
 		<annotation cp="🥙" type="tts">സ്റ്റഫ് ചെയ്ത ഫ്ലാറ്റ്‌ബ്രെഡ്</annotation>
+		<annotation cp="🧆">കടല | ഫലാഫൽ | മീറ്റ്‌ബോൾ</annotation>
+		<annotation cp="🧆" type="tts">ഫലാഫൽ</annotation>
 		<annotation cp="🥚">ഭക്ഷണം | മുട്ട</annotation>
 		<annotation cp="🥚" type="tts">മുട്ട</annotation>
 		<annotation cp="🍳">ഓംലെറ്റ് | കുക്കിംഗ് | കോഴിമുട്ട | പാചകം | ഫ്രയിംഗ് പാൻ | ഭക്ഷണം | ഹോട്ടൽ</annotation>
@@ -1261,7 +1415,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">ഗ്രീൻ സാലഡ്</annotation>
 		<annotation cp="🍿">പോപ്‌കോൺ | ലഘുഭക്ഷണം</annotation>
 		<annotation cp="🍿" type="tts">പോപ്‌കോൺ</annotation>
-		<annotation cp="🧂" draft="contributed">ഉപ്പ്</annotation>
+		<annotation cp="🧈">പാലുൽപ്പന്നം | ബട്ടർ</annotation>
+		<annotation cp="🧈" type="tts">ബട്ടർ</annotation>
+		<annotation cp="🧂">ഉപ്പ്</annotation>
 		<annotation cp="🧂" type="tts">ഉപ്പ്</annotation>
 		<annotation cp="🥫">ക്യാൻ | ടിൻ | ടിന്നിലടച്ച ഭക്ഷണം</annotation>
 		<annotation cp="🥫" type="tts">ടിന്നിലടച്ച ഭക്ഷണം</annotation>
@@ -1289,7 +1445,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🍤" type="tts">പൊരിച്ച കൊഞ്ച്</annotation>
 		<annotation cp="🍥">കേക്ക് | ഫിഷ് കേക്ക് | ഫിഷ് കേക്ക് ചുരുൾ | ഭക്ഷണം | മീൻ കേക്ക് | ഹോട്ടൽ</annotation>
 		<annotation cp="🍥" type="tts">ഫിഷ് കേക്ക് ചുരുൾ</annotation>
-		<annotation cp="🥮" draft="contributed">മൂൺ കേക്ക്</annotation>
+		<annotation cp="🥮">മൂൺ കേക്ക്</annotation>
 		<annotation cp="🥮" type="tts">മൂൺ കേക്ക്</annotation>
 		<annotation cp="🍡">ആഹാരം | ഡാംഗോ | ഫാസ്റ്റ് ഫുഡ് | ഭക്ഷണം | മൊച്ചി | ഹോട്ടൽ</annotation>
 		<annotation cp="🍡" type="tts">ഡാംഗോ</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">ഫോർച്യൂൺ കുക്കി</annotation>
 		<annotation cp="🥡">ഓയ്‌സ്റ്റർ പെയിൽ | ടേക്ക്ഔട്ട് ബോക്‌സ്</annotation>
 		<annotation cp="🥡" type="tts">ടേക്ക്ഔട്ട് ബോക്‌സ്</annotation>
+		<annotation cp="🦀">ഞണ്ട് | രാശി ചക്രം</annotation>
+		<annotation cp="🦀" type="tts">ഞണ്ട്</annotation>
+		<annotation cp="🦞">കടൽവിഭവം | കൊഞ്ച് | ജന്തുക്കളുടെ നഖം | ബിസ്‌ക്</annotation>
+		<annotation cp="🦞" type="tts">കൊഞ്ച്</annotation>
+		<annotation cp="🦐">കൊഞ്ച് | ചെമ്മീൻ | മൽസ്യം | മീൻ</annotation>
+		<annotation cp="🦐" type="tts">ചെമ്മീൻ</annotation>
+		<annotation cp="🦑">കണവ | കൂന്തൾ | മൽസ്യം</annotation>
+		<annotation cp="🦑" type="tts">കൂന്തൾ</annotation>
+		<annotation cp="🦪">ഡൈവിംഗ് | മുത്തുച്ചിപ്പി | മുത്ത്</annotation>
+		<annotation cp="🦪" type="tts">മുത്തുച്ചിപ്പി</annotation>
 		<annotation cp="🍦">ഐസ് ക്രീം | ഐസ്ക്രീം | ഭക്ഷണം | സോഫ്റ്റ് ഐസ് ക്രീം | സോഫ്‌റ്റ് ഐസ്‌ക്രീം | ഹോട്ടൽ</annotation>
 		<annotation cp="🍦" type="tts">സോഫ്‌റ്റ് ഐസ്‌ക്രീം</annotation>
 		<annotation cp="🍧">ഐസ് | ഐസ്‌ക്രീം | ഭക്ഷണം | ഷേവ്ഡ് ഐസ് | ഹോട്ടൽ</annotation>
@@ -1313,7 +1479,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎂" type="tts">പിറന്നാൾ കേക്ക്</annotation>
 		<annotation cp="🍰">കേക്ക് | കേക്ക് കഷ്‌ണം | ചെറിയ കേക്ക് | ബേക്കറി | ഭക്ഷണം | മുറിച്ച കേക്ക് | ഹോട്ടൽ</annotation>
 		<annotation cp="🍰" type="tts">മുറിച്ച കേക്ക്</annotation>
-		<annotation cp="🧁" draft="contributed">കപ്പ് കേക്ക്</annotation>
+		<annotation cp="🧁">കപ്പ് കേക്ക്</annotation>
 		<annotation cp="🧁" type="tts">കപ്പ് കേക്ക്</annotation>
 		<annotation cp="🥧">അട | പേസ്ട്രി | പൈ | ഫില്ലിംഗ്</annotation>
 		<annotation cp="🥧" type="tts">പൈ</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">ടംബ്ലർ ഗ്ലാസ്</annotation>
 		<annotation cp="🥤">കപ്പും സ്‌ട്രോയും | ജ്യൂസ് | സോഡ</annotation>
 		<annotation cp="🥤" type="tts">കപ്പും സ്‌ട്രോയും</annotation>
+		<annotation cp="🧃">ജ്യൂസ് ബോക്‌സ് | ബിവറേജ് ബോക്‌സ്</annotation>
+		<annotation cp="🧃" type="tts">ബിവറേജ് ബോക്‌സ്</annotation>
+		<annotation cp="🧉">പാനീയം | മെയ്‌റ്റ്</annotation>
+		<annotation cp="🧉" type="tts">മെയ്‌റ്റ്</annotation>
+		<annotation cp="🧊">ഐസ് ക്യൂബ് | തണുത്തത് | മഞ്ഞുമല</annotation>
+		<annotation cp="🧊" type="tts">ഐസ് ക്യൂബ്</annotation>
 		<annotation cp="🥢">ചൈനീസ് | ചോപ്പ്‌സ്‌റ്റിക്‌സ് | ന്യൂഡിൽസ് | ഹാഷി</annotation>
 		<annotation cp="🥢" type="tts">ചോപ്പ്‌സ്‌റ്റിക്‌സ്</annotation>
 		<annotation cp="🍽">കത്തി | കത്തിയും മുള്ളുമുള്ള പ്ലേറ്റ് | ഡൈനിംഗ് ടേബിൾ | പ്രാചകം | പ്ലേറ്റ് | ഫോർക്ക് | മുള്ള് | ഹോട്ടൽ</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">പള്ളി</annotation>
 		<annotation cp="🕌">ഇസ്ലാം പള്ളി | നിസ്‌ക്കാരം | മതം | മുസ്ലീം പള്ളി</annotation>
 		<annotation cp="🕌" type="tts">മുസ്ലീം പള്ളി</annotation>
+		<annotation cp="🛕">ക്ഷേത്രം | ഹിന്ദു</annotation>
+		<annotation cp="🛕" type="tts">ഹിന്ദു ക്ഷേത്രം</annotation>
 		<annotation cp="🕍">ജൂതദേവാലയം | ജൂതപള്ളി | ജൂതമതം</annotation>
 		<annotation cp="🕍" type="tts">ജൂതദേവാലയം</annotation>
 		<annotation cp="⛩">ജപ്പാനിലെ പൂർവ്വിക മത ദേവാലയം | ജപ്പാൻ | മതം | ഷിന്റോ ഷ്രൈൻ</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">പാലത്തിന്റെ നിശാദൃശ്യം</annotation>
 		<annotation cp="♨">ഉറവ | ചൂടുറവകൾ</annotation>
 		<annotation cp="♨" type="tts">ചൂടുറവകൾ</annotation>
-		<annotation cp="🌌">ആകാശഗംഗ | മിൽക്കി വേ</annotation>
-		<annotation cp="🌌" type="tts">ആകാശഗംഗ</annotation>
 		<annotation cp="🎠">കറങ്ങും കുതിര | കുതിര യന്ത്രം | യന്ത്രക്കുതിര | സവാരി</annotation>
 		<annotation cp="🎠" type="tts">യന്ത്രക്കുതിര</annotation>
 		<annotation cp="🎡">കറങ്ങും കുതിര | കുതിര യന്ത്രം | ഫെരിസ് വീൽ | സവാരി</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">ആർട്ടിക്കുലേറ്റഡ് ലോറി</annotation>
 		<annotation cp="🚜">ട്രാക്‌റ്റർ | വാഹനം</annotation>
 		<annotation cp="🚜" type="tts">ട്രാക്‌റ്റർ</annotation>
+		<annotation cp="🏎">കാർ | റേസിംഗ്</annotation>
+		<annotation cp="🏎" type="tts">റേസിംഗ് കാർ</annotation>
+		<annotation cp="🏍">ബൈക്ക് | മോട്ടോർസൈക്കിൾ | റേസിംഗ്</annotation>
+		<annotation cp="🏍" type="tts">മോട്ടോർസൈക്കിൾ</annotation>
+		<annotation cp="🛵">മോട്ടോർ | സ്കൂട്ടർ</annotation>
+		<annotation cp="🛵" type="tts">മോട്ടോർ സ്കൂട്ടർ</annotation>
+		<annotation cp="🦽">ആക്‌സസബിലിറ്റി | മാന്വൽ വീൽചെയർ</annotation>
+		<annotation cp="🦽" type="tts">മാന്വൽ വീൽചെയർ</annotation>
+		<annotation cp="🦼">ആക്‌സസബിലിറ്റി | മോട്ടോറൈസ്‌ഡ് വീൽചെയർ</annotation>
+		<annotation cp="🦼" type="tts">മോട്ടോറൈസ്‌ഡ് വീൽചെയർ</annotation>
+		<annotation cp="🛺">ഓട്ടോറിക്ഷ | ടക്ക് ടക്ക്</annotation>
+		<annotation cp="🛺" type="tts">ഓട്ടോറിക്ഷ</annotation>
 		<annotation cp="🚲">വാഹനം | സൈക്കിൾ</annotation>
 		<annotation cp="🚲" type="tts">സൈക്കിൾ</annotation>
 		<annotation cp="🛴">കിക്ക് | സ്കൂട്ടർ</annotation>
 		<annotation cp="🛴" type="tts">കിക്ക് സ്കൂട്ടർ</annotation>
 		<annotation cp="🛹">ബോർഡ് | സ്‌കേറ്റ്‌ബോർഡ്</annotation>
 		<annotation cp="🛹" type="tts">സ്‌കേറ്റ്‌ബോർഡ്</annotation>
-		<annotation cp="🛵">മോട്ടോർ | സ്കൂട്ടർ</annotation>
-		<annotation cp="🛵" type="tts">മോട്ടോർ സ്കൂട്ടർ</annotation>
 		<annotation cp="🚏">ബസ് | സ്റ്റോപ്പ്</annotation>
 		<annotation cp="🚏" type="tts">ബസ് സ്റ്റോപ്പ്</annotation>
 		<annotation cp="🛣">മോട്ടോർവേ | ഹൈവേ | റോഡ്</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">വിമാനത്തിന്റെ പുറപ്പെടൽ</annotation>
 		<annotation cp="🛬">എത്തിച്ചേരലുകൾ | എത്തിച്ചേരുന്നു | ലാൻഡുചെയ്യുന്നു | വാഹനം | വിമാനം | വിമാനം എത്തിച്ചേരൽ</annotation>
 		<annotation cp="🛬" type="tts">വിമാനം എത്തിച്ചേരൽ</annotation>
+		<annotation cp="🪂">പാരച്യൂട്ട് | പാരാസെയിൽ | സ്‌കൈഡൈവ് | ഹാംഗ്-ഗ്ലൈഡ്</annotation>
+		<annotation cp="🪂" type="tts">പാരച്യൂട്ട്</annotation>
 		<annotation cp="💺">കസേര | സീറ്റ്</annotation>
 		<annotation cp="💺" type="tts">സീറ്റ്</annotation>
 		<annotation cp="🚁">വാഹനം | ഹെലികോപ്റ്റർ</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">പൂർണ്ണചന്ദ്രന്റെ മുഖം</annotation>
 		<annotation cp="🌞">സൂര്യനിൽ മുഖം | സൂര്യൻ</annotation>
 		<annotation cp="🌞" type="tts">സൂര്യനിൽ മുഖം</annotation>
+		<annotation cp="🪐">വളയങ്ങളുള്ള ഗ്രഹം | ശനി | ശനിഗ്രഹം</annotation>
+		<annotation cp="🪐" type="tts">വളയങ്ങളുള്ള ഗ്രഹം</annotation>
 		<annotation cp="⭐">താരം | നക്ഷത്രം | വെള്ള നക്ഷത്രം</annotation>
 		<annotation cp="⭐" type="tts">വെള്ള നക്ഷത്രം</annotation>
 		<annotation cp="🌟">ക്രിസ്മസ് | തിളക്കം | തിളങ്ങുന്ന നക്ഷത്രം | നക്ഷത്രം | മിന്നുന്ന നക്ഷത്രം</annotation>
 		<annotation cp="🌟" type="tts">തിളങ്ങുന്ന നക്ഷത്രം</annotation>
 		<annotation cp="🌠">നക്ഷത്രം | വാൽനക്ഷത്രം | വീഴുന്ന നക്ഷത്രം</annotation>
 		<annotation cp="🌠" type="tts">വാൽനക്ഷത്രം</annotation>
+		<annotation cp="🌌">ആകാശഗംഗ | മിൽക്കി വേ</annotation>
+		<annotation cp="🌌" type="tts">ആകാശഗംഗ</annotation>
 		<annotation cp="☁">കാലാവസ്ഥ | മേഘം</annotation>
 		<annotation cp="☁" type="tts">മേഘം</annotation>
 		<annotation cp="⛅">മേഘം | മേഘങ്ങൾക്ക് പിന്നിലെ സൂര്യൻ | സൂര്യൻ | സൂര്യൻ മേഘാവൃതം</annotation>
@@ -1869,6 +2057,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">ഐസ് സ്‌കേറ്റ്</annotation>
 		<annotation cp="🎣">ചൂണ്ട | ചൂണ്ടയും മീനും | മീൻ</annotation>
 		<annotation cp="🎣" type="tts">ചൂണ്ടയും മീനും</annotation>
+		<annotation cp="🤿">ഡൈവിംഗ് | ഡൈവിംഗ് മാസ്‌ക് | സ്‌കൂബ | സ്‌നോർകെലിംഗ്</annotation>
+		<annotation cp="🤿" type="tts">ഡൈവിംഗ് മാസ്‌ക്</annotation>
 		<annotation cp="🎽">ഓട്ടം | വ്യായാമം | വ്യായാമ വസ്ത്രം | സാഷുള്ള ഷർട്ട്</annotation>
 		<annotation cp="🎽" type="tts">വ്യായാമ വസ്ത്രം</annotation>
 		<annotation cp="🎿">ബൂട്ട് | സ്കീ | സ്കീയിംഗ് | സ്പോർട്സ്</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">കർളിംഗ് സ്റ്റോൺ</annotation>
 		<annotation cp="🎯">ഉന്നം | ഗെയിം | ഡയറക്റ്റ് ഹിറ്റ് | ബുൾ | ബുൾസ്‌ ഐ | ലക്ഷ്യം</annotation>
 		<annotation cp="🎯" type="tts">ഡയറക്റ്റ് ഹിറ്റ്</annotation>
+		<annotation cp="🪀">ഇളകുക | കളിപ്പാട്ടം | യോ-യോ</annotation>
+		<annotation cp="🪀" type="tts">യോ-യോ</annotation>
+		<annotation cp="🪁">ഉയരുക | പട്ടം | പറക്കുക</annotation>
+		<annotation cp="🪁" type="tts">പട്ടം</annotation>
 		<annotation cp="🎱">ഗെയിം | ബില്യാർഡ് | ബില്യാർഡ്‌സ്</annotation>
 		<annotation cp="🎱" type="tts">ബില്യാർഡ്‌സ്</annotation>
 		<annotation cp="🔮">ക്രിസ്റ്റൽ | ബോൾ | ഭാവി | ഭാവി പ്രവചനം</annotation>
@@ -1923,6 +2117,92 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">നൂൽ</annotation>
 		<annotation cp="🧶">ചണം | തുന്നൽപ്പണി | നെയ്യുക | ബോൾ</annotation>
 		<annotation cp="🧶" type="tts">ചണം</annotation>
+		<annotation cp="👓">കണ്ണട | കണ്ണടകൾ | വസ്ത്രം | സൺ ഗ്ലാസ്സ്</annotation>
+		<annotation cp="👓" type="tts">കണ്ണട</annotation>
+		<annotation cp="🕶">കണ്ണട | കണ്ണടകൾ | കണ്ണ് | കറുപ്പ് | സൺഗ്ലാസ്</annotation>
+		<annotation cp="🕶" type="tts">സൺഗ്ലാസ്</annotation>
+		<annotation cp="🥽">കണ്ണടകൾ | കണ്ണിന്റെ സുരക്ഷ | നീന്തൽ | വെൽഡിംഗ്</annotation>
+		<annotation cp="🥽" type="tts">കണ്ണടകൾ</annotation>
+		<annotation cp="🥼">ഡോക്‌ടർ | പരീക്ഷണം | ലാബ് കോട്ട് | ശാസ്‌ത്രജ്ഞൻ</annotation>
+		<annotation cp="🥼" type="tts">ലാബ് കോട്ട്</annotation>
+		<annotation cp="🦺">അടിയന്തിരസഹചര്യം | വസ്‌ത്രം | സുരക്ഷ | സുരക്ഷാ വസ്‌ത്രം</annotation>
+		<annotation cp="🦺" type="tts">സുരക്ഷാ വസ്‌ത്രം</annotation>
+		<annotation cp="👔">ടൈ | നെക്ക് ടൈ | വസ്ത്രം</annotation>
+		<annotation cp="👔" type="tts">നെക്ക് ടൈ</annotation>
+		<annotation cp="👕">ടീഷർട്ട് | വസ്ത്രം | ഷർട്ട്</annotation>
+		<annotation cp="👕" type="tts">ടീഷർട്ട്</annotation>
+		<annotation cp="👖">ജീൻസ് | ട്രൗസർ | പാന്റ്സ് | വസ്ത്രം</annotation>
+		<annotation cp="👖" type="tts">ജീൻസ്</annotation>
+		<annotation cp="🧣">കഴുത്ത് | ഷാൾ | സ്‌കാർഫ്</annotation>
+		<annotation cp="🧣" type="tts">സ്‌കാർഫ്</annotation>
+		<annotation cp="🧤">കയ്യുറകൾ | കൈ</annotation>
+		<annotation cp="🧤" type="tts">കയ്യുറകൾ</annotation>
+		<annotation cp="🧥">കോട്ട് | ജാക്കറ്റ്</annotation>
+		<annotation cp="🧥" type="tts">കോട്ട്</annotation>
+		<annotation cp="🧦">കാലുറ | സോക്‌സ്</annotation>
+		<annotation cp="🧦" type="tts">സോക്‌സ്</annotation>
+		<annotation cp="👗">വൺ-പീസ് | വസ്ത്രം</annotation>
+		<annotation cp="👗" type="tts">വസ്ത്രം</annotation>
+		<annotation cp="👘">കിമോണോ | ഡ്രസ്സ് | വസ്ത്രം</annotation>
+		<annotation cp="👘" type="tts">കിമോണോ</annotation>
+		<annotation cp="🥻">വസ്‌ത്രം | സാരി</annotation>
+		<annotation cp="🥻" type="tts">സാരി</annotation>
+		<annotation cp="🩱">ഒറ്റ പീസ് നീന്തൽ വസ്‌ത്രം | ബാത്തിംഗ് സ്യൂട്ട്</annotation>
+		<annotation cp="🩱" type="tts">ഒറ്റ പീസ് നീന്തൽ വസ്‌ത്രം</annotation>
+		<annotation cp="🩲">അടിവസ്‌ത്രം | നീന്തൽ വസ്‌ത്രം | ബാത്തിംഗ് സ്യൂട്ട് | വൺ-പീസ്</annotation>
+		<annotation cp="🩲" type="tts">അടിവസ്‌ത്രം</annotation>
+		<annotation cp="🩳">അടിവസ്‌ത്രം | പാന്റ്സ് | ബാത്തിംഗ് സ്യൂട്ട് | ഷോർട്‌സ്</annotation>
+		<annotation cp="🩳" type="tts">ഷോർട്‌സ്</annotation>
+		<annotation cp="👙">നീന്തൽ വസ്ത്രം | ബിക്കിനി | വസ്ത്രം</annotation>
+		<annotation cp="👙" type="tts">ബിക്കിനി</annotation>
+		<annotation cp="👚">വസ്ത്രം | സ്ത്രീകളുടെ വസ്ത്രം</annotation>
+		<annotation cp="👚" type="tts">സ്ത്രീകളുടെ വസ്ത്രം</annotation>
+		<annotation cp="👛">കോയിൻ | നാണയം | പേഴ്‌സ് | വസ്ത്രം</annotation>
+		<annotation cp="👛" type="tts">പേഴ്‌സ്</annotation>
+		<annotation cp="👜">ബാഗ് | വസ്ത്രം | ഹാൻഡ് ബാഗ്</annotation>
+		<annotation cp="👜" type="tts">ഹാൻഡ് ബാഗ്</annotation>
+		<annotation cp="👝">ക്ലച്ച് ബാഗ് | ബാഗ് | വസ്ത്രം</annotation>
+		<annotation cp="👝" type="tts">ക്ലച്ച് ബാഗ്</annotation>
+		<annotation cp="🛍">ബാഗ് | ഷോപ്പിംഗ് | ഷോപ്പിംഗ് ബാഗുകൾ | ഹോട്ടൽ</annotation>
+		<annotation cp="🛍" type="tts">ഷോപ്പിംഗ് ബാഗുകൾ</annotation>
+		<annotation cp="🎒">ബാഗ് | സഞ്ചി | സ്‌കൂൾ</annotation>
+		<annotation cp="🎒" type="tts">സ്‌കൂൾ ബാഗ്</annotation>
+		<annotation cp="👞">പുരുഷന്മാരുടെ ഷൂ | വസ്ത്രം | ഷൂ</annotation>
+		<annotation cp="👞" type="tts">പുരുഷന്മാരുടെ ഷൂ</annotation>
+		<annotation cp="👟">അത്‌ലറ്റിക് ഷൂ | അത്‌ലെറ്റിക് | വസ്‌ത്രം | ഷൂ | സ്‌നീക്കർ</annotation>
+		<annotation cp="👟" type="tts">അത്‌ലറ്റിക് ഷൂ</annotation>
+		<annotation cp="🥾">ക്യാമ്പിംഗ് | ബാക്ക്‌പാക്കിംഗ് | ബൂട്ട് | ഹൈക്കിംഗ്</annotation>
+		<annotation cp="🥾" type="tts">ഹൈക്കിംഗ് ബൂട്ട്</annotation>
+		<annotation cp="🥿">ഫ്ലാറ്റ് ഷൂ | ബാലറ്റ് ഫ്ലാറ്റ് | സ്ലിപ്പർ | സ്ലിപ്പ്-ഓൺ</annotation>
+		<annotation cp="🥿" type="tts">ഫ്ലാറ്റ് ഷൂ</annotation>
+		<annotation cp="👠">വസ്‌ത്രം | ഷൂ | സ്‌ത്രീ | ഹീൽ | ഹൈ ഹീൽ ഷൂ</annotation>
+		<annotation cp="👠" type="tts">ഹൈ ഹീൽ ഷൂ</annotation>
+		<annotation cp="👡">പാദരക്ഷ | വനിത | വസ്ത്രം | വിമൻസ് സാൻഡൽ | ഷൂ | സാൻഡൽ | സ്‌ത്രീകളുടെ ചെരുപ്പ്</annotation>
+		<annotation cp="👡" type="tts">സ്‌ത്രീകളുടെ ചെരുപ്പ്</annotation>
+		<annotation cp="🩰">നൃത്തം | ബാലെ | ബാലേ ഷൂസ്</annotation>
+		<annotation cp="🩰" type="tts">ബാലേ ഷൂസ്</annotation>
+		<annotation cp="👢">പാദരക്ഷ | ബൂട്ട് | വനിത | വസ്ത്രം | വിമൻസ് ബൂട്ട് | സ്‌ത്രീകളുടെ ബൂട്ട്</annotation>
+		<annotation cp="👢" type="tts">സ്‌ത്രീകളുടെ ബൂട്ട്</annotation>
+		<annotation cp="👑">കിരീടം | രാജാവ് | രാജ്ഞി | വസ്‌ത്രം</annotation>
+		<annotation cp="👑" type="tts">കിരീടം</annotation>
+		<annotation cp="👒">തൊപ്പി | വനിതാ ഹാറ്റ് | വസ്‌ത്രം | സ്‌ത്രീ | സ്‌ത്രീകളുടെ തൊപ്പി | ഹാറ്റ്</annotation>
+		<annotation cp="👒" type="tts">സ്‌ത്രീകളുടെ തൊപ്പി</annotation>
+		<annotation cp="🎩">ക്യാപ്പ് | ടോപ്പ് | തൊപ്പി | വസ്‌ത്രം | ഹാറ്റ്</annotation>
+		<annotation cp="🎩" type="tts">തൊപ്പി</annotation>
+		<annotation cp="🎓">ആഘോഷം | ക്യാപ്പ് | ഗ്രാജ്യുവേഷൻ ക്യാപ്പ് | ബിരുദം | ബിരുദ ക്യാപ്പ് | ബിരുദദാന തൊപ്പി | വസ്‌ത്രം | ഹാറ്റ്</annotation>
+		<annotation cp="🎓" type="tts">ബിരുദ ക്യാപ്പ്</annotation>
+		<annotation cp="🧢">കളിക്കാരുടെ തൊപ്പി | ബേസ്‌ബോൾ തൊപ്പി</annotation>
+		<annotation cp="🧢" type="tts">കളിക്കാരുടെ തൊപ്പി</annotation>
+		<annotation cp="⛑">കുരിശ് | പരിരക്ഷ | മുഖം | വെളുത്ത കുരിശുള്ള ഹെൽമെറ്റ് | ഹെൽമെറ്റ്</annotation>
+		<annotation cp="⛑" type="tts">വെളുത്ത കുരിശുള്ള ഹെൽമെറ്റ്</annotation>
+		<annotation cp="📿">ജപമാല | നെക്ക്‌ലേസ് | പ്രാർത്ഥന | മണികൾ | മതം | വസ്‌ത്രം</annotation>
+		<annotation cp="📿" type="tts">ജപമാല</annotation>
+		<annotation cp="💄">കോസ്മെറ്റിക്സ് | മെയ്ക്കപ്പ് | ലിപ്‌സ്റ്റിക്ക് | സൗന്ദര്യം</annotation>
+		<annotation cp="💄" type="tts">ലിപ്‌സ്റ്റിക്ക്</annotation>
+		<annotation cp="💍">പ്രണയം | മോതിരം | റിംഗ് | റൊമാൻസ്</annotation>
+		<annotation cp="💍" type="tts">മോതിരം</annotation>
+		<annotation cp="💎">ഡയമണ്ട് | പ്രണയം | വൈരം | വൈരക്കല്ല് | റൊമാൻസ്</annotation>
+		<annotation cp="💎" type="tts">വൈരക്കല്ല്</annotation>
 		<annotation cp="🔇">സംസാരം പാടില്ല | സംസാരിക്കരുത് | സ്പീക്കർ ഓഫ്</annotation>
 		<annotation cp="🔇" type="tts">സ്പീക്കർ ഓഫ്</annotation>
 		<annotation cp="🔈">കുറഞ്ഞ ശബ്‌ദമുള്ള സ്‌പീക്കർ | ലൗഡ്സ്പീക്കർ</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">ട്രംപറ്റ്</annotation>
 		<annotation cp="🎻">കീബോർഡ് | വയലിൻ | സംഗീതം | സംഗീതോപകരണം</annotation>
 		<annotation cp="🎻" type="tts">വയലിൻ</annotation>
+		<annotation cp="🪕">തന്ത്രികൾ ഉള്ളത് | ബാഞ്ചോ | മ്യൂസിക്</annotation>
+		<annotation cp="🪕" type="tts">ബാഞ്ചോ</annotation>
 		<annotation cp="🥁">ചെണ്ട | ചെണ്ടക്കോൽ | ശബ്ദം</annotation>
 		<annotation cp="🥁" type="tts">ചെണ്ട</annotation>
 		<annotation cp="📱">ആശയവിനിമയം | ഫോൺ | മൊബൈൽ | സെൽ ഫോൺ</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">ടോർച്ച്</annotation>
 		<annotation cp="🏮">ഇസകയ | ചുവന്ന റാന്തൽ | റാന്തൽ വിളക്ക്</annotation>
 		<annotation cp="🏮" type="tts">റാന്തൽ വിളക്ക്</annotation>
+		<annotation cp="🪔">എണ്ണ | ദിയാ | വിളക്ക്</annotation>
+		<annotation cp="🪔" type="tts">ദിയാ വിളക്ക്</annotation>
 		<annotation cp="📔">അലങ്കരിച്ച നോട്ട് ബുക്ക് | അലങ്കാരമുള്ള നോട്ട് ബുക്ക് | ഭംഗിയുള്ള കവർ | ഭംഗിയുള്ള കവറുള്ള നോട്ട്ബുക്ക്</annotation>
 		<annotation cp="📔" type="tts">ഭംഗിയുള്ള കവറുള്ള നോട്ട്ബുക്ക്</annotation>
 		<annotation cp="📕">അടച്ച പുസ്തകം | അടഞ്ഞ പുസ്‌തകം | പുസ്തകം</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">പഴയ താക്കോൽ</annotation>
 		<annotation cp="🔨">ഉപകരണം | ചുറ്റിക</annotation>
 		<annotation cp="🔨" type="tts">ചുറ്റിക</annotation>
+		<annotation cp="🪓">കോടാലി | ചെറുകോടാലി | തടി | പിളർപ്പ് | മുറിക്കുക</annotation>
+		<annotation cp="🪓" type="tts">കോടാലി</annotation>
 		<annotation cp="⛏">ഉപകരണം | കുഴിക്കുക | പിക്ക്</annotation>
 		<annotation cp="⛏" type="tts">പിക്ക്</annotation>
 		<annotation cp="⚒">ഉപകരണം | ചുറ്റിക | ചുറ്റികയും പിക്കും | പിക്ക്</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">ക്ലാമ്പ്</annotation>
 		<annotation cp="⚖">ഉപകരണം | തുലനം | തുലാസ് | നീതി | ഭാരം | രാശിചക്രം | ലിബ്ര | സോഡിയാക്ക് | സ്‌കെയിൽ</annotation>
 		<annotation cp="⚖" type="tts">തുലാസ്</annotation>
+		<annotation cp="🦯">അന്ധൻ | ആക്‌സസബിലിറ്റി | പ്രോബിംഗ് കാൻ</annotation>
+		<annotation cp="🦯" type="tts">പ്രോബിംഗ് കാൻ</annotation>
 		<annotation cp="🔗">ലിങ്ക് | ലിങ്ക് ചിഹ്നം | സിംബൽ</annotation>
 		<annotation cp="🔗" type="tts">ലിങ്ക്</annotation>
 		<annotation cp="⛓">ചങ്ങല | ചെയിൻ</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">സാറ്റലൈറ്റ് ആന്റിന</annotation>
 		<annotation cp="💉">കുത്തിവയ്പ്പ് | ഡോക്ടർ | മരുന്ന് | സിറിഞ്ച് | സൂചി</annotation>
 		<annotation cp="💉" type="tts">സിറിഞ്ച്</annotation>
+		<annotation cp="🩸">ആർത്തവം | മരുന്ന് | രക്തത്തുള്ളി | രക്തദാനം</annotation>
+		<annotation cp="🩸" type="tts">രക്തത്തുള്ളി</annotation>
 		<annotation cp="💊">ഗുളിക | ഡോക്ടർ | പിൽ | മരുന്ന്</annotation>
 		<annotation cp="💊" type="tts">ഗുളിക</annotation>
+		<annotation cp="🩹">ഒട്ടിക്കുന്ന ബാൻഡേജ് | ബാൻഡേജ്</annotation>
+		<annotation cp="🩹" type="tts">ഒട്ടിക്കുന്ന ബാൻഡേജ്</annotation>
+		<annotation cp="🩺">ഡോക്‌ടർ | മരുന്ന് | സ്റ്റെതസ്‌കോപ്പ് | ഹൃദയം</annotation>
+		<annotation cp="🩺" type="tts">സ്റ്റെതസ്‌കോപ്പ്</annotation>
 		<annotation cp="🚪">വാതിൽ</annotation>
 		<annotation cp="🚪" type="tts">വാതിൽ</annotation>
 		<annotation cp="🛏">ഉറക്കം | ബെഡ് | ഹോട്ടൽ</annotation>
 		<annotation cp="🛏" type="tts">ബെഡ്</annotation>
 		<annotation cp="🛋">കിടക്ക | കിടക്കയും വിളക്കും | വിളക്ക് | ഹോട്ടൽ</annotation>
 		<annotation cp="🛋" type="tts">കിടക്കയും വിളക്കും</annotation>
+		<annotation cp="🪑">ഇരിക്കുക | കസേര | സീറ്റ്</annotation>
+		<annotation cp="🪑" type="tts">കസേര</annotation>
 		<annotation cp="🚽">ടോയ്‌ലറ്റ്</annotation>
 		<annotation cp="🚽" type="tts">ടോയ്‌ലറ്റ്</annotation>
 		<annotation cp="🚿">കുളി | വെള്ളം | ഷവർ</annotation>
 		<annotation cp="🚿" type="tts">ഷവർ</annotation>
 		<annotation cp="🛁">കുളി | ബാത്ത് ടബ്</annotation>
 		<annotation cp="🛁" type="tts">ബാത്ത് ടബ്</annotation>
+		<annotation cp="🪒">കൂർത്തത് | ക്ഷൗരം ചെയ്യുക | റേസർ</annotation>
+		<annotation cp="🪒" type="tts">റേസർ</annotation>
 		<annotation cp="🧴">മോയ്‌ച്ചുറൈസർ | ലോഷൻ | ലോഷൻ ബോട്ടിൽ | ഷാമ്പൂ | സൺസ്‌ക്രീൻ</annotation>
 		<annotation cp="🧴" type="tts">ലോഷൻ ബോട്ടിൽ</annotation>
 		<annotation cp="🧷">ഡയപ്പർ | പങ്ക് റോക്ക് | സേഫ്‌റ്റി പിൻ</annotation>
@@ -2337,7 +2635,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☢" type="tts">റേഡിയോ ആക്‌റ്റീവ്</annotation>
 		<annotation cp="☣">ചിഹ്നം | ബയോഹസാർഡ്</annotation>
 		<annotation cp="☣" type="tts">ബയോഹസാർഡ്</annotation>
-		<annotation cp="⬆">അമ്പടയാളം | കാർഡിനൽ | ദിശ | നോർത്ത് | മുകളിലേക്കുള്ള അമ്പടയാളം | വടക്ക്</annotation>
+		<annotation cp="⬆">അമ്പടയാളം | കാർഡിനൽ | ദിശ | മുകളിലേക്കുള്ള അമ്പടയാളം | വടക്ക്</annotation>
 		<annotation cp="⬆" type="tts">മുകളിലേക്കുള്ള അമ്പടയാളം</annotation>
 		<annotation cp="↗">അമ്പടയാളം | ഇന്റർകാർഡിനൽ | ദിശ | നോർത്ത് ഈസ്‌റ്റ് | മുകളിൽ വലത്തേക്കുള്ള അമ്പടയാളം | വടക്ക് കിഴക്കൻ</annotation>
 		<annotation cp="↗" type="tts">മുകളിൽ വലത്തേക്കുള്ള അമ്പടയാളം</annotation>
@@ -2495,7 +2793,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📛" type="tts">നെയിം ബാഡ്ജ്</annotation>
 		<annotation cp="🔰">ജപ്പാനീസ് | തുടക്കക്കാരൻ | തുടക്കക്കാർക്കുള്ള ജപ്പാനീസ് ചിഹ്നം | പച്ചയും മഞ്ഞയുമായ ഇല | മഞ്ഞയും പച്ചയും</annotation>
 		<annotation cp="🔰" type="tts">തുടക്കക്കാർക്കുള്ള ജപ്പാനീസ് ചിഹ്നം</annotation>
-		<annotation cp="⭕">O | വലിയ വൃത്തം | വൃത്തം | സർക്കിൾ</annotation>
+		<annotation cp="⭕">o | ചുവപ്പ് | വലിയ വൃത്തം | വലുത് | വൃത്തം</annotation>
 		<annotation cp="⭕" type="tts">വലിയ വൃത്തം</annotation>
 		<annotation cp="✅">അടയാളം | ചെക്ക് | ചെക്ക് മാർക്ക് | വെളുത്ത ചെക്ക് അടയാളം</annotation>
 		<annotation cp="✅" type="tts">വെളുത്ത ചെക്ക് അടയാളം</annotation>
@@ -2503,17 +2801,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☑" type="tts">ചെക്ക് അടയാളമുള്ള ബാലറ്റ് പെട്ടി</annotation>
 		<annotation cp="✔">അടയാളം | ചെക്ക് | മാർക്ക് | വലിയ ചെക്ക് അടയാളം</annotation>
 		<annotation cp="✔" type="tts">വലിയ ചെക്ക് അടയാളം</annotation>
-		<annotation cp="✖">x | ഗുണനം | ഗുണിക്കുക | വലിയ ഗുണനചിഹ്നം x | റദ്ദാക്കുക</annotation>
-		<annotation cp="✖" type="tts">വലിയ ഗുണനചിഹ്നം x</annotation>
+		<annotation cp="✖">x | ഗുണനം | ഗുണനചിഹ്നം | ഗുണിക്കുക | വലിയ ഗുണനചിഹ്നം x | റദ്ദാക്കുക</annotation>
+		<annotation cp="✖" type="tts">ഗുണനചിഹ്നം</annotation>
 		<annotation cp="❌">ക്രോസ് മാർക്ക് | ഗുണന ചിഹ്നം | തെറ്റ് അടയാളം</annotation>
 		<annotation cp="❌" type="tts">തെറ്റ് അടയാളം</annotation>
 		<annotation cp="❎">ക്രോസ് മാർക്ക് | ഗുണന ചിഹ്നം | തെറ്റ് അടയാള ബട്ടൺ</annotation>
 		<annotation cp="❎" type="tts">തെറ്റ് അടയാള ബട്ടൺ</annotation>
-		<annotation cp="➕">പ്ലസ് ചിഹ്നം | വലിയ പ്ലസ് ചിഹ്നം</annotation>
-		<annotation cp="➕" type="tts">വലിയ പ്ലസ് ചിഹ്നം</annotation>
-		<annotation cp="➖">മൈനസ് ചിഹ്നം | വലിയ മൈനസ് ചിഹ്നം</annotation>
+		<annotation cp="➕">+ | അധികം | ഗണിതം | ചിഹ്നം</annotation>
+		<annotation cp="➕" type="tts">അധികം</annotation>
+		<annotation cp="➖">- | − | ഗണിതം | ചിഹ്നം | ന്യൂനം | വലിയ മൈനസ് ചിഹ്നം</annotation>
 		<annotation cp="➖" type="tts">വലിയ മൈനസ് ചിഹ്നം</annotation>
-		<annotation cp="➗">വലിയ ഹരണ ചിഹ്നം | ഹരണ ചിഹ്നം</annotation>
+		<annotation cp="➗">÷ | ഗണിതം | ചിഹ്നം | വലിയ ഹരണ ചിഹ്നം | ഹരണം</annotation>
 		<annotation cp="➗" type="tts">വലിയ ഹരണ ചിഹ്നം</annotation>
 		<annotation cp="➰">ഒരു ചുരുളുള്ള ലൂപ്പ് | ചുരുണ്ട ലൂപ്പ്</annotation>
 		<annotation cp="➰" type="tts">ഒരു ചുരുളുള്ള ലൂപ്പ്</annotation>
@@ -2525,30 +2823,28 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="✳" type="tts">എയ്‌റ്റ് സ്‌പോക്ക്ഡ് ആസ്‌റ്റെറിസ്‌ക്ക്</annotation>
 		<annotation cp="✴">എട്ട് ഭുജങ്ങളുള്ള നക്ഷത്രം | നക്ഷത്രം | സ്‌റ്റാർ</annotation>
 		<annotation cp="✴" type="tts">എട്ട് ഭുജങ്ങളുള്ള നക്ഷത്രം</annotation>
-		<annotation cp="❇">തിളക്കം | സ്‌പാർക്കിൾ</annotation>
+		<annotation cp="❇">* | സ്‌പാർക്കിൾ</annotation>
 		<annotation cp="❇" type="tts">സ്‌പാർക്കിൾ</annotation>
 		<annotation cp="‼">ആശ്‌ചര്യചിഹ്നം | ഇരട്ട ആശ്ചര്യ ചിഹ്നം | ബാങ്ബാങ് | വിരാമം</annotation>
 		<annotation cp="‼" type="tts">ഇരട്ട ആശ്ചര്യ ചിഹ്നം</annotation>
-		<annotation cp="⁉">ആശ്‌ചര്യം | ആശ്ചര്യ ചോദ്യ ചിഹ്നം | ഇന്ററോബാങ് ചിഹ്നം | ചോദ്യം | വിരാമം</annotation>
+		<annotation cp="⁉">! | !? | ? | ആശ്ചര്യ ചോദ്യ ചിഹ്നം | ചോദ്യം | വിരാമം</annotation>
 		<annotation cp="⁉" type="tts">ആശ്ചര്യ ചോദ്യ ചിഹ്നം</annotation>
 		<annotation cp="❓">അടയാളം | കറുപ്പ് ചോദ്യ ചിഹ്നം | ചോദ്യം | ചോദ്യ ചിഹ്നം | വിരാമം</annotation>
 		<annotation cp="❓" type="tts">ചോദ്യ ചിഹ്നം</annotation>
-		<annotation cp="❔">അടയാളം | അടിവരയിട്ടത് | ചോദ്യം | വെളുത്ത ചോദ്യ ചിഹ്നം | വെളുപ്പ് ചോദ്യ ചിഹ്നം</annotation>
+		<annotation cp="❔">? | അടിവരയിട്ടത് | ചോദ്യം | വെളുത്ത ചോദ്യ ചിഹ്നം | വെളുപ്പ് ചോദ്യ ചിഹ്നം</annotation>
 		<annotation cp="❔" type="tts">വെളുത്ത ചോദ്യ ചിഹ്നം</annotation>
-		<annotation cp="❕">അടിവരയിട്ടത് | ആശ്‌ചര്യം | ചിഹ്നം | വിരാമം | വെളുത്ത ആശ്ചര്യ ചിഹ്നം</annotation>
+		<annotation cp="❕">! | ആശ്‌ചര്യം | ചിഹ്നം | വിരാമം | വെളുത്ത ആശ്ചര്യ ചിഹ്നം</annotation>
 		<annotation cp="❕" type="tts">വെളുത്ത ആശ്ചര്യ ചിഹ്നം</annotation>
-		<annotation cp="❗">ആശ്‌ചര്യം | ആശ്ചര്യ ചിഹ്നം | ചിഹ്നം | വിരാമം</annotation>
+		<annotation cp="❗">! | ആശ്ചര്യ ചിഹ്നം | ചിഹ്നം | വിരാമം</annotation>
 		<annotation cp="❗" type="tts">ആശ്ചര്യ ചിഹ്നം</annotation>
 		<annotation cp="〰">ഡാഷ് | തരംഗ ഡാഷ് | തിരകൾ | വേവി ഡാഷ്</annotation>
 		<annotation cp="〰" type="tts">വേവി ഡാഷ്</annotation>
-		<annotation cp="©">ചിഹ്നം | പകർപ്പവകാശം | പകർപ്പവകാശ ചിഹ്നം</annotation>
+		<annotation cp="©">C | പകർപ്പവകാശം | പകർപ്പവകാശ ചിഹ്നം</annotation>
 		<annotation cp="©" type="tts">പകർപ്പവകാശ ചിഹ്നം</annotation>
 		<annotation cp="®">ചിഹ്നം | രജിസ്ട്രേഡ് | രജിസ്ട്രേഷൻ ചിഹ്നം | രജിസ്‌റ്റർചെയ്‌തത്</annotation>
 		<annotation cp="®" type="tts">രജിസ്ട്രേഷൻ ചിഹ്നം</annotation>
 		<annotation cp="™">ട്രേഡ്‌മാർക്ക് | വ്യാപാരമുദ്ര | സൈൻ</annotation>
 		<annotation cp="™" type="tts">ട്രേഡ്‌മാർക്ക്</annotation>
-		<annotation cp="💯">100 | 100 പോയിന്റ് | പൂർണ്ണ സ്കോർ | സ്കോർ</annotation>
-		<annotation cp="💯" type="tts">100 പോയിന്റ്</annotation>
 		<annotation cp="🔠">ക്യാപിറ്റൽ | വലിയക്ഷരങ്ങൾ</annotation>
 		<annotation cp="🔠" type="tts">വലിയക്ഷരങ്ങൾ</annotation>
 		<annotation cp="🔡">ചെറിയക്ഷരങ്ങൾ | സ്‌മാൾ</annotation>
@@ -2629,28 +2925,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🈵" type="tts">ജാപ്പനീസ് &quot;ഒഴിവില്ല&quot; ബട്ടൺ</annotation>
 		<annotation cp="🔴">ചുവന്ന വൃത്തം | ചുവപ്പ് | വലിയ ചുവന്ന വൃത്തം | വലിയ വൃത്തം | വൃത്തം</annotation>
 		<annotation cp="🔴" type="tts">ചുവന്ന വൃത്തം</annotation>
+		<annotation cp="🟠">ഓറഞ്ച് | വൃത്തം</annotation>
+		<annotation cp="🟠" type="tts">ഓറഞ്ച് വൃത്തം</annotation>
+		<annotation cp="🟡">മഞ്ഞ | വൃത്തം</annotation>
+		<annotation cp="🟡" type="tts">മഞ്ഞ വൃത്തം</annotation>
+		<annotation cp="🟢">പച്ച | വൃത്തം</annotation>
+		<annotation cp="🟢" type="tts">പച്ച വൃത്തം</annotation>
 		<annotation cp="🔵">നീല | വലിയ നീല വൃത്തം | വലിയ വൃത്തം | വൃത്തം</annotation>
 		<annotation cp="🔵" type="tts">നീല വൃത്തം</annotation>
-		<annotation cp="⚪">ജിയോമെട്രിക്ക് | വട്ടം | വൃത്തം | വെളുത്ത വൃത്തം</annotation>
-		<annotation cp="⚪" type="tts">വെളുത്ത വൃത്തം</annotation>
+		<annotation cp="🟣">പർപ്പിൾ | വൃത്തം</annotation>
+		<annotation cp="🟣" type="tts">പർപ്പിൾ വൃത്തം</annotation>
+		<annotation cp="🟤">ബ്രൗൺ | വൃത്തം</annotation>
+		<annotation cp="🟤" type="tts">ബ്രൗൺ വൃത്തം</annotation>
 		<annotation cp="⚫">കറുത്ത വൃത്തം | ജിയോമെട്രിക്ക് | വട്ടം | വൃത്തം</annotation>
 		<annotation cp="⚫" type="tts">കറുത്ത വൃത്തം</annotation>
-		<annotation cp="⬜">കളം | ചതുരം | ജിയോമെട്രിക്ക് | വലിയ വെളുത്ത ചതുരം</annotation>
-		<annotation cp="⬜" type="tts">വലിയ വെളുത്ത ചതുരം</annotation>
+		<annotation cp="⚪">ജിയോമെട്രിക്ക് | വട്ടം | വൃത്തം | വെളുത്ത വൃത്തം</annotation>
+		<annotation cp="⚪" type="tts">വെളുത്ത വൃത്തം</annotation>
+		<annotation cp="🟥">ചതുരം | ചുവന്ന ചതുരം | ചുവപ്പ്</annotation>
+		<annotation cp="🟥" type="tts">ചുവന്ന ചതുരം</annotation>
+		<annotation cp="🟧">ഓറഞ്ച് | ചതുരം</annotation>
+		<annotation cp="🟧" type="tts">ഓറഞ്ച് ചതുരം</annotation>
+		<annotation cp="🟨">ചതുരം | മഞ്ഞ</annotation>
+		<annotation cp="🟨" type="tts">മഞ്ഞ ചതുരം</annotation>
+		<annotation cp="🟩">ചതുരം | പച്ച</annotation>
+		<annotation cp="🟩" type="tts">പച്ച ചതുരം</annotation>
+		<annotation cp="🟦">ചതുരം | നീല</annotation>
+		<annotation cp="🟦" type="tts">നീല ചതുരം</annotation>
+		<annotation cp="🟪">ചതുരം | പർപ്പിൾ</annotation>
+		<annotation cp="🟪" type="tts">പർപ്പിൾ ചതുരം</annotation>
+		<annotation cp="🟫">ചതുരം | ബ്രൗൺ</annotation>
+		<annotation cp="🟫" type="tts">ബ്രൗൺ ചതുരം</annotation>
 		<annotation cp="⬛">കളം | ചതുരം | ജിയോമെട്രിക്ക് | വലിയ കറുത്ത ചതുരം</annotation>
 		<annotation cp="⬛" type="tts">വലിയ കറുത്ത ചതുരം</annotation>
+		<annotation cp="⬜">കളം | ചതുരം | ജിയോമെട്രിക്ക് | വലിയ വെളുത്ത ചതുരം</annotation>
+		<annotation cp="⬜" type="tts">വലിയ വെളുത്ത ചതുരം</annotation>
 		<annotation cp="◼">ഇടത്തരം കറുത്ത ചതുരം | കളം | ചതുരം | ജിയോമെട്രിക്ക്</annotation>
 		<annotation cp="◼" type="tts">ഇടത്തരം കറുത്ത ചതുരം</annotation>
 		<annotation cp="◻">ഇടത്തരം വെളുത്ത ചതുരം | കളം | ചതുരം | ജിയോമെട്രിക്ക്</annotation>
 		<annotation cp="◻" type="tts">ഇടത്തരം വെളുത്ത ചതുരം</annotation>
-		<annotation cp="◽">കളം | ചതുരം | ചെറിയ വെളുത്ത ചതുരം | ജിയോമെട്രിക്ക്</annotation>
-		<annotation cp="◽" type="tts">ചെറിയ വെളുത്ത ചതുരം</annotation>
 		<annotation cp="◾">കളം | ചതുരം | ചെറിയ കറുത്ത ചതുരം | ജിയോമെട്രിക്ക്</annotation>
 		<annotation cp="◾" type="tts">ചെറിയ കറുത്ത ചതുരം</annotation>
-		<annotation cp="▫">കളം | ചതുരം | ജിയോമെട്രിക്ക് | വളരെ ചെറിയ വെളുത്ത ചതുരം</annotation>
-		<annotation cp="▫" type="tts">വളരെ ചെറിയ വെളുത്ത ചതുരം</annotation>
+		<annotation cp="◽">കളം | ചതുരം | ചെറിയ വെളുത്ത ചതുരം | ജിയോമെട്രിക്ക്</annotation>
+		<annotation cp="◽" type="tts">ചെറിയ വെളുത്ത ചതുരം</annotation>
 		<annotation cp="▪">കളം | ചതുരം | ജിയോമെട്രിക്ക് | വളരെ ചെറിയ കറുത്ത ചതുരം</annotation>
 		<annotation cp="▪" type="tts">വളരെ ചെറിയ കറുത്ത ചതുരം</annotation>
+		<annotation cp="▫">കളം | ചതുരം | ജിയോമെട്രിക്ക് | വളരെ ചെറിയ വെളുത്ത ചതുരം</annotation>
+		<annotation cp="▫" type="tts">വളരെ ചെറിയ വെളുത്ത ചതുരം</annotation>
 		<annotation cp="🔶">വജ്രം | വലിയ ഓറഞ്ച് ഡയമണ്ട്</annotation>
 		<annotation cp="🔶" type="tts">വലിയ ഓറഞ്ച് ഡയമണ്ട്</annotation>
 		<annotation cp="🔷">വജ്രം | വലിയ നീല ഡയമണ്ട്</annotation>
@@ -2667,10 +2987,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">ഒരു പുള്ളിയുള്ള ഡയമണ്ട്</annotation>
 		<annotation cp="🔘">ബട്ടൺ | റേഡിയോ</annotation>
 		<annotation cp="🔘" type="tts">റേഡിയോ ബട്ടൺ</annotation>
-		<annotation cp="🔲">കറുത്ത ചതുര ബട്ടൺ | ചതുരം | ചതുര ബട്ടൺ | ബട്ടൺ</annotation>
-		<annotation cp="🔲" type="tts">കറുത്ത ചതുര ബട്ടൺ</annotation>
 		<annotation cp="🔳">ചതുരം | ചതുര ബട്ടൺ | ബട്ടൺ | വെളുത്ത ചതുര ബട്ടൺ</annotation>
 		<annotation cp="🔳" type="tts">വെളുത്ത ചതുര ബട്ടൺ</annotation>
+		<annotation cp="🔲">കറുത്ത ചതുര ബട്ടൺ | ചതുരം | ചതുര ബട്ടൺ | ബട്ടൺ</annotation>
+		<annotation cp="🔲" type="tts">കറുത്ത ചതുര ബട്ടൺ</annotation>
 		<annotation cp="🏁">ചതുരങ്ങളുള്ള പതാക | പതാക | സ്പോർട്സ്</annotation>
 		<annotation cp="🏁" type="tts">ചതുരങ്ങളുള്ള പതാക</annotation>
 		<annotation cp="🚩">ത്രികോണ പതാക | പതാക | പോസ്റ്റിൽ ത്രികോണ പതാക | ലൊക്കേഷൻ</annotation>
@@ -2681,6 +3001,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏴" type="tts">പാറിപ്പറക്കുന്ന കറുത്ത പതാക</annotation>
 		<annotation cp="🏳">പതാക | പാറിപ്പറക്കുന്ന വെളുത്ത പതാക | വീശുക | വെളുത്ത | സമാധാനം</annotation>
 		<annotation cp="🏳" type="tts">പാറിപ്പറക്കുന്ന വെളുത്ത പതാക</annotation>
+		<annotation cp="🏳‍⚧">ഇളം നീല | ട്രാൻസ്ജെൻഡർ | നീല, പിങ്ക്, വെള്ള പതാക | പതാക | പിങ്ക് | വെള്ള</annotation>
+		<annotation cp="🏳‍⚧" type="tts">നീല, പിങ്ക്, വെള്ള പതാക</annotation>
 		<annotation cp="🏳‍🌈">പതാക | മഴവിൽ</annotation>
 		<annotation cp="🏳‍🌈" type="tts">മഴവിൽ പതാക</annotation>
 		<annotation cp="🏴‍☠">കടൽക്കൊള്ളക്കാരൻ | കൊള്ളയടി | ജോളി റോജർ | നിധി | പൈറേറ്റ് പതാക</annotation>

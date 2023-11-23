@@ -34,6 +34,7 @@ of DUT, based on pool assignments:
 
 # pylint: disable=missing-docstring
 
+import json
 import logging
 import re
 
@@ -88,52 +89,25 @@ def _is_firmware_update_supported(host):
     return not _is_firmware_repair_supported(host)
 
 
-def _get_firmware_version(output):
-    """Parse the output and get the firmware version.
-
-    @param output   The standard output of chromeos-firmwareupdate script.
-    @return Firmware version if found, else, None.
-    """
-    # At one point, the chromeos-firmwareupdate script was updated to
-    # add "RW" version fields.  The old string, "BIOS version:" still
-    # appears in the new output, however it now refers to the RO
-    # firmware version.  Therefore, we try searching for the new string
-    # first, "BIOS (RW) version".  If that string isn't found, we then
-    # fallback to searching for old string.
-    version = re.search(r'BIOS \(RW\) version:\s*(?P<version>.*)', output)
-
-    if not version:
-        version = re.search(r'BIOS version:\s*(?P<version>.*)', output)
-
-    if version is not None:
-        return version.group('version')
-
-    return None
-
-
 def _get_available_firmware(host, model):
-    """Get the available firmware version given the model.
+    """Get the available RW firmware version given the model.
 
     @param host     The host to get available firmware for.
     @param model    The model name to get corresponding firmware version.
-    @return The available firmware version if found, else, None.
+    @return The available RW firmware version if found, else, None.
     """
-    result = host.run('chromeos-firmwareupdate -V', ignore_status=True)
+    result = host.run('chromeos-firmwareupdate --manifest', ignore_status=True)
 
-    if result.exit_status == 0:
-        unibuild = False
-        paragraphs = result.stdout.split('\n\n')
-        for p in paragraphs:
-            match = re.search(r'Model:\s*(?P<model>.*)', p)
-            if match:
-                unibuild = True
-                if model == match.group('model'):
-                    return _get_firmware_version(p)
+    if result.exit_status != 0:
+        return None
 
-        if not unibuild:
-            return _get_firmware_version(result.stdout)
-
-    return None
+    # The manifest is a JSON in .model.host.versions.rw
+    data = json.loads(result.stdout) or {}
+    key = model if len(data) > 1 else next(data.iterkeys(), '')
+    key += '.host.versions.rw'
+    for k in key.split('.'):
+        data = data.get(k, {})
+    return data or None
 
 
 class FirmwareStatusVerifier(hosts.Verifier):
@@ -279,7 +253,13 @@ class FirmwareVersionVerifier(hosts.Verifier):
                     'Can not verify firmware version. '
                     'No model label value found')
 
-        stable_firmware = afe_utils.get_stable_firmware_version(info.model)
+        stable_firmware = None
+        try:
+            stable_firmware = afe_utils.get_stable_firmware_version_v2(info)
+        except Exception as e:
+            logging.exception('Failed lookup to AFE for stable fw version '
+                              ' with exception: %s', e)
+
         if stable_firmware is None:
             # This DUT doesn't have a firmware update target
             return

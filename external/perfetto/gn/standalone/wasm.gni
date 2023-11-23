@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-wasm_toolchain = "//gn/standalone/toolchain:wasm"
-is_wasm = current_toolchain == wasm_toolchain
+import("../wasm_vars.gni")
+
 emsdk_dir = rebase_path("//buildtools/emsdk", "")
 nodejs_dir = rebase_path("//buildtools/nodejs", "")
 
@@ -116,12 +116,8 @@ template("wasm_lib") {
     # outputs also the .wasm file", so we can depend on that in copy() targets.
     action("${_lib_name}.wasm") {
       inputs = []
-      deps = [
-        ":${_lib_name}.js",
-      ]
-      outputs = [
-        "$root_out_dir/$_lib_name.wasm",
-      ]
+      deps = [ ":${_lib_name}.js" ]
+      outputs = [ "$root_out_dir/$_lib_name.wasm" ]
       if (is_debug) {
         outputs += [ "$root_out_dir/$_lib_name.wasm.map" ]
       }
@@ -130,12 +126,8 @@ template("wasm_lib") {
     }
 
     copy("${_lib_name}.d.ts") {
-      sources = [
-        "//gn/standalone/wasm_typescript_declaration.d.ts",
-      ]
-      outputs = [
-        "$root_out_dir/$_lib_name.d.ts",
-      ]
+      sources = [ "//gn/standalone/wasm_typescript_declaration.d.ts" ]
+      outputs = [ "$root_out_dir/$_lib_name.d.ts" ]
     }
   } else {  # is_wasm
     not_needed(invoker, "*")

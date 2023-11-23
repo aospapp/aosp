@@ -30,6 +30,7 @@ package com.android.service.ims.presence;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.telephony.SubscriptionManager;
 
 public class SharedPrefUtil {
     public static final String EAB_SHARED_PREF = "com.android.vt.eab";
@@ -37,6 +38,7 @@ public class SharedPrefUtil {
     private static final String CONTACT_CHANGED_PREF_KEY = "timestamp_change";
     private static final String CONTACT_DELETE_PREF_KEY = "timestamp_delete";
     private static final String CONTACT_PROFILE_CHANGED_PREF_KEY = "profile_timestamp_change";
+    private static final String LAST_USED_SUB_ID = "last_used_sub_id";
 
     public static boolean isInitDone(Context context) {
         SharedPreferences eabPref = context.getSharedPreferences(
@@ -114,5 +116,24 @@ public class SharedPrefUtil {
         eabPref.putLong(CONTACT_DELETE_PREF_KEY, 0);
         eabPref.putLong(CONTACT_PROFILE_CHANGED_PREF_KEY, 0);
         eabPref.commit();
+    }
+
+    /**
+     * Saves the subscription ID used to get EAB contact presence information.
+     */
+    public static void saveLastUsedSubscriptionId(Context context, int subId) {
+        SharedPreferences.Editor lastUsedSubIdPref = context.getSharedPreferences(
+                EAB_SHARED_PREF, Context.MODE_PRIVATE).edit();
+        lastUsedSubIdPref.putInt(LAST_USED_SUB_ID, subId).commit();
+    }
+
+    /**
+     * @return The subscription ID used to get EAB contact presence information.
+     */
+    public static int getLastUsedSubscriptionId(Context context) {
+        SharedPreferences lastUsedSubIdPref = context.getSharedPreferences(
+                EAB_SHARED_PREF, Context.MODE_PRIVATE);
+        return lastUsedSubIdPref.getInt(LAST_USED_SUB_ID,
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
     }
 }

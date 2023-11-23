@@ -23,9 +23,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.concurrent.Callable;
 
 import tests.support.resource.Support_Resources;
 
+import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 
 import libcore.io.Libcore;
@@ -101,6 +103,24 @@ public class UnixFileTest extends TestCase {
     }
 
     /**
+     * Asserts that {@code fn} completes without {@link AssertionFailedError failing}
+     * at least once when run up to {@code retries} times.
+     */
+    private static void assertAtLeastOnce(int retries, Callable<Void> fn) throws Exception {
+        assertTrue(retries > 0);
+        for (int i = 0; i < retries; i++) {
+            try {
+                fn.call();
+                break;
+            } catch (AssertionFailedError e) {
+                if (i == retries - 1) {
+                    throw e;
+                }
+            }
+        }
+    }
+
+    /**
      * @tests java.io.File#canExecute()
      * @since 1.6
      */
@@ -136,16 +156,23 @@ public class UnixFileTest extends TestCase {
      * @since 1.6
      */
     public void test_getFreeSpace() throws Exception {
-        long fileSpace = getLinuxSpace(FREE_SPACE_NUM, testFile);
-        long dirSpace = getLinuxSpace(FREE_SPACE_NUM, testDir);
-        // in case we cannot fetch the value from command line
-        if (fileSpace > 0) {
-            assertEquals(fileSpace, testFile.getFreeSpace());
-        }
+        assertAtLeastOnce(3, () -> {
+            long fileSpace = getLinuxSpace(FREE_SPACE_NUM, testFile);
+            // in case we cannot fetch the value from command line
+            if (fileSpace > 0) {
+                assertEquals(fileSpace, testFile.getFreeSpace());
+            }
+            return null;
+        });
 
-        if (dirSpace > 0) {
-            assertEquals(dirSpace, testDir.getFreeSpace());
-        }
+        assertAtLeastOnce(3, () -> {
+            long dirSpace = getLinuxSpace(FREE_SPACE_NUM, testDir);
+            // in case we cannot fetch the value from command line
+            if (dirSpace > 0) {
+                assertEquals(dirSpace, testDir.getFreeSpace());
+            }
+            return null;
+        });
     }
 
     /**
@@ -168,14 +195,21 @@ public class UnixFileTest extends TestCase {
      * @since 1.6
      */
     public void test_getUsableSpace() throws Exception {
-        long fileSpace = getLinuxSpace(USABLE_SPACE_NUM, testFile);
-        long dirSpace = getLinuxSpace(USABLE_SPACE_NUM, testDir);
-        if (fileSpace > 0) {
-            assertEquals(fileSpace, testFile.getUsableSpace());
-        }
-        if (dirSpace > 0) {
-            assertEquals(dirSpace, testDir.getUsableSpace());
-        }
+        assertAtLeastOnce(3, () -> {
+            long fileSpace = getLinuxSpace(USABLE_SPACE_NUM, testFile);
+            if (fileSpace > 0) {
+                assertEquals(fileSpace, testFile.getUsableSpace());
+            }
+            return null;
+        });
+
+        assertAtLeastOnce(3, () -> {
+            long dirSpace = getLinuxSpace(USABLE_SPACE_NUM, testDir);
+            if (dirSpace > 0) {
+                assertEquals(dirSpace, testDir.getUsableSpace());
+            }
+            return null;
+        });
     }
 
     /**

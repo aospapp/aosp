@@ -16,4 +16,5 @@ This version of the test forces Chrome to use software decoder.
 args_dict = utils.args_to_dict(args)
 pdash_note = args_dict.get('pdash_note', '')
 job.run_test('power_VideoPlayback', use_hw_decode=False, tag=NAME.split('.')[1],
-             secs_per_video=2, pdash_note=pdash_note, seconds_period=1)
+             secs_per_video=10, pdash_note=pdash_note, seconds_period=1,
+             fast=True)

@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {fromNs} from '../../common/time';
+import {fromNs, toNs} from '../../common/time';
+import {LIMIT} from '../../common/track_data';
+
 import {
   TrackController,
   trackControllerRegistry
@@ -24,23 +26,17 @@ import {
   PROCESS_SUMMARY_TRACK,
 } from './common';
 
+// This is the summary displayed when a process only contains chrome slices
+// and no cpu scheduling.
+
 class ProcessSummaryTrackController extends TrackController<Config, Data> {
   static readonly kind = PROCESS_SUMMARY_TRACK;
-  private busy = false;
   private setup = false;
 
-  onBoundsChange(start: number, end: number, resolution: number): void {
-    this.update(start, end, resolution);
-  }
-
-  private async update(start: number, end: number, resolution: number):
-      Promise<void> {
-    // TODO: we should really call TraceProcessor.Interrupt() at this point.
-    if (this.busy) return;
-    this.busy = true;
-
-    const startNs = Math.round(start * 1e9);
-    const endNs = Math.round(end * 1e9);
+  async onBoundsChange(start: number, end: number, resolution: number):
+      Promise<Data> {
+    const startNs = toNs(start);
+    const endNs = toNs(end);
 
     if (this.setup === false) {
       await this.query(
@@ -53,14 +49,18 @@ class ProcessSummaryTrackController extends TrackController<Config, Data> {
         utids = threadQuery.columns[0].longValues! as number[];
       }
 
+      const trackQuery = await this.query(
+          `select id from thread_track where utid in (${utids.join(',')})`);
+      const tracks = trackQuery.columns[0].longValues! as number[];
+
       const processSliceView = this.tableName('process_slice_view');
       await this.query(
           `create view ${processSliceView} as ` +
           // 0 as cpu is a dummy column to perform span join on.
           `select ts, dur/${utids.length} as dur ` +
-          `from slices where depth = 0 and utid in ` +
-          // TODO(dproy): This query is faster if we write it as x < utid < y.
-          `(${utids.join(',')})`);
+          `from slice s ` +
+          `where depth = 0 and track_id in ` +
+          `(${tracks.join(',')})`);
       await this.query(`create virtual table ${this.tableName('span')}
           using span_join(${processSliceView},
                           ${this.tableName('window')});`);
@@ -68,7 +68,8 @@ class ProcessSummaryTrackController extends TrackController<Config, Data> {
     }
 
     // |resolution| is in s/px we want # ns for 10px window:
-    const bucketSizeNs = Math.round(resolution * 10 * 1e9);
+    // Max value with 1 so we don't end up with resolution 0.
+    const bucketSizeNs = Math.max(1, Math.round(resolution * 10 * 1e9));
     const windowStartNs = Math.floor(startNs / bucketSizeNs) * bucketSizeNs;
     const windowDurNs = Math.max(1, endNs - windowStartNs);
 
@@ -78,23 +79,24 @@ class ProcessSummaryTrackController extends TrackController<Config, Data> {
       quantum=${bucketSizeNs}
       where rowid = 0;`);
 
-    this.publish(await this.computeSummary(
-        fromNs(windowStartNs), end, resolution, bucketSizeNs));
-    this.busy = false;
+    return this.computeSummary(
+        fromNs(windowStartNs), end, resolution, bucketSizeNs);
   }
 
   private async computeSummary(
       start: number, end: number, resolution: number,
       bucketSizeNs: number): Promise<Data> {
-    const startNs = Math.round(start * 1e9);
-    const endNs = Math.round(end * 1e9);
-    const numBuckets = Math.ceil((endNs - startNs) / bucketSizeNs);
+    const startNs = toNs(start);
+    const endNs = toNs(end);
+    const numBuckets =
+        Math.min(Math.ceil((endNs - startNs) / bucketSizeNs), LIMIT);
 
     const query = `select
       quantum_ts as bucket,
       sum(dur)/cast(${bucketSizeNs} as float) as utilization
       from ${this.tableName('span')}
-      group by quantum_ts`;
+      group by quantum_ts
+      limit ${LIMIT}`;
 
     const rawResult = await this.query(query);
     const numRows = +rawResult.numRecords;
@@ -103,25 +105,19 @@ class ProcessSummaryTrackController extends TrackController<Config, Data> {
       start,
       end,
       resolution,
+      length: numBuckets,
       bucketSizeSeconds: fromNs(bucketSizeNs),
       utilizations: new Float64Array(numBuckets),
     };
     const cols = rawResult.columns;
     for (let row = 0; row < numRows; row++) {
       const bucket = +cols[0].longValues![row];
+      if (bucket > numBuckets) {
+        continue;
+      }
       summary.utilizations[bucket] = +cols[1].doubleValues![row];
     }
     return summary;
-  }
-
-  // TODO(dproy); Dedup with other controllers.
-  private async query(query: string) {
-    const result = await this.engine.query(query);
-    if (result.error) {
-      console.error(`Query error "${query}": ${result.error}`);
-      throw new Error(`Query error "${query}": ${result.error}`);
-    }
-    return result;
   }
 
   onDestroy(): void {

@@ -101,5 +101,5 @@ binary_prefix = os.path.join(os.environ['ANDROID_PRODUCT_OUT'], 'symbols')
 paths_to_cut = [os.getcwd() + '/', os.environ['ANDROID_BUILD_TOP'] + '/'] + sys.argv[1:]
 
 for line in sys.stdin:
-  line = line.decode('utf-8')
+  line = line.decode('utf-8', 'replace')
   symbolize_addr2line(line, binary_prefix, paths_to_cut)

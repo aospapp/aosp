@@ -1070,11 +1070,6 @@ public class TimeZoneRegressionTest extends TestFmwk {
         long endTime = testCal.getTimeInMillis();
         int jdkOffset;
         boolean isDstJdk;
-
-        // Android-added: Move time inside the int32 range so we can all agree. http://b/130532697
-        // Integer.MIN_VALUE seconds == 1901/12/13 20:45:52 GMT
-        time = Integer.MIN_VALUE;
-
         while (time < endTime) {
             offset = icuEastern.getOffset(time);
             jdkOffset = jdkEastern.getOffset(time);

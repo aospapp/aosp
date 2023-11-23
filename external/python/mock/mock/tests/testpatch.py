@@ -6,14 +6,14 @@ import os
 import sys
 
 import six
-import unittest2 as unittest
+import unittest
 
 from mock.tests import support
-from mock.tests.support import SomeClass, is_instance
+from mock.tests.support import SomeClass, is_instance, uncache
 
 from mock import (
     NonCallableMock, CallableMixin, patch, sentinel,
-    MagicMock, Mock, NonCallableMagicMock, patch,
+    MagicMock, Mock, NonCallableMagicMock,
     DEFAULT, call
 )
 from mock.mock import _patch, _get_target
@@ -47,23 +47,24 @@ something_else  = sentinel.SomethingElse
 
 
 class Foo(object):
-    def __init__(self, a):
-        pass
-    def f(self, a):
-        pass
-    def g(self):
-        pass
+    def __init__(self, a): pass
+    def f(self, a): pass
+    def g(self): pass
     foo = 'bar'
 
+    @staticmethod
+    def static_method(): pass
+
+    @classmethod
+    def class_method(cls): pass
+
     class Bar(object):
-        def a(self):
-            pass
+        def a(self): pass
 
 foo_name = '%s.Foo' % __name__
 
 
-def function(a, b=Foo):
-    pass
+def function(a, b=Foo): pass
 
 
 class Container(object):
@@ -366,31 +367,19 @@ class PatchTest(unittest.TestCase):
 
 
     def test_patch_wont_create_by_default(self):
-        try:
+        with self.assertRaises(AttributeError):
             @patch('%s.frooble' % builtin_string, sentinel.Frooble)
-            def test():
-                self.assertEqual(frooble, sentinel.Frooble)
+            def test(): pass
 
             test()
-        except AttributeError:
-            pass
-        else:
-            self.fail('Patching non existent attributes should fail')
-
         self.assertRaises(NameError, lambda: frooble)
 
 
     def test_patchobject_wont_create_by_default(self):
-        try:
+        with self.assertRaises(AttributeError):
             @patch.object(SomeClass, 'ord', sentinel.Frooble)
-            def test():
-                self.fail('Patching non existent attributes should fail')
-
+            def test(): pass
             test()
-        except AttributeError:
-            pass
-        else:
-            self.fail('Patching non existent attributes should fail')
         self.assertFalse(hasattr(SomeClass, 'ord'))
 
 
@@ -480,6 +469,9 @@ class PatchTest(unittest.TestCase):
             attribute = sentinel.Original
 
         class Foo(object):
+
+            test_class_attr = 'whatever'
+
             def test_method(other_self, mock_something):
                 self.assertEqual(PTModule.something, mock_something,
                                  "unpatched")
@@ -638,8 +630,7 @@ class PatchTest(unittest.TestCase):
         @patch('%s.SomeClass' % __name__, object(), autospec=True)
         @patch.object(SomeClass, object())
         @patch.dict(foo)
-        def some_name():
-            pass
+        def some_name(): pass
 
         self.assertEqual(some_name.__name__, 'some_name')
 
@@ -650,12 +641,9 @@ class PatchTest(unittest.TestCase):
         @patch.dict(foo, {'a': 'b'})
         def test():
             raise NameError('Konrad')
-        try:
+
+        with self.assertRaises(NameError):
             test()
-        except NameError:
-            pass
-        else:
-            self.fail('NameError not raised by test')
 
         self.assertEqual(foo, {})
 
@@ -668,57 +656,37 @@ class PatchTest(unittest.TestCase):
         test()
 
 
-    @unittest.expectedFailure
-    def test_patch_descriptor(self):
-        # would be some effort to fix this - we could special case the
-        # builtin descriptors: classmethod, property, staticmethod
-        class Nothing(object):
-            foo = None
+    def test_patch_dict_with_unicode(self):
+        @patch.dict(u'os.environ', {'konrad_delong': 'some value'})
+        def test():
+            self.assertIn('konrad_delong', os.environ)
 
-        class Something(object):
-            foo = {}
+        test()
 
-            @patch.object(Nothing, 'foo', 2)
-            @classmethod
-            def klass(cls):
-                self.assertIs(cls, Something)
 
-            @patch.object(Nothing, 'foo', 2)
-            @staticmethod
-            def static(arg):
-                return arg
-
-            @patch.dict(foo)
-            @classmethod
-            def klass_dict(cls):
-                self.assertIs(cls, Something)
-
-            @patch.dict(foo)
-            @staticmethod
-            def static_dict(arg):
-                return arg
-
-        # these will raise exceptions if patching descriptors is broken
-        self.assertEqual(Something.static('f00'), 'f00')
-        Something.klass()
-        self.assertEqual(Something.static_dict('f00'), 'f00')
-        Something.klass_dict()
-
-        something = Something()
-        self.assertEqual(something.static('f00'), 'f00')
-        something.klass()
-        self.assertEqual(something.static_dict('f00'), 'f00')
-        something.klass_dict()
+    def test_patch_dict_decorator_resolution(self):
+        # bpo-35512: Ensure that patch with a string target resolves to
+        # the new dictionary during function call
+        original = support.target.copy()
+        @patch.dict('mock.tests.support.target', {'bar': 'BAR'})
+        def test():
+            self.assertEqual(support.target, {'foo': 'BAZ', 'bar': 'BAR'})
+        try:
+            support.target = {'foo': 'BAZ'}
+            test()
+            self.assertEqual(support.target, {'foo': 'BAZ'})
+        finally:
+            support.target = original
 
 
     def test_patch_spec_set(self):
-        @patch('%s.SomeClass' % __name__, spec_set=SomeClass)
+        @patch('%s.SomeClass' % __name__, spec=SomeClass, spec_set=True)
         def test(MockClass):
             MockClass.z = 'foo'
 
         self.assertRaises(AttributeError, test)
 
-        @patch.object(support, 'SomeClass', spec_set=SomeClass)
+        @patch.object(support, 'SomeClass', spec=SomeClass, spec_set=True)
         def test(MockClass):
             MockClass.z = 'foo'
 
@@ -759,10 +727,18 @@ class PatchTest(unittest.TestCase):
 
 
     def test_stop_without_start(self):
+        # bpo-36366: calling stop without start will return None.
+        patcher = patch(foo_name, 'bar', 3)
+        self.assertIsNone(patcher.stop())
+
+
+    def test_stop_idempotent(self):
+        # bpo-36366: calling stop on an already stopped patch will return None.
         patcher = patch(foo_name, 'bar', 3)
 
-        # calling stop without start used to produce a very obscure error
-        self.assertRaises(RuntimeError, patcher.stop)
+        patcher.start()
+        patcher.stop()
+        self.assertIsNone(patcher.stop())
 
 
     def test_patchobject_start_stop(self):
@@ -902,17 +878,13 @@ class PatchTest(unittest.TestCase):
 
     def test_autospec(self):
         class Boo(object):
-            def __init__(self, a):
-                pass
-            def f(self, a):
-                pass
-            def g(self):
-                pass
+            def __init__(self, a): pass
+            def f(self, a): pass
+            def g(self): pass
             foo = 'bar'
 
             class Bar(object):
-                def a(self):
-                    pass
+                def a(self): pass
 
         def _test(mock):
             mock(1)
@@ -974,8 +946,14 @@ class PatchTest(unittest.TestCase):
     def test_autospec_function(self):
         @patch('%s.function' % __name__, autospec=True)
         def test(mock):
+            function.assert_not_called()
+            self.assertRaises(AssertionError, function.assert_called)
+            self.assertRaises(AssertionError, function.assert_called_once)
             function(1)
+            self.assertRaises(AssertionError, function.assert_not_called)
             function.assert_called_with(1)
+            function.assert_called()
+            function.assert_called_once()
             function(2, 3)
             function.assert_called_with(2, 3)
 
@@ -994,6 +972,18 @@ class PatchTest(unittest.TestCase):
 
         result = test()
         self.assertEqual(result, 3)
+
+
+    def test_autospec_staticmethod(self):
+        with patch('%s.Foo.static_method' % __name__, autospec=True) as method:
+            Foo.static_method()
+            method.assert_called_once_with()
+
+
+    def test_autospec_classmethod(self):
+        with patch('%s.Foo.class_method' % __name__, autospec=True) as method:
+            Foo.class_method()
+            method.assert_called_once_with()
 
 
     def test_autospec_with_new(self):
@@ -1265,7 +1255,6 @@ class PatchTest(unittest.TestCase):
 
 
     def test_patch_multiple_create_mocks_different_order(self):
-        # bug revealed by Jython!
         original_f = Foo.f
         original_g = Foo.g
 
@@ -1442,20 +1431,17 @@ class PatchTest(unittest.TestCase):
         @patch.object(Foo, 'g', 1)
         @patch.object(Foo, 'missing', 1)
         @patch.object(Foo, 'f', 1)
-        def thing1():
-            pass
+        def thing1(): pass
 
         @patch.object(Foo, 'missing', 1)
         @patch.object(Foo, 'g', 1)
         @patch.object(Foo, 'f', 1)
-        def thing2():
-            pass
+        def thing2(): pass
 
         @patch.object(Foo, 'g', 1)
         @patch.object(Foo, 'f', 1)
         @patch.object(Foo, 'missing', 1)
-        def thing3():
-            pass
+        def thing3(): pass
 
         for func in thing1, thing2, thing3:
             self.assertRaises(AttributeError, func)
@@ -1474,20 +1460,17 @@ class PatchTest(unittest.TestCase):
         @patch.object(Foo, 'g', 1)
         @patch.object(Foo, 'foo', new_callable=crasher)
         @patch.object(Foo, 'f', 1)
-        def thing1():
-            pass
+        def thing1(): pass
 
         @patch.object(Foo, 'foo', new_callable=crasher)
         @patch.object(Foo, 'g', 1)
         @patch.object(Foo, 'f', 1)
-        def thing2():
-            pass
+        def thing2(): pass
 
         @patch.object(Foo, 'g', 1)
         @patch.object(Foo, 'f', 1)
         @patch.object(Foo, 'foo', new_callable=crasher)
-        def thing3():
-            pass
+        def thing3(): pass
 
         for func in thing1, thing2, thing3:
             self.assertRaises(NameError, func)
@@ -1513,8 +1496,7 @@ class PatchTest(unittest.TestCase):
             patcher.additional_patchers = additionals
 
             @patcher
-            def func():
-                pass
+            def func(): pass
 
             self.assertRaises(AttributeError, func)
             self.assertEqual(Foo.f, original_f)
@@ -1542,8 +1524,7 @@ class PatchTest(unittest.TestCase):
             patcher.additional_patchers = additionals
 
             @patcher
-            def func():
-                pass
+            def func(): pass
 
             self.assertRaises(NameError, func)
             self.assertEqual(Foo.f, original_f)
@@ -1663,20 +1644,19 @@ class PatchTest(unittest.TestCase):
 
 
     def test_patch_imports_lazily(self):
-        sys.modules.pop('squizz', None)
-
         p1 = patch('squizz.squozz')
         self.assertRaises(ImportError, p1.start)
 
-        squizz = Mock()
-        squizz.squozz = 6
-        sys.modules['squizz'] = squizz
-        p1 = patch('squizz.squozz')
-        squizz.squozz = 3
-        p1.start()
-        p1.stop()
-        self.assertEqual(squizz.squozz, 3)
+        with uncache('squizz'):
+            squizz = Mock()
+            sys.modules['squizz'] = squizz
 
+            squizz.squozz = 6
+            p1 = patch('squizz.squozz')
+            squizz.squozz = 3
+            p1.start()
+            p1.stop()
+        self.assertEqual(squizz.squozz, 3)
 
     def test_patch_propogrates_exc_on_exit(self):
         class holder:
@@ -1699,7 +1679,12 @@ class PatchTest(unittest.TestCase):
         def test(mock):
             raise RuntimeError
 
-        self.assertRaises(RuntimeError, test)
+        with uncache('squizz'):
+            squizz = Mock()
+            sys.modules['squizz'] = squizz
+
+            self.assertRaises(RuntimeError, test)
+
         self.assertIs(holder.exc_info[0], RuntimeError)
         self.assertIsNotNone(holder.exc_info[1],
                             'exception value not propgated')
@@ -1878,6 +1863,36 @@ class PatchTest(unittest.TestCase):
             with patch.object(foo, '__kwdefaults__', dict([('x', 1, )])):
                 self.assertEqual(foo(), 1)
             self.assertEqual(foo(), 0)
+
+
+    def test_dotted_but_module_not_loaded(self):
+        # This exercises the AttributeError branch of _dot_lookup.
+        # make sure it's there
+        import mock.tests.support
+        # now make sure it's not:
+        with patch.dict('sys.modules'):
+            del sys.modules['mock.tests.support']
+            del sys.modules['mock.tests']
+            del sys.modules['mock.mock']
+            del sys.modules['mock']
+            # now make sure we can patch based on a dotted path:
+            @patch('mock.tests.support.X')
+            def test(mock):
+                pass
+            test()
+
+
+    def test_invalid_target(self):
+        with self.assertRaises(TypeError):
+            patch('')
+
+
+    def test_cant_set_kwargs_when_passing_a_mock(self):
+        @patch('mock.tests.support.X', new=object(), x=1)
+        def test(): pass
+        with self.assertRaises(TypeError):
+            test()
+
 
 if __name__ == '__main__':
     unittest.main()

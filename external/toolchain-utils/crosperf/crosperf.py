@@ -1,15 +1,19 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2011 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 
-# Copyright 2011 Google Inc. All Rights Reserved.
 """The driver script for running performance benchmarks on ChromeOS."""
 
 from __future__ import print_function
 
-import atexit
 import argparse
+import atexit
 import os
 import signal
 import sys
+
 from experiment_runner import ExperimentRunner
 from experiment_runner import MockExperimentRunner
 from experiment_factory import ExperimentFactory
@@ -106,7 +110,7 @@ def RunCrosperf(argv):
     test_flag.SetTestMode(True)
 
   experiment_file = ExperimentFile(
-      open(experiment_filename, 'rb'), option_settings)
+      open(experiment_filename, encoding='utf-8'), option_settings)
   if not experiment_file.GetGlobalSettings().GetField('name'):
     experiment_name = os.path.basename(experiment_filename)
     experiment_file.GetGlobalSettings().SetField('name', experiment_name)
@@ -130,14 +134,11 @@ def RunCrosperf(argv):
 def Main(argv):
   try:
     RunCrosperf(argv)
-  except Exception as ex:
+  except Exception:
     # Flush buffers before exiting to avoid out of order printing
     sys.stdout.flush()
-    sys.stderr.flush()
-    print('Crosperf error: %s' % repr(ex))
-    sys.stdout.flush()
-    sys.stderr.flush()
-    sys.exit(1)
+    # Raise exception prints out traceback
+    raise
 
 
 if __name__ == '__main__':

@@ -1,4 +1,0 @@
-subdirs = [
-    "lib/SPIRV",
-    "tools/llvm-spirv",
-]

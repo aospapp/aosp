@@ -14,15 +14,14 @@
 # limitations under the License.
 
 from os import sys, path
-
-sys.path.append(path.dirname(path.abspath(__file__)))
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 import synth_common
 
 file_member = 0
 anon_member = 1
 
 trace = synth_common.create_trace()
-trace.add_process_tree_packet()
+trace.add_packet()
 trace.add_process(1, 0, "init")
 trace.add_process(2, 1, "process_a")
 trace.add_process(3, 1, "process_b")
@@ -60,6 +59,5 @@ trace.add_rss_stat(129, 3, file_member, 90)
 trace.add_oom_score_update(130, 200, 3)
 trace.add_rss_stat(130, 2, file_member, 0)
 trace.add_rss_stat(130, 2, anon_member, 0)
-
 
 print(trace.trace.SerializeToString())

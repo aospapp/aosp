@@ -1,84 +1,43 @@
+/*
+ * Copyright (C) 2019 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.google.android.setupdesign.util;
 
-import android.content.Context;
-import android.graphics.Typeface;
-import androidx.annotation.VisibleForTesting;
-import android.util.TypedValue;
 import android.widget.TextView;
 import com.google.android.setupcompat.partnerconfig.PartnerConfig;
-import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
+import com.google.android.setupdesign.util.TextViewPartnerStyler.TextPartnerConfigs;
 
-/** Applies the given style properties for the style of the given type. */
-public class DescriptionStyler {
+/**
+ * Applies the partner style of description to the given TextView {@code description}. The user
+ * needs to check if the {@code description} should apply partner heavy theme before calling this
+ * method.
+ */
+public final class DescriptionStyler {
 
   public static void applyPartnerCustomizationStyle(TextView description) {
 
-    final Context context = description.getContext();
-
-    int descriptionTextColor =
-        PartnerConfigHelper.get(context)
-            .getColor(context, PartnerConfig.CONFIG_DESCRIPTION_TEXT_COLOR);
-    if (descriptionTextColor != 0) {
-      setTextColor(description, descriptionTextColor);
-    }
-
-    int descriptionLinkTextColor =
-        PartnerConfigHelper.get(context)
-            .getColor(context, PartnerConfig.CONFIG_DESCRIPTION_LINK_TEXT_COLOR);
-    if (descriptionLinkTextColor != 0) {
-      setLinkTextColor(description, descriptionLinkTextColor);
-    }
-
-    float descriptionTextSize =
-        PartnerConfigHelper.get(context)
-            .getDimension(context, PartnerConfig.CONFIG_DESCRIPTION_TEXT_SIZE, 0);
-    if (descriptionTextSize != 0) {
-      setTextSize(description, descriptionTextSize);
-    }
-
-    String fontFamilyName =
-        PartnerConfigHelper.get(context)
-            .getString(context, PartnerConfig.CONFIG_DESCRIPTION_FONT_FAMILY);
-    Typeface font = Typeface.create(fontFamilyName, Typeface.NORMAL);
-    if (font != null) {
-      setFontFamily(description, font);
-    }
-
-    setGravity(description, PartnerStyleHelper.getLayoutGravity(context));
+    TextViewPartnerStyler.applyPartnerCustomizationStyle(
+        description,
+        new TextPartnerConfigs(
+            PartnerConfig.CONFIG_DESCRIPTION_TEXT_COLOR,
+            PartnerConfig.CONFIG_DESCRIPTION_LINK_TEXT_COLOR,
+            PartnerConfig.CONFIG_DESCRIPTION_TEXT_SIZE,
+            PartnerConfig.CONFIG_DESCRIPTION_FONT_FAMILY,
+            PartnerStyleHelper.getLayoutGravity(description.getContext())));
   }
 
-  @VisibleForTesting
-  static void setTextSize(TextView description, float size) {
-    if (description != null) {
-      description.setTextSize(TypedValue.COMPLEX_UNIT_PX, size);
-    }
-  }
-
-  @VisibleForTesting
-  static void setFontFamily(TextView description, Typeface fontFamily) {
-    if (description != null) {
-      description.setTypeface(fontFamily);
-    }
-  }
-
-  @VisibleForTesting
-  static void setTextColor(TextView description, int color) {
-    if (description != null) {
-      description.setTextColor(color);
-    }
-  }
-
-  @VisibleForTesting
-  static void setLinkTextColor(TextView description, int color) {
-    if (description != null) {
-      description.setLinkTextColor(color);
-    }
-  }
-
-  @VisibleForTesting
-  static void setGravity(TextView description, int gravity) {
-    if (description != null) {
-      description.setGravity(gravity);
-    }
-  }
+  private DescriptionStyler() {}
 }

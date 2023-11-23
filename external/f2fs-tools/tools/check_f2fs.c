@@ -23,7 +23,7 @@
 #define F2FS_IOC_GARBAGE_COLLECT        _IO(F2FS_IOCTL_MAGIC, 6)
 
 #define DB1_PATH "/data/database_file1"
-#define DB2_PATH "/sdcard/database_file2"
+#define DB2_PATH "/sdcard/Android/data/database_file2"
 #define FILE_PATH "/data/testfile"
 
 #define BLOCK 4096

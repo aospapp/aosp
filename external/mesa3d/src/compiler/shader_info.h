@@ -33,16 +33,46 @@ extern "C" {
 #endif
 
 struct spirv_supported_capabilities {
-   bool float64;
-   bool image_ms_array;
-   bool tessellation;
+   bool address;
+   bool atomic_storage;
+   bool derivative_group;
+   bool descriptor_array_dynamic_indexing;
+   bool descriptor_array_non_uniform_indexing;
+   bool descriptor_indexing;
+   bool device_group;
    bool draw_parameters;
+   bool float64;
+   bool geometry_streams;
+   bool gcn_shader;
+   bool image_ms_array;
    bool image_read_without_format;
    bool image_write_without_format;
+   bool int8;
+   bool int16;
    bool int64;
+   bool int64_atomics;
+   bool kernel;
+   bool min_lod;
    bool multiview;
-   bool variable_pointers;
+   bool physical_storage_buffer_address;
+   bool post_depth_coverage;
+   bool runtime_descriptor_array;
+   bool shader_viewport_index_layer;
+   bool stencil_export;
+   bool storage_8bit;
    bool storage_16bit;
+   bool storage_image_ms;
+   bool subgroup_arithmetic;
+   bool subgroup_ballot;
+   bool subgroup_basic;
+   bool subgroup_quad;
+   bool subgroup_shuffle;
+   bool subgroup_vote;
+   bool tessellation;
+   bool transform_feedback;
+   bool trinary_minmax;
+   bool variable_pointers;
+   bool float16;
 };
 
 typedef struct shader_info {
@@ -53,6 +83,11 @@ typedef struct shader_info {
 
    /** The shader stage, such as MESA_SHADER_VERTEX. */
    gl_shader_stage stage;
+
+   /** The shader stage in a non SSO linked program that follows this stage,
+     * such as MESA_SHADER_FRAGMENT.
+     */
+   gl_shader_stage next_stage;
 
    /* Number of textures used by this shader */
    unsigned num_textures;
@@ -67,8 +102,6 @@ typedef struct shader_info {
 
    /* Which inputs are actually read */
    uint64_t inputs_read;
-   /* Which inputs are actually read and are double */
-   uint64_t double_inputs_read;
    /* Which outputs are actually written */
    uint64_t outputs_written;
    /* Which outputs are actually read */
@@ -86,6 +119,9 @@ typedef struct shader_info {
    /* Whether or not this shader ever uses textureGather() */
    bool uses_texture_gather;
 
+   /** Bitfield of which textures are used */
+   uint32_t textures_used;
+
    /** Bitfield of which textures are used by texelFetch() */
    uint32_t textures_used_by_txf;
 
@@ -95,6 +131,11 @@ typedef struct shader_info {
     * Note that this does not include the "fine" and "coarse" variants.
     */
    bool uses_fddx_fddy;
+
+   /**
+    * True if this shader uses 64-bit ALU operations
+    */
+   bool uses_64bit;
 
    /* The size of the gl_ClipDistance[] array, if declared. */
    unsigned clip_distance_array_size;
@@ -109,6 +150,14 @@ typedef struct shader_info {
    bool has_transform_feedback_varyings;
 
    union {
+      struct {
+         /* Which inputs are doubles */
+         uint64_t double_inputs;
+
+         /* True if the shader writes position in window space coordinates pre-transform */
+         bool window_space_position;
+      } vs;
+
       struct {
          /** The number of vertices recieves per input primitive */
          unsigned vertices_in;
@@ -153,6 +202,38 @@ typedef struct shader_info {
 
          bool post_depth_coverage;
 
+         /**
+          * \name ARB_fragment_coord_conventions
+          * @{
+          */
+         bool pixel_center_integer;
+         bool origin_upper_left;
+         /*@}*/
+
+         bool pixel_interlock_ordered;
+         bool pixel_interlock_unordered;
+         bool sample_interlock_ordered;
+         bool sample_interlock_unordered;
+
+         /**
+          * Flags whether NIR's base types on the FS color outputs should be
+          * ignored.
+          *
+          * GLSL requires that fragment shader output base types match the
+          * render target's base types for the behavior to be defined.  From
+          * the GL 4.6 spec:
+          *
+          *     "If the values written by the fragment shader do not match the
+          *      format(s) of the corresponding color buffer(s), the result is
+          *      undefined."
+          *
+          * However, for NIR shaders translated from TGSI, we don't have the
+          * output types any more, so the driver will need to do whatever
+          * fixups are necessary to handle effectively untyped data being
+          * output from the FS.
+          */
+         bool untyped_color_outputs;
+
          /** gl_FragDepth layout for ARB_conservative_depth. */
          enum gl_frag_depth_layout depth_layout;
       } fs;
@@ -166,6 +247,21 @@ typedef struct shader_info {
           * Size of shared variables accessed by the compute shader.
           */
          unsigned shared_size;
+
+
+         /**
+          * pointer size is:
+          *   AddressingModelLogical:    0    (default)
+          *   AddressingModelPhysical32: 32
+          *   AddressingModelPhysical64: 64
+          */
+         unsigned ptr_size;
+
+         /*
+          * Arrangement of invocations used to calculate derivatives in a compute
+          * shader.  From NV_compute_shader_derivatives.
+          */
+         enum gl_derivative_group derivative_group;
       } cs;
 
       /* Applies to both TCS and TES. */

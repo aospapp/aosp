@@ -19,13 +19,11 @@
 #include <memory>
 
 #include "perfetto/base/logging.h"
-#include "perfetto/tracing/core/producer.h"
-#include "perfetto/tracing/ipc/producer_ipc_client.h"
-#include "src/tracing/ipc/default_socket.h"
+#include "perfetto/ext/tracing/core/producer.h"
+#include "perfetto/ext/tracing/ipc/default_socket.h"
+#include "perfetto/ext/tracing/ipc/producer_ipc_client.h"
 
 namespace perfetto {
-
-class DataSourceConfig;
 
 TriggerProducer::TriggerProducer(base::TaskRunner* task_runner,
                                  std::function<void(bool)> callback,

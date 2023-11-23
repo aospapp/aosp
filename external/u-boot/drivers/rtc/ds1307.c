@@ -23,6 +23,7 @@ enum ds_type {
 	ds_1307,
 	ds_1337,
 	ds_1340,
+	m41t11,
 	mcp794xx,
 };
 
@@ -50,8 +51,6 @@ enum ds_type {
 #define MCP7941X_BIT_VBATEN	0x08
 
 #ifndef CONFIG_DM_RTC
-
-#if defined(CONFIG_CMD_DATE)
 
 /*---------------------------------------------------------------------*/
 #undef DEBUG_RTC
@@ -204,8 +203,6 @@ static void rtc_write (uchar reg, uchar val)
 	i2c_reg_write (CONFIG_SYS_I2C_RTC_ADDR, reg, val);
 }
 
-#endif /* CONFIG_CMD_DATE*/
-
 #endif /* !CONFIG_DM_RTC */
 
 #ifdef CONFIG_DM_RTC
@@ -261,6 +258,18 @@ read_rtc:
 			dm_i2c_reg_write(dev, RTC_SEC_REG_ADDR,
 					 buf[RTC_SEC_REG_ADDR]);
 			return -1;
+		}
+	}
+
+	if (type == m41t11) {
+		/* clock halted?  turn it on, so clock can tick. */
+		if (buf[RTC_SEC_REG_ADDR] & RTC_SEC_BIT_CH) {
+			buf[RTC_SEC_REG_ADDR] &= ~RTC_SEC_BIT_CH;
+			dm_i2c_reg_write(dev, RTC_SEC_REG_ADDR,
+					 MCP7941X_BIT_ST);
+			dm_i2c_reg_write(dev, RTC_SEC_REG_ADDR,
+					 buf[RTC_SEC_REG_ADDR]);
+			goto read_rtc;
 		}
 	}
 
@@ -336,6 +345,7 @@ static const struct udevice_id ds1307_rtc_ids[] = {
 	{ .compatible = "dallas,ds1337", .data = ds_1337 },
 	{ .compatible = "dallas,ds1340", .data = ds_1340 },
 	{ .compatible = "microchip,mcp7941x", .data = mcp794xx },
+	{ .compatible = "st,m41t11", .data = m41t11 },
 	{ }
 };
 

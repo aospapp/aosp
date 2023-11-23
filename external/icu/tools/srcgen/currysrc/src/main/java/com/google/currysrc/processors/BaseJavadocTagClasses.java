@@ -22,6 +22,7 @@ import com.google.currysrc.api.process.Processor;
 
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
+import org.eclipse.jdt.core.dom.AnnotationTypeDeclaration;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.EnumDeclaration;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
@@ -44,6 +45,11 @@ public abstract class BaseJavadocTagClasses implements Processor {
   @Override public final void process(Context context, CompilationUnit cu) {
     final List<AbstractTypeDeclaration> toHide = Lists.newArrayList();
     cu.accept(new ASTVisitor() {
+      @Override
+      public boolean visit(AnnotationTypeDeclaration node) {
+        return visitAbstract(node);
+      }
+
       @Override
       public boolean visit(TypeDeclaration node) {
         return visitAbstract(node);

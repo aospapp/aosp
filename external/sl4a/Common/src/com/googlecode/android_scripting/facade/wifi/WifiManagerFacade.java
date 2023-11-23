@@ -18,9 +18,10 @@ package com.googlecode.android_scripting.facade.wifi;
 
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 
+import static com.googlecode.android_scripting.jsonrpc.JsonBuilder.build;
+
 import android.app.Service;
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -36,7 +37,10 @@ import android.net.NetworkSpecifier;
 import android.net.Uri;
 import android.net.wifi.EasyConnectStatusCallback;
 import android.net.wifi.ScanResult;
-import android.net.wifi.WifiActivityEnergyInfo;
+import android.net.wifi.SoftApCapability;
+import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.SoftApInfo;
+import android.net.wifi.WifiClient;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.AuthAlgorithm;
 import android.net.wifi.WifiConfiguration.KeyMgmt;
@@ -48,7 +52,6 @@ import android.net.wifi.WifiManager.NetworkRequestUserSelectionCallback;
 import android.net.wifi.WifiManager.WifiLock;
 import android.net.wifi.WifiNetworkSpecifier;
 import android.net.wifi.WifiNetworkSuggestion;
-import android.net.wifi.WifiSsid;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.hotspot2.ConfigParser;
 import android.net.wifi.hotspot2.OsuProvider;
@@ -56,9 +59,10 @@ import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.ProvisioningCallback;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerExecutor;
 import android.os.HandlerThread;
 import android.os.PatternMatcher;
-import android.provider.Settings.Global;
+import android.os.connectivity.WifiActivityEnergyInfo;
 import android.provider.Settings.SettingNotFoundException;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -84,7 +88,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -102,6 +105,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * WifiManager functions.
@@ -109,9 +115,11 @@ import java.util.Map;
 // TODO: make methods handle various wifi states properly
 // e.g. wifi connection result will be null when flight mode is on
 public class WifiManagerFacade extends RpcReceiver {
-    private final static String mEventType = "WifiManager";
+    private static final String mEventType = "WifiManager";
     // MIME type for passpoint config.
-    private final static String TYPE_WIFICONFIG = "application/x-wifi-config";
+    private static final String TYPE_WIFICONFIG = "application/x-wifi-config";
+    private static final int TIMEOUT_MILLIS = 5000;
+
     private final Service mService;
     private final WifiManager mWifi;
     private final ConnectivityManager mCm;
@@ -122,6 +130,7 @@ public class WifiManagerFacade extends RpcReceiver {
     private final IntentFilter mTetherFilter;
     private final IntentFilter mNetworkSuggestionStateChangeFilter;
     private final WifiScanReceiver mScanResultsAvailableReceiver;
+    private final WifiScanResultsReceiver mWifiScanResultsReceiver;
     private final WifiStateChangeReceiver mStateChangeReceiver;
     private final WifiNetworkSuggestionStateChangeReceiver mNetworkSuggestionStateChangeReceiver;
     private final HandlerThread mCallbackHandlerThread;
@@ -242,10 +251,32 @@ public class WifiManagerFacade extends RpcReceiver {
         }
 
         @Override
-        public void onNumClientsChanged(int numClients) {
+        public void onConnectedClientsChanged(List<WifiClient> clients) {
+            ArrayList<String> macAddresses = new ArrayList<>();
+            clients.forEach(x -> macAddresses.add(x.getMacAddress().toString()));
             Bundle msg = new Bundle();
-            msg.putInt("NumClients", numClients);
+            msg.putInt("NumClients", clients.size());
+            msg.putStringArrayList("MacAddresses", macAddresses);
             mEventFacade.postEvent(mEventStr + "OnNumClientsChanged", msg);
+            mEventFacade.postEvent(mEventStr + "OnConnectedClientsChanged", clients);
+        }
+
+        @Override
+        public void onInfoChanged(SoftApInfo softApInfo) {
+            mEventFacade.postEvent(mEventStr + "OnInfoChanged", softApInfo);
+        }
+
+        @Override
+        public void onCapabilityChanged(SoftApCapability softApCapability) {
+            mEventFacade.postEvent(mEventStr + "OnCapabilityChanged", softApCapability);
+        }
+
+        @Override
+        public void onBlockedClientConnecting(WifiClient client, int blockedReason) {
+            Bundle msg = new Bundle();
+            msg.putString("WifiClient", client.getMacAddress().toString());
+            msg.putInt("BlockedReason", blockedReason);
+            mEventFacade.postEvent(mEventStr + "OnBlockedClientConnecting", msg);
         }
     };
 
@@ -274,6 +305,7 @@ public class WifiManagerFacade extends RpcReceiver {
                 WifiManager.ACTION_WIFI_NETWORK_SUGGESTION_POST_CONNECTION);
 
         mScanResultsAvailableReceiver = new WifiScanReceiver(mEventFacade);
+        mWifiScanResultsReceiver = new WifiScanResultsReceiver(mEventFacade);
         mStateChangeReceiver = new WifiStateChangeReceiver();
         mNetworkSuggestionStateChangeReceiver = new WifiNetworkSuggestionStateChangeReceiver();
         mTrackingWifiStateChange = false;
@@ -317,6 +349,22 @@ public class WifiManagerFacade extends RpcReceiver {
                 }
                 mService.unregisterReceiver(mScanResultsAvailableReceiver);
             }
+        }
+    }
+
+    class WifiScanResultsReceiver extends WifiManager.ScanResultsCallback {
+        private final EventFacade mEventFacade;
+
+        WifiScanResultsReceiver(EventFacade eventFacade) {
+            mEventFacade = eventFacade;
+        }
+        @Override
+        public void onScanResultsAvailable() {
+            Bundle mResults = new Bundle();
+            Log.d("Wifi connection scan finished, results available.");
+            mResults.putLong("Timestamp", System.currentTimeMillis() / 1000);
+            mEventFacade.postEvent(mEventType + "ScanResultsCallbackOnSuccess", mResults);
+            mWifi.unregisterScanResultsCallback(mWifiScanResultsReceiver);
         }
     }
 
@@ -472,7 +520,7 @@ public class WifiManagerFacade extends RpcReceiver {
             if (j.has("security")) {
                 if (TextUtils.equals(j.getString("security"), "SAE")) {
                     config.allowedKeyManagement.set(KeyMgmt.SAE);
-                    config.requirePMF = true;
+                    config.requirePmf = true;
                 } else {
                     config.allowedKeyManagement.set(KeyMgmt.WPA_PSK);
                 }
@@ -487,7 +535,7 @@ public class WifiManagerFacade extends RpcReceiver {
             if (j.has("security")) {
                 if (TextUtils.equals(j.getString("security"), "OWE")) {
                     config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.OWE);
-                    config.requirePMF = true;
+                    config.requirePmf = true;
                 } else {
                     config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
                 }
@@ -527,6 +575,9 @@ public class WifiManagerFacade extends RpcReceiver {
         }
         if (j.has("macRand")) {
             config.macRandomizationSetting = j.getInt("macRand");
+        }
+        if (j.has("carrierId")) {
+            config.carrierId = j.getInt("carrierId");
         }
         return config;
     }
@@ -584,6 +635,11 @@ public class WifiManagerFacade extends RpcReceiver {
             Log.v("Setting Domain Suffix Match to " + realm);
             eConfig.setRealm(realm);
         }
+        if (j.has(WifiEnterpriseConfig.OCSP)) {
+            int ocsp = j.getInt(WifiEnterpriseConfig.OCSP);
+            Log.v("Setting OCSP to " + ocsp);
+            eConfig.setOcsp(ocsp);
+        }
         return eConfig;
     }
 
@@ -599,7 +655,7 @@ public class WifiManagerFacade extends RpcReceiver {
         if (j.has("security")) {
             if (TextUtils.equals(j.getString("security"), "SUITE_B_192")) {
                 config.allowedKeyManagement.set(KeyMgmt.SUITE_B_192);
-                config.requirePMF = true;
+                config.requirePmf = true;
             }
         }
 
@@ -621,6 +677,9 @@ public class WifiManagerFacade extends RpcReceiver {
                 rIds[i] = ids.getLong(i);
             }
             config.roamingConsortiumIds = rIds;
+        }
+        if (j.has("carrierId")) {
+            config.carrierId = j.getInt("carrierId");
         }
         config.enterpriseConfig = genWifiEnterpriseConfig(j);
         return config;
@@ -656,7 +715,7 @@ public class WifiManagerFacade extends RpcReceiver {
         if (j.has("isWpa3") && j.getBoolean("isWpa3")) {
             isWpa3 = true;
         }
-        if (j.has("password")) {
+        if (j.has("password") && !j.has(WifiEnterpriseConfig.EAP_KEY)) {
             if (!isWpa3) {
                 builder = builder.setWpa2Passphrase(j.getString("password"));
             } else {
@@ -674,41 +733,11 @@ public class WifiManagerFacade extends RpcReceiver {
     }
 
     private WifiNetworkSuggestion genWifiNetworkSuggestion(JSONObject j) throws JSONException,
-            GeneralSecurityException {
+            GeneralSecurityException, IOException {
         if (j == null) {
             return null;
         }
         WifiNetworkSuggestion.Builder builder = new WifiNetworkSuggestion.Builder();
-        if (j.has("SSID")) {
-            builder = builder.setSsid(j.getString("SSID"));
-        }
-        if (j.has("BSSID")) {
-            builder = builder.setBssid(MacAddress.fromString(j.getString("BSSID")));
-        }
-        if (j.has("hiddenSSID")) {
-            builder = builder.setIsHiddenSsid(j.getBoolean("hiddenSSID"));
-        }
-        if (j.has("isEnhancedOpen")) {
-            builder = builder.setIsEnhancedOpen(j.getBoolean("isEnhancedOpen"));
-        }
-        boolean isWpa3 = false;
-        if (j.has("isWpa3") && j.getBoolean("isWpa3")) {
-            isWpa3 = true;
-        }
-        if (j.has("password")) {
-            if (!isWpa3) {
-                builder = builder.setWpa2Passphrase(j.getString("password"));
-            } else {
-                builder = builder.setWpa3Passphrase(j.getString("password"));
-            }
-        }
-        if (j.has(WifiEnterpriseConfig.EAP_KEY)) {
-            if (!isWpa3) {
-                builder = builder.setWpa2EnterpriseConfig(genWifiEnterpriseConfig(j));
-            } else {
-                builder = builder.setWpa3EnterpriseConfig(genWifiEnterpriseConfig(j));
-            }
-        }
         if (j.has("isAppInteractionRequired")) {
             builder = builder.setIsAppInteractionRequired(j.getBoolean("isAppInteractionRequired"));
         }
@@ -722,11 +751,56 @@ public class WifiManagerFacade extends RpcReceiver {
         if (j.has("priority")) {
             builder = builder.setPriority(j.getInt("priority"));
         }
+        if (j.has("carrierId")) {
+            builder.setCarrierId(j.getInt("carrierId"));
+        }
+        if (j.has("enableAutojoin")) {
+            builder.setIsInitialAutojoinEnabled(j.getBoolean("enableAutojoin"));
+        }
+        if (j.has("untrusted")) {
+            builder.setUntrusted(j.getBoolean("untrusted"));
+        }
+        if (j.has("profile")) {
+            builder = builder.setPasspointConfig(genWifiPasspointConfig(j));
+        } else {
+            if (j.has("SSID")) {
+                builder = builder.setSsid(j.getString("SSID"));
+            }
+            if (j.has("BSSID")) {
+                builder = builder.setBssid(MacAddress.fromString(j.getString("BSSID")));
+            }
+            if (j.has("hiddenSSID")) {
+                builder = builder.setIsHiddenSsid(j.getBoolean("hiddenSSID"));
+            }
+            if (j.has("isEnhancedOpen")) {
+                builder = builder.setIsEnhancedOpen(j.getBoolean("isEnhancedOpen"));
+            }
+            boolean isWpa3 = false;
+            if (j.has("isWpa3") && j.getBoolean("isWpa3")) {
+                isWpa3 = true;
+            }
+            if (j.has("password") && !j.has(WifiEnterpriseConfig.EAP_KEY)) {
+                if (!isWpa3) {
+                    builder = builder.setWpa2Passphrase(j.getString("password"));
+                } else {
+                    builder = builder.setWpa3Passphrase(j.getString("password"));
+                }
+            }
+            if (j.has(WifiEnterpriseConfig.EAP_KEY)) {
+                if (!isWpa3) {
+                    builder = builder.setWpa2EnterpriseConfig(genWifiEnterpriseConfig(j));
+                } else {
+                    builder = builder.setWpa3EnterpriseConfig(genWifiEnterpriseConfig(j));
+                }
+            }
+        }
+
         return builder.build();
     }
 
     private List<WifiNetworkSuggestion> genWifiNetworkSuggestions(
-            JSONArray jsonNetworkSuggestionsArray) throws JSONException, GeneralSecurityException {
+            JSONArray jsonNetworkSuggestionsArray) throws JSONException, GeneralSecurityException,
+            IOException {
         if (jsonNetworkSuggestionsArray == null) {
             return null;
         }
@@ -918,7 +992,7 @@ public class WifiManagerFacade extends RpcReceiver {
         Log.d("Did not find a matching object in wifiManager.");
         return null;
     }
-   /**
+    /**
      * Generate a Passpoint configuration from JSON config.
      * @param config JSON config containing base64 encoded Passpoint profile
      */
@@ -937,7 +1011,7 @@ public class WifiManagerFacade extends RpcReceiver {
                 profileStr.getBytes());
     }
 
-   /**
+    /**
      * Add or update a Passpoint configuration.
      * @param config base64 encoded message containing Passpoint profile
      * @throws JSONException
@@ -1019,8 +1093,7 @@ public class WifiManagerFacade extends RpcReceiver {
                 Log.e("missing osuSSID from the config");
                 return null;
             }
-            WifiSsid osuSsid = WifiSsid.createFromByteArray(
-                    config.getString("osuSSID").getBytes(StandardCharsets.UTF_8));
+            String osuSsid = config.getString("osuSSID");
 
             if (!config.has("osuUri")) {
                 Log.e("missing osuUri from the config");
@@ -1039,9 +1112,9 @@ public class WifiManagerFacade extends RpcReceiver {
                 osuServiceDescription = config.getString("description");
             }
             Map<String, String> osuFriendlyNames = new HashMap<>();
-            osuFriendlyNames.put("en", osuFriendlyName);
+            osuFriendlyNames.put("eng", osuFriendlyName);
             return new OsuProvider(osuSsid, osuFriendlyNames, osuServiceDescription,
-                    osuServerUri, null, osuMethodList, null);
+                    osuServerUri, null, osuMethodList);
         } catch (JSONException e) {
             Log.e("JSON Parsing error: " + e);
             return null;
@@ -1090,7 +1163,7 @@ public class WifiManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Enable WiFi verbose logging.")
     public void wifiEnableVerboseLogging(@RpcParameter(name = "level") Integer level) {
-        mWifi.enableVerboseLogging(level);
+        mWifi.setVerboseLoggingEnabled(level > 0);
     }
 
     @Rpc(description = "Resets all WifiManager settings.")
@@ -1111,17 +1184,42 @@ public class WifiManagerFacade extends RpcReceiver {
     }
 
     /**
-     * Disable ephemeral network.
+     * User disconnect network.
      *
      * @param ssid SSID of wifi network
      */
-    @Rpc(description = "Forget a wifi network by networkId")
-    public void wifiDisableEphemeralNetwork(@RpcParameter(name = "ssid") String ssid) {
+    @Rpc(description = "Disconnect a wifi network by SSID")
+    public void wifiUserDisconnectNetwork(@RpcParameter(name = "ssid") String ssid) {
         mWifi.disableEphemeralNetwork("\"" + ssid + "\"");
+        mWifi.disconnect();
     }
 
+    /**
+     * User disconnect passpoint network.
+     *
+     * @param fqdn FQDN of the passpoint network
+     */
+    @Rpc(description = "Disconnect a wifi network by FQDN")
+    public void wifiUserDisconnectPasspointNetwork(@RpcParameter(name = "fqdn") String fqdn) {
+        mWifi.disableEphemeralNetwork(fqdn);
+        mWifi.disconnect();
+    }
+
+    /**
+     * Get SoftAp Configuration with SoftApConfiguration.
+     */
     @Rpc(description = "Gets the Wi-Fi AP Configuration.")
-    public WifiConfiguration wifiGetApConfiguration() {
+    public SoftApConfiguration wifiGetApConfiguration() {
+        return mWifi.getSoftApConfiguration();
+    }
+
+    /**
+     * Get SoftAp Configuration with WifiConfiguration.
+     *
+     * Used to test deprecated API to check backward compatible
+     */
+    @Rpc(description = "Gets the Wi-Fi AP Configuration with WifiConfiguration.")
+    public WifiConfiguration wifiGetApConfigurationWithWifiConfiguration() {
         return mWifi.getWifiApConfiguration();
     }
 
@@ -1137,7 +1235,30 @@ public class WifiManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Returns wifi activity and energy usage info.")
     public WifiActivityEnergyInfo wifiGetControllerActivityEnergyInfo() {
-        return mWifi.getControllerActivityEnergyInfo();
+        WifiActivityEnergyInfo[] mutable = {null};
+        CountDownLatch latch = new CountDownLatch(1);
+        mWifi.getWifiActivityEnergyInfoAsync(new Executor() {
+            @Override
+            public void execute(Runnable runnable) {
+                runnable.run();
+            }
+        }, info -> {
+            mutable[0] = info;
+            latch.countDown();
+        });
+        boolean completedSuccessfully = false;
+        try {
+            completedSuccessfully = latch.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Log.w("Interrupted while awaiting for WifiManager.getWifiActivityEnergyInfoAsync()");
+        }
+        if (completedSuccessfully) {
+            return mutable[0];
+        } else {
+            Log.w("WifiManager.getWifiActivityEnergyInfoAsync() timed out after "
+                    + TIMEOUT_MILLIS + " milliseconds");
+            return null;
+        }
     }
 
     @Rpc(description = "Get the country code used by WiFi.")
@@ -1172,7 +1293,7 @@ public class WifiManagerFacade extends RpcReceiver {
 
     @Rpc(description = "Get the current level of WiFi verbose logging.")
     public Integer wifiGetVerboseLoggingLevel() {
-        return mWifi.getVerboseLoggingLevel();
+        return mWifi.isVerboseLoggingEnabled() ? 1 : 0;
     }
 
     @Rpc(description = "true if this adapter supports 5 GHz band.")
@@ -1205,9 +1326,20 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.isDeviceToDeviceRttSupported();
     }
 
-    @Rpc(description = "Check if the chipset supports dual frequency band (2.4 GHz and 5 GHz).")
-    public Boolean wifiIsDualBandSupported() {
-        return mWifi.isDualBandSupported();
+    /**
+     * @return true if chipset supports 5GHz band and false otherwise.
+     */
+    @Rpc(description = "Check if the chipset supports 5GHz frequency band.")
+    public Boolean is5GhzBandSupported() {
+        return mWifi.is5GHzBandSupported();
+    }
+
+    /**
+     * @return true if chipset supports 6GHz band and false otherwise.
+     */
+    @Rpc(description = "Check if the chipset supports 6GHz frequency band.")
+    public Boolean is6GhzBandSupported() {
+        return mWifi.is6GHzBandSupported();
     }
 
     @Rpc(description = "Check if this adapter supports advanced power/performance counters.")
@@ -1322,6 +1454,83 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.removeNetwork(netId);
     }
 
+    private SoftApConfiguration createSoftApConfiguration(JSONObject configJson)
+            throws JSONException {
+        if (configJson == null) {
+            return null;
+        }
+        SoftApConfiguration.Builder configBuilder = new SoftApConfiguration.Builder();
+        if (configJson.has("SSID")) {
+            configBuilder.setSsid(configJson.getString("SSID"));
+        }
+        if (configJson.has("password")) {
+            String pwd = configJson.getString("password");
+            // Check if new security type SAE (WPA3) is present. Default to PSK
+            if (configJson.has("security")) {
+                String securityType = configJson.getString("security");
+                if (TextUtils.equals(securityType, "WPA2_PSK")) {
+                    configBuilder.setPassphrase(pwd, SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+                } else if (TextUtils.equals(securityType, "WPA3_SAE_TRANSITION")) {
+                    configBuilder.setPassphrase(pwd,
+                            SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION);
+                } else if (TextUtils.equals(securityType, "WPA3_SAE")) {
+                    configBuilder.setPassphrase(pwd, SoftApConfiguration.SECURITY_TYPE_WPA3_SAE);
+                }
+            } else {
+                configBuilder.setPassphrase(pwd, SoftApConfiguration.SECURITY_TYPE_WPA2_PSK);
+            }
+        }
+        if (configJson.has("BSSID")) {
+            configBuilder.setBssid(MacAddress.fromString(configJson.getString("BSSID")));
+        }
+        if (configJson.has("hiddenSSID")) {
+            configBuilder.setHiddenSsid(configJson.getBoolean("hiddenSSID"));
+        }
+        if (configJson.has("apBand")) {
+            configBuilder.setBand(configJson.getInt("apBand"));
+        }
+        if (configJson.has("apChannel") && configJson.has("apBand")) {
+            configBuilder.setChannel(configJson.getInt("apChannel"), configJson.getInt("apBand"));
+        }
+
+        if (configJson.has("MaxNumberOfClients")) {
+            configBuilder.setMaxNumberOfClients(configJson.getInt("MaxNumberOfClients"));
+        }
+
+        if (configJson.has("ShutdownTimeoutMillis")) {
+            configBuilder.setShutdownTimeoutMillis(configJson.getLong("ShutdownTimeoutMillis"));
+        }
+
+        if (configJson.has("AutoShutdownEnabled")) {
+            configBuilder.setAutoShutdownEnabled(configJson.getBoolean("AutoShutdownEnabled"));
+        }
+
+        if (configJson.has("ClientControlByUserEnabled")) {
+            configBuilder.setClientControlByUserEnabled(
+                    configJson.getBoolean("ClientControlByUserEnabled"));
+        }
+
+        List allowedClientList = new ArrayList<>();
+        if (configJson.has("AllowedClientList")) {
+            JSONArray allowedList = configJson.getJSONArray("AllowedClientList");
+            for (int i = 0; i < allowedList.length(); i++) {
+                allowedClientList.add(MacAddress.fromString(allowedList.getString(i)));
+            }
+        }
+
+        List blockedClientList = new ArrayList<>();
+        if (configJson.has("BlockedClientList")) {
+            JSONArray blockedList = configJson.getJSONArray("BlockedClientList");
+            for (int j = 0; j < blockedList.length(); j++) {
+                blockedClientList.add(MacAddress.fromString(blockedList.getString(j)));
+            }
+
+        }
+        configBuilder.setAllowedClientList(allowedClientList);
+        configBuilder.setBlockedClientList(blockedClientList);
+        return configBuilder.build();
+    }
+
     private WifiConfiguration createSoftApWifiConfiguration(JSONObject configJson)
             throws JSONException {
         WifiConfiguration config = genWifiConfig(configJson);
@@ -1342,11 +1551,24 @@ public class WifiManagerFacade extends RpcReceiver {
         return config;
     }
 
+    /**
+     * Set SoftAp Configuration with SoftApConfiguration.
+     */
     @Rpc(description = "Set configuration for soft AP.")
     public Boolean wifiSetWifiApConfiguration(
             @RpcParameter(name = "configJson") JSONObject configJson) throws JSONException {
-        WifiConfiguration config = createSoftApWifiConfiguration(configJson);
-        return mWifi.setWifiApConfiguration(config);
+        return mWifi.setSoftApConfiguration(createSoftApConfiguration(configJson));
+    }
+
+    /**
+     * Set SoftAp Configuration with WifiConfiguration.
+     *
+     * Used to test deprecated API to check backward compatible.
+     */
+    @Rpc(description = "Set configuration for soft AP with WifiConfig.")
+    public Boolean wifiSetWifiApConfigurationWithWifiConfiguration(
+            @RpcParameter(name = "configJson") JSONObject configJson) throws JSONException {
+        return mWifi.setWifiApConfiguration(createSoftApWifiConfiguration(configJson));
     }
 
     /**
@@ -1360,8 +1582,9 @@ public class WifiManagerFacade extends RpcReceiver {
     public Integer registerSoftApCallback() {
         SoftApCallbackImp softApCallback = new SoftApCallbackImp(mEventFacade);
         mSoftapCallbacks.put(softApCallback.mId, softApCallback);
-        mWifi.registerSoftApCallback(softApCallback,
-                new Handler(mCallbackHandlerThread.getLooper()));
+        mWifi.registerSoftApCallback(
+                new HandlerExecutor(new Handler(mCallbackHandlerThread.getLooper())),
+                softApCallback);
         return softApCallback.mId;
     }
 
@@ -1379,12 +1602,6 @@ public class WifiManagerFacade extends RpcReceiver {
         mSoftapCallbacks.delete(callbackId);
     }
 
-    @Rpc(description = "Set the country code used by WiFi.")
-    public void wifiSetCountryCode(
-            @RpcParameter(name = "country") String country) {
-        mWifi.setCountryCode(country);
-    }
-
     @Rpc(description = "Enable/disable tdls with a mac address.")
     public void wifiSetTdlsEnabledWithMacAddress(
             @RpcParameter(name = "remoteMacAddress") String remoteMacAddress,
@@ -1395,6 +1612,13 @@ public class WifiManagerFacade extends RpcReceiver {
     @Rpc(description = "Starts a scan for Wifi access points.", returns = "True if the scan was initiated successfully.")
     public Boolean wifiStartScan() {
         mService.registerReceiver(mScanResultsAvailableReceiver, mScanFilter);
+        return mWifi.startScan();
+    }
+
+    @Rpc(description = "Starts a scan for Wifi access points with scanResultCallback.",
+            returns = "True if the scan was initiated successfully.")
+    public Boolean wifiStartScanWithListener() {
+        mWifi.registerScanResultsCallback(mService.getMainExecutor(), mWifiScanResultsReceiver);
         return mWifi.startScan();
     }
 
@@ -1464,25 +1688,15 @@ public class WifiManagerFacade extends RpcReceiver {
     public Boolean wifiToggleScanAlwaysAvailable(
             @RpcParameter(name = "enabled") @RpcOptional Boolean enabled)
                     throws SettingNotFoundException {
-        ContentResolver cr = mService.getContentResolver();
-        int isSet = 0;
-        if (enabled == null) {
-            isSet = Global.getInt(cr, Global.WIFI_SCAN_ALWAYS_AVAILABLE);
-            isSet ^= 1;
-        } else if (enabled == true) {
-            isSet = 1;
-        }
-        Global.putInt(cr, Global.WIFI_SCAN_ALWAYS_AVAILABLE, isSet);
-        if (isSet == 1) {
-            return true;
-        }
-        return false;
+        boolean isSet = (enabled == null) ? !mWifi.isScanAlwaysAvailable() : enabled;
+        mWifi.setScanAlwaysAvailable(isSet);
+        return isSet;
     }
 
     @Rpc(description = "Enable/disable WifiConnectivityManager.")
     public void wifiEnableWifiConnectivityManager(
             @RpcParameter(name = "enable") Boolean enable) {
-        mWifi.enableWifiConnectivityManager(enable);
+        mWifi.allowAutojoinGlobal(enable);
     }
 
     private void wifiRequestNetworkWithSpecifierInternal(NetworkSpecifier wns, int timeoutInMs)
@@ -1581,7 +1795,8 @@ public class WifiManagerFacade extends RpcReceiver {
             throws JSONException, GeneralSecurityException {
         // Listen for UI interaction callbacks
         mWifi.registerNetworkRequestMatchCallback(
-                mNetworkRequestMatchCallback, new Handler(mCallbackHandlerThread.getLooper()));
+                new HandlerExecutor(new Handler(mCallbackHandlerThread.getLooper())),
+                mNetworkRequestMatchCallback);
     }
 
     /**
@@ -1636,7 +1851,7 @@ public class WifiManagerFacade extends RpcReceiver {
     @Rpc(description = "Add network suggestions to the platform")
     public boolean wifiAddNetworkSuggestions(
             @RpcParameter(name = "wifiNetworkSuggestions") JSONArray wifiNetworkSuggestions)
-            throws JSONException, GeneralSecurityException {
+            throws JSONException, GeneralSecurityException, IOException {
         return mWifi.addNetworkSuggestions(genWifiNetworkSuggestions(wifiNetworkSuggestions))
                 == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS;
     }
@@ -1652,7 +1867,7 @@ public class WifiManagerFacade extends RpcReceiver {
     @Rpc(description = "Remove network suggestions from the platform")
     public boolean wifiRemoveNetworkSuggestions(
             @RpcParameter(name = "wifiNetworkSuggestions") JSONArray wifiNetworkSuggestions)
-            throws JSONException, GeneralSecurityException {
+            throws JSONException, GeneralSecurityException, IOException {
         return mWifi.removeNetworkSuggestions(genWifiNetworkSuggestions(wifiNetworkSuggestions))
                 == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS;
     }
@@ -1691,11 +1906,63 @@ public class WifiManagerFacade extends RpcReceiver {
         }
 
         @Override
-        public void onFailure(int code) {
+        public void onFailure(int code, String ssid, SparseArray<int[]> channelList,
+                int[] bandList) {
             Bundle msg = new Bundle();
             msg.putString("Type", "onFailure");
             msg.putInt("Status", code);
             Log.d("Posting event: onFailure");
+            if (ssid != null) {
+                Log.d("onFailure SSID: " + ssid);
+                msg.putString("onFailureSsid", ssid);
+            } else {
+                msg.putString("onFailureSsid", "");
+            }
+            if (channelList != null) {
+                Log.d("onFailure list of tried channels: " + channelList);
+                int key;
+                int index = 0;
+                JSONObject formattedChannelList = new JSONObject();
+
+                // Build a JSON array of classes, with an array of channels for each class.
+                do {
+                    try {
+                        key = channelList.keyAt(index);
+                    } catch (java.lang.ArrayIndexOutOfBoundsException e) {
+                        break;
+                    }
+                    try {
+                        JSONArray channelsInClassArray = new JSONArray();
+
+                        int[] output = channelList.get(key);
+                        for (int i = 0; i < output.length; i++) {
+                            channelsInClassArray.put(output[i]);
+                        }
+                        formattedChannelList.put(Integer.toString(key),
+                                build(channelsInClassArray));
+                    } catch (org.json.JSONException e) {
+                        msg.putString("onFailureChannelList", "");
+                        break;
+                    }
+                    index++;
+                } while (true);
+
+                msg.putString("onFailureChannelList", formattedChannelList.toString());
+            } else {
+                msg.putString("onFailureChannelList", "");
+            }
+
+            if (bandList != null) {
+                // Build a JSON array of bands represented as operating classes
+                Log.d("onFailure list of supported bands: " + bandList);
+                JSONArray formattedBandList = new JSONArray();
+                for (int i = 0; i < bandList.length; i++) {
+                    formattedBandList.put(bandList[i]);
+                }
+                msg.putString("onFailureBandList", formattedBandList.toString());
+            } else {
+                msg.putString("onFailureBandList", "");
+            }
             mEventFacade.postEvent(EASY_CONNECT_CALLBACK_TAG, msg);
         }
 
@@ -1757,5 +2024,23 @@ public class WifiManagerFacade extends RpcReceiver {
     public void stopEasyConnectSession() {
         // Stop Easy Connect
         mWifi.stopEasyConnectSession();
+    }
+
+    /**
+     * Enable/Disable auto join for target network
+     */
+    @Rpc(description = "Set network auto join enable/disable")
+    public void wifiEnableAutojoin(@RpcParameter(name = "netId") Integer netId,
+            @RpcParameter(name = "enableAutojoin") Boolean enableAutojoin) {
+        mWifi.allowAutojoin(netId, enableAutojoin);
+    }
+
+    /**
+     * Enable/Disable auto join for target Passpoint network
+     */
+    @Rpc(description = "Set passpoint network auto join enable/disable")
+    public void wifiEnableAutojoinPasspoint(@RpcParameter(name = "FQDN") String fqdn,
+            @RpcParameter(name = "enableAutojoin") Boolean enableAutojoin) {
+        mWifi.allowAutojoinPasspoint(fqdn, enableAutojoin);
     }
 }

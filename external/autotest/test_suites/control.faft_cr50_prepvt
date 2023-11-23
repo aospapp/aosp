@@ -34,8 +34,5 @@ args_dict['suite_dependencies'] = 'cr50:prepvt'
 args_dict['name'] = 'faft_cr50_prepvt'
 args_dict['add_experimental'] = True
 args_dict['job'] = job
-args_dict['test_args'] = {
-	'ccd_open_restricted' : 'False',
-}
 
 dynamic_suite.reimage_and_run(**args_dict)

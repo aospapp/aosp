@@ -6,7 +6,7 @@ AUTHOR = "chromeos-gfx"
 NAME = "graphics_VideoRenderingPower.vp9"
 PURPOSE = "Measure power consumption of VP9 video rendering"
 
-ATTRIBUTES = "suite:graphics, suite:graphics_browser, suite:graphics_per-day"
+ATTRIBUTES = "suite:graphics, suite:graphics_browser, suite:bvt-perbuild"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "graphics"

@@ -22,40 +22,26 @@ import com.google.common.collect.testing.SampleElements;
 import com.google.common.collect.testing.TestSetGenerator;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
+import com.google.common.testing.CollectorTester;
 import com.google.common.testing.SerializableTester;
-
-import junit.framework.Test;
-import junit.framework.TestSuite;
-
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Set;
+import junit.framework.Test;
+import junit.framework.TestSuite;
 
 /**
  * Tests for {@link ImmutableRangeSet}.
  *
  * @author Louis Wasserman
  */
-@GwtIncompatible("ImmutableRangeSet")
+@GwtIncompatible // ImmutableRangeSet
 public class ImmutableRangeSetTest extends AbstractRangeSetTest {
-  @SuppressWarnings("unchecked") // varargs
-  private static final ImmutableSet<Range<Integer>> RANGES = ImmutableSet.of(
-      Range.<Integer>all(),
-      Range.closedOpen(3, 5),
-      Range.singleton(1),
-      Range.lessThan(2),
-      Range.greaterThan(10),
-      Range.atMost(4),
-      Range.atLeast(3),
-      Range.closed(4, 6),
-      Range.closedOpen(1, 3),
-      Range.openClosed(5, 7),
-      Range.open(3, 4));
-  
+
   static final class ImmutableRangeSetIntegerAsSetGenerator implements TestSetGenerator<Integer> {
     @Override
     public SampleElements<Integer> samples() {
-      return new SampleElements<Integer>(1, 4, 3, 2, 5);
+      return new SampleElements<>(1, 4, 3, 2, 5);
     }
 
     @Override
@@ -83,7 +69,7 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
       implements TestSetGenerator<BigInteger> {
     @Override
     public SampleElements<BigInteger> samples() {
-      return new SampleElements<BigInteger>(
+      return new SampleElements<>(
           BigInteger.valueOf(1),
           BigInteger.valueOf(4),
           BigInteger.valueOf(3),
@@ -115,28 +101,29 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   public static Test suite() {
     TestSuite suite = new TestSuite();
     suite.addTestSuite(ImmutableRangeSetTest.class);
-    suite.addTest(NavigableSetTestSuiteBuilder.using(new ImmutableRangeSetIntegerAsSetGenerator())
-        .named("ImmutableRangeSet.asSet[DiscreteDomain.integers[]]")
-        .withFeatures(
-            CollectionSize.ANY,
-            CollectionFeature.REJECTS_DUPLICATES_AT_CREATION,
-            CollectionFeature.ALLOWS_NULL_QUERIES,
-            CollectionFeature.KNOWN_ORDER,
-            CollectionFeature.NON_STANDARD_TOSTRING,
-            CollectionFeature.SERIALIZABLE)
-        .createTestSuite());
+    suite.addTest(
+        NavigableSetTestSuiteBuilder.using(new ImmutableRangeSetIntegerAsSetGenerator())
+            .named("ImmutableRangeSet.asSet[DiscreteDomain.integers[]]")
+            .withFeatures(
+                CollectionSize.ANY,
+                CollectionFeature.REJECTS_DUPLICATES_AT_CREATION,
+                CollectionFeature.ALLOWS_NULL_QUERIES,
+                CollectionFeature.KNOWN_ORDER,
+                CollectionFeature.NON_STANDARD_TOSTRING,
+                CollectionFeature.SERIALIZABLE)
+            .createTestSuite());
 
-    suite.addTest(NavigableSetTestSuiteBuilder.using(
-          new ImmutableRangeSetBigIntegerAsSetGenerator())
-        .named("ImmutableRangeSet.asSet[DiscreteDomain.bigIntegers[]]")
-        .withFeatures(
-            CollectionSize.ANY,
-            CollectionFeature.REJECTS_DUPLICATES_AT_CREATION,
-            CollectionFeature.ALLOWS_NULL_QUERIES,
-            CollectionFeature.KNOWN_ORDER,
-            CollectionFeature.NON_STANDARD_TOSTRING,
-            CollectionFeature.SERIALIZABLE)
-        .createTestSuite());
+    suite.addTest(
+        NavigableSetTestSuiteBuilder.using(new ImmutableRangeSetBigIntegerAsSetGenerator())
+            .named("ImmutableRangeSet.asSet[DiscreteDomain.bigIntegers[]]")
+            .withFeatures(
+                CollectionSize.ANY,
+                CollectionFeature.REJECTS_DUPLICATES_AT_CREATION,
+                CollectionFeature.ALLOWS_NULL_QUERIES,
+                CollectionFeature.KNOWN_ORDER,
+                CollectionFeature.NON_STANDARD_TOSTRING,
+                CollectionFeature.SERIALIZABLE)
+            .createTestSuite());
     return suite;
   }
 
@@ -146,6 +133,7 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
     assertThat(rangeSet.asRanges()).isEmpty();
     assertEquals(ImmutableRangeSet.<Integer>all(), rangeSet.complement());
     assertFalse(rangeSet.contains(0));
+    assertFalse(rangeSet.intersects(Range.singleton(0)));
     assertFalse(rangeSet.encloses(Range.singleton(0)));
     assertTrue(rangeSet.enclosesAll(rangeSet));
     assertTrue(rangeSet.isEmpty());
@@ -154,8 +142,10 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   public void testAll() {
     ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.all();
 
-    assertThat(rangeSet.asRanges()).has().item(Range.<Integer>all());
+    assertThat(rangeSet.asRanges()).contains(Range.<Integer>all());
     assertTrue(rangeSet.contains(0));
+    assertTrue(rangeSet.intersects(Range.singleton(0)));
+    assertTrue(rangeSet.intersects(Range.<Integer>all()));
     assertTrue(rangeSet.encloses(Range.<Integer>all()));
     assertTrue(rangeSet.enclosesAll(rangeSet));
     assertEquals(ImmutableRangeSet.<Integer>of(), rangeSet.complement());
@@ -164,7 +154,13 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   public void testSingleBoundedRange() {
     ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.of(Range.closedOpen(1, 5));
 
-    assertThat(rangeSet.asRanges()).has().item(Range.closedOpen(1, 5));
+    assertThat(rangeSet.asRanges()).contains(Range.closedOpen(1, 5));
+
+    assertTrue(rangeSet.intersects(Range.closed(3, 4)));
+    assertTrue(rangeSet.intersects(Range.closedOpen(0, 2)));
+    assertTrue(rangeSet.intersects(Range.closedOpen(3, 7)));
+    assertTrue(rangeSet.intersects(Range.greaterThan(2)));
+    assertFalse(rangeSet.intersects(Range.greaterThan(7)));
 
     assertTrue(rangeSet.encloses(Range.closed(3, 4)));
     assertTrue(rangeSet.encloses(Range.closedOpen(1, 4)));
@@ -185,7 +181,13 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   public void testSingleBoundedBelowRange() {
     ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.of(Range.greaterThan(2));
 
-    assertThat(rangeSet.asRanges()).has().item(Range.greaterThan(2));
+    assertThat(rangeSet.asRanges()).contains(Range.greaterThan(2));
+
+    assertTrue(rangeSet.intersects(Range.closed(3, 4)));
+    assertTrue(rangeSet.intersects(Range.closedOpen(1, 5)));
+    assertFalse(rangeSet.intersects(Range.lessThan(1)));
+    assertTrue(rangeSet.intersects(Range.greaterThan(1)));
+    assertTrue(rangeSet.intersects(Range.greaterThan(3)));
 
     assertTrue(rangeSet.encloses(Range.closed(3, 4)));
     assertTrue(rangeSet.encloses(Range.greaterThan(3)));
@@ -202,7 +204,14 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   public void testSingleBoundedAboveRange() {
     ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.of(Range.atMost(3));
 
-    assertThat(rangeSet.asRanges()).has().item(Range.atMost(3));
+    assertThat(rangeSet.asRanges()).contains(Range.atMost(3));
+
+    assertTrue(rangeSet.intersects(Range.closed(3, 4)));
+    assertTrue(rangeSet.intersects(Range.closedOpen(1, 5)));
+    assertFalse(rangeSet.intersects(Range.closedOpen(4, 5)));
+    assertTrue(rangeSet.intersects(Range.lessThan(1)));
+    assertTrue(rangeSet.intersects(Range.greaterThan(1)));
+    assertFalse(rangeSet.intersects(Range.greaterThan(3)));
 
     assertTrue(rangeSet.encloses(Range.closed(2, 3)));
     assertTrue(rangeSet.encloses(Range.lessThan(1)));
@@ -217,69 +226,99 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   }
 
   public void testMultipleBoundedRanges() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(5, 8)).add(Range.closedOpen(1, 3)).build();
+    ImmutableRangeSet<Integer> rangeSet =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.closed(5, 8))
+            .add(Range.closedOpen(1, 3))
+            .build();
 
     assertThat(rangeSet.asRanges())
-        .has().exactly(Range.closedOpen(1, 3), Range.closed(5, 8)).inOrder();
+        .containsExactly(Range.closedOpen(1, 3), Range.closed(5, 8))
+        .inOrder();
+
+    assertTrue(rangeSet.intersects(Range.closed(1, 2)));
+    assertTrue(rangeSet.intersects(Range.open(5, 8)));
+    assertFalse(rangeSet.intersects(Range.closed(3, 4)));
+    assertTrue(rangeSet.intersects(Range.greaterThan(5)));
+    assertFalse(rangeSet.intersects(Range.greaterThan(8)));
 
     assertTrue(rangeSet.encloses(Range.closed(1, 2)));
     assertTrue(rangeSet.encloses(Range.open(5, 8)));
     assertFalse(rangeSet.encloses(Range.closed(1, 8)));
     assertFalse(rangeSet.encloses(Range.greaterThan(5)));
 
-    RangeSet<Integer> expectedComplement = ImmutableRangeSet.<Integer>builder()
-        .add(Range.lessThan(1))
-        .add(Range.closedOpen(3, 5))
-        .add(Range.greaterThan(8))
-        .build();
+    RangeSet<Integer> expectedComplement =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.lessThan(1))
+            .add(Range.closedOpen(3, 5))
+            .add(Range.greaterThan(8))
+            .build();
 
     assertEquals(expectedComplement, rangeSet.complement());
   }
 
   public void testMultipleBoundedBelowRanges() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.greaterThan(6)).add(Range.closedOpen(1, 3)).build();
+    ImmutableRangeSet<Integer> rangeSet =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.greaterThan(6))
+            .add(Range.closedOpen(1, 3))
+            .build();
 
     assertThat(rangeSet.asRanges())
-        .has().exactly(Range.closedOpen(1, 3), Range.greaterThan(6)).inOrder();
+        .containsExactly(Range.closedOpen(1, 3), Range.greaterThan(6))
+        .inOrder();
+
+    assertTrue(rangeSet.intersects(Range.closed(1, 2)));
+    assertTrue(rangeSet.intersects(Range.open(6, 8)));
+    assertFalse(rangeSet.intersects(Range.closed(3, 6)));
+    assertTrue(rangeSet.intersects(Range.greaterThan(5)));
+    assertFalse(rangeSet.intersects(Range.lessThan(1)));
 
     assertTrue(rangeSet.encloses(Range.closed(1, 2)));
     assertTrue(rangeSet.encloses(Range.open(6, 8)));
     assertFalse(rangeSet.encloses(Range.closed(1, 8)));
     assertFalse(rangeSet.encloses(Range.greaterThan(5)));
 
-    RangeSet<Integer> expectedComplement = ImmutableRangeSet.<Integer>builder()
-        .add(Range.lessThan(1))
-        .add(Range.closed(3, 6))
-        .build();
+    RangeSet<Integer> expectedComplement =
+        ImmutableRangeSet.<Integer>builder().add(Range.lessThan(1)).add(Range.closed(3, 6)).build();
 
     assertEquals(expectedComplement, rangeSet.complement());
   }
 
   public void testMultipleBoundedAboveRanges() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.atMost(0)).add(Range.closedOpen(2, 5)).build();
+    ImmutableRangeSet<Integer> rangeSet =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.atMost(0))
+            .add(Range.closedOpen(2, 5))
+            .build();
 
     assertThat(rangeSet.asRanges())
-        .has().exactly(Range.atMost(0), Range.closedOpen(2, 5)).inOrder();
+        .containsExactly(Range.atMost(0), Range.closedOpen(2, 5))
+        .inOrder();
+
+    assertTrue(rangeSet.intersects(Range.closed(2, 4)));
+    assertTrue(rangeSet.intersects(Range.open(-5, -2)));
+    assertTrue(rangeSet.intersects(Range.closed(1, 8)));
+    assertFalse(rangeSet.intersects(Range.singleton(1)));
+    assertFalse(rangeSet.intersects(Range.greaterThan(5)));
 
     assertTrue(rangeSet.encloses(Range.closed(2, 4)));
     assertTrue(rangeSet.encloses(Range.open(-5, -2)));
     assertFalse(rangeSet.encloses(Range.closed(1, 8)));
     assertFalse(rangeSet.encloses(Range.greaterThan(5)));
 
-    RangeSet<Integer> expectedComplement = ImmutableRangeSet.<Integer>builder()
-        .add(Range.open(0, 2))
-        .add(Range.atLeast(5))
-        .build();
+    RangeSet<Integer> expectedComplement =
+        ImmutableRangeSet.<Integer>builder().add(Range.open(0, 2)).add(Range.atLeast(5)).build();
 
     assertEquals(expectedComplement, rangeSet.complement());
   }
 
   public void testAddUnsupported() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(5, 8)).add(Range.closedOpen(1, 3)).build();
+    RangeSet<Integer> rangeSet =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.closed(5, 8))
+            .add(Range.closedOpen(1, 3))
+            .build();
 
     try {
       rangeSet.add(Range.open(3, 4));
@@ -290,8 +329,11 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   }
 
   public void testAddAllUnsupported() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(5, 8)).add(Range.closedOpen(1, 3)).build();
+    RangeSet<Integer> rangeSet =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.closed(5, 8))
+            .add(Range.closedOpen(1, 3))
+            .build();
 
     try {
       rangeSet.addAll(ImmutableRangeSet.<Integer>of());
@@ -302,8 +344,11 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   }
 
   public void testRemoveUnsupported() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(5, 8)).add(Range.closedOpen(1, 3)).build();
+    RangeSet<Integer> rangeSet =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.closed(5, 8))
+            .add(Range.closedOpen(1, 3))
+            .build();
 
     try {
       rangeSet.remove(Range.closed(6, 7));
@@ -314,8 +359,11 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   }
 
   public void testRemoveAllUnsupported() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(5, 8)).add(Range.closedOpen(1, 3)).build();
+    RangeSet<Integer> rangeSet =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.closed(5, 8))
+            .add(Range.closedOpen(1, 3))
+            .build();
 
     try {
       rangeSet.removeAll(ImmutableRangeSet.<Integer>of());
@@ -332,40 +380,59 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
     }
   }
 
+  @AndroidIncompatible // slow
   public void testExhaustive() {
     @SuppressWarnings("unchecked")
-    ImmutableSet<Range<Integer>> ranges = ImmutableSet.of(
-        Range.<Integer>all(),
-        Range.<Integer>closedOpen(3, 5),
-        Range.singleton(1),
-        Range.lessThan(2),
-        Range.greaterThan(10),
-        Range.atMost(4),
-        Range.atLeast(3),
-        Range.closed(4, 6),
-        Range.closedOpen(1, 3),
-        Range.openClosed(5, 7),
-        Range.open(3, 4));
+    ImmutableSet<Range<Integer>> ranges =
+        ImmutableSet.of(
+            Range.<Integer>all(),
+            Range.<Integer>closedOpen(3, 5),
+            Range.singleton(1),
+            Range.lessThan(2),
+            Range.greaterThan(10),
+            Range.atMost(4),
+            Range.atLeast(3),
+            Range.closed(4, 6),
+            Range.closedOpen(1, 3),
+            Range.openClosed(5, 7),
+            Range.open(3, 4));
+    subsets:
     for (Set<Range<Integer>> subset : Sets.powerSet(ranges)) {
+      assertEquals(TreeRangeSet.create(subset), ImmutableRangeSet.unionOf(subset));
+
       RangeSet<Integer> mutable = TreeRangeSet.create();
       ImmutableRangeSet.Builder<Integer> builder = ImmutableRangeSet.builder();
 
-      int expectedRanges = 0;
+      boolean anyOverlaps = false;
       for (Range<Integer> range : subset) {
         boolean overlaps = false;
         for (Range<Integer> other : mutable.asRanges()) {
           if (other.isConnected(range) && !other.intersection(range).isEmpty()) {
             overlaps = true;
+            anyOverlaps = true;
+            break;
           }
         }
 
         try {
-          builder.add(range);
+          ImmutableRangeSet<Integer> unused = builder.add(range).build();
           assertFalse(overlaps);
           mutable.add(range);
         } catch (IllegalArgumentException e) {
           assertTrue(overlaps);
+          continue subsets;
         }
+      }
+
+      if (anyOverlaps) {
+        try {
+          RangeSet<Integer> copy = ImmutableRangeSet.copyOf(subset);
+          fail();
+        } catch (IllegalArgumentException expected) {
+        }
+      } else {
+        RangeSet<Integer> copy = ImmutableRangeSet.copyOf(subset);
+        assertEquals(mutable, copy);
       }
 
       ImmutableRangeSet<Integer> built = builder.build();
@@ -378,34 +445,73 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
       }
 
       SerializableTester.reserializeAndAssert(built);
+      SerializableTester.reserializeAndAssert(built.asRanges());
     }
   }
 
+  private static final ImmutableRangeSet<Integer> RANGE_SET_ONE =
+      ImmutableRangeSet.<Integer>builder()
+          .add(Range.closed(2, 4))
+          .add(Range.open(6, 7))
+          .add(Range.closedOpen(8, 10))
+          .add(Range.openClosed(15, 17))
+          .build();
+
+  private static final ImmutableRangeSet<Integer> RANGE_SET_TWO =
+      ImmutableRangeSet.<Integer>builder()
+          .add(Range.openClosed(0, 3))
+          .add(Range.closed(5, 8))
+          .add(Range.closedOpen(12, 15))
+          .add(Range.open(19, 20))
+          .build();
+
+  public void testUnion() {
+    RangeSet<Integer> expected =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.openClosed(0, 4))
+            .add(Range.closedOpen(5, 10))
+            .add(Range.closedOpen(12, 15))
+            .add(Range.openClosed(15, 17))
+            .add(Range.open(19, 20))
+            .build();
+
+    assertThat(RANGE_SET_ONE.union(RANGE_SET_TWO)).isEqualTo(expected);
+  }
+
+  public void testIntersection() {
+    RangeSet<Integer> expected =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.closed(2, 3))
+            .add(Range.open(6, 7))
+            .add(Range.singleton(8))
+            .build();
+
+    assertThat(RANGE_SET_ONE.intersection(RANGE_SET_TWO)).isEqualTo(expected);
+  }
+
+  public void testDifference() {
+    RangeSet<Integer> expected =
+        ImmutableRangeSet.<Integer>builder()
+            .add(Range.openClosed(3, 4))
+            .add(Range.open(8, 10))
+            .add(Range.openClosed(15, 17))
+            .build();
+
+    assertThat(RANGE_SET_ONE.difference(RANGE_SET_TWO)).isEqualTo(expected);
+  }
+
   public void testAsSet() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(2, 4))
-        .add(Range.open(6, 7))
-        .add(Range.closedOpen(8, 10))
-        .add(Range.openClosed(15, 17))
-        .build();
     ImmutableSortedSet<Integer> expectedSet = ImmutableSortedSet.of(2, 3, 4, 8, 9, 16, 17);
-    ImmutableSortedSet<Integer> asSet = rangeSet.asSet(DiscreteDomain.integers());
+    ImmutableSortedSet<Integer> asSet = RANGE_SET_ONE.asSet(DiscreteDomain.integers());
     assertEquals(expectedSet, asSet);
-    assertThat(asSet).has().exactlyAs(expectedSet).inOrder();
+    assertThat(asSet).containsExactlyElementsIn(expectedSet).inOrder();
     assertTrue(asSet.containsAll(expectedSet));
     SerializableTester.reserializeAndAssert(asSet);
   }
 
   public void testAsSetHeadSet() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(2, 4))
-        .add(Range.open(6, 7))
-        .add(Range.closedOpen(8, 10))
-        .add(Range.openClosed(15, 17))
-        .build();
-
     ImmutableSortedSet<Integer> expectedSet = ImmutableSortedSet.of(2, 3, 4, 8, 9, 16, 17);
-    ImmutableSortedSet<Integer> asSet = rangeSet.asSet(DiscreteDomain.integers());
+    ImmutableSortedSet<Integer> asSet = RANGE_SET_ONE.asSet(DiscreteDomain.integers());
 
     for (int i = 0; i <= 20; i++) {
       assertEquals(asSet.headSet(i, false), expectedSet.headSet(i, false));
@@ -414,15 +520,8 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   }
 
   public void testAsSetTailSet() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(2, 4))
-        .add(Range.open(6, 7))
-        .add(Range.closedOpen(8, 10))
-        .add(Range.openClosed(15, 17))
-        .build();
-
     ImmutableSortedSet<Integer> expectedSet = ImmutableSortedSet.of(2, 3, 4, 8, 9, 16, 17);
-    ImmutableSortedSet<Integer> asSet = rangeSet.asSet(DiscreteDomain.integers());
+    ImmutableSortedSet<Integer> asSet = RANGE_SET_ONE.asSet(DiscreteDomain.integers());
 
     for (int i = 0; i <= 20; i++) {
       assertEquals(asSet.tailSet(i, false), expectedSet.tailSet(i, false));
@@ -431,30 +530,19 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
   }
 
   public void testAsSetSubSet() {
-    ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-        .add(Range.closed(2, 4))
-        .add(Range.open(6, 7))
-        .add(Range.closedOpen(8, 10))
-        .add(Range.openClosed(15, 17))
-        .build();
-
     ImmutableSortedSet<Integer> expectedSet = ImmutableSortedSet.of(2, 3, 4, 8, 9, 16, 17);
-    ImmutableSortedSet<Integer> asSet = rangeSet.asSet(DiscreteDomain.integers());
+    ImmutableSortedSet<Integer> asSet = RANGE_SET_ONE.asSet(DiscreteDomain.integers());
 
     for (int i = 0; i <= 20; i++) {
       for (int j = i + 1; j <= 20; j++) {
-        assertEquals(expectedSet.subSet(i, false, j, false),
-            asSet.subSet(i, false, j, false));
-        assertEquals(expectedSet.subSet(i, true, j, false),
-            asSet.subSet(i, true, j, false));
-        assertEquals(expectedSet.subSet(i, false, j, true),
-            asSet.subSet(i, false, j, true));
-        assertEquals(expectedSet.subSet(i, true, j, true),
-            asSet.subSet(i, true, j, true));
+        assertEquals(expectedSet.subSet(i, false, j, false), asSet.subSet(i, false, j, false));
+        assertEquals(expectedSet.subSet(i, true, j, false), asSet.subSet(i, true, j, false));
+        assertEquals(expectedSet.subSet(i, false, j, true), asSet.subSet(i, false, j, true));
+        assertEquals(expectedSet.subSet(i, true, j, true), asSet.subSet(i, true, j, true));
       }
     }
   }
-  
+
   public void testSubRangeSet() {
     ImmutableList.Builder<Range<Integer>> rangesBuilder = ImmutableList.builder();
     rangesBuilder.add(Range.<Integer>all());
@@ -480,10 +568,8 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
     for (Range<Integer> range1 : ranges) {
       for (Range<Integer> range2 : ranges) {
         if (!range1.isConnected(range2) || range1.intersection(range2).isEmpty()) {
-          ImmutableRangeSet<Integer> rangeSet = ImmutableRangeSet.<Integer>builder()
-              .add(range1)
-              .add(range2)
-              .build();
+          ImmutableRangeSet<Integer> rangeSet =
+              ImmutableRangeSet.<Integer>builder().add(range1).add(range2).build();
           for (Range<Integer> subRange : subRanges) {
             RangeSet<Integer> expected = TreeRangeSet.create();
             for (Range<Integer> range : rangeSet.asRanges()) {
@@ -504,5 +590,14 @@ public class ImmutableRangeSetTest extends AbstractRangeSetTest {
         }
       }
     }
+  }
+
+  public void testToImmutableRangeSet() {
+    Range<Integer> rangeOne = Range.closedOpen(1, 5);
+    Range<Integer> rangeTwo = Range.openClosed(6, 7);
+    ImmutableRangeSet<Integer> ranges =
+        ImmutableRangeSet.copyOf(ImmutableList.of(rangeOne, rangeTwo));
+    CollectorTester.of(ImmutableRangeSet.<Integer>toImmutableRangeSet())
+        .expectCollects(ranges, rangeOne, rangeTwo);
   }
 }

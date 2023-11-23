@@ -36,7 +36,7 @@ public class Certificate
         return getInstance(ASN1Sequence.getInstance(obj, explicit));
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public static Certificate getInstance(
         Object  obj)

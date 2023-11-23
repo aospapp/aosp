@@ -24,27 +24,31 @@
  * Adobe Author(s): Michiharu Ariza
  */
 
+#include "hb.hh"
+
+#ifndef HB_NO_OT_FONT_CFF
+
 #include "hb-ot-cff2-table.hh"
 #include "hb-cff2-interp-cs.hh"
 
 using namespace CFF;
 
-struct ExtentsParam
+struct cff2_extents_param_t
 {
   void init ()
   {
     path_open = false;
-    min_x.set_int (0x7FFFFFFF);
-    min_y.set_int (0x7FFFFFFF);
-    max_x.set_int (-0x80000000);
-    max_y.set_int (-0x80000000);
+    min_x.set_int (INT_MAX);
+    min_y.set_int (INT_MAX);
+    max_x.set_int (INT_MIN);
+    max_y.set_int (INT_MIN);
   }
 
-  void start_path ()         { path_open = true; }
-  void end_path ()           { path_open = false; }
+  void   start_path ()       { path_open = true; }
+  void     end_path ()       { path_open = false; }
   bool is_path_open () const { return path_open; }
 
-  void update_bounds (const Point &pt)
+  void update_bounds (const point_t &pt)
   {
     if (pt.x < min_x) min_x = pt.x;
     if (pt.x > max_x) max_x = pt.x;
@@ -53,21 +57,21 @@ struct ExtentsParam
   }
 
   bool  path_open;
-  Number min_x;
-  Number min_y;
-  Number max_x;
-  Number max_y;
+  number_t min_x;
+  number_t min_y;
+  number_t max_x;
+  number_t max_y;
 };
 
-struct CFF2PathProcs_Extents : PathProcs<CFF2PathProcs_Extents, CFF2CSInterpEnv, ExtentsParam>
+struct cff2_path_procs_extents_t : path_procs_t<cff2_path_procs_extents_t, cff2_cs_interp_env_t, cff2_extents_param_t>
 {
-  static void moveto (CFF2CSInterpEnv &env, ExtentsParam& param, const Point &pt)
+  static void moveto (cff2_cs_interp_env_t &env, cff2_extents_param_t& param, const point_t &pt)
   {
     param.end_path ();
     env.moveto (pt);
   }
 
-  static void line (CFF2CSInterpEnv &env, ExtentsParam& param, const Point &pt1)
+  static void line (cff2_cs_interp_env_t &env, cff2_extents_param_t& param, const point_t &pt1)
   {
     if (!param.is_path_open ())
     {
@@ -78,7 +82,7 @@ struct CFF2PathProcs_Extents : PathProcs<CFF2PathProcs_Extents, CFF2CSInterpEnv,
     param.update_bounds (env.get_pt ());
   }
 
-  static void curve (CFF2CSInterpEnv &env, ExtentsParam& param, const Point &pt1, const Point &pt2, const Point &pt3)
+  static void curve (cff2_cs_interp_env_t &env, cff2_extents_param_t& param, const point_t &pt1, const point_t &pt2, const point_t &pt3)
   {
     if (!param.is_path_open ())
     {
@@ -93,21 +97,24 @@ struct CFF2PathProcs_Extents : PathProcs<CFF2PathProcs_Extents, CFF2CSInterpEnv,
   }
 };
 
-struct CFF2CSOpSet_Extents : CFF2CSOpSet<CFF2CSOpSet_Extents, ExtentsParam, CFF2PathProcs_Extents> {};
+struct cff2_cs_opset_extents_t : cff2_cs_opset_t<cff2_cs_opset_extents_t, cff2_extents_param_t, cff2_path_procs_extents_t> {};
 
 bool OT::cff2::accelerator_t::get_extents (hb_font_t *font,
 					   hb_codepoint_t glyph,
 					   hb_glyph_extents_t *extents) const
 {
+#ifdef HB_NO_OT_FONT_CFF
+  /* XXX Remove check when this code moves to .hh file. */
+  return true;
+#endif
+
   if (unlikely (!is_valid () || (glyph >= num_glyphs))) return false;
 
-  unsigned int num_coords;
-  const int *coords = hb_font_get_var_coords_normalized (font, &num_coords);
   unsigned int fd = fdSelect->get_fd (glyph);
-  CFF2CSInterpreter<CFF2CSOpSet_Extents, ExtentsParam> interp;
-  const ByteStr str = (*charStrings)[glyph];
-  interp.env.init (str, *this, fd, coords, num_coords);
-  ExtentsParam  param;
+  cff2_cs_interpreter_t<cff2_cs_opset_extents_t, cff2_extents_param_t> interp;
+  const byte_str_t str = (*charStrings)[glyph];
+  interp.env.init (str, *this, fd, font->coords, font->num_coords);
+  cff2_extents_param_t  param;
   param.init ();
   if (unlikely (!interp.interpret (param))) return false;
 
@@ -118,8 +125,8 @@ bool OT::cff2::accelerator_t::get_extents (hb_font_t *font,
   }
   else
   {
-    extents->x_bearing = (int32_t)param.min_x.floor ();
-    extents->width = (int32_t)param.max_x.ceil () - extents->x_bearing;
+    extents->x_bearing = font->em_scalef_x (param.min_x.to_real ());
+    extents->width = font->em_scalef_x (param.max_x.to_real () - param.min_x.to_real ());
   }
   if (param.min_y >= param.max_y)
   {
@@ -128,9 +135,12 @@ bool OT::cff2::accelerator_t::get_extents (hb_font_t *font,
   }
   else
   {
-    extents->y_bearing = (int32_t)param.max_y.ceil ();
-    extents->height = (int32_t)param.min_y.floor () - extents->y_bearing;
+    extents->y_bearing = font->em_scalef_y (param.max_y.to_real ());
+    extents->height = font->em_scalef_y (param.min_y.to_real () - param.max_y.to_real ());
   }
 
   return true;
 }
+
+
+#endif

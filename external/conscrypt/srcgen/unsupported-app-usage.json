@@ -2,10 +2,14 @@
 // syntax.
 [
   {
-    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#getAlpnSelectedProtocol()"
+    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#getAlpnSelectedProtocol()",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLSocket#getApplicationProtocol()}."
   },
   {
-    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#getApplicationProtocols()"
+    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#getApplicationProtocols()",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#getApplicationProtocols()}."
   },
   {
     "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#getChannelId()"
@@ -23,13 +27,19 @@
     "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#getSoWriteTimeout()"
   },
   {
-    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setAlpnProtocols(byte[])"
+    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setAlpnProtocols(byte[])",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}."
   },
   {
-    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setAlpnProtocols(String[])"
+    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setAlpnProtocols(String[])",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}."
   },
   {
-    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setApplicationProtocols(String[])"
+    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setApplicationProtocols(String[])",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}."
   },
   {
     "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setChannelIdEnabled(boolean)"
@@ -41,7 +51,9 @@
     "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setHandshakeTimeout(int)"
   },
   {
-    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setHostname(String)"
+    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setHostname(String)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setServerNames}."
   },
   {
     "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setNpnProtocols(byte[])"
@@ -50,7 +62,9 @@
     "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setSoWriteTimeout(int)"
   },
   {
-    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setUseSessionTickets(boolean)"
+    "@location": "method:com.android.org.conscrypt.AbstractConscryptSocket#setUseSessionTickets(boolean)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link android.net.ssl.SSLSockets#setUseSessionTickets}."
   },
   {
     "@location": "method:com.android.org.conscrypt.ClientSessionContext#getSession(String,int)"
@@ -59,10 +73,24 @@
     "@location": "method:com.android.org.conscrypt.ClientSessionContext#setPersistentCache(SSLClientSessionCache)"
   },
   {
-    "@location": "method:com.android.org.conscrypt.ConscryptFileDescriptorSocket#setHostname(String)"
+    "@location": "method:com.android.org.conscrypt.ConscryptEngineSocket#setHostname(String)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setServerNames}."
   },
   {
-    "@location": "method:com.android.org.conscrypt.ConscryptFileDescriptorSocket#setUseSessionTickets(boolean)"
+    "@location": "method:com.android.org.conscrypt.ConscryptEngineSocket#setUseSessionTickets(boolean)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link android.net.ssl.SSLSockets#setUseSessionTickets}."
+  },
+  {
+    "@location": "method:com.android.org.conscrypt.ConscryptFileDescriptorSocket#setHostname(String)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setServerNames}."
+  },
+  {
+    "@location": "method:com.android.org.conscrypt.ConscryptFileDescriptorSocket#setUseSessionTickets(boolean)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link android.net.ssl.SSLSockets#setUseSessionTickets}."
   },
   {
     "@location": "method:com.android.org.conscrypt.FileClientSessionCache$Impl#getSessionData(String,int)"
@@ -251,7 +279,9 @@
     "@location": "field:com.android.org.conscrypt.OpenSSLSocketFactoryImpl#sslParameters"
   },
   {
-    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#getAlpnSelectedProtocol()"
+    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#getAlpnSelectedProtocol()",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLSocket#getApplicationProtocol()}."
   },
   {
     "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#getChannelId()"
@@ -269,10 +299,14 @@
     "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#getSoWriteTimeout()"
   },
   {
-    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setAlpnProtocols(byte[])"
+    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setAlpnProtocols(byte[])",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}."
   },
   {
-    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setAlpnProtocols(String[])"
+    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setAlpnProtocols(String[])",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}."
   },
   {
     "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setChannelIdEnabled(boolean)"
@@ -284,7 +318,9 @@
     "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setHandshakeTimeout(int)"
   },
   {
-    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setHostname(String)"
+    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setHostname(String)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link javax.net.ssl.SSLParameters#setServerNames}."
   },
   {
     "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setNpnProtocols(byte[])"
@@ -293,7 +329,9 @@
     "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setSoWriteTimeout(int)"
   },
   {
-    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setUseSessionTickets(boolean)"
+    "@location": "method:com.android.org.conscrypt.OpenSSLSocketImpl#setUseSessionTickets(boolean)",
+    "maxTargetSdk": "dalvik.annotation.compat.VersionCodes.Q",
+    "publicAlternatives": "Use {@link android.net.ssl.SSLSockets#setUseSessionTickets}."
   },
   {
     "@location": "method:com.android.org.conscrypt.OpenSSLX509Certificate#fromX509PemInputStream(InputStream)"

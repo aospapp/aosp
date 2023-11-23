@@ -65,7 +65,7 @@ class firmware_Cr50RMAOpen(Cr50Test):
         if not self.cr50.has_command('rma_auth'):
             raise error.TestNAError('Cannot test on Cr50 without RMA support')
 
-        if not self.cr50.using_servo_v4():
+        if not self.cr50._servo.dts_mode_is_valid():
             raise error.TestNAError('This messes with ccd settings. Use flex '
                     'cable to run the test.')
 
@@ -199,9 +199,6 @@ class firmware_Cr50RMAOpen(Cr50Test):
         self.cr50.send_command('ccd testlab open')
         self.cr50.send_command('ccd reset factory')
         self.cr50.send_command('wp disable atboot')
-        # TODO(b/119626285): Change the command to use --tpm_mode instead of -m
-        # once --tpm_mode can process the 'disable' arg correctly.
-        cr50_utils.GSCTool(self.host, ['gsctool', '--any', '-m', 'disable'])
 
 
     def check_ccd_cap_settings(self, rma_opened):
@@ -269,12 +266,12 @@ class firmware_Cr50RMAOpen(Cr50Test):
         self.confirm_ccd_is_reset()
 
 
-    def confirm_ccd_is_in_factory_mode(self):
+    def confirm_ccd_is_in_factory_mode(self, check_tpm=True):
         """Check wp and capabilities to confirm cr50 is in factory mode"""
         # The open process takes some time to complete. Wait for it.
         time.sleep(self.CHALLENGE_INTERVAL)
 
-        if self.tpm_is_responsive():
+        if check_tpm and self.tpm_is_responsive():
             raise error.TestFail('TPM was not disabled after RMA open')
 
         if self.cr50.get_wp_state() != self.WP_PERMANENTLY_DISABLED:
@@ -311,7 +308,9 @@ class firmware_Cr50RMAOpen(Cr50Test):
         """
         self.fake_rma_open()
 
-        self.confirm_ccd_is_in_factory_mode()
+        # There's no way to disable the TPM, so ignore that state for the fake
+        # RMA mode check.
+        self.confirm_ccd_is_in_factory_mode(check_tpm=False)
 
         self.host.reboot()
 

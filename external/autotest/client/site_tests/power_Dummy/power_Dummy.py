@@ -17,10 +17,11 @@ class power_Dummy(power_test.power_Test):
     loop_time = 3.0
     dummy_result = 0
 
-    def initialize(self, pdash_note=''):
+    def initialize(self, pdash_note='', force_discharge=False):
         """Measure power with a short interval."""
         super(power_Dummy, self).initialize(seconds_period=1.,
-                                            pdash_note=pdash_note)
+                                            pdash_note=pdash_note,
+                                            force_discharge=force_discharge)
 
     def warmup(self):
         """Warm up for a short time."""

@@ -115,9 +115,23 @@ Y
 w
 Y
 EOF
+
+			ret=$?
+			if [ $ret -ne 0 ]
+			then
+				pretty_print "FAILED" "gdisk return $ret when creating partition table"
+				exit 1
+			fi
 		;;
 		sgdisk)
 			$SGDISK_BIN $TEMP_DISK -${OPT_CLEAR}
+
+			ret=$?
+			if [ $ret -ne 0 ]
+			then
+				pretty_print "FAILED" "sgdisk return $ret when creating partition table"
+				exit 1
+			fi
 		;;
 	esac
 
@@ -147,7 +161,7 @@ EOF
 		;;
 
 		sgdisk)
-			$SGDISK_BIN $TEMP_DISK -${OPT_NEW} 1 -${OPT_CHANGE_NAME} 1:"${TEST_PART_DEFAULT_NAME}"
+			$SGDISK_BIN $TEMP_DISK -${OPT_NEW} 1 -${OPT_CHANGE_NAME} 1:"${TEST_PART_DEFAULT_NAME}" -${OPT_CHANGE_TYPE} 1:$TEST_PART_TYPE
 		;;
 	esac
 
@@ -311,6 +325,7 @@ EOF
 		pretty_print "SUCCESS" "GUID of disk has been sucessfully changed"
 	else
 		pretty_print "FAILED" "GUID of disk is the same as the previous one"
+		exit 1
 	fi
 }
 
@@ -353,7 +368,7 @@ EOF
 ###################################
 
 # create a file to simulate a real device
-dd if=/dev/zero of=$TEMP_DISK bs=1024 count=$TEMP_DISK_SIZE
+dd if=/dev/zero of=$TEMP_DISK bs=1024 count=$TEMP_DISK_SIZE > /dev/null 2>&1
 
 if [ -s $TEMP_DISK ]
 then

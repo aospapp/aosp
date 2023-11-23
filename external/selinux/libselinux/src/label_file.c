@@ -247,7 +247,7 @@ end_arch_check:
 		uint32_t stem_len;
 		int newid;
 
-		/* the length does not inlude the nul */
+		/* the length does not include the nul */
 		rc = next_entry(&stem_len, mmap_area, sizeof(uint32_t));
 		if (rc < 0 || !stem_len) {
 			rc = -1;
@@ -635,10 +635,10 @@ static int selabel_subs_init(const char *path, struct selabel_digest *digest,
 		dst = ptr;
 		while (*dst && isspace(*dst))
 			dst++;
-		ptr=dst;
+		ptr = dst;
 		while (*ptr && ! isspace(*ptr))
 			ptr++;
-		*ptr='\0';
+		*ptr = '\0';
 		if (! *dst)
 			continue;
 
@@ -647,11 +647,11 @@ static int selabel_subs_init(const char *path, struct selabel_digest *digest,
 			goto err;
 		memset(sub, 0, sizeof(*sub));
 
-		sub->src=strdup(src);
+		sub->src = strdup(src);
 		if (! sub->src)
 			goto err;
 
-		sub->dst=strdup(dst);
+		sub->dst = strdup(dst);
 		if (! sub->dst)
 			goto err;
 
@@ -896,10 +896,10 @@ static void closef(struct selabel_handle *rec)
 // the allocated array and updates the match count. If match_count is NULL,
 // stops early once the 1st match is found.
 static const struct spec **lookup_all(struct selabel_handle *rec,
-				      const char *key,
-				      int type,
-				      bool partial,
-				      size_t *match_count)
+                                      const char *key,
+                                      int type,
+                                      bool partial,
+                                      size_t *match_count)
 {
 	struct saved_data *data = (struct saved_data *)rec->data;
 	struct spec *spec_arr = data->spec_arr;
@@ -918,7 +918,8 @@ static const struct spec **lookup_all(struct selabel_handle *rec,
 		result = calloc(1, sizeof(struct spec*));
 	}
 	if (!result) {
-		selinux_log(SELINUX_ERROR, "%s: Out of memory\n", __func__);
+		selinux_log(SELINUX_ERROR, "Failed to allocate %zu bytes of data\n",
+			    data->nspec * sizeof(struct spec*));
 		goto finish;
 	}
 
@@ -1009,9 +1010,9 @@ finish:
 }
 
 static struct spec *lookup_common(struct selabel_handle *rec,
-				  const char *key,
-				  int type,
-				  bool partial) {
+                                  const char *key,
+                                  int type,
+                                  bool partial) {
 	const struct spec **matches = lookup_all(rec, key, type, partial, NULL);
 	if (!matches) {
 		return NULL;
@@ -1019,6 +1020,59 @@ static struct spec *lookup_common(struct selabel_handle *rec,
 	struct spec *result = (struct spec*)matches[0];
 	free(matches);
 	return result;
+}
+
+/*
+ * Returns true if the digest of all partial matched contexts is the same as
+ * the one saved by setxattr, otherwise returns false. The length of the SHA1
+ * digest will always be returned. The caller must free any returned digests.
+ */
+static bool get_digests_all_partial_matches(struct selabel_handle *rec,
+					    const char *pathname,
+					    uint8_t **calculated_digest,
+					    uint8_t **xattr_digest,
+					    size_t *digest_len)
+{
+	uint8_t read_digest[SHA1_HASH_SIZE];
+	ssize_t read_size = getxattr(pathname, RESTORECON_PARTIAL_MATCH_DIGEST,
+				     read_digest, SHA1_HASH_SIZE
+#ifdef __APPLE__
+				     , 0, 0
+#endif /* __APPLE __ */
+				    );
+	uint8_t hash_digest[SHA1_HASH_SIZE];
+	bool status = selabel_hash_all_partial_matches(rec, pathname,
+						       hash_digest);
+
+	*xattr_digest = NULL;
+	*calculated_digest = NULL;
+	*digest_len = SHA1_HASH_SIZE;
+
+	if (read_size == SHA1_HASH_SIZE) {
+		*xattr_digest = calloc(1, SHA1_HASH_SIZE + 1);
+		if (!*xattr_digest)
+			goto oom;
+
+		memcpy(*xattr_digest, read_digest, SHA1_HASH_SIZE);
+	}
+
+	if (status) {
+		*calculated_digest = calloc(1, SHA1_HASH_SIZE + 1);
+		if (!*calculated_digest)
+			goto oom;
+
+		memcpy(*calculated_digest, hash_digest, SHA1_HASH_SIZE);
+	}
+
+	if (status && read_size == SHA1_HASH_SIZE &&
+	    memcmp(read_digest, hash_digest, SHA1_HASH_SIZE) == 0)
+		return true;
+
+	return false;
+
+oom:
+	selinux_log(SELINUX_ERROR, "SELinux: %s: Out of memory\n", __func__);
+	return false;
 }
 
 static bool hash_all_partial_matches(struct selabel_handle *rec, const char *key, uint8_t *digest)
@@ -1036,11 +1090,11 @@ static bool hash_all_partial_matches(struct selabel_handle *rec, const char *key
 	size_t i;
 	for (i = 0; i < total_matches; i++) {
 		char* regex_str = matches[i]->regex_str;
-		uint32_t mode = matches[i]->mode;
+		mode_t mode = matches[i]->mode;
 		char* ctx_raw = matches[i]->lr.ctx_raw;
 
 		Sha1Update(&context, regex_str, strlen(regex_str) + 1);
-		Sha1Update(&context, &mode, sizeof(uint32_t));
+		Sha1Update(&context, &mode, sizeof(mode_t));
 		Sha1Update(&context, ctx_raw, strlen(ctx_raw) + 1);
 	}
 
@@ -1249,6 +1303,8 @@ int selabel_file_init(struct selabel_handle *rec,
 	rec->func_stats = &stats;
 	rec->func_lookup = &lookup;
 	rec->func_partial_match = &partial_match;
+	rec->func_get_digests_all_partial_matches =
+					&get_digests_all_partial_matches;
 	rec->func_hash_all_partial_matches = &hash_all_partial_matches;
 	rec->func_lookup_best_match = &lookup_best_match;
 	rec->func_cmp = &cmp;

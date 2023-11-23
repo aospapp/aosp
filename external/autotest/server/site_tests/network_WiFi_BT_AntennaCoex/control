@@ -6,7 +6,7 @@ AUTHOR = 'kirtika'
 NAME = 'network_WiFi_BT_AntennaCoex'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_flaky')
+ATTRIBUTES = ('suite:wifi_matfunc')
 DEPENDENCIES = 'wificell, bluetooth'
 
 DOC = """

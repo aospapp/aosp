@@ -25,6 +25,7 @@
 
 #include <vector>
 #include "vkRef.hpp"
+#include "vkRefUtil.hpp"
 
 namespace vk
 {
@@ -72,7 +73,7 @@ Move<VkPipeline> makeGraphicsPipeline (const DeviceInterface&							vk,
 
 Move<VkRenderPass> makeRenderPass (const DeviceInterface&				vk,
 								   const VkDevice						device,
-								   const VkFormat						colorFormat,
+								   const VkFormat						colorFormat					= VK_FORMAT_UNDEFINED,
 								   const VkFormat						depthStencilFormat			= VK_FORMAT_UNDEFINED,
 								   const VkAttachmentLoadOp				loadOperation				= VK_ATTACHMENT_LOAD_OP_CLEAR,
 								   const VkImageLayout					finalLayoutColor			= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -80,6 +81,86 @@ Move<VkRenderPass> makeRenderPass (const DeviceInterface&				vk,
 								   const VkImageLayout					subpassLayoutColor			= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 								   const VkImageLayout					subpassLayoutDepthStencil	= VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 								   const VkAllocationCallbacks* const	allocationCallbacks			= DE_NULL);
+
+Move<VkImageView> makeImageView (const DeviceInterface&					vk,
+								 const VkDevice							vkDevice,
+								 const VkImage							image,
+								 const VkImageViewType					imageViewType,
+								 const VkFormat							format,
+								 const VkImageSubresourceRange			subresourceRange,
+								 const vk::VkImageViewUsageCreateInfo*	imageUsageCreateInfoKHR = DE_NULL);
+
+Move<VkBufferView> makeBufferView (const DeviceInterface&	vk,
+								   const VkDevice			vkDevice,
+								   const VkBuffer			buffer,
+								   const VkFormat			format,
+								   const VkDeviceSize		offset,
+								   const VkDeviceSize		size);
+
+Move<VkDescriptorSet> makeDescriptorSet (const DeviceInterface&			vk,
+										 const VkDevice					device,
+										 const VkDescriptorPool			descriptorPool,
+										 const VkDescriptorSetLayout	setLayout,
+										 const void*					pNext = DE_NULL);
+
+VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			size,
+										 const VkBufferUsageFlags	usage);
+
+Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
+										   const VkDevice				device,
+										   const VkDescriptorSetLayout	descriptorSetLayout = DE_NULL);
+
+Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
+										   const VkDevice				device,
+										   const deUint32				setLayoutCount,
+										   const VkDescriptorSetLayout*	descriptorSetLayout);
+
+Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
+									 const VkDevice			device,
+									 const VkRenderPass		renderPass,
+									 const VkImageView		colorAttachment,
+									 const deUint32			width,
+									 const deUint32			height,
+									 const deUint32			layers = 1u);
+
+Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
+									 const VkDevice			device,
+									 const VkRenderPass		renderPass,
+									 const deUint32			attachmentCount,
+									 const VkImageView*		colorAttachments,
+									 const deUint32			width,
+									 const deUint32			height,
+									 const deUint32			layers = 1u);
+
+Move<VkCommandPool> makeCommandPool (const DeviceInterface&	vk,
+									 const VkDevice			device,
+									 const deUint32			queueFamilyIndex);
+
+inline Move<VkBuffer> makeBuffer (const DeviceInterface&	vk,
+								  const VkDevice			device,
+								  const VkDeviceSize		bufferSize,
+								  const VkBufferUsageFlags	usage)
+{
+	const VkBufferCreateInfo bufferCreateInfo = makeBufferCreateInfo(bufferSize, usage);
+	return createBuffer(vk, device, &bufferCreateInfo);
+}
+
+inline Move<VkBuffer> makeBuffer (const vk::DeviceInterface&	vk,
+								  const vk::VkDevice			device,
+								  const vk::VkBufferCreateInfo&	createInfo)
+{
+	return createBuffer(vk, device, &createInfo);
+}
+
+inline Move<VkImage> makeImage (const DeviceInterface&		vk,
+								const VkDevice				device,
+								const VkImageCreateInfo&	createInfo)
+{
+	return createImage(vk, device, &createInfo);
+}
+
+VkBufferImageCopy makeBufferImageCopy (const VkExtent3D					extent,
+									   const VkImageSubresourceLayers	subresourceLayers);
 
 } // vk
 

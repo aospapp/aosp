@@ -13,16 +13,16 @@ es_PY{
             }
         }
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     calendar{
         gregorian{
             AmPmMarkers{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
+                "a. m.",
+                "p. m.",
             }
             dayNames{
                 format{
@@ -51,17 +51,15 @@ es_PY{
             dayPeriod{
                 stand-alone{
                     abbreviated{
-                        am{"a. m."}
-                        pm{"p. m."}
+                        am{"a. m."}
+                        pm{"p. m."}
                     }
                     narrow{
-                        am{"a. m."}
                         noon{"m."}
-                        pm{"p. m."}
                     }
                     wide{
-                        am{"a. m."}
-                        pm{"p. m."}
+                        am{"a. m."}
+                        pm{"p. m."}
                     }
                 }
             }
@@ -133,15 +131,6 @@ es_PY{
         }
     }
     fields{
-        day{
-            relative{
-                "-1"{"ayer"}
-                "-2"{"anteayer"}
-                "0"{"hoy"}
-                "1"{"mañana"}
-                "2"{"pasado mañana"}
-            }
-        }
         mon-narrow{
             relative{
                 "-1"{"el lun. pasado"}

@@ -7,9 +7,9 @@
 <head>
   <meta charset="utf-8"  />
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1,shrink-to-fit=no"  />
-  <title>Formats @ ImageMagick</title>
+  <title>ImageMagick - Formats</title>
   <meta name="application-name" content="ImageMagick" />
-  <meta name="description" content="Use ImageMagick® to create, edit, compose, or convert bitmap images. You can resize your image, crop it, change its shades and colors, add captions, among other operations." />
+  <meta name="description" content="Use ImageMagick® to create, edit, compose, and convert bitmap images. Resize an image, crop it, change its shades and colors, add captions, and more." />
   <meta name="application-url" content="https://imagemagick.org" />
   <meta name="generator" content="PHP" />
   <meta name="keywords" content="formats, ImageMagick, PerlMagick, image processing, image, photo, software, Magick++, OpenMP, convert" />
@@ -19,9 +19,15 @@
   <meta name="author" content="ImageMagick Studio LLC" />
   <meta name="revisit-after" content="2 DAYS" />
   <meta name="resource-type" content="document" />
-  <meta name="copyright" content="Copyright (c) 1999-2019 ImageMagick Studio LLC" />
+  <meta name="copyright" content="Copyright (c) 1999-2020 ImageMagick Studio LLC" />
   <meta name="distribution" content="Global" />
   <meta name="magick-serial" content="P131-S030410-R485315270133-P82224-A6668-G1245-1" />
+  <meta property='og:url' content='../' />
+  <meta property='og:title' content='ImageMagick' />
+  <meta property='og:image' content='../images/logo.png' />
+  <meta property='og:type' content='website' />
+  <meta property='og:site_name' content='ImageMagick' />
+  <meta property='og:description' content="Convert, Edit, or Compose Bitmap Images" />
   <meta name="google-site-verification" content="_bMOCDpkx9ZAzBwb2kF3PRHbfUUdFj2uO8Jd1AXArz4" />
   <link href="../www/formats.html" rel="canonical" />
   <link href="../images/wand.png" rel="icon" />
@@ -29,7 +35,6 @@
   <link href="assets/magick.css" rel="stylesheet" />
 </head>
 <body>
-  <header>
   <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
     <a class="navbar-brand" href="../index.html"><img class="d-block" id="icon" alt="ImageMagick" width="32" height="32" src="../images/wand.ico"/></a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsMagick" aria-controls="navbarsMagick" aria-expanded="false" aria-label="Toggle navigation">
@@ -71,13 +76,14 @@
          style="display:block"
          data-ad-client="ca-pub-3129977114552745"
          data-ad-slot="6345125851"
-         data-ad-format="auto"></ins>
+         data-full-width-responsive="true"
+         data-ad-format="horizontal"></ins>
     <script>
       (adsbygoogle = window.adsbygoogle || []).push({});
     </script>
 
   </div>
-  </header>
+
   <main class="container">
     <div class="magick-template">
 ﻿<div class="magick-header">
@@ -149,7 +155,7 @@ example,</p>
 including sub-formats). The following table provides a summary of
 the supported image formats.</p>
 
-<div class="table-responsive">
+<div class="table-responsive" style="font-size:87.5% !important;">
 <table class="table table-sm table-striped">
   <tbody>
   <tr>
@@ -177,7 +183,7 @@ the supported image formats.</p>
     <td>ARW</td>
     <td>R</td>
     <td>Sony Digital Camera Alpha Raw Image Format</td>
-    <td> </td>
+    <td>Set <code>-define dng:use-camera-wb=true</code> to use the RAW-embedded color profile for Sony cameras.</td>
   </tr>
 
   <tr>
@@ -598,7 +604,7 @@ the supported image formats.</p>
     <td><a href="http://www.jpeg.org/">JPEG</a></td>
     <td>RW</td>
     <td>Joint Photographic Experts Group JFIF format</td>
-    <td>Note, JPEG is a lossy compression.  In addition, you cannot create black and white images with JPEG nor can you save transparency.<br /><br /> Requires <a href="http://www.ijg.org/files/">jpegsrc.v8c.tar.gz</a>.  You can set quality scaling for luminance and chrominance separately (e.g. <a href="command-line-options.html#quality">-quality</a> 90,70). You can optionally define the DCT method, for example to specify the float method, use <a href="command-line-options.html#define">-define jpeg:dct-method=float</a>. By default we compute optimal Huffman coding tables.  Specify <a href="command-line-options.html#define">-define jpeg:optimize-coding=false</a> to use the default Huffman tables. Two other options include <a href="command-line-options.html#define">-define jpeg:block-smoothing</a> and <a href="command-line-options.html#define">-define jpeg:fancy-upsampling</a>. Set the sampling factor with <a href="command-line-options.html#define">-define jpeg:sampling-factor</a>. You can size the image with <code>jpeg:size</code>, for example <a href="command-line-options.html#define">-define jpeg:size=128x128</a>. To restrict the maximum file size, use <code>jpeg:extent</code>, for example <a href="command-line-options.html#define">-define jpeg:extent=400KB</a>.  To define one or more custom quantization tables, use <a href="command-line-options.html#define">-define jpeg:q-table=<i>filename</i></a>. To avoid reading a particular associated image profile, use <a href="command-line-options.html#define">-define profile:skip=<i>name</i></a> (e.g. profile:skip=ICC).</td>
+    <td>Note, JPEG is a lossy compression.  In addition, you cannot create black and white images with JPEG nor can you save transparency.<br /><br /> Requires <a href="http://www.ijg.org/files/">jpegsrc.v8c.tar.gz</a>.  You can set quality scaling for luminance and chrominance separately (e.g. <a href="command-line-options.html#quality">-quality</a> 90,70). You can optionally define the DCT method, for example to specify the float method, use <a href="command-line-options.html#define">-define jpeg:dct-method=float</a>. By default we compute optimal Huffman coding tables.  Specify <a href="command-line-options.html#define">-define jpeg:optimize-coding=false</a> to use the default Huffman tables. Two other options include <a href="command-line-options.html#define">-define jpeg:block-smoothing</a> and <a href="command-line-options.html#define">-define jpeg:fancy-upsampling</a>. Set the sampling factor with <a href="command-line-options.html#define">-define jpeg:sampling-factor</a>. You can size the image with <code>jpeg:size</code>, for example <a href="command-line-options.html#define">-define jpeg:size=128x128</a>. To restrict the maximum file size, use <code>jpeg:extent</code>, for example <a href="command-line-options.html#define">-define jpeg:extent=400KB</a>.  To define one or more custom quantization tables, use <a href="command-line-options.html#define">-define jpeg:q-table=<i>filename</i></a>. These values are multiplied by <a href="command-line-options.html#quality">-quality</a> argument divided by 100.0. To avoid reading a particular associated image profile, use <a href="command-line-options.html#define">-define profile:skip=<i>name</i></a> (e.g. profile:skip=ICC).</td>
   </tr>
 
   <tr>
@@ -613,6 +619,13 @@ the supported image formats.</p>
     <td>W</td>
     <td>JavaScript Object Notation, a lightweight data-interchange format</td>
     <td>Include additional attributes about the image with these defines: <a href="command-line-options.html#define">-define json:locate</a>, <a href="command-line-options.html#define">-define json:limit</a>, <a href="command-line-options.html#define">-define json:moments</a>, or <a href="command-line-options.html#define">-define json:features</a>.</td>
+  </tr>
+
+  <tr>
+    <td><a href="https://en.wikipedia.org/wiki/JPEG_XR">JXL</a></td>
+    <td>RW</td>
+    <td>JPEG1 recompression as specified in https://arxiv.org/pdf/1908.03565.pdf</td>
+    <td>Requires the <a href="https://github.com/google/brunsli">brunsli</a> delegate library.</td>
   </tr>
 
   <tr>
@@ -686,7 +699,7 @@ the supported image formats.</p>
     <td>MRW</td>
     <td>R</td>
     <td>Sony (Minolta) Raw Image File</td>
-    <td> </td>
+    <td>Set <code>-define dng:use-camera-wb=true</code> to use the RAW-embedded color profile for Sony cameras.</td>
   </tr>
 
   <tr>
@@ -804,7 +817,7 @@ the supported image formats.</p>
     <td>PDF</td>
     <td>RW</td>
     <td>Portable Document Format</td>
-    <td>Requires <a href="http://www.cs.wisc.edu/%7Eghost">Ghostscript</a> to read.  By default, ImageMagick sets the page size to the MediaBox. Some PDF files, however, have a CropBox or TrimBox that is smaller than the MediaBox and may include white space, registration or cutting marks outside the CropBox or TrimBox. To force ImageMagick to use the CropBox or TrimBox rather than the MediaBox, use <a href="command-line-options.html#define">-define</a> (e.g. <code>-define pdf:use-cropbox=true</code> or <code>-define pdf:use-trimbox=true</code>).  Use <a href="command-line-options.html#density">-density</a> to improve the appearance of your PDF rendering (e.g. -density 300x300).  Use <a href="command-line-options.html#alpha">-alpha remove </a> to remove transparency. To specify direct conversion from  Postscript to PDF, use <code>-define delegate:bimodel=true</code>. Use <code>-define pdf:fit-page=true</code> to scale to the page size. To immediately stop processing upon an error, set <code>-define pdf:stop-on-error</code> to <code>true</code>. To set the page direction preferences to right-to-left, try  <code>-define pdf:page-direction=right-to-left</code>.</td>
+    <td>Requires <a href="http://www.cs.wisc.edu/%7Eghost">Ghostscript</a> to read.  By default, ImageMagick sets the page size to the MediaBox. Some PDF files, however, have a CropBox or TrimBox that is smaller than the MediaBox and may include white space, registration or cutting marks outside the CropBox or TrimBox. To force ImageMagick to use the CropBox or TrimBox rather than the MediaBox, use <a href="command-line-options.html#define">-define</a> (e.g. <code>-define pdf:use-cropbox=true</code> or <code>-define pdf:use-trimbox=true</code>).  Use <a href="command-line-options.html#density">-density</a> to improve the appearance of your PDF rendering (e.g. -density 300x300).  Use <a href="command-line-options.html#alpha">-alpha remove </a> to remove transparency. To specify direct conversion from  Postscript to PDF, use <code>-define delegate:bimodel=true</code>. Use <code>-define pdf:fit-page=true</code> to scale to the page size. To immediately stop processing upon an error, set <code>-define pdf:stop-on-error</code> to <code>true</code>. To set the page direction preferences to right-to-left, try  <code>-define pdf:page-direction=right-to-left</code>. Use <a href="command-line-options.html#alpha">-alpha remove </a> to remove transparency.</td>
   </tr>
 
   <tr>
@@ -927,6 +940,13 @@ the supported image formats.</p>
   </tr>
 
   <tr>
+    <td>POCKETMOD</td>
+    <td>RW</td>
+    <td>Pocketmod personal organizer format</td>
+    <td>Example usage: <code>convert -density 300 pages?.pdf pocketmod:organize.pdf</code> </td>
+  </tr>
+
+  <tr>
     <td><a href="http://netpbm.sourceforge.net/doc/ppm.html">PPM</a></td>
     <td>RW</td>
     <td>Portable pixmap format (color)</td>
@@ -937,7 +957,7 @@ the supported image formats.</p>
     <td>PS</td>
     <td>RW</td>
     <td>Adobe PostScript file</td>
-    <td>Requires <a href="http://www.cs.wisc.edu/%7Eghost">Ghostscript</a> to read. To force ImageMagick to respect the crop box, use <a href="command-line-options.html#define">-define</a> (e.g. <code>-define eps:use-cropbox=true</code>). Use <a href="command-line-options.html#density">-density</a> to improve the appearance of your Postscript rendering (e.g. -density 300x300). Use <a href="command-line-options.html#alpha">-alpha remove </a> to remove transparency. To specify direct conversion from PDF to Postscript, use <code>-define delegate:bimodel=true</code>.</td>
+    <td>Requires <a href="http://www.cs.wisc.edu/%7Eghost">Ghostscript</a> to read. To force ImageMagick to respect the crop box, use <a href="command-line-options.html#define">-define</a> (e.g. <code>-define eps:use-cropbox=true</code>). Use <a href="command-line-options.html#density">-density</a> to improve the appearance of your Postscript rendering (e.g. -density 300x300).  Use <a href="command-line-options.html#alpha">-alpha remove </a> to remove transparency. To specify direct conversion from PDF to Postscript, use <code>-define delegate:bimodel=true</code>.</td>
   </tr>
 
   <tr>
@@ -1001,6 +1021,13 @@ the supported image formats.</p>
     <td>RW</td>
     <td>Raw red, green, and blue samples</td>
     <td>Use <a href="command-line-options.html#size">-size</a> and <a href="command-line-options.html#depth">-depth</a> to specify the image width, height, and depth.  To specify a single precision floating-point format, use <code>-define quantum:format=floating-point</code>.  Set the depth to 32 for single precision floats, 64 for double precision, and 16 for half-precision.</td>
+  </tr>
+
+  <tr>
+    <td>RGB565</td>
+    <td>R</td>
+    <td>Raw red, green, blue pixels in the 5-6-5 format</td>
+    <td>Use <a href="command-line-options.html#size">-size</a> to specify the image width and height.</td>
   </tr>
 
   <tr>
@@ -1084,7 +1111,7 @@ the supported image formats.</p>
     <td><a href="http://www.w3.org/Graphics/SVG">SVG</a></td>
     <td>RW</td>
     <td>Scalable Vector Graphics</td>
-    <td>ImageMagick utilizes <a href="http://www.inkscape.org/">inkscape</a> if its in your execution path otherwise <a href="http://developer.gnome.org/rsvg/">RSVG</a>. If neither are available, ImageMagick reverts to its internal SVG renderer. The default resolution is 96 DPI. Use <a href="command-line-options.html#size">-size</a> command line option to specify the maximum width and height.</td>
+    <td>ImageMagick utilizes <a href="http://www.inkscape.org/">inkscape</a> if its in your execution path otherwise <a href="http://developer.gnome.org/rsvg/">RSVG</a>. If neither are available, ImageMagick reverts to its internal SVG renderer. The default resolution is 96 DPI. Use <a href="command-line-options.html#size">-size</a> command line option to specify the maximum width and height. If you want to render a very large SVG and you trust the source, enable this option: <code>-define svg:xml-parse-huge=true</code>.</td>
   </tr>
 
   <tr>
@@ -1276,7 +1303,7 @@ the supported image formats.</p>
 
 <p>ImageMagick supports a number of image format specifications which refer to images prepared via an algorithm, or input/output targets. The following table lists these pseudo-image formats:</p>
 
-<div class="table-responsive">
+<div class="table-responsive" style="font-size:87.5% !important;">
 <table class="table table-sm table-striped">
   <tr>
     <th>Tag</th>
@@ -1397,7 +1424,7 @@ the supported image formats.</p>
     <td>PANGO</td>
     <td>R</td>
     <td>Image caption</td>
-    <td>You can configure the caption layout with these defines: <code>-define pango:auto-dir=</code><var>true/false</var>, <code>-define pango:ellipsize=</code><var>start/middle/end</var>, <code>-define pango:gravity-hint=</code><var>natural/strong/line</var>, <code>-define pango:hinting=</code><var>none/auto/full</var>, <code>-define pango:indent=</code><var>points</var>, <code>-define pango:justify=</code><var>true/false</var>, <code>-define pango:language=</code><var>en_US/etc</var>, <code>-define pango:markup=</code><var>true/false</var>, <code>-define pango:single-paragraph=</code><var>true/false</var> and <code>-define pango:wrap=</code><var>word/char/word-char</var>.</td>
+    <td>You can configure the caption layout with these defines: <code>-define pango:auto-dir=</code><var>true/false</var>, <code>-define pango:ellipsize=</code><var>start/middle/end</var>, <code>-define pango:gravity-hint=</code><var>natural/strong/line</var>, <code>-define pango:hinting=</code><var>none/auto/full</var>, <code>-define pango:indent=</code><var>points</var>, <code>-define pango:justify=</code><var>true/false</var>, <code>-define pango:language=</code><var>en_US/etc</var>, <code>-define pango:markup=</code><var>true/false</var>, <code>-define pango:single-paragraph=</code><var>true/false</var>, <code>-define pango:wrap=</code><var>word/char/word-char</var> and <code>-define pango:align=</code><var>left/center/right</var>.</td>
   </tr>
 
   <tr>
@@ -1509,7 +1536,7 @@ the supported image formats.</p>
 
 <p>ImageMagick includes a number of built-in (embedded) images which may be referenced as if they were an image file. The <code>magick:</code> format tag may be used via the syntax <code>magick:</code><var>name</var> to request an embedded image (e.g. <code>magick:logo</code>). For backwards compatibility, the image specifications <code>GRANITE:</code>, <code>LOGO:</code>, <code>NETSCAPE:</code>, and <code>ROSE:</code> may also be used to request images with those names.</p>
 
-<div class="table-responsive">
+<div class="table-responsive" style="font-size:87.5% !important;">
 <table class="table table-sm table-striped">
   <tr>
     <th>Tag</th>
@@ -1559,7 +1586,7 @@ the supported image formats.</p>
 
 <p>ImageMagick includes a number of built-in (embedded) patterns which may be referenced as if they were an image file. The <code>pattern:</code> format tag may be used via the syntax <code>pattern:</code><var>name</var> to request an embedded pattern (e.g. <code>pattern:checkerboard</code>). The pattern size is controlled with the <a href="command-line-options.html#size">-size</a> command line option.</p>
 
-<div class="table-responsive">
+<div class="table-responsive" style="font-size:87.5% !important;">
 <table class="table table-sm table-striped">
   <tr>
     <th>Tag</th>
@@ -1951,7 +1978,7 @@ the supported image formats.</p>
 
 <p>ImageMagick provides a number of format identifiers which are used to add, remove, and save embedded profiles for images which can support embedded profiles. Image types which may contain embedded profiles are TIFF, JPEG, and PDF.</p>
 
-<div class="table-responsive">
+<div class="table-responsive" style="font-size:87.5% !important;">
 <table class="table table-sm table-striped">
   <tbody>
   <tr>
@@ -2018,22 +2045,23 @@ the supported image formats.</p>
   </main><!-- /.container -->
   <footer class="magick-footer">
     <p><a href="security-policy.html">Security</a> •
-    <a href="architecture.html">Architecture</a> •
+    <a href="architecture.html">Architecture</a>
+     
+    <a href="formats.html#"><img class="d-inline" id="wand" alt="And Now a Touch of Magick" width="16" height="16" src="../images/wand.ico"/></a>
+     
     <a href="links.html">Related</a> •
      <a href="sitemap.html">Sitemap</a>
-       
-    <a href="formats.html#"><img class="d-inline" id="wand" alt="And Now a Touch of Magick" width="16" height="16" src="../images/wand.ico"/></a>
-       
-    <a href="http://pgp.mit.edu/pks/lookup?op=get&amp;search=0x89AB63D48277377A">Public Key</a> •
-    <a href="support.html">Donate</a> •
-    <a href="https://imagemagick.org/script/contact.php">Contact Us</a>
     <br/>
-    <small>© 1999-2019 ImageMagick Studio LLC</small></p>
+    <a href="support.html">Donate</a> •
+    <a href="http://pgp.mit.edu/pks/lookup?op=get&amp;search=0x89AB63D48277377A">Public Key</a> •
+    <a href="https://imagemagick.org/script/contact.php">Contact Us</a> 
+    <br/>
+    <small>© 1999-2020 ImageMagick Studio LLC</small></p>
   </footer>
 
   <!-- Javascript assets -->
   <script src="assets/magick.js" crossorigin="anonymous"></script>
-  <script>window.jQuery || document.write('<script src="https://localhost/ajax/libs/jquery/3.3.1/jquery.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="https://localhost/ajax/libs/jquery/3.4.1/jquery.min.js"><\/script>')</script>
 </body>
 </html>
-<!-- Magick Cache 5th January 2019 11:42 -->
+<!-- Magick Cache 5th January 2020 11:31 -->

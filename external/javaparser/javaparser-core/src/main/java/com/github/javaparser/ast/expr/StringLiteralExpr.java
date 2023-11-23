@@ -29,10 +29,10 @@ import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.metamodel.StringLiteralExprMetaModel;
 import com.github.javaparser.utils.StringEscapeUtils;
 import com.github.javaparser.utils.Utils;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import java.util.function.Consumer;
 import java.util.Optional;
+import com.github.javaparser.ast.Generated;
 
 /**
  * A literal string.
@@ -44,7 +44,7 @@ import java.util.Optional;
  *
  * @author Julio Vilmar Gesser
  */
-public final class StringLiteralExpr extends LiteralStringValueExpr {
+public class StringLiteralExpr extends LiteralStringValueExpr {
 
     public StringLiteralExpr() {
         this(null, "empty");
@@ -58,16 +58,6 @@ public final class StringLiteralExpr extends LiteralStringValueExpr {
     @AllFieldsConstructor
     public StringLiteralExpr(final String value) {
         this(null, Utils.escapeEndOfLines(value));
-    }
-
-    /**
-     * Utility method that creates a new StringLiteralExpr. Escapes EOL characters.
-     *
-     * @deprecated Use {@link #StringLiteralExpr(String)} instead.
-     */
-    @Deprecated
-    public static StringLiteralExpr escape(String string) {
-        return new StringLiteralExpr(Utils.escapeEndOfLines(string));
     }
 
     /**

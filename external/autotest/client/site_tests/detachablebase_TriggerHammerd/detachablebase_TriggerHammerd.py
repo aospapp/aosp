@@ -38,7 +38,7 @@ class detachablebase_TriggerHammerd(test.test):
     PROCESS_FAILED_MSG = '%s main process ([0-9]\+) terminated' % PROCESS_NAME
 
     # Hammerd writes path to USB device in that file.
-    WRITE_SYSFS_PATH = '/run/hammer_sysfs_path'
+    WRITE_SYSFS_PATH = '/run/metrics/external/hammer/hammer_sysfs_path'
 
     # Autosuspend control sysfs PATH (rooted at USB device sysfs path)
     SYSFS_POWER_CONTROL_PATH = 'power/control'

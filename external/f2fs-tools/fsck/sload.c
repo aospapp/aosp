@@ -34,6 +34,7 @@ static fs_config_f fs_config_func = NULL;
 #include <selinux/android.h>
 #include <private/android_filesystem_config.h>
 #include <private/canned_fs_config.h>
+#include <private/fs_config.h>
 #endif
 
 static int filter_dot(const struct dirent *d)
@@ -41,19 +42,25 @@ static int filter_dot(const struct dirent *d)
 	return (strcmp(d->d_name, "..") && strcmp(d->d_name, "."));
 }
 
-static void f2fs_make_directory(struct f2fs_sb_info *sbi,
+static int f2fs_make_directory(struct f2fs_sb_info *sbi,
 				int entries, struct dentry *de)
 {
+	int ret = 0;
 	int i = 0;
 
 	for (i = 0; i < entries; i++) {
 		if (de[i].file_type == F2FS_FT_DIR)
-			f2fs_mkdir(sbi, de + i);
+			ret = f2fs_mkdir(sbi, de + i);
 		else if (de[i].file_type == F2FS_FT_REG_FILE)
-			f2fs_create(sbi, de + i);
+			ret = f2fs_create(sbi, de + i);
 		else if (de[i].file_type == F2FS_FT_SYMLINK)
-			f2fs_symlink(sbi, de + i);
+			ret = f2fs_symlink(sbi, de + i);
+
+		if (ret)
+			break;
 	}
+
+	return ret;
 }
 
 #ifdef HAVE_LIBSELINUX
@@ -173,7 +180,7 @@ static int build_directory(struct f2fs_sb_info *sbi, const char *full_path,
 	int entries = 0;
 	struct dentry *dentries;
 	struct dirent **namelist = NULL;
-	int i, ret = 0;
+	int i = 0, ret = 0;
 
 	entries = scandir(full_path, &namelist, filter_dot, (void *)alphasort);
 	if (entries < 0) {
@@ -182,8 +189,7 @@ static int build_directory(struct f2fs_sb_info *sbi, const char *full_path,
 	}
 
 	dentries = calloc(entries, sizeof(struct dentry));
-	if (dentries == NULL)
-		return -ENOMEM;
+	ASSERT(dentries);
 
 	for (i = 0; i < entries; i++) {
 		dentries[i].name = (unsigned char *)strdup(namelist[i]->d_name);
@@ -208,7 +214,9 @@ static int build_directory(struct f2fs_sb_info *sbi, const char *full_path,
 
 	free(namelist);
 
-	f2fs_make_directory(sbi, entries, dentries);
+	ret = f2fs_make_directory(sbi, entries, dentries);
+	if (ret)
+		goto out_free;
 
 	for (i = 0; i < entries; i++) {
 		if (dentries[i].file_type == F2FS_FT_REG_FILE) {
@@ -224,10 +232,15 @@ static int build_directory(struct f2fs_sb_info *sbi, const char *full_path,
 							dentries[i].path);
 			ASSERT(ret > 0);
 
-			build_directory(sbi, subdir_full_path, subdir_dir_path,
-					target_out_dir, dentries[i].ino);
+			ret = build_directory(sbi, subdir_full_path,
+						subdir_dir_path,
+						target_out_dir,
+						dentries[i].ino);
 			free(subdir_full_path);
 			free(subdir_dir_path);
+
+			if (ret)
+				goto out_free;
 		} else if (dentries[i].file_type == F2FS_FT_SYMLINK) {
 			/*
 			 * It is already done in f2fs_make_directory
@@ -240,8 +253,14 @@ static int build_directory(struct f2fs_sb_info *sbi, const char *full_path,
 		ret = set_selinux_xattr(sbi, dentries[i].path,
 					dentries[i].ino, dentries[i].mode);
 		if (ret)
-			return ret;
+			goto out_free;
 
+		free(dentries[i].path);
+		free(dentries[i].full_path);
+		free((void *)dentries[i].name);
+	}
+out_free:
+	for (; i < entries; i++) {
 		free(dentries[i].path);
 		free(dentries[i].full_path);
 		free((void *)dentries[i].name);

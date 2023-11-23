@@ -18,7 +18,6 @@ libvpx_arm_neon_c_srcs = [
     "libvpx/vp8/common/arm/neon/sixtappredict_neon.c",
     "libvpx/vp8/common/arm/neon/vp8_loopfilter_neon.c",
     "libvpx/vp8/common/blockd.c",
-    "libvpx/vp8/common/copy_c.c",
     "libvpx/vp8/common/dequantize.c",
     "libvpx/vp8/common/entropy.c",
     "libvpx/vp8/common/entropymode.c",
@@ -54,6 +53,7 @@ libvpx_arm_neon_c_srcs = [
     "libvpx/vp8/encoder/arm/neon/vp8_shortwalsh4x4_neon.c",
     "libvpx/vp8/encoder/bitstream.c",
     "libvpx/vp8/encoder/boolhuff.c",
+    "libvpx/vp8/encoder/copy_c.c",
     "libvpx/vp8/encoder/dct.c",
     "libvpx/vp8/encoder/denoising.c",
     "libvpx/vp8/encoder/encodeframe.c",
@@ -107,14 +107,10 @@ libvpx_arm_neon_c_srcs = [
     "libvpx/vp9/decoder/vp9_decoder.c",
     "libvpx/vp9/decoder/vp9_detokenize.c",
     "libvpx/vp9/decoder/vp9_dsubexp.c",
-    "libvpx/vp9/encoder/arm/neon/vp9_dct_neon.c",
+    "libvpx/vp9/decoder/vp9_job_queue.c",
     "libvpx/vp9/encoder/arm/neon/vp9_frame_scale_neon.c",
     "libvpx/vp9/encoder/arm/neon/vp9_quantize_neon.c",
-    "libvpx/vp9/encoder/vp9_alt_ref_aq.c",
-    "libvpx/vp9/encoder/vp9_aq_360.c",
-    "libvpx/vp9/encoder/vp9_aq_complexity.c",
     "libvpx/vp9/encoder/vp9_aq_cyclicrefresh.c",
-    "libvpx/vp9/encoder/vp9_aq_variance.c",
     "libvpx/vp9/encoder/vp9_bitstream.c",
     "libvpx/vp9/encoder/vp9_context_tree.c",
     "libvpx/vp9/encoder/vp9_cost.c",
@@ -146,6 +142,7 @@ libvpx_arm_neon_c_srcs = [
     "libvpx/vp9/encoder/vp9_treewriter.c",
     "libvpx/vp9/vp9_cx_iface.c",
     "libvpx/vp9/vp9_dx_iface.c",
+    "libvpx/vp9/vp9_iface_common.c",
     "libvpx/vpx/src/vpx_codec.c",
     "libvpx/vpx/src/vpx_decoder.c",
     "libvpx/vpx/src/vpx_encoder.c",
@@ -259,7 +256,6 @@ libvpx_arm64_c_srcs = [
     "libvpx/vp8/common/arm/neon/sixtappredict_neon.c",
     "libvpx/vp8/common/arm/neon/vp8_loopfilter_neon.c",
     "libvpx/vp8/common/blockd.c",
-    "libvpx/vp8/common/copy_c.c",
     "libvpx/vp8/common/dequantize.c",
     "libvpx/vp8/common/entropy.c",
     "libvpx/vp8/common/entropymode.c",
@@ -295,6 +291,7 @@ libvpx_arm64_c_srcs = [
     "libvpx/vp8/encoder/arm/neon/vp8_shortwalsh4x4_neon.c",
     "libvpx/vp8/encoder/bitstream.c",
     "libvpx/vp8/encoder/boolhuff.c",
+    "libvpx/vp8/encoder/copy_c.c",
     "libvpx/vp8/encoder/dct.c",
     "libvpx/vp8/encoder/denoising.c",
     "libvpx/vp8/encoder/encodeframe.c",
@@ -348,14 +345,10 @@ libvpx_arm64_c_srcs = [
     "libvpx/vp9/decoder/vp9_decoder.c",
     "libvpx/vp9/decoder/vp9_detokenize.c",
     "libvpx/vp9/decoder/vp9_dsubexp.c",
-    "libvpx/vp9/encoder/arm/neon/vp9_dct_neon.c",
+    "libvpx/vp9/decoder/vp9_job_queue.c",
     "libvpx/vp9/encoder/arm/neon/vp9_frame_scale_neon.c",
     "libvpx/vp9/encoder/arm/neon/vp9_quantize_neon.c",
-    "libvpx/vp9/encoder/vp9_alt_ref_aq.c",
-    "libvpx/vp9/encoder/vp9_aq_360.c",
-    "libvpx/vp9/encoder/vp9_aq_complexity.c",
     "libvpx/vp9/encoder/vp9_aq_cyclicrefresh.c",
-    "libvpx/vp9/encoder/vp9_aq_variance.c",
     "libvpx/vp9/encoder/vp9_bitstream.c",
     "libvpx/vp9/encoder/vp9_context_tree.c",
     "libvpx/vp9/encoder/vp9_cost.c",
@@ -387,6 +380,7 @@ libvpx_arm64_c_srcs = [
     "libvpx/vp9/encoder/vp9_treewriter.c",
     "libvpx/vp9/vp9_cx_iface.c",
     "libvpx/vp9/vp9_dx_iface.c",
+    "libvpx/vp9/vp9_iface_common.c",
     "libvpx/vpx/src/vpx_codec.c",
     "libvpx/vpx/src/vpx_decoder.c",
     "libvpx/vpx/src/vpx_encoder.c",
@@ -470,7 +464,6 @@ libvpx_arm64_c_srcs = [
 libvpx_generic_c_srcs = [
     "libvpx/vp8/common/alloccommon.c",
     "libvpx/vp8/common/blockd.c",
-    "libvpx/vp8/common/copy_c.c",
     "libvpx/vp8/common/dequantize.c",
     "libvpx/vp8/common/entropy.c",
     "libvpx/vp8/common/entropymode.c",
@@ -502,6 +495,7 @@ libvpx_generic_c_srcs = [
     "libvpx/vp8/decoder/threading.c",
     "libvpx/vp8/encoder/bitstream.c",
     "libvpx/vp8/encoder/boolhuff.c",
+    "libvpx/vp8/encoder/copy_c.c",
     "libvpx/vp8/encoder/dct.c",
     "libvpx/vp8/encoder/denoising.c",
     "libvpx/vp8/encoder/encodeframe.c",
@@ -549,11 +543,8 @@ libvpx_generic_c_srcs = [
     "libvpx/vp9/decoder/vp9_decoder.c",
     "libvpx/vp9/decoder/vp9_detokenize.c",
     "libvpx/vp9/decoder/vp9_dsubexp.c",
-    "libvpx/vp9/encoder/vp9_alt_ref_aq.c",
-    "libvpx/vp9/encoder/vp9_aq_360.c",
-    "libvpx/vp9/encoder/vp9_aq_complexity.c",
+    "libvpx/vp9/decoder/vp9_job_queue.c",
     "libvpx/vp9/encoder/vp9_aq_cyclicrefresh.c",
-    "libvpx/vp9/encoder/vp9_aq_variance.c",
     "libvpx/vp9/encoder/vp9_bitstream.c",
     "libvpx/vp9/encoder/vp9_context_tree.c",
     "libvpx/vp9/encoder/vp9_cost.c",
@@ -585,6 +576,7 @@ libvpx_generic_c_srcs = [
     "libvpx/vp9/encoder/vp9_treewriter.c",
     "libvpx/vp9/vp9_cx_iface.c",
     "libvpx/vp9/vp9_dx_iface.c",
+    "libvpx/vp9/vp9_iface_common.c",
     "libvpx/vpx/src/vpx_codec.c",
     "libvpx/vpx/src/vpx_decoder.c",
     "libvpx/vpx/src/vpx_encoder.c",
@@ -622,7 +614,6 @@ libvpx_generic_c_srcs = [
 libvpx_x86_c_srcs = [
     "libvpx/vp8/common/alloccommon.c",
     "libvpx/vp8/common/blockd.c",
-    "libvpx/vp8/common/copy_c.c",
     "libvpx/vp8/common/dequantize.c",
     "libvpx/vp8/common/entropy.c",
     "libvpx/vp8/common/entropymode.c",
@@ -661,6 +652,7 @@ libvpx_x86_c_srcs = [
     "libvpx/vp8/decoder/threading.c",
     "libvpx/vp8/encoder/bitstream.c",
     "libvpx/vp8/encoder/boolhuff.c",
+    "libvpx/vp8/encoder/copy_c.c",
     "libvpx/vp8/encoder/dct.c",
     "libvpx/vp8/encoder/denoising.c",
     "libvpx/vp8/encoder/encodeframe.c",
@@ -713,11 +705,8 @@ libvpx_x86_c_srcs = [
     "libvpx/vp9/decoder/vp9_decoder.c",
     "libvpx/vp9/decoder/vp9_detokenize.c",
     "libvpx/vp9/decoder/vp9_dsubexp.c",
-    "libvpx/vp9/encoder/vp9_alt_ref_aq.c",
-    "libvpx/vp9/encoder/vp9_aq_360.c",
-    "libvpx/vp9/encoder/vp9_aq_complexity.c",
+    "libvpx/vp9/decoder/vp9_job_queue.c",
     "libvpx/vp9/encoder/vp9_aq_cyclicrefresh.c",
-    "libvpx/vp9/encoder/vp9_aq_variance.c",
     "libvpx/vp9/encoder/vp9_bitstream.c",
     "libvpx/vp9/encoder/vp9_context_tree.c",
     "libvpx/vp9/encoder/vp9_cost.c",
@@ -748,12 +737,12 @@ libvpx_x86_c_srcs = [
     "libvpx/vp9/encoder/vp9_tokenize.c",
     "libvpx/vp9/encoder/vp9_treewriter.c",
     "libvpx/vp9/encoder/x86/vp9_dct_intrin_sse2.c",
-    "libvpx/vp9/encoder/x86/vp9_dct_ssse3.c",
     "libvpx/vp9/encoder/x86/vp9_frame_scale_ssse3.c",
     "libvpx/vp9/encoder/x86/vp9_highbd_block_error_intrin_sse2.c",
     "libvpx/vp9/encoder/x86/vp9_quantize_sse2.c",
     "libvpx/vp9/vp9_cx_iface.c",
     "libvpx/vp9/vp9_dx_iface.c",
+    "libvpx/vp9/vp9_iface_common.c",
     "libvpx/vpx/src/vpx_codec.c",
     "libvpx/vpx/src/vpx_decoder.c",
     "libvpx/vpx/src/vpx_encoder.c",
@@ -814,8 +803,6 @@ libvpx_x86_c_srcs = [
 ]
 
 libvpx_x86_asm_srcs = [
-    "libvpx/vp8/common/x86/copy_sse2.asm",
-    "libvpx/vp8/common/x86/copy_sse3.asm",
     "libvpx/vp8/common/x86/dequantize_mmx.asm",
     "libvpx/vp8/common/x86/idctllm_mmx.asm",
     "libvpx/vp8/common/x86/idctllm_sse2.asm",
@@ -828,6 +815,8 @@ libvpx_x86_asm_srcs = [
     "libvpx/vp8/common/x86/subpixel_sse2.asm",
     "libvpx/vp8/common/x86/subpixel_ssse3.asm",
     "libvpx/vp8/encoder/x86/block_error_sse2.asm",
+    "libvpx/vp8/encoder/x86/copy_sse2.asm",
+    "libvpx/vp8/encoder/x86/copy_sse3.asm",
     "libvpx/vp8/encoder/x86/dct_sse2.asm",
     "libvpx/vp8/encoder/x86/fwalsh_sse2.asm",
     "libvpx/vp9/encoder/x86/vp9_dct_sse2.asm",
@@ -861,7 +850,6 @@ libvpx_x86_asm_srcs = [
 libvpx_x86_64_c_srcs = [
     "libvpx/vp8/common/alloccommon.c",
     "libvpx/vp8/common/blockd.c",
-    "libvpx/vp8/common/copy_c.c",
     "libvpx/vp8/common/dequantize.c",
     "libvpx/vp8/common/entropy.c",
     "libvpx/vp8/common/entropymode.c",
@@ -900,6 +888,7 @@ libvpx_x86_64_c_srcs = [
     "libvpx/vp8/decoder/threading.c",
     "libvpx/vp8/encoder/bitstream.c",
     "libvpx/vp8/encoder/boolhuff.c",
+    "libvpx/vp8/encoder/copy_c.c",
     "libvpx/vp8/encoder/dct.c",
     "libvpx/vp8/encoder/denoising.c",
     "libvpx/vp8/encoder/encodeframe.c",
@@ -952,11 +941,8 @@ libvpx_x86_64_c_srcs = [
     "libvpx/vp9/decoder/vp9_decoder.c",
     "libvpx/vp9/decoder/vp9_detokenize.c",
     "libvpx/vp9/decoder/vp9_dsubexp.c",
-    "libvpx/vp9/encoder/vp9_alt_ref_aq.c",
-    "libvpx/vp9/encoder/vp9_aq_360.c",
-    "libvpx/vp9/encoder/vp9_aq_complexity.c",
+    "libvpx/vp9/decoder/vp9_job_queue.c",
     "libvpx/vp9/encoder/vp9_aq_cyclicrefresh.c",
-    "libvpx/vp9/encoder/vp9_aq_variance.c",
     "libvpx/vp9/encoder/vp9_bitstream.c",
     "libvpx/vp9/encoder/vp9_context_tree.c",
     "libvpx/vp9/encoder/vp9_cost.c",
@@ -987,12 +973,12 @@ libvpx_x86_64_c_srcs = [
     "libvpx/vp9/encoder/vp9_tokenize.c",
     "libvpx/vp9/encoder/vp9_treewriter.c",
     "libvpx/vp9/encoder/x86/vp9_dct_intrin_sse2.c",
-    "libvpx/vp9/encoder/x86/vp9_dct_ssse3.c",
     "libvpx/vp9/encoder/x86/vp9_frame_scale_ssse3.c",
     "libvpx/vp9/encoder/x86/vp9_highbd_block_error_intrin_sse2.c",
     "libvpx/vp9/encoder/x86/vp9_quantize_sse2.c",
     "libvpx/vp9/vp9_cx_iface.c",
     "libvpx/vp9/vp9_dx_iface.c",
+    "libvpx/vp9/vp9_iface_common.c",
     "libvpx/vpx/src/vpx_codec.c",
     "libvpx/vpx/src/vpx_decoder.c",
     "libvpx/vpx/src/vpx_encoder.c",
@@ -1052,8 +1038,6 @@ libvpx_x86_64_c_srcs = [
 ]
 
 libvpx_x86_64_asm_srcs = [
-    "libvpx/vp8/common/x86/copy_sse2.asm",
-    "libvpx/vp8/common/x86/copy_sse3.asm",
     "libvpx/vp8/common/x86/dequantize_mmx.asm",
     "libvpx/vp8/common/x86/idctllm_mmx.asm",
     "libvpx/vp8/common/x86/idctllm_sse2.asm",
@@ -1067,6 +1051,8 @@ libvpx_x86_64_asm_srcs = [
     "libvpx/vp8/common/x86/subpixel_sse2.asm",
     "libvpx/vp8/common/x86/subpixel_ssse3.asm",
     "libvpx/vp8/encoder/x86/block_error_sse2.asm",
+    "libvpx/vp8/encoder/x86/copy_sse2.asm",
+    "libvpx/vp8/encoder/x86/copy_sse3.asm",
     "libvpx/vp8/encoder/x86/dct_sse2.asm",
     "libvpx/vp8/encoder/x86/fwalsh_sse2.asm",
     "libvpx/vp9/encoder/x86/vp9_dct_sse2.asm",
@@ -1102,10 +1088,17 @@ libvpx_x86_64_asm_srcs = [
     "libvpx/vpx_ports/x86_abi_support.asm",
 ]
 
-cc_library_shared {
+cc_library {
     name: "libvpx",
     vendor_available: true,
+    host_supported: true,
     version_script: "exports.lds",
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
 
     arch: {
         // configured to require the neon unit
@@ -1127,11 +1120,17 @@ cc_library_shared {
         x86: {
             srcs: libvpx_x86_c_srcs + libvpx_x86_asm_srcs,
             local_include_dirs: ["config/x86"],
+            cflags: [
+                "-mssse3",
+            ],
         },
 
         x86_64: {
             srcs: libvpx_x86_64_c_srcs + libvpx_x86_64_asm_srcs,
             local_include_dirs: ["config/x86_64"],
+            cflags: [
+                "-mssse3",
+            ],
         },
     },
 
@@ -1149,4 +1148,78 @@ cc_library_shared {
         // cfi: true,
         blacklist: "libvpx_blacklist.txt",
     },
+    min_sdk_version: "29",
+}
+
+cc_fuzz {
+    name: "vp9_dec_fuzzer",
+    host_supported: true,
+    srcs: [
+        "libvpx/examples/vpx_dec_fuzzer.cc",
+    ],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    arch: {
+        arm: {
+            neon: {
+                local_include_dirs: ["config/arm-neon"],
+            },
+        },
+
+        arm64: {
+            local_include_dirs: ["config/arm64"],
+        },
+
+        x86: {
+            local_include_dirs: ["config/x86"],
+        },
+
+        x86_64: {
+            local_include_dirs: ["config/x86_64"],
+        },
+    },
+    cflags: ["-DDECODER=vp9"],
+    static_libs: [
+        "libvpx",
+    ],
+}
+
+cc_fuzz {
+    name: "vp8_dec_fuzzer",
+    host_supported: true,
+    srcs: [
+        "libvpx/examples/vpx_dec_fuzzer.cc",
+    ],
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    arch: {
+        arm: {
+            neon: {
+                local_include_dirs: ["config/arm-neon"],
+            },
+        },
+
+        arm64: {
+            local_include_dirs: ["config/arm64"],
+        },
+
+        x86: {
+            local_include_dirs: ["config/x86"],
+        },
+
+        x86_64: {
+            local_include_dirs: ["config/x86_64"],
+        },
+    },
+
+    cflags: ["-DDECODER=vp8"],
+    static_libs: [
+        "libvpx",
+    ],
 }

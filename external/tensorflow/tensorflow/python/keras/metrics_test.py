@@ -21,12 +21,15 @@ from __future__ import print_function
 import json
 import math
 import os
+
 import numpy as np
 
 from tensorflow.python.eager import context
+from tensorflow.python.eager import def_function
 from tensorflow.python.eager import function as eager_function
 from tensorflow.python.framework import constant_op
 from tensorflow.python.framework import dtypes
+from tensorflow.python.framework import errors_impl
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import test_util
 from tensorflow.python.keras import keras_parameterized
@@ -38,6 +41,7 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import variables
 from tensorflow.python.ops import weights_broadcast_ops
+from tensorflow.python.ops.ragged import ragged_factory_ops
 from tensorflow.python.platform import test
 from tensorflow.python.training.tracking import util as trackable_utils
 
@@ -158,11 +162,11 @@ class KerasSumTest(test.TestCase):
     self.assertEqual(600., self.evaluate(restore_sum.result()))
 
 
-@test_util.run_all_in_graph_and_eager_modes
-class KerasMeanTest(test.TestCase):
+class MeanTest(keras_parameterized.TestCase):
 
   # TODO(b/120949004): Re-enable garbage collection check
   # @test_util.run_in_graph_and_eager_modes(assert_no_eager_garbage=True)
+  @keras_parameterized.run_all_keras_modes
   def test_mean(self):
     m = metrics.Mean(name='my_mean')
 
@@ -201,6 +205,21 @@ class KerasMeanTest(test.TestCase):
     self.assertEqual(m2.dtype, dtypes.float32)
     self.assertEqual(len(m2.variables), 2)
 
+  @test_util.run_v2_only
+  def test_function_wrapped_reset_state(self):
+    m = metrics.Mean(name='my_mean')
+
+    # check reset_states in function.
+    @def_function.function
+    def reset_in_fn():
+      m.reset_states()
+      return m.update_state(100)
+
+    for _ in range(5):
+      self.evaluate(reset_in_fn())
+    self.assertEqual(self.evaluate(m.count), 1)
+
+  @keras_parameterized.run_all_keras_modes
   def test_mean_with_sample_weight(self):
     m = metrics.Mean(dtype=dtypes.float64)
     self.assertEqual(m.dtype, dtypes.float64)
@@ -244,6 +263,7 @@ class KerasMeanTest(test.TestCase):
     self.assertEqual(np.round(self.evaluate(m.total), decimals=2), 58.54)
     self.assertEqual(np.round(self.evaluate(m.count), decimals=2), 5.6)
 
+  @keras_parameterized.run_all_keras_modes
   def test_mean_graph_with_placeholder(self):
     with context.graph_mode(), self.cached_session() as sess:
       m = metrics.Mean()
@@ -264,6 +284,7 @@ class KerasMeanTest(test.TestCase):
       self.assertAlmostEqual(self.evaluate(m.count), 1.7, 2)  # 0.5 + 1.2
       self.assertAlmostEqual(result, 52 / 1.7, 2)
 
+  @keras_parameterized.run_all_keras_modes
   def test_save_restore(self):
     checkpoint_directory = self.get_temp_dir()
     checkpoint_prefix = os.path.join(checkpoint_directory, 'ckpt')
@@ -294,6 +315,44 @@ class KerasMeanTest(test.TestCase):
     self.assertEqual(200., self.evaluate(restore_mean.result()))
     self.assertEqual(3, self.evaluate(restore_mean.count))
 
+  @keras_parameterized.run_all_keras_modes
+  def test_multiple_instances(self):
+    m = metrics.Mean()
+    m2 = metrics.Mean()
+
+    self.assertEqual(m.name, 'mean')
+    self.assertEqual(m2.name, 'mean')
+
+    self.assertEqual([v.name for v in m.variables],
+                     testing_utils.get_expected_metric_variable_names(
+                         ['total', 'count']))
+    self.assertEqual([v.name for v in m2.variables],
+                     testing_utils.get_expected_metric_variable_names(
+                         ['total', 'count'], name_suffix='_1'))
+
+    self.evaluate(variables.variables_initializer(m.variables))
+    self.evaluate(variables.variables_initializer(m2.variables))
+
+    # check initial state
+    self.assertEqual(self.evaluate(m.total), 0)
+    self.assertEqual(self.evaluate(m.count), 0)
+    self.assertEqual(self.evaluate(m2.total), 0)
+    self.assertEqual(self.evaluate(m2.count), 0)
+
+    # check __call__()
+    self.assertEqual(self.evaluate(m(100)), 100)
+    self.assertEqual(self.evaluate(m.total), 100)
+    self.assertEqual(self.evaluate(m.count), 1)
+    self.assertEqual(self.evaluate(m2.total), 0)
+    self.assertEqual(self.evaluate(m2.count), 0)
+
+    self.assertEqual(self.evaluate(m2([63, 10])), 36.5)
+    self.assertEqual(self.evaluate(m2.total), 73)
+    self.assertEqual(self.evaluate(m2.count), 2)
+    self.assertEqual(self.evaluate(m.result()), 100)
+    self.assertEqual(self.evaluate(m.total), 100)
+    self.assertEqual(self.evaluate(m.count), 1)
+
 
 @test_util.run_all_in_graph_and_eager_modes
 class KerasAccuracyTest(test.TestCase):
@@ -323,6 +382,26 @@ class KerasAccuracyTest(test.TestCase):
 
     # check with sample_weight
     result_t = acc_obj([[2], [1]], [[2], [0]], sample_weight=[[0.5], [0.2]])
+    result = self.evaluate(result_t)
+    self.assertAlmostEqual(result, 0.96, 2)  # 4.5/4.7
+
+  def test_accuracy_ragged(self):
+    acc_obj = metrics.Accuracy(name='my_acc')
+    self.evaluate(variables.variables_initializer(acc_obj.variables))
+
+    # verify that correct value is returned
+    rt1 = ragged_factory_ops.constant([[1], [2], [3], [4]])
+    rt2 = ragged_factory_ops.constant([[1], [2], [3], [4]])
+    update_op = acc_obj.update_state(rt1, rt2)
+    self.evaluate(update_op)
+    result = self.evaluate(acc_obj.result())
+    self.assertEqual(result, 1)  # 2/2
+
+    # check with sample_weight
+    rt1 = ragged_factory_ops.constant([[2], [1]])
+    rt2 = ragged_factory_ops.constant([[2], [0]])
+    sw_ragged = ragged_factory_ops.constant([[0.5], [0.2]])
+    result_t = acc_obj(rt1, rt2, sample_weight=sw_ragged)
     result = self.evaluate(result_t)
     self.assertAlmostEqual(result, 0.96, 2)  # 4.5/4.7
 
@@ -358,10 +437,39 @@ class KerasAccuracyTest(test.TestCase):
     result = self.evaluate(result_t)
     self.assertAlmostEqual(result, 0.67, 2)  # 4.5/6.7
 
+  def test_binary_accuracy_ragged(self):
+    acc_obj = metrics.BinaryAccuracy(name='my_acc')
+    self.evaluate(variables.variables_initializer(acc_obj.variables))
+
+    # verify that correct value is returned
+    rt1 = ragged_factory_ops.constant([[1], [0]])
+    rt2 = ragged_factory_ops.constant([[1], [0]])
+    update_op = acc_obj.update_state(rt1, rt2)
+    self.evaluate(update_op)
+    result = self.evaluate(acc_obj.result())
+    self.assertEqual(result, 1)  # 2/2
+
+    # check y_true squeeze only supported for dense tensors and is
+    # not supported by ragged tensor (different ranks). --> error
+    rt1 = ragged_factory_ops.constant([[[1], [1]]])
+    rt2 = ragged_factory_ops.constant([[1], [0]])
+    with self.assertRaises(ValueError):
+      result_t = acc_obj(rt1, rt2)
+      result = self.evaluate(result_t)
+
   def test_binary_accuracy_threshold(self):
     acc_obj = metrics.BinaryAccuracy(threshold=0.7)
     self.evaluate(variables.variables_initializer(acc_obj.variables))
     result_t = acc_obj([[1], [1], [0], [0]], [[0.9], [0.6], [0.4], [0.8]])
+    result = self.evaluate(result_t)
+    self.assertAlmostEqual(result, 0.5, 2)
+
+  def test_binary_accuracy_threshold_ragged(self):
+    acc_obj = metrics.BinaryAccuracy(threshold=0.7)
+    self.evaluate(variables.variables_initializer(acc_obj.variables))
+    rt1 = ragged_factory_ops.constant([[1], [1], [0], [0]])
+    rt2 = ragged_factory_ops.constant([[0.9], [0.6], [0.4], [0.8]])
+    result_t = acc_obj(rt1, rt2)
     result = self.evaluate(result_t)
     self.assertAlmostEqual(result, 0.5, 2)
 
@@ -388,6 +496,26 @@ class KerasAccuracyTest(test.TestCase):
     result = self.evaluate(result_t)
     self.assertAlmostEqual(result, 0.93, 2)  # 2.5/2.7
 
+  def test_categorical_accuracy_ragged(self):
+    acc_obj = metrics.CategoricalAccuracy(name='my_acc')
+    self.evaluate(variables.variables_initializer(acc_obj.variables))
+
+    # verify that correct value is returned
+    rt1 = ragged_factory_ops.constant([[0, 0, 1], [0, 1, 0]])
+    rt2 = ragged_factory_ops.constant([[0.1, 0.1, 0.8], [0.05, 0.95, 0]])
+    update_op = acc_obj.update_state(rt1, rt2)
+    self.evaluate(update_op)
+    result = self.evaluate(acc_obj.result())
+    self.assertEqual(result, 1)  # 2/2
+
+    # check with sample_weight
+    rt1 = ragged_factory_ops.constant([[0, 0, 1], [0, 1, 0]])
+    rt2 = ragged_factory_ops.constant([[0.1, 0.1, 0.8], [0.05, 0, 0.95]])
+    sample_weight = ragged_factory_ops.constant([[0.5], [0.2]])
+    with self.assertRaises(errors_impl.InvalidArgumentError):
+      result_t = acc_obj(rt1, rt2, sample_weight)
+      result = self.evaluate(result_t)
+
   def test_sparse_categorical_accuracy(self):
     acc_obj = metrics.SparseCategoricalAccuracy(name='my_acc')
 
@@ -410,6 +538,19 @@ class KerasAccuracyTest(test.TestCase):
                        [[0.5], [0.2]])
     result = self.evaluate(result_t)
     self.assertAlmostEqual(result, 0.93, 2)  # 2.5/2.7
+
+  def test_sparse_categorical_accuracy_ragged(self):
+    acc_obj = metrics.SparseCategoricalAccuracy(name='my_acc')
+
+    # verify that correct value is returned
+    rt1 = ragged_factory_ops.constant([[2], [1]])
+    rt2 = ragged_factory_ops.constant([[0.1, 0.1, 0.8], [0.05, 0.95, 0]])
+
+    with self.assertRaises(errors_impl.InvalidArgumentError):
+      # sparse_categorical_accuracy is not supported for composite/ragged
+      # tensors.
+      update_op = acc_obj.update_state(rt1, rt2)
+      self.evaluate(update_op)
 
   def test_sparse_categorical_accuracy_mismatched_dims(self):
     acc_obj = metrics.SparseCategoricalAccuracy(name='my_acc')
@@ -451,6 +592,10 @@ class KerasAccuracyTest(test.TestCase):
               w: [[0.5], [0.2]]
           }))
       self.assertAlmostEqual(result, 0.71, 2)  # 2.5/2.7
+
+  def test_get_acc(self):
+    acc_fn = metrics.get('acc')
+    self.assertEqual(acc_fn, metrics.accuracy)
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -897,6 +1042,15 @@ class TopKCategoricalAccuracyTest(test.TestCase):
     result = a_obj(y_true, y_pred)
     self.assertEqual(0.5, self.evaluate(result))  # only 1 sample matches.
 
+  def test_weighted(self):
+    a_obj = metrics.TopKCategoricalAccuracy(k=2)
+    self.evaluate(variables.variables_initializer(a_obj.variables))
+    y_true = constant_op.constant([[0, 1, 0], [1, 0, 0], [0, 0, 1]])
+    y_pred = constant_op.constant([[0, 0.9, 0.1], [0, 0.9, 0.1], [0, 0.9, 0.1]])
+    sample_weight = constant_op.constant((1.0, 0.0, 1.0))
+    result = a_obj(y_true, y_pred, sample_weight=sample_weight)
+    self.assertAllClose(1.0, self.evaluate(result), atol=1e-5)
+
 
 @test_util.run_all_in_graph_and_eager_modes
 class SparseTopKCategoricalAccuracyTest(test.TestCase):
@@ -934,6 +1088,15 @@ class SparseTopKCategoricalAccuracyTest(test.TestCase):
     self.evaluate(variables.variables_initializer(a_obj.variables))
     result = a_obj(y_true, y_pred)
     self.assertEqual(0.5, self.evaluate(result))  # only 1 sample matches.
+
+  def test_weighted(self):
+    a_obj = metrics.SparseTopKCategoricalAccuracy(k=2)
+    self.evaluate(variables.variables_initializer(a_obj.variables))
+    y_true = constant_op.constant([1, 0, 2])
+    y_pred = constant_op.constant([[0, 0.9, 0.1], [0, 0.9, 0.1], [0, 0.9, 0.1]])
+    sample_weight = constant_op.constant((1.0, 0.0, 1.0))
+    result = a_obj(y_true, y_pred, sample_weight=sample_weight)
+    self.assertAllClose(1.0, self.evaluate(result), atol=1e-5)
 
 
 @test_util.run_all_in_graph_and_eager_modes
@@ -1141,8 +1304,8 @@ class MeanIoUTest(test.TestCase):
     self.assertEqual(m_obj2.num_classes, 2)
 
   def test_unweighted(self):
-    y_pred = constant_op.constant([0, 1, 0, 1], dtype=dtypes.float32)
-    y_true = constant_op.constant([0, 0, 1, 1])
+    y_pred = [0, 1, 0, 1]
+    y_true = [0, 0, 1, 1]
 
     m_obj = metrics.MeanIoU(num_classes=2)
     self.evaluate(variables.variables_initializer(m_obj.variables))
@@ -1828,7 +1991,8 @@ def _get_model(compile_metrics):
       loss='mae',
       metrics=compile_metrics,
       optimizer='rmsprop',
-      run_eagerly=testing_utils.should_run_eagerly())
+      run_eagerly=testing_utils.should_run_eagerly(),
+      experimental_run_tf_function=testing_utils.should_run_tf_function())
   return model
 
 
@@ -1932,6 +2096,21 @@ class ResetStatesTest(keras_parameterized.TestCase):
 
   def test_reset_states_auc(self):
     auc_obj = metrics.AUC(num_thresholds=3)
+    model = _get_model([auc_obj])
+    x = np.concatenate((np.ones((25, 4)), np.zeros((25, 4)), np.zeros((25, 4)),
+                        np.ones((25, 4))))
+    y = np.concatenate((np.ones((25, 1)), np.zeros((25, 1)), np.ones((25, 1)),
+                        np.zeros((25, 1))))
+
+    for _ in range(2):
+      model.evaluate(x, y)
+      self.assertEqual(self.evaluate(auc_obj.true_positives[1]), 25.)
+      self.assertEqual(self.evaluate(auc_obj.false_positives[1]), 25.)
+      self.assertEqual(self.evaluate(auc_obj.false_negatives[1]), 25.)
+      self.assertEqual(self.evaluate(auc_obj.true_negatives[1]), 25.)
+
+  def test_reset_states_auc_manual_thresholds(self):
+    auc_obj = metrics.AUC(thresholds=[0.5])
     model = _get_model([auc_obj])
     x = np.concatenate((np.ones((25, 4)), np.zeros((25, 4)), np.zeros((25, 4)),
                         np.ones((25, 4))))

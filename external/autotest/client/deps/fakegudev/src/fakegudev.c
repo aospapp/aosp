@@ -122,8 +122,8 @@ struct _FakeGUdevDevicePrivate
   const gchar **propkeys;
 };
 
-G_DEFINE_TYPE (FakeGUdevDevice, fake_g_udev_device, G_UDEV_TYPE_DEVICE)
-
+G_DEFINE_TYPE_WITH_CODE (FakeGUdevDevice, fake_g_udev_device,
+                         G_UDEV_TYPE_DEVICE, G_ADD_PRIVATE (FakeGUdevDevice))
 
 /* Map from device paths (/dev/pts/1) to FakeGUdevDevice objects */
 static GHashTable *devices_by_path;
@@ -740,9 +740,7 @@ gboolean g_udev_device_has_property (FakeGUdevDevice *device, const gchar *key);
 static void
 fake_g_udev_device_init (FakeGUdevDevice *device)
 {
-  device->priv = G_TYPE_INSTANCE_GET_PRIVATE (device,
-                                              FAKE_G_UDEV_TYPE_DEVICE,
-                                              FakeGUdevDevicePrivate);
+  device->priv = fake_g_udev_device_get_instance_private(device);
 
   device->priv->properties = g_hash_table_new_full (g_str_hash,
                                                     g_str_equal,
@@ -769,6 +767,4 @@ fake_g_udev_device_class_init (FakeGUdevDeviceClass *klass)
   GObjectClass *gobject_class = (GObjectClass *) klass;
 
   gobject_class->finalize = fake_g_udev_device_finalize;
-
-  g_type_class_add_private (klass, sizeof (FakeGUdevDevicePrivate));
 }

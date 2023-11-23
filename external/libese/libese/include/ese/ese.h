@@ -19,7 +19,7 @@
 
 #include "ese_sg.h"
 #include "ese_hw_api.h"
-#include "../../../libese-sysdeps/include/ese/sysdeps.h"
+#include <ese/sysdeps.h>
 
 #ifdef __cplusplus
 extern "C" {

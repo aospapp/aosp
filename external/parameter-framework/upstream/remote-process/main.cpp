@@ -77,19 +77,16 @@ bool sendAndDisplayCommand(asio::generic::stream_protocol::socket &socket,
 int usage(const std::string &command, const std::string &error)
 {
     if (not error.empty()) {
-        cerr <<  error << endl;
+        cerr << error << endl;
     }
     cerr << "Usage: " << endl;
     cerr << "Send a single command:" << endl;
     cerr << "\t" << command
-         << " <hostname port|<protocol>://<host:port|port_name>> <command> [argument[s]]" << endl;
+         << " <hostname port|tcp://[host]:port|unix://path> <command> [argument[s]]" << endl;
 
     return 1;
 }
 
-// <hostname port|path> command [argument[s]]
-// or
-// <hostname port|path> < commands
 int main(int argc, char *argv[])
 {
     int commandPos;
@@ -122,24 +119,24 @@ int main(int argc, char *argv[])
 
             const std::string tcpProtocol{"tcp"};
             const std::string unixProtocol{"unix"};
-            const std::vector<std::string> supportedProtocols{ tcpProtocol, unixProtocol };
+            const std::vector<std::string> supportedProtocols{tcpProtocol, unixProtocol};
             const std::string protocolDelimiter{"://"};
 
             size_t protocolDelPos = endPortArg.find(protocolDelimiter);
             if (protocolDelPos == std::string::npos) {
-                return usage(argv[0], "Invalid socket endpoint, missing " + protocolDelimiter);
+                return usage(argv[0], "Invalid endpoint " + endPortArg);
             }
             protocol = endPortArg.substr(0, protocolDelPos);
 
             if (std::find(begin(supportedProtocols), end(supportedProtocols), protocol) ==
-                    end(supportedProtocols)) {
-                return usage(argv[0], "Invalid socket protocol " + protocol);
+                end(supportedProtocols)) {
+                return usage(argv[0], "Invalid endpoint " + endPortArg);
             }
             isInet = (endPortArg.find(tcpProtocol) != std::string::npos);
             if (isInet) {
-                size_t portDelPos = endPortArg.find(':', protocolDelPos + protocolDelimiter.size());
+                size_t portDelPos = endPortArg.rfind(':');
                 if (portDelPos == std::string::npos) {
-                    return usage(argv[0], "Invalid tcp endpoint" + endPortArg);
+                    return usage(argv[0], "Invalid endpoint " + endPortArg);
                 }
                 host = endPortArg.substr(protocolDelPos + protocolDelimiter.size(),
                                          portDelPos - (protocolDelPos + protocolDelimiter.size()));

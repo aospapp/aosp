@@ -1,6 +1,5 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.equ DO1STROUNDING, 0
 	.syntax unified
 @
 @  Copyright (c) 2018 The WebM project authors. All Rights Reserved.

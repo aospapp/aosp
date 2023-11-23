@@ -56,6 +56,8 @@ namespace vixl {
   V(kLORegions,           "LORegions",              NULL)                      \
   /* Rounding doubling multiply add/subtract: SQRDMLAH and SQRDMLSH.        */ \
   V(kRDM,                 "RDM",                    "asimdrdm")                \
+  /* Scalable Vector Extension.                                             */ \
+  V(kSVE,                 "SVE",                    "sve")                     \
   /* SDOT and UDOT support (in NEON).                                       */ \
   V(kDotProduct,          "DotProduct",             "asimddp")                 \
   /* Half-precision (FP16) support for FP and NEON, respectively.           */ \
@@ -65,6 +67,8 @@ namespace vixl {
   V(kRAS,                 "RAS",                    NULL)                      \
   /* Data cache clean to the point of persistence: DC CVAP.                 */ \
   V(kDCPoP,               "DCPoP",                  "dcpop")                   \
+  /* Data cache clean to the point of deep persistence: DC CVADP.           */ \
+  V(kDCCVADP,             "DCCVADP",                NULL)                      \
   /* Cryptographic support instructions.                                    */ \
   V(kSHA3,                "SHA3",                   "sha3")                    \
   V(kSHA512,              "SHA512",                 "sha512")                  \
@@ -78,12 +82,29 @@ namespace vixl {
   V(kPAuthGeneric,        "PAuthGeneric",           NULL)                      \
   /* Generic authentication uses QARMA.                                     */ \
   V(kPAuthGenericQARMA,   "PAuthGenericQARMA",      NULL)                      \
-  /* JavaScript-style FP <-> integer conversion instruction: FJCVTZS.       */ \
+  /* JavaScript-style FP -> integer conversion instruction: FJCVTZS.        */ \
   V(kJSCVT,               "JSCVT",                  "jscvt")                   \
+  /* Complex number support for NEON: FCMLA and FCADD.                      */ \
+  V(kFcma,                "Fcma",                   "fcma")                    \
   /* RCpc-based model (for weaker release consistency): LDAPR and variants. */ \
   V(kRCpc,                "RCpc",                   "lrcpc")                   \
-  /* Complex number support for NEON: FCMLA and FCADD.                      */ \
-  V(kFcma,                "Fcma",                   "fcma")
+  V(kRCpcImm,             "RCpc (imm)",             "ilrcpc")                  \
+  /* Flag manipulation instructions: SETF{8,16}, CFINV, RMIF.               */ \
+  V(kFlagM,               "FlagM",                  "flagm")                   \
+  /* Unaligned single-copy atomicity.                                       */ \
+  V(kUSCAT,               "USCAT",                  "uscat")                   \
+  /* FP16 fused multiply-add or -subtract long: FMLAL{2}, FMLSL{2}.         */ \
+  V(kFHM,                 "FHM",                    "asimdfhm")                \
+  /* Data-independent timing (for selected instructions).                   */ \
+  V(kDIT,                 "DIT",                    "dit")                     \
+  /* Branch target identification.                                          */ \
+  V(kBTI,                 "BTI",                    NULL)                      \
+  /* Flag manipulation instructions: {AX,XA}FLAG                            */ \
+  V(kAXFlag,              "AXFlag",                 NULL)                      \
+  /* Random number generation extension,                                    */ \
+  V(kRNG,                 "RNG",                    NULL)                      \
+  /* Floating-point round to {32,64}-bit integer.                           */ \
+  V(kFrintToFixedSizedInt,"Frint (bounded)",        NULL)
 // clang-format on
 
 
@@ -198,8 +219,18 @@ class CPUFeatures {
     return CPUFeatures(kFP, kNEON, kCRC32);
   }
 
+  // Construct a new CPUFeatures object using ID registers. This assumes that
+  // kIDRegisterEmulation is present.
+  static CPUFeatures InferFromIDRegisters();
+
+  enum QueryIDRegistersOption {
+    kDontQueryIDRegisters,
+    kQueryIDRegistersIfAvailable
+  };
+
   // Construct a new CPUFeatures object based on what the OS reports.
-  static CPUFeatures InferFromOS();
+  static CPUFeatures InferFromOS(
+      QueryIDRegistersOption option = kQueryIDRegistersIfAvailable);
 
   // Combine another CPUFeatures object into this one. Features that already
   // exist in this set are left unchanged.
@@ -243,6 +274,7 @@ class CPUFeatures {
 
   // Return the number of enabled features.
   size_t Count() const;
+  bool HasNoFeatures() const { return Count() == 0; }
 
   // Check for equivalence.
   bool operator==(const CPUFeatures& other) const {
@@ -301,8 +333,10 @@ class CPUFeaturesConstIterator {
   CPUFeatures::Feature feature_;
 
   bool IsValid() const {
-    return ((cpu_features_ == NULL) && (feature_ == CPUFeatures::kNone)) ||
-           cpu_features_->Has(feature_);
+    if (cpu_features_ == NULL) {
+      return feature_ == CPUFeatures::kNone;
+    }
+    return cpu_features_->Has(feature_);
   }
 };
 

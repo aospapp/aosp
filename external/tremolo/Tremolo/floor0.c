@@ -402,13 +402,20 @@ ogg_int32_t *floor0_inverse1(vorbis_dsp_state *vd,vorbis_info_floor *i,
                              ogg_int32_t *lsp){
   vorbis_info_floor0 *info=(vorbis_info_floor0 *)i;
   int j,k;
-
-  int ampraw=oggpack_read(&vd->opb,info->ampbits);
+  uint64_t ampraw;
+  if(info->ampbits<=32){
+    ampraw=oggpack_read(&vd->opb,info->ampbits);
+  }else{
+    //max value possible for info->ampbits is 63
+    ampraw=oggpack_read(&vd->opb,info->ampbits-32);
+    ampraw<<=32;
+    ampraw|=oggpack_read(&vd->opb,32);
+  }
   if(ampraw>0){ /* also handles the -1 out of data case */
-    long maxval=(1<<info->ampbits)-1;
-    int amp=((ampraw*info->ampdB)<<4)/maxval;
+    uint64_t maxval=(1<<info->ampbits)-1;
+    float ampRatio=(float)ampraw/maxval;
+    int amp=ampRatio*(info->ampdB<<4);
     int booknum=oggpack_read(&vd->opb,_ilog(info->numbooks));
-
     if(booknum!=-1 && booknum<info->numbooks){ /* be paranoid */
       codec_setup_info  *ci=(codec_setup_info *)vd->vi->codec_setup;
       codebook *b=ci->book_param+info->books[booknum];

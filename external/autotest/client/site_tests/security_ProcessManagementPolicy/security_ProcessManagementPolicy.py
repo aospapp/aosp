@@ -18,8 +18,8 @@ class security_ProcessManagementPolicy(test.test):
     version = 1
 
     _WHITELIST_DICT = {
-        "cros-disks": set(("avfs", "fuse-drivefs", "fuse-exfat",
-                                    "fuse-sshfs", "nobody", "ntfs-3g")),
+        "cros-disks": set(("avfs", "chronos", "fuse-exfat",
+                           "fuse-sshfs", "nobody", "ntfs-3g")),
         "shill": set(("dhcp", "ipsec", "openvpn", "syslog", "nobody")),
     }
 
@@ -91,8 +91,6 @@ class security_ProcessManagementPolicy(test.test):
 
         # Make sure 'cros-disks' can't setuid() to 'root'
         self._test_setuid("cros-disks", "root", True, False)
-        # Make sure 'cros-disks' can't setuid() to 'chronos'
-        self._test_setuid("cros-disks", "chronos", True, False)
         # Make sure 'shill' can't setuid() to 'chronos'
         self._test_setuid("shill", "chronos", True, False)
         # Make sure 'openvpn' can't setuid() to 'root'

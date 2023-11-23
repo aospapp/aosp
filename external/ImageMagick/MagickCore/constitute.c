@@ -17,7 +17,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -143,6 +143,9 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
   register ssize_t
     i;
 
+  size_t
+    length;
+
   /*
     Allocate image structure.
   */
@@ -154,7 +157,8 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
   image=AcquireImage((ImageInfo *) NULL,exception);
   if (image == (Image *) NULL)
     return((Image *) NULL);
-  for (i=0; i < (ssize_t) strlen(map); i++)
+  length=strlen(map);
+  for (i=0; i < (ssize_t) length; i++)
   {
     switch (map[i])
     {
@@ -186,7 +190,7 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
       }
       default:
       {
-        if (strlen(map) == 1)
+        if (length == 1)
           image->colorspace=GRAYColorspace;
         break;
       }
@@ -471,6 +475,8 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
   */
   sans_exception=AcquireExceptionInfo();
   magick_info=GetMagickInfo(read_info->magick,sans_exception);
+  if (sans_exception->severity == PolicyError)
+    magick_info=GetMagickInfo(read_info->magick,exception);
   sans_exception=DestroyExceptionInfo(sans_exception);
   if (magick_info != (const MagickInfo *) NULL)
     {
@@ -668,6 +674,10 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
       next->magick_columns=next->columns;
     if (next->magick_rows == 0)
       next->magick_rows=next->rows;
+    (void) GetImageProperty(next,"exif:*",exception);
+    (void) GetImageProperty(next,"icc:*",exception);
+    (void) GetImageProperty(next,"iptc:*",exception);
+    (void) GetImageProperty(next,"xmp:*",exception);
     value=GetImageProperty(next,"exif:Orientation",exception);
     if (value == (char *) NULL)
       value=GetImageProperty(next,"tiff:Orientation",exception);
@@ -1077,6 +1087,8 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
     Call appropriate image writer based on image type.
   */
   magick_info=GetMagickInfo(write_info->magick,sans_exception);
+  if (sans_exception->severity == PolicyError)
+    magick_info=GetMagickInfo(write_info->magick,exception);
   sans_exception=DestroyExceptionInfo(sans_exception);
   if (magick_info != (const MagickInfo *) NULL)
     {
@@ -1181,6 +1193,8 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
         {
           sans_exception=AcquireExceptionInfo();
           magick_info=GetMagickInfo(write_info->magick,sans_exception);
+          if (sans_exception->severity == PolicyError)
+            magick_info=GetMagickInfo(write_info->magick,exception);
           sans_exception=DestroyExceptionInfo(sans_exception);
           if ((write_info->affirm == MagickFalse) &&
               (magick_info == (const MagickInfo *) NULL))

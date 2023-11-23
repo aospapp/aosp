@@ -264,7 +264,8 @@ static int x509_parse_public_key(const u8 *buf, size_t len,
 		return -1;
 	pos = hdr.payload;
 	if (*pos) {
-		wpa_printf(MSG_DEBUG, "X509: BITSTRING - %d unused bits",
+		wpa_printf(MSG_DEBUG,
+			   "X509: BITSTRING (subjectPublicKey) - %d unused bits",
 			   *pos);
 		/*
 		 * TODO: should this be rejected? X.509 certificates are
@@ -538,9 +539,43 @@ done:
 }
 
 
+static int parse_uint2(const char *pos, size_t len)
+{
+	char buf[3];
+	int ret;
+
+	if (len < 2)
+		return -1;
+	buf[0] = pos[0];
+	buf[1] = pos[1];
+	buf[2] = 0x00;
+	if (sscanf(buf, "%2d", &ret) != 1)
+		return -1;
+	return ret;
+}
+
+
+static int parse_uint4(const char *pos, size_t len)
+{
+	char buf[5];
+	int ret;
+
+	if (len < 4)
+		return -1;
+	buf[0] = pos[0];
+	buf[1] = pos[1];
+	buf[2] = pos[2];
+	buf[3] = pos[3];
+	buf[4] = 0x00;
+	if (sscanf(buf, "%4d", &ret) != 1)
+		return -1;
+	return ret;
+}
+
+
 int x509_parse_time(const u8 *buf, size_t len, u8 asn1_tag, os_time_t *val)
 {
-	const char *pos;
+	const char *pos, *end;
 	int year, month, day, hour, min, sec;
 
 	/*
@@ -554,6 +589,7 @@ int x509_parse_time(const u8 *buf, size_t len, u8 asn1_tag, os_time_t *val)
 	 */
 
 	pos = (const char *) buf;
+	end = pos + len;
 
 	switch (asn1_tag) {
 	case ASN1_TAG_UTCTIME:
@@ -562,7 +598,8 @@ int x509_parse_time(const u8 *buf, size_t len, u8 asn1_tag, os_time_t *val)
 					  "UTCTime format", buf, len);
 			return -1;
 		}
-		if (sscanf(pos, "%02d", &year) != 1) {
+		year = parse_uint2(pos, end - pos);
+		if (year < 0) {
 			wpa_hexdump_ascii(MSG_DEBUG, "X509: Failed to parse "
 					  "UTCTime year", buf, len);
 			return -1;
@@ -579,7 +616,8 @@ int x509_parse_time(const u8 *buf, size_t len, u8 asn1_tag, os_time_t *val)
 					  "GeneralizedTime format", buf, len);
 			return -1;
 		}
-		if (sscanf(pos, "%04d", &year) != 1) {
+		year = parse_uint4(pos, end - pos);
+		if (year < 0) {
 			wpa_hexdump_ascii(MSG_DEBUG, "X509: Failed to parse "
 					  "GeneralizedTime year", buf, len);
 			return -1;
@@ -592,35 +630,40 @@ int x509_parse_time(const u8 *buf, size_t len, u8 asn1_tag, os_time_t *val)
 		return -1;
 	}
 
-	if (sscanf(pos, "%02d", &month) != 1) {
+	month = parse_uint2(pos, end - pos);
+	if (month < 0) {
 		wpa_hexdump_ascii(MSG_DEBUG, "X509: Failed to parse Time "
 				  "(month)", buf, len);
 		return -1;
 	}
 	pos += 2;
 
-	if (sscanf(pos, "%02d", &day) != 1) {
+	day = parse_uint2(pos, end - pos);
+	if (day < 0) {
 		wpa_hexdump_ascii(MSG_DEBUG, "X509: Failed to parse Time "
 				  "(day)", buf, len);
 		return -1;
 	}
 	pos += 2;
 
-	if (sscanf(pos, "%02d", &hour) != 1) {
+	hour = parse_uint2(pos, end - pos);
+	if (hour < 0) {
 		wpa_hexdump_ascii(MSG_DEBUG, "X509: Failed to parse Time "
 				  "(hour)", buf, len);
 		return -1;
 	}
 	pos += 2;
 
-	if (sscanf(pos, "%02d", &min) != 1) {
+	min = parse_uint2(pos, end - pos);
+	if (min < 0) {
 		wpa_hexdump_ascii(MSG_DEBUG, "X509: Failed to parse Time "
 				  "(min)", buf, len);
 		return -1;
 	}
 	pos += 2;
 
-	if (sscanf(pos, "%02d", &sec) != 1) {
+	sec = parse_uint2(pos, end - pos);
+	if (sec < 0) {
 		wpa_hexdump_ascii(MSG_DEBUG, "X509: Failed to parse Time "
 				  "(sec)", buf, len);
 		return -1;
@@ -773,6 +816,7 @@ static int x509_parse_ext_basic_constraints(struct x509_certificate *cert,
 	struct asn1_hdr hdr;
 	unsigned long value;
 	size_t left;
+	const u8 *end_seq;
 
 	/*
 	 * BasicConstraints ::= SEQUENCE {
@@ -794,6 +838,7 @@ static int x509_parse_ext_basic_constraints(struct x509_certificate *cert,
 	if (hdr.length == 0)
 		return 0;
 
+	end_seq = hdr.payload + hdr.length;
 	if (asn1_get_next(hdr.payload, hdr.length, &hdr) < 0 ||
 	    hdr.class != ASN1_CLASS_UNIVERSAL) {
 		wpa_printf(MSG_DEBUG, "X509: Failed to parse "
@@ -802,22 +847,16 @@ static int x509_parse_ext_basic_constraints(struct x509_certificate *cert,
 	}
 
 	if (hdr.tag == ASN1_TAG_BOOLEAN) {
-		if (hdr.length != 1) {
-			wpa_printf(MSG_DEBUG, "X509: Unexpected "
-				   "Boolean length (%u) in BasicConstraints",
-				   hdr.length);
-			return -1;
-		}
 		cert->ca = hdr.payload[0];
 
-		if (hdr.length == pos + len - hdr.payload) {
+		pos = hdr.payload + hdr.length;
+		if (pos >= end_seq) {
+			/* No optional pathLenConstraint */
 			wpa_printf(MSG_DEBUG, "X509: BasicConstraints - cA=%d",
 				   cert->ca);
 			return 0;
 		}
-
-		if (asn1_get_next(hdr.payload + hdr.length, len - hdr.length,
-				  &hdr) < 0 ||
+		if (asn1_get_next(pos, end_seq - pos, &hdr) < 0 ||
 		    hdr.class != ASN1_CLASS_UNIVERSAL) {
 			wpa_printf(MSG_DEBUG, "X509: Failed to parse "
 				   "BasicConstraints");
@@ -1082,6 +1121,133 @@ static int x509_parse_ext_issuer_alt_name(struct x509_certificate *cert,
 }
 
 
+static int x509_id_cert_policy_any_oid(struct asn1_oid *oid)
+{
+	return oid->len == 5 &&
+		oid->oid[0] == 2 /* iso/itu-t */ &&
+		oid->oid[1] == 5 /* X.500 Directory Services */ &&
+		oid->oid[2] == 29 /* id-ce */ &&
+		oid->oid[3] == 32 /* id-ce-certificate-policies */ &&
+		oid->oid[4] == 0 /* anyPolicy */;
+}
+
+
+static int x509_id_wfa_oid(struct asn1_oid *oid)
+{
+	return oid->len >= 7 &&
+		oid->oid[0] == 1 /* iso */ &&
+		oid->oid[1] == 3 /* identified-organization */ &&
+		oid->oid[2] == 6 /* dod */ &&
+		oid->oid[3] == 1 /* internet */ &&
+		oid->oid[4] == 4 /* private */ &&
+		oid->oid[5] == 1 /* enterprise */ &&
+		oid->oid[6] == 40808 /* WFA */;
+}
+
+
+static int x509_id_wfa_tod_oid(struct asn1_oid *oid)
+{
+	return oid->len >= 9 &&
+		x509_id_wfa_oid(oid) &&
+		oid->oid[7] == 1 &&
+		oid->oid[8] == 3;
+}
+
+
+static int x509_id_wfa_tod_strict_oid(struct asn1_oid *oid)
+{
+	return oid->len == 10 &&
+		x509_id_wfa_tod_oid(oid) &&
+		oid->oid[9] == 1;
+}
+
+
+static int x509_id_wfa_tod_tofu_oid(struct asn1_oid *oid)
+{
+	return oid->len == 10 &&
+		x509_id_wfa_tod_oid(oid) &&
+		oid->oid[9] == 2;
+}
+
+
+static int x509_parse_ext_certificate_policies(struct x509_certificate *cert,
+					       const u8 *pos, size_t len)
+{
+	struct asn1_hdr hdr;
+	const u8 *end;
+
+	/*
+	 * certificatePolicies ::= SEQUENCE SIZE (1..MAX) OF PolicyInformation
+	 *
+	 * PolicyInformation ::= SEQUENCE {
+	 *      policyIdentifier   CertPolicyId,
+	 *      policyQualifiers   SEQUENCE SIZE (1..MAX) OF
+	 *                              PolicyQualifierInfo OPTIONAL }
+	 *
+	 * CertPolicyId ::= OBJECT IDENTIFIER
+	 */
+
+	if (asn1_get_next(pos, len, &hdr) < 0 ||
+	    hdr.class != ASN1_CLASS_UNIVERSAL ||
+	    hdr.tag != ASN1_TAG_SEQUENCE) {
+		wpa_printf(MSG_DEBUG, "X509: Expected SEQUENCE (certificatePolicies) - found class %d tag 0x%x",
+			   hdr.class, hdr.tag);
+		return -1;
+	}
+	if (hdr.length > pos + len - hdr.payload)
+		return -1;
+	pos = hdr.payload;
+	end = pos + hdr.length;
+
+	wpa_hexdump(MSG_MSGDUMP, "X509: certificatePolicies", pos, end - pos);
+
+	while (pos < end) {
+		const u8 *pol_end;
+		struct asn1_oid oid;
+		char buf[80];
+
+		if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
+		    hdr.class != ASN1_CLASS_UNIVERSAL ||
+		    hdr.tag != ASN1_TAG_SEQUENCE) {
+			wpa_printf(MSG_DEBUG, "X509: Expected SEQUENCE (PolicyInformation) - found class %d tag 0x%x",
+				   hdr.class, hdr.tag);
+			return -1;
+		}
+		if (hdr.length > end - hdr.payload)
+			return -1;
+		pos = hdr.payload;
+		pol_end = pos + hdr.length;
+		wpa_hexdump(MSG_MSGDUMP, "X509: PolicyInformation",
+			    pos, pol_end - pos);
+
+		if (asn1_get_oid(pos, pol_end - pos, &oid, &pos))
+			return -1;
+		if (x509_id_cert_policy_any_oid(&oid)) {
+			os_strlcpy(buf, "anyPolicy-STRICT", sizeof(buf));
+			cert->certificate_policy |=
+				X509_EXT_CERT_POLICY_ANY;
+		} else if (x509_id_wfa_tod_strict_oid(&oid)) {
+			os_strlcpy(buf, "TOD-STRICT", sizeof(buf));
+			cert->certificate_policy |=
+				X509_EXT_CERT_POLICY_TOD_STRICT;
+		} else if (x509_id_wfa_tod_tofu_oid(&oid)) {
+			os_strlcpy(buf, "TOD-TOFU", sizeof(buf));
+			cert->certificate_policy |=
+				X509_EXT_CERT_POLICY_TOD_TOFU;
+		} else {
+			asn1_oid_to_str(&oid, buf, sizeof(buf));
+		}
+		wpa_printf(MSG_DEBUG, "policyIdentifier: %s", buf);
+
+		pos = pol_end;
+	}
+
+	cert->extensions_present |= X509_EXT_CERTIFICATE_POLICY;
+
+	return 0;
+}
+
+
 static int x509_id_pkix_oid(struct asn1_oid *oid)
 {
 	return oid->len >= 7 &&
@@ -1196,7 +1362,6 @@ static int x509_parse_extension_data(struct x509_certificate *cert,
 		return 1;
 
 	/* TODO: add other extensions required by RFC 3280, Ch 4.2:
-	 * certificate policies (section 4.2.1.5)
 	 * name constraints (section 4.2.1.11)
 	 * policy constraints (section 4.2.1.12)
 	 * inhibit any-policy (section 4.2.1.15)
@@ -1210,6 +1375,8 @@ static int x509_parse_extension_data(struct x509_certificate *cert,
 		return x509_parse_ext_issuer_alt_name(cert, pos, len);
 	case 19: /* id-ce-basicConstraints */
 		return x509_parse_ext_basic_constraints(cert, pos, len);
+	case 32: /* id-ce-certificatePolicies */
+		return x509_parse_ext_certificate_policies(cert, pos, len);
 	case 37: /* id-ce-extKeyUsage */
 		return x509_parse_ext_ext_key_usage(cert, pos, len);
 	default:
@@ -1263,11 +1430,6 @@ static int x509_parse_extension(struct x509_certificate *cert,
 	}
 
 	if (hdr.tag == ASN1_TAG_BOOLEAN) {
-		if (hdr.length != 1) {
-			wpa_printf(MSG_DEBUG, "X509: Unexpected "
-				   "Boolean length (%u)", hdr.length);
-			return -1;
-		}
 		critical_ext = hdr.payload[0];
 		pos = hdr.payload;
 		if (asn1_get_next(pos, end - pos, &hdr) < 0 ||
@@ -1690,7 +1852,8 @@ struct x509_certificate * x509_certificate_parse(const u8 *buf, size_t len)
 	}
 	pos = hdr.payload;
 	if (*pos) {
-		wpa_printf(MSG_DEBUG, "X509: BITSTRING - %d unused bits",
+		wpa_printf(MSG_DEBUG,
+			   "X509: BITSTRING (signatureValue) - %d unused bits",
 			   *pos);
 		/* PKCS #1 v1.5 10.2.1:
 		 * It is an error if the length in bits of the signature S is

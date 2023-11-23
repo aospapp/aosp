@@ -38,7 +38,6 @@ import java.util.List;
  * An implementation of {@link java.security.cert.CertificateFactory} based on BoringSSL.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.IntraCoreApi
 @Internal
 public class OpenSSLX509CertificateFactory extends CertificateFactorySpi {
     private static final byte[] PKCS7_MARKER = new byte[] {
@@ -130,7 +129,9 @@ public class OpenSSLX509CertificateFactory extends CertificateFactorySpi {
             }
             try {
                 if (inStream.available() == 0) {
-                    return Collections.emptyList();
+                    // To avoid returning a immutable list in only one path, we create an
+                    // empty list here instead of using Collections.emptyList()
+                    return new ArrayList<T>();
                 }
             } catch (IOException e) {
                 throw new ParsingException("Problem reading input stream", e);
@@ -273,7 +274,6 @@ public class OpenSSLX509CertificateFactory extends CertificateFactorySpi {
                 }
             };
 
-    @libcore.api.IntraCoreApi
     public OpenSSLX509CertificateFactory() {}
 
     @Override

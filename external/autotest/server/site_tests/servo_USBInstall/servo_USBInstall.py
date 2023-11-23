@@ -18,4 +18,5 @@ class servo_USBInstall(test.test):
         @param host Host object representing DUT to be re-imaged.
         """
         repair_utils.require_servo(host)
-        host.servo_install(host.stage_image_for_servo())
+        _, update_url = host.stage_image_for_servo()
+        host.servo_install(update_url)

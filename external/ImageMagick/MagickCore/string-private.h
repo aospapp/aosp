@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -18,6 +18,7 @@
 #ifndef MAGICKCORE_STRING_PRIVATE_H
 #define MAGICKCORE_STRING_PRIVATE_H
 
+#include <string.h>
 #include "MagickCore/locale_.h"
 
 #if defined(__cplusplus) || defined(c_plusplus)
@@ -43,6 +44,45 @@ static inline double StringToDouble(const char *magick_restrict string,
   char **magick_restrict sentinal)
 {
   return(InterpretLocaleValue(string,sentinal));
+}
+
+static inline char *StringLocateSubstring(const char *haystack,
+  const char *needle)
+{
+#if defined(MAGICKCORE_HAVE_STRCASESTR)
+  return(strcasestr(haystack,needle));
+#else
+  {
+    size_t
+      length_needle,
+      length_haystack;
+
+    register ssize_t
+      i;
+
+    if (!haystack || !needle)
+      return(NULL);
+    length_needle=strlen(needle);
+    length_haystack=strlen(haystack)-length_needle+1;
+    for (i=0; i < length_haystack; i++)
+    {
+      register size_t
+        j;
+
+      for (j=0; j < length_needle; j++)
+      {
+        unsigned char c1 = haystack[i+j];
+        unsigned char c2 = needle[j];
+        if (toupper(c1) != toupper(c2))
+          goto next;
+      }
+      return((char *) haystack+i);
+      next:
+       ;
+    }
+    return((char *) NULL);
+  }
+#endif
 }
 
 static inline double StringToDoubleInterval(const char *string,
@@ -82,15 +122,14 @@ static inline MagickSizeType StringToMagickSizeType(const char *string,
   return((MagickSizeType) value);
 }
 
-static inline size_t StringToSizeType(const char *string,
-  const double interval)
+static inline size_t StringToSizeType(const char *string,const double interval)
 {
   double
     value;
 
   value=SiPrefixToDoubleInterval(string,interval);
   if (value >= (double) MagickULLConstant(~0))
-    return((size_t) MagickULLConstant(~0));
+    return(~0UL);
   return((size_t) value);
 }
 

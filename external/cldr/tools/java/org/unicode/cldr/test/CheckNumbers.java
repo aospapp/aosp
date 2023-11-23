@@ -25,6 +25,7 @@ import org.unicode.cldr.util.SupplementalDataInfo.PluralType;
 import org.unicode.cldr.util.XPathParts;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.NumberFormat;
 import com.ibm.icu.text.UnicodeSet;
@@ -32,6 +33,8 @@ import com.ibm.icu.util.ULocale;
 
 public class CheckNumbers extends FactoryCheckCLDR {
     private static final Splitter SEMI_SPLITTER = Splitter.on(';');
+    
+    private static final Set<String> SKIP_TIME_SEPARATOR = ImmutableSet.of("nds", "fr_CA");
 
     private static final UnicodeSet FORBIDDEN_NUMERIC_PATTERN_CHARS = new UnicodeSet("[[:n:]-[0]]");
 
@@ -44,6 +47,10 @@ public class CheckNumbers extends FactoryCheckCLDR {
     private Set<Count> pluralTypes;
     private Map<Count, Set<Double>> pluralExamples;
     private Set<String> validNumberingSystems;
+
+    private String defaultNumberingSystem;
+    private String defaultTimeSeparatorPath;
+    private String patternForHm;
 
     /**
      * A number formatter used to show the English format for comparison.
@@ -94,6 +101,17 @@ public class CheckNumbers extends FactoryCheckCLDR {
         pluralTypes = pluralInfo.getCounts();
         pluralExamples = pluralInfo.getCountToExamplesMap();
         validNumberingSystems = supplementalData.getNumberingSystems();
+
+        CLDRFile resolvedFile = getResolvedCldrFileToCheck();
+        defaultNumberingSystem = resolvedFile.getWinningValue("//ldml/numbers/defaultNumberingSystem");
+        if (defaultNumberingSystem == null || !validNumberingSystems.contains(defaultNumberingSystem)) {
+            defaultNumberingSystem = "latn";
+        }
+        defaultTimeSeparatorPath = "//ldml/numbers/symbols[@numberSystem=\"" + defaultNumberingSystem + "\"]/timeSeparator";
+        // Note for the above, an actual time separator path may add the following after the above:
+        // [@alt='...'] and/or [@draft='...']
+        // Ideally we would get the following for default calendar, here we just use gregorian; probably OK
+        patternForHm = resolvedFile.getWinningValue("//ldml/dates/calendars/calendar[@type='gregorian']/dateTimeFormats/availableFormats/dateFormatItem[@id='Hm']");
 
         return this;
     }
@@ -161,6 +179,20 @@ public class CheckNumbers extends FactoryCheckCLDR {
                     .setSubtype(Subtype.illegalNumberingSystem)
                     .setMessage("Invalid numbering system: " + value));
 
+            }
+        }
+
+        if (path.contains(defaultTimeSeparatorPath) && !path.contains("[@alt=") && value != null) {
+            // timeSeparator for default numbering system should be in availableFormats Hm item
+            if (patternForHm != null && !patternForHm.contains(value)) {
+                // Should be fixed to not require hack, see #11833
+                if (!SKIP_TIME_SEPARATOR.contains(getCldrFileToCheck().getLocaleID())) {
+                result.add(new CheckStatus()
+                    .setCause(this)
+                    .setMainType(CheckStatus.errorType)
+                    .setSubtype(Subtype.invalidSymbol)
+                    .setMessage("Invalid timeSeparator: " + value + "; must match what is used in Hm time pattern: " + patternForHm));
+                }
             }
         }
 
@@ -258,12 +290,12 @@ public class CheckNumbers extends FactoryCheckCLDR {
             // Check for sane usage of grouping separators.
             if (COMMA_ABUSE.matcher(value).find()) {
                 result
-                    .add(new CheckStatus()
-                        .setCause(this)
-                        .setMainType(CheckStatus.errorType)
-                        .setSubtype(Subtype.tooManyGroupingSeparators)
-                        .setMessage(
-                            "Grouping separator (,) should not be used to group tens. Check if a decimal symbol (.) should have been used instead."));
+                .add(new CheckStatus()
+                    .setCause(this)
+                    .setMainType(CheckStatus.errorType)
+                    .setSubtype(Subtype.tooManyGroupingSeparators)
+                    .setMessage(
+                        "Grouping separator (,) should not be used to group tens. Check if a decimal symbol (.) should have been used instead."));
             } else {
                 // check that we have a canonical pattern
                 String pattern = getCanonicalPattern(value, type, zeroCount, isPOSIX);

@@ -44,6 +44,7 @@ EXTRA_DIST =                                    \
  $(noinst_man_MANS)                             \
  ALTSVC.md                                      \
  BINDINGS.md                                    \
+ BUG-BOUNTY.md                                  \
  BUGS                                           \
  CHECKSRC.md                                    \
  CIPHERS.md                                     \
@@ -52,6 +53,8 @@ EXTRA_DIST =                                    \
  CODE_STYLE.md                                  \
  CONTRIBUTE.md                                  \
  DEPRECATE.md                                   \
+ ESNI.md                                        \
+ EXPERIMENTAL.md                                \
  FAQ                                            \
  FEATURES                                       \
  GOVERNANCE.md                                  \
@@ -59,6 +62,7 @@ EXTRA_DIST =                                    \
  HISTORY.md                                     \
  HTTP-COOKIES.md                                \
  HTTP2.md                                       \
+ HTTP3.md                                       \
  INSTALL                                        \
  INSTALL.cmake                                  \
  INSTALL.md                                     \
@@ -66,6 +70,7 @@ EXTRA_DIST =                                    \
  KNOWN_BUGS                                     \
  LICENSE-MIXING.md                              \
  MAIL-ETIQUETTE                                 \
+ PARALLEL-TRANSFERS.md                          \
  README.cmake                                   \
  README.md                                      \
  README.netware                                 \

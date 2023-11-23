@@ -38,15 +38,15 @@ public final class Phonenumber {
     /**
      * @hide This class is not part of the Android public SDK API
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/Phonenumber$PhoneNumber$CountryCodeSource;")
+    @android.compat.annotation.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/Phonenumber$PhoneNumber$CountryCodeSource;")
     public enum CountryCodeSource {
-      @dalvik.annotation.compat.UnsupportedAppUsage
+      @android.compat.annotation.UnsupportedAppUsage
       FROM_NUMBER_WITH_PLUS_SIGN,
-      @dalvik.annotation.compat.UnsupportedAppUsage
+      @android.compat.annotation.UnsupportedAppUsage
       FROM_NUMBER_WITH_IDD,
-      @dalvik.annotation.compat.UnsupportedAppUsage
+      @android.compat.annotation.UnsupportedAppUsage
       FROM_NUMBER_WITHOUT_PLUS_SIGN,
-      @dalvik.annotation.compat.UnsupportedAppUsage
+      @android.compat.annotation.UnsupportedAppUsage
       FROM_DEFAULT_COUNTRY,
       UNSPECIFIED
     }
@@ -58,16 +58,16 @@ public final class Phonenumber {
     // required int32 country_code = 1;
     private boolean hasCountryCode;
     private int countryCode_ = 0;
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public boolean hasCountryCode() { return hasCountryCode; }
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public int getCountryCode() { return countryCode_; }
     public PhoneNumber setCountryCode(int value) {
       hasCountryCode = true;
       countryCode_ = value;
       return this;
     }
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public PhoneNumber clearCountryCode() {
       hasCountryCode = false;
       countryCode_ = 0;
@@ -78,7 +78,7 @@ public final class Phonenumber {
     private boolean hasNationalNumber;
     private long nationalNumber_ = 0L;
     public boolean hasNationalNumber() { return hasNationalNumber; }
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public long getNationalNumber() { return nationalNumber_; }
     public PhoneNumber setNationalNumber(long value) {
       hasNationalNumber = true;
@@ -94,9 +94,9 @@ public final class Phonenumber {
     // optional string extension = 3;
     private boolean hasExtension;
     private java.lang.String extension_ = "";
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public boolean hasExtension() { return hasExtension; }
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public String getExtension() { return extension_; }
     public PhoneNumber setExtension(String value) {
       if (value == null) {
@@ -167,7 +167,7 @@ public final class Phonenumber {
     private boolean hasCountryCodeSource;
     private CountryCodeSource countryCodeSource_;
     public boolean hasCountryCodeSource() { return hasCountryCodeSource; }
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public CountryCodeSource getCountryCodeSource() { return countryCodeSource_; }
     public PhoneNumber setCountryCodeSource(CountryCodeSource value) {
       if (value == null) {

@@ -29,7 +29,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", "scrip
 from build.common import DEQP_DIR
 from khr_util.format import writeInlFile
 
-VULKAN_H	= os.path.join(os.path.dirname(__file__), "src", "vulkan.h.in")
+VULKAN_H	= os.path.join(os.path.dirname(__file__), "src", "vulkan_core.h")
 VULKAN_DIR	= os.path.join(os.path.dirname(__file__), "..", "framework", "vulkan")
 
 INL_HEADER = """\
@@ -52,7 +52,7 @@ TYPE_SUBSTITUTIONS		= [
 ]
 
 def readFile (filename):
-	with open(filename, 'rb') as f:
+	with open(filename, 'rt') as f:
 		return f.read()
 
 def writeVulkanCHeader (src, filename):

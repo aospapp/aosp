@@ -18,7 +18,7 @@ This test will fail if one of the following conditions is met:
 2. Enabling rec mode, if it doesnt boot to USB image.
 3. Ctrl-U doesnt boot to USB image after it resigned with SSD keys.
 """
-ATTRIBUTES = "suite:faft, suite:faft_bios, suite:faft_bios_au_1, suite:faft_bios_au_2, suite:faft_bios_au_3, suite:faft_dev, suite:faft_lv2, suite:faft_bios_ec3po, suite:faft_bios_tot"
+ATTRIBUTES = "suite:faft_bios, suite:faft_bios_au_1, suite:faft_bios_au_2, suite:faft_bios_au_3, suite:faft_dev, suite:faft_lv2, suite:faft_bios_ec3po, suite:faft_bios_tot"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"

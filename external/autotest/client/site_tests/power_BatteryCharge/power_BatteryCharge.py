@@ -1,3 +1,4 @@
+#!/usr/bin/python2
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -50,8 +51,8 @@ class power_BatteryCharge(test.test):
 
         self.remaining_time = self.max_run_time = max_run_time
 
-        self.charge_full_design = self.status.battery[0].charge_full_design
-        self.charge_full = self.status.battery[0].charge_full
+        self.charge_full_design = self.status.battery.charge_full_design
+        self.charge_full = self.status.battery.charge_full
         if use_design_charge_capacity:
             self.charge_capacity = self.charge_full_design
         else:
@@ -60,7 +61,7 @@ class power_BatteryCharge(test.test):
         if self.charge_capacity == 0:
             raise error.TestError('Failed to determine charge capacity')
 
-        self.initial_charge = self.status.battery[0].charge_now
+        self.initial_charge = self.status.battery.charge_now
         percent_initial_charge = self.initial_charge * 100 / \
                                  self.charge_capacity
         if percent_initial_charge_max and percent_initial_charge > \
@@ -97,14 +98,14 @@ class power_BatteryCharge(test.test):
                 raise error.TestError(
                       'This test needs to be run with the AC power online')
 
-            new_charge = self.status.battery[0].charge_now
+            new_charge = self.status.battery.charge_now
             logging.info('time_to_sleep: %d', time_to_sleep)
             logging.info('charge_added: %f', (new_charge - current_charge))
 
             current_charge = new_charge
             logging.info('current_charge: %f', current_charge)
 
-            if self.status.battery[0].status == 'Full':
+            if self.status.battery.status == 'Full':
                 logging.info('Battery full, aborting!')
                 break
 
@@ -115,7 +116,7 @@ class power_BatteryCharge(test.test):
         keyvals['ah_charge_full_design'] = self.charge_full_design
         keyvals['ah_charge_capacity'] = self.charge_capacity
         keyvals['ah_initial_charge'] = self.initial_charge
-        keyvals['ah_final_charge'] = self.status.battery[0].charge_now
+        keyvals['ah_final_charge'] = self.status.battery.charge_now
         keyvals['s_time_taken'] = self.max_run_time - self.remaining_time
         keyvals['percent_initial_charge'] = self.initial_charge * 100 / \
                                             keyvals['ah_charge_capacity']

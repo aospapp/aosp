@@ -21,17 +21,15 @@ import com.google.gwt.user.client.rpc.SerializationStreamReader;
 import com.google.gwt.user.client.rpc.SerializationStreamWriter;
 
 /**
- * This class contains static utility methods for writing {@code Multiset} GWT
- * field serializers. Serializers should delegate to
- * {@link #serialize(SerializationStreamWriter, Multiset)} and
- * {@link #populate(SerializationStreamReader, Multiset)}.
- * 
+ * This class contains static utility methods for writing {@code Multiset} GWT field serializers.
+ * Serializers should delegate to {@link #serialize(SerializationStreamWriter, Multiset)} and {@link
+ * #populate(SerializationStreamReader, Multiset)}.
+ *
  * @author Chris Povirk
  */
 final class Multiset_CustomFieldSerializerBase {
 
-  static Multiset<Object> populate(
-      SerializationStreamReader reader, Multiset<Object> multiset)
+  static Multiset<Object> populate(SerializationStreamReader reader, Multiset<Object> multiset)
       throws SerializationException {
     int distinctElements = reader.readInt();
     for (int i = 0; i < distinctElements; i++) {
@@ -50,7 +48,7 @@ final class Multiset_CustomFieldSerializerBase {
       writer.writeObject(entry.getElement());
       writer.writeInt(entry.getCount());
     }
-  } 
+  }
 
   private Multiset_CustomFieldSerializerBase() {}
 }

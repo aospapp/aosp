@@ -62,36 +62,36 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Singly linked list macros (non-circular).
  *****************************************************************************/
 #define LL_PREPEND(head, add)                                                  \
-do {                                                                           \
-	(add)->next = head;                                                    \
-	head = add;                                                            \
-} while (0)
+	do {                                                                   \
+		(add)->next = head;                                            \
+		head = add;                                                    \
+	} while (0)
 
 #define LL_CONCAT(head1, head2)                                                \
-do {                                                                           \
-	__typeof(head1) _tmp;                                                  \
-	if (head1) {                                                           \
-		_tmp = head1;                                                  \
-		while (_tmp->next)                                             \
-			_tmp = _tmp->next;                                     \
-		_tmp->next = (head2);                                          \
-	} else                                                                 \
-		(head1) = (head2);                                             \
-} while (0)
+	do {                                                                   \
+		__typeof(head1) _tmp;                                          \
+		if (head1) {                                                   \
+			_tmp = head1;                                          \
+			while (_tmp->next)                                     \
+				_tmp = _tmp->next;                             \
+			_tmp->next = (head2);                                  \
+		} else                                                         \
+			(head1) = (head2);                                     \
+	} while (0)
 
 #define LL_APPEND(head, add)                                                   \
-do {                                                                           \
-	__typeof(head) _tmp;                                                   \
-	(add)->next = NULL;                                                    \
-	if (head) {                                                            \
-		_tmp = head;                                                   \
-		while (_tmp->next)                                             \
-			_tmp = _tmp->next;                                     \
-		_tmp->next = (add);                                            \
-	} else {                                                               \
-		(head) = (add);                                                \
-	}                                                                      \
-} while (0)
+	do {                                                                   \
+		__typeof(head) _tmp;                                           \
+		(add)->next = NULL;                                            \
+		if (head) {                                                    \
+			_tmp = head;                                           \
+			while (_tmp->next)                                     \
+				_tmp = _tmp->next;                             \
+			_tmp->next = (add);                                    \
+		} else {                                                       \
+			(head) = (add);                                        \
+		}                                                              \
+	} while (0)
 
 #define LL_DELETE(head, del)                                                   \
 	do {                                                                   \
@@ -107,32 +107,31 @@ do {                                                                           \
 		}                                                              \
 	} while (0)
 
-#define LL_FOREACH(head, el)                                                   \
-	for (el = head; el; el = el->next)
+#define LL_FOREACH(head, el) for (el = head; el; el = el->next)
 
 #define LL_FOREACH_SAFE(head, el, tmp)                                         \
 	for ((el) = (head); (el) && (tmp = (el)->next, 1); (el) = tmp)
 
 #define LL_SEARCH_SCALAR(head, out, field, val)                                \
 	do {                                                                   \
-		LL_FOREACH(head, out)                                          \
+		LL_FOREACH (head, out)                                         \
 			if ((out)->field == (val))                             \
 				break;                                         \
 	} while (0)
 
-#define LL_SEARCH_SCALAR_WITH_CAST(head, out, nout, field, val)	               \
+#define LL_SEARCH_SCALAR_WITH_CAST(head, out, nout, field, val)                \
 	do {                                                                   \
-		LL_FOREACH(head, out) {                                        \
+		LL_FOREACH (head, out) {                                       \
 			(nout) = (__typeof(nout))out;                          \
 			if ((nout)->field == (val))                            \
 				break;                                         \
-			(nout) = 0;					       \
+			(nout) = 0;                                            \
 		}                                                              \
 	} while (0)
 
 #define LL_SEARCH(head, out, elt, cmp)                                         \
 	do {                                                                   \
-		LL_FOREACH(head, out)                                          \
+		LL_FOREACH (head, out)                                         \
 			if ((cmp(out, elt)) == 0)                              \
 				break;                                         \
 	} while (0)
@@ -210,19 +209,18 @@ do {                                                                           \
 		}                                                              \
 	} while (0)
 
-
 /* Create a variable name using given prefix and current line number. */
 #define MAKE_NAME(prefix) TOKEN_PASTE2(prefix, __LINE__)
 #define TOKEN_PASTE2(x, y) TOKEN_PASTE(x, y)
-#define TOKEN_PASTE(x, y) x ## y
+#define TOKEN_PASTE(x, y) x##y
 
 /* This version creates a temporary variable to to make it safe for deleting the
  * elements during iteration. */
-#define DL_FOREACH(head, el)                                            \
-        DL_FOREACH_INTERNAL(head, el, MAKE_NAME(_dl_foreach_))
-#define DL_FOREACH_INTERNAL(head, el, tmp)                              \
-        __typeof__(el) tmp;                                             \
-        for ((el) = (head); (el) && (tmp = (el)->next, 1); (el) = tmp)
+#define DL_FOREACH(head, el)                                                   \
+	DL_FOREACH_INTERNAL (head, el, MAKE_NAME(_dl_foreach_))
+#define DL_FOREACH_INTERNAL(head, el, tmp)                                     \
+	__typeof__(el) tmp;                                                    \
+	for ((el) = (head); (el) && (tmp = (el)->next, 1); (el) = tmp)
 
 /* These are identical to their singly-linked list counterparts. */
 #define DL_SEARCH_SCALAR LL_SEARCH_SCALAR
@@ -230,4 +228,3 @@ do {                                                                           \
 #define DL_SEARCH LL_SEARCH
 
 #endif /* UTLIST_H */
-

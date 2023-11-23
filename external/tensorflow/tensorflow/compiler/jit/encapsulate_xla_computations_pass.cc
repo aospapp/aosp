@@ -24,6 +24,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/status_macros.h"
 #include "tensorflow/core/framework/node_def.pb.h"
 #include "tensorflow/core/framework/types.h"
+#include "tensorflow/core/graph/graph_node_util.h"
 #include "tensorflow/core/lib/core/stringpiece.h"
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tensorflow/core/lib/strings/proto_serialization.h"
@@ -231,9 +232,9 @@ Status RewriteSubgraph(const std::vector<OutputTensor>& arg_source_tensors,
 
   auto output = absl::make_unique<Graph>((*graph)->op_registry());
   TF_RETURN_WITH_CONTEXT_IF_ERROR(
-      EncapsulateSubgraphsInFunctions(
-          kXlaClusterAttr, "", **graph, RewriteSubgraph,
-          /*reuse_existing_functions=*/true, &output, flib_def),
+      EncapsulateSubgraphsInFunctions(kXlaClusterAttr, **graph, RewriteSubgraph,
+                                      /*reuse_existing_functions=*/true,
+                                      &output, flib_def),
       "EncapsulateXlaComputationsPass failed");
   graph->swap(output);
   return Status::OK();
@@ -245,8 +246,8 @@ Status RewriteSubgraph(const std::vector<OutputTensor>& arg_source_tensors,
   // while iterating.
   std::vector<Node*> launch_nodes;
   for (Node* n : graph->nodes()) {
-    string name;
-    if (GetNodeAttr(n->attrs(), kXlaClusterAttr, &name).ok()) {
+    const string& name = GetNodeAttrString(n->attrs(), kXlaClusterAttr);
+    if (!name.empty()) {
       launch_nodes.push_back(n);
     }
   }

@@ -15,16 +15,12 @@
  */
 package android.icu.extratest;
 
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Suite;
 
 import android.icu.testsharding.MainTestShard;
 import android.icu.text.Transliterator;
-import android.icu.text.UnicodeSet;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -74,7 +70,7 @@ public class AndroidTransliteratorAvailableIdsTest {
             List<String> excludedIds) throws IOException {
         List<String> expectedIds = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                AndroidICUVersionTest.class.getResourceAsStream(resourceFileName)))) {
+                AndroidIcuVersionTest.class.getResourceAsStream(resourceFileName)))) {
             String line;
             while((line = reader.readLine()) != null) {
                 if (!line.isEmpty()) {

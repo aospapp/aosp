@@ -8,7 +8,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:power_sanity"
+ATTRIBUTES = "suite:power_sanity, suite:power_monitoring"
 
 DOC = """
 This test measures the power draw during suspend.

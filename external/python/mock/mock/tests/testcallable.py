@@ -2,7 +2,7 @@
 # E-mail: fuzzyman AT voidspace DOT org DOT uk
 # http://www.voidspace.org.uk/python/mock/
 
-import unittest2 as unittest
+import unittest
 from mock.tests.support import is_instance, X, SomeClass
 
 from mock import (
@@ -27,7 +27,7 @@ class TestCallable(unittest.TestCase):
             self.assertIn(mock.__class__.__name__, repr(mock))
 
 
-    def test_heirarchy(self):
+    def test_hierarchy(self):
         self.assertTrue(issubclass(MagicMock, Mock))
         self.assertTrue(issubclass(NonCallableMagicMock, NonCallableMock))
 
@@ -98,8 +98,7 @@ class TestCallable(unittest.TestCase):
 
     def test_patch_spec_callable_class(self):
         class CallableX(X):
-            def __call__(self):
-                pass
+            def __call__(self): pass
 
         class Sub(CallableX):
             pass
@@ -108,8 +107,7 @@ class TestCallable(unittest.TestCase):
             pass
 
         class OldStyle:
-            def __call__(self):
-                pass
+            def __call__(self): pass
 
         class OldStyleSub(OldStyle):
             pass

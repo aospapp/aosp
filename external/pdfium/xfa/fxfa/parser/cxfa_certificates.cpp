@@ -6,26 +6,26 @@
 
 #include "xfa/fxfa/parser/cxfa_certificates.h"
 
-#include "fxjs/xfa/cjx_certificates.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kCertificatesPropertyData[] = {
     {XFA_Element::KeyUsage, 1, 0}, {XFA_Element::SubjectDNs, 1, 0},
     {XFA_Element::Issuers, 1, 0},  {XFA_Element::Signing, 1, 0},
-    {XFA_Element::Oids, 1, 0},     {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+    {XFA_Element::Oids, 1, 0},
+};
+
+const CXFA_Node::AttributeData kCertificatesAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Url, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::CredentialServerPolicy, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::Optional},
+     (void*)XFA_AttributeValue::Optional},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::UrlPolicy, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"certificates";
+};
 
 }  // namespace
 
@@ -35,9 +35,8 @@ CXFA_Certificates::CXFA_Certificates(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Certificates,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Certificates>(this)) {}
+                kCertificatesPropertyData,
+                kCertificatesAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Certificates::~CXFA_Certificates() {}
+CXFA_Certificates::~CXFA_Certificates() = default;

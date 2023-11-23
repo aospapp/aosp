@@ -37,6 +37,10 @@ static int syscon_pre_probe(struct udevice *dev)
 {
 	struct syscon_uc_info *priv = dev_get_uclass_priv(dev);
 
+	/* Special case for PCI devices, which don't have a regmap */
+	if (device_get_uclass_id(dev->parent) == UCLASS_PCI)
+		return 0;
+
 	/*
 	 * With OF_PLATDATA we really have no way of knowing the format of
 	 * the device-specific platform data. So we assume that it starts with
@@ -51,6 +55,75 @@ static int syscon_pre_probe(struct udevice *dev)
 #else
 	return regmap_init_mem(dev_ofnode(dev), &priv->regmap);
 #endif
+}
+
+static int syscon_probe_by_ofnode(ofnode node, struct udevice **devp)
+{
+	struct udevice *dev, *parent;
+	int ret;
+
+	/* found node with "syscon" compatible, not bounded to SYSCON UCLASS */
+	if (!ofnode_device_is_compatible(node, "syscon")) {
+		dev_dbg(dev, "invalid compatible for syscon device\n");
+		return -EINVAL;
+	}
+
+	/* bound to driver with same ofnode or to root if not found */
+	if (device_find_global_by_ofnode(node, &parent))
+		parent = dm_root();
+
+	/* force bound to syscon class */
+	ret = device_bind_driver_to_node(parent, "syscon",
+					 ofnode_get_name(node),
+					 node, &dev);
+	if (ret) {
+		dev_dbg(dev, "unable to bound syscon device\n");
+		return ret;
+	}
+	ret = device_probe(dev);
+	if (ret) {
+		dev_dbg(dev, "unable to probe syscon device\n");
+		return ret;
+	}
+
+	*devp = dev;
+	return 0;
+}
+
+struct regmap *syscon_regmap_lookup_by_phandle(struct udevice *dev,
+					       const char *name)
+{
+	struct udevice *syscon;
+	struct regmap *r;
+	u32 phandle;
+	ofnode node;
+	int err;
+
+	err = uclass_get_device_by_phandle(UCLASS_SYSCON, dev,
+					   name, &syscon);
+	if (err) {
+		/* found node with "syscon" compatible, not bounded to SYSCON */
+		err = ofnode_read_u32(dev_ofnode(dev), name, &phandle);
+		if (err)
+			return ERR_PTR(err);
+
+		node = ofnode_get_by_phandle(phandle);
+		if (!ofnode_valid(node)) {
+			dev_dbg(dev, "unable to find syscon device\n");
+			return ERR_PTR(-EINVAL);
+		}
+		err = syscon_probe_by_ofnode(node, &syscon);
+		if (err)
+			return ERR_PTR(-ENODEV);
+	}
+
+	r = syscon_get_regmap(syscon);
+	if (!r) {
+		dev_dbg(dev, "unable to find regmap\n");
+		return ERR_PTR(-ENODEV);
+	}
+
+	return r;
 }
 
 int syscon_get_by_driver_data(ulong driver_data, struct udevice **devp)
@@ -123,52 +196,20 @@ U_BOOT_DRIVER(generic_syscon) = {
  * The syscon node can be bound to another driver, but still works
  * as a syscon provider.
  */
-static LIST_HEAD(syscon_list);
-
-struct syscon {
-	ofnode node;
-	struct regmap *regmap;
-	struct list_head list;
-};
-
-static struct syscon *of_syscon_register(ofnode node)
-{
-	struct syscon *syscon;
-	int ret;
-
-	if (!ofnode_device_is_compatible(node, "syscon"))
-		return ERR_PTR(-EINVAL);
-
-	syscon = malloc(sizeof(*syscon));
-	if (!syscon)
-		return ERR_PTR(-ENOMEM);
-
-	ret = regmap_init_mem(node, &syscon->regmap);
-	if (ret) {
-		free(syscon);
-		return ERR_PTR(ret);
-	}
-
-	list_add_tail(&syscon->list, &syscon_list);
-
-	return syscon;
-}
-
 struct regmap *syscon_node_to_regmap(ofnode node)
 {
-	struct syscon *entry, *syscon = NULL;
+	struct udevice *dev;
+	struct regmap *r;
 
-	list_for_each_entry(entry, &syscon_list, list)
-		if (ofnode_equal(entry->node, node)) {
-			syscon = entry;
-			break;
-		}
+	if (uclass_get_device_by_ofnode(UCLASS_SYSCON, node, &dev))
+		if (syscon_probe_by_ofnode(node, &dev))
+			return ERR_PTR(-ENODEV);
 
-	if (!syscon)
-		syscon = of_syscon_register(node);
+	r = syscon_get_regmap(dev);
+	if (!r) {
+		dev_dbg(dev, "unable to find regmap\n");
+		return ERR_PTR(-ENODEV);
+	}
 
-	if (IS_ERR(syscon))
-		return ERR_CAST(syscon);
-
-	return syscon->regmap;
+	return r;
 }

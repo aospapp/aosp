@@ -18,14 +18,14 @@
 package com.android.org.conscrypt;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.same;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.Charset;
 import javax.net.ssl.SSLEngine;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Matchers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -81,7 +81,7 @@ public class ApplicationProtocolSelectorAdapterTest {
     }
 
     private void mockSelection(String returnValue) {
-        when(selector.selectApplicationProtocol(same(engine), Matchers.anyListOf(String.class)))
+        when(selector.selectApplicationProtocol(same(engine), ArgumentMatchers.<String>anyList()))
                 .thenReturn(returnValue);
     }
 

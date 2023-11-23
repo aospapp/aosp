@@ -7,8 +7,7 @@ import signal
 import common
 
 from autotest_lib.server import site_utils
-from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
-
+from autotest_lib.server.cros.chaos_lib import chaos_datastore_utils
 """HostLockManager class, for the dynamic_suite module.
 
 A HostLockManager instance manages locking and unlocking a set of autotest DUTs.
@@ -55,12 +54,8 @@ class HostLockManager(object):
     def __init__(self, afe=None):
         """
         Constructor
-
-        @param afe: an instance of AFE as defined in server/frontend.py.
         """
-        self._afe = afe or frontend_wrappers.RetryingAFE(
-                            timeout_min=30, delay_sec=10, debug=False,
-                            server=site_utils.get_global_afe_hostname())
+        self.dutils = chaos_datastore_utils.ChaosDataStoreUtils()
         # Keep track of hosts locked by this instance.
         self._locked_hosts = set()
 
@@ -80,27 +75,30 @@ class HostLockManager(object):
         @returns a string: host name, if desired operation can be performed on
                            host or None otherwise.
         """
-        mod_host = host.split('.')[0]
-        host_info = self._afe.get_hosts(hostname=mod_host)
+        host_checked = host
+        # Get host details from DataStore
+        host_info = self.dutils.show_device(host)
+
         if not host_info:
-            logging.warning('Skip unknown host %s.', host)
+            logging.warning('Host (AP) details not found in DataStore')
             return None
 
-        host_info = host_info[0]
-        if operation == self.LOCK and host_info.locked:
+        if operation == self.LOCK and host_info['lock_status']:
             err = ('Contention detected: %s is locked by %s at %s.' %
-                   (mod_host, host_info.locked_by, host_info.lock_time))
-            logging.warning(err)
-            return None
-        elif operation == self.UNLOCK and not host_info.locked:
-            logging.info('%s not locked.', mod_host)
+                   (host, host_info['locked_by'],
+                    host_info['lock_status_updated']))
+            logging.error(err)
             return None
 
-        return mod_host
+        elif operation == self.UNLOCK and not host_info['lock_status']:
+            logging.info('%s not locked.', host)
+            return None
+
+        return host_checked
 
 
     def lock(self, hosts, lock_reason='Locked by HostLockManager'):
-        """Attempt to lock hosts in AFE.
+        """Lock hosts in datastore.
 
         @param hosts: a list of strings, host names.
         @param lock_reason: a string, a reason for locking the hosts.
@@ -117,7 +115,7 @@ class HostLockManager(object):
 
 
     def unlock(self, hosts=None):
-        """Unlock hosts in AFE.
+        """Unlock hosts in datastore after use.
 
         @param hosts: a list of strings, host names.
         @returns a boolean, True == at least one host from self._locked_hosts is
@@ -135,12 +133,12 @@ class HostLockManager(object):
         if not updated_hosts:
             return False
 
-        logging.info('Unlocking hosts: %s', updated_hosts)
+        logging.info('Unlocking hosts (APs / PCAPs): %s', updated_hosts)
         return self._host_modifier(updated_hosts, self.UNLOCK)
 
 
     def _host_modifier(self, hosts, operation, lock_reason=None):
-        """Helper that runs the modify_hosts() RPC with specified args.
+        """Helper that locks hosts in DataStore.
 
         @param: hosts, a set of strings, host names.
         @param operation: a string, LOCK or UNLOCK.
@@ -151,26 +149,30 @@ class HostLockManager(object):
         """
         updated_hosts = set()
         for host in hosts:
-            mod_host = self._check_host(host, operation)
-            if mod_host is not None:
-                updated_hosts.add(mod_host)
+            verified_host = self._check_host(host, operation)
+            if verified_host is not None:
+                updated_hosts.add(verified_host)
 
         logging.info('host_modifier: updated_hosts = %s', updated_hosts)
         if not updated_hosts:
             logging.info('host_modifier: no host to update')
             return False
 
-        kwargs = {'locked': True if operation == self.LOCK else False}
-        if operation == self.LOCK:
-          kwargs['lock_reason'] = lock_reason
-        self._afe.run('modify_hosts',
-                      host_filter_data={'hostname__in': list(updated_hosts)},
-                      update_data=kwargs)
+        for host in updated_hosts:
+            if operation == self.LOCK:
+                if self.dutils.lock_device(host, lock_reason):
+                    logging.info('Locked host in datastore: %s', host)
+                    self._locked_hosts = self._locked_hosts.union([host])
+                else:
+                    logging.error('Unable to lock host: ', host)
 
-        if operation == self.LOCK and lock_reason:
-            self._locked_hosts = self._locked_hosts.union(updated_hosts)
-        elif operation == self.UNLOCK:
-            self._locked_hosts = self._locked_hosts.difference(updated_hosts)
+            if operation == self.UNLOCK:
+                if self.dutils.unlock_device(host):
+                    logging.info('Unlocked host in datastore: %s', host)
+                    self._locked_hosts = self._locked_hosts.difference([host])
+                else:
+                    logging.error('Unable to un-lock host: %s', host)
+
         return True
 
 

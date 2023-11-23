@@ -21,16 +21,16 @@
 #include <unordered_set>
 #include <vector>
 
-#include "perfetto/base/paged_memory.h"
-#include "perfetto/base/scoped_file.h"
-#include "perfetto/base/string_view.h"
-#include "perfetto/base/unix_socket.h"
-#include "perfetto/base/weak_ptr.h"
+#include "perfetto/ext/base/paged_memory.h"
+#include "perfetto/ext/base/scoped_file.h"
+#include "perfetto/ext/base/string_view.h"
+#include "perfetto/ext/base/unix_socket.h"
+#include "perfetto/ext/base/weak_ptr.h"
+#include "perfetto/tracing/core/forward_decls.h"
 #include "src/traced/probes/probes_data_source.h"
 
 namespace perfetto {
 
-class DataSourceConfig;
 class TraceWriter;
 namespace base {
 class TaskRunner;
@@ -45,6 +45,8 @@ class AndroidLogPacket_LogEvent;
 
 class AndroidLogDataSource : public ProbesDataSource {
  public:
+  static const ProbesDataSource::Descriptor descriptor;
+
   struct Stats {
     uint64_t num_total = 0;    // Total number of log entries received.
     uint64_t num_failed = 0;   // Parser failures.
@@ -56,7 +58,6 @@ class AndroidLogDataSource : public ProbesDataSource {
     std::string name;
     std::vector<std::string> fields;
   };
-  static constexpr int kTypeId = 6;
 
   AndroidLogDataSource(DataSourceConfig,
                        base::TaskRunner*,

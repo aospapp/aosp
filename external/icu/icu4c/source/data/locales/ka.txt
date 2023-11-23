@@ -15,10 +15,10 @@ ka{
     }
     ExemplarCharacters{"[ა ბ გ დ ე ვ ზ თ ი კ ლ მ ნ ო პ ჟ რ ს ტ უ ფ ქ ღ ყ შ ჩ ც ძ წ ჭ ხ ჯ ჰ]"}
     ExemplarCharactersIndex{"[ა ბ გ დ ე ვ ზ თ ი კ ლ მ ნ ო პ ჟ რ ს ტ უ ფ ქ ღ ყ შ ჩ ც ძ წ ჭ ხ ჯ ჰ]"}
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ჻ ' ‘ ‚ “ „ « » ( ) \\[ \\] \\{ \\} § @ * / \\& #"
-        " † ‡ ′ ″ №]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ჻ ' ‘ ‚ “ „ « » ( ) \\[ \\] \\{ \\} § @ * / \\&"
+        " # † ‡ ′ ″ №]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -221,7 +221,7 @@ ka{
         native{"latn"}
         traditional{"geor"}
     }
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -283,6 +283,24 @@ ka{
                 yyyyQQQQ{"QQQQ, y G"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h – h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
+                GyM{
+                    G{"GGGGG y-MM – GGGGG y-MM"}
+                    M{"GGGGG y-MM – y-MM"}
+                    y{"GGGGG y-MM – y-MM"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -435,8 +453,8 @@ ka{
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMW{
-                    one{"MMM-ის კვირა W"}
-                    other{"MMM-ის კვირა W"}
+                    one{"MMMMს კვირა W"}
+                    other{"MMMMს კვირა W"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -597,7 +615,7 @@ ka{
                         morning1{"დილა"}
                         night1{"ღამე"}
                         noon{"შუადღე"}
-                        pm{"შუადღ. შემდეგ"}
+                        pm{"PM"}
                     }
                 }
             }
@@ -620,6 +638,19 @@ ka{
                 }
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
+                Gy{
+                    G{"G y – G y"}
+                    y{"G y–y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1005,6 +1036,12 @@ ka{
         }
         dayOfYear{
             dn{"წლის დღე"}
+        }
+        dayOfYear-narrow{
+            dn{"წლ. დღე"}
+        }
+        dayOfYear-short{
+            dn{"წლ. დღე"}
         }
         dayperiod{
             dn{"დღის ნახევარი"}
@@ -1673,6 +1710,12 @@ ka{
         }
         weekday{
             dn{"კვირის დღე"}
+        }
+        weekday-narrow{
+            dn{"კვ. დღე"}
+        }
+        weekday-short{
+            dn{"კვ. დღე"}
         }
         weekdayOfMonth{
             dn{"კვირის დღე თვეში"}

@@ -41,6 +41,11 @@ Move<VkPipeline>		createComputePipeline	(const DeviceInterface&					vk,
 												 VkPipelineCache						pipelineCache,
 												 const VkComputePipelineCreateInfo*		pCreateInfo,
 												 const VkAllocationCallbacks*			pAllocator = DE_NULL);
+Move<VkPipeline>		createRayTracingPipelineNV(const DeviceInterface&					vk,
+												 VkDevice								device,
+												 VkPipelineCache						pipelineCache,
+												 const VkRayTracingPipelineCreateInfoNV*	pCreateInfo,
+												 const VkAllocationCallbacks*			pAllocator = DE_NULL);
 Move<VkCommandBuffer>	allocateCommandBuffer	(const DeviceInterface& vk, VkDevice device, const VkCommandBufferAllocateInfo* pAllocateInfo);
 Move<VkDescriptorSet>	allocateDescriptorSet	(const DeviceInterface& vk, VkDevice device, const VkDescriptorSetAllocateInfo* pAllocateInfo);
 
@@ -48,6 +53,13 @@ Move<VkSemaphore>		createSemaphore			(const DeviceInterface&			vk,
 												 VkDevice						device,
 												 VkSemaphoreCreateFlags			flags		= (VkSemaphoreCreateFlags)0,
 												 const VkAllocationCallbacks*	pAllocator	= DE_NULL);
+
+Move<VkSemaphore>		createSemaphoreType		(const DeviceInterface&			vk,
+												 VkDevice						device,
+												 VkSemaphoreType				type,
+												 VkSemaphoreCreateFlags			flags			= (VkSemaphoreCreateFlags)0,
+												 const deUint64					initialValue	= 0,
+												 const VkAllocationCallbacks*	pAllocator		= DE_NULL);
 
 Move<VkFence>			createFence				(const DeviceInterface&			vk,
 												 VkDevice						device,

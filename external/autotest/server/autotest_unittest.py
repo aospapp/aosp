@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #pylint: disable-msg=C0111
 __author__ = "raphtee@google.com (Travis Miller)"
 

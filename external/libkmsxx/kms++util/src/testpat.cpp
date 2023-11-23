@@ -3,7 +3,10 @@
 
 #include <cstring>
 #include <cassert>
+
+#ifdef HAS_PTHREAD
 #include <thread>
+#endif
 
 #include <kms++/kms++.h>
 #include <kms++util/kms++util.h>
@@ -102,15 +105,10 @@ static void draw_test_pattern_part(IFramebuffer& fb, unsigned start_y, unsigned 
 	unsigned x, y;
 	unsigned w = fb.width();
 
-	switch (fb.format()) {
-	case PixelFormat::XRGB8888:
-	case PixelFormat::XBGR8888:
-	case PixelFormat::ARGB8888:
-	case PixelFormat::ABGR8888:
-	case PixelFormat::RGB888:
-	case PixelFormat::BGR888:
-	case PixelFormat::RGB565:
-	case PixelFormat::BGR565:
+	const PixelFormatInfo& format_info = get_pixel_format_info(fb.format());
+
+	switch (format_info.type) {
+	case PixelColorType::RGB:
 		for (y = start_y; y < end_y; y++) {
 			for (x = 0; x < w; x++) {
 				RGB pixel = get_test_pattern_pixel(fb, x, y);
@@ -119,40 +117,46 @@ static void draw_test_pattern_part(IFramebuffer& fb, unsigned start_y, unsigned 
 		}
 		break;
 
-	case PixelFormat::UYVY:
-	case PixelFormat::YUYV:
-	case PixelFormat::YVYU:
-	case PixelFormat::VYUY:
-		for (y = start_y; y < end_y; y++) {
-			for (x = 0; x < w; x += 2) {
-				RGB pixel1 = get_test_pattern_pixel(fb, x, y);
-				RGB pixel2 = get_test_pattern_pixel(fb, x + 1, y);
-				draw_yuv422_macropixel(fb, x, y, pixel1.yuv(yuvt), pixel2.yuv(yuvt));
+	case PixelColorType::YUV:
+		switch (format_info.num_planes) {
+		case 1:
+			for (y = start_y; y < end_y; y++) {
+				for (x = 0; x < w; x += 2) {
+					RGB pixel1 = get_test_pattern_pixel(fb, x, y);
+					RGB pixel2 = get_test_pattern_pixel(fb, x + 1, y);
+					draw_yuv422_macropixel(fb, x, y, pixel1.yuv(yuvt), pixel2.yuv(yuvt));
+				}
 			}
+			break;
+
+		case 2:
+			for (y = start_y; y < end_y; y += 2) {
+				for (x = 0; x < w; x += 2) {
+					RGB pixel00 = get_test_pattern_pixel(fb, x, y);
+					RGB pixel10 = get_test_pattern_pixel(fb, x + 1, y);
+					RGB pixel01 = get_test_pattern_pixel(fb, x, y + 1);
+					RGB pixel11 = get_test_pattern_pixel(fb, x + 1, y + 1);
+					draw_yuv420_macropixel(fb, x, y,
+							       pixel00.yuv(yuvt), pixel10.yuv(yuvt),
+							       pixel01.yuv(yuvt), pixel11.yuv(yuvt));
+				}
+			}
+			break;
+
+		default:
+			throw invalid_argument("unsupported number of pixel format planes");
 		}
+
 		break;
 
-	case PixelFormat::NV12:
-	case PixelFormat::NV21:
-		for (y = start_y; y < end_y; y += 2) {
-			for (x = 0; x < w; x += 2) {
-				RGB pixel00 = get_test_pattern_pixel(fb, x, y);
-				RGB pixel10 = get_test_pattern_pixel(fb, x + 1, y);
-				RGB pixel01 = get_test_pattern_pixel(fb, x, y + 1);
-				RGB pixel11 = get_test_pattern_pixel(fb, x + 1, y + 1);
-				draw_yuv420_macropixel(fb, x, y,
-						       pixel00.yuv(yuvt), pixel10.yuv(yuvt),
-						       pixel01.yuv(yuvt), pixel11.yuv(yuvt));
-			}
-		}
-		break;
 	default:
-		throw std::invalid_argument("unknown pixelformat");
+		throw invalid_argument("unsupported pixel format");
 	}
 }
 
 static void draw_test_pattern_impl(IFramebuffer& fb, YUVType yuvt)
 {
+#ifdef HAS_PTHREAD
 	if (fb.height() < 20) {
 		draw_test_pattern_part(fb, 0, fb.height(), yuvt);
 		return;
@@ -179,6 +183,9 @@ static void draw_test_pattern_impl(IFramebuffer& fb, YUVType yuvt)
 
 	for (thread& t : workers)
 		t.join();
+#else
+	draw_test_pattern_part(fb, 0, fb.height(), yuvt);
+#endif
 }
 
 void draw_test_pattern(IFramebuffer &fb, YUVType yuvt)

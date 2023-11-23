@@ -39,7 +39,7 @@ void eq_free(struct eq *eq);
  *    0 if success. -1 if the eq has no room for more biquads.
  */
 int eq_append_biquad(struct eq *eq, enum biquad_type type, float freq, float Q,
-		      float gain);
+		     float gain);
 
 /* Append a biquad filter to an EQ. An EQ can have at most MAX_BIQUADS_PER_EQ
  * biquad filters. This is similar to eq_append_biquad(), but it specifies the

@@ -6,5 +6,5 @@ kkj{
         fr{"numbu buy"}
         kkj{"kakɔ"}
     }
-    Version{"2.1.38.69"}
+    Version{"36.1"}
 }

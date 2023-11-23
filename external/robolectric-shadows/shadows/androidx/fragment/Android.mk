@@ -1,30 +1,4 @@
-################################################################
-# Compile Robolectric shadows androidx fragment                #
-################################################################
 LOCAL_PATH := $(call my-dir)
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := Robolectric_shadows_androidx_fragment
-
-LOCAL_JAVA_LIBRARIES := \
-  Robolectric_shadows_framework \
-  Robolectric_shadowapi \
-  robolectric-host-android_all \
-  robolectric-host-androidx
-
-LOCAL_ANNOTATION_PROCESSORS := \
-  Robolectric_annotations \
-  Robolectric_processor \
-  robolectric-guava-25.1-jre \
-  robolectric-gson-2.8
-
-LOCAL_ANNOTATION_PROCESSOR_CLASSES := org.robolectric.annotation.processing.RobolectricProcessor
-
-LOCAL_JAVACFLAGS := -Aorg.robolectric.annotation.processing.shadowPackage=org.robolectric.shadows.androidx.fragment
-
-LOCAL_SRC_FILES := $(call all-java-files-under, src/main/java)
-
-include $(BUILD_HOST_JAVA_LIBRARY)
 
 ################################################################
 # Androidx Shadows Shell app just for Robolectric test target. #
@@ -60,10 +34,14 @@ LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src/test/java)
 
-LOCAL_JAVA_LIBRARIES := \
-    robolectric_android-all-stub \
+LOCAL_DONT_DELETE_JAR_META_INF := true
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
     Robolectric_all-target \
     truth-prebuilt
+
+LOCAL_JAVA_LIBRARIES := \
+    robolectric_android-all-stub
 
 LOCAL_INSTRUMENTATION_FOR := Robolectric_shadows_androidx_fragment_shell_app
 
@@ -83,9 +61,7 @@ LOCAL_MODULE := Run_robolectric_shadows_androidx_fragment_tests
 
 LOCAL_JAVA_LIBRARIES := \
     Robolectric_shadows_androidx_fragment_tests \
-    robolectric_android-all-stub \
-    Robolectric_all-target \
-    truth-prebuilt
+    robolectric_android-all-stub
 
 LOCAL_TEST_PACKAGE := Robolectric_shadows_androidx_fragment_shell_app
 

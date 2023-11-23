@@ -13,12 +13,13 @@
 // limitations under the License.
 
 #include "source/opt/function.h"
-#include "function.h"
-#include "ir_context.h"
 
-#include <source/util/bit_vector.h>
 #include <ostream>
 #include <sstream>
+
+#include "function.h"
+#include "ir_context.h"
+#include "source/util/bit_vector.h"
 
 namespace spvtools {
 namespace opt {
@@ -139,6 +140,19 @@ BasicBlock* Function::InsertBasicBlockAfter(
     if (&*bb_iter == position) {
       new_block->SetParent(this);
       ++bb_iter;
+      bb_iter = bb_iter.InsertBefore(std::move(new_block));
+      return &*bb_iter;
+    }
+  }
+  assert(false && "Could not find insertion point.");
+  return nullptr;
+}
+
+BasicBlock* Function::InsertBasicBlockBefore(
+    std::unique_ptr<BasicBlock>&& new_block, BasicBlock* position) {
+  for (auto bb_iter = begin(); bb_iter != end(); ++bb_iter) {
+    if (&*bb_iter == position) {
+      new_block->SetParent(this);
       bb_iter = bb_iter.InsertBefore(std::move(new_block));
       return &*bb_iter;
     }

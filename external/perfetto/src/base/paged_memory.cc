@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "perfetto/base/paged_memory.h"
+#include "perfetto/ext/base/paged_memory.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,7 +26,8 @@
 #endif  // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 
 #include "perfetto/base/logging.h"
-#include "perfetto/base/utils.h"
+#include "perfetto/ext/base/container_annotations.h"
+#include "perfetto/ext/base/utils.h"
 
 namespace perfetto {
 namespace base {
@@ -37,7 +38,7 @@ constexpr size_t kGuardSize = kPageSize;
 
 #if TRACK_COMMITTED_SIZE()
 constexpr size_t kCommitChunkSize = kPageSize * 1024;  // 4mB
-#endif  // TRACK_COMMITTED_SIZE()
+#endif                                                 // TRACK_COMMITTED_SIZE()
 
 }  // namespace
 
@@ -75,18 +76,20 @@ PagedMemory PagedMemory::Allocate(size_t size, int flags) {
 
 PagedMemory::PagedMemory() {}
 
+// clang-format off
 PagedMemory::PagedMemory(char* p, size_t size) : p_(p), size_(size) {
-  ANNOTATE_NEW_BUFFER(p_, size_, committed_size_);
+  ANNOTATE_NEW_BUFFER(p_, size_, committed_size_)
 }
 
 PagedMemory::PagedMemory(PagedMemory&& other) noexcept {
   *this = other;
   other.p_ = nullptr;
 }
+// clang-format on
 
 PagedMemory& PagedMemory::operator=(PagedMemory&& other) {
-  *this = other;
-  other.p_ = nullptr;
+  this->~PagedMemory();
+  new (this) PagedMemory(std::move(other));
   return *this;
 }
 
@@ -103,23 +106,25 @@ PagedMemory::~PagedMemory() {
   int res = munmap(start, outer_size);
   PERFETTO_CHECK(res == 0);
 #endif  // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
-  ANNOTATE_DELETE_BUFFER(p_, size_, committed_size_);
+  ANNOTATE_DELETE_BUFFER(p_, size_, committed_size_)
 }
 
 bool PagedMemory::AdviseDontNeed(void* p, size_t size) {
   PERFETTO_DCHECK(p_);
   PERFETTO_DCHECK(p >= p_);
   PERFETTO_DCHECK(static_cast<char*>(p) + size <= p_ + size_);
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) || PERFETTO_BUILDFLAG(PERFETTO_OS_NACL)
   // Discarding pages on Windows has more CPU cost than is justified for the
   // possible memory savings.
   return false;
-#else   // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#else   // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) ||
+        // PERFETTO_BUILDFLAG(PERFETTO_OS_NACL)
   // http://man7.org/linux/man-pages/man2/madvise.2.html
   int res = madvise(p, size, MADV_DONTNEED);
   PERFETTO_DCHECK(res == 0);
   return true;
-#endif  // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#endif  // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) ||
+        // PERFETTO_BUILDFLAG(PERFETTO_OS_NACL)
 }
 
 #if TRACK_COMMITTED_SIZE()
@@ -141,12 +146,12 @@ void PagedMemory::EnsureCommitted(size_t committed_size) {
                            PAGE_READWRITE);
   PERFETTO_CHECK(res);
   ANNOTATE_CHANGE_SIZE(p_, size_, committed_size_,
-                       committed_size_ + commit_size);
+                       committed_size_ + commit_size)
   committed_size_ += commit_size;
 #else   // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
   // mmap commits automatically as needed, so we only track here for ASAN.
   committed_size = std::max(committed_size_, committed_size);
-  ANNOTATE_CHANGE_SIZE(p_, size_, committed_size_, committed_size);
+  ANNOTATE_CHANGE_SIZE(p_, size_, committed_size_, committed_size)
   committed_size_ = committed_size;
 #endif  // PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 }

@@ -14,22 +14,19 @@
  * -r rejectfile write rejected hunks to this file
  *
  * -E remove empty files --remove-empty-files
- * -f force (no questions asked)
- * -F fuzz (number, default 2)
- * [file] which file to patch
 
-USE_PATCH(NEWTOY(patch, "(dry-run)"USE_TOYBOX_DEBUG("x")"ulp#d:i:Rs(quiet)", TOYFLAG_USR|TOYFLAG_BIN))
+USE_PATCH(NEWTOY(patch, ">2(no-backup-if-mismatch)(dry-run)"USE_TOYBOX_DEBUG("x")"F#g#fulp#d:i:Rs(quiet)", TOYFLAG_USR|TOYFLAG_BIN))
 
 config PATCH
   bool "patch"
   default y
   help
-    usage: patch [-d DIR] [-i file] [-p depth] [-Rlsu] [--dry-run]
+    usage: patch [-d DIR] [-i PATCH] [-p DEPTH] [-F FUZZ] [-Rlsu] [--dry-run] [FILE [PATCH]]
 
     Apply a unified diff to one or more files.
 
     -d	Modify files in DIR
-    -i	Input file (default=stdin)
+    -i	Input patch file (default=stdin)
     -l	Loose match (ignore whitespace)
     -p	Number of '/' to strip from start of file paths (default=all)
     -R	Reverse patch
@@ -38,7 +35,7 @@ config PATCH
     --dry-run Don't change files, just confirm patch applies
 
     This version of patch only handles unified diffs, and only modifies
-    a file when all hunks to that file apply.  Patch prints failed hunks
+    a file when all hunks to that file apply. Patch prints failed hunks
     to stderr, and exits with nonzero status if any hunks fail.
 
     A file compared against /dev/null (or with a date <= the epoch) is
@@ -50,11 +47,10 @@ config PATCH
 
 GLOBALS(
   char *i, *d;
-  long p;
+  long p, g, F;
 
-  struct double_list *current_hunk;
-  long oldline, oldlen, newline, newlen;
-  long linenum;
+  void *current_hunk;
+  long oldline, oldlen, newline, newlen, linenum, outnum;
   int context, state, filein, fileout, filepatch, hunknum;
   char *tempname;
 )
@@ -68,20 +64,17 @@ GLOBALS(
 
 static void do_line(void *data)
 {
-  struct double_list *dlist = (struct double_list *)data;
+  struct double_list *dlist = data;
 
-  if (TT.state>1 && *dlist->data != TT.state) {
-    char *s = dlist->data+(TT.state>3);
-    int i = TT.state == 2 ? 2 : TT.fileout;
+  TT.outnum++;
+  if (TT.state>1)
+    if (0>dprintf(TT.state==2 ? 2 : TT.fileout,"%s\n",dlist->data+(TT.state>3)))
+      perror_exit("write");
 
-    xwrite(i, s, strlen(s));
-    xwrite(i, "\n", 1);
-  }
+  if (FLAG(x))
+    fprintf(stderr, "DO %d %ld: %s\n", TT.state, TT.outnum, dlist->data);
 
-  if (FLAG(x)) fprintf(stderr, "DO %d: %s\n", TT.state, dlist->data);
-
-  free(dlist->data);
-  free(data);
+  llist_free_double(data);
 }
 
 static void finish_oldfile(void)
@@ -124,27 +117,41 @@ static int loosecmp(char *aa, char *bb)
 
 // Given a hunk of a unified diff, make the appropriate change to the file.
 // This does not use the location information, but instead treats a hunk
-// as a sort of regex.  Copies data from input to output until it finds
+// as a sort of regex. Copies data from input to output until it finds
 // the change to be made, then outputs the changed data and returns.
-// (Finding EOF first is an error.)  This is a single pass operation, so
+// (Finding EOF first is an error.) This is a single pass operation, so
 // multiple hunks must occur in order in the file.
 
 static int apply_one_hunk(void)
 {
-  struct double_list *plist, *buf = NULL, *check;
-  int matcheof, trailing = 0, reverse = FLAG(R), backwarn = 0;
-  int (*lcmp)(char *aa, char *bb);
-
-  lcmp = FLAG(l) ? (void *)loosecmp : (void *)strcmp;
-  dlist_terminate(TT.current_hunk);
+  struct double_list *plist, *buf = 0, *check;
+  int matcheof, trail = 0, reverse = FLAG(R), backwarn = 0, allfuzz = 0, fuzz,i;
+  int (*lcmp)(char *aa, char *bb) = FLAG(l) ? (void *)loosecmp : (void *)strcmp;
 
   // Match EOF if there aren't as many ending context lines as beginning
+  dlist_terminate(TT.current_hunk);
   for (plist = TT.current_hunk; plist; plist = plist->next) {
-    if (plist->data[0]==' ') trailing++;
-    else trailing = 0;
+    char c = *plist->data, *s;
+
+    if (c==' ') trail++;
+    else trail = 0;
+
+    // Only allow fuzz if 2 context lines have multiple nonwhitespace chars.
+    // avoids the "all context was blank or } lines" issue. Removed lines
+    // count as context since they're matched.
+    if (c==' ' || c=="-+"[reverse]) {
+      s = plist->data+1;
+      while (isspace(*s)) s++;
+      if (*s && s[1] && !isspace(s[1])) allfuzz++;
+    }
+
     if (FLAG(x)) fprintf(stderr, "HUNK:%s\n", plist->data);
   }
-  matcheof = !trailing || trailing < TT.context;
+  matcheof = !trail || trail < TT.context;
+  if (allfuzz<2) allfuzz = 0;
+  else allfuzz = FLAG(F) ? TT.F : TT.context ? TT.context-1 : 0;
+  if (allfuzz>=sizeof(toybuf)/sizeof(long))
+    allfuzz = (sizeof(toybuf)/sizeof(long))-1;
 
   if (FLAG(x)) fprintf(stderr,"MATCHEOF=%c\n", matcheof ? 'Y' : 'N');
 
@@ -152,12 +159,10 @@ static int apply_one_hunk(void)
   // lines and all lines to be removed until we've found the end of a
   // complete hunk.
   plist = TT.current_hunk;
-  buf = NULL;
-
+  fuzz = 0;
   for (;;) {
     char *data = get_line(TT.filein);
 
-    TT.linenum++;
     // Figure out which line of hunk to compare with next. (Skip lines
     // of the hunk we'd be adding.)
     while (plist && *plist->data == "+-"[reverse]) {
@@ -180,20 +185,29 @@ static int apply_one_hunk(void)
       // File ended before we found a place for this hunk.
       fail_hunk();
       goto done;
-    } else if (FLAG(x)) fprintf(stderr, "IN: %s\n", data);
+    } else {
+      TT.linenum++;
+      if (FLAG(x)) fprintf(stderr, "IN: %s\n", data);
+    }
     check = dlist_add(&buf, data);
-
     // Compare this line with next expected line of hunk.
 
     // A match can fail because the next line doesn't match, or because
-    // we hit the end of a hunk that needed EOF, and this isn't EOF.
+    // we hit the end of a hunk that needed EOF and this isn't EOF.
 
     // If match failed, flush first line of buffered data and
     // recheck buffered data for a new match until we find one or run
     // out of buffer.
-
-    for (;;) {
+    for (i = 0;; i++) {
       if (!plist || lcmp(check->data, plist->data+1)) {
+        if (plist && *plist->data == ' ' && fuzz<allfuzz) {
+          if (FLAG(x))
+            fprintf(stderr, "FUZZED: %ld %s\n", TT.linenum, plist->data);
+          ((long *)toybuf)[fuzz++] = TT.outnum+i;
+
+          goto fuzzed;
+        }
+
         // Match failed.  Write out first line of buffered data and
         // recheck remaining buffered data for a new match.
 
@@ -209,7 +223,7 @@ static int apply_one_hunk(void)
         }
 
         // If this hunk must match start of file, fail if it didn't.
-        if (!TT.context || trailing>TT.context) {
+        if (!TT.context || trail>TT.context) {
           fail_hunk();
           goto done;
         }
@@ -217,6 +231,8 @@ static int apply_one_hunk(void)
         TT.state = 3;
         do_line(check = dlist_pop(&buf));
         plist = TT.current_hunk;
+        memset(toybuf, 0, (fuzz+7)/8);
+        fuzz = 0;
 
         // If we've reached the end of the buffer without confirming a
         // match, read more lines.
@@ -224,6 +240,7 @@ static int apply_one_hunk(void)
         check = buf;
       } else {
         if (FLAG(x)) fprintf(stderr, "MAYBE: %s\n", plist->data);
+fuzzed:
         // This line matches. Advance plist, detect successful match.
         plist = plist->next;
         if (!plist && !matcheof) goto out;
@@ -235,16 +252,50 @@ static int apply_one_hunk(void)
 out:
   // We have a match.  Emit changed data.
   TT.state = "-+"[reverse];
-  llist_traverse(TT.current_hunk, do_line);
-  TT.current_hunk = NULL;
+  allfuzz = 0;
+  while ((plist = dlist_pop(&TT.current_hunk))) {
+    if (TT.state == *plist->data || *plist->data == ' ') {
+      if (((long *)toybuf)[allfuzz] == ++TT.outnum) {
+        dprintf(TT.fileout, "%s\n", buf->data);
+        allfuzz++;
+      } else if (*plist->data == ' ') dprintf(TT.fileout, "%s\n",plist->data+1);
+      llist_free_double(dlist_pop(&buf));
+    } else dprintf(TT.fileout, "%s\n", plist->data+1);
+    llist_free_double(plist);
+  }
+  TT.current_hunk = 0;
   TT.state = 1;
 done:
-  if (buf) {
-    dlist_terminate(buf);
-    llist_traverse(buf, do_line);
-  }
+  llist_traverse(buf, do_line);
 
   return TT.state;
+}
+
+// read a filename that has been quoted or escaped
+char *unquote_file(char *filename)
+{
+  char *s = filename, *t;
+
+  // Return copy of file that wasn't quoted
+  if (*s++ != '"' || !*s) return xstrdup(filename);
+
+  // quoted and escaped filenames are larger than the original
+  for (t = filename = xmalloc(strlen(s) + 1); *s != '"'; s++) {
+    if (!s[1]) error_exit("bad %s", filename);
+
+    // don't accept escape sequences unless the filename is quoted
+    if (*s != '\\') *t++ = *s;
+    else if (*++s >= '0' && *s < '8') {
+      *t++ = strtoul(s, &s, 8);
+      s--;
+    } else {
+      if (!(*t = unescape(*s))) *t = *s;;
+      t++;
+    }
+  }
+  *t = 0;
+
+  return filename;
 }
 
 // Read a patch file and find hunks, opening/creating/deleting files.
@@ -260,6 +311,7 @@ void patch_main(void)
   int reverse = FLAG(R), state = 0, patchlinenum = 0, strip = 0;
   char *oldname = NULL, *newname = NULL;
 
+  if (toys.optc == 2) TT.i = toys.optargs[1];
   if (TT.i) TT.filepatch = xopenro(TT.i);
   TT.filein = TT.fileout = -1;
 
@@ -289,7 +341,7 @@ void patch_main(void)
     // Are we assembling a hunk?
     if (state >= 2) {
       if (*patchline==' ' || *patchline=='+' || *patchline=='-') {
-        dlist_add(&TT.current_hunk, patchline);
+        dlist_add((void *)&TT.current_hunk, patchline);
 
         if (*patchline != '+') TT.oldlen--;
         if (*patchline != '-') TT.newlen--;
@@ -322,13 +374,12 @@ void patch_main(void)
       finish_oldfile();
 
       // Trim date from end of filename (if any).  We don't care.
-      for (s = patchline+4; *s && (*s!='\t' || !isdigit(s[1])); s++)
-        if (*s=='\\' && s[1]) s++;
+      for (s = patchline+4; *s && *s!='\t'; s++);
       i = atoi(s);
       if (i>1900 && i<=1970) *name = xstrdup("/dev/null");
       else {
         *s = 0;
-        *name = xstrdup(patchline+4);
+        *name = unquote_file(patchline+4);
       }
 
       // We defer actually opening the file because svn produces broken
@@ -361,12 +412,23 @@ void patch_main(void)
         oldsum = TT.oldline + TT.oldlen;
         newsum = TT.newline + TT.newlen;
 
+        // If an original file was provided on the command line, it overrides
+        // *all* files mentioned in the patch, not just the first.
+        if (toys.optc) {
+          char **which = reverse ? &oldname : &newname;
+
+          free(*which);
+          *which = strdup(toys.optargs[0]);
+          // The supplied path should be taken literally with or without -p.
+          toys.optflags |= FLAG_p;
+          TT.p = 0;
+        }
+
         name = reverse ? oldname : newname;
 
         // We're deleting oldname if new file is /dev/null (before -p)
         // or if new hunk is empty (zero context) after patching
-        if (!strcmp(name, "/dev/null") || !(reverse ? oldsum : newsum))
-        {
+        if (!strcmp(name, "/dev/null") || !(reverse ? oldsum : newsum)) {
           name = reverse ? newname : oldname;
           del++;
         }
@@ -398,8 +460,7 @@ void patch_main(void)
           }
           if (FLAG(dry_run)) TT.fileout = xopen("/dev/null", O_RDWR);
           else TT.fileout = copy_tempfile(TT.filein, name, &TT.tempname);
-          TT.linenum = 0;
-          TT.hunknum = 0;
+          TT.linenum = TT.outnum = TT.hunknum = 0;
         }
       }
 

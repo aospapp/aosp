@@ -29,6 +29,7 @@ class firmware_CorruptFwSigA(FirmwareTest):
         super(firmware_CorruptFwSigA, self).cleanup()
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Corrupt firmware signature A.")
         self.check_state((self.checkers.fw_tries_checker, 'A'))
         self.faft_client.bios.corrupt_sig('a')
@@ -46,5 +47,5 @@ class firmware_CorruptFwSigA(FirmwareTest):
         self.switcher.mode_aware_reboot()
 
         expected_slot = 'B' if self.fw_vboot2 else 'A'
-        logging.info("Expected firmware " + expected_slot + " boot, done.")
+        logging.info("Expected firmware %s boot, done.", expected_slot)
         self.check_state((self.checkers.fw_tries_checker, expected_slot))

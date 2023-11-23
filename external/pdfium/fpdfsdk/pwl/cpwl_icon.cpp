@@ -8,72 +8,51 @@
 
 #include <algorithm>
 #include <sstream>
+#include <utility>
 
-#include "core/fpdfapi/parser/cpdf_array.h"
-#include "core/fpdfapi/parser/cpdf_stream.h"
+#include "core/fpdfdoc/cpdf_icon.h"
+#include "core/fpdfdoc/cpdf_iconfit.h"
 #include "fpdfsdk/pwl/cpwl_wnd.h"
 
-CPWL_Icon::CPWL_Icon() : m_pPDFStream(nullptr), m_pIconFit(nullptr) {}
+CPWL_Icon::CPWL_Icon(const CreateParams& cp,
+                     std::unique_ptr<CPDF_Icon> pIcon,
+                     CPDF_IconFit* pFit)
+    : CPWL_Wnd(cp, nullptr), m_pIcon(std::move(pIcon)), m_pIconFit(pFit) {
+  ASSERT(m_pIcon);
+}
 
-CPWL_Icon::~CPWL_Icon() {}
+CPWL_Icon::~CPWL_Icon() = default;
 
-std::pair<float, float> CPWL_Icon::GetImageSize() {
-  if (!m_pPDFStream)
-    return {0.0f, 0.0f};
-
-  CPDF_Dictionary* pDict = m_pPDFStream->GetDict();
-  if (!pDict)
-    return {0.0f, 0.0f};
-
-  CFX_FloatRect rect = pDict->GetRectFor("BBox");
-  return {rect.right - rect.left, rect.top - rect.bottom};
+CFX_SizeF CPWL_Icon::GetImageSize() {
+  return m_pIcon->GetImageSize();
 }
 
 CFX_Matrix CPWL_Icon::GetImageMatrix() {
-  if (!m_pPDFStream)
-    return CFX_Matrix();
-  if (CPDF_Dictionary* pDict = m_pPDFStream->GetDict())
-    return pDict->GetMatrixFor("Matrix");
-  return CFX_Matrix();
+  return m_pIcon->GetImageMatrix();
 }
 
 ByteString CPWL_Icon::GetImageAlias() {
-  if (!m_pPDFStream)
-    return ByteString();
-  if (CPDF_Dictionary* pDict = m_pPDFStream->GetDict())
-    return pDict->GetStringFor("Name");
-  return ByteString();
+  return m_pIcon->GetImageAlias();
 }
 
-std::pair<float, float> CPWL_Icon::GetIconPosition() {
+CFX_PointF CPWL_Icon::GetIconPosition() {
   if (!m_pIconFit)
-    return {0.0f, 0.0f};
+    return CFX_PointF();
 
-  CPDF_Array* pA =
-      m_pIconFit->GetDict() ? m_pIconFit->GetDict()->GetArrayFor("A") : nullptr;
-  if (!pA)
-    return {0.0f, 0.0f};
-
-  size_t dwCount = pA->GetCount();
-  return {dwCount > 0 ? pA->GetNumberAt(0) : 0.0f,
-          dwCount > 1 ? pA->GetNumberAt(1) : 0.0f};
+  return m_pIconFit->GetIconPosition();
 }
 
 std::pair<float, float> CPWL_Icon::GetScale() {
   float fHScale = 1.0f;
   float fVScale = 1.0f;
 
-  if (!m_pPDFStream)
-    return {fHScale, fVScale};
-
   CFX_FloatRect rcPlate = GetClientRect();
-  float fPlateWidth = rcPlate.right - rcPlate.left;
-  float fPlateHeight = rcPlate.top - rcPlate.bottom;
+  float fPlateWidth = rcPlate.Width();
+  float fPlateHeight = rcPlate.Height();
 
-  float fImageWidth;
-  float fImageHeight;
-  std::tie(fImageWidth, fImageHeight) = GetImageSize();
-
+  CFX_SizeF image_size = GetImageSize();
+  float fImageWidth = image_size.width;
+  float fImageHeight = image_size.height;
   int32_t nScaleMethod = m_pIconFit ? m_pIconFit->GetScaleMethod() : 0;
 
   switch (nScaleMethod) {
@@ -108,13 +87,13 @@ std::pair<float, float> CPWL_Icon::GetScale() {
 }
 
 std::pair<float, float> CPWL_Icon::GetImageOffset() {
-  float fLeft;
-  float fBottom;
-  std::tie(fLeft, fBottom) = GetIconPosition();
+  CFX_PointF icon_position = GetIconPosition();
+  float fLeft = icon_position.x;
+  float fBottom = icon_position.y;
 
-  float fImageWidth;
-  float fImageHeight;
-  std::tie(fImageWidth, fImageHeight) = GetImageSize();
+  CFX_SizeF image_size = GetImageSize();
+  float fImageWidth = image_size.width;
+  float fImageHeight = image_size.height;
 
   float fHScale, fVScale;
   std::tie(fHScale, fVScale) = GetScale();
@@ -123,8 +102,8 @@ std::pair<float, float> CPWL_Icon::GetImageOffset() {
   float fImageFactHeight = fImageHeight * fVScale;
 
   CFX_FloatRect rcPlate = GetClientRect();
-  float fPlateWidth = rcPlate.right - rcPlate.left;
-  float fPlateHeight = rcPlate.top - rcPlate.bottom;
+  float fPlateWidth = rcPlate.Width();
+  float fPlateHeight = rcPlate.Height();
 
   return {(fPlateWidth - fImageFactWidth) * fLeft,
           (fPlateHeight - fImageFactHeight) * fBottom};

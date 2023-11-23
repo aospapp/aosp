@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -469,40 +469,6 @@ def _balance_model(arguments, afe, pool, labels, start_time, end_time):
                      main_pool, spare_pool)
 
 
-def _too_many_broken(inventory, pool, args):
-    """
-    Get the inventory of models and check if too many are broken.
-
-    @param inventory: _LabInventory object.
-    @param pool: The pool to check.
-    @param args: Parsed command line arguments.
-
-    @return True if the number of models with 1 or more broken duts
-            exceed max_broken_models, False otherwise.
-    """
-    # Were we asked to skip this check?
-    if (args.force_rebalance or
-            (args.all_models and args.max_broken_models == 0)):
-        return False
-
-    max_broken = args.max_broken_models
-    if max_broken is None:
-        total_num = len(inventory.get_pool_models(pool))
-        max_broken = int(_MAX_BROKEN_DEFAULT_RATIO * total_num)
-    _log_info(args.dry_run,
-              'Max broken models for pool %s: %d',
-              pool, max_broken)
-
-    broken = [model for model, counts in inventory.iteritems()
-                  if counts.get_broken(pool) != 0]
-    _log_message('There are %d models in the %s pool with at least 1 '
-                 'broken DUT (max threshold %d)',
-                 len(broken), pool, max_broken)
-    for b in sorted(broken):
-        _log_message(b)
-    return len(broken) > max_broken
-
-
 def _parse_command(argv):
     """Parse the command line arguments.
 
@@ -623,22 +589,12 @@ def infer_balancer_targets(afe, arguments, pools):
     for pool in pools:
         if arguments.all_models:
             inventory = lab_inventory.get_inventory(afe)
-            quarantine = _too_many_broken(inventory, pool, arguments)
-            if quarantine:
-                _log_error('Refusing to balance all models for %s pool, '
-                           'too many models with at least 1 broken DUT '
-                           'detected.', pool)
-            else:
-                for model in inventory.get_pool_models(pool):
-                    labels = labellib.LabelsMapping()
-                    labels['model'] = model
-                    if arguments.phase:
-                        labels['phase'] = arguments.phase
-                    balancer_targets.append((pool, labels.getlabels()))
-            metrics.Boolean(
-                'chromeos/autotest/balance_pools/unchanged_pools').set(
-                    quarantine, fields={'pool': pool})
-            _log_message('Pool %s quarantine status: %s', pool, quarantine)
+            for model in inventory.get_pool_models(pool):
+                labels = labellib.LabelsMapping()
+                labels['model'] = model
+                if arguments.phase:
+                    labels['phase'] = arguments.phase
+                balancer_targets.append((pool, labels.getlabels()))
         else:
             for model in arguments.models:
                 labels = labellib.LabelsMapping()

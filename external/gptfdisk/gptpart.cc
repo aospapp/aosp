@@ -4,7 +4,7 @@
 // Description: Class to implement a SINGLE GPT partition
 //
 //
-// Author: Rod Smith <rodsmith@rodsbooks.com>, (C) 2009-2013
+// Author: Rod Smith <rodsmith@rodsbooks.com>, (C) 2009-2018
 //
 // Copyright: See COPYING file that comes with this distribution
 //
@@ -39,6 +39,15 @@ GPTPart::GPTPart(void) {
    attributes = 0;
    memset(name, 0, NAME_SIZE * sizeof(name[0]) );
 } // Default constructor
+
+GPTPart::GPTPart(const GPTPart & orig) {
+   partitionType = orig.partitionType;
+   uniqueGUID = orig.uniqueGUID;
+   firstLBA = orig.firstLBA;
+   lastLBA = orig.lastLBA;
+   attributes = orig.attributes;
+   memcpy(name, orig.name, NAME_SIZE * sizeof( name[ 0 ] ) );
+} // Copy constructor
 
 GPTPart::~GPTPart(void) {
 } // destructor

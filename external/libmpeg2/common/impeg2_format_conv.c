@@ -321,7 +321,7 @@ void impeg2_fmt_conv_yuv420p_to_yuv420sp_vu(UWORD8 *pu1_y, UWORD8 *pu1_u, UWORD8
     pu1_src_u = pu1_u;
     pu1_src_v = pu1_v;
     pu1_dst = pu1_dest_uv ;
-
+    u4_width = ((u4_width + 1) >> 1) << 1;
     u4_height = (u4_height + 1) >> 1;
     u2_width_uv = (u4_width + 1) >> 1;
     for(i = 0; i < u4_height ; i++)
@@ -379,7 +379,7 @@ void impeg2_fmt_conv_yuv420p_to_yuv420sp_uv(UWORD8 *pu1_y, UWORD8 *pu1_u, UWORD8
     pu1_src_u = pu1_u;
     pu1_src_v = pu1_v;
     pu1_dst = pu1_dest_uv ;
-
+    u4_width = ((u4_width + 1) >> 1) << 1;
     u4_height = (u4_height + 1) >> 1;
     u2_width_uv = (u4_width + 1) >> 1;
     for(i = 0; i < u4_height ; i++)

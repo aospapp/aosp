@@ -15,7 +15,7 @@ extern "C" {
 /* dumper is an interface to output some human-readable information */
 struct dumper {
 	void (*vprintf)(struct dumper *dumper, const char *format, va_list ap);
-	void *data;  /* private to each dumper */
+	void *data; /* private to each dumper */
 };
 
 /* a convenience function outputs to a dumper */

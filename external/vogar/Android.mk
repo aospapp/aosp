@@ -35,12 +35,11 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 
 LOCAL_ADDITIONAL_DEPENDENCIES := \
   $(HOST_OUT_EXECUTABLES)/dx \
-  $(HOST_OUT_EXECUTABLES)/d8-compat-dx \
+  $(HOST_OUT_EXECUTABLES)/d8 \
   $(HOST_OUT_JAVA_LIBRARIES)/desugar.jar
 
 # Vogar uses android.jar.
 LOCAL_CLASSPATH := $(call resolve-prebuilt-sdk-jar-path,current)
-LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 
@@ -49,7 +48,8 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 # Run the tests using using the following target.
 .PHONY: run-vogar-tests
 run-vogar-tests: vogar-tests
-	java -cp ./out/host/linux-x86/framework/vogar-tests.jar \
+	ANDROID_BUILD_TOP=$$(pwd) \
+	  java -cp ./out/host/linux-x86/framework/vogar-tests.jar \
 	  org.junit.runner.JUnitCore vogar.AllTests
 
 include $(CLEAR_VARS)
@@ -65,19 +65,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	objenesis \
 	vogar
 
-LOCAL_JAVA_LANGUAGE_VERSION := 1.7
-
 include $(BUILD_HOST_JAVA_LIBRARY)
-
-# Build dependencies.
-# ============================================================
-include $(CLEAR_VARS)
-
-LOCAL_PREBUILT_JAVA_LIBRARIES := \
-    vogar-jsr305:lib/jsr305$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    vogar-kxml-libcore-20110123:lib/kxml-libcore-20110123$(COMMON_JAVA_PACKAGE_SUFFIX)
-
-include $(BUILD_HOST_PREBUILT)
 
 # copy vogar script
 # ============================================================

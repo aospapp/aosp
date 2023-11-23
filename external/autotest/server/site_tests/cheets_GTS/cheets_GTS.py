@@ -18,13 +18,16 @@ import shutil
 import tempfile
 
 from autotest_lib.server import utils
-from autotest_lib.server.cros import tradefed_test
+from autotest_lib.server.cros.tradefed import tradefed_test
 
 # Maximum default time allowed for each individual GTS module.
 _GTS_TIMEOUT_SECONDS = 3600
 _PARTNER_GTS_BUCKET = 'gs://chromeos-partner-gts/'
-_PARTNER_GTS_LOCATION = _PARTNER_GTS_BUCKET + 'gts-6.0_r4-5356336.zip'
+_PARTNER_GTS_LOCATION = _PARTNER_GTS_BUCKET + 'gts-7_r3-6045416.zip'
 _PARTNER_GTS_AUTHKEY = _PARTNER_GTS_BUCKET + 'gts-arc.json'
+_GTS_MEDIA_URI = ('https://storage.googleapis.com/youtube-test-media/gts/' +
+                  'GtsYouTubeTestCases-media-1.2.zip')
+_GTS_MEDIA_LOCALPATH = '/tmp/android-gts-media/GtsYouTubeTestCases'
 
 
 class cheets_GTS(tradefed_test.TradefedTest):
@@ -58,37 +61,13 @@ class cheets_GTS(tradefed_test.TradefedTest):
     def _get_tradefed_base_dir(self):
         return 'android-gts'
 
-    def _run_tradefed(self, commands):
-        """Kick off GTS.
+    def _tradefed_cmd_path(self):
+        return os.path.join(self._repository, 'tools', 'gts-tradefed')
 
-        @param commands: the command(s) to pass to GTS.
-        @return: The result object from utils.run.
-        """
-        gts_tradefed = os.path.join(self._repository, 'tools', 'gts-tradefed')
-        env = None
+    def _tradefed_env(self):
         if self._authkey:
-            env = dict(os.environ, APE_API_KEY=self._authkey)
-        with tradefed_test.adb_keepalive(self._get_adb_targets(),
-                                         self._install_paths):
-            for command in commands:
-                timeout = self._timeout * self._timeout_factor
-                logging.info('RUN(timeout=%d): ./gts-tradefed %s', timeout,
-                             ' '.join(command))
-                output = self._run(
-                    gts_tradefed,
-                    args=tuple(command),
-                    env=env,
-                    timeout=timeout,
-                    verbose=True,
-                    ignore_status=False,
-                    # Make sure to tee tradefed stdout/stderr to autotest logs
-                    # continuously during the test run.
-                    stdout_tee=utils.TEE_TO_LOGS,
-                    stderr_tee=utils.TEE_TO_LOGS,
-                    # Also send the output to the test_that console.
-                    stdout_level=logging.INFO)
-                logging.info('END: ./gts-tradefed %s\n', ' '.join(command))
-        return output
+            return dict(os.environ, APE_API_KEY=self._authkey)
+        return None
 
     def run_once(self,
                  test_name,
@@ -99,9 +78,11 @@ class cheets_GTS(tradefed_test.TradefedTest):
                  target_class=None,
                  target_method=None,
                  needs_push_media=False,
+                 enable_default_apps=False,
                  precondition_commands=[],
                  login_precondition_commands=[],
                  authkey=None,
+                 prerequisites=[],
                  timeout=_GTS_TIMEOUT_SECONDS):
         """Runs the specified GTS once, but with several retries.
 
@@ -125,6 +106,7 @@ class cheets_GTS(tradefed_test.TradefedTest):
         dut before the test is run, the scripts must already be installed.
         @param login_precondition_commands: a list of scripts to be run on the
         dut before the log-in for the test is performed.
+        @param prerequisites: a list of prerequisites that identify rogue DUTs.
         """
         # Download the GTS auth key to the local temp directory.
         tmpdir = tempfile.mkdtemp()
@@ -139,8 +121,12 @@ class cheets_GTS(tradefed_test.TradefedTest):
                 timeout=timeout,
                 target_module=target_module,
                 target_plan=target_plan,
-                needs_push_media=needs_push_media,
+                media_asset=tradefed_test.MediaAsset(
+                    _GTS_MEDIA_URI if needs_push_media else None,
+                    _GTS_MEDIA_LOCALPATH),
+                enable_default_apps=enable_default_apps,
                 login_precondition_commands=login_precondition_commands,
-                precondition_commands=precondition_commands)
+                precondition_commands=precondition_commands,
+                prerequisites=prerequisites)
         finally:
             shutil.rmtree(tmpdir)

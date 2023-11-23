@@ -21,6 +21,8 @@ import static android.os.Build.VERSION_CODES.O;
 import static android.os.Build.VERSION_CODES.O_MR1;
 import static android.os.Build.VERSION_CODES.P;
 import static android.os.Build.VERSION_CODES.Q;
+import static android.os.Build.VERSION_CODES.R;
+
 import static org.robolectric.shadow.api.Shadow.invokeConstructor;
 import static org.robolectric.util.ReflectionHelpers.ClassParameter.from;
 
@@ -79,6 +81,7 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.storage.VolumeInfo;
 
+import android.permission.IPermissionManager;
 import android.telecom.TelecomManager;
 import android.util.Pair;
 import com.google.common.base.Function;
@@ -115,7 +118,7 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
 
   private Context context;
 
-  @Implementation
+  @Implementation(maxSdk = Q)
   protected void __constructor__(Object contextImpl, Object pm) {
     try {
       invokeConstructor(
@@ -128,6 +131,24 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
     }
     context = (Context) contextImpl;
   }
+
+  // BEGIN-INTERNAL
+  @Implementation(minSdk = R)
+  protected void __constructor__(
+          Object contextImpl, Object packageManager, Object permissionManager) {
+    try {
+      invokeConstructor(
+          ApplicationPackageManager.class,
+          realObject,
+          from(Class.forName(ShadowContextImpl.CLASS_NAME), contextImpl),
+          from(IPackageManager.class, packageManager),
+          from(IPermissionManager.class, permissionManager));
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+    context = (Context) contextImpl;
+  }
+  // END-INTERNAL
 
   @Implementation
   public List<PackageInfo> getInstalledPackages(int flags) {
@@ -999,8 +1020,8 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
   }
 
   @Implementation
-  protected Drawable getApplicationIcon(ApplicationInfo info) {
-    return null;
+  protected Drawable getApplicationIcon(ApplicationInfo info) throws NameNotFoundException {
+    return getApplicationIcon(info.packageName);
   }
 
   @Implementation(minSdk = LOLLIPOP)
@@ -1086,7 +1107,7 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
   @Implementation(minSdk = N)
   protected PackageInfo getPackageInfoAsUser(String packageName, int flags, int userId)
       throws NameNotFoundException {
-    return null;
+    return getPackageInfo(packageName, flags);
   }
 
   @Implementation
@@ -1196,6 +1217,13 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
       }
     }
     throw new NameNotFoundException(packageName);
+  }
+
+  @Implementation
+  protected ApplicationInfo getApplicationInfoAsUser(
+          String packageName, int flags, UserHandle userId) throws NameNotFoundException {
+    // Currently does not use the user ID.
+    return getApplicationInfo(packageName, flags);
   }
 
   /**
@@ -1320,7 +1348,11 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
 
   @Implementation(minSdk = N)
   protected List<PackageInfo> getInstalledPackagesAsUser(int flags, int userId) {
-    return null;
+    List<PackageInfo> packages = new ArrayList<>();
+    for (String packageName : packagesForUserId.getOrDefault(userId, new ArrayList<>())) {
+      packages.add(packageInfos.get(packageName));
+    }
+    return packages;
   }
 
   @Implementation(minSdk = JELLY_BEAN_MR2)
@@ -1328,9 +1360,10 @@ public class ShadowApplicationPackageManager extends ShadowPackageManager {
     return null;
   }
 
+  /** Behaves as {@link #resolveActivity(Intent, int)} and currently ignores userId. */
   @Implementation(minSdk = JELLY_BEAN_MR1)
   protected ResolveInfo resolveActivityAsUser(Intent intent, int flags, int userId) {
-    return null;
+    return resolveActivity(intent, flags);
   }
 
   @Implementation

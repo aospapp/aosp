@@ -15,7 +15,7 @@
  */
 package com.squareup.okhttp.internal;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
 
 public final class Version {
   @UnsupportedAppUsage

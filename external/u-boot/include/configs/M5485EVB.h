@@ -28,7 +28,6 @@
 
 #define CONFIG_FSLDMAFEC
 #ifdef CONFIG_FSLDMAFEC
-#	define CONFIG_MII		1
 #	define CONFIG_MII_INIT		1
 #	define CONFIG_HAS_ETH1
 
@@ -178,14 +177,10 @@
 /*-----------------------------------------------------------------------
  * FLASH organization
  */
-#define CONFIG_SYS_FLASH_CFI
 #ifdef CONFIG_SYS_FLASH_CFI
 #	define CONFIG_SYS_FLASH_BASE		(CONFIG_SYS_CS0_BASE)
-#	define CONFIG_FLASH_CFI_DRIVER	1
 #	define CONFIG_SYS_FLASH_CFI_WIDTH	FLASH_CFI_16BIT
 #	define CONFIG_SYS_MAX_FLASH_SECT	137	/* max number of sectors on one chip */
-#	define CONFIG_SYS_FLASH_PROTECTION	/* "Real" (hardware) sectors protection */
-#	define CONFIG_SYS_FLASH_USE_BUFFER_WRITE
 #ifdef CONFIG_SYS_NOR1SZ
 #	define CONFIG_SYS_MAX_FLASH_BANKS	2	/* max number of memory banks */
 #	define CONFIG_SYS_FLASH_SIZE		((CONFIG_SYS_NOR1SZ + CONFIG_SYS_BOOTSZ) << 20)
@@ -200,8 +195,6 @@
  * Environment is not embedded in u-boot. First time runing may have env
  * crc error warning if there is no correct environment on the flash.
  */
-#define CONFIG_ENV_OFFSET		0x40000
-#define CONFIG_ENV_SECT_SIZE	0x10000
 
 /*-----------------------------------------------------------------------
  * Cache Configuration

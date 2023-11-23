@@ -94,6 +94,10 @@ echo
 
 if [[ "${BISECT_MODE}" == "OBJECT_MODE" ]]; then
   echo "EMERGING ${BISECT_PACKAGE}"
+  echo "sudo rm -rf /build/${BISECT_BOARD}/var/cache/portage/*"
+  sudo rm -rf /build/${BISECT_BOARD}/var/cache/portage/*
+  echo "sudo rm -rf /build/${BISECT_BOARD}/tmp/portage/${BISECT_PACKAGE}*"
+  sudo rm -rf /build/${BISECT_BOARD}/tmp/portage/${BISECT_PACKAGE}*
   CLEAN_DELAY=0 emerge-${BISECT_BOARD} -C ${BISECT_PACKAGE}
   emerge-${BISECT_BOARD} ${BISECT_PACKAGE}
   emerge_status=$?
@@ -105,8 +109,15 @@ if [[ "${BISECT_MODE}" == "OBJECT_MODE" ]]; then
 
   echo
   echo "DEPLOYING"
-  echo "cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE}"
-  cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE} --log-level=info
+  if [[ ${PACKAGE} == sys-kernel/chromeos-kernel-* ]]; then
+    echo "/mnt/host/source/src/scripts/update_kernel.sh \
+      --remote=${BISECT_REMOTE}"
+    /mnt/host/source/src/scripts/update_kernel.sh --remote=${BISECT_REMOTE}
+  else
+    echo "cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE}"
+    cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE} --log-level=info
+  fi
+
   deploy_status=$?
 
   if [[ ${deploy_status} -eq 0 ]] ; then

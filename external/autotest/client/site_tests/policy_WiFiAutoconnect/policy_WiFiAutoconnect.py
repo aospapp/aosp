@@ -66,6 +66,14 @@ class policy_WiFiAutoconnect(
 
         self.net_api = enterprise_network_api.\
                 ChromeEnterpriseNetworkContext(self.cr)
+
+        network_available = self.net_api.is_network_in_range(
+                network.ssid,
+                wait_time=self.net_api.SHORT_TIMEOUT)
+        if not network_available:
+            raise error.TestError('SSID %s not available within %s seconds'
+                                  % (network.ssid, self.net_api.SHORT_TIMEOUT))
+
         # Disable ethernet so device will default to WiFi
         self.net_api.disable_network_device('Ethernet')
 

@@ -72,7 +72,8 @@ int audio_thread_add_open_dev(struct audio_thread *thread,
  *    dev - The open device to remove.
  */
 int audio_thread_rm_open_dev(struct audio_thread *thread,
-			     struct cras_iodev *dev);
+			     enum CRAS_STREAM_DIRECTION dir,
+			     unsigned int dev_idx);
 
 /* Checks if dev is open and used by audio thread.
  * Args:
@@ -89,8 +90,7 @@ int audio_thread_is_dev_open(struct audio_thread *thread,
  *    cb - The callback function.
  *    data - The data for the callback function.
  */
-void audio_thread_add_callback(int fd, thread_callback cb,
-                               void *data);
+void audio_thread_add_callback(int fd, thread_callback cb, void *data);
 
 /* Adds an thread_callback to audio thread.
  * Args:
@@ -99,8 +99,7 @@ void audio_thread_add_callback(int fd, thread_callback cb,
  *    cb - The callback function.
  *    data - The data for the callback function.
  */
-void audio_thread_add_write_callback(int fd, thread_callback cb,
-				     void *data);
+void audio_thread_add_write_callback(int fd, thread_callback cb, void *data);
 
 /* Removes an thread_callback from audio thread.
  * Args:
@@ -114,7 +113,6 @@ void audio_thread_rm_callback(int fd);
  *     fd - The file descriptor of the previous added callback.
  */
 int audio_thread_rm_callback_sync(struct audio_thread *thread, int fd);
-
 
 /* Enables or Disabled the callback associated with fd. */
 void audio_thread_enable_callback(int fd, int enabled);
@@ -130,6 +128,9 @@ int audio_thread_start(struct audio_thread *thread);
 /* Frees an audio thread created with audio_thread_create(). */
 void audio_thread_destroy(struct audio_thread *thread);
 
+/* Returns the shm fd for the ATlog. */
+int audio_thread_event_log_shm_fd();
+
 /* Add a stream to the thread. After this call, the ownership of the stream will
  * be passed to the audio thread. Audio thread is responsible to release the
  * stream's resources.
@@ -144,8 +145,7 @@ void audio_thread_destroy(struct audio_thread *thread);
  */
 int audio_thread_add_stream(struct audio_thread *thread,
 			    struct cras_rstream *stream,
-			    struct cras_iodev **devs,
-			    unsigned int num_devs);
+			    struct cras_iodev **devs, unsigned int num_devs);
 
 /* Begin draining a stream and check the draining status.
  * Args:
@@ -183,8 +183,7 @@ int audio_thread_dump_thread_info(struct audio_thread *thread,
  *    fd - File to store aec dump result.
  */
 int audio_thread_set_aec_dump(struct audio_thread *thread,
-			      cras_stream_id_t stream_id,
-			      unsigned int start,
+			      cras_stream_id_t stream_id, unsigned int start,
 			      int fd);
 
 /* Configures the global converter for output remixing. Called by main
@@ -200,12 +199,12 @@ int audio_thread_config_global_remix(struct audio_thread *thread,
  *
  * Args:
  *   thread - a pointer to the audio thread.
- *   dev - the device to start ramping.
+ *   dev_idx - Index of the the device to start ramping.
  *   request - Check the docstrings of CRAS_IODEV_RAMP_REQUEST.
  * Returns:
  *    0 on success, negative if error.
  */
 int audio_thread_dev_start_ramp(struct audio_thread *thread,
-				struct cras_iodev *dev,
+				unsigned int dev_idx,
 				enum CRAS_IODEV_RAMP_REQUEST request);
 #endif /* AUDIO_THREAD_H_ */

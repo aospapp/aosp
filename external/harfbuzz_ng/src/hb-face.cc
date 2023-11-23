@@ -367,6 +367,9 @@ hb_blob_t *
 hb_face_reference_table (const hb_face_t *face,
 			 hb_tag_t tag)
 {
+  if (unlikely (tag == HB_TAG_NONE))
+    return hb_blob_get_empty ();
+
   return face->reference_table (tag);
 }
 
@@ -531,6 +534,7 @@ hb_face_get_table_tags (const hb_face_t *face,
  */
 
 
+#ifndef HB_NO_FACE_COLLECT_UNICODES
 /**
  * hb_face_collect_unicodes:
  * @face: font face.
@@ -544,7 +548,6 @@ hb_face_collect_unicodes (hb_face_t *face,
 {
   face->table.cmap->collect_unicodes (out);
 }
-
 /**
  * hb_face_collect_variation_selectors:
  * @face: font face.
@@ -560,7 +563,6 @@ hb_face_collect_variation_selectors (hb_face_t *face,
 {
   face->table.cmap->collect_variation_selectors (out);
 }
-
 /**
  * hb_face_collect_variation_unicodes:
  * @face: font face.
@@ -577,7 +579,7 @@ hb_face_collect_variation_unicodes (hb_face_t *face,
 {
   face->table.cmap->collect_variation_unicodes (variation_selector, out);
 }
-
+#endif
 
 
 /*
@@ -599,7 +601,7 @@ struct hb_face_builder_data_t
     hb_blob_t *blob;
   };
 
-  hb_vector_t<table_entry_t, 32> tables;
+  hb_vector_t<table_entry_t> tables;
 };
 
 static hb_face_builder_data_t *
@@ -619,7 +621,7 @@ _hb_face_builder_data_destroy (void *user_data)
 {
   hb_face_builder_data_t *data = (hb_face_builder_data_t *) user_data;
 
-  for (unsigned int i = 0; i < data->tables.len; i++)
+  for (unsigned int i = 0; i < data->tables.length; i++)
     hb_blob_destroy (data->tables[i].blob);
 
   data->tables.fini ();
@@ -631,7 +633,7 @@ static hb_blob_t *
 _hb_face_builder_data_reference_blob (hb_face_builder_data_t *data)
 {
 
-  unsigned int table_count = data->tables.len;
+  unsigned int table_count = data->tables.length;
   unsigned int face_length = table_count * 16 + 12;
 
   for (unsigned int i = 0; i < table_count; i++)

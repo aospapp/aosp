@@ -15,11 +15,11 @@ extern "C" {
 
 #include "cras_types.h"
 
-#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 #define assert_on_compile(e) ((void)sizeof(char[1 - 2 * !(e)]))
-#define assert_on_compile_is_power_of_2(n) \
-	assert_on_compile((n) != 0 && (((n) & ((n) - 1)) == 0))
+#define assert_on_compile_is_power_of_2(n)                                     \
+	assert_on_compile((n) != 0 && (((n) & ((n)-1)) == 0))
 
 /* Enables real time scheduling. */
 int cras_set_rt_scheduling(int rt_lim);
@@ -36,8 +36,7 @@ static inline size_t cras_frames_at_rate(size_t orig_rate, size_t orig_frames,
 }
 
 /* Converts a number of frames to a time in a timespec. */
-static inline void cras_frames_to_time(unsigned int frames,
-				       unsigned int rate,
+static inline void cras_frames_to_time(unsigned int frames, unsigned int rate,
 				       struct timespec *t)
 {
 	t->tv_sec = frames / rate;
@@ -46,8 +45,7 @@ static inline void cras_frames_to_time(unsigned int frames,
 }
 
 /* Converts a number of frames to a time in a timespec. */
-static inline void cras_frames_to_time_precise(unsigned int frames,
-					       double rate,
+static inline void cras_frames_to_time_precise(unsigned int frames, double rate,
 					       struct timespec *t)
 {
 	double seconds = frames / rate;
@@ -57,8 +55,8 @@ static inline void cras_frames_to_time_precise(unsigned int frames,
 }
 
 /* Converts a timespec duration to a frame count. */
-static inline unsigned int cras_time_to_frames(const struct timespec *t,
-					       unsigned int rate)
+static inline uint64_t cras_time_to_frames(const struct timespec *t,
+					   unsigned int rate)
 {
 	return t->tv_nsec * (uint64_t)rate / 1000000000 + rate * t->tv_sec;
 }
@@ -103,8 +101,7 @@ static inline void subtract_timespecs(const struct timespec *end,
 	}
 }
 
-static inline void add_timespecs(struct timespec *a,
-				 const struct timespec *b)
+static inline void add_timespecs(struct timespec *a, const struct timespec *b)
 {
 	a->tv_sec += b->tv_sec;
 	a->tv_nsec += b->tv_nsec;
@@ -139,7 +136,7 @@ static inline int timeval_after(const struct timeval *a,
 				const struct timeval *b)
 {
 	return (a->tv_sec > b->tv_sec) ||
-		(a->tv_sec == b->tv_sec && a->tv_usec > b->tv_usec);
+	       (a->tv_sec == b->tv_sec && a->tv_usec > b->tv_usec);
 }
 
 /* Returns true if timespec a is after timespec b */
@@ -147,7 +144,7 @@ static inline int timespec_after(const struct timespec *a,
 				 const struct timespec *b)
 {
 	return (a->tv_sec > b->tv_sec) ||
-		(a->tv_sec == b->tv_sec && a->tv_nsec > b->tv_nsec);
+	       (a->tv_sec == b->tv_sec && a->tv_nsec > b->tv_nsec);
 }
 
 /* Retruns the equivalent number of milliseconds for a given timespec.
@@ -164,15 +161,21 @@ static inline void ms_to_timespec(time_t milliseconds, struct timespec *ts)
 	ts->tv_nsec = (milliseconds % 1000) * 1000000;
 }
 
+/* Returns true if the given timespec is zero. */
+static inline int timespec_is_zero(const struct timespec *ts)
+{
+	return ts && ts->tv_sec == 0 && ts->tv_nsec == 0;
+}
+
 /* Returns non-zero if the given timespec is non-zero. */
-static inline int timespec_is_nonzero(const struct timespec *ts) {
-	return ts && (ts->tv_sec != 0 ||
-		      (ts->tv_sec == 0 && ts->tv_nsec != 0));
+static inline int timespec_is_nonzero(const struct timespec *ts)
+{
+	return ts && (ts->tv_sec != 0 || (ts->tv_sec == 0 && ts->tv_nsec != 0));
 }
 
 /* Calculates frames since time beg. */
-static inline unsigned int cras_frames_since_time(const struct timespec *beg,
-						  unsigned int rate)
+static inline uint64_t cras_frames_since_time(const struct timespec *beg,
+					      unsigned int rate)
 {
 	struct timespec now, time_since;
 
@@ -208,7 +211,7 @@ static inline unsigned int cras_frames_since_time(const struct timespec *beg,
  *    Other negative error codes specified in the ppoll() man page.
  */
 int cras_poll(struct pollfd *fds, nfds_t nfds, struct timespec *timeout,
-              const sigset_t *sigmask);
+	      const sigset_t *sigmask);
 
 /* Wait for /dev/input/event* files to become accessible.
  *

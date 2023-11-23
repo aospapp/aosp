@@ -6,7 +6,6 @@
 #ifndef LINEAR_RESAMPLER_H_
 #define LINEAR_RESAMPLER_H_
 
-
 struct linear_resampler;
 
 /* Creates a linear resampler.
@@ -26,13 +25,12 @@ struct linear_resampler *linear_resampler_create(unsigned int num_channels,
  *    from - The rate to resample from.
  *    to - The rate to resample to.
  */
-void linear_resampler_set_rates(struct linear_resampler *lr,
-				float from,
+void linear_resampler_set_rates(struct linear_resampler *lr, float from,
 				float to);
 
 /* Converts the frames count from output rate to input rate. */
 unsigned int linear_resampler_out_frames_to_in(struct linear_resampler *lr,
-                                               unsigned int frames);
+					       unsigned int frames);
 
 /* Converts the frames count from input rate to output rate. */
 unsigned int linear_resampler_in_frames_to_out(struct linear_resampler *lr,
@@ -50,10 +48,8 @@ int linear_resampler_needed(struct linear_resampler *lr);
  *    dst_frames - The number of frames of output buffer.
  */
 unsigned int linear_resampler_resample(struct linear_resampler *lr,
-			     uint8_t *src,
-			     unsigned int *src_frames,
-			     uint8_t *dst,
-			     unsigned dst_frames);
+				       uint8_t *src, unsigned int *src_frames,
+				       uint8_t *dst, unsigned dst_frames);
 
 /* Destroy a linear resampler. */
 void linear_resampler_destroy(struct linear_resampler *lr);

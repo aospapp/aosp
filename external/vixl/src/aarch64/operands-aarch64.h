@@ -51,7 +51,6 @@ class CPURegister {
     kInvalid = 0,
     kRegister,
     kVRegister,
-    kFPRegister = kVRegister,
     kNoRegister
   };
 
@@ -154,7 +153,7 @@ class CPURegister {
   }
 
   bool IsValidFPRegister() const {
-    return IsFPRegister() && (code_ < kNumberOfVRegisters);
+    return IsValidVRegister() && IsFPRegister();
   }
 
   bool IsNone() const {
@@ -189,7 +188,10 @@ class CPURegister {
 
   bool IsVRegister() const { return type_ == kVRegister; }
 
-  bool IsFPRegister() const { return IsS() || IsD(); }
+  // CPURegister does not track lanes like VRegister does, so we have to assume
+  // that we have scalar types here.
+  // TODO: Encode lane information in CPURegister so that we can be consistent.
+  bool IsFPRegister() const { return IsH() || IsS() || IsD(); }
 
   bool IsW() const { return IsValidRegister() && Is32Bits(); }
   bool IsX() const { return IsValidRegister() && Is64Bits(); }
@@ -377,6 +379,7 @@ class VRegister : public CPURegister {
   bool Is2H() const { return (Is32Bits() && (lanes_ == 2)); }
   bool Is4H() const { return (Is64Bits() && (lanes_ == 4)); }
   bool Is8H() const { return (Is128Bits() && (lanes_ == 8)); }
+  bool Is1S() const { return (Is32Bits() && (lanes_ == 1)); }
   bool Is2S() const { return (Is64Bits() && (lanes_ == 2)); }
   bool Is4S() const { return (Is128Bits() && (lanes_ == 4)); }
   bool Is1D() const { return (Is64Bits() && (lanes_ == 1)); }
@@ -393,10 +396,6 @@ class VRegister : public CPURegister {
     VIXL_ASSERT(!(Is16Bits() && IsVector()));
     return Is16Bits();
   }
-  bool Is1S() const {
-    VIXL_ASSERT(!(Is32Bits() && IsVector()));
-    return Is32Bits();
-  }
 
   // Semantic type for sdot and udot instructions.
   bool Is1S4B() const { return Is1S(); }
@@ -409,6 +408,11 @@ class VRegister : public CPURegister {
 
   int GetLanes() const { return lanes_; }
   VIXL_DEPRECATED("GetLanes", int lanes() const) { return GetLanes(); }
+
+  bool IsFPRegister() const { return Is1H() || Is1S() || Is1D(); }
+  bool IsValidFPRegister() const {
+    return IsValidVRegister() && IsFPRegister();
+  }
 
   bool IsScalar() const { return lanes_ == 1; }
 
@@ -439,15 +443,11 @@ class VRegister : public CPURegister {
 };
 
 
-// Backward compatibility for FPRegisters.
-typedef VRegister FPRegister;
-
 // No*Reg is used to indicate an unused argument, or an error case. Note that
 // these all compare equal (using the Is() method). The Register and VRegister
 // variants are provided for convenience.
 const Register NoReg;
 const VRegister NoVReg;
-const FPRegister NoFPReg;  // For backward compatibility.
 const CPURegister NoCPUReg;
 
 
@@ -704,12 +704,12 @@ class CPURegList {
 
   bool IncludesAliasOf(const CPURegister& other) const {
     VIXL_ASSERT(IsValid());
-    return (type_ == other.GetType()) && ((other.GetBit() & list_) != 0);
+    return (type_ == other.GetType()) && IncludesAliasOf(other.GetCode());
   }
 
   bool IncludesAliasOf(int code) const {
     VIXL_ASSERT(IsValid());
-    return ((code & list_) != 0);
+    return (((static_cast<RegList>(1) << code) & list_) != 0);
   }
 
   int GetCount() const {
@@ -844,6 +844,8 @@ class Operand {
 
 
 // MemOperand represents the addressing mode of a load or store instruction.
+// In assembly syntax, MemOperands are normally denoted by one or more elements
+// inside or around square brackets.
 class MemOperand {
  public:
   // Creates an invalid `MemOperand`.
@@ -862,36 +864,30 @@ class MemOperand {
   MemOperand(Register base, const Operand& offset, AddrMode addrmode = Offset);
 
   const Register& GetBaseRegister() const { return base_; }
-  VIXL_DEPRECATED("GetBaseRegister", const Register& base() const) {
-    return GetBaseRegister();
-  }
 
+  // If the MemOperand has a register offset, return it. (This also applies to
+  // pre- and post-index modes.) Otherwise, return NoReg.
   const Register& GetRegisterOffset() const { return regoffset_; }
-  VIXL_DEPRECATED("GetRegisterOffset", const Register& regoffset() const) {
-    return GetRegisterOffset();
-  }
 
+  // If the MemOperand has an immediate offset, return it. (This also applies to
+  // pre- and post-index modes.) Otherwise, return 0.
   int64_t GetOffset() const { return offset_; }
-  VIXL_DEPRECATED("GetOffset", int64_t offset() const) { return GetOffset(); }
 
   AddrMode GetAddrMode() const { return addrmode_; }
-  VIXL_DEPRECATED("GetAddrMode", AddrMode addrmode() const) {
-    return GetAddrMode();
-  }
-
   Shift GetShift() const { return shift_; }
-  VIXL_DEPRECATED("GetShift", Shift shift() const) { return GetShift(); }
-
   Extend GetExtend() const { return extend_; }
-  VIXL_DEPRECATED("GetExtend", Extend extend() const) { return GetExtend(); }
 
-  unsigned GetShiftAmount() const { return shift_amount_; }
-  VIXL_DEPRECATED("GetShiftAmount", unsigned shift_amount() const) {
-    return GetShiftAmount();
+  unsigned GetShiftAmount() const {
+    // Extend modes can also encode a shift for some instructions.
+    VIXL_ASSERT((GetShift() != NO_SHIFT) || (GetExtend() != NO_EXTEND));
+    return shift_amount_;
   }
 
+  // True for immediate-offset (but not indexed) MemOperands.
   bool IsImmediateOffset() const;
+  // True for register-offset (but not indexed) MemOperands.
   bool IsRegisterOffset() const;
+
   bool IsPreIndex() const;
   bool IsPostIndex() const;
 

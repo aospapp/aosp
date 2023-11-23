@@ -68,6 +68,14 @@ WORKING = 2
 BROKEN = 3
 
 
+status_names = {
+  UNUSED: "UNUSED",
+  UNKNOWN: "UNKNOWN",
+  WORKING: "WORKING",
+  BROKEN: "BROKEN",
+}
+
+
 def parse_time(time_string):
     """Parse time according to a canonical form.
 

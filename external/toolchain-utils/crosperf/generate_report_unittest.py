@@ -1,23 +1,28 @@
-#!/usr/bin/env python2
-#
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Test for generate_report.py."""
 
 from __future__ import division
 from __future__ import print_function
 
-from StringIO import StringIO
-
 import copy
 import json
-import mock
-import test_flag
 import unittest
+import unittest.mock as mock
 
 import generate_report
 import results_report
+import test_flag
+
+# pylint: disable=deprecated-module
+try:
+  from StringIO import StringIO  # for Python 2
+except ImportError:
+  from io import StringIO  # for Python 3
 
 
 class _ContextualStringIO(StringIO):
@@ -44,7 +49,7 @@ class GenerateReportTests(unittest.TestCase):
     }
     results = generate_report.CountBenchmarks(runs)
     expected_results = [('foo', 4), ('bar', 0), ('baz', 3)]
-    self.assertItemsEqual(expected_results, results)
+    self.assertCountEqual(expected_results, results)
 
   def testCutResultsInPlace(self):
     bench_data = {
@@ -77,10 +82,11 @@ class GenerateReportTests(unittest.TestCase):
         bench_data, max_keys=max_keys, complain_on_update=False)
     # Cuts should be in-place.
     self.assertIs(results, bench_data)
-    self.assertItemsEqual(original_bench_data.keys(), bench_data.keys())
-    for bench_name, original_runs in original_bench_data.iteritems():
+    self.assertCountEqual(
+        list(original_bench_data.keys()), list(bench_data.keys()))
+    for bench_name, original_runs in original_bench_data.items():
       bench_runs = bench_data[bench_name]
-      self.assertEquals(len(original_runs), len(bench_runs))
+      self.assertEqual(len(original_runs), len(bench_runs))
       # Order of these sub-lists shouldn't have changed.
       for original_list, new_list in zip(original_runs, bench_runs):
         self.assertEqual(len(original_list), len(new_list))
@@ -106,9 +112,9 @@ class GenerateReportTests(unittest.TestCase):
     # Just reach into results assuming we know it otherwise outputs things
     # sanely. If it doesn't, testCutResultsInPlace should give an indication as
     # to what, exactly, is broken.
-    self.assertEqual(results['foo'][0][0].items(), [('retval', 0)])
-    self.assertEqual(results['bar'][0][0].items(), [('retval', 1)])
-    self.assertEqual(results['baz'][0][0].items(), [])
+    self.assertEqual(list(results['foo'][0][0].items()), [('retval', 0)])
+    self.assertEqual(list(results['bar'][0][0].items()), [('retval', 1)])
+    self.assertEqual(list(results['baz'][0][0].items()), [])
 
   def _RunMainWithInput(self, args, input_obj):
     assert '-i' not in args
@@ -129,7 +135,7 @@ class GenerateReportTests(unittest.TestCase):
     self.assertEqual(0, return_code)
     self.assertEqual(mock_run_actions.call_count, 1)
     ctors = [ctor for ctor, _ in mock_run_actions.call_args[0][0]]
-    self.assertItemsEqual(ctors, [
+    self.assertEqual(ctors, [
         results_report.JSONResultsReport,
         results_report.TextResultsReport,
         results_report.HTMLResultsReport,
@@ -142,7 +148,7 @@ class GenerateReportTests(unittest.TestCase):
     self.assertEqual(0, return_code)
     self.assertEqual(mock_run_actions.call_count, 1)
     ctors = [ctor for ctor, _ in mock_run_actions.call_args[0][0]]
-    self.assertItemsEqual(ctors, [results_report.HTMLResultsReport])
+    self.assertEqual(ctors, [results_report.HTMLResultsReport])
 
   # We only mock print_exc so we don't have exception info printed to stdout.
   @mock.patch('generate_report.WriteFile', side_effect=ValueError('Oh noo'))

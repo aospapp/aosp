@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,7 @@
  *******************************************************************************/
 package org.jacoco.core.analysis;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -42,6 +43,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Unit tests for {@link Analyzer}.
@@ -74,6 +77,54 @@ public class AnalyzerTest {
 	}
 
 	@Test
+	public void should_ignore_module_info() throws Exception {
+		final ClassWriter cw = new ClassWriter(0);
+		cw.visit(Opcodes.V9, Opcodes.ACC_MODULE, "module-info", null, null,
+				null);
+		cw.visitModule("module", 0, null).visitEnd();
+		cw.visitEnd();
+		final byte[] bytes = cw.toByteArray();
+
+		analyzer.analyzeClass(bytes, "");
+
+		assertTrue(classes.isEmpty());
+	}
+
+	@Test
+	public void should_ignore_synthetic_classes() throws Exception {
+		final ClassWriter cw = new ClassWriter(0);
+		cw.visit(Opcodes.V1_5, Opcodes.ACC_SYNTHETIC, "Foo", null,
+				"java/lang/Object", null);
+		cw.visitEnd();
+		final byte[] bytes = cw.toByteArray();
+
+		analyzer.analyzeClass(bytes, "");
+
+		assertTrue(classes.isEmpty());
+	}
+
+	@Test
+	public void should_not_modify_class_bytes_to_support_next_version()
+			throws Exception {
+		final byte[] originalBytes = createClass(Opcodes.V12 + 1);
+		final byte[] bytes = new byte[originalBytes.length];
+		System.arraycopy(originalBytes, 0, bytes, 0, originalBytes.length);
+		final long expectedClassId = CRC64.classId(bytes);
+
+		analyzer.analyzeClass(bytes, "");
+
+		assertArrayEquals(originalBytes, bytes);
+		assertEquals(expectedClassId, classes.get("Foo").getId());
+	}
+
+	private static byte[] createClass(final int version) {
+		final ClassWriter cw = new ClassWriter(0);
+		cw.visit(version, 0, "Foo", null, "java/lang/Object", null);
+		cw.visitEnd();
+		return cw.toByteArray();
+	}
+
+	@Test
 	public void testAnalyzeClassFromStream() throws IOException {
 		analyzer.analyzeClass(TargetLoader.getClassData(AnalyzerTest.class),
 				"Test");
@@ -91,7 +142,6 @@ public class AnalyzerTest {
 
 	@Test
 	public void testAnalyzeClassIdMatch() throws IOException {
-		// class IDs are always calculated after downgrade of the version
 		final byte[] bytes = TargetLoader
 				.getClassDataAsBytes(AnalyzerTest.class);
 		executionData.get(Long.valueOf(CRC64.classId(bytes)),

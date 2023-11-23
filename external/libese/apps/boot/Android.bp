@@ -21,6 +21,7 @@ cc_library {
     cflags: ["-Wall", "-Werror"],
     host_supported: true,
     shared_libs: ["liblog", "libese", "libese-sysdeps"],
+    export_include_dirs: ["include"],
 }
 
 cc_library {
@@ -34,6 +35,7 @@ cc_library {
         "-Werror",
     ],
     shared_libs: ["liblog", "libese", "libese-sysdeps"],
+    export_include_dirs: ["include"],
 }
 
 

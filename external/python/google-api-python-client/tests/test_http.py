@@ -31,6 +31,7 @@ from six.moves.urllib.parse import urlencode
 # Do not remove the httplib2 import
 import json
 import httplib2
+import io
 import logging
 import mock
 import os
@@ -208,6 +209,19 @@ class TestUserAgent(unittest.TestCase):
 
 
 class TestMediaUpload(unittest.TestCase):
+
+  def test_media_file_upload_closes_fd_in___del__(self):
+    file_desc = mock.Mock(spec=io.TextIOWrapper)
+    opener = mock.mock_open(file_desc)
+    if PY3:
+      with mock.patch('builtins.open', return_value=opener):
+        upload = MediaFileUpload(datafile('test_close'), mimetype='text/plain')
+    else:
+      with mock.patch('__builtin__.open', return_value=opener):
+        upload = MediaFileUpload(datafile('test_close'), mimetype='text/plain')     
+    self.assertIs(upload.stream(), file_desc)
+    del upload
+    file_desc.close.assert_called_once_with()
 
   def test_media_file_upload_mimetype_detection(self):
     upload = MediaFileUpload(datafile('small.png'))
@@ -471,26 +485,22 @@ class TestMediaIoBaseDownload(unittest.TestCase):
     download = MediaIoBaseDownload(
         fd=self.fd, request=self.request, chunksize=3)
 
-    self.assertEqual(download._headers, {'Cache-Control':'no-store'})
+    self.assertEqual(download._headers.get('Cache-Control'), 'no-store')
 
     status, done = download.next_chunk()
 
-    result = self.fd.getvalue().decode('utf-8')
+    result = json.loads(self.fd.getvalue().decode('utf-8'))
 
-    # we abuse the internals of the object we're testing, pay no attention
-    # to the actual bytes= values here; we are just asserting that the
-    # header we added to the original request is sent up to the server
-    # on each call to next_chunk
+    # assert that that the header we added to the original request is
+    # sent up to the server on each call to next_chunk
 
-    self.assertEqual(json.loads(result),
-                     {"Cache-Control": "no-store", "range": "bytes=0-3"})
+    self.assertEqual(result.get("Cache-Control"), "no-store")
 
     download._fd = self.fd = BytesIO()
     status, done = download.next_chunk()
 
-    result = self.fd.getvalue().decode('utf-8')
-    self.assertEqual(json.loads(result),
-                     {"Cache-Control": "no-store", "range": "bytes=51-54"})
+    result = json.loads(self.fd.getvalue().decode('utf-8'))
+    self.assertEqual(result.get("Cache-Control"), "no-store")
 
   def test_media_io_base_download_handle_redirects(self):
     self.request.http = HttpMockSequence([
@@ -861,7 +871,7 @@ class TestHttpRequest(unittest.TestCase):
         headers={'content-type': ''})
     request.execute()
     self.assertEqual('', http.headers.get('content-type'))
-  
+
   def test_no_retry_connection_errors(self):
     model = JsonModel()
     request = HttpRequest(

@@ -293,6 +293,24 @@ class ControlData(object):
     def set_fast(self, val):
         self._set_bool('fast', val)
 
+    def set_update_type(self, val):
+        self._set_string('update_type', val)
+
+    def set_source_release(self, val):
+        self._set_string('source_release', val)
+
+    def set_target_release(self, val):
+        self._set_string('target_release', val)
+
+    def set_target_payload_uri(self, val):
+        self._set_string('target_payload_uri', val)
+
+    def set_source_payload_uri(self, val):
+        self._set_string('source_payload_uri', val)
+
+    def set_source_archive_uri(self, val):
+        self._set_string('source_archive_uri', val)
+
     def set_attributes(self, val):
         # Add subsystem:default if subsystem is not specified.
         self._set_set('attributes', val)

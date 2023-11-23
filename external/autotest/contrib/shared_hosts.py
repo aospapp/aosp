@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 """
 Finds hosts that are shared between both cautotest and cautotest-cq.

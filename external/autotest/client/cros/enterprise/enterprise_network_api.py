@@ -125,13 +125,13 @@ class ChromeEnterpriseNetworkContext(object):
 
         @param ssid: The ssid that the connection request is initiated for.
 
-        @raises error.TestFail: If the WiFi network is not in WiFi range of the
-                DUT or if the DUT cannot manually connect to the SSID.
+        @raises error.TestFail: If the WiFi network is out of range or the
+            DUT cannot manually connect to the network.
 
         """
         if not self.is_network_in_range(ssid):
-            raise error.TestFail("The SSID: %r is not in WiFi range of the DUT"%
-                ssid)
+            raise error.TestFail(
+                    "The SSID: %r is not in WiFi range of the DUT" % ssid)
 
         network_to_connect = self._get_network_info(ssid)
         logging.info("Triggering a manual connect to network SSID: %r, GUID %r",
@@ -164,8 +164,8 @@ class ChromeEnterpriseNetworkContext(object):
 
         """
         if not self.is_network_in_range(ssid):
-            raise error.TestFail("The SSID: %r is not in WiFi range of the DUT"%
-                ssid)
+            raise error.TestFail(
+                    "The SSID: %r is not in WiFi range of the DUT" % ssid)
 
         network_to_disconnect = self._get_network_info(ssid)
         logging.info("Triggering a disconnect from network SSID: %r, GUID %r",
@@ -195,17 +195,23 @@ class ChromeEnterpriseNetworkContext(object):
                 self.chrome_net_context.WIFI_DEVICE)
 
 
-    def is_network_in_range(self, ssid):
+    def is_network_in_range(self, ssid, wait_time=0):
         """
         Returns True if the WiFi network is within WiFi range of the DUT.
 
         @param ssid: The SSID of the network.
+        @param wait_time: Seconds to wait for SSID to appear.
 
         @returns: True if the network/ssid is within WiFi range of the DUT,
                 else returns False
 
         """
-        return self._get_network_info(ssid) is not None
+        try:
+            return utils.poll_for_condition(
+                    lambda: self._get_network_info(ssid) is not None,
+                    timeout=wait_time)
+        except utils.TimeoutError:
+            return False
 
 
     def is_network_connected(self, ssid):
@@ -233,9 +239,8 @@ class ChromeEnterpriseNetworkContext(object):
                     lambda: (self._get_network_connection_state(ssid)
                              == 'Connected'),
                     timeout=self.SHORT_TIMEOUT)
+            return True
         except utils.TimeoutError:
-            pass
-        network_connection_state = self._get_network_connection_state(ssid)
-        logging.debug("Connection state for SSID-%r is: %r",
-                      ssid, network_connection_state)
-        return network_connection_state == 'Connected'
+            logging.debug("Connection state for SSID-%r is: %r",
+                          ssid, self._get_network_connection_state(ssid))
+            return False

@@ -37,9 +37,10 @@ class AttenuatorController(object):
         """
         self.hostname = hostname
         super(AttenuatorController, self).__init__()
-        if hostname not in HOST_TO_FIXED_ATTENUATIONS.keys():
+        part = hostname.split('.', 1)[0]
+        if part not in HOST_TO_FIXED_ATTENUATIONS.keys():
             raise error.TestError('Unexpected RvR host name %r.' % hostname)
-        self._fixed_attenuations = HOST_TO_FIXED_ATTENUATIONS[hostname]
+        self._fixed_attenuations = HOST_TO_FIXED_ATTENUATIONS[part]
         num_atten = len(self.supported_attenuators)
 
         self._attenuator = attenuator.Attenuator(hostname, num_atten)

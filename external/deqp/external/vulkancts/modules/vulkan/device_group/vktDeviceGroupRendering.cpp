@@ -23,6 +23,7 @@
 *//*--------------------------------------------------------------------*/
 
 #include "vktDeviceGroupTests.hpp"
+#include "vktCustomInstancesDevices.hpp"
 
 #include "vkDefs.hpp"
 #include "vkDeviceUtil.hpp"
@@ -53,6 +54,8 @@
 
 #include "rrRenderer.hpp"
 
+#include <sstream>
+
 namespace vkt
 {
 namespace DeviceGroup
@@ -69,11 +72,11 @@ using de::UniquePtr;
 //Device group test modes
 enum TestModeType
 {
-	TEST_MODE_SFR			= 1 << 0,			//!< Split frame remdering
+	TEST_MODE_SFR			= 1 << 0,			//!< Split frame rendering
 	TEST_MODE_AFR			= 1 << 1,			//!< Alternate frame rendering
 	TEST_MODE_HOSTMEMORY	= 1 << 2,			//!< Use host memory for rendertarget
 	TEST_MODE_DEDICATED		= 1 << 3,			//!< Use dedicated allocations
-	TEST_MODE_PEER_FETCH	= 1 << 4,			//!< Peer vertex attributes from peer memroy
+	TEST_MODE_PEER_FETCH	= 1 << 4,			//!< Peer vertex attributes from peer memory
 	TEST_MODE_TESSELLATION	= 1 << 5,			//!< Generate a tessellated sphere instead of triangle
 	TEST_MODE_LINEFILL		= 1 << 6,			//!< Draw polygon edges as line segments
 };
@@ -122,14 +125,14 @@ public:
 	}
 };
 
-void renderReferenceTriangle (const tcu::PixelBufferAccess& dst, const tcu::Vec4(&vertices)[3])
+void renderReferenceTriangle (const tcu::PixelBufferAccess& dst, const tcu::Vec4(&vertices)[3], const int subpixelBits)
 {
 	const RefVertexShader					vertShader;
 	const RefFragmentShader					fragShader;
 	const rr::Program						program(&vertShader, &fragShader);
 	const rr::MultisamplePixelBufferAccess	colorBuffer = rr::MultisamplePixelBufferAccess::fromSinglesampleAccess(dst);
 	const rr::RenderTarget					renderTarget(colorBuffer);
-	const rr::RenderState					renderState((rr::ViewportState(colorBuffer)));
+	const rr::RenderState					renderState((rr::ViewportState(colorBuffer)), subpixelBits);
 	const rr::Renderer						renderer;
 	const rr::VertexAttrib					vertexAttribs[] =
 	{
@@ -151,7 +154,6 @@ public:
 private:
 			void						init						(void);
 			deUint32					getMemoryIndex				(deUint32 memoryTypeBits, deUint32 memoryPropertyFlag);
-			void						getDeviceLayers				(vector<string>& enabledLayers);
 			bool						isPeerFetchAllowed			(deUint32 memoryTypeIndex, deUint32 firstdeviceID, deUint32 seconddeviceID);
 			void						SubmitBufferAndWaitForIdle	(const DeviceDriver& vk, VkCommandBuffer cmdBuf, deUint32 deviceMask);
 	virtual	tcu::TestStatus				iterate						(void);
@@ -209,44 +211,9 @@ bool DeviceGroupTestInstance::isPeerFetchAllowed (deUint32 memoryTypeIndex, deUi
 	return (peerMemFeatures1 & VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT) && (peerMemFeatures2 & VK_PEER_MEMORY_FEATURE_GENERIC_SRC_BIT);
 }
 
-void DeviceGroupTestInstance::getDeviceLayers (vector<string>& enabledLayers)
-{
-	const tcu::CommandLine& cmdLine = m_context.getTestContext().getCommandLine();
-	if (cmdLine.isValidationEnabled())
-	{
-		const vector<VkLayerProperties> layerProperties = enumerateDeviceLayerProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice());
-
-		static const char*	s_magicLayer = "VK_LAYER_LUNARG_standard_validation";
-		static const char*	s_defaultLayers[] =
-		{
-			"VK_LAYER_GOOGLE_threading",
-			"VK_LAYER_LUNARG_parameter_validation",
-			"VK_LAYER_LUNARG_device_limits",
-			"VK_LAYER_LUNARG_object_tracker",
-			"VK_LAYER_LUNARG_image",
-			"VK_LAYER_LUNARG_core_validation",
-			"VK_LAYER_LUNARG_swapchain",
-			"VK_LAYER_GOOGLE_unique_objects",
-		};
-
-		if (isLayerSupported(layerProperties, RequiredLayer(s_magicLayer)))
-			enabledLayers.push_back(s_magicLayer);
-		else
-		{
-			for (deUint32 ndx = 0; ndx < DE_LENGTH_OF_ARRAY(s_defaultLayers); ++ndx)
-			{
-				if (isLayerSupported(layerProperties, RequiredLayer(s_defaultLayers[ndx])))
-					enabledLayers.push_back(s_defaultLayers[ndx]);
-			}
-		}
-		if (enabledLayers.empty())
-			TCU_THROW(NotSupportedError, "No device validation layers found");
-	}
-}
-
 void DeviceGroupTestInstance::init (void)
 {
-	if (!isInstanceExtensionSupported(m_context.getUsedApiVersion(), m_context.getInstanceExtensions(), "VK_KHR_device_group_creation"))
+	if (!m_context.isInstanceFunctionalitySupported("VK_KHR_device_group_creation"))
 		TCU_THROW(NotSupportedError, "Device Group tests are not supported, no device group extension present.");
 
 	const InstanceInterface&		instanceInterface	= m_context.getInstanceInterface();
@@ -259,7 +226,7 @@ void DeviceGroupTestInstance::init (void)
 	vector<string>					deviceExtensions;
 	vector<string>					enabledLayers;
 
-	if (!isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), "VK_KHR_device_group"))
+	if (!m_context.isDeviceFunctionalitySupported("VK_KHR_device_group"))
 		TCU_THROW(NotSupportedError, "Missing extension: VK_KHR_device_group");
 
 	if (!isCoreDeviceExtension(m_context.getUsedApiVersion(), "VK_KHR_device_group"))
@@ -267,7 +234,7 @@ void DeviceGroupTestInstance::init (void)
 
 	if(m_useDedicated)
 	{
-		if (!isDeviceExtensionSupported(m_context.getUsedApiVersion(), m_context.getDeviceExtensions(), "VK_KHR_dedicated_allocation"))
+		if (!m_context.isDeviceFunctionalitySupported("VK_KHR_dedicated_allocation"))
 			TCU_THROW(NotSupportedError, "Missing extension: VK_KHR_dedicated_allocation");
 
 		if (!isCoreDeviceExtension(m_context.getUsedApiVersion(), "VK_KHR_dedicated_allocation"))
@@ -275,15 +242,24 @@ void DeviceGroupTestInstance::init (void)
 	}
 
 	{
-		const tcu::CommandLine&								cmdLine = m_context.getTestContext().getCommandLine();
-		const vector<VkPhysicalDeviceGroupProperties>		properties = enumeratePhysicalDeviceGroups(instanceInterface, m_context.getInstance());
-		if ((size_t)cmdLine.getVKDeviceGroupId() > properties.size())
-			TCU_THROW(TestError, "Invalid device group index.");
+		const tcu::CommandLine&								cmdLine		= m_context.getTestContext().getCommandLine();
+		const vector<vk::VkPhysicalDeviceGroupProperties>	properties	= enumeratePhysicalDeviceGroups(instanceInterface, m_context.getInstance());
+		const int											kGroupId	= cmdLine.getVKDeviceGroupId();
+		const int											kGroupIndex	= kGroupId - 1;
+		const int											kDevId		= cmdLine.getVKDeviceId();
+		const int											kDevIndex	= kDevId - 1;
 
-		m_physicalDeviceCount = properties[cmdLine.getVKDeviceGroupId() - 1].physicalDeviceCount;
+		if (kGroupId < 1 || static_cast<size_t>(kGroupId) > properties.size())
+		{
+			std::ostringstream msg;
+			msg << "Invalid device group id " << kGroupId << " (only " << properties.size() << " device groups found)";
+			TCU_THROW(NotSupportedError, msg.str());
+		}
+
+		m_physicalDeviceCount = properties[kGroupIndex].physicalDeviceCount;
 		for (deUint32 idx = 0; idx < m_physicalDeviceCount; idx++)
 		{
-			m_physicalDevices.push_back(properties[cmdLine.getVKDeviceGroupId() - 1].physicalDevices[idx]);
+			m_physicalDevices.push_back(properties[kGroupIndex].physicalDevices[idx]);
 		}
 
 		if (m_usePeerFetch && m_physicalDeviceCount < 2)
@@ -309,13 +285,20 @@ void DeviceGroupTestInstance::init (void)
 		{
 			VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO,					//stype
 			DE_NULL,															//pNext
-			properties[cmdLine.getVKDeviceGroupId() - 1].physicalDeviceCount,	//physicalDeviceCount
-			properties[cmdLine.getVKDeviceGroupId() - 1].physicalDevices		//physicalDevices
+			properties[kGroupIndex].physicalDeviceCount,	//physicalDeviceCount
+			properties[kGroupIndex].physicalDevices		//physicalDevices
 		};
 
-		VkPhysicalDevice			physicalDevice			= properties[cmdLine.getVKDeviceGroupId() - 1].physicalDevices[(size_t)(cmdLine.getVKDeviceId() - 1)];
+		if (kDevId < 1 || static_cast<deUint32>(kDevId) > m_physicalDeviceCount)
+		{
+			std::ostringstream msg;
+			msg << "Device id " << kDevId << " invalid for group " << kGroupId << " (group " << kGroupId << " has " << m_physicalDeviceCount << " devices)";
+			TCU_THROW(NotSupportedError, msg.str());
+		}
+
+		VkPhysicalDevice			physicalDevice			= properties[kGroupIndex].physicalDevices[kDevIndex];
 		VkPhysicalDeviceFeatures	enabledDeviceFeatures	= getPhysicalDeviceFeatures(instanceInterface, physicalDevice);
-		m_subsetAllocation									= properties[cmdLine.getVKDeviceGroupId() - 1].subsetAllocation;
+		m_subsetAllocation									= properties[kGroupIndex].subsetAllocation;
 
 		if (m_drawTessellatedSphere & static_cast<bool>(!enabledDeviceFeatures.tessellationShader))
 			TCU_THROW(NotSupportedError, "Tessellation is not supported.");
@@ -327,12 +310,6 @@ void DeviceGroupTestInstance::init (void)
 		for (size_t ndx = 0; ndx < deviceExtensions.size(); ++ndx)
 			extensionPtrs[ndx] = deviceExtensions[ndx].c_str();
 
-		// Get Layers
-		getDeviceLayers(enabledLayers);
-		layerPtrs.resize(enabledLayers.size());
-		for (size_t ndx = 0; ndx < enabledLayers.size(); ++ndx)
-			layerPtrs[ndx] = enabledLayers[ndx].c_str();
-
 		const VkDeviceCreateInfo	deviceCreateInfo =
 		{
 			VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,					//sType;
@@ -340,13 +317,13 @@ void DeviceGroupTestInstance::init (void)
 			(VkDeviceCreateFlags)0u,								//flags
 			1,														//queueRecordCount;
 			&deviceQueueCreateInfo,									//pRequestedQueues;
-			(deUint32)layerPtrs.size(),								//layerCount;
-			(layerPtrs.empty() ? DE_NULL : &layerPtrs[0]),			//ppEnabledLayerNames;
+			0u,														//layerCount;
+			DE_NULL,												//ppEnabledLayerNames;
 			(deUint32)extensionPtrs.size(),							//extensionCount;
 			(extensionPtrs.empty() ? DE_NULL : &extensionPtrs[0]),	//ppEnabledExtensionNames;
 			&enabledDeviceFeatures,									//pEnabledFeatures;
 		};
-		m_deviceGroup = createDevice(m_context.getPlatformInterface(), m_context.getInstance(), instanceInterface, physicalDevice, &deviceCreateInfo);
+		m_deviceGroup = createCustomDevice(m_context.getTestContext().getCommandLine().isValidationEnabled(), m_context.getPlatformInterface(), m_context.getInstance(), instanceInterface, physicalDevice, &deviceCreateInfo);
 	}
 
 	deviceDriver = de::MovePtr<vk::DeviceDriver>(new vk::DeviceDriver(m_context.getPlatformInterface(), m_context.getInstance(), *m_deviceGroup));
@@ -774,7 +751,7 @@ tcu::TestStatus DeviceGroupTestInstance::iterate (void)
 				VK_IMAGE_TYPE_2D,														// type
 				VK_IMAGE_TILING_OPTIMAL,												// tiling
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,	// usage
-				VK_IMAGE_CREATE_BIND_SFR_BIT,											// flags
+				VK_IMAGE_CREATE_SPLIT_INSTANCE_BIND_REGIONS_BIT,						// flags
 				&properties) != VK_SUCCESS)												// properties
 			{
 				TCU_THROW(NotSupportedError, "Format not supported for SFR");
@@ -783,7 +760,7 @@ tcu::TestStatus DeviceGroupTestInstance::iterate (void)
 			VkImageCreateFlags	imageCreateFlags = VK_IMAGE_CREATE_ALIAS_BIT;	// The image objects alias same memory
 			if ((m_testMode & TEST_MODE_SFR) && (m_physicalDeviceCount > 1))
 			{
-				imageCreateFlags |= VK_IMAGE_CREATE_BIND_SFR_BIT;
+				imageCreateFlags |= VK_IMAGE_CREATE_SPLIT_INSTANCE_BIND_REGIONS_BIT;
 			}
 
 			const VkImageCreateInfo		imageParams =
@@ -821,7 +798,55 @@ tcu::TestStatus DeviceGroupTestInstance::iterate (void)
 		VK_CHECK(vk.bindImageMemory(*m_deviceGroup, *readImage, imageMemory.get(), 0));
 
 		// Create renderpass
-		renderPass = makeRenderPass(vk, *m_deviceGroup, colorFormat);
+		{
+			const VkAttachmentDescription			colorAttachmentDescription			=
+			{
+				(VkAttachmentDescriptionFlags)0,				// VkAttachmentDescriptionFlags    flags
+				colorFormat,									// VkFormat                        format
+				VK_SAMPLE_COUNT_1_BIT,							// VkSampleCountFlagBits           samples
+				VK_ATTACHMENT_LOAD_OP_CLEAR,					// VkAttachmentLoadOp              loadOp
+				VK_ATTACHMENT_STORE_OP_STORE,					// VkAttachmentStoreOp             storeOp
+				VK_ATTACHMENT_LOAD_OP_DONT_CARE,				// VkAttachmentLoadOp              stencilLoadOp
+				VK_ATTACHMENT_STORE_OP_DONT_CARE,				// VkAttachmentStoreOp             stencilStoreOp
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,		// VkImageLayout                   initialLayout
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,		// VkImageLayout                   finalLayout
+			};
+
+			const VkAttachmentReference				colorAttachmentRef					=
+			{
+				0u,											// deUint32         attachment
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL	// VkImageLayout    layout
+			};
+
+			const VkSubpassDescription				subpassDescription					=
+			{
+				(VkSubpassDescriptionFlags)0,							// VkSubpassDescriptionFlags       flags
+				VK_PIPELINE_BIND_POINT_GRAPHICS,						// VkPipelineBindPoint             pipelineBindPoint
+				0u,														// deUint32                        inputAttachmentCount
+				DE_NULL,												// const VkAttachmentReference*    pInputAttachments
+				1u,														// deUint32                        colorAttachmentCount
+				&colorAttachmentRef,									// const VkAttachmentReference*    pColorAttachments
+				DE_NULL,												// const VkAttachmentReference*    pResolveAttachments
+				DE_NULL,												// const VkAttachmentReference*    pDepthStencilAttachment
+				0u,														// deUint32                        preserveAttachmentCount
+				DE_NULL													// const deUint32*                 pPreserveAttachments
+			};
+
+			const VkRenderPassCreateInfo			renderPassInfo						=
+			{
+				VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,									// VkStructureType                   sType
+				DE_NULL,																	// const void*                       pNext
+				(VkRenderPassCreateFlags)0,													// VkRenderPassCreateFlags           flags
+				1,																			// deUint32                          attachmentCount
+				&colorAttachmentDescription,												// const VkAttachmentDescription*    pAttachments
+				1u,																			// deUint32                          subpassCount
+				&subpassDescription,														// const VkSubpassDescription*       pSubpasses
+				0u,																			// deUint32                          dependencyCount
+				DE_NULL																		// const VkSubpassDependency*        pDependencies
+			};
+
+			renderPass = createRenderPass(vk, *m_deviceGroup, &renderPassInfo, DE_NULL);
+		}
 
 		// Create descriptors
 		{
@@ -1654,7 +1679,7 @@ tcu::TestStatus DeviceGroupTestInstance::iterate (void)
 					const tcu::IVec3	posDeviation(1, 1, 0);
 
 					tcu::clear(refImage.getAccess(), clearColor);
-					renderReferenceTriangle(refImage.getAccess(), triVertices);
+					renderReferenceTriangle(refImage.getAccess(), triVertices, m_context.getDeviceProperties().limits.subPixelPrecisionBits);
 
 					iterateResultSuccess = tcu::intThresholdPositionDeviationCompare(m_context.getTestContext().getLog(),
 						"ComparisonResult",

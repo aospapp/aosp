@@ -141,6 +141,7 @@
 #define GPR_POSIX_TIME 1
 #define GPR_GETPID_IN_UNISTD_H 1
 #define GPR_SUPPORT_CHANNELS_FROM_FD 1
+#include <linux/version.h>
 #elif defined(__linux__)
 #define GPR_PLATFORM_STRING "linux"
 #ifndef _BSD_SOURCE
@@ -462,7 +463,7 @@ typedef unsigned __int64 uint64_t;
 #define GPR_MAX_ALIGNMENT 16
 
 #ifndef GRPC_ARES
-#define GRPC_ARES 1
+#define GRPC_ARES 0 // Disable GRPC_ARES for Android due to missing dependency
 #endif
 
 #ifndef GRPC_MUST_USE_RESULT

@@ -3,7 +3,7 @@
 haw{
     AuxExemplarCharacters{"[b c d f g j q r s t v x y z]"}
     ExemplarCharacters{"[a ā e ē i ī o ō u ū h k l m n p w ʻ]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     NumberElements{
         latn{
             miscPatterns{
@@ -32,7 +32,7 @@ haw{
         }
         minimumGroupingDigits{"1"}
     }
-    Version{"2.1.43.94"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -108,10 +108,6 @@ haw{
                 MEd{"E, d/M"}
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
-                MMMMW{
-                    one{"'week' W 'of' MMM"}
-                    other{"'week' W 'of' MMM"}
-                }
                 MMMMd{"MMMM d"}
                 MMMd{"d MMM"}
                 Md{"d/M"}
@@ -132,10 +128,6 @@ haw{
                 yMd{"d/M/y"}
                 yQQQ{"y QQQ"}
                 yQQQQ{"y QQQQ"}
-                yw{
-                    one{"'week' w 'of' Y"}
-                    other{"'week' w 'of' Y"}
-                }
             }
             dayNames{
                 format{

@@ -16,6 +16,8 @@ limitations under the License.
 #include "tensorflow/compiler/tf2xla/kernels/while_op.h"
 
 #include "absl/strings/str_split.h"
+#include "tensorflow/compiler/tf2xla/const_analysis.h"
+#include "tensorflow/compiler/tf2xla/kernels/if_while_utils.h"
 #include "tensorflow/compiler/tf2xla/kernels/tensor_list_utils.h"
 #include "tensorflow/compiler/tf2xla/shape_util.h"
 #include "tensorflow/compiler/tf2xla/side_effect_util.h"
@@ -34,9 +36,31 @@ limitations under the License.
 
 namespace tensorflow {
 
-const char kPropagateCompileTimeConsts[] = "_xla_propagate_compile_time_consts";
-
 namespace {
+
+// Verify that input resources are grouped in the end.
+Status VerifyResourceArgsGroupedAtEnd(XlaOpKernelContext* ctx,
+                                      const NameAttrList& body_name_attr) {
+  const FunctionBody* body;
+  TF_RETURN_IF_ERROR(ctx->compiler()->FindFunctionBody(body_name_attr, &body));
+  bool has_seen_resource = false;
+  for (int i = 0; i < body->arg_types.size(); i++) {
+    DataType arg_type = body->arg_types[i];
+    if (has_seen_resource) {
+      if (arg_type != DT_RESOURCE) {
+        return errors::InvalidArgument(
+            "Expect input resources are grouped in the end of while body ",
+            body_name_attr.name(), ", but the ", i, "-th argument ",
+            body->arg_nodes[i]->name(), " is not a resource.");
+      }
+    } else {
+      if (arg_type == DT_RESOURCE) {
+        has_seen_resource = true;
+      }
+    }
+  }
+  return Status::OK();
+}
 
 // Builds XlaCompiler argument descriptions `args` from `ctx`.
 Status MakeXlaCompilerArgumentsFromInputs(
@@ -58,29 +82,17 @@ Status MakeXlaCompilerArgumentsFromInputs(
     if (type == DT_RESOURCE) {
       XlaResource* resource;
       TF_RETURN_IF_ERROR(ctx->GetResourceInput(i, &resource));
-
-      arg.initialized = resource->initialized();
-      arg.kind = XlaCompiler::Argument::kResource;
-      arg.resource_kind = resource->kind();
+      XlaCompiler::PopulateArgumentFromResource(*resource, &arg);
       if (arg.resource_kind == XlaResource::kTensorArray) {
         *has_tensor_arrays = true;
       }
-
-      arg.type = resource->type();
-      arg.shape = resource->shape();
       if (!arg.initialized) {
         *has_uninitialized_vars = true;
       }
-      arg.max_array_size = resource->max_array_size();
-      for (const auto& gradient : resource->tensor_array_gradients()) {
-        arg.tensor_array_gradients.insert(gradient.first);
-      }
-      arg.name = resource->name();
       VLOG(2) << "    resource " << resource->name()
               << " type: " << DataTypeString(arg.type)
               << " shape: " << arg.ShapeHumanString()
               << " initialized: " << arg.initialized;
-
     } else {
       arg.kind = XlaCompiler::Argument::kParameter;
       arg.type = type;
@@ -112,39 +124,45 @@ void GetLoopInvariants(XlaOpKernelContext* ctx,
     const Node* ret = body->ret_nodes[i];
     const Node* ret_input_0;
     OP_REQUIRES_OK(ctx, ret->input_node(0, &ret_input_0));
-    (*loop_invariants)[i] = ret_input_0->id() == arg->id();
+    (*loop_invariants)[i] = (ret_input_0->id() == arg->id());
   }
 }
 
-// Converts entries in `args` which are loop invariants and have compile
-// time constant inputs to constants so that they can be propagated in the loop
-// body.
+// Converts entries in `args` which are loop invariants and have compile time
+// constant inputs and need to be constants in order to be compilable to
+// constants so that they can be propagated in the loop body.
 Status ConvertLoopInvariantsToConst(
     XlaOpKernelContext* ctx, const NameAttrList& body_name_attr,
+    const NameAttrList& cond_name_attr,
     std::vector<XlaCompiler::Argument>* args,
     std::vector<bool>* compile_time_const_arg_indices,
     int* num_compile_time_const_args, xla::Client* client) {
   std::vector<bool> loop_invariants(ctx->num_inputs());
   GetLoopInvariants(ctx, body_name_attr, &loop_invariants);
-  for (int i = 0; i < ctx->num_inputs(); i++) {
-    XlaCompiler::Argument& arg = (*args)[i];
-    const XlaExpression& expression = ctx->InputExpression(i);
-    // If this is a loop invariant and the input tensor is a compile time
-    // constant build a kConstant type argument.
-    if (arg.kind != XlaCompiler::Argument::kResource && loop_invariants[i]) {
-      // NOTE: We can not simple check that this is Kind::kConstant because
-      // this could be the output of a MetadataOnly op e.g. Size.
-      xla::StatusOr<absl::optional<Tensor>> maybe_constant =
-          expression.ResolveConstant(client);
-      if (maybe_constant.ok() && maybe_constant.ValueOrDie().has_value()) {
-        arg.kind = XlaCompiler::Argument::kConstant;
-        arg.type = expression.dtype();
-        arg.constant_value = std::move(maybe_constant.ValueOrDie().value());
-        arg.shape = expression.GetShape().ValueOrDie();
-        compile_time_const_arg_indices->at(i) = true;
-        (*num_compile_time_const_args)++;
-      }
-    }
+
+  std::vector<bool> body_must_be_const_nodes;
+  const FunctionBody* body;
+  std::vector<bool> cond_must_be_const_nodes;
+  const FunctionBody* cond;
+  TF_RETURN_IF_ERROR(FindMustBeConstNodes(ctx, body_name_attr,
+                                          &body_must_be_const_nodes, &body));
+  TF_RETURN_IF_ERROR(FindMustBeConstNodes(ctx, cond_name_attr,
+                                          &cond_must_be_const_nodes, &cond));
+
+  auto should_convert_to_const = [&](int arg_idx) {
+    XlaCompiler::Argument& arg = (*args)[arg_idx];
+    return arg.kind != XlaCompiler::Argument::kResource &&
+           loop_invariants[arg_idx] &&
+           (body_must_be_const_nodes[body->arg_nodes[arg_idx]->id()] ||
+            cond_must_be_const_nodes[cond->arg_nodes[arg_idx]->id()]);
+  };
+  absl::InlinedVector<int, 5> converted_constants =
+      ConvertCompileTimeConstArgumentsToConst(ctx, args,
+                                              /*xla_expression_offset=*/0,
+                                              should_convert_to_const);
+  for (int arg_idx : converted_constants) {
+    compile_time_const_arg_indices->at(arg_idx) = true;
+    (*num_compile_time_const_args)++;
   }
   return Status::OK();
 }
@@ -271,6 +289,10 @@ XlaWhileOp::XlaWhileOp(OpKernelConstruction* ctx) : XlaOpKernel(ctx) {
 void XlaWhileOp::Compile(XlaOpKernelContext* ctx) {
   VLOG(1) << "WhileOp::Compile";
 
+  // Input resources need to be grouped in the end of the body function
+  // according to the convention of the XLA bridge.
+  OP_REQUIRES_OK(ctx, VerifyResourceArgsGroupedAtEnd(ctx, body_name_attr_));
+
   std::vector<XlaCompiler::Argument> arguments;
   bool has_uninitialized_vars;
   bool has_tensor_arrays;
@@ -296,7 +318,7 @@ void XlaWhileOp::Compile(XlaOpKernelContext* ctx) {
   int num_compile_time_const_args = 0;
   if (propagate_compile_time_consts_) {
     OP_REQUIRES_OK(ctx, ConvertLoopInvariantsToConst(
-                            ctx, body_name_attr_, &arguments,
+                            ctx, body_name_attr_, cond_name_attr_, &arguments,
                             &compile_time_const_arg_indices,
                             &num_compile_time_const_args, compiler->client()));
   }
@@ -314,7 +336,6 @@ void XlaWhileOp::Compile(XlaOpKernelContext* ctx) {
   XlaCompiler::CompileOptions body_options;
   body_options.use_tuple_arg = true;
   body_options.return_updated_values_for_all_resources = true;
-  body_options.resolve_compile_time_constants = false;
   body_options.is_entry_computation = false;
   body_options.add_token_input_output = has_token_input_output_;
   XlaCompiler::CompilationResult body;
@@ -407,7 +428,6 @@ void XlaWhileOp::Compile(XlaOpKernelContext* ctx) {
 
   XlaCompiler::CompileOptions cond_options;
   cond_options.use_tuple_arg = true;
-  cond_options.resolve_compile_time_constants = false;
   cond_options.is_entry_computation = false;
   cond_options.add_token_input_output = has_token_input_output_;
   XlaCompiler::CompilationResult cond;
@@ -480,22 +500,18 @@ void XlaWhileOp::Compile(XlaOpKernelContext* ctx) {
       OP_REQUIRES_OK(ctx, ctx->GetResourceInput(input_num, &resource));
       OP_REQUIRES_OK(ctx, resource->Pack(&inputs[i], builder));
     } else if (IsTensorListInput(ctx, input_num)) {
-      // If the list received as input is uninitialized but its shape was
-      // inferred in the first compilation pass we create a new list filled
-      // with zeros and used that as the input to the while op.
-      TensorShape input_list_shape;
-      OP_REQUIRES_OK(ctx, GetTensorListBufferShape(ctx->Input(input_num),
-                                                   &input_list_shape));
-      TensorShape body_arg_shape;
-      OP_REQUIRES_OK(ctx,
-                     GetTensorListBufferShape(body_input_shape.tuple_shapes(i),
-                                              &body_arg_shape));
-      // Shape of the input list may differ from the shape of the body/cond
-      // input if the list's shape was inferred after the first compilation and
-      // the body/cond was recompiled with the updated shape of the list.
-      if (input_list_shape != body_arg_shape) {
-        OP_REQUIRES_OK(ctx, InitializeTensorList(ctx->Input(input_num),
-                                                 body_arg_shape, &inputs[i]));
+      xla::XlaOp input = ctx->Input(input_num);
+      auto input_shape_or = ctx->builder()->GetShape(input);
+      OP_REQUIRES_OK(ctx, input_shape_or.status());
+      xla::Shape input_shape = input_shape_or.ValueOrDie();
+      const xla::Shape& list_shape = body_input_shape.tuple_shapes(i);
+      // Shape/datatype of the input list may differ from shape/datatype of the
+      // body/cond input if the list's shape/datatype was inferred after the
+      // first compilation and the body/cond was recompiled with the updated
+      // shape/datatype of the list.
+      if (input_shape != list_shape) {
+        OP_REQUIRES_OK(ctx, CreateZerosTensorListWithShape(
+                                ctx->builder(), list_shape, &inputs[i]));
       } else {
         inputs[i] = ctx->Input(input_num);
       }
@@ -530,7 +546,11 @@ void XlaWhileOp::Compile(XlaOpKernelContext* ctx) {
   int resource_index = 0;
   for (int i = 0; i < ctx->num_outputs(); ++i) {
     if (ctx->input_type(i) != DT_RESOURCE) {
-      ctx->SetOutput(i, xla::GetTupleElement(while_result, i));
+      if (IsTensorListInput(ctx, i)) {
+        ctx->SetTensorListOutput(i, xla::GetTupleElement(while_result, i));
+      } else {
+        ctx->SetOutput(i, xla::GetTupleElement(while_result, i));
+      }
       ++resource_index;
     } else {
       break;

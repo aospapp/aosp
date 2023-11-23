@@ -431,7 +431,6 @@ class Assembler : public vixl::internal::AssemblerBase {
   // and data that has already been emitted into the buffer.
   void Reset();
 
-  // Label.
   // Bind a label to the current PC.
   void bind(Label* label);
 
@@ -486,6 +485,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   // Instruction set functions.
 
   // Branch / Jump instructions.
+
   // Branch to register.
   void br(const Register& xn);
 
@@ -638,6 +638,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   void adrp(const Register& xd, int64_t imm21);
 
   // Data Processing instructions.
+
   // Add.
   void add(const Register& rd, const Register& rn, const Operand& operand);
 
@@ -674,6 +675,16 @@ class Assembler : public vixl::internal::AssemblerBase {
   // Subtract with carry bit and update status flags.
   void sbcs(const Register& rd, const Register& rn, const Operand& operand);
 
+  // Rotate register right and insert into NZCV flags under the control of a
+  // mask [Armv8.4].
+  void rmif(const Register& xn, unsigned rotation, StatusFlags flags);
+
+  // Set NZCV flags from register, treated as an 8-bit value [Armv8.4].
+  void setf8(const Register& rn);
+
+  // Set NZCV flags from register, treated as an 16-bit value [Armv8.4].
+  void setf16(const Register& rn);
+
   // Negate with carry bit.
   void ngc(const Register& rd, const Operand& operand);
 
@@ -681,6 +692,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   void ngcs(const Register& rd, const Operand& operand);
 
   // Logical instructions.
+
   // Bitwise and (A & B).
   void and_(const Register& rd, const Register& rn, const Operand& operand);
 
@@ -721,6 +733,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   void rorv(const Register& rd, const Register& rn, const Register& rm);
 
   // Bitfield instructions.
+
   // Bitfield move.
   void bfm(const Register& rd,
            const Register& rn,
@@ -740,6 +753,7 @@ class Assembler : public vixl::internal::AssemblerBase {
             unsigned imms);
 
   // Bfm aliases.
+
   // Bitfield insert.
   void bfi(const Register& rd,
            const Register& rn,
@@ -769,6 +783,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   }
 
   // Sbfm aliases.
+
   // Arithmetic shift right.
   void asr(const Register& rd, const Register& rn, unsigned shift) {
     VIXL_ASSERT(shift < static_cast<unsigned>(rd.GetSizeInBits()));
@@ -808,6 +823,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   void sxtw(const Register& rd, const Register& rn) { sbfm(rd, rn, 0, 31); }
 
   // Ubfm aliases.
+
   // Logical shift left.
   void lsl(const Register& rd, const Register& rn, unsigned shift) {
     unsigned reg_size = rd.GetSizeInBits();
@@ -904,6 +920,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   }
 
   // Conditional comparison.
+
   // Conditional compare negative.
   void ccmn(const Register& rn,
             const Operand& operand,
@@ -1190,6 +1207,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   void xpaclri();
 
   // Memory instructions.
+
   // Load integer or FP register.
   void ldr(const CPURegister& rt,
            const MemOperand& src,
@@ -1279,6 +1297,14 @@ class Assembler : public vixl::internal::AssemblerBase {
   void ldursh(const Register& rt,
               const MemOperand& src,
               LoadStoreScalingOption option = PreferUnscaledOffset);
+
+  // Load double-word with pointer authentication, using data key A and a
+  // modifier of zero [Armv8.3].
+  void ldraa(const Register& xt, const MemOperand& src);
+
+  // Load double-word with pointer authentication, using data key B and a
+  // modifier of zero [Armv8.3].
+  void ldrab(const Register& xt, const MemOperand& src);
 
   // Load integer or FP register pair.
   void ldp(const CPURegister& rt,
@@ -1468,6 +1494,35 @@ class Assembler : public vixl::internal::AssemblerBase {
               const Register& rt,
               const Register& rt2,
               const MemOperand& src);
+
+  // Store-release byte (with unscaled offset) [Armv8.4].
+  void stlurb(const Register& rt, const MemOperand& dst);
+
+  // Load-acquire RCpc Register byte (with unscaled offset) [Armv8.4].
+  void ldapurb(const Register& rt, const MemOperand& src);
+
+  // Load-acquire RCpc Register signed byte (with unscaled offset) [Armv8.4].
+  void ldapursb(const Register& rt, const MemOperand& src);
+
+  // Store-release half-word (with unscaled offset) [Armv8.4].
+  void stlurh(const Register& rt, const MemOperand& dst);
+
+  // Load-acquire RCpc Register half-word (with unscaled offset) [Armv8.4].
+  void ldapurh(const Register& rt, const MemOperand& src);
+
+  // Load-acquire RCpc Register signed half-word (with unscaled offset)
+  // [Armv8.4].
+  void ldapursh(const Register& rt, const MemOperand& src);
+
+  // Store-release word or double-word (with unscaled offset) [Armv8.4].
+  void stlur(const Register& rt, const MemOperand& dst);
+
+  // Load-acquire RCpc Register word or double-word (with unscaled offset)
+  // [Armv8.4].
+  void ldapur(const Register& rt, const MemOperand& src);
+
+  // Load-acquire RCpc Register signed word (with unscaled offset) [Armv8.4].
+  void ldapursw(const Register& xt, const MemOperand& src);
 
   // Atomic add on byte in memory [Armv8.1]
   void ldaddb(const Register& rs, const Register& rt, const MemOperand& src);
@@ -2083,6 +2138,7 @@ class Assembler : public vixl::internal::AssemblerBase {
   }
 
   // Misc instructions.
+
   // Monitor debug-mode breakpoint.
   void brk(int code);
 
@@ -2092,6 +2148,9 @@ class Assembler : public vixl::internal::AssemblerBase {
   // Generate exception targeting EL1.
   void svc(int code);
 
+  // Generate undefined instruction exception.
+  void udf(int code);
+
   // Move register to register.
   void mov(const Register& rd, const Register& rn);
 
@@ -2099,11 +2158,23 @@ class Assembler : public vixl::internal::AssemblerBase {
   void mvn(const Register& rd, const Operand& operand);
 
   // System instructions.
+
   // Move to register from system register.
   void mrs(const Register& xt, SystemRegister sysreg);
 
   // Move from register to system register.
   void msr(SystemRegister sysreg, const Register& xt);
+
+  // Invert carry flag [Armv8.4].
+  void cfinv();
+
+  // Convert floating-point condition flags from alternative format to Arm
+  // format [Armv8.5].
+  void xaflag();
+
+  // Convert floating-point condition flags from Arm format to alternative
+  // format [Armv8.5].
+  void axflag();
 
   // System instruction.
   void sys(int op1, int crn, int crm, int op2, const Register& xt = xzr);
@@ -2141,11 +2212,14 @@ class Assembler : public vixl::internal::AssemblerBase {
   // Conditional speculation dependency barrier.
   void csdb();
 
-  // Alias for system instructions.
   // No-op.
   void nop() { hint(NOP); }
 
+  // Branch target identification.
+  void bti(BranchTargetIdentifier id);
+
   // FP and NEON instructions.
+
   // Move double precision immediate to FP register.
   void fmov(const VRegister& vd, double imm);
 
@@ -2253,6 +2327,18 @@ class Assembler : public vixl::internal::AssemblerBase {
 
   // FP round to integer, towards zero.
   void frintz(const VRegister& vd, const VRegister& vn);
+
+  // FP round to 32-bit integer, exact, implicit rounding [Armv8.5].
+  void frint32x(const VRegister& vd, const VRegister& vn);
+
+  // FP round to 32-bit integer, towards zero [Armv8.5].
+  void frint32z(const VRegister& vd, const VRegister& vn);
+
+  // FP round to 64-bit integer, exact, implicit rounding [Armv8.5].
+  void frint64x(const VRegister& vd, const VRegister& vn);
+
+  // FP round to 64-bit integer, towards zero [Armv8.5].
+  void frint64z(const VRegister& vd, const VRegister& vn);
 
   void FPCompareMacro(const VRegister& vn, double value, FPTrapFlags trap);
 
@@ -3381,8 +3467,44 @@ class Assembler : public vixl::internal::AssemblerBase {
   // FP vector multiply accumulate.
   void fmla(const VRegister& vd, const VRegister& vn, const VRegister& vm);
 
+  // FP fused multiply-add long to accumulator.
+  void fmlal(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // FP fused multiply-add long to accumulator (second part).
+  void fmlal2(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // FP fused multiply-add long to accumulator by element.
+  void fmlal(const VRegister& vd,
+             const VRegister& vn,
+             const VRegister& vm,
+             int vm_index);
+
+  // FP fused multiply-add long to accumulator by element (second part).
+  void fmlal2(const VRegister& vd,
+              const VRegister& vn,
+              const VRegister& vm,
+              int vm_index);
+
   // FP vector multiply subtract.
   void fmls(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // FP fused multiply-subtract long to accumulator.
+  void fmlsl(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // FP fused multiply-subtract long to accumulator (second part).
+  void fmlsl2(const VRegister& vd, const VRegister& vn, const VRegister& vm);
+
+  // FP fused multiply-subtract long to accumulator by element.
+  void fmlsl(const VRegister& vd,
+             const VRegister& vn,
+             const VRegister& vm,
+             int vm_index);
+
+  // FP fused multiply-subtract long to accumulator by element (second part).
+  void fmlsl2(const VRegister& vd,
+              const VRegister& vn,
+              const VRegister& vm,
+              int vm_index);
 
   // FP vector multiply extended.
   void fmulx(const VRegister& vd, const VRegister& vn, const VRegister& vm);
@@ -3476,6 +3598,7 @@ class Assembler : public vixl::internal::AssemblerBase {
 
   // v8.3 complex numbers - note that these are only partial/helper functions
   // and must be used in series in order to perform full CN operations.
+
   // FP complex multiply accumulate (by element) [Armv8.3].
   void fcmla(const VRegister& vd,
              const VRegister& vn,
@@ -3496,6 +3619,7 @@ class Assembler : public vixl::internal::AssemblerBase {
              int rot);
 
   // Emit generic instructions.
+
   // Emit raw instructions into the instruction stream.
   void dci(Instr raw_inst) { Emit(raw_inst); }
 
@@ -3744,6 +3868,15 @@ class Assembler : public vixl::internal::AssemblerBase {
     return shift_amount << ImmShiftLS_offset;
   }
 
+  static Instr ImmLSPAC(int64_t imm10) {
+    VIXL_ASSERT(IsMultiple(imm10, 1 << 3));
+    int64_t scaled_imm10 = imm10 / (1 << 3);
+    VIXL_ASSERT(IsInt10(scaled_imm10));
+    uint32_t s_bit = (scaled_imm10 >> 9) & 1;
+    return (s_bit << ImmLSPACHi_offset) |
+           (TruncateToUint9(scaled_imm10) << ImmLSPACLo_offset);
+  }
+
   static Instr ImmPrefetchOperation(int imm5) {
     VIXL_ASSERT(IsUint5(imm5));
     return imm5 << ImmPrefetchOperation_offset;
@@ -3754,9 +3887,19 @@ class Assembler : public vixl::internal::AssemblerBase {
     return imm16 << ImmException_offset;
   }
 
+  static Instr ImmUdf(int imm16) {
+    VIXL_ASSERT(IsUint16(imm16));
+    return imm16 << ImmUdf_offset;
+  }
+
   static Instr ImmSystemRegister(int imm16) {
     VIXL_ASSERT(IsUint16(imm16));
     return imm16 << ImmSystemRegister_offset;
+  }
+
+  static Instr ImmRMIFRotation(int imm6) {
+    VIXL_ASSERT(IsUint6(imm6));
+    return imm6 << ImmRMIFRotation_offset;
   }
 
   static Instr ImmHint(int imm7) {
@@ -3816,7 +3959,8 @@ class Assembler : public vixl::internal::AssemblerBase {
   static Instr ImmFP64(double imm);
 
   // FP register type.
-  static Instr FPType(FPRegister fd) {
+  static Instr FPType(VRegister fd) {
+    VIXL_ASSERT(fd.IsScalar());
     switch (fd.GetSizeInBits()) {
       case 16:
         return FP16;
@@ -4108,6 +4252,10 @@ class Assembler : public vixl::internal::AssemblerBase {
                  LoadStoreOp op,
                  LoadStoreScalingOption option = PreferScaledOffset);
 
+  void LoadStorePAC(const Register& xt,
+                    const MemOperand& addr,
+                    LoadStorePACOp op);
+
   void LoadStorePair(const CPURegister& rt,
                      const CPURegister& rt2,
                      const MemOperand& addr,
@@ -4213,6 +4361,8 @@ class Assembler : public vixl::internal::AssemblerBase {
   // entry point for both integer and FP registers.
   bool CPUHas(const CPURegister& rt) const;
   bool CPUHas(const CPURegister& rt, const CPURegister& rt2) const;
+
+  bool CPUHas(SystemRegister sysreg) const;
 
  private:
   static uint32_t FP16ToImm8(Float16 imm);

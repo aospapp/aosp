@@ -53,6 +53,11 @@ public void testConcat() throws Exception {
   testCase.testConcat();
 }
 
+public void testConstrainToRange() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testConstrainToRange();
+}
+
 public void testContains() throws Exception {
   com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
   testCase.testContains();
@@ -71,6 +76,11 @@ public void testEnsureCapacity_fail() throws Exception {
 public void testFromByteArray() throws Exception {
   com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
   testCase.testFromByteArray();
+}
+
+public void testFromByteArrayFails() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testFromByteArrayFails();
 }
 
 public void testFromBytes() throws Exception {
@@ -123,6 +133,26 @@ public void testMin_noArgs() throws Exception {
   testCase.testMin_noArgs();
 }
 
+public void testReverse() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testReverse();
+}
+
+public void testReverseIndexed() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testReverseIndexed();
+}
+
+public void testSortDescending() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testSortDescending();
+}
+
+public void testSortDescendingIndexed() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testSortDescendingIndexed();
+}
+
 public void testStringConverter_convert() throws Exception {
   com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
   testCase.testStringConverter_convert();
@@ -171,5 +201,25 @@ public void testToByteArray() throws Exception {
 public void testTryParse() throws Exception {
   com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
   testCase.testTryParse();
+}
+
+public void testTryParse_radix() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testTryParse_radix();
+}
+
+public void testTryParse_radixTooBig() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testTryParse_radixTooBig();
+}
+
+public void testTryParse_radixTooSmall() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testTryParse_radixTooSmall();
+}
+
+public void testTryParse_withNullGwt() throws Exception {
+  com.google.common.primitives.LongsTest testCase = new com.google.common.primitives.LongsTest();
+  testCase.testTryParse_withNullGwt();
 }
 }

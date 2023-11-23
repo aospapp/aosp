@@ -15,7 +15,7 @@ TEST_CLASS = "network"
 TEST_TYPE = "client"
 
 DOC = """
-  Tests that commands sent to ModemManager or cromo are reflected in flimflam.
+  Tests that commands sent to ModemManager are reflected in flimflam.
 
   Issues many connect, disconnect, enable, and disable commands to ensure
   that the modem state is always properly reflected in flimflam -- even

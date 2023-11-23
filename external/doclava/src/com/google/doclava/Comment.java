@@ -392,8 +392,16 @@ public class Comment {
         known = Doclava.knownTags.contains(name);
       }
       if (!known) {
-        Errors.error(Errors.UNKNOWN_TAG, pos == null ? null : new SourcePositionInfo(pos),
-            "Unknown tag: " + name);
+          if (name.length() >= 2 && Character.isUpperCase(name.charAt(1))) {
+              // This is a workaround for b/135928616 where parsing of comments fails when there is
+              // a Java annotation and not a tag.
+              Errors.error(Errors.JAVA_TAG_IN_COMMENT,
+                      pos == null ? null : new SourcePositionInfo(pos),
+                      "Invalid tag: " + name);
+          } else {
+              Errors.error(Errors.UNKNOWN_TAG, pos == null ? null : new SourcePositionInfo(pos),
+                      "Unknown tag: " + name);
+          }
       }
       TagInfo t = new TextTagInfo(name, name, text, pos);
       if (isInline) {

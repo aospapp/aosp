@@ -54,7 +54,7 @@ void xexit(void)
 
     free(al);
   }
-  if (fflush(0) || ferror(stdout)) if (!toys.exitval) perror_msg("write");
+  xflush(1);
   _xexit();
 }
 
@@ -139,9 +139,11 @@ char *xmprintf(char *format, ...)
   return ret;
 }
 
-void xflush(void)
+// if !flush just check for error on stdout without flushing 
+void xflush(int flush)
 {
-  if (fflush(stdout) || ferror(stdout)) perror_exit("write");
+  if ((flush && fflush(0)) || ferror(stdout))
+    if (!toys.exitval) perror_msg("write");
 }
 
 void xprintf(char *format, ...)
@@ -151,7 +153,7 @@ void xprintf(char *format, ...)
 
   vprintf(format, va);
   va_end(va);
-  xflush();
+  xflush(0);
 }
 
 // Put string with length (does not append newline)
@@ -164,7 +166,7 @@ void xputsl(char *s, int len)
     len -= out;
     s += out;
   }
-  xflush();
+  xflush(0);
 }
 
 // xputs with no newline
@@ -177,13 +179,13 @@ void xputsn(char *s)
 void xputs(char *s)
 {
   puts(s);
-  xflush();
+  xflush(0);
 }
 
 void xputc(char c)
 {
   if (EOF == fputc(c, stdout)) perror_exit("write");
-  xflush();
+  xflush(0);
 }
 
 // This is called through the XVFORK macro because parent/child of vfork
@@ -195,7 +197,7 @@ pid_t __attribute__((returns_twice)) xvforkwrap(pid_t pid)
   if (pid == -1) perror_exit("vfork");
 
   // Signal to xexec() and friends that we vforked so can't recurse
-  toys.stacktop = 0;
+  if (!pid) toys.stacktop = 0;
 
   return pid;
 }
@@ -222,7 +224,7 @@ void xexec(char **argv)
 //           If -1, replace with pipe handle connected to stdin/stdout.
 //           NULL treated as {0, 1}, I.E. leave stdin/stdout as is
 // return: pid of child process
-pid_t xpopen_both(char **argv, int *pipes)
+pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(void))
 {
   int cestnepasun[4], pid;
 
@@ -235,20 +237,25 @@ pid_t xpopen_both(char **argv, int *pipes)
 
   if (!(pid = CFG_TOYBOX_FORK ? xfork() : XVFORK())) {
     // Child process: Dance of the stdin/stdout redirection.
+    // cestnepasun[1]->cestnepasun[0] and cestnepasun[3]->cestnepasun[2]
     if (pipes) {
       // if we had no stdin/out, pipe handles could overlap, so test for it
       // and free up potentially overlapping pipe handles before reuse
+
+      // in child, close read end of output pipe, use write end as new stdout
       if (cestnepasun[2]) {
         close(cestnepasun[2]);
         pipes[1] = cestnepasun[3];
       }
+
+      // in child, close write end of input pipe, use read end as new stdin
       if (cestnepasun[1]) {
         close(cestnepasun[1]);
         pipes[0] = cestnepasun[0];
       }
 
-      // If swapping stdin/stdout
-      if (!pipes[1]) pipes[1] = dup(pipes[1]);
+      // If swapping stdin/stdout, dup a filehandle that gets closed before use
+      if (!pipes[1]) pipes[1] = dup(0);
 
       // Are we redirecting stdin?
       if (pipes[0]) {
@@ -259,9 +266,10 @@ pid_t xpopen_both(char **argv, int *pipes)
       // Are we redirecting stdout?
       if (pipes[1] != 1) {
         dup2(pipes[1], 1);
-        if (cestnepasun[2]) close(cestnepasun[2]);
+        close(pipes[1]);
       }
     }
+    if (callback) callback();
     if (argv) xexec(argv);
 
     // In fork() case, force recursion because we know it's us.
@@ -302,6 +310,12 @@ pid_t xpopen_both(char **argv, int *pipes)
   return pid;
 }
 
+pid_t xpopen_both(char **argv, int *pipes)
+{
+  return xpopen_setup(argv, pipes, 0);
+}
+
+
 // Wait for child process to exit, then return adjusted exit code.
 int xwaitpid(pid_t pid)
 {
@@ -309,7 +323,7 @@ int xwaitpid(pid_t pid)
 
   while (-1 == waitpid(pid, &status, 0) && errno == EINTR);
 
-  return WIFEXITED(status) ? WEXITSTATUS(status) : WTERMSIG(status)+127;
+  return WIFEXITED(status) ? WEXITSTATUS(status) : WTERMSIG(status)+128;
 }
 
 int xpclose_both(pid_t pid, int *pipes)
@@ -518,7 +532,8 @@ void xstat(char *path, struct stat *st)
 
 // Canonicalize path, even to file with one or more missing components at end.
 // Returns allocated string for pathname or NULL if doesn't exist
-// exact = 1 file must exist, 0 dir must exist, -1 show theoretical location
+// exact = 1 file must exist, 0 dir must exist, -1 show theoretical location,
+// -2 don't resolve last file
 char *xabspath(char *path, int exact)
 {
   struct string_list *todo, *done = 0;
@@ -563,7 +578,8 @@ char *xabspath(char *path, int exact)
     }
 
     // Is this a symlink?
-    len = readlinkat(dirfd, new->str, libbuf, sizeof(libbuf));
+    if (exact == -2 && !todo) len = 0;
+    else len = readlinkat(dirfd, new->str, libbuf, sizeof(libbuf));
     if (len>4095) goto error;
 
     // Not a symlink: add to linked list, move dirfd, fail if error
@@ -798,20 +814,22 @@ void xpidfile(char *name)
 }
 
 // Return bytes copied from in to out. If bytes <0 copy all of in to out.
-long long sendfile_len(int in, int out, long long bytes)
+// If consuemd isn't null, amount read saved there (return is written or error)
+long long sendfile_len(int in, int out, long long bytes, long long *consumed)
 {
-  long long total = 0;
-  long len;
+  long long total = 0, len;
 
+  if (consumed) *consumed = 0;
   if (in<0) return 0;
-  for (;;) {
-    if (bytes == total) break;
+  while (bytes != total) {
     len = bytes-total;
     if (bytes<0 || len>sizeof(libbuf)) len = sizeof(libbuf);
 
-    len = xread(in, libbuf, len);
+    len = read(in, libbuf, len);
+    if (!len && errno==EAGAIN) continue;
     if (len<1) break;
-    xwrite(out, libbuf, len);
+    if (consumed) *consumed += len;
+    if (writeall(out, libbuf, len) != len) return -1;
     total += len;
   }
 
@@ -821,9 +839,12 @@ long long sendfile_len(int in, int out, long long bytes)
 // error_exit if we couldn't copy all bytes
 long long xsendfile_len(int in, int out, long long bytes)
 {
-  long long len = sendfile_len(in, out, bytes);
+  long long len = sendfile_len(in, out, bytes, 0);
 
-  if (bytes != -1 && bytes != len) error_exit("short file");
+  if (bytes != -1 && bytes != len) {
+    if (out == 1 && len<0) xexit();
+    error_exit("short %s", (len<0) ? "write" : "read");
+  }
 
   return len;
 }
@@ -910,11 +931,18 @@ long long xparsemillitime(char *arg)
 // Compile a regular expression into a regex_t
 void xregcomp(regex_t *preg, char *regex, int cflags)
 {
-  int rc = regcomp(preg, regex, cflags);
+  int rc;
 
-  if (rc) {
+  // BSD regex implementations don't support the empty regex (which isn't
+  // allowed in the POSIX grammar), but glibc does. Fake it for BSD.
+  if (!*regex) {
+    regex = "()";
+    cflags |= REG_EXTENDED;
+  }
+
+  if ((rc = regcomp(preg, regex, cflags))) {
     regerror(rc, preg, libbuf, sizeof(libbuf));
-    error_exit("xregcomp: %s", libbuf);
+    error_exit("bad regex: %s", libbuf);
   }
 }
 
@@ -1032,4 +1060,20 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
 
   if (oldtz) setenv("TZ", oldtz, 1);
   free(oldtz);
+}
+
+char *xgetline(FILE *fp, int *len)
+{
+  char *new = 0;
+  size_t linelen = 0;
+  long ll;
+
+  errno = 0;
+  if (1>(ll = getline(&new, &linelen, fp))) {
+    if (errno) perror_msg("getline");
+    new = 0;
+  } else if (new[linelen-1] == '\n') new[--linelen] = 0;
+  if (len) *len = ll;
+
+  return new;
 }

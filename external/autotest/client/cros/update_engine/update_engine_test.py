@@ -88,4 +88,3 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
             logging.exception('Failed to disconnect one or more interfaces.')
             logging.debug(utils.run('ifconfig', ignore_status=True))
             raise error.TestFail('Disabling the internet connection failed.')
-

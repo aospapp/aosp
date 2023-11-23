@@ -65,6 +65,8 @@ enum UniformFlags
 
 	LAYOUT_16BIT_STORAGE= (1<<15),  //!< Support VK_KHR_16bit_storage extension
 	LAYOUT_8BIT_STORAGE	= (1<<16),  //!< Support VK_KHR_8bit_storage extension
+
+	LAYOUT_DESCRIPTOR_INDEXING = (1 << 17),  //!< Support VK_KHR_descriptor_indexing extension
 };
 
 enum MatrixLoadFlags
@@ -323,13 +325,12 @@ public:
 															 bool				shuffleUniformMembers = false);
 								~UniformBlockCase			(void);
 
+	virtual void				delayedInit					(void);
 	virtual	void				initPrograms				(vk::SourceCollections& programCollection) const;
 	virtual TestInstance*		createInstance				(Context& context) const;
 	bool						usesBlockLayout				(UniformFlags layoutFlag) const { return m_interface.usesBlockLayout(layoutFlag); }
 
 protected:
-	void						init						(void);
-
 	BufferMode					m_bufferMode;
 	ShaderInterface				m_interface;
 	MatrixLoadFlags				m_matrixLoadFlag;

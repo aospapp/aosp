@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,7 @@ package org.jacoco.core.internal.instr;
 
 import static java.lang.String.format;
 
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -25,7 +26,7 @@ public final class InstrSupport {
 	}
 
 	/** ASM API version */
-	public static final int ASM_API_VERSION = Opcodes.ASM6;
+	public static final int ASM_API_VERSION = Opcodes.ASM7;
 
 	// === Data Field ===
 
@@ -158,6 +159,66 @@ public final class InstrSupport {
 	static final int CLINIT_ACC = Opcodes.ACC_SYNTHETIC | Opcodes.ACC_STATIC;
 
 	/**
+	 * Gets major version number from given bytes of class (unsigned two bytes
+	 * at offset 6).
+	 *
+	 * @param b
+	 *            bytes of class
+	 * @return major version of bytecode
+	 * @see <a href=
+	 *      "https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-4.html#jvms-4.1">Java
+	 *      Virtual Machine Specification §4 The class File Format</a>
+	 * @see #setMajorVersion(int, byte[])
+	 * @see #getMajorVersion(ClassReader)
+	 */
+	public static int getMajorVersion(final byte[] b) {
+		return ((b[6] & 0xFF) << 8) | (b[7] & 0xFF);
+	}
+
+	/**
+	 * Sets major version number in given bytes of class (unsigned two bytes at
+	 * offset 6).
+	 *
+	 * @param majorVersion
+	 *            major version of bytecode to set
+	 * @param b
+	 *            bytes of class
+	 * @see #getMajorVersion(byte[])
+	 */
+	public static void setMajorVersion(final int majorVersion, final byte[] b) {
+		b[6] = (byte) (majorVersion >>> 8);
+		b[7] = (byte) majorVersion;
+	}
+
+	/**
+	 * Gets major version number from given {@link ClassReader}.
+	 *
+	 * @param reader
+	 *            reader to get information about the class
+	 * @return major version of bytecode
+	 * @see ClassReader#ClassReader(byte[], int, int)
+	 * @see #getMajorVersion(byte[])
+	 */
+	public static int getMajorVersion(final ClassReader reader) {
+		// relative to the beginning of constant pool because ASM provides API
+		// to construct ClassReader which reads from the middle of array
+		final int firstConstantPoolEntryOffset = reader.getItem(1) - 1;
+		return reader.readUnsignedShort(firstConstantPoolEntryOffset - 4);
+	}
+
+	/**
+	 * Determines whether the given class file version requires stackmap frames.
+	 * 
+	 * @param version
+	 *            class file version
+	 * @return <code>true</code> if frames are required
+	 */
+	public static boolean needsFrames(final int version) {
+		// consider major version only (due to 1.1 anomaly)
+		return (version & 0xFFFF) >= Opcodes.V1_6;
+	}
+
+	/**
 	 * Ensures that the given member does not correspond to a internal member
 	 * created by the instrumentation process. This would mean that the class is
 	 * already instrumented.
@@ -174,7 +235,8 @@ public final class InstrSupport {
 			final String owner) throws IllegalStateException {
 		if (member.equals(DATAFIELD_NAME) || member.equals(INITMETHOD_NAME)) {
 			throw new IllegalStateException(format(
-					"Class %s is already instrumented.", owner));
+					"Cannot process instrumented class %s. Please supply original non-instrumented classes.",
+					owner));
 		}
 	}
 
@@ -198,6 +260,25 @@ public final class InstrSupport {
 		} else {
 			mv.visitLdcInsn(Integer.valueOf(value));
 		}
+	}
+
+	/**
+	 * Creates a {@link ClassReader} instance for given bytes of class even if
+	 * its version not yet supported by ASM.
+	 *
+	 * @param b
+	 *            bytes of class
+	 * @return {@link ClassReader}
+	 */
+	public static ClassReader classReaderFor(final byte[] b) {
+		final int originalVersion = getMajorVersion(b);
+		if (originalVersion == Opcodes.V12 + 1) {
+			// temporarily downgrade version to bypass check in ASM
+			setMajorVersion(Opcodes.V12, b);
+		}
+		final ClassReader classReader = new ClassReader(b);
+		setMajorVersion(originalVersion, b);
+		return classReader;
 	}
 
 }

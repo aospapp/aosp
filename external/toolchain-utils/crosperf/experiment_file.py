@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """The experiment file module. It manages the input file of crosperf."""
 
 from __future__ import print_function
@@ -97,7 +99,7 @@ class ExperimentFile(object):
         field = self._ParseField(reader)
         settings.SetField(field[0], field[1], field[2])
       elif ExperimentFile._CLOSE_SETTINGS_RE.match(line):
-        return settings
+        return settings, settings_type
 
     raise EOFError('Unexpected EOF while parsing settings block.')
 
@@ -112,18 +114,22 @@ class ExperimentFile(object):
         if not line:
           continue
         elif ExperimentFile._OPEN_SETTINGS_RE.match(line):
-          new_settings = self._ParseSettings(reader)
-          if new_settings.name in settings_names:
-            raise SyntaxError(
-                "Duplicate settings name: '%s'." % new_settings.name)
-          settings_names[new_settings.name] = True
+          new_settings, settings_type = self._ParseSettings(reader)
+          # We will allow benchmarks with duplicated settings name for now.
+          # Further decision will be made when parsing benchmark details in
+          # ExperimentFactory.GetExperiment().
+          if settings_type != 'benchmark':
+            if new_settings.name in settings_names:
+              raise SyntaxError(
+                  "Duplicate settings name: '%s'." % new_settings.name)
+            settings_names[new_settings.name] = True
           self.all_settings.append(new_settings)
         elif ExperimentFile._FIELD_VALUE_RE.match(line):
           field = self._ParseField(reader)
           self.global_settings.SetField(field[0], field[1], field[2])
         else:
           raise IOError('Unexpected line.')
-    except Exception, err:
+    except Exception as err:
       raise RuntimeError('Line %d: %s\n==> %s' % (reader.LineNo(), str(err),
                                                   reader.CurrentLine(False)))
 
@@ -160,11 +166,21 @@ class ExperimentFile(object):
               autotest_path = ''
               if autotest_field.assigned:
                 autotest_path = autotest_field.GetString()
-              image_path, autotest_path = settings.GetXbuddyPath(
-                  value, autotest_path, board, chromeos_root, 'quiet')
+              debug_field = settings.fields['debug_path']
+              debug_path = ''
+              if debug_field.assigned:
+                debug_path = autotest_field.GetString()
+              # Do not download the debug symbols since this function is for
+              # canonicalizing experiment file.
+              downlad_debug = False
+              image_path, autotest_path, debug_path = settings.GetXbuddyPath(
+                  value, autotest_path, debug_path, board, chromeos_root,
+                  'quiet', downlad_debug)
               res += '\t#actual_image: %s\n' % image_path
               if not autotest_field.assigned:
                 res += '\t#actual_autotest_path: %s\n' % autotest_path
+              if not debug_field.assigned:
+                res += '\t#actual_debug_path: %s\n' % debug_path
 
         res += '}\n\n'
 

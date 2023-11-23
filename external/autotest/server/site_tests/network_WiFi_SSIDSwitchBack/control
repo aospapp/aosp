@@ -6,6 +6,9 @@ AUTHOR = 'wiley, pstew, quiche'
 TIME = 'SHORT'
 NAME = 'network_WiFi_SSIDSwitchBack'
 TEST_TYPE = 'Server'
+ATTRIBUTES = ('suite:wifi_flaky')
+DEPENDENCIES = 'wificell'
+
 DOC = """
 The SSIDSwitchBack test verifies that the connection manager is able
 to rejoin a previously connected AP when it loses connectivity to its

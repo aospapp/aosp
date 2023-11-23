@@ -7,6 +7,10 @@ from autotest_lib.tko import tast
 from autotest_lib.tko import utils as tko_utils
 
 
+class HostKeyvalError(Exception):
+    """Raised when the host keyval cannot be read."""
+
+
 class job(object):
     """Represents a job."""
 
@@ -283,6 +287,25 @@ class test(object):
 
 
     @staticmethod
+    def _is_multimachine(job_dir):
+        """
+        Determine whether the job is a multi-machine job.
+
+        @param job_dir: The string directory name of the associated job.
+
+        @return True, if the job is a multi-machine job, or False if not.
+
+        """
+        machines_path = os.path.join(job_dir, '.machines')
+        if os.path.exists(machines_path):
+            with open(machines_path, 'r') as fp:
+                line_count = len(fp.read().splitlines())
+                if line_count > 1:
+                    return True
+        return False
+
+
+    @staticmethod
     def parse_host_keyval(job_dir, hostname):
         """
         Parse host keyvals.
@@ -292,18 +315,25 @@ class test(object):
 
         @return A dictionary representing the host keyvals.
 
+        @raises HostKeyvalError if the host keyval is not found.
+
         """
         keyval_path = os.path.join('host_keyvals', hostname)
-        # The host keyval is <job_dir>/host_keyvals/<hostname> if it exists.
-        # Otherwise we're running on Skylab which uses hostinfo.
-        if not os.path.exists(os.path.join(job_dir, keyval_path)):
-            tko_utils.dprint("trying to use hostinfo")
-            try:
-                return _parse_hostinfo_keyval(job_dir, hostname)
-            except Exception as e:
-                # If anything goes wrong, log it and just use the old flow.
-                tko_utils.dprint("tried using hostinfo: %s" % e)
-        return test._parse_keyval(job_dir, keyval_path)
+        hostinfo_path = os.path.join(job_dir, 'host_info_store',
+                                     hostname + '.store')
+        # Skylab uses hostinfo. If this is not present, try falling back to the
+        # host keyval file (moblab), or an empty host keyval for multi-machine
+        # tests (jetstream).
+        if os.path.exists(hostinfo_path):
+            tko_utils.dprint('Reading keyvals from hostinfo.')
+            return _parse_hostinfo_keyval(hostinfo_path)
+        elif os.path.exists(os.path.join(job_dir, keyval_path)):
+            tko_utils.dprint('Reading keyvals from %s.' % keyval_path)
+            return test._parse_keyval(job_dir, keyval_path)
+        elif test._is_multimachine(job_dir):
+            tko_utils.dprint('Multimachine job, no keyvals.')
+            return {}
+        raise HostKeyvalError('Host keyval not found')
 
 
     @staticmethod
@@ -320,22 +350,15 @@ class test(object):
         return test._parse_keyval(job_dir, 'keyval')
 
 
-def _parse_hostinfo_keyval(job_dir, hostname):
+def _parse_hostinfo_keyval(hostinfo_path):
     """
     Parse host keyvals from hostinfo.
 
-    @param job_dir: The string directory name of the associated job.
-    @param hostname: The string hostname.
+    @param hostinfo_path: The string path to the host info store file.
 
     @return A dictionary representing the host keyvals.
 
     """
-    # The hostinfo path looks like:
-    # host_info_store/chromeos6-row4-rack11-host6.store
-    #
-    # TODO(ayatane): We should pass hostinfo path explicitly.
-    subdir = 'host_info_store'
-    hostinfo_path = os.path.join(job_dir, subdir, hostname + '.store')
     store = file_store.FileStore(hostinfo_path)
     hostinfo = store.get()
     # TODO(ayatane): Investigate if urllib.quote is better.

@@ -26,6 +26,7 @@
 #include "source/opt/ir_context.h"
 #include "source/opt/module.h"
 #include "spirv-tools/libspirv.hpp"
+#include "types.h"
 
 namespace spvtools {
 namespace opt {
@@ -108,6 +109,16 @@ class Pass {
   // Return type id for |ptrInst|'s pointee
   uint32_t GetPointeeTypeId(const Instruction* ptrInst) const;
 
+  // Return base type of |ty_id| type
+  Instruction* GetBaseType(uint32_t ty_id);
+
+  // Return true if |inst| returns scalar, vector or matrix type with base
+  // float and |width|
+  bool IsFloat(uint32_t ty_id, uint32_t width);
+
+  // Return the id of OpConstantNull of type |type_id|. Create if necessary.
+  uint32_t GetNullId(uint32_t type_id);
+
  protected:
   // Constructs a new pass.
   //
@@ -124,6 +135,12 @@ class Pass {
   // Return the next available SSA id and increment it.
   // TODO(1841): Handle id overflow.
   uint32_t TakeNextId() { return context_->TakeNextId(); }
+
+  // Returns the id whose value is the same as |object_to_copy| except its type
+  // is |new_type_id|.  Any instructions needed to generate this value will be
+  // inserted before |insertion_position|.
+  uint32_t GenerateCopy(Instruction* object_to_copy, uint32_t new_type_id,
+                        Instruction* insertion_position);
 
  private:
   MessageConsumer consumer_;  // Message consumer.

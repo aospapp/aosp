@@ -519,6 +519,13 @@ struct crypto_bignum * crypto_bignum_init(void);
 struct crypto_bignum * crypto_bignum_init_set(const u8 *buf, size_t len);
 
 /**
+ * crypto_bignum_init_set - Allocate memory for bignum and set the value (uint)
+ * @val: Value to set
+ * Returns: Pointer to allocated bignum or %NULL on failure
+ */
+struct crypto_bignum * crypto_bignum_init_uint(unsigned int val);
+
+/**
  * crypto_bignum_deinit - Free bignum
  * @n: Bignum from crypto_bignum_init() or crypto_bignum_init_set()
  * @clear: Whether to clear the value from memory
@@ -613,6 +620,19 @@ int crypto_bignum_div(const struct crypto_bignum *a,
 		      struct crypto_bignum *c);
 
 /**
+ * crypto_bignum_addmod - d = a + b (mod c)
+ * @a: Bignum
+ * @b: Bignum
+ * @c: Bignum
+ * @d: Bignum; used to store the result of (a + b) % c
+ * Returns: 0 on success, -1 on failure
+ */
+int crypto_bignum_addmod(const struct crypto_bignum *a,
+			 const struct crypto_bignum *b,
+			 const struct crypto_bignum *c,
+			 struct crypto_bignum *d);
+
+/**
  * crypto_bignum_mulmod - d = a * b (mod c)
  * @a: Bignum
  * @b: Bignum
@@ -624,6 +644,17 @@ int crypto_bignum_mulmod(const struct crypto_bignum *a,
 			 const struct crypto_bignum *b,
 			 const struct crypto_bignum *c,
 			 struct crypto_bignum *d);
+
+/**
+ * crypto_bignum_sqrmod - c = a^2 (mod b)
+ * @a: Bignum
+ * @b: Bignum
+ * @c: Bignum; used to store the result of a^2 % b
+ * Returns: 0 on success, -1 on failure
+ */
+int crypto_bignum_sqrmod(const struct crypto_bignum *a,
+			 const struct crypto_bignum *b,
+			 struct crypto_bignum *c);
 
 /**
  * crypto_bignum_rshift - r = a >> n
@@ -643,13 +674,6 @@ int crypto_bignum_rshift(const struct crypto_bignum *a, int n,
  */
 int crypto_bignum_cmp(const struct crypto_bignum *a,
 		      const struct crypto_bignum *b);
-
-/**
- * crypto_bignum_bits - Get size of a bignum in bits
- * @a: Bignum
- * Returns: Number of bits in the bignum
- */
-int crypto_bignum_bits(const struct crypto_bignum *a);
 
 /**
  * crypto_bignum_is_zero - Is the given bignum zero
@@ -737,6 +761,9 @@ const struct crypto_bignum * crypto_ec_get_prime(struct crypto_ec *e);
  * Returns: Order (bignum) of the group
  */
 const struct crypto_bignum * crypto_ec_get_order(struct crypto_ec *e);
+
+const struct crypto_bignum * crypto_ec_get_a(struct crypto_ec *e);
+const struct crypto_bignum * crypto_ec_get_b(struct crypto_ec *e);
 
 /**
  * struct crypto_ec_point - Elliptic curve point
@@ -889,5 +916,6 @@ struct wpabuf * crypto_ecdh_get_pubkey(struct crypto_ecdh *ecdh, int inc_y);
 struct wpabuf * crypto_ecdh_set_peerkey(struct crypto_ecdh *ecdh, int inc_y,
 					const u8 *key, size_t len);
 void crypto_ecdh_deinit(struct crypto_ecdh *ecdh);
+size_t crypto_ecdh_prime_len(struct crypto_ecdh *ecdh);
 
 #endif /* CRYPTO_H */

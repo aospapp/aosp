@@ -46,5 +46,4 @@ void pic_interval_reset(struct polled_interval *pi);
  */
 void pic_update_current_time();
 
-
 #endif /* POLLED_ACTIVITY_CHECKER_H_ */

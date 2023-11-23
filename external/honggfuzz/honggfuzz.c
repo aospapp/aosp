@@ -64,14 +64,12 @@ static void exitWithMsg(const char* msg, int exit_code) {
     }
 }
 
-static bool showDisplay = true;
 static void sigHandler(int sig) {
     /* We should not terminate upon SIGALRM delivery */
     if (sig == SIGALRM) {
         if (fuzz_shouldTerminate()) {
             exitWithMsg("Terminating forcefully\n", EXIT_FAILURE);
         }
-        showDisplay = true;
         return;
     }
     /* Do nothing with pings from the main thread */
@@ -144,7 +142,7 @@ static void setupSignalsPreThreads(void) {
     /* This is checked for via sigwaitinfo/sigtimedwait */
     sigaddset(&ss, SIGUSR1);
     if (sigprocmask(SIG_SETMASK, &ss, NULL) != 0) {
-        PLOG_F("pthread_sigmask(SIG_SETMASK)");
+        PLOG_F("sigprocmask(SIG_SETMASK)");
     }
 
     struct sigaction sa = {
@@ -180,7 +178,7 @@ static void setupSignalsMainThread(void) {
     sigaddset(&ss, SIGINT);
     sigaddset(&ss, SIGQUIT);
     sigaddset(&ss, SIGALRM);
-    if (sigprocmask(SIG_UNBLOCK, &ss, NULL) != 0) {
+    if (pthread_sigmask(SIG_UNBLOCK, &ss, NULL) != 0) {
         PLOG_F("pthread_sigmask(SIG_UNBLOCK)");
     }
 }
@@ -221,6 +219,7 @@ static void* signalThread(void* arg) {
         if (fuzz_isTerminating()) {
             break;
         }
+
         if (sig == SIGCHLD) {
             pingThreads(hfuzz);
         }
@@ -292,7 +291,7 @@ int main(int argc, char** argv) {
     fuzz_threadsStart(&hfuzz);
 
     pthread_t sigthread;
-    if (!subproc_runThread(&hfuzz, &sigthread, signalThread)) {
+    if (!subproc_runThread(&hfuzz, &sigthread, signalThread, /* joinable= */ false)) {
         LOG_F("Couldn't start the signal thread");
     }
 
@@ -300,9 +299,8 @@ int main(int argc, char** argv) {
     setupMainThreadTimer();
 
     for (;;) {
-        if (hfuzz.display.useScreen && showDisplay) {
+        if (hfuzz.display.useScreen) {
             display_display(&hfuzz);
-            showDisplay = false;
         }
         if (ATOMIC_GET(sigReceived) > 0) {
             LOG_I("Signal %d (%s) received, terminating", ATOMIC_GET(sigReceived),
@@ -327,7 +325,7 @@ int main(int argc, char** argv) {
             break;
         }
         pingThreads(&hfuzz);
-        usleep(50000); /* 50ms */
+        util_sleepForMSec(50); /* 50ms */
     }
 
     /* Clean-up global buffers */

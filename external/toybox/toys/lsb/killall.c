@@ -4,7 +4,7 @@
  *
  * http://refspecs.linuxfoundation.org/LSB_4.1.0/LSB-Core-generic/LSB-Core-generic/killall.html
 
-USE_KILLALL(NEWTOY(killall, "?s:lqvi", TOYFLAG_USR|TOYFLAG_BIN))
+USE_KILLALL(NEWTOY(killall, "?s:ilqvw", TOYFLAG_USR|TOYFLAG_BIN))
 
 config KILLALL
   bool "killall"
@@ -19,6 +19,7 @@ config KILLALL
     -q	Don't print any warnings or error messages
     -s	Send SIGNAL instead of SIGTERM
     -v	Report if the signal was successfully sent
+    -w	Wait until all signaled processes are dead
 */
 
 #define FOR_killall
@@ -31,6 +32,7 @@ GLOBALS(
   pid_t cur_pid;
   char **names;
   short *err;
+  struct int_list { struct int_list *next; int val; } *pids;
 )
 
 static int kill_process(pid_t pid, char *name)
@@ -39,13 +41,19 @@ static int kill_process(pid_t pid, char *name)
 
   if (pid == TT.cur_pid) return 0;
 
-  if (toys.optflags & FLAG_i) {
+  if (FLAG(i)) {
     fprintf(stderr, "Signal %s(%d)", name, (int)pid);
     if (!yesno(0)) return 0;
   }
 
   errno = 0;
   kill(pid, TT.signum);
+  if (FLAG(w)) {
+    struct int_list *new = xmalloc(sizeof(*TT.pids));
+    new->val = pid;
+    new->next = TT.pids;
+    TT.pids = new;
+  }
   for (;;) {
     if (TT.names[offset] == name) {
       TT.err[offset] = errno;
@@ -53,8 +61,8 @@ static int kill_process(pid_t pid, char *name)
     } else offset++;
   }
   if (errno) {
-    if (!(toys.optflags & FLAG_q)) perror_msg("pid %d", (int)pid);
-  } else if (toys.optflags & FLAG_v)
+    if (!FLAG(q)) perror_msg("pid %d", (int)pid);
+  } else if (FLAG(v))
     printf("Killed %s(%d) with signal %d\n", name, pid, TT.signum);
 
   return 0;
@@ -67,14 +75,14 @@ void killall_main(void)
   TT.names = toys.optargs;
   TT.signum = SIGTERM;
 
-  if (toys.optflags & FLAG_l) {
-    sig_to_num(NULL);
+  if (FLAG(l)) {
+    list_signals();
     return;
   }
 
   if (TT.s || (*TT.names && **TT.names == '-')) {
     if (0 > (TT.signum = sig_to_num(TT.s ? TT.s : (*TT.names)+1))) {
-      if (toys.optflags & FLAG_q) exit(1);
+      if (FLAG(q)) exit(1);
       error_exit("Invalid signal");
     }
     if (!TT.s) {
@@ -83,13 +91,13 @@ void killall_main(void)
     }
   }
 
-  if (!(toys.optflags & FLAG_l) && !toys.optc) help_exit("no name");
+  if (!toys.optc) help_exit("no name");
 
   TT.cur_pid = getpid();
 
   TT.err = xmalloc(2*toys.optc);
   for (i=0; i<toys.optc; i++) TT.err[i] = ESRCH;
-  names_to_pid(TT.names, kill_process);
+  names_to_pid(TT.names, kill_process, 1);
   for (i=0; i<toys.optc; i++) {
     if (TT.err[i]) {
       toys.exitval = 1;
@@ -97,5 +105,18 @@ void killall_main(void)
       perror_msg_raw(TT.names[i]);
     }
   }
-  if (CFG_TOYBOX_FREE) free(TT.err);
+  if (FLAG(w)) {
+    for (;;) {
+      struct int_list *p = TT.pids;
+      int c = 0;
+
+      for (; p; p=p->next) if (kill(p->val, 0) != -1 || errno != ESRCH) ++c;
+      if (!c) break;
+      sleep(1);
+    }
+  }
+  if (CFG_TOYBOX_FREE) {
+    free(TT.err);
+    llist_traverse(TT.pids, free);
+  }
 }

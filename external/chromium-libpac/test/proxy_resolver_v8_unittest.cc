@@ -643,5 +643,33 @@ TEST(ProxyResolverV8Test, B_132073833) {
   EXPECT_EQ("DIRECT", proxies[0]);
 }
 
+TEST(ProxyResolverV8Test, B_139806216) {
+  ProxyResolverV8WithMockBindings resolver(new MockJSBindings());
+  int result = resolver.SetPacScript(SCRIPT(B_139806216_JS));
+  EXPECT_EQ(OK, result);
+
+  // Execute FindProxyForURL().
+  result = resolver.GetProxyForURL(kQueryUrl, kQueryHost, &kResults);
+
+  EXPECT_EQ(OK, result);
+  std::vector<std::string> proxies = string16ToProxyList(kResults);
+  EXPECT_EQ(1U, proxies.size());
+  EXPECT_EQ("DIRECT", proxies[0]);
+}
+
+TEST(ProxyResolverV8Test, B_147664838) {
+  ProxyResolverV8WithMockBindings resolver(new MockJSBindings());
+  int result = resolver.SetPacScript(SCRIPT(B_147664838_JS));
+  EXPECT_EQ(OK, result);
+
+  // Execute FindProxyForURL().
+  result = resolver.GetProxyForURL(kQueryUrl, kQueryHost, &kResults);
+
+  EXPECT_EQ(OK, result);
+  std::vector<std::string> proxies = string16ToProxyList(kResults);
+  EXPECT_EQ(1U, proxies.size());
+  EXPECT_EQ("DIRECT", proxies[0]);
+}
+
 }  // namespace
 }  // namespace net

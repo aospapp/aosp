@@ -2675,8 +2675,10 @@ WORD32 ihevce_populate_vui(
 
                     /* Bitrate as per level and tier limits */
                     u8_bit_rate_val =
-                        g_as_level_data[codec_level_index].i4_max_bit_rate[codec_tier];
-                    u8_max_cpb_size = g_as_level_data[codec_level_index].i4_max_cpb[codec_tier];
+                        g_as_level_data[codec_level_index].i4_max_bit_rate[codec_tier] *
+                        CBP_VCL_FACTOR;
+                    u8_max_cpb_size =
+                        g_as_level_data[codec_level_index].i4_max_cpb[codec_tier] * CBP_VCL_FACTOR;
                 }
 
                 u8_bit_rate_val >>= (6 + ps_vui->s_vui_hrd_parameters.u4_bit_rate_scale);

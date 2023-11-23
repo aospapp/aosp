@@ -15,15 +15,18 @@
 #include "raw.h"
 
 #ifndef min
-#define min(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a < _b ? _a : _b; })
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a < _b ? _a : _b;                                             \
+	})
 #endif
 
 static double tp_diff(struct timespec *tp2, struct timespec *tp1)
 {
-	return (tp2->tv_sec - tp1->tv_sec)
-		+ (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
+	return (tp2->tv_sec - tp1->tv_sec) +
+	       (tp2->tv_nsec - tp1->tv_nsec) * 1e-9;
 }
 
 void process(struct crossover2 *xo2, int count, float *data0L, float *data0R,

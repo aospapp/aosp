@@ -145,7 +145,7 @@ void areFeaturesSupported (const Context& context, deUint32 toCheck)
 	if ((toCheck & EXT16BITSTORAGEFEATURES_INPUT_OUTPUT) != 0 && extensionFeatures.storageInputOutput16 == VK_FALSE)
 		TCU_THROW(NotSupportedError, "Requested 16bit storage features not supported");
 
-	if (!context.getFloat16Int8Features().shaderFloat16)
+	if (!context.getShaderFloat16Int8Features().shaderFloat16)
 		TCU_THROW(NotSupportedError, "Requested 16-bit floats (halfs) are not supported in shader code");
 }
 
@@ -921,19 +921,16 @@ struct EvalContext
 	EvalContext (const FloatFormat&	format_,
 				 Precision			floatPrecision_,
 				 Environment&		env_,
-				 int				callDepth_,
-				 bool				isShaderFloat16Int8_ = false)
+				 int				callDepth_)
 		: format				(format_)
 		, floatPrecision		(floatPrecision_)
 		, env					(env_)
-		, callDepth				(callDepth_)
-		, isShaderFloat16Int8	(isShaderFloat16Int8_) {}
+		, callDepth				(callDepth_) {}
 
 	FloatFormat		format;
 	Precision		floatPrecision;
 	Environment&	env;
 	int				callDepth;
-	bool			isShaderFloat16Int8;
 };
 
 /*--------------------------------------------------------------------*//*!
@@ -1497,6 +1494,8 @@ public:
 	//! Index of output parameter, or -1 if none of the parameters is output.
 	virtual int			getOutParamIndex		(void)					const { return -1; }
 
+	virtual SpirVCaseT	getSpirvCase			(void)					const { return SPIRV_CASETYPE_NONE; }
+
 	void				printDefinition			(ostream& os)			const
 	{
 		doPrintDefinition(os);
@@ -1861,7 +1860,7 @@ protected:
 		funEnv.bind(*m_var3, args.d);
 
 		{
-			EvalContext	funCtx(ctx.format, ctx.floatPrecision, funEnv, ctx.callDepth, ctx.isShaderFloat16Int8);
+			EvalContext	funCtx(ctx.format, ctx.floatPrecision, funEnv, ctx.callDepth);
 
 			for (size_t ndx = 0; ndx < m_body.size(); ++ndx)
 				m_body[ndx]->execute(funCtx);
@@ -2302,11 +2301,13 @@ template <class T>
 class Comparison : public InfixOperator < T >
 {
 public:
-	string		getName(void) const { return "comparison"; }
-	string		getSymbol(void) const { return ""; }
+	string		getName			(void) const	{ return "comparison"; }
+	string		getSymbol		(void) const	{ return ""; }
 
-	Interval	doApply(const EvalContext&	ctx,
-		const Signature<int, float, float>::IArgs&		iargs) const
+	SpirVCaseT	getSpirvCase	() const		{ return SPIRV_CASETYPE_COMPARE; }
+
+	Interval	doApply			(const EvalContext&						ctx,
+								 const typename Comparison<T>::IArgs&	iargs) const
 	{
 		DE_UNREF(ctx);
 		if (iargs.a.hasNaN() || iargs.b.hasNaN())
@@ -2560,49 +2561,16 @@ protected:
 	{
 		return Interval(0.0, TCU_INFINITY);
 	}
-private:
-	double precision_legacy(const EvalContext& ctx, double ret, double x) const;
 };
-
-template <>
-double ExpFunc <Signature<float, float> >::precision_legacy(const EvalContext& ctx, double ret, double x) const
-{
-	switch (ctx.floatPrecision)
-	{
-	case glu::PRECISION_HIGHP:
-		return ctx.format.ulp(ret, 3.0 + 2.0 * deAbs(x));
-	case glu::PRECISION_MEDIUMP:
-		return ctx.format.ulp(ret, 2.0 + 2.0 * deAbs(x));
-	case glu::PRECISION_LOWP:
-		return ctx.format.ulp(ret, 2.0);
-	default:
-		DE_FATAL("Impossible");
-	}
-	return 0.0;
-}
-
-template <>
-double ExpFunc <Signature<deFloat16, deFloat16> >::precision_legacy(const EvalContext& ctx, double ret, double x) const
-{
-	DE_UNREF(ctx);
-	DE_UNREF(ret);
-	DE_UNREF(x);
-	DE_FATAL("Impossible");
-	return 0.0;
-}
 
 template <>
 double ExpFunc <Signature<float, float> >::precision (const EvalContext& ctx, double ret, double x) const
 {
-	if (!ctx.isShaderFloat16Int8)
-		return precision_legacy(ctx, ret, x);
-
 	switch (ctx.floatPrecision)
 	{
 	case glu::PRECISION_HIGHP:
 		return ctx.format.ulp(ret, 3.0 + 2.0 * deAbs(x));
 	case glu::PRECISION_MEDIUMP:
-	case glu::PRECISION_LOWP:
 	case glu::PRECISION_LAST:
 		return ctx.format.ulp(ret, 1.0 + 2.0 * deAbs(x));
 	default:
@@ -2628,9 +2596,6 @@ ExprP<T> exp2	(const ExprP<T>& x)	{ return app<Exp2< Signature<T, T> > >(x); }
 template <typename T>
 ExprP<T> exp	(const ExprP<T>& x)	{ return app<Exp< Signature<T, T> > >(x); }
 
-//ExprP<deFloat16> exp2	(const ExprP<deFloat16>& x)	{ return app<Exp2< Signature<deFloat16, deFloat16> > >(x); }
-//ExprP<deFloat16> exp	(const ExprP<deFloat16>& x)	{ return app<Exp< Signature<deFloat16, deFloat16> > >(x); }
-
 template <class T>
 class LogFunc : public CFloatFunc1<T>
 {
@@ -2653,11 +2618,8 @@ double LogFunc<Signature<float, float> >::precision(const EvalContext& ctx, doub
 	case glu::PRECISION_HIGHP:
 		return (0.5 <= x && x <= 2.0) ? deLdExp(1.0, -21) : ctx.format.ulp(ret, 3.0);
 	case glu::PRECISION_MEDIUMP:
-		return (0.5 <= x && x <= 2.0) ? deLdExp(1.0, -7) : ctx.format.ulp(ret, 2.0);
-	case glu::PRECISION_LOWP:
-		return ctx.format.ulp(ret, 2.0);
 	case glu::PRECISION_LAST:
-		return (0.5 <= x && x <= 2.0) ? deLdExp(1.0, -7) : ctx.format.ulp(ret, 3.0); // float16bit
+		return (0.5 <= x && x <= 2.0) ? deLdExp(1.0, -7) : ctx.format.ulp(ret, 3.0);
 	default:
 		DE_FATAL("Impossible");
 	}
@@ -2697,7 +2659,7 @@ protected:																	\
 	ExprP<TRET>		doExpand		(ExpandContext&,						\
 									 const CLASS::ArgExprs& args_) const	\
 	{																		\
-		const ExprP<float>& ARG0 = args_.a;								\
+		const ExprP<T0>& ARG0 = args_.a;									\
 		return EXPANSION;													\
 	}																		\
 };																			\
@@ -2717,7 +2679,7 @@ protected:																				\
 	ExprP<TRET>		doExpand		(ExpandContext&,									\
 									 const CLASS::ArgExprs& args_) const				\
 	{																					\
-		const ExprP<float>& ARG0 = args_.a;												\
+		const ExprP<T0>& ARG0 = args_.a;												\
 		return EXPANSION;																\
 	}																					\
 	Interval	getInputRange	(const bool /*is16bit*/) const							\
@@ -2730,47 +2692,11 @@ DEFINE_CONSTRUCTOR1(CLASS, TRET, NAME, T0)
 #define DEFINE_DERIVED_FLOAT1_INPUTRANGE(CLASS, NAME, ARG0, EXPANSION, INTERVAL) \
 	DEFINE_DERIVED1_INPUTRANGE(CLASS, float, NAME, float, ARG0, EXPANSION, INTERVAL)
 
-#define DEFINE_DERIVED1_16BIT(CLASS, TRET, NAME, T0, ARG0, EXPANSION)		\
-class CLASS : public DerivedFunc<Signature<TRET, T0> > /* NOLINT(CLASS) */	\
-{																			\
-public:																		\
-	string			getName		(void) const		{ return #NAME; }		\
-																			\
-protected:																	\
-	ExprP<TRET>		doExpand		(ExpandContext&,						\
-									 const CLASS::ArgExprs& args_) const	\
-	{																		\
-		const ExprP<deFloat16>& ARG0 = args_.a;							\
-		return EXPANSION;													\
-	}																		\
-};																			\
-DEFINE_CONSTRUCTOR1(CLASS, TRET, NAME, T0)
-
-#define DEFINE_DERIVED1_INPUTRANGE_16BIT(CLASS, TRET, NAME, T0, ARG0, EXPANSION, INTERVAL)	\
-class CLASS : public DerivedFunc<Signature<TRET, T0> > /* NOLINT(CLASS) */	\
-{																			\
-public:																		\
-	string			getName		(void) const		{ return #NAME; }		\
-																			\
-protected:																	\
-	ExprP<TRET>		doExpand		(ExpandContext&,						\
-									 const CLASS::ArgExprs& args_) const	\
-	{																		\
-		const ExprP<deFloat16>& ARG0 = args_.a;							\
-		return EXPANSION;													\
-	}																		\
-	Interval	getInputRange	(const bool /*is16bit*/) const				\
-	{																		\
-		return INTERVAL;													\
-	}																		\
-};																			\
-DEFINE_CONSTRUCTOR1(CLASS, TRET, NAME, T0)
-
 #define DEFINE_DERIVED_FLOAT1_16BIT(CLASS, NAME, ARG0, EXPANSION) \
-	DEFINE_DERIVED1_16BIT(CLASS, deFloat16, NAME, deFloat16, ARG0, EXPANSION)
+	DEFINE_DERIVED1(CLASS, deFloat16, NAME, deFloat16, ARG0, EXPANSION)
 
 #define DEFINE_DERIVED_FLOAT1_INPUTRANGE_16BIT(CLASS, NAME, ARG0, EXPANSION, INTERVAL) \
-	DEFINE_DERIVED1_INPUTRANGE_16BIT(CLASS, deFloat16, NAME, deFloat16, ARG0, EXPANSION, INTERVAL)
+	DEFINE_DERIVED1_INPUTRANGE(CLASS, deFloat16, NAME, deFloat16, ARG0, EXPANSION, INTERVAL)
 
 #define DEFINE_CONSTRUCTOR2(CLASS, TRET, NAME, T0, T1)				\
 ExprP<TRET> NAME (const ExprP<T0>& arg0, const ExprP<T1>& arg1)		\
@@ -2778,11 +2704,13 @@ ExprP<TRET> NAME (const ExprP<T0>& arg0, const ExprP<T1>& arg1)		\
 	return app<CLASS>(arg0, arg1);									\
 }
 
-#define DEFINE_DERIVED2(CLASS, TRET, NAME, T0, Arg0, T1, Arg1, EXPANSION) \
+#define DEFINE_CASED_DERIVED2(CLASS, TRET, NAME, T0, Arg0, T1, Arg1, EXPANSION, SPIRVCASE) \
 class CLASS : public DerivedFunc<Signature<TRET, T0, T1> > /* NOLINT(CLASS) */ \
 {																		\
 public:																	\
-	string			getName		(void) const		{ return #NAME; }	\
+	string			getName		(void) const	{ return #NAME; }		\
+																		\
+	SpirVCaseT		getSpirvCase(void) const	{ return SPIRVCASE; }	\
 																		\
 protected:																\
 	ExprP<TRET>		doExpand	(ExpandContext&, const ArgExprs& args_) const \
@@ -2794,11 +2722,23 @@ protected:																\
 };																		\
 DEFINE_CONSTRUCTOR2(CLASS, TRET, NAME, T0, T1)
 
+#define DEFINE_DERIVED2(CLASS, TRET, NAME, T0, Arg0, T1, Arg1, EXPANSION) \
+	DEFINE_CASED_DERIVED2(CLASS, TRET, NAME, T0, Arg0, T1, Arg1, EXPANSION, SPIRV_CASETYPE_NONE)
+
 #define DEFINE_DERIVED_FLOAT2(CLASS, NAME, Arg0, Arg1, EXPANSION)		\
 	DEFINE_DERIVED2(CLASS, float, NAME, float, Arg0, float, Arg1, EXPANSION)
 
 #define DEFINE_DERIVED_FLOAT2_16BIT(CLASS, NAME, Arg0, Arg1, EXPANSION)		\
 	DEFINE_DERIVED2(CLASS, deFloat16, NAME, deFloat16, Arg0, deFloat16, Arg1, EXPANSION)
+
+#define DEFINE_CASED_DERIVED_FLOAT2(CLASS, NAME, Arg0, Arg1, EXPANSION, SPIRVCASE) \
+	DEFINE_CASED_DERIVED2(CLASS, float, NAME, float, Arg0, float, Arg1, EXPANSION, SPIRVCASE)
+
+#define DEFINE_CASED_DERIVED_FLOAT2_16BIT(CLASS, NAME, Arg0, Arg1, EXPANSION, SPIRVCASE) \
+	DEFINE_CASED_DERIVED2(CLASS, deFloat16, NAME, deFloat16, Arg0, deFloat16, Arg1, EXPANSION, SPIRVCASE)
+
+#define DEFINE_CASED_DERIVED_DOUBLE2(CLASS, NAME, Arg0, Arg1, EXPANSION, SPIRVCASE) \
+	DEFINE_CASED_DERIVED2(CLASS, double, NAME, double, Arg0, double, Arg1, EXPANSION, SPIRVCASE)
 
 #define DEFINE_CONSTRUCTOR3(CLASS, TRET, NAME, T0, T1, T2)				\
 ExprP<TRET> NAME (const ExprP<T0>& arg0, const ExprP<T1>& arg1, const ExprP<T2>& arg2) \
@@ -2839,7 +2779,7 @@ ExprP<TRET> NAME (const ExprP<T0>& arg0, const ExprP<T1>& arg1,			\
 typedef	 InverseSqrt< Signature<deFloat16, deFloat16> >	InverseSqrt16Bit;
 typedef	 InverseSqrt< Signature<float, float> >			InverseSqrt32Bit;
 
-DEFINE_DERIVED_FLOAT1(Sqrt,				sqrt,		x,		constant(1.0f) / app<InverseSqrt32Bit>(x));
+DEFINE_DERIVED_FLOAT1(Sqrt32Bit,		sqrt,		x,		constant(1.0f) / app<InverseSqrt32Bit>(x));
 DEFINE_DERIVED_FLOAT1_16BIT(Sqrt16Bit,	sqrt,		x,		constant((deFloat16)FLOAT16_1_0) / app<InverseSqrt16Bit>(x));
 DEFINE_DERIVED_FLOAT2(Pow,				pow,		x,	y,	exp2<float>(y * log2(x)));
 DEFINE_DERIVED_FLOAT2_16BIT(Pow16,		pow,		x,	y,	exp2<deFloat16>(y * log2(x)));
@@ -2911,8 +2851,6 @@ protected:
 
 	Interval		m_loExtremum;
 	Interval		m_hiExtremum;
-private:
-	double precision_legacy(const EvalContext& ctx, double ret, double arg) const;
 };
 
 //Only -DE_PI_DOUBLE, DE_PI_DOUBLE input range
@@ -2931,19 +2869,14 @@ Interval TrigFunc<Signature<deFloat16, deFloat16> >::getInputRange(const bool is
 	return Interval(false, -DE_PI_DOUBLE, DE_PI_DOUBLE);
 }
 
-/*
-* Old tests without changes.
-*/
 template<>
-double TrigFunc<Signature<float, float> >::precision_legacy(const EvalContext& ctx, double ret, double arg) const
+double TrigFunc<Signature<float, float> >::precision(const EvalContext& ctx, double ret, double arg) const
 {
+	DE_UNREF(ret);
 	if (ctx.floatPrecision == glu::PRECISION_HIGHP)
 	{
-		// Use precision from OpenCL fast relaxed math
 		if (-DE_PI_DOUBLE <= arg && arg <= DE_PI_DOUBLE)
-		{
 			return deLdExp(1.0, -11);
-		}
 		else
 		{
 			// "larger otherwise", let's pick |x| * 2^-12 , which is slightly over
@@ -2951,54 +2884,18 @@ double TrigFunc<Signature<float, float> >::precision_legacy(const EvalContext& c
 			return deLdExp(deAbs(arg), -12);
 		}
 	}
-	else if (ctx.floatPrecision == glu::PRECISION_MEDIUMP)
+	else
 	{
+		DE_ASSERT(ctx.floatPrecision == glu::PRECISION_MEDIUMP || ctx.floatPrecision == glu::PRECISION_LAST);
+
 		if (-DE_PI_DOUBLE <= arg && arg <= DE_PI_DOUBLE)
-		{
-			// from OpenCL half-float extension specification
-			return ctx.format.ulp(ret, 2.0);
-		}
+			return deLdExp(1.0, -7);
 		else
 		{
-			// |x| * 2^-10, slightly larger than 2 ULP at x == pi
-			return deLdExp(deAbs(arg), -10);
+			// |x| * 2^-8, slightly larger than 2^-7 at x == pi
+			return deLdExp(deAbs(arg), -8);
 		}
 	}
-	else
-	{
-		DE_ASSERT(ctx.floatPrecision == glu::PRECISION_LOWP);
-
-		// from OpenCL half-float extension specification
-		return ctx.format.ulp(ret, 2.0);
-	}
-}
-
-template<>
-double TrigFunc<Signature<deFloat16, deFloat16> >::precision_legacy(const EvalContext& ctx, double ret, double arg) const
-{
-	DE_UNREF(ctx);
-	DE_UNREF(ret);
-	DE_UNREF(arg);
-	DE_FATAL("Impossible");
-	return 0.0;
-}
-
-template<>
-double TrigFunc<Signature<float, float> >::precision(const EvalContext& ctx, double ret, double arg) const
-{
-	if (!ctx.isShaderFloat16Int8)
-		return precision_legacy(ctx, ret, arg);
-
-	DE_ASSERT(-DE_PI_DOUBLE <= arg && arg <= DE_PI_DOUBLE);
-	if (ctx.floatPrecision == glu::PRECISION_HIGHP)
-	{
-		return deLdExp(1.0, -11);
-	}
-	else
-	{
-		return deLdExp(1.0, -7);
-	}
-	return 0.0;
 }
 //
 /*
@@ -3049,114 +2946,22 @@ DEFINE_DERIVED_FLOAT1_INPUTRANGE(Tan, tan, x, sin(x) * (constant(1.0f) / cos(x))
 DEFINE_DERIVED_FLOAT1_INPUTRANGE_16BIT(Tan16Bit, tan, x, sin(x) * (constant((deFloat16)FLOAT16_1_0) / cos(x)), Interval(false, -DE_PI_DOUBLE, DE_PI_DOUBLE));
 
 template <class T>
-class ArcTrigFunc : public CFloatFunc1<T>
+class ATan : public CFloatFunc1<T>
 {
 public:
-					ArcTrigFunc	(const string&		name,
-								 DoubleFunc1&		func,
-								 double				precisionULPs,
-								 const Interval&	domain,
-								 const Interval&	codomain)
-						: CFloatFunc1<T>	(name, func)
-						, m_precision		(precisionULPs)
-						, m_domain			(domain)
-						, m_codomain		(codomain) {}
+			ATan		(void) : CFloatFunc1<T>	("atan", deAtanOver) {}
 
 protected:
-	double			precision	(const EvalContext& ctx, double ret, double x) const;
-
-	// We could implement getCodomain with m_codomain, but choose not to,
-	// because it seems too strict with trascendental constants like pi.
-
-	const double	m_precision;
-	const Interval	m_domain;
-	const Interval	m_codomain;
-};
-
-template<> //half precision
-double ArcTrigFunc<Signature<deFloat16, deFloat16> >::precision (const EvalContext& ctx, double ret, double x) const
-{
-	if (!m_domain.contains(x))
-		return TCU_NAN;
-
-	// Form the spec 5 ULP.
-	return ctx.format.ulp(ret, 5.0);
-}
-
-template<>
-double ArcTrigFunc<Signature<float, float> >::precision(const EvalContext& ctx, double ret, double x) const
-{
-	if (!m_domain.contains(x))
-		return TCU_NAN;
-
-	//precision_with_extension
-	if (ctx.isShaderFloat16Int8)
+	double	precision	(const EvalContext& ctx, double ret, double x) const
 	{
-		if (ctx.floatPrecision == glu::PRECISION_HIGHP)
-		{
-			return ctx.format.ulp(ret, 4096.0);
-		}
-		else
-		{
-			return ctx.format.ulp(ret, 5.0);
-		}
-	}
-	// precision legacy
-	else
-	{
-		if (ctx.floatPrecision == glu::PRECISION_HIGHP)
-		{
-			// Use OpenCL's fast relaxed math precision
-			return ctx.format.ulp(ret, m_precision);
-		}
-		else
-		{
-			// Use OpenCL half-float spec
-			return ctx.format.ulp(ret, 2.0);
-		}
-	}
-}
-
-class ASin : public CFloatFunc1<Signature<float, float> >
-{
-public:
-	ASin(void) : CFloatFunc1<Signature<float, float> >("asin", deAsin) {}
-
-protected:
-	double			precision(const EvalContext& ctx, double ret, double x) const
-	{
-		DE_UNREF(ret);
-		if (!de::inBounds(x, -1.0, 1.0))
+		if (x < -DE_PI_DOUBLE * 0.5 || x > DE_PI_DOUBLE * 0.5)
 			return TCU_NAN;
 
 		if (ctx.floatPrecision == glu::PRECISION_HIGHP)
-		{
-			// Absolute error of 2^-11
-			return deLdExp(1.0, -11);
-		}
+			return ctx.format.ulp(ret, 4096.0);
 		else
-		{
-			// Absolute error of 2^-8
-			return deLdExp(1.0, -8);
-		}
+			return ctx.format.ulp(ret, 5.0);
 	}
-};
-
-class ACos : public ArcTrigFunc<Signature<float, float> >
-{
-public:
-	ACos (void) : ArcTrigFunc<Signature<float, float> > ("acos", deAcos, 4096.0,
-								  Interval(-1.0, 1.0),
-								  Interval(0.0, DE_PI_DOUBLE)) {}
-};
-
-template <class T>
-class ATan : public ArcTrigFunc<T>
-{
-public:
-	ATan (void) : ArcTrigFunc<T>("atan", deAtanOver, 4096.0,
-								  Interval::unbounded(),
-								  Interval(-DE_PI_DOUBLE * 0.5, DE_PI_DOUBLE * 0.5)) {}
 };
 
 template <class T>
@@ -3213,18 +3018,16 @@ DEFINE_DERIVED_FLOAT1_16BIT(Sinh16Bit, sinh, x, (exp(x) - exp(-x)) / constant((d
 DEFINE_DERIVED_FLOAT1_16BIT(Cosh16Bit, cosh, x, (exp(x) + exp(-x)) / constant((deFloat16)FLOAT16_2_0));
 DEFINE_DERIVED_FLOAT1_16BIT(Tanh16Bit, tanh, x, sinh(x) / cosh(x));
 
-// These are not defined as derived forms in the GLSL ES spec, but
-// that gives us a reasonable precision.
-DEFINE_DERIVED_FLOAT1(ASin16BitInOut32b, asin, x, atan2(x, sqrt(constant(1.0f) - pow(x, constant(2.0f)))));
-DEFINE_DERIVED_FLOAT1(ACos16BitInOut32b, acos, x, atan2(sqrt(constant(1.0f) - pow(x, constant(2.0f))), x));
+DEFINE_DERIVED_FLOAT1(ASin, asin, x, atan2(x, sqrt(constant(1.0f) - x * x)));
+DEFINE_DERIVED_FLOAT1(ACos, acos, x, atan2(sqrt(constant(1.0f) - x * x), x));
 DEFINE_DERIVED_FLOAT1(ASinh, asinh, x, log(x + sqrt(x * x + constant(1.0f))));
 DEFINE_DERIVED_FLOAT1(ACosh, acosh, x, log(x + sqrt(alternatives((x + constant(1.0f)) * (x - constant(1.0f)),
 																 (x * x - constant(1.0f))))));
 DEFINE_DERIVED_FLOAT1(ATanh, atanh, x, constant(0.5f) * log((constant(1.0f) + x) /
 															(constant(1.0f) - x)));
 
-DEFINE_DERIVED_FLOAT1_16BIT(ASin16Bit, asin, x, atan2(x, sqrt(constant((deFloat16)FLOAT16_1_0) - pow(x, constant((deFloat16)FLOAT16_2_0)))));
-DEFINE_DERIVED_FLOAT1_16BIT(ACos16Bit, acos, x, atan2(sqrt(constant((deFloat16)FLOAT16_1_0) - pow(x, constant((deFloat16)FLOAT16_2_0))), x));
+DEFINE_DERIVED_FLOAT1_16BIT(ASin16Bit, asin, x, atan2(x, sqrt(constant((deFloat16)FLOAT16_1_0) - x * x)));
+DEFINE_DERIVED_FLOAT1_16BIT(ACos16Bit, acos, x, atan2(sqrt(constant((deFloat16)FLOAT16_1_0) - x * x), x));
 DEFINE_DERIVED_FLOAT1_16BIT(ASinh16Bit, asinh, x, log(x + sqrt(x * x + constant((deFloat16)FLOAT16_1_0))));
 DEFINE_DERIVED_FLOAT1_16BIT(ACosh16Bit, acosh, x, log(x + sqrt(alternatives((x + constant((deFloat16)FLOAT16_1_0)) * (x - constant((deFloat16)FLOAT16_1_0)),
 																 (x * x - constant((deFloat16)FLOAT16_1_0))))));
@@ -3648,8 +3451,8 @@ ExprP<typename ContainerOf<T, Size>::Container> genXType (const ExprP<T>& x)
 typedef GenVec<float, 2> FloatVec2;
 DEFINE_CONSTRUCTOR2(FloatVec2, Vec2, vec2, float, float)
 
-typedef GenVec<deFloat16, 2> FloatVec1_16bit;
-DEFINE_CONSTRUCTOR2(FloatVec1_16bit, Vec2_16Bit, vec2, deFloat16, deFloat16)
+typedef GenVec<deFloat16, 2> FloatVec2_16bit;
+DEFINE_CONSTRUCTOR2(FloatVec2_16bit, Vec2_16Bit, vec2, deFloat16, deFloat16)
 
 typedef GenVec<float, 3> FloatVec3;
 DEFINE_CONSTRUCTOR3(FloatVec3, Vec3, vec3, float, float, float)
@@ -4071,6 +3874,9 @@ public:
 typedef Floor< Signature<float, float> > Floor32Bit;
 typedef Floor< Signature<deFloat16, deFloat16> > Floor16Bit;
 
+typedef Trunc< Signature<float, float> > Trunc32Bit;
+typedef Trunc< Signature<deFloat16, deFloat16> > Trunc16Bit;
+
 DEFINE_DERIVED_FLOAT1(Fract, fract, x, x - app<Floor32Bit>(x));
 DEFINE_DERIVED_FLOAT1_16BIT(Fract16Bit, fract, x, x - app<Floor16Bit>(x));
 
@@ -4083,143 +3889,11 @@ protected:
 	double	precision		(const EvalContext&, double, double, double) const { return 0.0; }
 };
 
-DEFINE_DERIVED_FLOAT2(Mod, mod, x, y, x - y * app<Floor32Bit>(x / y));
+DEFINE_DERIVED_FLOAT2(Mod32Bit, mod, x, y, x - y * app<Floor32Bit>(x / y));
+DEFINE_DERIVED_FLOAT2_16BIT(Mod16Bit, mod, x, y, x - y * app<Floor16Bit>(x / y));
 
-#ifdef MODULO_OPERATION
-// \todo Zanin: Due to this is a disjoint function a special care required for values results near b
-template <class T>
-class Mod : public DerivedFunc<T>
-{
-public:
-	typedef typename DerivedFunc<T>::ArgExprs	ArgExprs;
-	typedef typename DerivedFunc<T>::IRet		IRet;
-	typedef typename DerivedFunc<T>::IArgs		IArgs;
-	typedef typename DerivedFunc<T>::Ret		Ret;
-	typedef typename DerivedFunc<T>::Arg0		Arg0;
-	typedef typename DerivedFunc<T>::Arg1		Arg1;
-	typedef typename DerivedFunc<T>::Arg2		Arg2;
-	typedef typename DerivedFunc<T>::Arg3		Arg3;
-	typedef typename DerivedFunc<T>::IArg0		IArg0;
-	typedef typename DerivedFunc<T>::IArg1		IArg1;
-	typedef typename DerivedFunc<T>::IArg2		IArg2;
-	typedef typename DerivedFunc<T>::IArg3		IArg3;
-	typedef Floor< Signature<Ret, Ret> >		FloorMod;
-	string			getName		(void) const { return "mod"; }
-protected:
-	ExprP<Ret>	doExpand	(ExpandContext&, const ArgExprs& args_) const
-	{
-		const ExprP<Ret>& x = args_.a;
-		const ExprP<Ret>& y = args_.b;
-		return x - y * app<FloorMod>(x / y);
-	}
-	IRet			doApply		(const EvalContext& ctx, const IArgs& args) const
-	{
-		Environment	funEnv;
-		IArgs&		mutArgs		= const_cast<IArgs&>(args);
-		IRet		ret;
-
-		initialize();
-
-		funEnv.bind(*this->DerivedFunc<T>::m_var0, args.a);
-		funEnv.bind(*this->DerivedFunc<T>::m_var1, args.b);
-		funEnv.bind(*this->DerivedFunc<T>::m_var2, args.c);
-		funEnv.bind(*this->DerivedFunc<T>::m_var3, args.d);
-
-		{
-			EvalContext	funCtx(ctx.format, ctx.floatPrecision, funEnv, ctx.callDepth, ctx.isShaderFloat16Int8);
-
-			for (size_t ndx = 0; ndx < this->DerivedFunc<T>::m_body.size(); ++ndx)
-				this->DerivedFunc<T>::m_body[ndx]->execute(funCtx);
-
-			ret = this->DerivedFunc<T>::m_ret->evaluate(funCtx);
-
-			double lo = ret.lo();
-			double hi = ret.hi();
-			bool loWasChange = false;
-
-			ret =  Interval(ret.hasNaN(), deMin(lo,hi), deMax(lo,hi));
-		}
-
-		// \todo [lauri] Store references instead of values in environment
-		const_cast<IArg0&>(mutArgs.a) = funEnv.lookup(*this->DerivedFunc<T>::m_var0);
-		const_cast<IArg1&>(mutArgs.b) = funEnv.lookup(*this->DerivedFunc<T>::m_var1);
-		const_cast<IArg2&>(mutArgs.c) = funEnv.lookup(*this->DerivedFunc<T>::m_var2);
-		const_cast<IArg3&>(mutArgs.d) = funEnv.lookup(*this->DerivedFunc<T>::m_var3);
-
-		return ret;
-	}
-	IRet			doFail		(const EvalContext& ctx, const IArgs& args) const
-	{
-		Environment	funEnv;
-		IArgs&		mutArgs		= const_cast<IArgs&>(args);
-		IRet		ret			= this->doApply ( ctx,args);
-
-		funEnv.bind(*this->DerivedFunc<T>::m_var0, args.a);
-		funEnv.bind(*this->DerivedFunc<T>::m_var1, args.b);
-		funEnv.bind(*this->DerivedFunc<T>::m_var2, args.c);
-		funEnv.bind(*this->DerivedFunc<T>::m_var3, args.d);
-
-		{
-			double lo = ret.lo();
-			double hi = ret.hi();
-
-			if (!ret.isFinite() && (ret.lo()!=-TCU_INFINITY || ret.hi() != TCU_INFINITY))
-			{
-				if (lo == -TCU_INFINITY && (args.b.lo() > 0.0))
-				{
-					lo = hi * (-1.0);
-					hi = TCU_INFINITY;
-				}
-				if (hi == TCU_INFINITY && (args.b.hi() < 0.0))
-				{
-					hi = lo * (-1.0);
-					lo = -TCU_INFINITY;
-				}
-			}
-
-			if (ret.isFinite() && !ret.contains(Interval(ret.hasNaN(), 0.0, 0.0)) && (deAbs(args.b.hi()) <= deAbs(hi) || deAbs(args.b.hi()) <= deAbs(lo)))
-			{
-				const double precision = ctx.format.ulp(0.0, 2.5); // from the spec
-				lo = args.b.hi() > 0.0 ? 0.0 : -precision;
-				hi = args.b.hi() > 0.0 ? precision : 0.0;
-			}
-			ret =  Interval(ret.hasNaN(), deMin(lo,hi), deMax(lo,hi));
-		}
-
-		// \todo [lauri] Store references instead of values in environment
-		const_cast<IArg0&>(mutArgs.a) = funEnv.lookup(*this->DerivedFunc<T>::m_var0);
-		const_cast<IArg1&>(mutArgs.b) = funEnv.lookup(*this->DerivedFunc<T>::m_var1);
-		const_cast<IArg2&>(mutArgs.c) = funEnv.lookup(*this->DerivedFunc<T>::m_var2);
-		const_cast<IArg3&>(mutArgs.d) = funEnv.lookup(*this->DerivedFunc<T>::m_var3);
-
-		return ret;
-	}
-private:
-	void			initialize	(void)	const
-	{
-		if (!this->DerivedFunc<T>::m_ret)
-		{
-			const ParamNames&	paramNames	= this->getParamNames();
-			Counter				symCounter;
-			ExpandContext		ctx			(symCounter);
-			ArgExprs			args;
-
-			args.a	= this->DerivedFunc<T>::m_var0 = variable<Arg0>(paramNames.a);
-			args.b	= this->DerivedFunc<T>::m_var1 = variable<Arg1>(paramNames.b);
-			args.c	= this->DerivedFunc<T>::m_var2 = variable<Arg2>(paramNames.c);
-			args.d	= this->DerivedFunc<T>::m_var3 = variable<Arg3>(paramNames.d);
-
-			this->DerivedFunc<T>::m_ret	= this->doExpand(ctx, args);
-			this->DerivedFunc<T>::m_body	= ctx.getStatements();
-		}
-	}
-};
-
-ExprP<deFloat16> mod (const ExprP<deFloat16>& arg0, const ExprP<deFloat16>& arg1)
-{
-	return app<Mod<Signature<deFloat16, deFloat16, deFloat16> > >(arg0, arg1);
-};
-#endif
+DEFINE_CASED_DERIVED_FLOAT2(FRem32Bit, frem, x, y, x - y * app<Trunc32Bit>(x / y), SPIRV_CASETYPE_FREM);
+DEFINE_CASED_DERIVED_FLOAT2_16BIT(FRem16Bit, frem, x, y, x - y * app<Trunc16Bit>(x / y), SPIRV_CASETYPE_FREM);
 
 template <class T>
 class Modf : public PrimitiveFunc<T>
@@ -5078,6 +4752,11 @@ public:
 
 				GenFunc					(const Func<Sig_>&	scalarFunc) : m_func (scalarFunc) {}
 
+	SpirVCaseT	getSpirvCase			(void) const
+	{
+		return m_func.getSpirvCase();
+	}
+
 	string		getName					(void) const
 	{
 		return m_func.getName();
@@ -5160,6 +4839,11 @@ public:
 	string						getName			(void) const
 	{
 		return this->doGetScalarFunc().getName();
+	}
+
+	SpirVCaseT					getSpirvCase	(void) const
+	{
+		return this->doGetScalarFunc().getSpirvCase();
 	}
 
 protected:
@@ -5308,7 +4992,6 @@ public:
 	virtual void	genFixeds			(const FloatFormat&, const Precision, vector<T>&, const Interval&)	const {}
 	virtual T		genRandom			(const FloatFormat&,const Precision, Random&, const Interval&)		const { return T(); }
 	virtual void	removeNotInRange	(vector<T>&, const Interval&, const Precision)					const {};
-	virtual double	getWeight			(void)																const { return 0.0; }
 };
 
 template <>
@@ -5347,14 +5030,12 @@ public:
 		dst.push_back(-1);
 		dst.push_back(1);
 	}
-	double	getWeight	(void) const { return 1.0; }
 
 private:
 	static inline int getNumBits (Precision prec)
 	{
 		switch (prec)
 		{
-			case glu::PRECISION_LOWP:		return 8;
 			case glu::PRECISION_LAST:
 			case glu::PRECISION_MEDIUMP:	return 16;
 			case glu::PRECISION_HIGHP:		return 32;
@@ -5372,8 +5053,14 @@ public:
 	float	genRandom			(const FloatFormat& format, const Precision prec, Random& rnd, const Interval& inputRange)			const;
 	void	genFixeds			(const FloatFormat& format, const Precision prec, vector<float>& dst, const Interval& inputRange)	const;
 	void	removeNotInRange	(vector<float>& dst, const Interval& inputRange, const Precision prec)								const;
-	double	getWeight			(void) const { return 1.0; }
 };
+
+static bool isDenorm16(deFloat16 v)
+{
+	const deUint16 mantissa = 0x03FF;
+	const deUint16 exponent = 0x7C00;
+	return ((exponent & v) == 0 && (mantissa & v) != 0);
+}
 
 //! Generate a random float from a reasonable general-purpose distribution.
 float DefaultSampling<float>::genRandom (const FloatFormat&	format,
@@ -5381,9 +5068,12 @@ float DefaultSampling<float>::genRandom (const FloatFormat&	format,
 										 Random&			rnd,
 										 const Interval&	inputRange) const
 {
+	DE_UNREF(prec);
+	// No testing of subnormals. TODO: Could integrate float controls for some operations.
 	const int		minExp			= format.getMinExp();
 	const int		maxExp			= format.getMaxExp();
-	const bool		haveSubnormal	= format.hasSubnormal() != tcu::NO;
+	const bool		haveSubnormal	= false;
+	const float		midpoint		= static_cast<float>(inputRange.midpoint());
 
 	// Choose exponent so that the cumulative distribution is cubic.
 	// This makes the probability distribution quadratic, with the peak centered on zero.
@@ -5401,63 +5091,39 @@ float DefaultSampling<float>::genRandom (const FloatFormat&	format,
 	// Generate some occasional special numbers
 	switch (rnd.getInt(0, 64))
 	{
-		case 0:		value = inputRange.contains(0) ? 0 : static_cast<float>(inputRange.midpoint()); break;
-		case 1:		value = inputRange.contains(TCU_INFINITY) ? TCU_INFINITY : static_cast<float>(inputRange.midpoint()); break;
-		case 2:		value = inputRange.contains(-TCU_INFINITY) ? -TCU_INFINITY : static_cast<float>(inputRange.midpoint()); break;
-		case 3:		value = inputRange.contains(TCU_NAN) ? TCU_NAN : static_cast<float>(inputRange.midpoint()); break;
+		case 0:		return inputRange.contains(0)				? 0				: midpoint; break;
+		case 1:		return inputRange.contains(TCU_INFINITY)	? TCU_INFINITY	: midpoint; break;
+		case 2:		return inputRange.contains(-TCU_INFINITY)	? -TCU_INFINITY	: midpoint; break;
+		case 3:		return inputRange.contains(TCU_NAN)			? TCU_NAN		: midpoint; break;
 		default:	break;
 	}
 
-	if(value != -1.0f)
+	// Normal number
+	base = deFloatLdExp(1.0f, exp);
+	quantum = deFloatLdExp(1.0f, exp - fractionBits);
+
+	switch (rnd.getInt(0, 16))
 	{
-		// Normal number
-		base = deFloatLdExp(1.0f, exp);
-		quantum = deFloatLdExp(1.0f, exp - fractionBits);
-
-		switch (rnd.getInt(0, 16))
+		case 0: // The highest number in this binade, significand is all bits one.
+			significand = base - quantum;
+			break;
+		case 1: // Significand is one.
+			significand = quantum;
+			break;
+		case 2: // Significand is zero.
+			significand = 0.0;
+			break;
+		default: // Random (evenly distributed) significand.
 		{
-			case 0: // The highest number in this binade, significand is all bits one.
-				significand = base - quantum;
-				break;
-			case 1: // Significand is one.
-				significand = quantum;
-				break;
-			case 2: // Significand is zero.
-				significand = 0.0;
-				break;
-			default: // Random (evenly distributed) significand.
-			{
-				deUint64 intFraction = rnd.getUint64() & ((1 << fractionBits) - 1);
-				significand = float(intFraction) * quantum;
-			}
+			deUint64 intFraction = rnd.getUint64() & ((1 << fractionBits) - 1);
+			significand = float(intFraction) * quantum;
 		}
-
-		// Produce positive numbers more often than negative.
-		value = (rnd.getInt(0, 3) == 0 ? -1.0f : 1.0f) * (base + significand);
 	}
 
-	value = inputRange.contains(static_cast<double>(value)) ? value : static_cast<float>(inputRange.midpoint());
+	// Produce positive numbers more often than negative.
+	value = (rnd.getInt(0, 3) == 0 ? -1.0f : 1.0f) * (base + significand);
 
-	//not denormalized values
-	{
-		DE_ASSERT(sizeof(float) == sizeof(deUint32));
-
-		const deUint32 mantissa	= 0x007fffff;
-		const deUint32 exponent	= 0x7f800000;
-		deUint32 valueInt		= 0u;
-		deMemcpy(&valueInt, &value, sizeof(deUint32));
-
-		if((exponent & valueInt) == 0 && (mantissa & valueInt) != 0)
-		{
-			deUint32 toReturn = 0x00800000 | valueInt;
-			deMemcpy(&value, &toReturn, sizeof(float));
-		}
-
-		//Remove denormalized for 16bit float
-		if (glu::PRECISION_LAST == prec && (1.0 - deAbs(static_cast<double>(value)) >= 0.999939))
-			value = value + 1.0099f;
-	}
-	return value;
+	return inputRange.contains(static_cast<double>(value)) ? value : midpoint;
 }
 
 //! Generate a standard set of floats that should always be tested.
@@ -5500,7 +5166,7 @@ void DefaultSampling<float>::removeNotInRange (vector<float>& dst, const Interva
 {
 	for (vector<float>::iterator it = dst.begin(); it < dst.end();)
 	{
-		if ( !inputRange.contains(static_cast<double>(*it)) || (glu::PRECISION_LAST == prec && (1.0 - deAbs(static_cast<double>(*it)) >= 0.999939)))
+		if ( !inputRange.contains(static_cast<double>(*it)) || (prec == glu::PRECISION_LAST && isDenorm16(deFloat32To16Round(*it, DE_ROUNDINGMODE_TO_ZERO))))
 			it = dst.erase(it);
 		else
 			++it;
@@ -5513,7 +5179,6 @@ class DefaultSampling<deFloat16> : public Sampling<deFloat16>
 public:
 	deFloat16	genRandom			(const FloatFormat& format, const Precision prec, Random& rnd, const Interval& inputRange) const;
 	void		genFixeds			(const FloatFormat& format, const Precision prec, vector<deFloat16>& dst, const Interval& inputRange) const;
-	double		getWeight			(void) const { return 1.0; }
 private:
 	void		removeNotInRange(vector<deFloat16>& dst, const Interval& inputRange, const Precision prec) const;
 };
@@ -5525,7 +5190,7 @@ deFloat16 DefaultSampling<deFloat16>::genRandom (const FloatFormat& format, cons
 	DE_UNREF(prec);
 	const int		minExp			= format.getMinExp();
 	const int		maxExp			= format.getMaxExp();
-	const bool		haveSubnormal	= format.hasSubnormal() != tcu::NO;
+	const bool		haveSubnormal	= false;
 	const deUint16	midpoint		= deFloat32To16Round(static_cast<float>(inputRange.midpoint()), DE_ROUNDINGMODE_TO_NEAREST_EVEN);
 
 	// Choose exponent so that the cumulative distribution is cubic.
@@ -5577,15 +5242,6 @@ deFloat16 DefaultSampling<deFloat16>::genRandom (const FloatFormat& format, cons
 	float value			= (rnd.getInt(0, 3) == 0 ? -1.0f : 1.0f) * (base + significand);
 	deFloat16 value16b	= deFloat32To16Round(value, DE_ROUNDINGMODE_TO_NEAREST_EVEN);
 
-	//not denormalized values
-	{
-		const deUint16 mantissa = 0x03FF;
-		const deUint16 exponent = 0x7C00;
-		if ((exponent & value16b) == 0 && (mantissa & value16b) != 0)
-		{
-			value16b = 0x4000 | value16b;
-		}
-	}
 	return inputRange.contains(static_cast<double>(value16b)) ? value16b : midpoint;
 }
 
@@ -5678,11 +5334,6 @@ public:
 		for (size_t scalarNdx = 0; scalarNdx < scalars.size(); ++scalarNdx)
 			dst.push_back(Value(scalars[scalarNdx]));
 	}
-
-	double	getWeight	(void) const
-	{
-		return dePow(instance<DefaultSampling<T> >().getWeight(), Size);
-	}
 };
 
 template <typename T, int Rows, int Columns>
@@ -5723,11 +5374,6 @@ public:
 			}
 			dst.push_back(mat);
 		}
-	}
-
-	double	getWeight	(void) const
-	{
-		return dePow(instance<DefaultSampling<T> >().getWeight(), Rows * Columns);
 	}
 };
 
@@ -5985,7 +5631,7 @@ tcu::TestStatus BuiltinPrecisionCaseTestInstance<In, Out>::iterate (void)
 		env.lookup(*m_variables.in3) = convert<In3>(fmt, round(fmt, inputs.in3[valueNdx]));
 
 		{
-			EvalContext	ctx (fmt, m_caseCtx.precision, env, 0, m_context.getFloat16Int8Features().shaderFloat16 != 0u);
+			EvalContext	ctx (fmt, m_caseCtx.precision, env, 0);
 			m_stmt->execute(ctx);
 
 		switch (outCount)
@@ -6044,7 +5690,7 @@ tcu::TestStatus BuiltinPrecisionCaseTestInstance<In, Out>::iterate (void)
 
 			if (outCount > 0)
 			{
-				if (m_executor->isSpirVShader())
+				if (m_executor->spirvCase() == SPIRV_CASETYPE_COMPARE)
 				{
 					builder << "Output:\n"
 							<< comparisonMessage(outputs.out0[valueNdx])
@@ -6116,7 +5762,7 @@ protected:
 	const FloatFormat&	getFormat		(void) const			{ return m_ctx.floatFormat; }
 
 	template <typename In, typename Out>
-	void				testStatement	(const Variables<In, Out>& variables, const Statement& stmt);
+	void				testStatement	(const Variables<In, Out>& variables, const Statement& stmt, SpirVCaseT spirvCase);
 
 	template<typename T>
 	Symbol				makeSymbol		(const Variable<T>& variable)
@@ -6130,7 +5776,7 @@ protected:
 };
 
 template <typename In, typename Out>
-void PrecisionCase::testStatement (const Variables<In, Out>& variables, const Statement& stmt)
+void PrecisionCase::testStatement (const Variables<In, Out>& variables, const Statement& stmt, SpirVCaseT spirvCase)
 {
 	const int		inCount		= numInputs<In>();
 	const int		outCount	= numOutputs<Out>();
@@ -6189,7 +5835,7 @@ void PrecisionCase::testStatement (const Variables<In, Out>& variables, const St
 	}
 
 	m_spec.source = de::toString(stmt);
-	m_spec.spirVShader = isInteger<typename Out::Out0>();
+	m_spec.spirvCase = spirvCase;
 }
 
 template <typename T>
@@ -6414,7 +6060,7 @@ void FuncCase<Sig>::buildTest (void)
 		ExprP<Ret> expr	= applyVar(m_func, m_variables.in0, m_variables.in1, m_variables.in2, m_variables.in3);
 		m_stmt			= variableAssignment(m_variables.out0, expr);
 
-		this->testStatement(m_variables, *m_stmt);
+		this->testStatement(m_variables, *m_stmt, m_func.getSpirvCase());
 	}
 }
 
@@ -6468,7 +6114,7 @@ void InOutFuncCase<Sig>::buildTest (void)
 		ExprP<Ret> expr	= applyVar(m_func, m_variables.in0, m_variables.out1, m_variables.in1, m_variables.in2);
 		m_stmt			= variableAssignment(m_variables.out0, expr);
 
-		this->testStatement(m_variables, *m_stmt);
+		this->testStatement(m_variables, *m_stmt, m_func.getSpirvCase());
 	}
 }
 
@@ -6533,7 +6179,7 @@ private:
 	string				m_name;
 };
 
-template <template <int, class T> class GenF>
+template <template <int, class> class GenF, typename T>
 class TemplateFuncCaseFactory : public FuncCaseFactory
 {
 public:
@@ -6541,34 +6187,15 @@ public:
 	{
 		TestCaseGroup*	group = new TestCaseGroup(ctx.testContext, ctx.name.c_str(), ctx.name.c_str());
 
-		group->addChild(createFuncCase(ctx, "scalar", instance<GenF<1, float> >()));
-		group->addChild(createFuncCase(ctx, "vec2", instance<GenF<2, float> >()));
-		group->addChild(createFuncCase(ctx, "vec3", instance<GenF<3, float> >()));
-		group->addChild(createFuncCase(ctx, "vec4", instance<GenF<4, float> >()));
+		group->addChild(createFuncCase(ctx, "scalar", instance<GenF<1, T> >()));
+		group->addChild(createFuncCase(ctx, "vec2", instance<GenF<2, T> >()));
+		group->addChild(createFuncCase(ctx, "vec3", instance<GenF<3, T> >()));
+		group->addChild(createFuncCase(ctx, "vec4", instance<GenF<4, T> >()));
 
 		return MovePtr<TestNode>(group);
 	}
 
-	const FuncBase&		getFunc			(void) const { return instance<GenF<1, float> >(); }
-};
-
-template <template <int, class T> class GenF>
-class TemplateFuncCaseFactory16Bit : public FuncCaseFactory
-{
-public:
-	MovePtr<TestNode>	createCase		(const CaseContext& ctx) const
-	{
-		TestCaseGroup*	group = new TestCaseGroup(ctx.testContext, ctx.name.c_str(), ctx.name.c_str());
-
-		group->addChild(createFuncCase(ctx, "scalar", instance<GenF<1, deFloat16> >()));
-		group->addChild(createFuncCase(ctx, "vec2", instance<GenF<2, deFloat16> >()));
-		group->addChild(createFuncCase(ctx, "vec3", instance<GenF<3, deFloat16> >()));
-		group->addChild(createFuncCase(ctx, "vec4", instance<GenF<4, deFloat16> >()));
-
-		return MovePtr<TestNode>(group);
-	}
-
-	const FuncBase&		getFunc			(void) const { return instance<GenF<1, deFloat16> >(); }
+	const FuncBase&		getFunc			(void) const { return instance<GenF<1, T> >(); }
 };
 
 template <template <int> class GenF>
@@ -6592,7 +6219,7 @@ public:
 	const FuncBase&		getFunc			(void) const { return instance<GenF<2> >(); }
 };
 
-template <template <int, int, class> class GenF>
+template <template <int, int, class> class GenF, typename T>
 class MatrixFuncCaseFactory : public FuncCaseFactory
 {
 public:
@@ -6600,55 +6227,23 @@ public:
 	{
 		TestCaseGroup*	const group = new TestCaseGroup(ctx.testContext, ctx.name.c_str(), ctx.name.c_str());
 
-		this->addCase<2, 2, float >(ctx, group);
-		this->addCase<3, 2, float >(ctx, group);
-		this->addCase<4, 2, float >(ctx, group);
-		this->addCase<2, 3, float >(ctx, group);
-		this->addCase<3, 3, float >(ctx, group);
-		this->addCase<4, 3, float >(ctx, group);
-		this->addCase<2, 4, float >(ctx, group);
-		this->addCase<3, 4, float >(ctx, group);
-		this->addCase<4, 4, float >(ctx, group);
+		this->addCase<2, 2>(ctx, group);
+		this->addCase<3, 2>(ctx, group);
+		this->addCase<4, 2>(ctx, group);
+		this->addCase<2, 3>(ctx, group);
+		this->addCase<3, 3>(ctx, group);
+		this->addCase<4, 3>(ctx, group);
+		this->addCase<2, 4>(ctx, group);
+		this->addCase<3, 4>(ctx, group);
+		this->addCase<4, 4>(ctx, group);
 
 		return MovePtr<TestNode>(group);
 	}
 
-	const FuncBase&		getFunc			(void) const { return instance<GenF<2,2, float> >(); }
+	const FuncBase&		getFunc			(void) const { return instance<GenF<2,2, T> >(); }
 
 private:
-	template <int Rows, int Cols, class T>
-	void				addCase			(const CaseContext& ctx, TestCaseGroup* group) const
-	{
-		const char*	const name = dataTypeNameOf<Matrix<float, Rows, Cols> >();
-		group->addChild(createFuncCase(ctx, name, instance<GenF<Rows, Cols, T> >()));
-	}
-};
-
-template <template <int, int, class> class GenF>
-class MatrixFuncCaseFactory16Bit : public FuncCaseFactory
-{
-public:
-	MovePtr<TestNode>	createCase		(const CaseContext& ctx) const
-	{
-		TestCaseGroup*	const group = new TestCaseGroup(ctx.testContext, ctx.name.c_str(), ctx.name.c_str());
-
-		this->addCase<2, 2, deFloat16 >(ctx, group);
-		this->addCase<3, 2, deFloat16 >(ctx, group);
-		this->addCase<4, 2, deFloat16 >(ctx, group);
-		this->addCase<2, 3, deFloat16 >(ctx, group);
-		this->addCase<3, 3, deFloat16 >(ctx, group);
-		this->addCase<4, 3, deFloat16 >(ctx, group);
-		this->addCase<2, 4, deFloat16 >(ctx, group);
-		this->addCase<3, 4, deFloat16 >(ctx, group);
-		this->addCase<4, 4, deFloat16 >(ctx, group);
-
-		return MovePtr<TestNode>(group);
-	}
-
-	const FuncBase&		getFunc			(void) const { return instance<GenF<2, 2, deFloat16> >(); }
-
-private:
-	template <int Rows, int Cols, class T>
+	template <int Rows, int Cols>
 	void				addCase			(const CaseContext& ctx, TestCaseGroup* group) const
 	{
 		const char*	const name = dataTypeNameOf<Matrix<float, Rows, Cols> >();
@@ -6711,7 +6306,7 @@ void addScalarFactory (BuiltinFuncs& funcs, string name = "")
 	funcs.addFactory(SharedPtr<const CaseFactory>(new GenFuncCaseFactory<typename F::Sig>(makeVectorizedFuncs<F>(), name)));
 }
 
-MovePtr<const CaseFactories> createComputeOnlyBuiltinCases (bool is16BitTest = false)
+MovePtr<const CaseFactories> createBuiltinCases ()
 {
 	MovePtr<BuiltinFuncs>	funcs	(new BuiltinFuncs());
 
@@ -6728,16 +6323,8 @@ MovePtr<const CaseFactories> createComputeOnlyBuiltinCases (bool is16BitTest = f
 	addScalarFactory<Cos<Signature<float, float> > >(*funcs);
 	addScalarFactory<Tan>(*funcs);
 
-	if (is16BitTest)
-		addScalarFactory<ASin16BitInOut32b>(*funcs);
-	else
-		addScalarFactory<ASin>(*funcs);
-
-	if (is16BitTest)
-		addScalarFactory<ACos16BitInOut32b>(*funcs);
-	else
-		addScalarFactory<ACos>(*funcs);
-
+	addScalarFactory<ASin>(*funcs);
+	addScalarFactory<ACos>(*funcs);
 	addScalarFactory<ATan2< Signature<float, float, float> > >(*funcs, "atan2");
 	addScalarFactory<ATan<Signature<float, float> > >(*funcs);
 	addScalarFactory<Sinh>(*funcs);
@@ -6752,29 +6339,20 @@ MovePtr<const CaseFactories> createComputeOnlyBuiltinCases (bool is16BitTest = f
 	addScalarFactory<Log< Signature<float, float> > >(*funcs);
 	addScalarFactory<Exp2<Signature<float, float> > >(*funcs);
 	addScalarFactory<Log2< Signature<float, float> > >(*funcs);
-	addScalarFactory<Sqrt>(*funcs);
+	addScalarFactory<Sqrt32Bit>(*funcs);
 	addScalarFactory<InverseSqrt< Signature<float, float> > >(*funcs);
 
 	addScalarFactory<Abs< Signature<float, float> > >(*funcs);
 	addScalarFactory<Sign< Signature<float, float> > >(*funcs);
 	addScalarFactory<Floor32Bit>(*funcs);
-	addScalarFactory<Trunc< Signature<float, float> > >(*funcs);
+	addScalarFactory<Trunc32Bit>(*funcs);
 	addScalarFactory<Round< Signature<float, float> > >(*funcs);
 	addScalarFactory<RoundEven< Signature<float, float> > >(*funcs);
 	addScalarFactory<Ceil< Signature<float, float> > >(*funcs);
 	addScalarFactory<Fract>(*funcs);
 
-	if (is16BitTest)
-	{
-#ifdef MODULO_OPERATION
-		// \todo Zanin: Test removed for fp16 operations
-		addScalarFactory<Mod>(*funcs);
-#endif
-	}
-	else
-	{
-		addScalarFactory<Mod>(*funcs);
-	}
+	addScalarFactory<Mod32Bit>(*funcs);
+	addScalarFactory<FRem32Bit>(*funcs);
 
 	funcs->addFactory(createSimpleFuncCaseFactory<Modf32Bit>());
 	addScalarFactory<Min< Signature<float, float, float> > >(*funcs);
@@ -6784,25 +6362,29 @@ MovePtr<const CaseFactories> createComputeOnlyBuiltinCases (bool is16BitTest = f
 	addScalarFactory<Step< Signature<float, float, float> > >(*funcs);
 	addScalarFactory<SmoothStep< Signature<float, float, float, float> > >(*funcs);
 
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Length>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Distance>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Dot>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Length, float>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Distance, float>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Dot, float>()));
 	funcs->addFactory(createSimpleFuncCaseFactory<Cross>());
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Normalize>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<FaceForward>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Reflect>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Refract>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Normalize, float>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<FaceForward, float>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Reflect, float>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Refract, float>()));
 
-	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<MatrixCompMult>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<OuterProduct>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<Transpose>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<MatrixCompMult, float>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<OuterProduct, float>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<Transpose, float>()));
 	funcs->addFactory(SharedPtr<const CaseFactory>(new SquareMatrixFuncCaseFactory<Determinant>()));
 	funcs->addFactory(SharedPtr<const CaseFactory>(new SquareMatrixFuncCaseFactory<Inverse>()));
+
+	addScalarFactory<FrExp <Signature<float, float, int> > >(*funcs);
+	addScalarFactory<LdExp <Signature<float, float, int> > >(*funcs);
+	addScalarFactory<Fma  <Signature<float, float, float, float> > >(*funcs);
 
 	return MovePtr<const CaseFactories>(funcs.release());
 }
 
-MovePtr<const CaseFactories> createComputeOnlyBuiltinCases16Bit(void)
+MovePtr<const CaseFactories> createBuiltinCases16Bit(void)
 {
 	MovePtr<BuiltinFuncs>	funcs(new BuiltinFuncs());
 
@@ -6841,16 +6423,14 @@ MovePtr<const CaseFactories> createComputeOnlyBuiltinCases16Bit(void)
 	addScalarFactory<Abs< Signature<deFloat16, deFloat16> > >(*funcs);
 	addScalarFactory<Sign< Signature<deFloat16, deFloat16> > >(*funcs);
 	addScalarFactory<Floor16Bit>(*funcs);
-	addScalarFactory<Trunc< Signature<deFloat16, deFloat16> > >(*funcs);
+	addScalarFactory<Trunc16Bit>(*funcs);
 	addScalarFactory<Round< Signature<deFloat16, deFloat16> > >(*funcs);
 	addScalarFactory<RoundEven< Signature<deFloat16, deFloat16> > >(*funcs);
 	addScalarFactory<Ceil< Signature<deFloat16, deFloat16> > >(*funcs);
 	addScalarFactory<Fract16Bit>(*funcs);
 
-#ifdef MODULO_OPERATION
-	// \todo Zanin: Due to this is a disjoint function a special care required for values results near b
-	addScalarFactory<Mod<Signature<deFloat16, deFloat16, deFloat16> > >(*funcs);
-#endif
+	addScalarFactory<Mod16Bit>(*funcs);
+	addScalarFactory<FRem16Bit>(*funcs);
 
 	funcs->addFactory(createSimpleFuncCaseFactory<Modf16Bit>());
 	addScalarFactory<Min< Signature<deFloat16, deFloat16, deFloat16> > >(*funcs);
@@ -6860,40 +6440,20 @@ MovePtr<const CaseFactories> createComputeOnlyBuiltinCases16Bit(void)
 	addScalarFactory<Step< Signature<deFloat16, deFloat16, deFloat16> > >(*funcs);
 	addScalarFactory<SmoothStep< Signature<deFloat16, deFloat16, deFloat16, deFloat16> > >(*funcs);
 
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory16Bit<Length>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory16Bit<Distance>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory16Bit<Dot>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Length, deFloat16>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Distance, deFloat16>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Dot, deFloat16>()));
 	funcs->addFactory(createSimpleFuncCaseFactory<Cross16Bit>());
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory16Bit<Normalize>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory16Bit<FaceForward>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory16Bit<Reflect>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory16Bit<Refract>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Normalize, deFloat16>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<FaceForward, deFloat16>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Reflect, deFloat16>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new TemplateFuncCaseFactory<Refract, deFloat16>()));
 
-	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory16Bit<OuterProduct>()));
-	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory16Bit<Transpose>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<OuterProduct, deFloat16>()));
+	funcs->addFactory(SharedPtr<const CaseFactory>(new MatrixFuncCaseFactory<Transpose, deFloat16>()));
 	funcs->addFactory(SharedPtr<const CaseFactory>(new SquareMatrixFuncCaseFactory<Determinant16bit>()));
 	funcs->addFactory(SharedPtr<const CaseFactory>(new SquareMatrixFuncCaseFactory<Inverse16bit>()));
 
-	return MovePtr<const CaseFactories>(funcs.release());
-}
-
-MovePtr<const CaseFactories> createCompleteBuiltinCases (void)
-{
-	MovePtr<BuiltinFuncs>	funcs	(new BuiltinFuncs());
-
-	// Tests for ES31 builtins
-	addScalarFactory<FrExp <Signature<float, float, int> > >(*funcs);
-	addScalarFactory<LdExp <Signature<float, float, int> > >(*funcs);
-	addScalarFactory<Fma  <Signature<float, float, float, float> > >(*funcs);
-
-	return MovePtr<const CaseFactories>(funcs.release());
-}
-
-MovePtr<const CaseFactories> createCompleteBuiltinCases16Bit (void)
-{
-	MovePtr<BuiltinFuncs>	funcs	(new BuiltinFuncs());
-
-	// Tests for ES31 builtins
 	addScalarFactory<FrExp <Signature<deFloat16, deFloat16, int> > >(*funcs);
 	addScalarFactory<LdExp <Signature<deFloat16, deFloat16, int> > >(*funcs);
 	addScalarFactory<Fma <Signature<deFloat16, deFloat16, deFloat16, deFloat16> > >(*funcs);
@@ -6901,136 +6461,63 @@ MovePtr<const CaseFactories> createCompleteBuiltinCases16Bit (void)
 	return MovePtr<const CaseFactories>(funcs.release());
 }
 
-struct PrecisionTestContext
+TestCaseGroup* createFuncGroup (TestContext& ctx, const CaseFactory& factory, int numRandoms)
 {
-							PrecisionTestContext	(TestContext&				testCtx_,
-													 const FloatFormat&			highp_,
-													 const FloatFormat&			mediump_,
-													 const FloatFormat&			lowp_,
-													 const vector<ShaderType>&	shaderTypes_,
-													 int						numRandoms_)
-								: testCtx				(testCtx_)
-								, shaderTypes			(shaderTypes_)
-								, numRandoms			(numRandoms_)
-								{
-									formats[glu::PRECISION_HIGHP]	= &highp_;
-									formats[glu::PRECISION_MEDIUMP]	= &mediump_;
-									formats[glu::PRECISION_LOWP]	= &lowp_;
-								}
-
-							PrecisionTestContext(TestContext&				testCtx_,
-												 const FloatFormat&			floatFormat,
-												 const vector<ShaderType>&	shaderTypes_,
-												 int						numRandoms_)
-								: testCtx(testCtx_)
-								, shaderTypes(shaderTypes_)
-								, numRandoms(numRandoms_)
-								{
-									formats[glu::PRECISION_HIGHP] = formats[glu::PRECISION_LOWP] = formats[glu::PRECISION_MEDIUMP] = &floatFormat;
-								}
-
-	TestContext&			testCtx;
-	const FloatFormat*		formats[glu::PRECISION_LAST];
-	vector<ShaderType>		shaderTypes;
-	int						numRandoms;
-};
-
-TestCaseGroup* createFuncGroup (const PrecisionTestContext& ctx, const CaseFactory& factory)
-{
-	TestCaseGroup* const	group	= new TestCaseGroup(ctx.testCtx, factory.getName().c_str(), factory.getDesc().c_str());
+	TestCaseGroup* const	group	= new TestCaseGroup(ctx, factory.getName().c_str(), factory.getDesc().c_str());
+	const FloatFormat		highp		(-126, 127, 23, true,
+										 tcu::MAYBE,	// subnormals
+										 tcu::YES,		// infinities
+										 tcu::MAYBE);	// NaN
+	const FloatFormat       mediump		(-14, 13, 10, false, tcu::MAYBE);
 
 	for (int precNdx = glu::PRECISION_MEDIUMP; precNdx < glu::PRECISION_LAST; ++precNdx)
 	{
 		const Precision		precision	= Precision(precNdx);
 		const string		precName	(glu::getPrecisionName(precision));
-		const FloatFormat&	fmt			= *de::getSizedArrayElement<glu::PRECISION_LAST>(ctx.formats, precNdx);
-		const FloatFormat&	highpFmt	= *de::getSizedArrayElement<glu::PRECISION_LAST>(ctx.formats, glu::PRECISION_HIGHP);
+		const FloatFormat&	fmt			= precNdx == glu::PRECISION_MEDIUMP ? mediump : highp;
 
-		for (size_t shaderNdx = 0; shaderNdx < ctx.shaderTypes.size(); ++shaderNdx)
-		{
-			const ShaderType	shaderType	= ctx.shaderTypes[shaderNdx];
-			const string		shaderName	(glu::getShaderTypeName(shaderType));
-			const string		name		= precName + "_" + shaderName;
-			const CaseContext	caseCtx		(name, ctx.testCtx, fmt, highpFmt, precision, shaderType, ctx.numRandoms);
+		const CaseContext	caseCtx		(precName, ctx, fmt, highp, precision, glu::SHADERTYPE_COMPUTE, numRandoms);
 
-			group->addChild(factory.createCase(caseCtx).release());
-		}
-	}
-
-	return group;
-}
-
-TestCaseGroup* createFuncGroup16Bit (const PrecisionTestContext& ctx, const CaseFactory& factory)
-{
-	TestCaseGroup* const	group		= new TestCaseGroup(ctx.testCtx, factory.getName().c_str(), factory.getDesc().c_str());
-	const Precision			precision	= Precision(glu::PRECISION_LAST);
-	const FloatFormat&		fmt			= *ctx.formats[0];
-
-	for (size_t shaderNdx = 0; shaderNdx < ctx.shaderTypes.size(); ++shaderNdx)
-	{
-		const  ShaderType					shaderType				= ctx.shaderTypes[shaderNdx];
-		const Extension16BitStorageFeatures	extension16BitStorage	= (glu::SHADERTYPE_COMPUTE == shaderType ? EXT16BITSTORAGEFEATURES_UNIFORM : EXT16BITSTORAGEFEATURES_INPUT_OUTPUT) | EXTSHADER_FLOAT16_INT8;
-		const CaseContext					caseCtx					(glu::getShaderTypeName(shaderType), ctx.testCtx, fmt, fmt, precision, shaderType, ctx.numRandoms, extension16BitStorage);
 		group->addChild(factory.createCase(caseCtx).release());
 	}
 
 	return group;
 }
 
-TestCaseGroup* createFuncGroup16BitStorage32Bit(const PrecisionTestContext& ctx, const CaseFactory& factory)
+TestCaseGroup* createFuncGroup16Bit(TestContext& ctx, const CaseFactory& factory, int numRandoms, bool storage32)
 {
-	TestCaseGroup* const	group = new TestCaseGroup(ctx.testCtx, factory.getName().c_str(), factory.getDesc().c_str());
+	TestCaseGroup* const	group = new TestCaseGroup(ctx, factory.getName().c_str(), factory.getDesc().c_str());
 	const Precision			precision = Precision(glu::PRECISION_LAST);
-	const FloatFormat&		fmt = *ctx.formats[0];
+	const FloatFormat		float16	(-14, 15, 10, true, tcu::MAYBE);
 
-	for (size_t shaderNdx = 0; shaderNdx < ctx.shaderTypes.size(); ++shaderNdx)
-	{
-		const  ShaderType					shaderType = ctx.shaderTypes[shaderNdx];
-		const Extension16BitStorageFeatures	extension16BitStorage = EXTSHADER_FLOAT16_INT8;
-		const CaseContext					caseCtx(glu::getShaderTypeName(shaderType), ctx.testCtx, fmt, fmt, precision, shaderType, ctx.numRandoms, extension16BitStorage, true);
-		group->addChild(factory.createCase(caseCtx).release());
-	}
+	Extension16BitStorageFeatures extension16BitStorage = EXTSHADER_FLOAT16_INT8;
+	if (!storage32)
+		extension16BitStorage |= EXT16BITSTORAGEFEATURES_UNIFORM;
+
+	const CaseContext caseCtx("compute", ctx, float16, float16, precision, glu::SHADERTYPE_COMPUTE, numRandoms, extension16BitStorage, storage32);
+	group->addChild(factory.createCase(caseCtx).release());
 
 	return group;
 }
 
-void addBuiltinPrecisionTests (TestContext&					testCtx,
-							   const CaseFactories&			cases,
-							   const vector<ShaderType>&	shaderTypes,
-							   TestCaseGroup&				dstGroup)
+void addBuiltinPrecisionTests (TestContext&				ctx,
+								TestCaseGroup&			dstGroup,
+								const bool				test16Bit = false,
+								const bool				storage32Bit = false)
 {
-	const int						userRandoms	= testCtx.getCommandLine().getTestIterationCount();
-	const int						defRandoms	= 16384;
-	const int						numRandoms	= userRandoms > 0 ? userRandoms : defRandoms;
-	const FloatFormat				highp		(-126, 127, 23, true,
-												 tcu::MAYBE,	// subnormals
-												 tcu::YES,		// infinities
-												 tcu::MAYBE);	// NaN
-	// \todo [2014-04-01 lauri] Check these once Khronos bug 11840 is resolved.
-	FloatFormat						mediump		(-13, 13, 9, false, tcu::MAYBE);
-	// A fixed-point format is just a floating point format with a fixed
-	// exponent and support for subnormals.
-	FloatFormat						lowp		(0, 0, 7, false, tcu::MAYBE);
-	const PrecisionTestContext		ctx			(testCtx, highp, mediump, lowp, shaderTypes, numRandoms);
+	const int userRandoms	= ctx.getCommandLine().getTestIterationCount();
+	const int defRandoms	= 16384;
+	const int numRandoms	= userRandoms > 0 ? userRandoms : defRandoms;
 
-	for (size_t ndx = 0; ndx < cases.getFactories().size(); ++ndx)
-		dstGroup.addChild(createFuncGroup(ctx, *cases.getFactories()[ndx]));
-}
-
-void addBuiltinPrecision16BitTests (TestContext&				testCtx,
-									const CaseFactories&		cases,
-									const vector<ShaderType>&	shaderTypes,
-									TestCaseGroup&				dstGroup,
-									const bool					storage32Bit = false)
-{
-	const int						userRandoms	= testCtx.getCommandLine().getTestIterationCount();
-	const int						defRandoms	= 16384;
-	const int						numRandoms	= userRandoms > 0 ? userRandoms : defRandoms;
-	const FloatFormat				float16		(-14, 15, 10, true, tcu::MAYBE);
-	const PrecisionTestContext		ctx			(testCtx, float16, shaderTypes, numRandoms);
-
-	for (size_t ndx = 0; ndx < cases.getFactories().size(); ++ndx)
-		dstGroup.addChild((storage32Bit ? createFuncGroup16BitStorage32Bit : createFuncGroup16Bit) (ctx, *cases.getFactories()[ndx]));
+	MovePtr<const CaseFactories> cases = (test16Bit && !storage32Bit)	? createBuiltinCases16Bit()
+																		: createBuiltinCases();
+	for (size_t ndx = 0; ndx < cases->getFactories().size(); ++ndx)
+	{
+		if (!test16Bit)
+			dstGroup.addChild(createFuncGroup(ctx, *cases->getFactories()[ndx], numRandoms));
+		else
+			dstGroup.addChild(createFuncGroup16Bit(ctx, *cases->getFactories()[ndx], numRandoms, storage32Bit));
+	}
 }
 
 BuiltinPrecisionTests::BuiltinPrecisionTests (tcu::TestContext& testCtx)
@@ -7044,26 +6531,7 @@ BuiltinPrecisionTests::~BuiltinPrecisionTests (void)
 
 void BuiltinPrecisionTests::init (void)
 {
-	std::vector<glu::ShaderType>		shaderTypes;
-	de::MovePtr<const CaseFactories>	computeOnlyCases	= createComputeOnlyBuiltinCases();
-	de::MovePtr<const CaseFactories>	completeCases		= createCompleteBuiltinCases();
-
-	shaderTypes.push_back(glu::SHADERTYPE_COMPUTE);
-
-	addBuiltinPrecisionTests(m_testCtx,
-							 *computeOnlyCases,
-							 shaderTypes,
-							 *this);
-
-	shaderTypes.clear();
-	shaderTypes.push_back(glu::SHADERTYPE_VERTEX);
-	shaderTypes.push_back(glu::SHADERTYPE_FRAGMENT);
-	shaderTypes.push_back(glu::SHADERTYPE_COMPUTE);
-
-	addBuiltinPrecisionTests(m_testCtx,
-							 *completeCases,
-							 shaderTypes,
-							 *this);
+	addBuiltinPrecisionTests(m_testCtx, *this);
 }
 
 BuiltinPrecision16BitTests::BuiltinPrecision16BitTests (tcu::TestContext& testCtx)
@@ -7077,24 +6545,7 @@ BuiltinPrecision16BitTests::~BuiltinPrecision16BitTests (void)
 
 void BuiltinPrecision16BitTests::init (void)
 {
-	std::vector<glu::ShaderType>		shaderTypes;
-	de::MovePtr<const CaseFactories>	computeOnlyCases	= createComputeOnlyBuiltinCases16Bit();
-	de::MovePtr<const CaseFactories>	completeCases		= createCompleteBuiltinCases16Bit();
-
-	shaderTypes.push_back(glu::SHADERTYPE_COMPUTE);
-
-	addBuiltinPrecision16BitTests(m_testCtx,
-								  *computeOnlyCases,
-								  shaderTypes,
-								  *this);
-
-	shaderTypes.push_back(glu::SHADERTYPE_VERTEX);
-	shaderTypes.push_back(glu::SHADERTYPE_FRAGMENT);
-
-	addBuiltinPrecision16BitTests(m_testCtx,
-								  *completeCases,
-								  shaderTypes,
-								  *this);
+	addBuiltinPrecisionTests(m_testCtx, *this, true);
 }
 
 BuiltinPrecision16Storage32BitTests::BuiltinPrecision16Storage32BitTests(tcu::TestContext& testCtx)
@@ -7108,26 +6559,7 @@ BuiltinPrecision16Storage32BitTests::~BuiltinPrecision16Storage32BitTests(void)
 
 void BuiltinPrecision16Storage32BitTests::init(void)
 {
-	std::vector<glu::ShaderType>		shaderTypes;
-	de::MovePtr<const CaseFactories>	computeOnlyCases	= createComputeOnlyBuiltinCases(true);
-	de::MovePtr<const CaseFactories>	completeCases		= createCompleteBuiltinCases();
-
-	shaderTypes.push_back(glu::SHADERTYPE_COMPUTE);
-
-	addBuiltinPrecision16BitTests(m_testCtx,
-		*computeOnlyCases,
-		shaderTypes,
-		*this,
-		true);
-
-	shaderTypes.push_back(glu::SHADERTYPE_VERTEX);
-	shaderTypes.push_back(glu::SHADERTYPE_FRAGMENT);
-
-	addBuiltinPrecision16BitTests(m_testCtx,
-		*completeCases,
-		shaderTypes,
-		*this,
-		true);
+	addBuiltinPrecisionTests(m_testCtx, *this, true, true);
 }
 
 } // shaderexecutor

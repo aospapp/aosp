@@ -5,61 +5,36 @@
 #ifndef TESTING_FX_STRING_TESTHELPERS_H_
 #define TESTING_FX_STRING_TESTHELPERS_H_
 
+#include <memory>
 #include <ostream>
+#include <string>
+#include <vector>
 
 #include "core/fxcrt/cfx_datetime.h"
-#include "core/fxcrt/fx_stream.h"
+#include "public/fpdfview.h"
+#include "testing/free_deleter.h"
 
 // Output stream operator so GTEST macros work with CFX_DateTime objects.
 std::ostream& operator<<(std::ostream& os, const CFX_DateTime& dt);
 
-class CFX_InvalidSeekableReadStream : public IFX_SeekableReadStream {
- public:
-  template <typename T, typename... Args>
-  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
+std::vector<std::string> StringSplit(const std::string& str, char delimiter);
 
-  // IFX_SeekableReadStream overrides:
-  bool ReadBlock(void* buffer, FX_FILESIZE offset, size_t size) override {
-    return false;
-  }
-  FX_FILESIZE GetSize() override { return data_size_; }
+// Converts a FPDF_WIDESTRING to a std::string.
+// Deals with differences between UTF16LE and UTF8.
+std::string GetPlatformString(FPDF_WIDESTRING wstr);
 
- private:
-  explicit CFX_InvalidSeekableReadStream(FX_FILESIZE data_size)
-      : data_size_(data_size) {}
+// Converts a FPDF_WIDESTRING to a std::wstring.
+// Deals with differences between UTF16LE and wchar_t.
+std::wstring GetPlatformWString(FPDF_WIDESTRING wstr);
 
-  FX_FILESIZE data_size_;
-};
+using ScopedFPDFWideString = std::unique_ptr<FPDF_WCHAR, pdfium::FreeDeleter>;
 
-class CFX_BufferSeekableReadStream : public IFX_SeekableReadStream {
- public:
-  template <typename T, typename... Args>
-  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
+// Returns a newly allocated FPDF_WIDESTRING.
+// Deals with differences between UTF16LE and wchar_t.
+ScopedFPDFWideString GetFPDFWideString(const std::wstring& wstr);
 
-  // IFX_SeekableReadStream:
-  bool ReadBlock(void* buffer, FX_FILESIZE offset, size_t size) override {
-    if (offset < 0 || static_cast<size_t>(offset) >= data_size_)
-      return false;
-
-    if (static_cast<size_t>(offset) + size > data_size_)
-      size = data_size_ - static_cast<size_t>(offset);
-    if (size == 0)
-      return false;
-
-    memcpy(buffer, data_ + offset, size);
-    return true;
-  }
-
-  FX_FILESIZE GetSize() override {
-    return static_cast<FX_FILESIZE>(data_size_);
-  }
-
- private:
-  CFX_BufferSeekableReadStream(const unsigned char* src, size_t src_size)
-      : data_(src), data_size_(src_size) {}
-
-  const unsigned char* data_;
-  size_t data_size_;
-};
+// Returns a FPDF_WCHAR vector of |length_bytes| bytes. |length_bytes| must be a
+// multiple of sizeof(FPDF_WCHAR).
+std::vector<FPDF_WCHAR> GetFPDFWideStringBuffer(size_t length_bytes);
 
 #endif  // TESTING_FX_STRING_TESTHELPERS_H_

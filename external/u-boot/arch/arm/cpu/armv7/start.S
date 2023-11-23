@@ -97,7 +97,7 @@ ENTRY(c_runtime_cpu_setup)
 /*
  * If I-cache is enabled invalidate it
  */
-#ifndef CONFIG_SYS_ICACHE_OFF
+#if !CONFIG_IS_ENABLED(SYS_ICACHE_OFF)
 	mcr	p15, 0, r0, c7, c5, 0	@ invalidate icache
 	mcr     p15, 0, r0, c7, c10, 4	@ DSB
 	mcr     p15, 0, r0, c7, c5, 4	@ ISB
@@ -155,7 +155,7 @@ ENTRY(cpu_init_cp15)
 	bic	r0, r0, #0x00000007	@ clear bits 2:0 (-CAM)
 	orr	r0, r0, #0x00000002	@ set bit 1 (--A-) Align
 	orr	r0, r0, #0x00000800	@ set bit 11 (Z---) BTB
-#ifdef CONFIG_SYS_ICACHE_OFF
+#if CONFIG_IS_ENABLED(SYS_ICACHE_OFF)
 	bic	r0, r0, #0x00001000	@ clear bit 12 (I) I-cache
 #else
 	orr	r0, r0, #0x00001000	@ set bit 12 (I) I-cache
@@ -204,6 +204,15 @@ ENTRY(cpu_init_cp15)
 	and	r4, r1, #0xf		@ r4 has CPU revision
 	mov	r2, r3, lsl #4		@ shift variant field for combined value
 	orr	r2, r4, r2		@ r2 has combined CPU variant + revision
+
+/* Early stack for ERRATA that needs into call C code */
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_STACK)
+	ldr	r0, =(CONFIG_SPL_STACK)
+#else
+	ldr	r0, =(CONFIG_SYS_INIT_SP_ADDR)
+#endif
+	bic	r0, r0, #7	/* 8-byte alignment for ABI compliance */
+	mov	sp, r0
 
 #ifdef CONFIG_ARM_ERRATA_798870
 	cmp	r2, #0x30		@ Applies to lower than R3p0

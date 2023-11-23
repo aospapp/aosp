@@ -1,25 +1,32 @@
 # Copyright (C) 2007-2012 Michael Foord & the mock team
 # E-mail: fuzzyman AT voidspace DOT org DOT uk
 # http://www.voidspace.org.uk/python/mock/
+import socket
 
+import inspect
 import six
-import unittest2 as unittest
+import sys
+import time
+import unittest
 
 from mock import (
     call, create_autospec, MagicMock,
     Mock, ANY, patch, PropertyMock
 )
-from mock.mock import _Call, _CallList
+from mock.mock import _Call, _CallList, _callable
 
 from datetime import datetime
+from functools import partial
+
+
+if six.PY2:
+    import funcsigs
+
 
 class SomeClass(object):
-    def one(self, a, b):
-        pass
-    def two(self):
-        pass
-    def three(self, a=None):
-        pass
+    def one(self, a, b): pass
+    def two(self): pass
+    def three(self, a=None): pass
 
 
 
@@ -50,12 +57,9 @@ class AnyTest(unittest.TestCase):
 
     def test_any_mock_calls_comparison_order(self):
         mock = Mock()
-        d = datetime.now()
         class Foo(object):
-            def __eq__(self, other):
-                return False
-            def __ne__(self, other):
-                return True
+            def __eq__(self, other): pass
+            def __ne__(self, other): pass
 
         for d in datetime.now(), Foo():
             mock.reset_mock()
@@ -148,6 +152,8 @@ class CallTest(unittest.TestCase):
         self.assertEqual(args, ('foo', (1, 2, 3)))
         self.assertEqual(args, ('foo', (1, 2, 3), {}))
         self.assertEqual(args, ((1, 2, 3), {}))
+        self.assertEqual(args.args, (1, 2, 3))
+        self.assertEqual(args.kwargs, {})
 
 
     def test_named_call_with_args(self):
@@ -155,6 +161,8 @@ class CallTest(unittest.TestCase):
 
         self.assertEqual(args, ('foo', (1, 2, 3)))
         self.assertEqual(args, ('foo', (1, 2, 3), {}))
+        self.assertEqual(args.args, (1, 2, 3))
+        self.assertEqual(args.kwargs, {})
 
         self.assertNotEqual(args, ((1, 2, 3),))
         self.assertNotEqual(args, ((1, 2, 3), {}))
@@ -167,6 +175,8 @@ class CallTest(unittest.TestCase):
         self.assertEqual(args, ('foo', dict(a=3, b=4)))
         self.assertEqual(args, ('foo', (), dict(a=3, b=4)))
         self.assertEqual(args, ((), dict(a=3, b=4)))
+        self.assertEqual(args.args, ())
+        self.assertEqual(args.kwargs, dict(a=3, b=4))
 
 
     def test_named_call_with_kwargs(self):
@@ -174,6 +184,8 @@ class CallTest(unittest.TestCase):
 
         self.assertEqual(args, ('foo', dict(a=3, b=4)))
         self.assertEqual(args, ('foo', (), dict(a=3, b=4)))
+        self.assertEqual(args.args, ())
+        self.assertEqual(args.kwargs, dict(a=3, b=4))
 
         self.assertNotEqual(args, (dict(a=3, b=4),))
         self.assertNotEqual(args, ((), dict(a=3, b=4)))
@@ -181,6 +193,7 @@ class CallTest(unittest.TestCase):
 
     def test_call_with_args_call_empty_name(self):
         args = _Call(((1, 2, 3), {}))
+
         self.assertEqual(args, call(1, 2, 3))
         self.assertEqual(call(1, 2, 3), args)
         self.assertIn(call(1, 2, 3), [args])
@@ -273,6 +286,22 @@ class CallTest(unittest.TestCase):
         self.assertEqual(mock.mock_calls, last_call.call_list())
 
 
+    def test_extended_not_equal(self):
+        a = call(x=1).foo
+        b = call(x=2).foo
+        self.assertEqual(a, a)
+        self.assertEqual(b, b)
+        self.assertNotEqual(a, b)
+
+
+    def test_nested_calls_not_equal(self):
+        a = call(x=1).foo().bar
+        b = call(x=2).foo().bar
+        self.assertEqual(a, a)
+        self.assertEqual(b, b)
+        self.assertNotEqual(a, b)
+
+
     def test_call_list(self):
         mock = MagicMock()
         mock(1)
@@ -312,6 +341,11 @@ class CallTest(unittest.TestCase):
         other_args = _Call(((1, 2), {'a': 3}))
         self.assertEqual(args, other_args)
 
+    def test_call_with_name(self):
+        self.assertEqual(_Call((), 'foo')[0], 'foo')
+        self.assertEqual(_Call((('bar', 'barz'),),)[0], '')
+        self.assertEqual(_Call((('bar', 'barz'), {'hello': 'world'}),)[0], '')
+
 
 class SpecSignatureTest(unittest.TestCase):
 
@@ -350,8 +384,7 @@ class SpecSignatureTest(unittest.TestCase):
 
 
     def test_create_autospec_return_value(self):
-        def f():
-            pass
+        def f(): pass
         mock = create_autospec(f, return_value='foo')
         self.assertEqual(mock(), 'foo')
 
@@ -371,30 +404,12 @@ class SpecSignatureTest(unittest.TestCase):
 
     def test_mocking_unbound_methods(self):
         class Foo(object):
-            def foo(self, foo):
-                pass
+            def foo(self, foo): pass
         p = patch.object(Foo, 'foo')
         mock_foo = p.start()
         Foo().foo(1)
 
         mock_foo.assert_called_with(1)
-
-
-    @unittest.expectedFailure
-    def test_create_autospec_unbound_methods(self):
-        # see mock issue 128
-        class Foo(object):
-            def foo(self):
-                pass
-
-        klass = create_autospec(Foo)
-        instance = klass()
-        self.assertRaises(TypeError, instance.foo, 1)
-
-        # Note: no type checking on the "self" parameter
-        klass.foo(1)
-        klass.foo.assert_called_with(1)
-        self.assertRaises(TypeError, klass.foo)
 
 
     def test_create_autospec_keyword_arguments(self):
@@ -405,7 +420,7 @@ class SpecSignatureTest(unittest.TestCase):
 
     @unittest.skipUnless(six.PY3, "Keyword only arguments Python 3 specific")
     def test_create_autospec_keyword_only_arguments(self):
-        func_def = "def foo(a, *, b=None):\n    pass\n"
+        func_def = "def foo(a, *, b=None): pass\n"
         namespace = {}
         exec (func_def, namespace)
         foo = namespace['foo']
@@ -420,8 +435,7 @@ class SpecSignatureTest(unittest.TestCase):
 
     def test_function_as_instance_attribute(self):
         obj = SomeClass()
-        def f(a):
-            pass
+        def f(a): pass
         obj.f = f
 
         mock = create_autospec(obj)
@@ -457,13 +471,56 @@ class SpecSignatureTest(unittest.TestCase):
             self._check_someclass_mock(mock)
 
 
+    @unittest.skipIf('PyPy' in sys.version,
+                     "This fails on pypy, "
+                     "see https://github.com/testing-cabal/mock/issues/452")
+    def test_spec_has_descriptor_returning_function(self):
+        class CrazyDescriptor(object):
+            def __get__(self, obj, type_):
+                if obj is None:
+                    return lambda x: None
+
+        class MyClass(object):
+            some_attr = CrazyDescriptor()
+
+        mock = create_autospec(MyClass)
+        mock.some_attr(1)
+        with self.assertRaises(TypeError):
+            mock.some_attr()
+        with self.assertRaises(TypeError):
+            mock.some_attr(1, 2)
+
+    @unittest.skipIf(six.PY2, "object.__dir__ doesn't exist in Python 2")
+    def test_spec_has_function_not_in_bases(self):
+        class CrazyClass(object):
+            def __dir__(self):
+                return super(CrazyClass, self).__dir__() + ['crazy']
+
+            def __getattr__(self, item):
+                if item == 'crazy':
+                    return lambda x: x
+                raise AttributeError(item)
+
+        inst = CrazyClass()
+        with self.assertRaises(AttributeError):
+            inst.other
+        self.assertEqual(inst.crazy(42), 42)
+        mock = create_autospec(inst)
+        mock.crazy(42)
+        with self.assertRaises(TypeError):
+            mock.crazy()
+        with self.assertRaises(TypeError):
+            mock.crazy(1, 2)
+
+
+    @unittest.skipIf('PyPy' in sys.version and sys.version_info < (3, 0),
+                     "Fails on pypy2 due to incorrect signature for dict.pop from funcsigs")
     def test_builtin_functions_types(self):
         # we could replace builtin functions / methods with a function
         # with *args / **kwargs signature. Using the builtin method type
         # as a spec seems to work fairly well though.
         class BuiltinSubclass(list):
-            def bar(self, arg):
-                pass
+            def bar(self, arg): pass
             sorted = sorted
             attr = {}
 
@@ -537,17 +594,13 @@ class SpecSignatureTest(unittest.TestCase):
     def test_descriptors(self):
         class Foo(object):
             @classmethod
-            def f(cls, a, b):
-                pass
+            def f(cls, a, b): pass
             @staticmethod
-            def g(a, b):
-                pass
+            def g(a, b): pass
 
-        class Bar(Foo):
-            pass
+        class Bar(Foo): pass
 
-        class Baz(SomeClass, Bar):
-            pass
+        class Baz(SomeClass, Bar): pass
 
         for spec in (Foo, Foo(), Bar, Bar(), Baz, Baz()):
             mock = create_autospec(spec)
@@ -561,8 +614,7 @@ class SpecSignatureTest(unittest.TestCase):
     @unittest.skipIf(six.PY3, "No old style classes in Python 3")
     def test_old_style_classes(self):
         class Foo:
-            def f(self, a, b):
-                pass
+            def f(self, a, b): pass
 
         class Bar(Foo):
             g = Foo()
@@ -582,8 +634,7 @@ class SpecSignatureTest(unittest.TestCase):
 
     def test_recursive(self):
         class A(object):
-            def a(self):
-                pass
+            def a(self): pass
             foo = 'foo bar baz'
             bar = foo
 
@@ -605,11 +656,9 @@ class SpecSignatureTest(unittest.TestCase):
 
     def test_spec_inheritance_for_classes(self):
         class Foo(object):
-            def a(self, x):
-                pass
+            def a(self, x): pass
             class Bar(object):
-                def f(self, y):
-                    pass
+                def f(self, y): pass
 
         class_mock = create_autospec(Foo)
 
@@ -689,8 +738,7 @@ class SpecSignatureTest(unittest.TestCase):
 
 
     def test_function(self):
-        def f(a, b):
-            pass
+        def f(a, b): pass
 
         mock = create_autospec(f)
         self.assertRaises(TypeError, mock)
@@ -720,9 +768,10 @@ class SpecSignatureTest(unittest.TestCase):
             def existing(a, b):
                 return a + b
 
+        self.assertEqual(RaiserClass.existing(1, 2), 3)
         s = create_autospec(RaiserClass)
         self.assertRaises(TypeError, lambda x: s.existing(1, 2, 3))
-        s.existing(1, 2)
+        self.assertEqual(s.existing(1, 2), s.existing.return_value)
         self.assertRaises(AttributeError, lambda: s.nonexisting)
 
         # check we can fetch the raiser attribute and it has no spec
@@ -732,8 +781,7 @@ class SpecSignatureTest(unittest.TestCase):
 
     def test_signature_class(self):
         class Foo(object):
-            def __init__(self, a, b=3):
-                pass
+            def __init__(self, a, b=3): pass
 
         mock = create_autospec(Foo)
 
@@ -748,8 +796,7 @@ class SpecSignatureTest(unittest.TestCase):
     @unittest.skipIf(six.PY3, 'no old style classes in Python 3')
     def test_signature_old_style_class(self):
         class Foo:
-            def __init__(self, a, b=3):
-                pass
+            def __init__(self, a, b=3): pass
 
         mock = create_autospec(Foo)
 
@@ -784,10 +831,8 @@ class SpecSignatureTest(unittest.TestCase):
 
     def test_signature_callable(self):
         class Callable(object):
-            def __init__(self, x, y):
-                pass
-            def __call__(self, a):
-                pass
+            def __init__(self, x, y): pass
+            def __call__(self, a): pass
 
         mock = create_autospec(Callable)
         mock(1, 2)
@@ -843,8 +888,7 @@ class SpecSignatureTest(unittest.TestCase):
 
     def test_autospec_functions_with_self_in_odd_place(self):
         class Foo(object):
-            def f(a, self):
-                pass
+            def f(a, self): pass
 
         a = create_autospec(Foo)
         a.f(10)
@@ -858,8 +902,7 @@ class SpecSignatureTest(unittest.TestCase):
     def test_autospec_property(self):
         class Foo(object):
             @property
-            def foo(self):
-                return 3
+            def foo(self): pass
 
         foo = create_autospec(Foo)
         mock_property = foo.foo
@@ -884,6 +927,140 @@ class SpecSignatureTest(unittest.TestCase):
         mock_slot.abc(4, 5, 6)
         mock_slot.assert_called_once_with(1, 2, 3)
         mock_slot.abc.assert_called_once_with(4, 5, 6)
+
+
+    def test_autospec_data_descriptor(self):
+        class Descriptor(object):
+            def __init__(self, value):
+                self.value = value
+
+            def __get__(self, obj, cls=None):
+                return self
+
+            def __set__(self, obj, value): pass
+
+        class MyProperty(property):
+            pass
+
+        class Foo(object):
+            __slots__ = ['slot']
+
+            @property
+            def prop(self): pass
+
+            @MyProperty
+            def subprop(self): pass
+
+            desc = Descriptor(42)
+
+        foo = create_autospec(Foo)
+
+        def check_data_descriptor(mock_attr):
+            # Data descriptors don't have a spec.
+            self.assertIsInstance(mock_attr, MagicMock)
+            mock_attr(1, 2, 3)
+            mock_attr.abc(4, 5, 6)
+            mock_attr.assert_called_once_with(1, 2, 3)
+            mock_attr.abc.assert_called_once_with(4, 5, 6)
+
+        # property
+        check_data_descriptor(foo.prop)
+        # property subclass
+        check_data_descriptor(foo.subprop)
+        # class __slot__
+        check_data_descriptor(foo.slot)
+        # plain data descriptor
+        check_data_descriptor(foo.desc)
+
+
+    @unittest.skipIf('PyPy' in sys.version and sys.version_info > (3, 0),
+                     "See https://github.com/testing-cabal/mock/issues/452")
+    def test_autospec_on_bound_builtin_function(self):
+        meth = six.create_bound_method(time.ctime, time.time())
+        self.assertIsInstance(meth(), str)
+        mocked = create_autospec(meth)
+
+        # no signature, so no spec to check against
+        mocked()
+        mocked.assert_called_once_with()
+        mocked.reset_mock()
+        mocked(4, 5, 6)
+        mocked.assert_called_once_with(4, 5, 6)
+
+    def test_autospec_socket(self):
+        sock_class = create_autospec(socket.socket)
+        self.assertRaises(TypeError, sock_class, foo=1)
+
+
+    def test_autospec_getattr_partial_function(self):
+        # bpo-32153 : getattr returning partial functions without
+        # __name__ should not create AttributeError in create_autospec
+        class Foo(object):
+            def __getattr__(self, attribute):
+                return partial(lambda name: name, attribute)
+        proxy = Foo()
+        autospec = create_autospec(proxy)
+        self.assertFalse(hasattr(autospec, '__name__'))
+
+
+    def test_spec_inspect_signature(self):
+
+        def myfunc(x, y): pass
+
+        mock = create_autospec(myfunc)
+        mock(1, 2)
+        mock(x=1, y=2)
+
+        if six.PY2:
+            self.assertEqual(funcsigs.signature(mock), funcsigs.signature(myfunc))
+        else:
+            self.assertEqual(inspect.getfullargspec(mock), inspect.getfullargspec(myfunc))
+        self.assertEqual(mock.mock_calls, [call(1, 2), call(x=1, y=2)])
+        self.assertRaises(TypeError, mock, 1)
+
+
+    def test_spec_function_no_name(self):
+        func = lambda: 'nope'
+        mock = create_autospec(func)
+        self.assertEqual(mock.__name__, 'funcopy')
+
+
+    @unittest.skipIf(six.PY3, "Here to test our Py2 _isidentifier")
+    def test_spec_function_has_identifier_name(self):
+        func = lambda: 'nope'
+        func.__name__ = 'global'
+        mock = create_autospec(func)
+        self.assertEqual(mock.__name__, 'funcopy')
+
+
+    def test_spec_function_assert_has_calls(self):
+        def f(a): pass
+        mock = create_autospec(f)
+        mock(1)
+        mock.assert_has_calls([call(1)])
+        with self.assertRaises(AssertionError):
+            mock.assert_has_calls([call(2)])
+
+
+    def test_spec_function_assert_any_call(self):
+        def f(a): pass
+        mock = create_autospec(f)
+        mock(1)
+        mock.assert_any_call(1)
+        with self.assertRaises(AssertionError):
+            mock.assert_any_call(2)
+
+
+    def test_spec_function_reset_mock(self):
+        def f(a): pass
+        rv = Mock()
+        mock = create_autospec(f, return_value=rv)
+        mock(1)(2)
+        self.assertEqual(mock.mock_calls, [call(1)])
+        self.assertEqual(rv.mock_calls, [call(2)])
+        mock.reset_mock()
+        self.assertEqual(mock.mock_calls, [])
+        self.assertEqual(rv.mock_calls, [])
 
 
 class TestCallList(unittest.TestCase):
@@ -969,6 +1146,41 @@ class TestCallList(unittest.TestCase):
         p.assert_called_once_with()
         self.assertIsInstance(returned, MagicMock)
         self.assertNotIsInstance(returned, PropertyMock)
+
+
+class TestCallablePredicate(unittest.TestCase):
+
+    def test_type(self):
+        for obj in [str, bytes, int, list, tuple, SomeClass]:
+            self.assertTrue(_callable(obj))
+
+    def test_call_magic_method(self):
+        class Callable:
+            def __call__(self): pass
+        instance = Callable()
+        self.assertTrue(_callable(instance))
+
+    def test_staticmethod(self):
+        class WithStaticMethod:
+            @staticmethod
+            def staticfunc(): pass
+        self.assertTrue(_callable(WithStaticMethod.staticfunc))
+
+    def test_non_callable_staticmethod(self):
+        class BadStaticMethod:
+            not_callable = staticmethod(None)
+        self.assertFalse(_callable(BadStaticMethod.not_callable))
+
+    def test_classmethod(self):
+        class WithClassMethod:
+            @classmethod
+            def classfunc(cls): pass
+        self.assertTrue(_callable(WithClassMethod.classfunc))
+
+    def test_non_callable_classmethod(self):
+        class BadClassMethod:
+            not_callable = classmethod(None)
+        self.assertFalse(_callable(BadClassMethod.not_callable))
 
 
 if __name__ == '__main__':

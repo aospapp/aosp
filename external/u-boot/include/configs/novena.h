@@ -9,7 +9,6 @@
 #define __CONFIG_H
 
 /* System configurations */
-#define CONFIG_MISC_INIT_R
 #define CONFIG_KEYBOARD
 
 #include "mx6_common.h"
@@ -19,7 +18,6 @@
 /* U-Boot general configurations */
 
 /* U-Boot environment */
-#define CONFIG_ENV_SIZE			(16 * 1024)
 /*
  * Environment is on MMC, starting at offset 512KiB from start of the card.
  * Please place first partition at offset 1MiB from the start of the card
@@ -28,10 +26,6 @@
  */
 #ifdef CONFIG_CMD_MMC
 #define CONFIG_SYS_MMC_ENV_DEV		0
-#define CONFIG_ENV_OFFSET		(512 * 1024)
-#define CONFIG_ENV_SIZE_REDUND		CONFIG_ENV_SIZE
-#define CONFIG_ENV_OFFSET_REDUND	\
-		(CONFIG_ENV_OFFSET + CONFIG_ENV_SIZE)
 #endif
 
 /* Booting Linux */
@@ -39,7 +33,6 @@
 #define CONFIG_HOSTNAME			"novena"
 
 /* Physical Memory Map */
-#define CONFIG_NR_DRAM_BANKS		1
 #define PHYS_SDRAM			MMDC0_ARB_BASE_ADDR
 
 #define CONFIG_SYS_SDRAM_BASE		PHYS_SDRAM
@@ -62,7 +55,6 @@
 /* Ethernet Configuration */
 #ifdef CONFIG_CMD_NET
 #define CONFIG_FEC_MXC
-#define CONFIG_MII
 #define IMX_FEC_BASE			ENET_BASE_ADDR
 #define CONFIG_FEC_XCV_TYPE		RGMII
 #define CONFIG_ETHPRIME			"FEC"
@@ -105,12 +97,7 @@
 #define CONFIG_POWER_PFUZE100_I2C_ADDR	0x08
 
 /* SATA Configs */
-#ifdef CONFIG_CMD_SATA
-#define CONFIG_SYS_SATA_MAX_DEVICE	1
-#define CONFIG_DWC_AHSATA_PORT_ID	0
-#define CONFIG_DWC_AHSATA_BASE_ADDR	SATA_ARB_BASE_ADDR
 #define CONFIG_LBA48
-#endif
 
 /* UART */
 #define CONFIG_MXC_UART
@@ -127,15 +114,12 @@
 #endif
 
 /* Video output */
-#ifdef CONFIG_VIDEO
-#define CONFIG_VIDEO_IPUV3
 #define CONFIG_VIDEO_BMP_RLE8
 #define CONFIG_SPLASH_SCREEN
 #define CONFIG_BMP_16BPP
 #define CONFIG_VIDEO_LOGO
 #define CONFIG_IMX_HDMI
 #define CONFIG_IMX_VIDEO_SKIP
-#endif
 
 /* Extra U-Boot environment. */
 #ifndef CONFIG_SPL_BUILD
@@ -153,6 +137,8 @@
 	"ramdisk_addr_r=0x28000000\0"		   			\
 	"fdt_addr_r=0x18000000\0"					\
 	"fdtfile=imx6q-novena.dtb\0"					\
+	"stdout=serial,vidconsole\0"					\
+	"stderr=serial,vidconsole\0"					\
 	"addcons="							\
 		"setenv bootargs ${bootargs} "				\
 		"console=${consdev},${baudrate}\0"			\

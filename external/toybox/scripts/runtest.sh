@@ -10,6 +10,7 @@
 #    DEBUG - Show every command run by test script.
 #    VERBOSE - Print the diff -u of each failed test case.
 #              If equal to "fail", stop after first failed test.
+#              "nopass" to not show successful tests
 #
 # The "testcmd" function takes five arguments:
 #	$1) Description to display when running command
@@ -56,7 +57,7 @@ fi
 
 optional()
 {
-  option=`echo "$OPTIONFLAGS" | egrep "(^|:)$1(:|\$)"`
+  option=`printf %s "$OPTIONFLAGS" | egrep "(^|:)$1(:|\$)"`
   # Not set?
   if [ -z "$1" ] || [ -z "$OPTIONFLAGS" ] || [ ${#option} -ne 0 ]
   then
@@ -74,16 +75,30 @@ skipnot()
   else
     eval "$@"
   fi
-  [ $? -eq 0 ] || SKIPNOT=1
+  [ $? -eq 0 ] || SKIPNEXT=1
+}
+
+toyonly()
+{
+  IS_TOYBOX="$("$C" --version 2>/dev/null)"
+  [ "${IS_TOYBOX/toybox/}" == "$IS_TOYBOX" ] && SKIPNEXT=1
+
+  "$@"
 }
 
 wrong_args()
 {
   if [ $# -ne 5 ]
   then
-    echo "Test $NAME has the wrong number of arguments ($# $*)" >&2
+    printf "%s\n" "Test $NAME has the wrong number of arguments ($# $*)" >&2
     exit
   fi
+}
+
+# Announce success
+do_pass()
+{
+  [ "$VERBOSE" != "nopass" ] && printf "%s\n" "$SHOWPASS: $NAME"
 }
 
 # The testing function
@@ -97,36 +112,35 @@ testing()
 
   [ -n "$DEBUG" ] && set -x
 
-  if [ -n "$SKIP" -o -n "$SKIP_HOST" -a -n "$TEST_HOST" -o -n "$SKIPNOT" ]
+  if [ -n "$SKIP" -o -n "$SKIP_HOST" -a -n "$TEST_HOST" -o -n "$SKIPNEXT" ]
   then
-    [ ! -z "$VERBOSE" ] && echo "$SHOWSKIP: $NAME"
-    unset SKIPNOT
+    [ ! -z "$VERBOSE" ] && printf "%s\n" "$SHOWSKIP: $NAME"
+    unset SKIPNEXT
     return 0
   fi
 
   echo -ne "$3" > expected
-  echo -ne "$4" > input
-  echo -ne "$5" | ${EVAL:-eval} -- "$2" > actual
+  [ ! -z "$4" ] && echo -ne "$4" > input || rm -f input
+  echo -ne "$5" | ${EVAL:-eval --} "$2" > actual
   RETVAL=$?
 
   # Catch segfaults
   [ $RETVAL -gt 128 ] && [ $RETVAL -lt 255 ] &&
     echo "exited with signal (or returned $RETVAL)" >> actual
-
-  DIFF="$(diff -au${NOSPACE:+b} expected actual)"
+  DIFF="$(diff -au${NOSPACE:+w} expected actual)"
   if [ ! -z "$DIFF" ]
   then
-    FAILCOUNT=$[$FAILCOUNT+1]
-    echo "$SHOWFAIL: $NAME"
+    FAILCOUNT=$(($FAILCOUNT+1))
+    printf "%s\n" "$SHOWFAIL: $NAME"
     if [ -n "$VERBOSE" ]
     then
-      [ ! -z "$4" ] && echo "echo -ne \"$4\" > input"
-      echo "echo -ne '$5' |$EVAL $2"
-      echo "$DIFF"
+      [ ! -z "$4" ] && printf "%s\n" "echo -ne \"$4\" > input"
+      printf "%s\n" "echo -ne '$5' |$EVAL $2"
+      printf "%s\n" "$DIFF"
       [ "$VERBOSE" == fail ] && exit 1
     fi
   else
-    echo "$SHOWPASS: $NAME"
+    [ "$VERBOSE" != "nopass" ] && printf "%s\n" "$SHOWPASS: $NAME"
   fi
   rm -f input expected actual
 
@@ -141,7 +155,98 @@ testcmd()
 
   X="$1"
   [ -z "$X" ] && X="$CMDNAME $2"
-  testing "$X" "$C $2" "$3" "$4" "$5"
+  testing "$X" "\"$C\" $2" "$3" "$4" "$5"
+}
+
+# Announce failure and handle fallout for txpect
+do_fail()
+{
+  FAILCOUNT=$(($FAILCOUNT+1))
+  printf "%s\n" "$SHOWFAIL: $NAME"
+  if [ ! -z "$CASE" ]
+  then
+    echo "Expected '$CASE'"
+    echo "Got '$A'"
+  fi
+  [ "$VERBOSE" == fail ] && exit 1
+}
+
+# txpect NAME COMMAND [I/O/E/Xstring]...
+# Run COMMAND and interact with it: send I strings to input, read O or E
+# strings from stdout or stderr (empty string is "read line of input here"),
+# X means close stdin/stdout/stderr and match return code (blank means nonzero)
+txpect()
+{
+  # Run command with redirection through fifos
+  NAME="$1"
+  CASE=
+
+  if [ $# -lt 2 ] || ! mkfifo in-$$ out-$$ err-$$
+  then
+    do_fail
+    return
+  fi
+  eval "$2" <in-$$ >out-$$ 2>err-$$ &
+  shift 2
+  : {IN}>in-$$ {OUT}<out-$$ {ERR}<err-$$ && rm in-$$ out-$$ err-$$
+
+  [ $? -ne 0 ] && { do_fail;return;}
+
+  # Loop through challenge/response pairs, with 2 second timeout
+  while [ $# -gt 0 ]
+  do
+    [ "$VERBOSE" == xpect ] && echo "$1" >&2
+    LEN=$((${#1}-1))
+    CASE="$1"
+    A=
+    case ${1::1} in
+
+      # send input to child
+      I) echo -en "${1:1}" >&$IN || { do_fail;break;} ;;
+
+      # check output from child
+      [OE])
+        [ $LEN == 0 ] && LARG="" || LARG="-rN $LEN"
+        O=$OUT
+        [ ${1::1} == 'E' ] && O=$ERR
+        A=
+        read -t2 $LARG A <&$O
+        [ "$VERBOSE" == xpect ] && echo "$A" >&2
+        if [ $LEN -eq 0 ]
+        then
+          [ -z "$A" ] && { do_fail;break;}
+        else
+          if [ "$A" != "${1:1}" ]
+          then
+            # Append the rest of the output if there is any.
+            read -t.1 B <&$O
+            A="$A$B"
+            read -t.1 -rN 9999 B<&$ERR
+            do_fail;break;
+          fi
+        fi
+        ;;
+
+      # close I/O and wait for exit
+      X)
+        exec {IN}<&- {OUT}<&- {ERR}<&-
+        wait
+        A=$?
+        if [ -z "$LEN" ]
+        then
+          [ $A -eq 0 ] && { do_fail;break;}        # any error
+        else
+          [ $A != "${1:1}" ] && { do_fail;break;}  # specific value
+        fi
+        ;;
+      *) do_fail; break ;;
+    esac
+    shift
+  done
+  # In case we already closed it
+  exec {IN}<&- {OUT}<&- {ERR}<&-
+
+  [ $# -eq 0 ] && do_pass
 }
 
 # Recursively grab an executable and all the libraries needed to run it.

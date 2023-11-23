@@ -760,58 +760,21 @@ void ihevce_bracketing_analysis(
     /* ------------------------------------------------ */
     /* populate the early decisions done by L1 analysis */
     /* ------------------------------------------------ */
+    for(i = 0; i < (MAX_CU_IN_CTB >> 2); i++)
     {
-        ihevce_ed_blk_t *ps_ed_blk_l1_curr = ps_ed_l1_ctb;
-        WORD32 ctr_8x8;
-        WORD8 *pi1_ed_buf;
-
-        /* set all the decisions to invalid */
-        memset(
-            &ps_l0_ipe_out_ctb->ai1_early_intra_inter_decision[0],
-            0,
-            sizeof(UWORD8) * MAX_CU_IN_CTB);
-
-        pi1_ed_buf = &ps_l0_ipe_out_ctb->ai1_early_intra_inter_decision[0];
-
-        for(ctr_8x8 = 0; ctr_8x8 < MAX_CTB_SIZE; ctr_8x8++)
-        {
-            WORD32 pos_x_8x8, pos_y_8x8;
-
-            pos_x_8x8 = gau1_cu_pos_x[ctr_8x8];
-            pos_y_8x8 = gau1_cu_pos_y[ctr_8x8];
-
-            pi1_ed_buf[pos_x_8x8 + (pos_y_8x8 * MAX_CU_IN_CTB_ROW)] =
-                ps_ed_blk_l1_curr->intra_or_inter;
-            ps_ed_blk_l1_curr++;
-        }
-
-        for(ctr_8x8 = 0; ctr_8x8 < (MAX_CU_IN_CTB >> 2); ctr_8x8++)
-        {
-            ps_l0_ipe_out_ctb->ai4_best_sad_8x8_l1_ipe[ctr_8x8] =
-                ps_ed_ctb_l1->i4_best_sad_8x8_l1_ipe[ctr_8x8];
-
-            ps_l0_ipe_out_ctb->ai4_best_sad_cost_8x8_l1_ipe[ctr_8x8] =
-                ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_ipe[ctr_8x8];
-
-            /*Earlier only me sad was getting populated, now best of ipe and me is populated*/
-            ps_l0_ipe_out_ctb->ai4_best_sad_8x8_l1_me[ctr_8x8] =
-                ps_ed_ctb_l1->i4_best_sad_8x8_l1_me[ctr_8x8];
-            //ps_ed_ctb_l1->i4_sad_me_for_ref[ctr_8x8];
-
-            ps_l0_ipe_out_ctb->ai4_best_sad_cost_8x8_l1_me[ctr_8x8] =
-                ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_me[ctr_8x8];
-            //ps_ed_ctb_l1->i4_sad_cost_me_for_ref[ctr_8x8];
-        }
-
-        /*Init CTB level accumalated SATD and MPM bits */
-        ps_l0_ipe_out_ctb->i4_ctb_acc_satd = 0;
-        ps_l0_ipe_out_ctb->i4_ctb_acc_mpm_bits = 0;
+        ps_l0_ipe_out_ctb->ai4_best_sad_8x8_l1_ipe[i] = ps_ed_ctb_l1->i4_best_sad_8x8_l1_ipe[i];
+        ps_l0_ipe_out_ctb->ai4_best_sad_cost_8x8_l1_ipe[i] = ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_ipe[i];
+        ps_l0_ipe_out_ctb->ai4_best_sad_8x8_l1_me[i] = ps_ed_ctb_l1->i4_best_sad_8x8_l1_me[i];
+        ps_l0_ipe_out_ctb->ai4_best_sad_cost_8x8_l1_me[i] = ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_me[i];
     }
+
+    /* Init CTB level accumalated SATD and MPM bits */
+    ps_l0_ipe_out_ctb->i4_ctb_acc_satd = 0;
+    ps_l0_ipe_out_ctb->i4_ctb_acc_mpm_bits = 0;
 
     /* ------------------------------------------------ */
     /* Loop over all the blocks in current CTB          */
     /* ------------------------------------------------ */
-
     {
         /* 64 8x8 blocks should be encountered for the do,while loop to exit */
         do
@@ -1000,7 +963,6 @@ void ihevce_bracketing_analysis(
                         //set only first mode since if it's 255. it wont go ahead
                         ps_intra32_analyse->au1_best_modes_32x32_tu[0] = 255;
                         ps_intra32_analyse->au1_best_modes_16x16_tu[0] = 255;
-                        ps_intra32_analyse->i4_best_intra_cost = MAX_INTRA_COST_IPE;
 
                         *pi4_intra_32_cost = MAX_INTRA_COST_IPE;
 
@@ -1014,8 +976,6 @@ void ihevce_bracketing_analysis(
                                 .au1_best_modes_16x16_tu[0] = 255;
                             ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1]
                                 .au1_best_modes_8x8_tu[0] = 255;
-                            ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1]
-                                .i4_best_intra_cost = MAX_INTRA_COST_IPE;
                             ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1].b1_merge_flag = 0;
                             ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1].b1_valid_cu = 0;
                             ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1].b1_split_flag = 0;
@@ -1048,9 +1008,6 @@ void ihevce_bracketing_analysis(
                                 ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1]
                                     .as_intra8_analyse[i4_local_ctr2]
                                     .au1_best_modes_4x4_tu[0] = 255;
-                                ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1]
-                                    .as_intra8_analyse[i4_local_ctr2]
-                                    .i4_best_intra_cost = MAX_INTRA_COST_IPE;
                                 ps_intra32_analyse->as_intra16_analyse[i4_local_ctr1]
                                     .as_intra8_analyse[i4_local_ctr2]
                                     .b1_valid_cu = 0;
@@ -1623,7 +1580,6 @@ void ihevce_bracketing_analysis(
                         //set only first mode since if it's 255. it wont go ahead
                         ps_intra16_analyse->au1_best_modes_16x16_tu[0] = 255;
                         ps_intra16_analyse->au1_best_modes_8x8_tu[0] = 255;
-                        ps_intra16_analyse->i4_best_intra_cost = MAX_INTRA_COST_IPE;
                         *pi4_intra_16_cost = MAX_INTRA_COST_IPE;
 
                         /*since ME will start evaluating from bottom up, set the lower
@@ -1642,8 +1598,6 @@ void ihevce_bracketing_analysis(
                                 .au1_best_modes_8x8_tu[0] = 255;
                             ps_intra16_analyse->as_intra8_analyse[i4_local_ctr]
                                 .au1_best_modes_4x4_tu[0] = 255;
-                            ps_intra16_analyse->as_intra8_analyse[i4_local_ctr].i4_best_intra_cost =
-                                MAX_INTRA_COST_IPE;
 
                             pi4_intra_8_cost
                                 [(i4_local_ctr & 1) + (MAX_CU_IN_CTB_ROW * (i4_local_ctr >> 1))] =
@@ -2137,8 +2091,6 @@ void ihevce_bracketing_analysis(
                         ps_intra16_analyse->b1_valid_cu = 0;
                         ps_intra16_analyse->b1_merge_flag = 0;
 
-                        ps_intra16_analyse->i4_best_intra_cost = MAX_INTRA_COST_IPE;
-
                         for(i = 0; i < 4; i++)
                         {
                             intra8_analyse_t *ps_intra8_analyse;
@@ -2159,7 +2111,6 @@ void ihevce_bracketing_analysis(
                                 ps_intra8_analyse->au1_4x4_best_modes[3][0] = 255;
                                 ps_intra8_analyse->au1_best_modes_4x4_tu[0] = 255;
                                 ps_intra8_analyse->au1_best_modes_8x8_tu[0] = 255;
-                                ps_intra8_analyse->i4_best_intra_cost = MAX_INTRA_COST_IPE;
 
                                 ps_cu_node->ps_parent->u1_cu_size = 8;
                                 ps_cu_node->ps_parent->u2_x0 =

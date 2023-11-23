@@ -80,7 +80,7 @@ public class DateTimeGeneratorTest extends TestFmwk {
                 {"en",     "CCCCCCm", "hh:mm aaaaa"},
                 {"en-BN",  "Cm",      "h:mm b"},
                 {"gu-IN",  "Cm",      "h:mm B"},
-                {"und-IN", "Cm",      "h:mm a"},
+                {"und-IN", "Cm",      "h:mm B"},
         };
         for (String[] test : tests) {
             DateTimePatternGenerator gen = DateTimePatternGenerator.getInstance(ULocale.forLanguageTag(test[0]));
@@ -456,7 +456,7 @@ public class DateTimeGeneratorTest extends TestFmwk {
         new String[] {"MMMd", "13 ene."},
         new String[] {"MMMMd", "13 de enero"},
         new String[] {"yQQQ", "T1 1999"},
-        new String[] {"hhmm", "11:58 p. m."},
+        new String[] {"hhmm", "11:58 p.\u00A0m."},
         new String[] {"HHmm", "23:58"},
         new String[] {"jjmm", "23:58"},
         new String[] {"mmss", "58:59"},
@@ -486,9 +486,9 @@ public class DateTimeGeneratorTest extends TestFmwk {
         new String[] {"JJmm", "23:58"},
 
         new ULocale("ja@calendar=japanese"), // (new locale for testing ticket 6872<-5702)
-        new String[] {"yM", "\u5E73\u621011/1"},
+        new String[] {"yM", "H11/1"},
         new String[] {"yMMM", "\u5E73\u621011\u5E741\u6708"},
-        new String[] {"yMd", "\u5E73\u621011/1/13"},
+        new String[] {"yMd", "H11/1/13"},
         new String[] {"yMMMd", "\u5E73\u621011\u5E741\u670813\u65E5"},
         new String[] {"Md", "1/13"},
         new String[] {"MMMd", "1\u670813\u65E5"},
@@ -579,6 +579,26 @@ public class DateTimeGeneratorTest extends TestFmwk {
         new String[] {"Ed", "26\u65E5\u5468\u4E09"},
         new String[] {"jmmssSSS", "\u4E0B\u534811:58:59.123"},
         new String[] {"JJmm", "11:58"},
+
+        new ULocale("ja_JP_TRADITIONAL"),
+        // TODO: This is different in C++ and Java.
+        new String[] {"yM", "1999/1",},
+        new String[] {"yMMM", "1999年1月"},
+        new String[] {"yMd", "1999/1/13"},
+        new String[] {"yMMMd", "1999年1月13日"},
+        new String[] {"Md", "1/13"},
+        new String[] {"MMMd", "1月13日"},
+        new String[] {"MMMMd", "1月13日"},
+        new String[] {"yQQQ", "1999/Q1"},
+        new String[] {"hhmm", "午後11:58"},
+        new String[] {"HHmm", "23:58"},
+        new String[] {"jjmm", "23:58"},
+        new String[] {"mmss", "58:59"},
+        new String[] {"yyyyMMMM", "1999年1月"},
+        new String[] {"MMMEd", "1月13日(水)"},
+        new String[] {"Ed", "13日(水)"},
+        new String[] {"jmmssSSS", "23:58:59.123"},
+        new String[] {"JJmm", "23:58"}
     };
 
     @Test
@@ -1669,6 +1689,81 @@ public class DateTimeGeneratorTest extends TestFmwk {
                 errln("Locale " + testNamesData[i].locale + ", field " + testNamesData[i].field +
                         ", width " + testNamesData[i].width + ", expected " + testNamesData[i].expected + ", got " + getName);
             }
+        }
+    }
+
+    @Test
+    public void testJjMapping() {
+        final String jSkeleton = "j";
+        final char[] timeCycleChars = { 'H', 'h', 'K', 'k' };
+        // First test that j maps correctly by region in a locale for which we do not have data.
+        {
+            String testLocaleID = "de_US"; // short patterns from fallback locale "de" have "HH"
+            ULocale testLocale = new ULocale(testLocaleID);
+            DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance(testLocale);
+            String jPattern = dtpg.getBestPattern(jSkeleton);
+            String jPatSkeleton = dtpg.getSkeleton(jPattern);
+            if (jPatSkeleton.indexOf('h') < 0) { // expect US preferred cycle 'h', not H or other cycle
+                errln("DateTimePatternGeneratorgetBestpattern locale " + testLocaleID + ", pattern j did not use 'h'");
+            }
+        }
+
+        // Next test that in all available Locales, the actual short time pattern uses the same cycle as produced by 'j'
+        ULocale[] locales = DateFormat.getAvailableULocales();
+        for (ULocale locale: locales) {
+            String localeID = locale.getName();
+            // BEGIN Android-added: Exclude pseudo locales since they are not present in CLDR data.
+            if (localeID.endsWith("_XA") || localeID.endsWith("_XB")) {
+                // skip pseudo-locales
+                continue;
+            }
+            // END Android-added: Exclude pseudo locales since they are not present in CLDR data.
+            DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance(locale);
+            DateFormat dfmt = DateFormat.getTimeInstance(DateFormat.SHORT, locale);
+            String shortPattern = ((SimpleDateFormat)dfmt).toPattern();
+            String jPattern = dtpg.getBestPattern(jSkeleton);
+            // Now check that shortPattern and jPattern use the same hour cycle
+            String jPatSkeleton = dtpg.getSkeleton(jPattern);
+            String shortPatSkeleton = dtpg.getSkeleton(shortPattern);
+            for (char timeCycleChar: timeCycleChars) {
+                if (jPatSkeleton.indexOf(timeCycleChar) >= 0) {
+                    if (shortPatSkeleton.indexOf(timeCycleChar) < 0) {
+                        String dfmtCalType = dfmt.getCalendar().getType();
+                        errln("locale " + localeID + ", expected j resolved char " + timeCycleChar +
+                                " to occur in short time pattern " + shortPattern + " for " + dfmtCalType);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void test20640_HourCyclArsEnNH() {
+        String[][] cases = new String[][]{
+            // ars is interesting because it does not have a region, but it aliases
+            // to ar_SA, which has a region.
+            {"ars", "h a", "h:mm a"},
+            // en_NH is interesting because NH is a depregated region code.
+            {"en_NH", "h a", "h:mm a"},
+            // ch_ZH is a typo (should be zh_CN), but we should fail gracefully.
+            // {"cn_ZH", "HH", "H:mm"}, // TODO(ICU-20653): Desired behavior
+            {"cn_ZH", "HH", "h:mm a"}, // Actual behavior
+            // a non-BCP47 locale without a country code should not fail
+            {"ja_TRADITIONAL", "H時", "H:mm"},
+        };
+
+        for (String[] cas : cases) {
+            ULocale loc = new ULocale(cas[0]);
+            DateFormat dtf = DateFormat.getTimeInstance(DateFormat.SHORT, loc);
+            DateTimePatternGenerator dtpg = DateTimePatternGenerator.getInstance(loc);
+
+            String timePattern = ((SimpleDateFormat)dtf).toPattern();
+            String dtpgPattern = dtpg.getBestPattern("j");
+
+            assertEquals("dtpgPattern " + cas[0],
+                cas[1], dtpgPattern);
+            assertEquals("timePattern " + cas[1],
+                cas[2], timePattern);
         }
     }
 }

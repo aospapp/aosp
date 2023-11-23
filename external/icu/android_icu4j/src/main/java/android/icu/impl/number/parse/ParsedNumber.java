@@ -155,7 +155,7 @@ public class ParsedNumber {
             }
         }
         assert quantity != null;
-        if (quantity.isZero() && quantity.isNegative() && !integerOnly) {
+        if (quantity.isZeroish() && quantity.isNegative() && !integerOnly) {
             return -0.0;
         }
 

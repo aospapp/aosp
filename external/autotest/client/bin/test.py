@@ -47,18 +47,6 @@ class test(common_test.base_test):
         """
         self.crash_handling_enabled = False
 
-        # make sure this script will run with a new enough python to work
-        cmd = ("python -c 'import sys; "
-               "print sys.version_info[0], sys.version_info[1]'")
-        result = utils.run(cmd, ignore_status=True)
-        if result.exit_status != 0:
-            logging.warning('System python is too old, crash handling disabled')
-            return
-        major, minor = [int(x) for x in result.stdout.strip().split()]
-        if (major, minor) < (2, 4):
-            logging.warning('System python is too old, crash handling disabled')
-            return
-
         self.pattern_file = '/proc/sys/kernel/core_pattern'
         try:
             # Enable core dumps

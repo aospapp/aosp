@@ -17,7 +17,7 @@
 %                                July 1993                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -50,6 +50,7 @@
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/memory-private.h"
+#include "MagickCore/semaphore.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/utility.h"
 #include "MagickCore/utility-private.h"
@@ -88,6 +89,12 @@ static WarningHandler
   warning_handler = DefaultWarningHandler;
 
 /*
+  Static declarations.
+*/
+static SemaphoreInfo
+  *exception_semaphore = (SemaphoreInfo *) NULL;
+
+/*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
 %                                                                             %
@@ -116,7 +123,7 @@ MagickExport ExceptionInfo *AcquireExceptionInfo(void)
   return(exception);
 }
 
-/*l
+/*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
 %                                                                             %
@@ -438,6 +445,58 @@ MagickExport ExceptionInfo *DestroyExceptionInfo(ExceptionInfo *exception)
       exception=(ExceptionInfo *) RelinquishMagickMemory(exception);
     }
   return(exception);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
++   E x e c e p t i o n C o m p o n e n t G e n e s i s                       %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  ExceptionComponentGenesis() instantiates the exception component.
+%
+%  The format of the ExceptionComponentGenesis method is:
+%
+%      MagickBooleanType ExceptionComponentGenesis(void)
+%
+*/
+MagickPrivate MagickBooleanType ExceptionComponentGenesis(void)
+{
+  if (exception_semaphore == (SemaphoreInfo *) NULL)
+    exception_semaphore=AcquireSemaphoreInfo();
+  return(MagickTrue);
+}
+
+/*
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                             %
+%                                                                             %
+%                                                                             %
++   E x c e p t i o n C o m p o n e n t T e r m i n u s                       %
+%                                                                             %
+%                                                                             %
+%                                                                             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  ExceptionComponentTerminus() destroys the exception component.
+%
+%  The format of the ExceptionComponentTerminus method is:
+%
+%      void ExceptionComponentTerminus(void)
+%
+*/
+MagickPrivate void ExceptionComponentTerminus(void)
+{
+  if (exception_semaphore == (SemaphoreInfo *) NULL)
+    ActivateSemaphoreInfo(&exception_semaphore);
+  LockSemaphoreInfo(exception_semaphore);
+  UnlockSemaphoreInfo(exception_semaphore);
+  RelinquishSemaphoreInfo(&exception_semaphore);
 }
 
 /*
@@ -816,8 +875,12 @@ MagickExport ErrorHandler SetErrorHandler(ErrorHandler handler)
   ErrorHandler
     previous_handler;
 
+  if (exception_semaphore == (SemaphoreInfo *) NULL)
+    ActivateSemaphoreInfo(&exception_semaphore);
+  LockSemaphoreInfo(exception_semaphore);
   previous_handler=error_handler;
   error_handler=handler;
+  UnlockSemaphoreInfo(exception_semaphore);
   return(previous_handler);
 }
 
@@ -849,8 +912,12 @@ MagickExport FatalErrorHandler SetFatalErrorHandler(FatalErrorHandler handler)
   FatalErrorHandler
     previous_handler;
 
+  if (exception_semaphore == (SemaphoreInfo *) NULL)
+    ActivateSemaphoreInfo(&exception_semaphore);
+  LockSemaphoreInfo(exception_semaphore);
   previous_handler=fatal_error_handler;
   fatal_error_handler=handler;
+  UnlockSemaphoreInfo(exception_semaphore);
   return(previous_handler);
 }
 
@@ -882,8 +949,12 @@ MagickExport WarningHandler SetWarningHandler(WarningHandler handler)
   WarningHandler
     previous_handler;
 
+  if (exception_semaphore == (SemaphoreInfo *) NULL)
+    ActivateSemaphoreInfo(&exception_semaphore);
+  LockSemaphoreInfo(exception_semaphore);
   previous_handler=warning_handler;
   warning_handler=handler;
+  UnlockSemaphoreInfo(exception_semaphore);
   return(previous_handler);
 }
 

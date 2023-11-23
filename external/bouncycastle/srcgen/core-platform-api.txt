@@ -75,6 +75,13 @@ method:com.android.org.bouncycastle.asn1.x509.X509Name#getOIDs()
 method:com.android.org.bouncycastle.asn1.x509.X509Name#getValues()
 method:com.android.org.bouncycastle.asn1.x509.X509Name#toString(boolean,Hashtable)
 method:com.android.org.bouncycastle.asn1.x509.X509Name#X509Name(String)
+method:com.android.org.bouncycastle.crypto.digests.GeneralDigest#finish()
+method:com.android.org.bouncycastle.crypto.digests.GeneralDigest#processBlock()
+method:com.android.org.bouncycastle.crypto.digests.GeneralDigest#update(byte[],int,int)
+method:com.android.org.bouncycastle.crypto.digests.MD4Digest#MD4Digest()
+method:com.android.org.bouncycastle.crypto.digests.MD4Digest#doFinal(byte[],int)
+method:com.android.org.bouncycastle.crypto.digests.SHA1Digest#SHA1Digest()
+method:com.android.org.bouncycastle.crypto.digests.SHA1Digest#doFinal(byte[],int)
 method:com.android.org.bouncycastle.crypto.generators.OpenSSLPBEParametersGenerator#generateDerivedParameters(int)
 method:com.android.org.bouncycastle.crypto.generators.OpenSSLPBEParametersGenerator#init(byte[],byte[])
 method:com.android.org.bouncycastle.crypto.generators.OpenSSLPBEParametersGenerator#OpenSSLPBEParametersGenerator()
@@ -146,6 +153,9 @@ type:com.android.org.bouncycastle.asn1.x509.V3TBSCertificateGenerator
 type:com.android.org.bouncycastle.asn1.x509.X509Name
 type:com.android.org.bouncycastle.asn1.x9.X9ObjectIdentifiers
 type:com.android.org.bouncycastle.crypto.CipherParameters
+type:com.android.org.bouncycastle.crypto.digests.GeneralDigest
+type:com.android.org.bouncycastle.crypto.digests.MD4Digest
+type:com.android.org.bouncycastle.crypto.digests.SHA1Digest
 type:com.android.org.bouncycastle.crypto.generators.OpenSSLPBEParametersGenerator
 type:com.android.org.bouncycastle.crypto.params.KeyParameter
 type:com.android.org.bouncycastle.crypto.PBEParametersGenerator

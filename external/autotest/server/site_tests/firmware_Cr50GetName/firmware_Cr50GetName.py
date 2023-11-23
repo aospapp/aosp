@@ -4,9 +4,11 @@
 
 import logging
 import re
+import time
 
-from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib.cros import cr50_utils
+from autotest_lib.server.cros import filesystem_util
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -24,18 +26,25 @@ class firmware_Cr50GetName(Cr50Test):
     MAX_VAL = 0xffffffff
 
 
-    def initialize(self, host, cmdline_args, dev_path='', full_args={}):
+    def initialize(self, host, cmdline_args, full_args={}):
         # Restore the original image, rlz code, and board id during cleanup.
         super(firmware_Cr50GetName, self).initialize(host, cmdline_args,
-            full_args, restore_cr50_state=True, cr50_dev_path=dev_path)
+            full_args, restore_cr50_image=True, restore_cr50_board_id=True)
 
         if not self.host.path_exists(self.GET_NAME_SCRIPT):
             raise error.TestNAError('Device does not have "cr50-get-name"')
 
-        # Update to the dev image so we can erase the board id after we set it.
-        # This test is verifying cr50-get-name, so it is ok if cr50 is running a
-        # dev image.
-        self.cr50_update(self.get_saved_cr50_dev_path())
+        efi_path = self.get_saved_eraseflashinfo_image_path()
+
+        filesystem_util.make_rootfs_writable(self.host)
+        cr50_utils.InstallImage(self.host, efi_path, cr50_utils.CR50_PROD)
+        cr50_utils.InstallImage(self.host, efi_path, cr50_utils.CR50_PREPVT)
+
+        # Update to the eraseflashinfo image so we can erase the board id after
+        # we set it. This test is verifying cr50-get-name, so it is ok if cr50
+        # is running a non-prod image.
+        self.cr50_update(self.get_saved_dbg_image_path())
+        self.cr50_update(efi_path, rollback=True)
 
         # Stop trunksd so it wont interfere with the update
         cr50_utils.StopTrunksd(self.host)
@@ -45,9 +54,12 @@ class firmware_Cr50GetName(Cr50Test):
         self.get_result()
 
 
-    def erase_bid(self):
-        """Erase the cr50 board id"""
-        self.cr50.send_command('eraseflashinfo')
+    def cleanup(self):
+        """Reset the DUT to restore trunksd."""
+        try:
+            self.servo.get_power_state_controller().reset()
+        finally:
+            super(firmware_Cr50GetName, self).cleanup()
 
 
     def get_result(self):
@@ -124,6 +136,14 @@ class firmware_Cr50GetName(Cr50Test):
         logging.info('FOUND UPDATE RESULT:\n%s', match.groups()[0])
 
 
+    def cr50_update_is_running(self):
+        """Returns True if cr50-update is running on the host"""
+        time.sleep(1)
+        status = self.host.run('status cr50-update').stdout
+        logging.info('cr50-update status: %s', status)
+        return 'running' in status
+
+
     def run_update(self, brand, flags, clear_bid=False):
         """Set the board id then run cr50-update
 
@@ -132,14 +152,19 @@ class firmware_Cr50GetName(Cr50Test):
             flags: The flag int to test.
             clear_bid: True if the board id should be erased and not reset.
         """
-        # Set the board id
-        self.erase_bid()
+        if not self.cr50.eraseflashinfo():
+            raise error.TestError('Unable to erase the board id')
 
         if not clear_bid:
-            self.cr50.send_command('bid 0x%x 0x%x' % (brand, flags))
+            cr50_utils.SetChipBoardId(self.host, brand, flags)
 
+        # Get the current cr50 update messages. The test will keep track of the
+        # last message and separate the current output from actual test results.
+        self.get_result()
         # Run the update script script
         self.host.run('start cr50-update')
+        utils.wait_for_value(self.cr50_update_is_running, expected_value=False,
+                             timeout_sec=30)
 
         # Make sure cr50 used the right image.
         self.check_result(brand, flags, clear_bid)

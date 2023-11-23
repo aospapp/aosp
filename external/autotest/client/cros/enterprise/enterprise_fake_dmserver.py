@@ -22,7 +22,10 @@ class FakeDMServer(object):
         """
         self.server_url = None
         telemetry_src = '/usr/local/telemetry/src'
+        # TODO(976424): Remove 'chrome/browser/policy/test' when CL:1660660 is
+        # available in chrome in Chromium OS.
         for path in ['chrome/browser/policy/test',
+                     'components/policy/test_support',
                      'net/tools/testserver',
                      'third_party/protobuf/python/google',
                      'third_party/tlslite']:

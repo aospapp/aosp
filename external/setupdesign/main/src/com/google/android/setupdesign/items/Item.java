@@ -21,6 +21,7 @@ import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
@@ -37,10 +38,10 @@ import com.google.android.setupdesign.R;
 public class Item extends AbstractItem {
 
   private boolean enabled = true;
-  private Drawable icon;
+  @Nullable private Drawable icon;
   private int layoutRes;
-  private CharSequence summary;
-  private CharSequence title;
+  @Nullable private CharSequence summary;
+  @Nullable private CharSequence title;
   private boolean visible = true;
   @ColorInt private int iconTint = Color.TRANSPARENT;
   private int iconGravity = Gravity.CENTER_VERTICAL;
@@ -83,11 +84,12 @@ public class Item extends AbstractItem {
     return enabled;
   }
 
-  public void setIcon(Drawable icon) {
+  public void setIcon(@Nullable Drawable icon) {
     this.icon = icon;
     notifyItemChanged();
   }
 
+  @Nullable
   public Drawable getIcon() {
     return icon;
   }
@@ -119,20 +121,22 @@ public class Item extends AbstractItem {
     return layoutRes;
   }
 
-  public void setSummary(CharSequence summary) {
+  public void setSummary(@Nullable CharSequence summary) {
     this.summary = summary;
     notifyItemChanged();
   }
 
+  @Nullable
   public CharSequence getSummary() {
     return summary;
   }
 
-  public void setTitle(CharSequence title) {
+  public void setTitle(@Nullable CharSequence title) {
     this.title = title;
     notifyItemChanged();
   }
 
+  @Nullable
   public CharSequence getTitle() {
     return title;
   }

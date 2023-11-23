@@ -16,37 +16,35 @@
 #include "cras_dbus_util.h"
 #include "utlist.h"
 
-#define PROFILE_INTROSPECT_XML						\
-	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE			\
-	"<node>\n"							\
-	"  <interface name=\"org.bluez.Profile1\">\n"			\
-	"    <method name=\"Release\">\n"				\
-	"    </method>\n"						\
-	"    <method name=\"NewConnection\">\n"				\
-	"      <arg name=\"device\" type=\"o\" direction=\"in\">\n"	\
-	"      <arg name=\"fd\" type=\"h\" direction=\"in\">\n"		\
-	"      <arg name=\"fd_properties\" type=\"a{sv}\" direction=\"in\">\n"\
-	"    </method>\n"						\
-	"    <method name=\"RequestDisconnection\">\n"			\
-	"      <arg name=\"device\" type=\"o\" direction=\"in\">\n"	\
-	"    </method>\n"						\
-	"    <method name=\"Cancel\">\n"				\
-	"    </method>\n"						\
-	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"	\
-	"    <method name=\"Introspect\">\n"				\
-	"      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"	\
-	"    </method>\n"						\
-	"  </interface>\n"						\
+#define PROFILE_INTROSPECT_XML                                                 \
+	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                              \
+	"<node>\n"                                                             \
+	"  <interface name=\"org.bluez.Profile1\">\n"                          \
+	"    <method name=\"Release\">\n"                                      \
+	"    </method>\n"                                                      \
+	"    <method name=\"NewConnection\">\n"                                \
+	"      <arg name=\"device\" type=\"o\" direction=\"in\">\n"            \
+	"      <arg name=\"fd\" type=\"h\" direction=\"in\">\n"                \
+	"      <arg name=\"fd_properties\" type=\"a{sv}\" direction=\"in\">\n" \
+	"    </method>\n"                                                      \
+	"    <method name=\"RequestDisconnection\">\n"                         \
+	"      <arg name=\"device\" type=\"o\" direction=\"in\">\n"            \
+	"    </method>\n"                                                      \
+	"    <method name=\"Cancel\">\n"                                       \
+	"    </method>\n"                                                      \
+	"  <interface name=\"" DBUS_INTERFACE_INTROSPECTABLE "\">\n"           \
+	"    <method name=\"Introspect\">\n"                                   \
+	"      <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"            \
+	"    </method>\n"                                                      \
+	"  </interface>\n"                                                     \
 	"</node>\n"
-
 
 /* Profiles */
 static struct cras_bt_profile *profiles;
 
-static DBusHandlerResult cras_bt_profile_handle_release(
-		DBusConnection *conn,
-		DBusMessage *message,
-		void *arg)
+static DBusHandlerResult cras_bt_profile_handle_release(DBusConnection *conn,
+							DBusMessage *message,
+							void *arg)
 {
 	DBusMessage *reply;
 	const char *profile_path;
@@ -58,6 +56,7 @@ static DBusHandlerResult cras_bt_profile_handle_release(
 	if (!profile)
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
+	syslog(LOG_ERR, "Profile %s released by bluetoothd", profile->name);
 	profile->release(profile);
 
 	reply = dbus_message_new_method_return(message);
@@ -73,10 +72,9 @@ static DBusHandlerResult cras_bt_profile_handle_release(
 	return DBUS_HANDLER_RESULT_HANDLED;
 }
 
-static DBusHandlerResult cras_bt_profile_handle_new_connection(
-		DBusConnection *conn,
-		DBusMessage *message,
-		void *arg)
+static DBusHandlerResult
+cras_bt_profile_handle_new_connection(DBusConnection *conn,
+				      DBusMessage *message, void *arg)
 {
 	DBusMessageIter message_iter;
 	DBusMessage *reply;
@@ -92,8 +90,8 @@ static DBusHandlerResult cras_bt_profile_handle_new_connection(
 	dbus_message_iter_get_basic(&message_iter, &object_path);
 	dbus_message_iter_next(&message_iter);
 
-	if (dbus_message_iter_get_arg_type(&message_iter)
-			!= DBUS_TYPE_UNIX_FD) {
+	if (dbus_message_iter_get_arg_type(&message_iter) !=
+	    DBUS_TYPE_UNIX_FD) {
 		syslog(LOG_ERR, "Argument not a valid unix file descriptor");
 		goto invalid;
 	}
@@ -118,9 +116,9 @@ static DBusHandlerResult cras_bt_profile_handle_new_connection(
 	if (err) {
 		syslog(LOG_INFO, "%s new connection rejected", profile->name);
 		close(fd);
-		reply = dbus_message_new_error(message,
-				"org.chromium.Cras.Error.RejectNewConnection",
-				"Possibly another headset already in use");
+		reply = dbus_message_new_error(
+			message, "org.chromium.Cras.Error.RejectNewConnection",
+			"Possibly another headset already in use");
 		if (!dbus_connection_send(conn, reply, NULL))
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
@@ -145,10 +143,9 @@ invalid:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static DBusHandlerResult cras_bt_profile_handle_request_disconnection(
-		DBusConnection *conn,
-		DBusMessage *message,
-		void *arg)
+static DBusHandlerResult
+cras_bt_profile_handle_request_disconnection(DBusConnection *conn,
+					     DBusMessage *message, void *arg)
 {
 	DBusMessageIter message_iter;
 	DBusMessage *reply;
@@ -188,10 +185,9 @@ invalid:
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static DBusHandlerResult cras_bt_profile_handle_cancel(
-		DBusConnection *conn,
-		DBusMessage *message,
-		void *arg)
+static DBusHandlerResult cras_bt_profile_handle_cancel(DBusConnection *conn,
+						       DBusMessage *message,
+						       void *arg)
 {
 	DBusMessage *reply;
 	const char *profile_path;
@@ -219,11 +215,10 @@ static DBusHandlerResult cras_bt_profile_handle_cancel(
 }
 
 static DBusHandlerResult cras_bt_handle_profile_messages(DBusConnection *conn,
-							DBusMessage *message,
-							void *arg)
+							 DBusMessage *message,
+							 void *arg)
 {
-	if (dbus_message_is_method_call(message,
-					DBUS_INTERFACE_INTROSPECTABLE,
+	if (dbus_message_is_method_call(message, DBUS_INTERFACE_INTROSPECTABLE,
 					"Introspect")) {
 		DBusMessage *reply;
 		const char *xml = PROFILE_INTROSPECT_XML;
@@ -231,9 +226,7 @@ static DBusHandlerResult cras_bt_handle_profile_messages(DBusConnection *conn,
 		reply = dbus_message_new_method_return(message);
 		if (!reply)
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
-		if (!dbus_message_append_args(reply,
-					      DBUS_TYPE_STRING,
-					      &xml,
+		if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &xml,
 					      DBUS_TYPE_INVALID)) {
 			dbus_message_unref(reply);
 			return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -245,22 +238,18 @@ static DBusHandlerResult cras_bt_handle_profile_messages(DBusConnection *conn,
 
 		dbus_message_unref(reply);
 		return DBUS_HANDLER_RESULT_HANDLED;
-	} else if (dbus_message_is_method_call(message,
-					       BLUEZ_INTERFACE_PROFILE,
+	} else if (dbus_message_is_method_call(message, BLUEZ_INTERFACE_PROFILE,
 					       "Release")) {
 		return cras_bt_profile_handle_release(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       BLUEZ_INTERFACE_PROFILE,
+	} else if (dbus_message_is_method_call(message, BLUEZ_INTERFACE_PROFILE,
 					       "NewConnection")) {
-		return cras_bt_profile_handle_new_connection(conn, message, arg);
-	} else if (dbus_message_is_method_call(message,
-					       BLUEZ_INTERFACE_PROFILE,
+		return cras_bt_profile_handle_new_connection(conn, message,
+							     arg);
+	} else if (dbus_message_is_method_call(message, BLUEZ_INTERFACE_PROFILE,
 					       "RequestDisconnection")) {
-		return cras_bt_profile_handle_request_disconnection(conn,
-								    message,
-								    arg);
-	} else if (dbus_message_is_method_call(message,
-					       BLUEZ_INTERFACE_PROFILE,
+		return cras_bt_profile_handle_request_disconnection(
+			conn, message, arg);
+	} else if (dbus_message_is_method_call(message, BLUEZ_INTERFACE_PROFILE,
 					       "Cancel")) {
 		return cras_bt_profile_handle_cancel(conn, message, arg);
 	} else {
@@ -304,15 +293,14 @@ int cras_bt_register_profile(DBusConnection *conn,
 	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
 				       &profile->object_path);
 	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_STRING,
-					       &profile->uuid);
+				       &profile->uuid);
 
-	dbus_message_iter_open_container(&message_iter,
-					 DBUS_TYPE_ARRAY,
-					 DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
-					 DBUS_TYPE_STRING_AS_STRING
-					 DBUS_TYPE_VARIANT_AS_STRING
-					 DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
-					 &properties_array_iter);
+	dbus_message_iter_open_container(
+		&message_iter, DBUS_TYPE_ARRAY,
+		DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING
+			DBUS_TYPE_VARIANT_AS_STRING
+				DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+		&properties_array_iter);
 
 	if (!append_key_value(&properties_array_iter, "Name", DBUS_TYPE_STRING,
 			      DBUS_TYPE_STRING_AS_STRING, &profile->name)) {
@@ -329,25 +317,23 @@ int cras_bt_register_profile(DBusConnection *conn,
 	}
 
 	if (!append_key_value(&properties_array_iter, "Version",
-			      DBUS_TYPE_UINT16,
-			      DBUS_TYPE_UINT16_AS_STRING, &profile->version)) {
+			      DBUS_TYPE_UINT16, DBUS_TYPE_UINT16_AS_STRING,
+			      &profile->version)) {
 		dbus_message_unref(method_call);
 		return -ENOMEM;
 	}
 
-	if (profile->role && !append_key_value(&properties_array_iter, "Role",
-					       DBUS_TYPE_STRING,
-					       DBUS_TYPE_STRING_AS_STRING,
-					       &profile->role)) {
+	if (profile->role &&
+	    !append_key_value(&properties_array_iter, "Role", DBUS_TYPE_STRING,
+			      DBUS_TYPE_STRING_AS_STRING, &profile->role)) {
 		dbus_message_unref(method_call);
 		return -ENOMEM;
 	}
 
-	if (profile->features && !append_key_value(&properties_array_iter,
-						   "Features",
-						   DBUS_TYPE_UINT16,
-						   DBUS_TYPE_UINT16_AS_STRING,
-						   &profile->features)) {
+	if (profile->features &&
+	    !append_key_value(&properties_array_iter, "Features",
+			      DBUS_TYPE_UINT16, DBUS_TYPE_UINT16_AS_STRING,
+			      &profile->features)) {
 		dbus_message_unref(method_call);
 		return -ENOMEM;
 	}
@@ -365,9 +351,8 @@ int cras_bt_register_profile(DBusConnection *conn,
 	if (!pending_call)
 		return -EIO;
 
-	if (!dbus_pending_call_set_notify(pending_call,
-					  cras_bt_on_register_profile,
-					  NULL, NULL)) {
+	if (!dbus_pending_call_set_notify(
+		    pending_call, cras_bt_on_register_profile, NULL, NULL)) {
 		dbus_pending_call_cancel(pending_call);
 		dbus_pending_call_unref(pending_call);
 		syslog(LOG_ERR, "register profile fail on set notify");
@@ -382,7 +367,7 @@ int cras_bt_register_profiles(DBusConnection *conn)
 	struct cras_bt_profile *profile;
 	int err;
 
-	DL_FOREACH(profiles, profile) {
+	DL_FOREACH (profiles, profile) {
 		err = cras_bt_register_profile(conn, profile);
 		if (err)
 			return err;
@@ -391,23 +376,18 @@ int cras_bt_register_profiles(DBusConnection *conn)
 	return 0;
 }
 
-int cras_bt_add_profile(DBusConnection *conn,
-			struct cras_bt_profile *profile)
+int cras_bt_add_profile(DBusConnection *conn, struct cras_bt_profile *profile)
 {
 	static const DBusObjectPathVTable profile_vtable = {
-		NULL,
-		cras_bt_handle_profile_messages,
-		NULL, NULL, NULL, NULL
+		NULL, cras_bt_handle_profile_messages, NULL, NULL, NULL, NULL
 	};
 
 	DBusError dbus_error;
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_connection_register_object_path(conn,
-						  profile->object_path,
-						  &profile_vtable,
-						  &dbus_error)) {
+	if (!dbus_connection_register_object_path(
+		    conn, profile->object_path, &profile_vtable, &dbus_error)) {
 		syslog(LOG_ERR, "Could not register BT profile %s: %s",
 		       profile->object_path, dbus_error.message);
 		dbus_error_free(&dbus_error);
@@ -423,14 +403,14 @@ void cras_bt_profile_reset()
 {
 	struct cras_bt_profile *profile;
 
-	DL_FOREACH(profiles, profile)
+	DL_FOREACH (profiles, profile)
 		profile->release(profile);
 }
 
 struct cras_bt_profile *cras_bt_profile_get(const char *path)
 {
 	struct cras_bt_profile *profile;
-	DL_FOREACH(profiles, profile) {
+	DL_FOREACH (profiles, profile) {
 		if (strcmp(profile->object_path, path) == 0)
 			return profile;
 	}
@@ -441,6 +421,6 @@ struct cras_bt_profile *cras_bt_profile_get(const char *path)
 void cras_bt_profile_on_device_disconnected(struct cras_bt_device *device)
 {
 	struct cras_bt_profile *profile;
-	DL_FOREACH(profiles, profile)
+	DL_FOREACH (profiles, profile)
 		profile->request_disconnection(profile, device);
 }

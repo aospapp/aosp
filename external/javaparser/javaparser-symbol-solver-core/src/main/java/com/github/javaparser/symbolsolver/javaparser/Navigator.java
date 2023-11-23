@@ -39,18 +39,16 @@ public final class Navigator {
         // prevent instantiation
     }
 
-    /**
-     * @deprecated use Node.getParentNode
-     */
-    @Deprecated
-    public static Node getParentNode(Node node) {
-        return node.getParentNode().orElse(null);
-    }
-
     public static Node requireParentNode(Node node) {
         return node.getParentNode().orElseThrow(() -> new IllegalStateException("Parent not found, the node does not appear to be inserted in a correct AST"));
     }
 
+    /**
+     * Looks among the type declared in the Compilation Unit for one having the specified name.
+     * The name can be qualified with respect to the compilation unit. For example, if the compilation
+     * unit is in package a.b; and it contains two top level classes named C and D, with class E being defined inside D
+     * then the qualifiedName that can be resolved are "C", "D", and "D.E".
+     */
     public static Optional<TypeDeclaration<?>> findType(CompilationUnit cu, String qualifiedName) {
         if (cu.getTypes().isEmpty()) {
             return Optional.empty();
@@ -66,6 +64,11 @@ public final class Navigator {
         return type;
     }
 
+    /**
+     * Looks among the type declared in the TypeDeclaration for one having the specified name.
+     * The name can be qualified with respect to the TypeDeclaration. For example, if the class declarationd defines class D
+     * and class D contains an internal class named E then the qualifiedName that can be resolved are "D", and "D.E".
+     */
     public static Optional<TypeDeclaration<?>> findType(TypeDeclaration<?> td, String qualifiedName) {
         final String typeName = getOuterTypeName(qualifiedName);
 
@@ -87,6 +90,14 @@ public final class Navigator {
         ClassOrInterfaceDeclaration cd = demandClassOrInterface(cu, qualifiedName);
         if (cd.isInterface()) {
             throw new IllegalStateException("Type is not a class");
+        }
+        return cd;
+    }
+
+    public static ClassOrInterfaceDeclaration demandInterface(CompilationUnit cu, String qualifiedName) {
+        ClassOrInterfaceDeclaration cd = demandClassOrInterface(cu, qualifiedName);
+        if (!cd.isInterface()) {
+            throw new IllegalStateException("Type is not an interface");
         }
         return cd;
     }
@@ -117,6 +128,33 @@ public final class Navigator {
         }
         if (found == null) {
             throw new IllegalStateException("No method called " + name);
+        }
+        return found;
+    }
+
+    /**
+     * Returns the {@code (i+1)}'th constructor of the given type declaration, in textual order. The constructor that
+     * appears first has the index 0, the second one the index 1, and so on.
+     *
+     * @param td    The type declaration to search in. Note that only classes and enums have constructors.
+     * @param index The index of the desired constructor.
+     * @return The desired ConstructorDeclaration if it was found, and {@code null} otherwise.
+     */
+    public static ConstructorDeclaration demandConstructor(TypeDeclaration<?> td, int index) {
+        ConstructorDeclaration found = null;
+        int i = 0;
+        for (BodyDeclaration<?> bd : td.getMembers()) {
+            if (bd instanceof ConstructorDeclaration) {
+                ConstructorDeclaration cd = (ConstructorDeclaration) bd;
+                if (i == index) {
+                    found = cd;
+                    break;
+                }
+                i++;
+            }
+        }
+        if (found == null) {
+            throw new IllegalStateException("No constructor with index " + index);
         }
         return found;
     }
@@ -167,25 +205,9 @@ public final class Navigator {
         return node.findFirst(clazz).orElseThrow(IllegalArgumentException::new);
     }
 
-    /**
-     * @deprecated use Node.findAll instead
-     */
-    @Deprecated
-    public static <N extends Node> List<N> findAllNodesOfGivenClass(Node node, Class<N> clazz) {
-        return node.findAll(clazz);
-    }
-
     // TODO should be demand or require...
     public static ReturnStmt findReturnStmt(MethodDeclaration method) {
         return findNodeOfGivenClass(method, ReturnStmt.class);
-    }
-
-    /**
-     * @deprecated use Node.findParent instead
-     */
-    @Deprecated
-    public static <N extends Node> Optional<N> findAncestor(Node node, Class<N> clazz) {
-        return node.findParent(clazz);
     }
 
     ///

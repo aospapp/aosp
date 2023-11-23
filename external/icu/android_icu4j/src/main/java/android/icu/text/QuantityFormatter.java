@@ -13,12 +13,11 @@ import java.text.FieldPosition;
 
 import android.icu.impl.SimpleFormatterImpl;
 import android.icu.impl.StandardPlural;
-import android.icu.text.PluralRules.FixedDecimal;
 
 /**
  * QuantityFormatter represents an unknown quantity of something and formats a known quantity
  * in terms of that something. For example, a QuantityFormatter that represents X apples may
- * format 1 as "1 apple" and 3 as "3 apples" 
+ * format 1 as "1 apple" and 3 as "3 apples"
  * <p>
  * QuanitityFormatter appears here instead of in android.icu.impl because it depends on
  * PluralRules and DecimalFormat. It is package-protected as it is not meant for public use.
@@ -99,24 +98,6 @@ class QuantityFormatter {
         } else {
             pluralKeyword = rules.select(number);
         }
-        return StandardPlural.orOtherFromString(pluralKeyword);
-    }
-
-    /**
-     * Selects the standard plural form for the number/formatter/rules.
-     */
-    public static StandardPlural selectPlural(
-            Number number, NumberFormat fmt, PluralRules rules,
-            StringBuffer formattedNumber, FieldPosition pos) {
-        UFieldPosition fpos = new UFieldPosition(pos.getFieldAttribute(), pos.getField());
-        fmt.format(number, formattedNumber, fpos);
-        // TODO: Long, BigDecimal & BigInteger may not fit into doubleValue().
-        FixedDecimal fd = new FixedDecimal(
-                number.doubleValue(),
-                fpos.getCountVisibleFractionDigits(), fpos.getFractionDigits());
-        String pluralKeyword = rules.select(fd);
-        pos.setBeginIndex(fpos.getBeginIndex());
-        pos.setEndIndex(fpos.getEndIndex());
         return StandardPlural.orOtherFromString(pluralKeyword);
     }
 

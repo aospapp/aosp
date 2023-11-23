@@ -8,6 +8,7 @@
 #include <debug_uart.h>
 #include <dm.h>
 #include <i2c.h>
+#include <init.h>
 #include <nand.h>
 #include <version.h>
 #include <asm/io.h>
@@ -19,6 +20,8 @@
 #include <asm/arch/gpio.h>
 #include <asm/arch/sama5d2.h>
 #include <asm/arch/sama5d2_smc.h>
+
+extern void at91_pda_detect(void);
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -62,6 +65,14 @@ static void board_nand_hw_init(void)
 	atmel_pio4_set_b_periph(AT91_PIO_PORTC, 8, ATMEL_PIO_PUEN_MASK);	/* RDY */
 	atmel_pio4_set_b_periph(AT91_PIO_PORTB, 0, ATMEL_PIO_PUEN_MASK);	/* ALE */
 	atmel_pio4_set_b_periph(AT91_PIO_PORTB, 1, ATMEL_PIO_PUEN_MASK);	/* CLE */
+}
+#endif
+
+#ifdef CONFIG_BOARD_LATE_INIT
+int board_late_init(void)
+{
+	at91_pda_detect();
+	return 0;
 }
 #endif
 

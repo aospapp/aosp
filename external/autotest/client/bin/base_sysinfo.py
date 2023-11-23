@@ -131,7 +131,9 @@ class command(loggable):
             logf = cmd.replace(" ", "_")
         super(command, self).__init__(logf, log_in_keyval)
         self.cmd = cmd
-        self._compress_log = compress_log
+        if compress_log:
+            self.cmd += ' | gzip -9'
+            self.logf += '.gz'
 
 
     def __repr__(self):
@@ -182,8 +184,6 @@ class command(loggable):
         finally:
             for f in (stdin, stdout, stderr):
                 f.close()
-            if self._compress_log and os.path.exists(logf_path):
-                utils.system('gzip -9 "%s"' % logf_path, ignore_status=True)
 
 
 class base_sysinfo(object):
@@ -231,9 +231,6 @@ class base_sysinfo(object):
         self.test_loggables.add(command('dmesg -c',
                                         logf='dmesg',
                                         compress_log=True))
-        self.test_loggables.add(command('journalctl -o export',
-                                        logf='journal',
-                                        compress_log=True))
         self.boot_loggables.add(logfile('/proc/cmdline', log_in_keyval=True))
         # log /proc/mounts but with custom filename since we already
         # log the output of the "mount" command as the filename "mount"
@@ -242,6 +239,7 @@ class base_sysinfo(object):
                                         logf='uname',
                                         log_in_keyval=True))
         self._installed_packages = []
+        self._journal_cursor = None
 
 
     def serialize(self):
@@ -323,22 +321,21 @@ class base_sysinfo(object):
             self._messages_size = stat.st_size
             self._messages_inode = stat.st_ino
 
-        if os.path.exists("/var/log/journal"):
-            # Find the current journal cursor so we later can save new messages.
-            cmd = "/usr/bin/journalctl  -n0 --show-cursor -q"
-            try:
-                cursor = utils.system_output(cmd)
-                prefix = "-- cursor: "
-                pos = cursor.find(prefix) + len(prefix)
-                self._journal_cursor = cursor[pos:]
-            except Exception, e:
-                logging.error("error running journalctl --show-cursor: %s", e)
+        self._journal_cursor = get_journal_cursor()
+        # We want to only log the journal from this point on, not everything.
+        # When you do not filter from the cursor on the journal.gz can be
+        # extremely large and take a very long amount of time to compress.
+        if self._journal_cursor:
+            self.test_loggables.add(command((
+                'journalctl -o export -c "{}"'.format(self._journal_cursor)),
+                logf='journal',
+                compress_log=True))
+
 
         # log some sysinfo data into the test keyval file in case system crash.
         test_sysinfodir = self._get_sysinfodir(test.outputdir)
         keyval = self.log_test_keyvals(test_sysinfodir)
         test.write_test_keyval(keyval)
-
 
     @log.log_and_ignore_errors("post-test sysinfo error:")
     def log_after_each_test(self, test):
@@ -365,9 +362,6 @@ class base_sysinfo(object):
 
         # grab any new data from /var/log/messages
         self._log_messages(test_sysinfodir)
-
-        # grab any new data from systemd journal
-        self._log_journal(test_sysinfodir)
 
         # log some sysinfo data into the test keyval file
         keyval = self.log_test_keyvals(test_sysinfodir)
@@ -438,20 +432,6 @@ class base_sysinfo(object):
             logging.error("/var/log/messages collection failed with %s", e)
 
 
-    def _log_journal(self, logdir):
-        """Log all of the new data in systemd journal."""
-        if not hasattr(self, "_journal_cursor"):
-            return
-
-        cmd = "/usr/bin/journalctl --after-cursor \"%s\"" % (
-            self._journal_cursor)
-        try:
-            with open(os.path.join(logdir, "journal"), "w") as journal:
-              journal.write(utils.system_output(cmd))
-        except Exception, e:
-            logging.error("journal collection failed with %s", e)
-
-
     @staticmethod
     def _read_sysinfo_keyvals(loggables, logdir):
         keyval = {}
@@ -513,3 +493,13 @@ def _run_loggables_ignoring_errors(loggables, output_dir):
             logging.exception(
                     'Failed to collect loggable %r to %s. Continuing...',
                     log, output_dir)
+
+def get_journal_cursor():
+    cmd = "/usr/bin/journalctl  -n0 --show-cursor -q"
+    try:
+        cursor = utils.system_output(cmd)
+        prefix = "-- cursor: "
+        pos = cursor.find(prefix) + len(prefix)
+        return cursor[pos:]
+    except Exception, e:
+        logging.error("error running journalctl --show-cursor: %s", e)

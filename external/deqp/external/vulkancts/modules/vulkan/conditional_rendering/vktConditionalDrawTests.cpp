@@ -306,18 +306,18 @@ void ConditionalDraw::recordDraw(vk::VkCommandBuffer cmdBuffer)
 			}
 			case DRAW_COMMAND_TYPE_DRAW_INDIRECT_COUNT:
 			{
-				m_vk.cmdDrawIndirectCountKHR(	cmdBuffer,
-												m_indirectBuffer->object(), indirectOffset,
-												m_indirectCountBuffer->object(), 0, 3,
-												sizeof(vk::VkDrawIndirectCommand));
+				m_vk.cmdDrawIndirectCount(	cmdBuffer,
+											m_indirectBuffer->object(), indirectOffset,
+											m_indirectCountBuffer->object(), 0, 3,
+											sizeof(vk::VkDrawIndirectCommand));
 				break;
 			}
 			case DRAW_COMMAND_TYPE_DRAW_INDEXED_INDIRECT_COUNT:
 			{
-				m_vk.cmdDrawIndexedIndirectCountKHR(cmdBuffer,
-													m_indirectBuffer->object(), indexedIndirectOffset,
-													m_indirectCountBuffer->object(), 0, 3,
-													sizeof(vk::VkDrawIndexedIndirectCommand));
+				m_vk.cmdDrawIndexedIndirectCount(cmdBuffer,
+												 m_indirectBuffer->object(), indexedIndirectOffset,
+												 m_indirectCountBuffer->object(), 0, 3,
+												 sizeof(vk::VkDrawIndexedIndirectCommand));
 				break;
 			}
 			default: DE_ASSERT(false);
@@ -331,17 +331,18 @@ tcu::TestStatus ConditionalDraw::iterate (void)
 	const vk::VkQueue	queue	= m_context.getUniversalQueue();
 	const vk::VkDevice	device	= m_context.getDevice();
 
-	beginRenderPass(m_conditionalData.useSecondaryBuffer ? vk::VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS : vk::VK_SUBPASS_CONTENTS_INLINE);
+	const bool useSecondaryCmdBuffer = m_conditionalData.conditionInherited || m_conditionalData.conditionInSecondaryCommandBuffer;
+	beginRenderPass(useSecondaryCmdBuffer ? vk::VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS : vk::VK_SUBPASS_CONTENTS_INLINE);
 
 	vk::VkCommandBuffer targetCmdBuffer = *m_cmdBuffer;
 
-	if (m_conditionalData.useSecondaryBuffer)
+	if (useSecondaryCmdBuffer)
 	{
 		const vk::VkCommandBufferInheritanceConditionalRenderingInfoEXT conditionalRenderingInheritanceInfo =
 		{
 			vk::VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_CONDITIONAL_RENDERING_INFO_EXT,
 			DE_NULL,
-			VK_TRUE														// conditionalRenderingEnable
+			m_conditionalData.conditionInherited ? VK_TRUE : VK_FALSE	// conditionalRenderingEnable
 		};
 
 		const vk::VkCommandBufferInheritanceInfo inheritanceInfo =
@@ -414,32 +415,39 @@ tcu::TestStatus ConditionalDraw::iterate (void)
 
 	m_vk.cmdBindPipeline(targetCmdBuffer, vk::VK_PIPELINE_BIND_POINT_GRAPHICS, *m_pipeline);
 
-	if (m_conditionalData.useSecondaryBuffer)
+	m_conditionalBuffer = createConditionalRenderingBuffer(m_context, m_conditionalData);
+
+	if (m_conditionalData.conditionInSecondaryCommandBuffer)
+	{
+		beginConditionalRendering(m_vk, *m_secondaryCmdBuffer, *m_conditionalBuffer, m_conditionalData);
+		recordDraw(*m_secondaryCmdBuffer);
+		m_vk.cmdEndConditionalRenderingEXT(*m_secondaryCmdBuffer);
+		m_vk.endCommandBuffer(*m_secondaryCmdBuffer);
+	}
+	else if (m_conditionalData.conditionInherited)
 	{
 		recordDraw(*m_secondaryCmdBuffer);
-	}
-
-	if (m_conditionalData.conditionEnabled)
-	{
-		m_conditionalBuffer = createConditionalRenderingBuffer(m_context, m_conditionalData);
-		beginConditionalRendering(m_vk, *m_cmdBuffer, *m_conditionalBuffer, m_conditionalData);
-	}
-
-	if (!m_conditionalData.useSecondaryBuffer)
-	{
-		recordDraw(*m_cmdBuffer);
-	}
-
-	if (m_conditionalData.useSecondaryBuffer)
-	{
 		m_vk.endCommandBuffer(*m_secondaryCmdBuffer);
-
-		m_vk.cmdExecuteCommands(*m_cmdBuffer, 1, &m_secondaryCmdBuffer.get());
 	}
 
-	if (m_conditionalData.conditionEnabled)
+	if (m_conditionalData.conditionInPrimaryCommandBuffer)
 	{
+		beginConditionalRendering(m_vk, *m_cmdBuffer, *m_conditionalBuffer, m_conditionalData);
+
+		if (m_conditionalData.conditionInherited)
+		{
+			m_vk.cmdExecuteCommands(*m_cmdBuffer, 1, &m_secondaryCmdBuffer.get());
+		}
+		else
+		{
+			recordDraw(*m_cmdBuffer);
+		}
+
 		m_vk.cmdEndConditionalRenderingEXT(*m_cmdBuffer);
+	}
+	else if (useSecondaryCmdBuffer)
+	{
+		m_vk.cmdExecuteCommands(*m_cmdBuffer, 1, &m_secondaryCmdBuffer.get());
 	}
 
 	endRenderPass(m_vk, *m_cmdBuffer);
@@ -448,7 +456,7 @@ tcu::TestStatus ConditionalDraw::iterate (void)
 	submitCommandsAndWait(m_vk, device, queue, m_cmdBuffer.get());
 
 	// Validation
-	tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5 + WIDTH), (int)(0.5 + HEIGHT));
+	tcu::Texture2D referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), (int)(0.5f + static_cast<float>(WIDTH)), (int)(0.5f + static_cast<float>(HEIGHT)));
 								  referenceFrame.allocLevel(0);
 
 	const deInt32 frameWidth	= referenceFrame.getWidth();

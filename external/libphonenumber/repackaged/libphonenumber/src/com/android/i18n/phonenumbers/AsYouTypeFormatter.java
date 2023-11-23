@@ -255,7 +255,7 @@ public class AsYouTypeFormatter {
   /**
    * Clears the internal state of the formatter, so it can be reused.
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public void clear() {
     currentOutput = "";
     accruedInput.setLength(0);
@@ -288,7 +288,7 @@ public class AsYouTypeFormatter {
    *     be shown as they are.
    * @return  the partially formatted phone number.
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String inputDigit(char nextChar) {
     currentOutput = inputDigitWithOptionToRememberPosition(nextChar, false);
     return currentOutput;
@@ -300,7 +300,7 @@ public class AsYouTypeFormatter {
    * position will be automatically adjusted if additional formatting characters are later
    * inserted/removed in front of {@code nextChar}.
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String inputDigitAndRememberPosition(char nextChar) {
     currentOutput = inputDigitWithOptionToRememberPosition(nextChar, true);
     return currentOutput;
@@ -431,7 +431,19 @@ public class AsYouTypeFormatter {
             NATIONAL_PREFIX_SEPARATORS_PATTERN.matcher(
                 numberFormat.getNationalPrefixFormattingRule()).find();
         String formattedNumber = m.replaceAll(numberFormat.getFormat());
-        return appendNationalNumber(formattedNumber);
+        // Check that we did not remove nor add any extra digits when we matched
+        // this formatting pattern. This usually happens after we entered the last
+        // digit during AYTF. Eg: In case of MX, we swallow mobile token (1) when
+        // formatted but AYTF should retain all the number entered and not change
+        // in order to match a format (of same leading digits and length) display
+        // in that way.
+        String fullOutput = appendNationalNumber(formattedNumber);
+        String formattedNumberDigitsOnly = PhoneNumberUtil.normalizeDiallableCharsOnly(fullOutput);
+        if (formattedNumberDigitsOnly.contentEquals(accruedInputWithoutFormatting)) {
+          // If it's the same (i.e entered number and format is same), then it's
+          // safe to return this in formatted number as nothing is lost / added.
+          return fullOutput;
+        }
       }
     }
     return "";
@@ -441,7 +453,7 @@ public class AsYouTypeFormatter {
    * Returns the current position in the partially formatted phone number of the character which was
    * previously passed in as the parameter of {@link #inputDigitAndRememberPosition}.
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public int getRememberedPosition() {
     if (!ableToFormat) {
       return originalPosition;

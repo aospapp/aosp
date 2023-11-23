@@ -8,39 +8,43 @@
 
 #include <utility>
 
+#include "third_party/base/ptr_util.h"
 #include "xfa/fwl/cfwl_edit.h"
 #include "xfa/fwl/cfwl_notedriver.h"
 #include "xfa/fxfa/cxfa_ffdoc.h"
 #include "xfa/fxfa/parser/cxfa_node.h"
+#include "xfa/fxfa/parser/cxfa_passwordedit.h"
 
-CXFA_FFPasswordEdit::CXFA_FFPasswordEdit(CXFA_Node* pNode)
-    : CXFA_FFTextEdit(pNode) {}
+CXFA_FFPasswordEdit::CXFA_FFPasswordEdit(CXFA_Node* pNode,
+                                         CXFA_PasswordEdit* password_node)
+    : CXFA_FFTextEdit(pNode), password_node_(password_node) {}
 
-CXFA_FFPasswordEdit::~CXFA_FFPasswordEdit() {}
+CXFA_FFPasswordEdit::~CXFA_FFPasswordEdit() = default;
 
 bool CXFA_FFPasswordEdit::LoadWidget() {
+  ASSERT(!IsLoaded());
   auto pNewEdit = pdfium::MakeUnique<CFWL_Edit>(
       GetFWLApp(), pdfium::MakeUnique<CFWL_WidgetProperties>(), nullptr);
   CFWL_Edit* pWidget = pNewEdit.get();
-  m_pNormalWidget = std::move(pNewEdit);
-  m_pNormalWidget->SetLayoutItem(this);
+  SetNormalWidget(std::move(pNewEdit));
+  pWidget->SetAdapterIface(this);
 
-  CFWL_NoteDriver* pNoteDriver =
-      m_pNormalWidget->GetOwnerApp()->GetNoteDriver();
-  pNoteDriver->RegisterEventTarget(m_pNormalWidget.get(),
-                                   m_pNormalWidget.get());
-  m_pOldDelegate = m_pNormalWidget->GetDelegate();
-  m_pNormalWidget->SetDelegate(this);
-  m_pNormalWidget->LockUpdate();
+  CFWL_NoteDriver* pNoteDriver = pWidget->GetOwnerApp()->GetNoteDriver();
+  pNoteDriver->RegisterEventTarget(pWidget, pWidget);
+  m_pOldDelegate = pWidget->GetDelegate();
+  pWidget->SetDelegate(this);
 
-  pWidget->SetText(m_pNode->GetWidgetAcc()->GetValue(XFA_VALUEPICTURE_Display));
-  UpdateWidgetProperty();
-  m_pNormalWidget->UnlockUpdate();
+  {
+    CFWL_Widget::ScopedUpdateLock update_lock(pWidget);
+    pWidget->SetText(m_pNode->GetValue(XFA_VALUEPICTURE_Display));
+    UpdateWidgetProperty();
+  }
+
   return CXFA_FFField::LoadWidget();
 }
 
 void CXFA_FFPasswordEdit::UpdateWidgetProperty() {
-  CFWL_Edit* pWidget = static_cast<CFWL_Edit*>(m_pNormalWidget.get());
+  CFWL_Edit* pWidget = static_cast<CFWL_Edit*>(GetNormalWidget());
   if (!pWidget)
     return;
 
@@ -49,14 +53,14 @@ void CXFA_FFPasswordEdit::UpdateWidgetProperty() {
                              FWL_STYLEEXT_EDT_Password;
   dwExtendedStyle |= UpdateUIProperty();
 
-  WideString password = m_pNode->GetWidgetAcc()->GetPasswordChar();
+  WideString password = password_node_->GetPasswordChar();
   if (!password.IsEmpty())
     pWidget->SetAliasChar(password[0]);
-  if (!m_pNode->GetWidgetAcc()->IsHorizontalScrollPolicyOff())
+  if (!m_pNode->IsHorizontalScrollPolicyOff())
     dwExtendedStyle |= FWL_STYLEEXT_EDT_AutoHScroll;
   if (!m_pNode->IsOpenAccess() || !GetDoc()->GetXFADoc()->IsInteractive())
     dwExtendedStyle |= FWL_STYLEEXT_EDT_ReadOnly;
 
   dwExtendedStyle |= GetAlignment();
-  m_pNormalWidget->ModifyStylesEx(dwExtendedStyle, 0xFFFFFFFF);
+  GetNormalWidget()->ModifyStylesEx(dwExtendedStyle, 0xFFFFFFFF);
 }

@@ -30,6 +30,11 @@ public class LocalActivityInvoker implements ActivityInvoker {
   @Nullable private ActivityController<? extends Activity> controller;
 
   @Override
+  public void startActivity(Intent intent, @Nullable Bundle activityOptions) {
+    startActivity(intent);
+  }
+
+  @Override
   public void startActivity(Intent intent) {
     ActivityInfo ai = intent.resolveActivityInfo(getTargetContext().getPackageManager(), 0);
     try {

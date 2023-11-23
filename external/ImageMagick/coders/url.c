@@ -18,7 +18,7 @@
 %                                March 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -139,7 +139,9 @@ static Image *ReadURLImage(const ImageInfo *image_info,ExceptionInfo *exception)
     *file;
 
   Image
-    *image;
+    *image,
+    *images,
+    *next;
 
   ImageInfo
     *read_info;
@@ -147,16 +149,47 @@ static Image *ReadURLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   int
     unique_file;
 
+  images=(Image *) NULL;
+  image=AcquireImage(image_info,exception);
   read_info=CloneImageInfo(image_info);
   SetImageInfoBlob(read_info,(void *) NULL,0);
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__MINGW32__)
+  if (LocaleCompare(read_info->magick,"https") == 0)
+    {
+      MagickBooleanType
+        status;
+
+      /*
+        Leverage delegate to read HTTPS link.
+      */
+      status=InvokeDelegate(read_info,image,"https:decode",(char *) NULL,
+        exception);
+      if (status != MagickFalse)
+        {
+          (void) FormatLocaleString(read_info->filename,MagickPathExtent,
+            "%s.dat",read_info->unique);
+          *read_info->magick='\0';
+          images=ReadImage(read_info,exception);
+          (void) RelinquishUniqueFileResource(read_info->filename);
+          if (images != (Image *) NULL)
+            for (next=images; next != (Image *) NULL; next=next->next)
+              (void) CopyMagickString(next->filename,image->filename,
+                MagickPathExtent);
+        }
+      read_info=DestroyImageInfo(read_info);
+      image=DestroyImage(image);
+      return(images);
+    }
+#endif
   if (LocaleCompare(read_info->magick,"file") == 0)
     {
       (void) CopyMagickString(read_info->filename,image_info->filename+2,
         MagickPathExtent);
       *read_info->magick='\0';
-      image=ReadImage(read_info,exception);
+      images=ReadImage(read_info,exception);
       read_info=DestroyImageInfo(read_info);
-      return(GetFirstImageInList(image));
+      image=DestroyImage(image);
+      return(GetFirstImageInList(images));
     }
   file=(FILE *) NULL;
   unique_file=AcquireUniqueFileResource(read_info->filename);
@@ -167,6 +200,7 @@ static Image *ReadURLImage(const ImageInfo *image_info,ExceptionInfo *exception)
       ThrowFileException(exception,FileOpenError,"UnableToCreateTemporaryFile",
         read_info->filename);
       read_info=DestroyImageInfo(read_info);
+      image=DestroyImage(image);
       return((Image *) NULL);
     }
   (void) CopyMagickString(filename,image_info->magick,MagickPathExtent);
@@ -174,8 +208,7 @@ static Image *ReadURLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   LocaleLower(filename);
   (void) ConcatenateMagickString(filename,image_info->filename,
     MagickPathExtent);
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
-    !defined(__MINGW32__)
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(__MINGW32__)
   (void) fclose(file);
   if (URLDownloadToFile(NULL,filename,read_info->filename,0,NULL) != S_OK)
     {
@@ -183,6 +216,7 @@ static Image *ReadURLImage(const ImageInfo *image_info,ExceptionInfo *exception)
         filename);
       (void) RelinquishUniqueFileResource(read_info->filename);
       read_info=DestroyImageInfo(read_info);
+      image=DestroyImage(image);
       return((Image *) NULL);
     }
 #else
@@ -236,18 +270,22 @@ static Image *ReadURLImage(const ImageInfo *image_info,ExceptionInfo *exception)
   (void) fclose(file);
 #endif
   *read_info->magick='\0';
-  image=ReadImage(read_info,exception);
+  images=ReadImage(read_info,exception);
   (void) RelinquishUniqueFileResource(read_info->filename);
+  if (images != (Image *) NULL)
+    for (next=images; next != (Image *) NULL; next=next->next)
+      (void) CopyMagickString(next->filename,image->filename,MagickPathExtent);
   read_info=DestroyImageInfo(read_info);
-  if (image != (Image *) NULL)
-    GetPathComponent(image_info->filename,TailPath,image->filename);
+  image=DestroyImage(image);
+  if (images != (Image *) NULL)
+    GetPathComponent(image_info->filename,TailPath,images->filename);
   else
     {
       (void) ThrowMagickException(exception,GetMagickModule(),CoderError,
         "NoDataReturned","`%s'",filename);
       return((Image *) NULL);
     }
-  return(GetFirstImageInList(image));
+  return(GetFirstImageInList(images));
 }
 
 /*
@@ -287,10 +325,7 @@ ModuleExport size_t RegisterURLImage(void)
   entry->format_type=ImplicitFormatType;
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("URL","HTTPS","Uniform Resource Locator (https://)");
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
-    !defined(__MINGW32__)
   entry->decoder=(DecodeImageHandler *) ReadURLImage;
-#endif
   entry->format_type=ImplicitFormatType;
   (void) RegisterMagickInfo(entry);
   entry=AcquireMagickInfo("URL","FTP","Uniform Resource Locator (ftp://)");

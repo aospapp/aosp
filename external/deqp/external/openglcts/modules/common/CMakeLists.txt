@@ -5,6 +5,8 @@ if (DEQP_SUPPORT_WGL)
 	add_definitions(-DGLCTS_SUPPORT_WGL=1)
 endif ()
 
+add_subdirectory(subgroups)
+
 set(GLCTS_COMMON_SRCS
 	glcAggressiveShaderOptimizationsTests.cpp
 	glcAggressiveShaderOptimizationsTests.hpp
@@ -82,6 +84,8 @@ set(GLCTS_COMMON_SRCS
 	glcShaderSwitchTests.hpp
 	glcSampleVariablesTests.cpp
 	glcSampleVariablesTests.hpp
+	glcSpirvUtils.cpp
+	glcSpirvUtils.hpp
 	glcTestCase.cpp
 	glcTestCase.hpp
 	glcTestCaseWrapper.cpp
@@ -113,7 +117,28 @@ set(GLCTS_COMMON_LIBS
 	glutil
 	tcutil
 	eglutil
+	deqp-gl-subgroups
 	)
+
+# Add glslang
+include_directories(${GLSLANG_INCLUDE_PATH})
+
+# \note Code interfacing with glslang needs to include third-party headers
+#       that cause all sorts of warnings to appear.
+if (DE_COMPILER_IS_GCC OR DE_COMPILER_IS_CLANG)
+	set_source_files_properties(
+		FILES glcSpirvUtils.cpp
+		PROPERTIES COMPILE_FLAGS "${DE_3RD_PARTY_CXX_FLAGS}")
+endif ()
+
+set(GLCTS_COMMON_LIBS ${GLCTS_COMMON_LIBS} ${GLSLANG_LIBRARIES})
+
+# Add spirv-tools
+include_directories(${spirv-tools_SOURCE_DIR}/include)
+include_directories(${spirv-tools_SOURCE_DIR}/external/include)
+
+set(GLCTS_COMMON_LIBS ${GLCTS_COMMON_LIBS} SPIRV-Tools)
+
 
 PCH(GLCTS_COMMON_SRCS ../pch.cpp)
 
@@ -121,6 +146,8 @@ add_library(glcts-common STATIC ${GLCTS_COMMON_SRCS})
 target_link_libraries(glcts-common ${GLCTS_COMMON_LIBS})
 
 set(GLCTS_COMMON_NOCONTEXTPACKAGE_SRCS
+	glcSingleConfigTestPackage.cpp
+	glcSingleConfigTestPackage.hpp
 	glcNoDefaultContextPackage.cpp
 	glcNoDefaultContextPackage.hpp
 	)

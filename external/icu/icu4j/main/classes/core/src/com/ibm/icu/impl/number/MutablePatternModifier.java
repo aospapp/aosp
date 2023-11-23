@@ -2,6 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 package com.ibm.icu.impl.number;
 
+import com.ibm.icu.impl.FormattedStringBuilder;
 import com.ibm.icu.impl.StandardPlural;
 import com.ibm.icu.impl.number.AffixUtils.SymbolProvider;
 import com.ibm.icu.number.NumberFormatter.SignDisplay;
@@ -38,6 +39,7 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
 
     // Pattern details
     AffixPatternProvider patternInfo;
+    Field field;
     SignDisplay signDisplay;
     boolean perMilleReplacesPercent;
 
@@ -71,9 +73,13 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
      * Sets a reference to the parsed decimal format pattern, usually obtained from
      * {@link PatternStringParser#parseToPatternInfo(String)}, but any implementation of
      * {@link AffixPatternProvider} is accepted.
+     *
+     * @param field
+     *            Which field to use for literal characters in the pattern.
      */
-    public void setPatternInfo(AffixPatternProvider patternInfo) {
+    public void setPatternInfo(AffixPatternProvider patternInfo, Field field) {
         this.patternInfo = patternInfo;
+        this.field = field;
     }
 
     /**
@@ -162,8 +168,8 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
      * @return An immutable that supports both positive and negative numbers.
      */
     public ImmutablePatternModifier createImmutableAndChain(MicroPropsGenerator parent) {
-        NumberStringBuilder a = new NumberStringBuilder();
-        NumberStringBuilder b = new NumberStringBuilder();
+        FormattedStringBuilder a = new FormattedStringBuilder();
+        FormattedStringBuilder b = new FormattedStringBuilder();
         if (needsPlurals()) {
             // Slower path when we require the plural keyword.
             AdoptingModifierStore pm = new AdoptingModifierStore();
@@ -195,15 +201,15 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
      * spacing support if required.
      *
      * @param a
-     *            A working NumberStringBuilder object; passed from the outside to prevent the need to
+     *            A working FormattedStringBuilder object; passed from the outside to prevent the need to
      *            create many new instances if this method is called in a loop.
      * @param b
-     *            Another working NumberStringBuilder object.
+     *            Another working FormattedStringBuilder object.
      * @return The constant modifier object.
      */
     private ConstantMultiFieldModifier createConstantModifier(
-            NumberStringBuilder a,
-            NumberStringBuilder b) {
+            FormattedStringBuilder a,
+            FormattedStringBuilder b) {
         insertPrefix(a.clear(), 0);
         insertSuffix(b.clear(), 0);
         if (patternInfo.hasCurrencySign()) {
@@ -238,11 +244,8 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
             if (rules == null) {
                 micros.modMiddle = pm.getModifierWithoutPlural(quantity.signum());
             } else {
-                // TODO: Fix this. Avoid the copy.
-                DecimalQuantity copy = quantity.createCopy();
-                copy.roundToInfinity();
-                StandardPlural plural = copy.getStandardPlural(rules);
-                micros.modMiddle = pm.getModifier(quantity.signum(), plural);
+                StandardPlural pluralForm = RoundingUtils.getPluralSafe(micros.rounder, rules, quantity);
+                micros.modMiddle = pm.getModifier(quantity.signum(), pluralForm);
             }
         }
 
@@ -268,10 +271,8 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
     public MicroProps processQuantity(DecimalQuantity fq) {
         MicroProps micros = parent.processQuantity(fq);
         if (needsPlurals()) {
-            // TODO: Fix this. Avoid the copy.
-            DecimalQuantity copy = fq.createCopy();
-            micros.rounder.apply(copy);
-            setNumberProperties(fq.signum(), copy.getStandardPlural(rules));
+            StandardPlural pluralForm = RoundingUtils.getPluralSafe(micros.rounder, rules, fq);
+            setNumberProperties(fq.signum(), pluralForm);
         } else {
             setNumberProperties(fq.signum(), null);
         }
@@ -280,7 +281,7 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
     }
 
     @Override
-    public int apply(NumberStringBuilder output, int leftIndex, int rightIndex) {
+    public int apply(FormattedStringBuilder output, int leftIndex, int rightIndex) {
         int prefixLen = insertPrefix(output, leftIndex);
         int suffixLen = insertSuffix(output, rightIndex + prefixLen);
         // If the pattern had no decimal stem body (like #,##0.00), overwrite the value.
@@ -321,7 +322,7 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
     }
 
     @Override
-    public boolean containsField(Field field) {
+    public boolean containsField(java.text.Format.Field field) {
         // This method is not currently used. (unsafe path not used in range formatting)
         assert false;
         return false;
@@ -341,15 +342,15 @@ public class MutablePatternModifier implements Modifier, SymbolProvider, MicroPr
         return false;
     }
 
-    private int insertPrefix(NumberStringBuilder sb, int position) {
+    private int insertPrefix(FormattedStringBuilder sb, int position) {
         prepareAffix(true);
-        int length = AffixUtils.unescape(currentAffix, sb, position, this);
+        int length = AffixUtils.unescape(currentAffix, sb, position, this, field);
         return length;
     }
 
-    private int insertSuffix(NumberStringBuilder sb, int position) {
+    private int insertSuffix(FormattedStringBuilder sb, int position) {
         prepareAffix(false);
-        int length = AffixUtils.unescape(currentAffix, sb, position, this);
+        int length = AffixUtils.unescape(currentAffix, sb, position, this, field);
         return length;
     }
 

@@ -18,6 +18,7 @@ import java.util.Date;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.IntraCoreApi
 public class InitialTimeZoneRule extends TimeZoneRule {
 
     private static final long serialVersionUID = 1876594993064051206L;

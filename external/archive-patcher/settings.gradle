@@ -1,7 +1,0 @@
-include ':sharedtest'
-include ':shared'
-include ':applier'
-include ':generator'
-include ':explainer'
-include ':tools'
-include ':integrationtest'

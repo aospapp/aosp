@@ -48,10 +48,23 @@ config SYS_LONGHELP
 
 config SYS_PROMPT
 	string "Shell prompt"
+	default "Zynq> " if ARCH_ZYNQ
+	default "ZynqMP> " if ARCH_ZYNQMP
 	default "=> "
 	help
 	  This string is displayed in the command line to the left of the
 	  cursor.
+
+config SYS_XTRACE
+	string "Command execution tracer"
+	depends on CMDLINE
+	default y if CMDLINE
+	help
+	  This option enables the possiblity to print all commands before
+	  executing them and after all variables are evaluated (similar
+	  to Bash's xtrace/'set -x' feature).
+	  To enable the tracer a variable "xtrace" needs to be defined in
+	  the environment.
 
 menu "Autoboot options"
 
@@ -90,7 +103,14 @@ config AUTOBOOT_PROMPT
 config AUTOBOOT_ENCRYPTION
 	bool "Enable encryption in autoboot stopping"
 	depends on AUTOBOOT_KEYED
-	default n
+	help
+	  This option allows a string to be entered into U-Boot to stop the
+	  autoboot. The string itself is hashed and compared against the hash
+	  in the environment variable 'bootstopkeysha256'. If it matches then
+	  boot stops and a command-line prompt is presented.
+
+	  This provides a way to ship a secure production device which can also
+	  be accessed at the U-Boot command line.
 
 config AUTOBOOT_DELAY_STR
 	string "Delay autobooting via specific input key / string"
@@ -135,6 +155,32 @@ config AUTOBOOT_STOP_STR_SHA256
 	  string / password matches a values that is encypted via
 	  a SHA256 hash and saved in the environment.
 
+config AUTOBOOT_USE_MENUKEY
+	bool "Allow a specify key to run a menu from the environment"
+	depends on !AUTOBOOT_KEYED
+	help
+	  If a specific key is pressed to stop autoboot, then the commands in
+	  the environment variable 'menucmd' are executed before boot starts.
+
+config AUTOBOOT_MENUKEY
+	int "ASCII value of boot key to show a menu"
+	default 0
+	depends on AUTOBOOT_USE_MENUKEY
+	help
+	  If this key is pressed to stop autoboot, then the commands in the
+	  environment variable 'menucmd' will be executed before boot starts.
+	  For example, 33 means "!" in ASCII, so pressing ! at boot would take
+	  this action.
+
+config AUTOBOOT_MENU_SHOW
+	bool "Show a menu on boot"
+	depends on CMD_BOOTMENU
+	help
+	  This enables the boot menu, controlled by environment variables
+	  defined by the board. The menu starts after running the 'preboot'
+	  environmnent variable (if enabled) and before handling the boot delay.
+	  See README.bootmenu for more details.
+
 endmenu
 
 config BUILD_BIN2C
@@ -152,8 +198,8 @@ config CMD_BDI
 
 config CMD_CONFIG
 	bool "config"
-	select BUILD_BIN2C
 	default SANDBOX
+	select BUILD_BIN2C
 	help
 	  Print ".config" contents.
 
@@ -212,10 +258,58 @@ config CMD_BOOTZ
 
 config CMD_BOOTI
 	bool "booti"
-	depends on ARM64
+	depends on ARM64 || RISCV
 	default y
 	help
 	  Boot an AArch64 Linux Kernel image from memory.
+
+config BOOTM_LINUX
+	bool "Support booting Linux OS images"
+	depends on CMD_BOOTM || CMD_BOOTZ || CMD_BOOTI
+	default y
+	help
+	  Support booting the Linux kernel directly via a command such as bootm
+	  or booti or bootz.
+
+config BOOTM_NETBSD
+	bool "Support booting NetBSD (non-EFI) loader images"
+	depends on CMD_BOOTM
+	default y
+	help
+	  Support booting NetBSD via the bootm command.
+
+config BOOTM_OPENRTOS
+	bool "Support booting OPENRTOS / FreeRTOS images"
+	depends on CMD_BOOTM
+	help
+	  Support booting OPENRTOS / FreeRTOS via the bootm command.
+
+config BOOTM_OSE
+	bool "Support booting Enea OSE images"
+	depends on CMD_BOOTM
+	help
+	  Support booting Enea OSE images via the bootm command.
+
+config BOOTM_PLAN9
+	bool "Support booting Plan9 OS images"
+	depends on CMD_BOOTM
+	default y
+	help
+	  Support booting Plan9 images via the bootm command.
+
+config BOOTM_RTEMS
+	bool "Support booting RTEMS OS images"
+	depends on CMD_BOOTM
+	default y
+	help
+	  Support booting RTEMS images via the bootm command.
+
+config BOOTM_VXWORKS
+	bool "Support booting VxWorks OS images"
+	depends on CMD_BOOTM
+	default y
+	help
+	  Support booting VxWorks images via the bootm command.
 
 config CMD_BOOTEFI
 	bool "bootefi"
@@ -226,7 +320,7 @@ config CMD_BOOTEFI
 
 config CMD_BOOTEFI_HELLO_COMPILE
 	bool "Compile a standard EFI hello world binary for testing"
-	depends on CMD_BOOTEFI && (ARM || X86 || RISCV)
+	depends on CMD_BOOTEFI && !CPU_V7M
 	default y
 	help
 	  This compiles a standard EFI hello world application with U-Boot so
@@ -253,6 +347,14 @@ config CMD_BOOTMENU
 	select MENU
 	help
 	  Add an ANSI terminal boot menu command.
+
+config CMD_DTIMG
+	bool "dtimg"
+	help
+	  Android DTB/DTBO image manipulation commands. Read dtb/dtbo files from
+	  image into RAM, dump image structure information, etc. Those dtb/dtbo
+	  files should be merged in one dtb further, which needs to be passed to
+	  the kernel, as part of a boot process.
 
 config CMD_ELF
 	bool "bootelf, bootvx"
@@ -296,11 +398,6 @@ config CMD_XIMG
 	help
 	  Extract a part of a multi-image.
 
-config CMD_POWEROFF
-	bool "poweroff"
-	help
-	  Poweroff/Shutdown the system
-
 config CMD_SPL
 	bool "spl export - Export boot information for Falcon boot"
 	depends on SPL
@@ -311,14 +408,22 @@ config CMD_SPL
 	  command.
 
 config CMD_SPL_NAND_OFS
-	hex "Offset of OS command line args for Falcon-mode NAND boot"
-	depends on CMD_SPL
+	hex "Offset of OS args or dtb for Falcon-mode NAND boot"
+	depends on CMD_SPL && (TPL_NAND_SUPPORT || SPL_NAND_SUPPORT)
 	default 0
 	help
 	  This provides the offset of the command line arguments for Linux
 	  when booting from NAND in Falcon mode.  See doc/README.falcon
 	  for full information about how to use this option (and also see
 	  board/gateworks/gw_ventana/README for an example).
+
+config CMD_SPL_NOR_OFS
+	hex "Offset of OS args or dtb for Falcon-mode NOR boot"
+	depends on CMD_SPL && SPL_NOR_SUPPORT
+	default 0
+	help
+	  This provides the offset of the command line arguments or dtb for
+	  Linux when booting from NOR in Falcon mode.
 
 config CMD_SPL_WRITE_SIZE
 	hex "Size of argument area"
@@ -337,6 +442,7 @@ config CMD_FITUPD
 
 config CMD_THOR_DOWNLOAD
 	bool "thor - TIZEN 'thor' download"
+	select DFU
 	help
 	  Implements the 'thor' download protocol. This is a way of
 	  downloading a software update over USB from an attached host.
@@ -394,6 +500,14 @@ config CMD_SAVEENV
 	  Save all environment variables into the compiled-in persistent
 	  storage.
 
+config CMD_ERASEENV
+	bool "eraseenv"
+	default n
+	depends on CMD_SAVEENV
+	help
+	  Erase environment variables from the compiled-in persistent
+	  storage.
+
 config CMD_ENV_EXISTS
 	bool "env exists"
 	default y
@@ -417,6 +531,28 @@ config CMD_ENV_FLAGS
 	  be deleted. This command shows the variables that have special
 	  flags.
 
+config CMD_NVEDIT_EFI
+	bool "env [set|print] -e - set/print UEFI variables"
+	depends on EFI_LOADER
+	imply HEXDUMP
+	help
+	  UEFI variables are encoded as some form of U-Boot variables.
+	  If enabled, we are allowed to set/print UEFI variables using
+	  "env" command with "-e" option without knowing details.
+
+config CMD_NVEDIT_INFO
+	bool "env info - print or evaluate environment information"
+	help
+	  Print environment information:
+	  - env_valid : is environment valid
+	  - env_ready : is environment imported into hash table
+	  - env_use_default : is default environment used
+
+	  This command can be optionally used for evaluation in scripts:
+	  [-d] : evaluate whether default environment is used
+	  [-p] : evaluate whether environment can be persisted
+	  The result of multiple evaluations will be combined with AND.
+
 endmenu
 
 menu "Memory commands"
@@ -429,8 +565,8 @@ config CMD_BINOP
 
 config CMD_CRC32
 	bool "crc32"
-	select HASH
 	default y
+	select HASH
 	help
 	  Compute CRC32.
 
@@ -526,6 +662,27 @@ config CMD_MEMORY
 	    base - print or set address offset
 	    loop - initialize loop on address range
 
+config MX_CYCLIC
+	bool "Enable cyclic md/mw commands"
+	depends on CMD_MEMORY
+	help
+          Add the "mdc" and "mwc" memory commands. These are cyclic
+          "md/mw" commands.
+          Examples:
+
+	  => mdc.b 10 4 500
+	  This command will print 4 bytes (10,11,12,13) each 500 ms.
+
+	  => mwc.l 100 12345678 10
+	  This command will write 12345678 to address 100 all 10 ms.
+
+config CMD_RANDOM
+	bool "random"
+	default y
+	depends on CMD_MEMORY && (LIB_RAND || LIB_HW_RAND)
+	help
+	  random - fill memory with random data
+
 config CMD_MEMTEST
 	bool "memtest"
 	help
@@ -607,26 +764,31 @@ config CMD_ADC
 	  Shows ADC device info and permit printing one-shot analog converted
 	  data from a named Analog to Digital Converter.
 
-config CMD_ANDROID_AB_SELECT
-	bool "android_ab_select"
-	default n
-	depends on ANDROID_AB
+config CMD_BCB
+	bool "bcb"
+	depends on MMC
+	depends on PARTITIONS
 	help
-	  On Android devices with more than one boot slot (multiple copies of
-	  the kernel and system images) this provides a command to select which
-	  slot should be used to boot from and register the boot attempt. This
-	  is used by the new A/B update model where one slot is updated in the
-	  background while running from the other slot.
+	  Read/modify/write the fields of Bootloader Control Block, usually
+	  stored on the flash "misc" partition with its structure defined in:
+	  https://android.googlesource.com/platform/bootable/recovery/+/master/
+	  bootloader_message/include/bootloader_message/bootloader_message.h
 
-config CMD_BOOT_ANDROID
-	bool "boot_android"
-	default n
-	depends on ANDROID_BOOTLOADER
+	  Some real-life use-cases include (but are not limited to):
+	  - Determine the "boot reason" (and act accordingly):
+	    https://source.android.com/devices/bootloader/boot-reason
+	  - Get/pass a list of commands from/to recovery:
+	    https://android.googlesource.com/platform/bootable/recovery
+	  - Inspect/dump the contents of the BCB fields
+
+config CMD_BIND
+	bool "bind/unbind - Bind or unbind a device to/from a driver"
+	depends on DM
 	help
-	  Performs the Android Bootloader boot flow, loading the appropriate
-	  Android image (normal kernel, recovery kernel or "bootloader" mode)
-	  and booting it. The boot mode is determined by the contents of the
-	  Android Bootloader Message.
+	  Bind or unbind a device to/from a driver from the command line.
+	  This is useful in situations where a device may be handled by several
+	  drivers. For example, this can be used to bind a UDC to the usb ether
+	  gadget driver from the command line.
 
 config CMD_CLK
 	bool "clk - Show clock frequencies"
@@ -661,7 +823,6 @@ config CMD_DFU
 config CMD_DM
 	bool "dm - Access to driver model information"
 	depends on DM
-	default y
 	help
 	  Provides access to driver model data structures and information,
 	  such as a list of devices, list of uclasses and the state of each
@@ -679,7 +840,7 @@ config CMD_FASTBOOT
 	  Android devices. Fastboot requires either the network stack
 	  enabled or support for acting as a USB device.
 
-	  See doc/README.android-fastboot for more information.
+	  See doc/android/fastboot.txt for more information.
 
 config CMD_FDC
 	bool "fdcboot - Boot from floppy device"
@@ -689,6 +850,7 @@ config CMD_FDC
 config CMD_FLASH
 	bool "flinfo, erase, protect"
 	default y
+	depends on MTD || FLASH_CFI_DRIVER || MTD_NOR_FLASH
 	help
 	  NOR flash support.
 	    flinfo - print FLASH memory information
@@ -758,9 +920,9 @@ config CMD_GPIO
 
 config CMD_GPT
 	bool "GPT (GUID Partition Table) command"
-	select PARTITION_UUIDS
 	select EFI_PARTITION
 	select HAVE_BLOCK_DEVICE
+	select PARTITION_UUIDS
 	imply RANDOM_UUID
 	help
 	  Enable the 'gpt' command to ready and write GPT style partition
@@ -837,6 +999,13 @@ config CMD_I2C
 	help
 	  I2C support.
 
+config CMD_W1
+	depends on W1
+	default y if W1
+	bool "w1 - Support for Dallas 1-Wire protocol"
+	help
+	  Dallas 1-wire protocol support
+
 config CMD_LOADB
 	bool "loadb"
 	default y
@@ -848,15 +1017,6 @@ config CMD_LOADS
 	default y
 	help
 	  Load an S-Record file over serial line
-
-config CMD_LOAD_ANDROID
-       bool "load_android"
-       default n
-       depends on ANDROID_BOOT_IMAGE
-       help
-         Load an Android Boot image from storage. The Android Boot images
-         define the size and kernel address on the header, which are used by
-         this command.
 
 config CMD_MMC
 	bool "mmc"
@@ -878,9 +1038,17 @@ config CMD_MMC_SWRITE
 	  Enable support for the "mmc swrite" command to write Android sparse
 	  images to eMMC.
 
+config CMD_MTD
+	bool "mtd"
+	depends on MTD
+	select MTD_PARTITIONS
+	help
+	  MTD commands support.
+
 config CMD_NAND
 	bool "nand"
 	default y if NAND_SUNXI
+	depends on MTD_RAW_NAND
 	help
 	  NAND support.
 
@@ -910,27 +1078,27 @@ config CMD_NVME
 	help
 	  NVM Express device support
 
-config CMD_MMC_SPI
-	bool "mmc_spi - Set up MMC SPI device"
-	help
-	  Provides a way to set up an MMC (Multimedia Card) SPI (Serial
-	  Peripheral Interface) device. The device provides a means of
-	  accessing an MMC device via SPI using a single data line, limited
-	  to 20MHz. It is useful since it reduces the amount of protocol code
-	  required.
-
 config CMD_ONENAND
 	bool "onenand - access to onenand device"
+	depends on MTD
 	help
 	  OneNAND is a brand of NAND ('Not AND' gate) flash which provides
 	  various useful features. This command allows reading, writing,
 	  and erasing blocks. It allso provides a way to show and change
 	  bad blocks, and test the device.
 
+config CMD_OSD
+	bool "osd"
+	help
+	  Enable the 'osd' command which allows to query information from and
+	  write text data to a on-screen display (OSD) device; a virtual device
+	  associated with a display capable of displaying a text overlay on the
+	  display it's associated with..
+
 config CMD_PART
 	bool "part"
-	select PARTITION_UUIDS
 	select HAVE_BLOCK_DEVICE
+	select PARTITION_UUIDS
 	help
 	  Read and display information about the partition table on
 	  various media.
@@ -943,13 +1111,18 @@ config CMD_PCI
 	  peripherals. Sub-commands allow bus enumeration, displaying and
 	  changing configuration space and a few other features.
 
-config CMD_PCMCIA
-	bool "pinit - Set up PCMCIA device"
+config CMD_PINMUX
+	bool "pinmux - show pins muxing"
+	default y if PINCTRL
 	help
-	  Provides a means to initialise a PCMCIA (Personal Computer Memory
-	  Card International Association) device. This is an old standard from
-	  about 1990. These devices are typically removable memory or network
-	  cards using a standard 68-pin connector.
+	  Parse all available pin-controllers and show pins muxing. This
+	  is useful for debug purpoer to check the pin muxing and to know if
+	  a pin is configured as a GPIO or as an alternate function.
+
+config CMD_POWEROFF
+	bool "poweroff"
+	help
+	  Poweroff/Shutdown the system
 
 config CMD_READ
 	bool "read - Read binary data from a partition"
@@ -999,11 +1172,14 @@ config CMD_SDRAM
 
 config CMD_SF
 	bool "sf"
+	depends on DM_SPI_FLASH || SPI_FLASH
+	default y if DM_SPI_FLASH
 	help
 	  SPI Flash support
 
 config CMD_SF_TEST
 	bool "sf test - Allow testing of SPI flash"
+	depends on CMD_SF
 	help
 	  Provides a way to test that SPI flash is working correctly. The
 	  test is destructive, in that an area of SPI flash must be provided
@@ -1014,15 +1190,33 @@ config CMD_SF_TEST
 	  everything is working properly.
 
 config CMD_SPI
-	bool "sspi"
+	bool "sspi - Command to access spi device"
+	depends on SPI
 	help
 	  SPI utility command.
+
+config DEFAULT_SPI_BUS
+	int "default spi bus used by sspi command"
+	depends on CMD_SPI
+	default 0
+
+config DEFAULT_SPI_MODE
+	hex "default spi mode used by sspi command (see include/spi.h)"
+	depends on CMD_SPI
+	default 0
 
 config CMD_TSI148
 	bool "tsi148 - Command to access tsi148 device"
 	help
 	  This provides various sub-commands to initialise and configure the
 	  Turndra tsi148 device. See the command help for full details.
+
+config CMD_UFS
+	bool "Enable UFS - Universal Flash Subsystem commands"
+	depends on UFS
+	help
+	  "This provides commands to initialise and configure universal flash
+	   subsystem devices"
 
 config CMD_UNIVERSE
 	bool "universe - Command to set up the Turndra Universe controller"
@@ -1042,11 +1236,12 @@ config CMD_USB_SDP
 	help
 	  Enables the command "sdp" which is used to have U-Boot emulating the
 	  Serial Download Protocol (SDP) via USB.
+
 config CMD_ROCKUSB
 	bool "rockusb"
 	depends on USB_FUNCTION_ROCKUSB
 	help
-          Rockusb protocol is widely used by Rockchip SoC based devices. It can
+	  Rockusb protocol is widely used by Rockchip SoC based devices. It can
 	  read/write info, image to/from devices. This enable rockusb command
 	  support to communication with rockusb device. for more detail about
 	  this command, please read doc/README.rockusb.
@@ -1057,6 +1252,27 @@ config CMD_USB_MASS_STORAGE
 	help
 	  USB mass storage support
 
+config CMD_VIRTIO
+	bool "virtio"
+	depends on VIRTIO
+	default y if VIRTIO
+	help
+	  VirtIO block device support
+
+config CMD_WDT
+	bool "wdt"
+	depends on WDT
+	help
+	  This provides commands to control the watchdog timer devices.
+
+config CMD_AXI
+	bool "axi"
+	depends on AXI
+	help
+	  Enable the command "axi" for accessing AXI (Advanced eXtensible
+	  Interface) busses, a on-chip interconnect specification for managing
+	  functional blocks in SoC designs, which is also often used in designs
+	  involving FPGAs (e.g.  communication with IP cores in Xilinx FPGAs).
 endmenu
 
 
@@ -1091,11 +1307,27 @@ config CMD_SETEXPR
 
 endmenu
 
+menu "Android support commands"
+
+config CMD_AB_SELECT
+	bool "ab_select"
+	default n
+	depends on ANDROID_AB
+	help
+	  On Android devices with more than one boot slot (multiple copies of
+	  the kernel and system images) this provides a command to select which
+	  slot should be used to boot from and register the boot attempt. This
+	  is used by the new A/B update model where one slot is updated in the
+	  background while running from the other slot.
+
+endmenu
+
 if NET
 
 menuconfig CMD_NET
 	bool "Network commands"
 	default y
+	imply NETDEVICES
 
 if CMD_NET
 
@@ -1170,6 +1402,13 @@ config BOOTP_NTPSERVER
 	bool "Request & store 'ntpserverip' from BOOTP/DHCP server"
 	depends on CMD_BOOTP
 
+config CMD_PCAP
+	bool "pcap capture"
+	help
+	  Selecting this will allow capturing all Ethernet packets and store
+	  them in physical memory in a PCAP formated file,
+	  later to be analyzed by PCAP reader application (IE. WireShark).
+
 config BOOTP_PXE
 	bool "Send PXE client arch to BOOTP/DHCP server"
 	default y
@@ -1234,8 +1473,22 @@ config CMD_NFS
 
 config CMD_MII
 	bool "mii"
+	imply CMD_MDIO
 	help
-	  Enable MII utility commands.
+	  If set, allows 802.3(clause 22) MII Management functions interface access
+	  The management interface specified in Clause 22 provides
+	  a simple, two signal, serial interface to connect a
+	  Station Management entity and a managed PHY for providing access
+	  to management parameters and services.
+	  The interface is referred to as the MII management interface.
+
+config CMD_MDIO
+	bool "mdio"
+	depends on PHYLIB
+	help
+	  If set, allows Enable 802.3(clause 45) MDIO interface registers access
+	  The MDIO interface is orthogonal to the MII interface and extends
+	  it by adding access to more registers through indirect addressing.
 
 config CMD_PING
 	bool "ping"
@@ -1292,7 +1545,7 @@ config CMD_BMP
 	bool "Enable 'bmp' command"
 	depends on LCD || DM_VIDEO || VIDEO
 	help
-	  This provides a way to obtain information about a BMP-format iamge
+	  This provides a way to obtain information about a BMP-format image
 	  and to display it. BMP (which presumably stands for BitMaP) is a
 	  file format defined by Microsoft which supports images of various
 	  depths, formats and compression methods. Headers on the file
@@ -1342,16 +1595,40 @@ config CMD_CACHE
 	help
 	  Enable the "icache" and "dcache" commands
 
-config CMD_DISPLAY
-	bool "Enable the 'display' command, for character displays"
+config CMD_CONITRACE
+	bool "conitrace - trace console input codes"
 	help
-	  (this needs porting to driver model)
-	  This enables the 'display' command which allows a string to be
-	  displayed on a simple board-specific display. Implement
-	  display_putc() to use it.
+	  Enable the 'conitrace' command which displays the codes received
+	  from the console input as hexadecimal numbers.
+
+config CMD_CLS
+	bool "Enable clear screen command 'cls'"
+	depends on CFB_CONSOLE || DM_VIDEO || LCD || VIDEO
+	default y if LCD
+	help
+	  Enable the 'cls' command which clears the screen contents
+	  on video frame buffer.
+
+config CMD_EFIDEBUG
+	bool "efidebug - display/configure UEFI environment"
+	depends on EFI_LOADER
+	select EFI_DEVICE_PATH_TO_TEXT
+	default n
+	help
+	  Enable the 'efidebug' command which provides a subset of UEFI
+	  shell utility with simplified functionality. It will be useful
+	  particularly for managing boot parameters as  well as examining
+	  various EFI status for debugging.
+
+config CMD_EXCEPTION
+	bool "exception - raise exception"
+	depends on ARM || RISCV || X86
+	help
+	  Enable the 'exception' command which allows to raise an exception.
 
 config CMD_LED
 	bool "led"
+	depends on LED
 	default y if LED
 	help
 	  Enable the 'led' command which allows for control of LEDs supported
@@ -1362,6 +1639,7 @@ config CMD_LED
 config CMD_DATE
 	bool "date"
 	default y if DM_RTC
+	select LIB_DATE
 	help
 	  Enable the 'date' command for getting/setting the time/date in RTC
 	  devices.
@@ -1386,6 +1664,13 @@ config CMD_MISC
 	help
 	  Delay execution for some time
 
+config MP
+	bool "support for multiprocessor"
+	help
+	  This provides an option to brinup
+	  different processors in multiprocessor
+	  cases.
+
 config CMD_TIMER
 	bool "timer"
 	help
@@ -1400,6 +1685,12 @@ config CMD_SOUND
 
 	     sound init   - set up sound system
 	     sound play   - play a sound
+
+config CMD_SYSBOOT
+	bool "sysboot"
+	select MENU
+	help
+	  Boot image via local extlinux.conf file
 
 config CMD_QFW
 	bool "qfw"
@@ -1512,7 +1803,7 @@ config CMD_BLOB
 	  the original data.
 
 	  Sub-commands:
-            blob enc - encapsulating data as a cryptgraphic blob
+	    blob enc - encapsulating data as a cryptgraphic blob
 	    blob dec - decapsulating cryptgraphic blob to get the data
 
 	  Syntax:
@@ -1567,6 +1858,7 @@ config CMD_TPM_V1
 
 config CMD_TPM_V2
 	bool
+	select CMD_LOG
 
 config CMD_TPM
 	bool "Enable the 'tpm' command"
@@ -1687,22 +1979,13 @@ config CMD_JFFS2
 
 config CMD_MTDPARTS
 	bool "MTD partition support"
+	depends on MTD
 	help
-	  MTD partition support
-
-config MTDIDS_DEFAULT
-	string "Default MTD IDs"
-	depends on CMD_MTDPARTS || CMD_NAND || CMD_FLASH
-	help
-	  Defines a default MTD IDs list for use with MTD partitions in the
-	  Linux MTD command line partitions format.
-
-config MTDPARTS_DEFAULT
-	string "Default MTD partition scheme"
-	depends on CMD_MTDPARTS || CMD_NAND || CMD_FLASH
-	help
-	  Defines a default MTD partitioning scheme in the Linux MTD command
-	  line partitions format
+	  MTD partitioning tool support.
+	  It is strongly encouraged to avoid using this command
+	  anymore along with 'sf', 'nand', 'onenand'. One can still
+	  declare the partitions in the mtdparts environment variable
+	  but better use the MTD stack and the 'mtd' command instead.
 
 config CMD_MTDPARTS_SPREAD
 	bool "Padd partition size to take account of bad blocks"
@@ -1713,6 +1996,28 @@ config CMD_MTDPARTS_SPREAD
 	  the size of the partitions such that 1) each partition's net size is
 	  at least as large as the size specified in the mtdparts variable and
 	  2) each partition starts on a good block.
+
+config CMD_MTDPARTS_SHOW_NET_SIZES
+	bool "Show net size (w/o bad blocks) of partitions"
+	depends on CMD_MTDPARTS
+	help
+	  Adds two columns to the printed partition table showing the
+	  effective usable size of a partition, if bad blocks are taken
+	  into account.
+
+config MTDIDS_DEFAULT
+	string "Default MTD IDs"
+	depends on MTD || SPI_FLASH
+	help
+	  Defines a default MTD IDs list for use with MTD partitions in the
+	  Linux MTD command line partitions format.
+
+config MTDPARTS_DEFAULT
+	string "Default MTD partition scheme"
+	depends on MTD || SPI_FLASH
+	help
+	  Defines a default MTD partitioning scheme in the Linux MTD command
+	  line partitions format
 
 config CMD_REISER
 	bool "reiser - Access to reiserfs filesystems"
@@ -1775,6 +2080,7 @@ config CMD_IRQ
 
 config CMD_KGDB
 	bool "kgdb - Allow debugging of U-Boot with gdb"
+	depends on PPC
 	help
 	  This enables a 'kgdb' command which allows gdb to connect to U-Boot
 	  over a serial link for debugging purposes. This allows
@@ -1796,12 +2102,12 @@ config CMD_TRACE
 	  Enables a command to control using of function tracing within
 	  U-Boot. This allows recording of call traces including timing
 	  information. The command can write data to memory for exporting
-	  for analsys (e.g. using bootchart). See doc/README.trace for full
+	  for analysis (e.g. using bootchart). See doc/README.trace for full
 	  details.
 
 config CMD_AVB
 	bool "avb - Android Verified Boot 2.0 operations"
-	depends on LIBAVB
+	depends on AVB_VERIFY
 	default n
 	help
 	  Enables a "avb" command to perform verification of partitions using
@@ -1819,10 +2125,7 @@ endmenu
 
 config CMD_UBI
 	tristate "Enable UBI - Unsorted block images commands"
-	select CRC32
 	select MTD_UBI
-	select CMD_MTDPARTS
-	default y if NAND_SUNXI
 	help
 	  UBI is a software layer above MTD layer which admits use of LVM-like
 	  logical volumes on top of MTD devices, hides some complexities of
@@ -1830,13 +2133,14 @@ config CMD_UBI
 	  capabilities. Please, consult the MTD web site for more details
 	  (www.linux-mtd.infradead.org). Activate this option if you want
 	  to use U-Boot UBI commands.
+	  It is also strongly encouraged to also enable CONFIG_MTD to get full
+	  partition support.
 
 config CMD_UBIFS
 	tristate "Enable UBIFS - Unsorted block images filesystem commands"
 	depends on CMD_UBI
-	select CRC32
-	select LZO
 	default y if CMD_UBI
+	select LZO
 	help
 	  UBIFS is a file system for flash devices which works on top of UBI.
 

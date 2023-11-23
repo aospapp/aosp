@@ -1,7 +1,7 @@
 /*
  * Hyper-Text Transport Protocol definitions for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
+ * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -25,7 +25,7 @@
 #  include <string.h>
 #  include <time.h>
 #  include <sys/types.h>
-#  ifdef WIN32
+#  ifdef _WIN32
 #    ifndef __CUPS_SSIZE_T_DEFINED
 #      define __CUPS_SSIZE_T_DEFINED
 /* Windows does not support the ssize_t type, so map it to off_t... */
@@ -54,7 +54,7 @@ typedef off_t ssize_t;			/* @private@ */
 #    if defined(LOCAL_PEERCRED) && !defined(SO_PEERCRED)
 #      define SO_PEERCRED LOCAL_PEERCRED
 #    endif /* LOCAL_PEERCRED && !SO_PEERCRED */
-#  endif /* WIN32 */
+#  endif /* _WIN32 */
 
 
 /*
@@ -85,7 +85,7 @@ extern "C" {
 #    define s6_addr32	_S6_un._S6_u32
 #  elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)|| defined(__DragonFly__)
 #    define s6_addr32	__u6_addr.__u6_addr32
-#  elif defined(WIN32)
+#  elif defined(_WIN32)
 /*
  * Windows only defines byte and 16-bit word members of the union and
  * requires special casing of all raw address code...
@@ -181,6 +181,7 @@ typedef enum http_field_e		/**** HTTP field names ****/
   HTTP_FIELD_ACCEPT_ENCODING,		/* Accepting-Encoding field @since CUPS 1.7/macOS 10.9@ */
   HTTP_FIELD_ALLOW,			/* Allow field @since CUPS 1.7/macOS 10.9@ */
   HTTP_FIELD_SERVER,			/* Server field @since CUPS 1.7/macOS 10.9@ */
+  HTTP_FIELD_AUTHENTICATION_INFO,	/* Authentication-Info field (@since CUPS 2.2.9) */
   HTTP_FIELD_MAX			/* Maximum field index */
 } http_field_t;
 
@@ -248,10 +249,11 @@ typedef enum http_status_e		/**** HTTP status codes ****/
 
   HTTP_STATUS_MULTIPLE_CHOICES = 300,	/* Multiple files match request */
   HTTP_STATUS_MOVED_PERMANENTLY,	/* Document has moved permanently */
-  HTTP_STATUS_MOVED_TEMPORARILY,	/* Document has moved temporarily */
-  HTTP_STATUS_SEE_OTHER,		/* See this other link... */
+  HTTP_STATUS_FOUND,			/* Document was found at a different URI */
+  HTTP_STATUS_SEE_OTHER,		/* See this other link */
   HTTP_STATUS_NOT_MODIFIED,		/* File not modified */
   HTTP_STATUS_USE_PROXY,		/* Must use a proxy to access this URI */
+  HTTP_STATUS_TEMPORARY_REDIRECT = 307,	/* Temporary redirection */
 
   HTTP_STATUS_BAD_REQUEST = 400,	/* Bad request */
   HTTP_STATUS_UNAUTHORIZED,		/* Unauthorized to access host */
@@ -284,6 +286,8 @@ typedef enum http_status_e		/**** HTTP status codes ****/
 					/* User canceled authorization @since CUPS 1.4@ */
   HTTP_STATUS_CUPS_PKI_ERROR,		/* Error negotiating a secure connection @since CUPS 1.5/macOS 10.7@ */
   HTTP_STATUS_CUPS_WEBIF_DISABLED	/* Web interface is disabled @private@ */
+
+#  define HTTP_STATUS_MOVED_TEMPORARILY HTTP_STATUS_FOUND /* Renamed in RFC 7231 */
 
 #  ifndef _CUPS_NO_DEPRECATED
 /* Old names for this enumeration */
@@ -476,8 +480,7 @@ extern int		httpHead(http_t *http, const char *uri);
 extern void		httpInitialize(void);
 extern int		httpOptions(http_t *http, const char *uri);
 extern int		httpPost(http_t *http, const char *uri);
-extern int		httpPrintf(http_t *http, const char *format, ...)
-			__attribute__ ((__format__ (__printf__, 2, 3)));
+extern int		httpPrintf(http_t *http, const char *format, ...) _CUPS_FORMAT(2, 3);
 extern int		httpPut(http_t *http, const char *uri);
 extern int		httpRead(http_t *http, char *buffer, int length) _CUPS_DEPRECATED_MSG("Use httpRead2 instead.");
 extern int		httpReconnect(http_t *http) _CUPS_DEPRECATED_1_6_MSG("Use httpReconnect2 instead.");

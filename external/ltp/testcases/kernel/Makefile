@@ -52,8 +52,9 @@ SUBDIRS			+= connectors \
 			   pty \
 			   sched \
 			   security \
-			   timers \
+			   sound \
 			   tracing \
+			   uevents \
 
 ifeq ($(WITH_POWER_MANAGEMENT_TESTSUITE),yes)
 SUBDIRS			+= power_management
@@ -63,7 +64,7 @@ endif
 
 ifeq ($(ANDROID),1)
 FILTER_OUT_DIRS		+= containers controllers device-drivers fs io ipc mem \
-				sched security timers
+				sched security
 endif
 
 include $(top_srcdir)/include/mk/generic_trunk_target.mk

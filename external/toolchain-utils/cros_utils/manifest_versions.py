@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Tools for searching/manipulating the manifests repository."""
 
 from __future__ import print_function
@@ -14,8 +16,8 @@ import shutil
 import tempfile
 import time
 
-import command_executer
-import logger
+from cros_utils import command_executer
+from cros_utils import logger
 
 
 def IsCrosVersion(version):
@@ -76,8 +78,8 @@ class ManifestVersions(object):
     if ret:
       logger.GetLogger().LogFatal('Failed to checkout manifest at '
                                   'specified time')
-    path = os.path.realpath(
-        '{0}/manifest-versions/LKGM/lkgm.xml'.format(self.clone_location))
+    path = os.path.realpath('{0}/manifest-versions/LKGM/lkgm.xml'.format(
+        self.clone_location))
     pp = path.split('/')
     new_list = copy.deepcopy(pp)
     for i, e in enumerate(pp):
@@ -124,8 +126,8 @@ class ManifestVersions(object):
     if ret:
       logger.GetLogger().LogFatal('Failed to checkout manifest at '
                                   'specified time')
-    path = os.path.realpath(
-        '{0}/manifest-versions/LKGM/lkgm.xml'.format(self.clone_location))
+    path = os.path.realpath('{0}/manifest-versions/LKGM/lkgm.xml'.format(
+        self.clone_location))
     pp = path.split('/')
     small = os.path.basename(path).split('.xml')[0]
     version = pp[-2] + '.' + small
@@ -142,7 +144,9 @@ class ManifestVersions(object):
     version = version.split('.', 1)[1]
     os.chdir(self.clone_location)
     files = [
-        os.path.join(r, f) for r, _, fs in os.walk('.') for f in fs
+        os.path.join(r, f)
+        for r, _, fs in os.walk('.')
+        for f in fs
         if version in f
     ]
     if files:

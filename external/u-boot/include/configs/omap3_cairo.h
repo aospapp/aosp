@@ -19,8 +19,6 @@
 #ifndef __OMAP3_CAIRO_CONFIG_H
 #define __OMAP3_CAIRO_CONFIG_H
 
-#define CONFIG_NR_DRAM_BANKS	2	/* CS1 may or may not be populated */
-
 /*
  * 1MB into the SDRAM to allow for SPL's bss at the beginning of SDRAM
  * 64 bytes before this address should be set aside for u-boot.img's
@@ -36,8 +34,6 @@
 
 #include <configs/ti_omap3_common.h>
 
-#define CONFIG_MISC_INIT_R
-
 #define CONFIG_REVISION_TAG		1
 #define CONFIG_ENV_OVERWRITE
 
@@ -50,7 +46,6 @@
 /*
  * TWL4030
  */
-#define CONFIG_TWL4030_LED		1
 
 /*
  * Board NAND Info.
@@ -165,12 +160,7 @@
 #define CONFIG_SYS_MONITOR_BASE		CONFIG_SYS_FLASH_BASE
 #define CONFIG_SYS_ONENAND_BASE		ONENAND_MAP
 
-#define CONFIG_ENV_SIZE			(128 << 10)	/* 128 KiB */
-#define ONENAND_ENV_OFFSET		0x260000 /* environment starts here */
-
 #define CONFIG_SYS_ENV_SECT_SIZE	(128 << 10)	/* 128 KiB */
-#define CONFIG_ENV_OFFSET		0x260000
-#define CONFIG_ENV_ADDR			0x260000
 
 /* Defines for SPL */
 
@@ -194,20 +184,6 @@
 
 /* env defaults */
 #define CONFIG_BOOTFILE			"uImage"
-
-/* Override OMAP3 common serial console configuration from UART3
- * to UART2.
- *
- * Attention: for UART2, special MUX settings (MUX_DEFAULT(), MCBSP3)
- * are needed and peripheral clocks for UART2 must be enabled in
- * function per_clocks_enable().
- */
-#ifdef CONFIG_SPL_BUILD
-#undef CONFIG_SYS_NS16550_COM3
-#define CONFIG_SYS_NS16550_COM2		OMAP34XX_UART2
-#undef CONFIG_SERIAL3
-#define CONFIG_SERIAL2
-#endif
 
 /* Provide the MACH_TYPE value the vendor kernel requires */
 #define CONFIG_MACH_TYPE	3063

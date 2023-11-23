@@ -2,7 +2,8 @@
  * Vulkan Conformance Tests
  * ------------------------
  *
- * Copyright (c) 2017 The Khronos Group Inc.
+ * Copyright (c) 2019 The Khronos Group Inc.
+ * Copyright (c) 2019 Google Inc.
  * Copyright (c) 2017 Codeplay Software Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +24,7 @@
  */ /*--------------------------------------------------------------------*/
 
 #include "vktSubgroupsTestsUtils.hpp"
+#include "deFloat16.h"
 #include "deRandom.hpp"
 #include "tcuCommandLine.hpp"
 #include "tcuStringTemplate.hpp"
@@ -31,7 +33,6 @@
 #include "vkTypeUtil.hpp"
 #include "vkCmdUtil.hpp"
 #include "vkObjUtil.hpp"
-
 using namespace tcu;
 using namespace std;
 using namespace vk;
@@ -39,6 +40,26 @@ using namespace vkt;
 
 namespace
 {
+
+deUint32 getMaxWidth ()
+{
+	return 1024u;
+}
+
+deUint32 getNextWidth (const deUint32 width)
+{
+	if (width < 128)
+	{
+		// This ensures we test every value up to 128 (the max subgroup size).
+		return width + 1;
+	}
+	else
+	{
+		// And once we hit 128 we increment to only power of 2's to reduce testing time.
+		return width * 2;
+	}
+}
+
 deUint32 getFormatSizeInBytes(const VkFormat format)
 {
 	switch (format)
@@ -46,40 +67,69 @@ deUint32 getFormatSizeInBytes(const VkFormat format)
 		default:
 			DE_FATAL("Unhandled format!");
 			return 0;
+		case VK_FORMAT_R8_SINT:
+		case VK_FORMAT_R8_UINT:
+			return static_cast<deUint32>(sizeof(deInt8));
+		case VK_FORMAT_R8G8_SINT:
+		case VK_FORMAT_R8G8_UINT:
+			return static_cast<deUint32>(sizeof(deInt8) * 2);
+		case VK_FORMAT_R8G8B8_SINT:
+		case VK_FORMAT_R8G8B8_UINT:
+		case VK_FORMAT_R8G8B8A8_SINT:
+		case VK_FORMAT_R8G8B8A8_UINT:
+			return static_cast<deUint32>(sizeof(deInt8) * 4);
+		case VK_FORMAT_R16_SINT:
+		case VK_FORMAT_R16_UINT:
+		case VK_FORMAT_R16_SFLOAT:
+			return static_cast<deUint32>(sizeof(deInt16));
+		case VK_FORMAT_R16G16_SINT:
+		case VK_FORMAT_R16G16_UINT:
+		case VK_FORMAT_R16G16_SFLOAT:
+			return static_cast<deUint32>(sizeof(deInt16) * 2);
+		case VK_FORMAT_R16G16B16_UINT:
+		case VK_FORMAT_R16G16B16_SINT:
+		case VK_FORMAT_R16G16B16_SFLOAT:
+		case VK_FORMAT_R16G16B16A16_SINT:
+		case VK_FORMAT_R16G16B16A16_UINT:
+		case VK_FORMAT_R16G16B16A16_SFLOAT:
+			return static_cast<deUint32>(sizeof(deInt16) * 4);
 		case VK_FORMAT_R32_SINT:
 		case VK_FORMAT_R32_UINT:
-			return sizeof(deInt32);
+		case VK_FORMAT_R32_SFLOAT:
+			return static_cast<deUint32>(sizeof(deInt32));
 		case VK_FORMAT_R32G32_SINT:
 		case VK_FORMAT_R32G32_UINT:
+		case VK_FORMAT_R32G32_SFLOAT:
 			return static_cast<deUint32>(sizeof(deInt32) * 2);
 		case VK_FORMAT_R32G32B32_SINT:
 		case VK_FORMAT_R32G32B32_UINT:
+		case VK_FORMAT_R32G32B32_SFLOAT:
 		case VK_FORMAT_R32G32B32A32_SINT:
 		case VK_FORMAT_R32G32B32A32_UINT:
-			return static_cast<deUint32>(sizeof(deInt32) * 4);
-		case VK_FORMAT_R32_SFLOAT:
-			return 4;
-		case VK_FORMAT_R32G32_SFLOAT:
-			return 8;
-		case VK_FORMAT_R32G32B32_SFLOAT:
-			return 16;
 		case VK_FORMAT_R32G32B32A32_SFLOAT:
-			return 16;
+			return static_cast<deUint32>(sizeof(deInt32) * 4);
+		case VK_FORMAT_R64_SINT:
+		case VK_FORMAT_R64_UINT:
 		case VK_FORMAT_R64_SFLOAT:
-			return 8;
+			return static_cast<deUint32>(sizeof(deInt64));
+		case VK_FORMAT_R64G64_SINT:
+		case VK_FORMAT_R64G64_UINT:
 		case VK_FORMAT_R64G64_SFLOAT:
-			return 16;
+			return static_cast<deUint32>(sizeof(deInt64) * 2);
+		case VK_FORMAT_R64G64B64_SINT:
+		case VK_FORMAT_R64G64B64_UINT:
 		case VK_FORMAT_R64G64B64_SFLOAT:
-			return 32;
+		case VK_FORMAT_R64G64B64A64_SINT:
+		case VK_FORMAT_R64G64B64A64_UINT:
 		case VK_FORMAT_R64G64B64A64_SFLOAT:
-			return 32;
+			return static_cast<deUint32>(sizeof(deInt64) * 4);
 		// The below formats are used to represent bool and bvec* types. These
 		// types are passed to the shader as int and ivec* types, before the
 		// calculations are done as booleans. We need a distinct type here so
 		// that the shader generators can switch on it and generate the correct
 		// shader source for testing.
 		case VK_FORMAT_R8_USCALED:
-			return sizeof(deInt32);
+			return static_cast<deUint32>(sizeof(deInt32));
 		case VK_FORMAT_R8G8_USCALED:
 			return static_cast<deUint32>(sizeof(deInt32) * 2);
 		case VK_FORMAT_R8G8B8_USCALED:
@@ -97,22 +147,6 @@ deUint32 getElementSizeInBytes(
 		return bytes < 16 ? 16 : bytes;
 	else
 		return bytes;
-}
-
-Move<VkPipelineLayout> makePipelineLayout(
-	Context& context, const VkDescriptorSetLayout descriptorSetLayout)
-{
-	const vk::VkPipelineLayoutCreateInfo pipelineLayoutParams = {
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, // VkStructureType sType;
-		DE_NULL,			  // const void*            pNext;
-		0u,					  // VkPipelineLayoutCreateFlags    flags;
-		1u,					  // deUint32             setLayoutCount;
-		&descriptorSetLayout, // const VkDescriptorSetLayout*   pSetLayouts;
-		0u,					  // deUint32             pushConstantRangeCount;
-		DE_NULL, // const VkPushConstantRange*   pPushConstantRanges;
-	};
-	return createPipelineLayout(context.getDeviceInterface(),
-								context.getDevice(), &pipelineLayoutParams);
 }
 
 Move<VkRenderPass> makeRenderPass(Context& context, VkFormat format)
@@ -155,19 +189,6 @@ Move<VkRenderPass> makeRenderPass(Context& context, VkFormat format)
 
 	return createRenderPass(context.getDeviceInterface(), context.getDevice(),
 							&renderPassCreateInfo);
-}
-
-Move<VkFramebuffer> makeFramebuffer(Context& context,
-									const VkRenderPass renderPass, const VkImageView imageView, deUint32 width,
-									deUint32 height)
-{
-	const VkFramebufferCreateInfo framebufferCreateInfo = {
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO, DE_NULL, 0u, renderPass, 1,
-		&imageView, width, height, 1
-	};
-
-	return createFramebuffer(context.getDeviceInterface(), context.getDevice(),
-							 &framebufferCreateInfo);
 }
 
 Move<VkPipeline> makeGraphicsPipeline(Context&									context,
@@ -245,6 +266,7 @@ Move<VkPipeline> makeGraphicsPipeline(Context&									context,
 
 Move<VkPipeline> makeComputePipeline(Context& context,
 									 const VkPipelineLayout pipelineLayout, const VkShaderModule shaderModule,
+									 const deUint32 pipelineCreateFlags, VkPipeline basePipelineHandle,
 									 deUint32 localSizeX, deUint32 localSizeY, deUint32 localSizeZ)
 {
 	const deUint32 localSize[3] = {localSizeX, localSizeY, localSizeZ};
@@ -266,60 +288,28 @@ Move<VkPipeline> makeComputePipeline(Context& context,
 
 	const vk::VkPipelineShaderStageCreateInfo pipelineShaderStageParams =
 	{
-		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,	// VkStructureType					sType;
-		DE_NULL,												// const void*						pNext;
-		0u,														// VkPipelineShaderStageCreateFlags	flags;
-		VK_SHADER_STAGE_COMPUTE_BIT,							// VkShaderStageFlagBits			stage;
-		shaderModule,											// VkShaderModule					module;
-		"main",													// const char*						pName;
-		&info,													// const VkSpecializationInfo*		pSpecializationInfo;
+		VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,				// VkStructureType					sType;
+		DE_NULL,															// const void*						pNext;
+		0u,																	// VkPipelineShaderStageCreateFlags	flags;
+		VK_SHADER_STAGE_COMPUTE_BIT,										// VkShaderStageFlagBits			stage;
+		shaderModule,														// VkShaderModule					module;
+		"main",																// const char*						pName;
+		&info,																// const VkSpecializationInfo*		pSpecializationInfo;
 	};
 
 	const vk::VkComputePipelineCreateInfo pipelineCreateInfo =
 	{
 		VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,	// VkStructureType	sType;
 		DE_NULL,										// const void*						pNext;
-		0u,												// VkPipelineCreateFlags			flags;
+		pipelineCreateFlags,							// VkPipelineCreateFlags			flags;
 		pipelineShaderStageParams,						// VkPipelineShaderStageCreateInfo	stage;
 		pipelineLayout,									// VkPipelineLayout					layout;
-		DE_NULL,										// VkPipeline						basePipelineHandle;
-		0,												// deInt32							basePipelineIndex;
+		basePipelineHandle,								// VkPipeline						basePipelineHandle;
+		-1,												// deInt32							basePipelineIndex;
 	};
 
 	return createComputePipeline(context.getDeviceInterface(),
 								 context.getDevice(), DE_NULL, &pipelineCreateInfo);
-}
-
-Move<VkDescriptorSet> makeDescriptorSet(Context& context,
-										const VkDescriptorPool descriptorPool,
-										const VkDescriptorSetLayout setLayout)
-{
-	const VkDescriptorSetAllocateInfo allocateParams =
-	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO, // VkStructureType
-		// sType;
-		DE_NULL,		// const void*          pNext;
-		descriptorPool, // VkDescriptorPool       descriptorPool;
-		1u,				// deUint32           setLayoutCount;
-		&setLayout,		// const VkDescriptorSetLayout* pSetLayouts;
-	};
-	return allocateDescriptorSet(
-			   context.getDeviceInterface(), context.getDevice(), &allocateParams);
-}
-
-Move<VkCommandPool> makeCommandPool(Context& context)
-{
-	const VkCommandPoolCreateInfo commandPoolParams =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, // VkStructureType sType;
-		DE_NULL,									// const void*        pNext;
-		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, // VkCommandPoolCreateFlags
-		// flags;
-		context.getUniversalQueueFamilyIndex(), // deUint32 queueFamilyIndex;
-	};
-
-	return createCommandPool(
-			   context.getDeviceInterface(), context.getDevice(), &commandPoolParams);
 }
 
 Move<VkCommandBuffer> makeCommandBuffer(
@@ -335,45 +325,6 @@ Move<VkCommandBuffer> makeCommandBuffer(
 	};
 	return allocateCommandBuffer(context.getDeviceInterface(),
 								 context.getDevice(), &bufferAllocateParams);
-}
-
-Move<VkFence> submitCommandBuffer(
-	Context& context, const VkCommandBuffer commandBuffer)
-{
-	const VkFenceCreateInfo fenceParams =
-	{
-		VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, // VkStructureType    sType;
-		DE_NULL,							 // const void*      pNext;
-		0u,									 // VkFenceCreateFlags flags;
-	};
-
-	Move<VkFence> fence(createFence(
-							context.getDeviceInterface(), context.getDevice(), &fenceParams));
-
-	const VkSubmitInfo submitInfo =
-	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO, // VkStructureType      sType;
-		DE_NULL,					   // const void*        pNext;
-		0u,							   // deUint32         waitSemaphoreCount;
-		DE_NULL,					   // const VkSemaphore*   pWaitSemaphores;
-		(const VkPipelineStageFlags*)DE_NULL,
-		1u,				// deUint32         commandBufferCount;
-		&commandBuffer, // const VkCommandBuffer* pCommandBuffers;
-		0u,				// deUint32         signalSemaphoreCount;
-		DE_NULL,		// const VkSemaphore*   pSignalSemaphores;
-	};
-
-	vk::VkResult result = (context.getDeviceInterface().queueSubmit(
-							   context.getUniversalQueue(), 1u, &submitInfo, *fence));
-	VK_CHECK(result);
-
-	return Move<VkFence>(fence);
-}
-
-void waitFence(Context& context, Move<VkFence> fence)
-{
-	VK_CHECK(context.getDeviceInterface().waitForFences(
-				 context.getDevice(), 1u, &fence.get(), DE_TRUE, ~0ull));
 }
 
 struct Buffer;
@@ -432,7 +383,10 @@ struct Buffer : public BufferOrImage
 		, m_sizeInBytes		(sizeInBytes)
 		, m_usage			(usage)
 	{
-		const vk::VkBufferCreateInfo bufferCreateInfo =
+		const DeviceInterface&			vkd					= context.getDeviceInterface();
+		const VkDevice					device				= context.getDevice();
+
+		const vk::VkBufferCreateInfo	bufferCreateInfo	=
 		{
 			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			DE_NULL,
@@ -443,15 +397,12 @@ struct Buffer : public BufferOrImage
 			0u,
 			DE_NULL,
 		};
-		m_buffer = createBuffer(context.getDeviceInterface(),
-								context.getDevice(), &bufferCreateInfo);
-		vk::VkMemoryRequirements req = getBufferMemoryRequirements(
-										   context.getDeviceInterface(), context.getDevice(), *m_buffer);
-		m_allocation = context.getDefaultAllocator().allocate(
-						   req, MemoryRequirement::HostVisible);
-		VK_CHECK(context.getDeviceInterface().bindBufferMemory(
-					 context.getDevice(), *m_buffer, m_allocation->getMemory(),
-					 m_allocation->getOffset()));
+		m_buffer		= createBuffer(vkd, device, &bufferCreateInfo);
+
+		VkMemoryRequirements			req					= getBufferMemoryRequirements(vkd, device, *m_buffer);
+
+		m_allocation	= context.getDefaultAllocator().allocate(req, MemoryRequirement::HostVisible);
+		VK_CHECK(vkd.bindBufferMemory(device, *m_buffer, m_allocation->getMemory(), m_allocation->getOffset()));
 	}
 
 	virtual VkDescriptorType getType() const
@@ -463,15 +414,18 @@ struct Buffer : public BufferOrImage
 		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	}
 
-	VkBuffer getBuffer() const {
+	VkBuffer getBuffer () const
+	{
 		return *m_buffer;
 	}
 
-	const VkBuffer* getBufferPtr() const {
+	const VkBuffer* getBufferPtr () const
+	{
 		return &(*m_buffer);
 	}
 
-	VkDeviceSize getSize() const {
+	VkDeviceSize getSize () const
+	{
 		return m_sizeInBytes;
 	}
 
@@ -487,7 +441,11 @@ struct Image : public BufferOrImage
 				   VkFormat format, VkImageUsageFlags usage = VK_IMAGE_USAGE_STORAGE_BIT)
 		: BufferOrImage(true)
 	{
-		const VkImageCreateInfo imageCreateInfo =
+		const DeviceInterface&			vk					= context.getDeviceInterface();
+		const VkDevice					device				= context.getDevice();
+		const deUint32					queueFamilyIndex	= context.getUniversalQueueFamilyIndex();
+
+		const VkImageCreateInfo			imageCreateInfo		=
 		{
 			VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, DE_NULL, 0, VK_IMAGE_TYPE_2D,
 			format, {width, height, 1}, 1, 1, VK_SAMPLE_COUNT_1_BIT,
@@ -495,36 +453,23 @@ struct Image : public BufferOrImage
 			VK_SHARING_MODE_EXCLUSIVE, 0u, DE_NULL,
 			VK_IMAGE_LAYOUT_UNDEFINED
 		};
-		m_image = createImage(context.getDeviceInterface(), context.getDevice(),
-							  &imageCreateInfo);
-		vk::VkMemoryRequirements req = getImageMemoryRequirements(
-										   context.getDeviceInterface(), context.getDevice(), *m_image);
-		req.size *= 2;
-		m_allocation =
-			context.getDefaultAllocator().allocate(req, MemoryRequirement::Any);
-		VK_CHECK(context.getDeviceInterface().bindImageMemory(
-					 context.getDevice(), *m_image, m_allocation->getMemory(),
-					 m_allocation->getOffset()));
 
-		const VkComponentMapping componentMapping =
+		const VkComponentMapping		componentMapping	=
 		{
 			VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
 			VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY
 		};
 
-		const VkImageViewCreateInfo imageViewCreateInfo =
+		const VkImageSubresourceRange	subresourceRange	=
 		{
-			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, DE_NULL, 0, *m_image,
-			VK_IMAGE_VIEW_TYPE_2D, imageCreateInfo.format, componentMapping,
-			{
-				VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1,
-			}
+			VK_IMAGE_ASPECT_COLOR_BIT,	//VkImageAspectFlags	aspectMask
+			0u,							//deUint32				baseMipLevel
+			1u,							//deUint32				levelCount
+			0u,							//deUint32				baseArrayLayer
+			1u							//deUint32				layerCount
 		};
 
-		m_imageView = createImageView(context.getDeviceInterface(),
-									  context.getDevice(), &imageViewCreateInfo);
-
-		const struct VkSamplerCreateInfo samplerCreateInfo =
+		const VkSamplerCreateInfo		samplerCreateInfo	=
 		{
 			VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 			DE_NULL,
@@ -546,18 +491,55 @@ struct Image : public BufferOrImage
 			VK_FALSE,
 		};
 
-		m_sampler = createSampler(context.getDeviceInterface(), context.getDevice(), &samplerCreateInfo);
+		m_image			= createImage(vk, device, &imageCreateInfo);
+
+		VkMemoryRequirements			req					= getImageMemoryRequirements(vk, device, *m_image);
+
+		req.size		*= 2;
+		m_allocation	= context.getDefaultAllocator().allocate(req, MemoryRequirement::Any);
+
+		VK_CHECK(vk.bindImageMemory(device, *m_image, m_allocation->getMemory(), m_allocation->getOffset()));
+
+		const VkImageViewCreateInfo		imageViewCreateInfo	=
+		{
+			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, DE_NULL, 0, *m_image,
+			VK_IMAGE_VIEW_TYPE_2D, imageCreateInfo.format, componentMapping,
+			subresourceRange
+		};
+
+		m_imageView		= createImageView(vk, device, &imageViewCreateInfo);
+		m_sampler		= createSampler(vk, device, &samplerCreateInfo);
+
+		// Transition input image layouts
+		{
+			const Unique<VkCommandPool>		cmdPool			(makeCommandPool(vk, device, queueFamilyIndex));
+			const Unique<VkCommandBuffer>	cmdBuffer		(makeCommandBuffer(context, *cmdPool));
+
+			beginCommandBuffer(vk, *cmdBuffer);
+
+			const VkImageMemoryBarrier		imageBarrier	= makeImageMemoryBarrier((VkAccessFlags)0u, VK_ACCESS_TRANSFER_WRITE_BIT,
+																	VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, *m_image, subresourceRange);
+
+			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+				(VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &imageBarrier);
+
+			endCommandBuffer(vk, *cmdBuffer);
+			submitCommandsAndWait(vk, device, context.getUniversalQueue(), *cmdBuffer);
+		}
 	}
 
-	VkImage getImage() const {
+	VkImage getImage () const
+	{
 		return *m_image;
 	}
 
-	VkImageView getImageView() const {
+	VkImageView getImageView () const
+	{
 		return *m_imageView;
 	}
 
-	VkSampler getSampler() const {
+	VkSampler getSampler () const
+	{
 		return *m_sampler;
 	}
 
@@ -594,6 +576,35 @@ std::string vkt::subgroups::getSharedMemoryBallotHelper()
 			"  }\n"
 			"  subgroupMemoryBarrierShared();\n"
 			"  return superSecretComputeShaderHelper[groupOffset];\n"
+			"}\n";
+}
+
+std::string vkt::subgroups::getSharedMemoryBallotHelperARB()
+{
+	return	"shared uvec4 superSecretComputeShaderHelper[gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z];\n"
+			"uint64_t sharedMemoryBallot(bool vote)\n"
+			"{\n"
+			"  uint groupOffset = gl_SubgroupID;\n"
+			"  // One invocation in the group 0's the whole group's data\n"
+			"  if (subgroupElect())\n"
+			"  {\n"
+			"    superSecretComputeShaderHelper[groupOffset] = uvec4(0);\n"
+			"  }\n"
+			"  subgroupMemoryBarrierShared();\n"
+			"  if (vote)\n"
+			"  {\n"
+			"    const highp uint invocationId = gl_SubgroupInvocationID % 32;\n"
+			"    const highp uint bitToSet = 1u << invocationId;\n"
+			"    switch (gl_SubgroupInvocationID / 32)\n"
+			"    {\n"
+			"    case 0: atomicOr(superSecretComputeShaderHelper[groupOffset].x, bitToSet); break;\n"
+			"    case 1: atomicOr(superSecretComputeShaderHelper[groupOffset].y, bitToSet); break;\n"
+			"    case 2: atomicOr(superSecretComputeShaderHelper[groupOffset].z, bitToSet); break;\n"
+			"    case 3: atomicOr(superSecretComputeShaderHelper[groupOffset].w, bitToSet); break;\n"
+			"    }\n"
+			"  }\n"
+			"  subgroupMemoryBarrierShared();\n"
+			"  return packUint2x32(superSecretComputeShaderHelper[groupOffset].xy);\n"
 			"}\n";
 }
 
@@ -950,6 +961,299 @@ std::string vkt::subgroups::getVertShaderForStage(vk::VkShaderStageFlags stage)
 	}
 }
 
+void vkt::subgroups::initStdFrameBufferPrograms(	SourceCollections&				programCollection,
+													const vk::ShaderBuildOptions&	buildOptions,
+													VkShaderStageFlags				shaderStage,
+													VkFormat						format,
+													bool							gsPointSize,
+													std::string						extHeader,
+													std::string						testSrc,
+													std::string						helperStr)
+{
+	subgroups::setFragmentShaderFrameBuffer(programCollection);
+
+	if (shaderStage != VK_SHADER_STAGE_VERTEX_BIT)
+		subgroups::setVertexShaderFrameBuffer(programCollection);
+
+	if (shaderStage == VK_SHADER_STAGE_VERTEX_BIT)
+	{
+		std::ostringstream vertex;
+		vertex << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450)<<"\n"
+			<< extHeader.c_str()
+			<< "layout(location = 0) in highp vec4 in_position;\n"
+			<< "layout(location = 0) out float result;\n"
+			<< "layout(set = 0, binding = 0) uniform Buffer1\n"
+			<< "{\n"
+			<< "  " << subgroups::getFormatNameForGLSL(format) << " data[" << subgroups::maxSupportedSubgroupSize() << "];\n"
+			<< "};\n"
+			<< "\n"
+			<< helperStr.c_str()
+			<< "void main (void)\n"
+			<< "{\n"
+			<< "  uint tempRes;\n"
+			<< testSrc
+			<< "  result = float(tempRes);\n"
+			<< "  gl_Position = in_position;\n"
+			<< "  gl_PointSize = 1.0f;\n"
+			<< "}\n";
+		programCollection.glslSources.add("vert")
+			<< glu::VertexSource(vertex.str()) << buildOptions;
+	}
+	else if (shaderStage == VK_SHADER_STAGE_GEOMETRY_BIT)
+	{
+		std::ostringstream geometry;
+
+		geometry << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450)<<"\n"
+			<< extHeader.c_str()
+			<< "layout(points) in;\n"
+			<< "layout(points, max_vertices = 1) out;\n"
+			<< "layout(location = 0) out float out_color;\n"
+			<< "layout(set = 0, binding = 0) uniform Buffer1\n"
+			<< "{\n"
+			<< "  " << subgroups::getFormatNameForGLSL(format) << " data[" << subgroups::maxSupportedSubgroupSize() << "];\n"
+			<< "};\n"
+			<< "\n"
+			<< helperStr.c_str()
+			<< "void main (void)\n"
+			<< "{\n"
+			<< "  uint tempRes;\n"
+			<< testSrc
+			<< "  out_color = float(tempRes);\n"
+			<< "  gl_Position = gl_in[0].gl_Position;\n"
+			<< (gsPointSize ? "  gl_PointSize = gl_in[0].gl_PointSize;\n" : "")
+			<< "  EmitVertex();\n"
+			<< "  EndPrimitive();\n"
+			<< "}\n";
+
+		programCollection.glslSources.add("geometry")
+			<< glu::GeometrySource(geometry.str()) << buildOptions;
+	}
+	else if (shaderStage == VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT)
+	{
+		std::ostringstream controlSource;
+		controlSource << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450)<<"\n"
+			<< extHeader.c_str()
+			<< "layout(vertices = 2) out;\n"
+			<< "layout(location = 0) out float out_color[];\n"
+			<< "layout(set = 0, binding = 0) uniform Buffer1\n"
+			<< "{\n"
+			<< "  " << subgroups::getFormatNameForGLSL(format) << " data[" << subgroups::maxSupportedSubgroupSize() << "];\n"
+			<< "};\n"
+			<< "\n"
+			<< helperStr.c_str()
+			<< "void main (void)\n"
+			<< "{\n"
+			<< "  if (gl_InvocationID == 0)\n"
+			<< "  {\n"
+			<< "    gl_TessLevelOuter[0] = 1.0f;\n"
+			<< "    gl_TessLevelOuter[1] = 1.0f;\n"
+			<< "  }\n"
+			<< "  uint tempRes;\n"
+			<< testSrc
+			<< "  out_color[gl_InvocationID] = float(tempRes);\n"
+			<< "  gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;\n"
+			<< "}\n";
+
+		programCollection.glslSources.add("tesc")
+			<< glu::TessellationControlSource(controlSource.str()) << buildOptions;
+		subgroups::setTesEvalShaderFrameBuffer(programCollection);
+	}
+	else if (shaderStage == VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
+	{
+		ostringstream evaluationSource;
+		evaluationSource << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450)<<"\n"
+			<< extHeader.c_str()
+			<< "layout(isolines, equal_spacing, ccw ) in;\n"
+			<< "layout(location = 0) out float out_color;\n"
+			<< "layout(set = 0, binding = 0) uniform Buffer1\n"
+			<< "{\n"
+			<< "  " << subgroups::getFormatNameForGLSL(format) << " data[" << subgroups::maxSupportedSubgroupSize() << "];\n"
+			<< "};\n"
+			<< "\n"
+			<< helperStr.c_str()
+			<< "void main (void)\n"
+			<< "{\n"
+			<< "  uint tempRes;\n"
+			<< testSrc
+			<< "  out_color = float(tempRes);\n"
+			<< "  gl_Position = mix(gl_in[0].gl_Position, gl_in[1].gl_Position, gl_TessCoord.x);\n"
+			<< "}\n";
+
+		subgroups::setTesCtrlShaderFrameBuffer(programCollection);
+		programCollection.glslSources.add("tese") << glu::TessellationEvaluationSource(evaluationSource.str()) << buildOptions;
+	}
+	else
+	{
+		DE_FATAL("Unsupported shader stage");
+	}
+}
+
+void vkt::subgroups::initStdPrograms(	vk::SourceCollections&			programCollection,
+										const vk::ShaderBuildOptions&	buildOptions,
+										vk::VkShaderStageFlags			shaderStage,
+										vk::VkFormat					format,
+										std::string						extHeader,
+										std::string						testSrc,
+										std::string						helperStr)
+{
+	if (shaderStage == VK_SHADER_STAGE_COMPUTE_BIT)
+	{
+		std::ostringstream src;
+
+		src << "#version 450\n"
+			<< extHeader.c_str()
+			<< "layout (local_size_x_id = 0, local_size_y_id = 1, "
+			"local_size_z_id = 2) in;\n"
+			<< "layout(set = 0, binding = 0, std430) buffer Buffer1\n"
+			<< "{\n"
+			<< "  uint result[];\n"
+			<< "};\n"
+			<< "layout(set = 0, binding = 1, std430) buffer Buffer2\n"
+			<< "{\n"
+			<< "  " << subgroups::getFormatNameForGLSL(format) << " data[];\n"
+			<< "};\n"
+			<< "\n"
+			<< helperStr.c_str()
+			<< "void main (void)\n"
+			<< "{\n"
+			<< "  uvec3 globalSize = gl_NumWorkGroups * gl_WorkGroupSize;\n"
+			<< "  highp uint offset = globalSize.x * ((globalSize.y * "
+			"gl_GlobalInvocationID.z) + gl_GlobalInvocationID.y) + "
+			"gl_GlobalInvocationID.x;\n"
+			<< "  uint tempRes;\n"
+			<< testSrc
+			<< "  result[offset] = tempRes;\n"
+			<< "}\n";
+
+		programCollection.glslSources.add("comp") << glu::ComputeSource(src.str()) << buildOptions;
+	}
+	else
+	{
+		const string vertex =
+			"#version 450\n"
+			+ extHeader +
+			"layout(set = 0, binding = 0, std430) buffer Buffer1\n"
+			"{\n"
+			"  uint result[];\n"
+			"};\n"
+			"layout(set = 0, binding = 4, std430) readonly buffer Buffer2\n"
+			"{\n"
+			"  " + subgroups::getFormatNameForGLSL(format) + " data[];\n"
+			"};\n"
+			"\n"
+			+ helperStr +
+			"void main (void)\n"
+			"{\n"
+			"  uint tempRes;\n"
+			+ testSrc +
+			"  result[gl_VertexIndex] = tempRes;\n"
+			"  float pixelSize = 2.0f/1024.0f;\n"
+			"  float pixelPosition = pixelSize/2.0f - 1.0f;\n"
+			"  gl_Position = vec4(float(gl_VertexIndex) * pixelSize + pixelPosition, 0.0f, 0.0f, 1.0f);\n"
+			"  gl_PointSize = 1.0f;\n"
+			"}\n";
+
+		const string tesc =
+			"#version 450\n"
+			+ extHeader +
+			"layout(vertices=1) out;\n"
+			"layout(set = 0, binding = 1, std430) buffer Buffer1\n"
+			"{\n"
+			"  uint result[];\n"
+			"};\n"
+			"layout(set = 0, binding = 4, std430) readonly buffer Buffer2\n"
+			"{\n"
+			"  " + subgroups::getFormatNameForGLSL(format) + " data[];\n"
+			"};\n"
+			"\n"
+			+ helperStr +
+			"void main (void)\n"
+			"{\n"
+			"  uint tempRes;\n"
+			+ testSrc +
+			"  result[gl_PrimitiveID] = tempRes;\n"
+			"  if (gl_InvocationID == 0)\n"
+			"  {\n"
+			"    gl_TessLevelOuter[0] = 1.0f;\n"
+			"    gl_TessLevelOuter[1] = 1.0f;\n"
+			"  }\n"
+			"  gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;\n"
+			"}\n";
+
+		const string tese =
+			"#version 450\n"
+			+ extHeader +
+			"layout(isolines) in;\n"
+			"layout(set = 0, binding = 2, std430) buffer Buffer1\n"
+			"{\n"
+			"  uint result[];\n"
+			"};\n"
+			"layout(set = 0, binding = 4, std430) readonly buffer Buffer2\n"
+			"{\n"
+			"  " + subgroups::getFormatNameForGLSL(format) + " data[];\n"
+			"};\n"
+			"\n"
+			+ helperStr +
+			"void main (void)\n"
+			"{\n"
+			"  uint tempRes;\n"
+			+ testSrc +
+			"  result[gl_PrimitiveID * 2 + uint(gl_TessCoord.x + 0.5)] = tempRes;\n"
+			"  float pixelSize = 2.0f/1024.0f;\n"
+			"  gl_Position = gl_in[0].gl_Position + gl_TessCoord.x * pixelSize / 2.0f;\n"
+			"}\n";
+
+		const string geometry =
+			"#version 450\n"
+			+ extHeader +
+			"layout(${TOPOLOGY}) in;\n"
+			"layout(points, max_vertices = 1) out;\n"
+			"layout(set = 0, binding = 3, std430) buffer Buffer1\n"
+			"{\n"
+			"  uint result[];\n"
+			"};\n"
+			"layout(set = 0, binding = 4, std430) readonly buffer Buffer2\n"
+			"{\n"
+			"  " + subgroups::getFormatNameForGLSL(format) + " data[];\n"
+			"};\n"
+			"\n"
+			+ helperStr +
+			"void main (void)\n"
+			"{\n"
+			"  uint tempRes;\n"
+			+ testSrc +
+			"  result[gl_PrimitiveIDIn] = tempRes;\n"
+			"  gl_Position = gl_in[0].gl_Position;\n"
+			"  EmitVertex();\n"
+			"  EndPrimitive();\n"
+			"}\n";
+
+		const string fragment =
+			"#version 450\n"
+			+ extHeader +
+			"layout(location = 0) out uint result;\n"
+			"layout(set = 0, binding = 4, std430) readonly buffer Buffer1\n"
+			"{\n"
+			"  " + subgroups::getFormatNameForGLSL(format) + " data[];\n"
+			"};\n"
+			+ helperStr +
+			"void main (void)\n"
+			"{\n"
+			"  uint tempRes;\n"
+			+ testSrc +
+			"  result = tempRes;\n"
+			"}\n";
+
+		subgroups::addNoSubgroupShader(programCollection);
+
+		programCollection.glslSources.add("vert") << glu::VertexSource(vertex) << buildOptions;
+		programCollection.glslSources.add("tesc") << glu::TessellationControlSource(tesc) << buildOptions;
+		programCollection.glslSources.add("tese") << glu::TessellationEvaluationSource(tese) << buildOptions;
+		subgroups::addGeometryShadersFromTemplate(geometry, buildOptions, programCollection.glslSources);
+		programCollection.glslSources.add("fragment") << glu::FragmentSource(fragment)<< buildOptions;
+	}
+}
+
 bool vkt::subgroups::isSubgroupSupported(Context& context)
 {
 	return context.contextSupports(vk::ApiVersion(1, 1, 0));
@@ -1013,25 +1317,126 @@ bool vkt::subgroups::isVertexSSBOSupportedForDevice(Context& context)
 	return features.vertexPipelineStoresAndAtomics ? true : false;
 }
 
-bool vkt::subgroups::isDoubleSupportedForDevice(Context& context)
+bool vkt::subgroups::isInt64SupportedForDevice(Context& context)
 {
 	const VkPhysicalDeviceFeatures features = getPhysicalDeviceFeatures(
 				context.getInstanceInterface(), context.getPhysicalDevice());
-	return features.shaderFloat64 ? true : false;
+	return features.shaderInt64 ? true : false;
 }
 
-bool vkt::subgroups::isDoubleFormat(VkFormat format)
+bool vkt::subgroups::isTessellationAndGeometryPointSizeSupported (Context& context)
 {
+	const VkPhysicalDeviceFeatures features = getPhysicalDeviceFeatures(
+		context.getInstanceInterface(), context.getPhysicalDevice());
+	return features.shaderTessellationAndGeometryPointSize ? true : false;
+}
+
+bool vkt::subgroups::isFormatSupportedForDevice(Context& context, vk::VkFormat format)
+{
+	VkPhysicalDeviceShaderSubgroupExtendedTypesFeatures subgroupExtendedTypesFeatures;
+	deMemset(&subgroupExtendedTypesFeatures, 0, sizeof(subgroupExtendedTypesFeatures));
+	subgroupExtendedTypesFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES;
+	subgroupExtendedTypesFeatures.pNext = DE_NULL;
+
+	VkPhysicalDeviceShaderFloat16Int8Features float16Int8Features;
+	deMemset(&float16Int8Features, 0, sizeof(float16Int8Features));
+	float16Int8Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES;
+	float16Int8Features.pNext = DE_NULL;
+
+	VkPhysicalDeviceFeatures2 features2;
+	deMemset(&features2, 0, sizeof(features2));
+	features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	features2.pNext = DE_NULL;
+
+	VkPhysicalDevice16BitStorageFeatures storage16bit;
+	deMemset(&storage16bit, 0, sizeof(storage16bit));
+	storage16bit.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES_KHR;
+	storage16bit.pNext = DE_NULL;
+	bool is16bitStorageSupported = context.isDeviceFunctionalitySupported("VK_KHR_16bit_storage");
+
+	VkPhysicalDevice8BitStorageFeatures storage8bit;
+	deMemset(&storage8bit, 0, sizeof(storage8bit));
+	storage8bit.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR;
+	storage8bit.pNext = DE_NULL;
+	bool is8bitStorageSupported = context.isDeviceFunctionalitySupported("VK_KHR_8bit_storage");
+
+	if (context.isDeviceFunctionalitySupported("VK_KHR_shader_subgroup_extended_types") &&
+		context.isDeviceFunctionalitySupported("VK_KHR_shader_float16_int8"))
+	{
+		features2.pNext = &subgroupExtendedTypesFeatures;
+		subgroupExtendedTypesFeatures.pNext = &float16Int8Features;
+		if ( is16bitStorageSupported )
+		{
+			float16Int8Features.pNext = &storage16bit;
+			if (is8bitStorageSupported)
+			{
+				storage16bit.pNext = &storage8bit;
+			}
+		}
+		else
+		{
+			if (is8bitStorageSupported)
+			{
+				float16Int8Features.pNext = &storage8bit;
+			}
+
+		}
+	}
+
+	const PlatformInterface&		platformInterface		= context.getPlatformInterface();
+	const VkInstance				instance				= context.getInstance();
+	const InstanceDriver			instanceDriver			(platformInterface, instance);
+
+	instanceDriver.getPhysicalDeviceFeatures2(context.getPhysicalDevice(), &features2);
+
 	switch (format)
 	{
 		default:
-			return false;
+			return true;
+		case VK_FORMAT_R16_SFLOAT:
+		case VK_FORMAT_R16G16_SFLOAT:
+		case VK_FORMAT_R16G16B16_SFLOAT:
+		case VK_FORMAT_R16G16B16A16_SFLOAT:
+			return subgroupExtendedTypesFeatures.shaderSubgroupExtendedTypes & float16Int8Features.shaderFloat16 & storage16bit.storageBuffer16BitAccess ? true : false;
 		case VK_FORMAT_R64_SFLOAT:
 		case VK_FORMAT_R64G64_SFLOAT:
 		case VK_FORMAT_R64G64B64_SFLOAT:
 		case VK_FORMAT_R64G64B64A64_SFLOAT:
-			return true;
+			return features2.features.shaderFloat64 ? true : false;
+		case VK_FORMAT_R8_SINT:
+		case VK_FORMAT_R8G8_SINT:
+		case VK_FORMAT_R8G8B8_SINT:
+		case VK_FORMAT_R8G8B8A8_SINT:
+		case VK_FORMAT_R8_UINT:
+		case VK_FORMAT_R8G8_UINT:
+		case VK_FORMAT_R8G8B8_UINT:
+		case VK_FORMAT_R8G8B8A8_UINT:
+			return subgroupExtendedTypesFeatures.shaderSubgroupExtendedTypes & float16Int8Features.shaderInt8 & storage8bit.storageBuffer8BitAccess ? true : false;
+		case VK_FORMAT_R16_SINT:
+		case VK_FORMAT_R16G16_SINT:
+		case VK_FORMAT_R16G16B16_SINT:
+		case VK_FORMAT_R16G16B16A16_SINT:
+		case VK_FORMAT_R16_UINT:
+		case VK_FORMAT_R16G16_UINT:
+		case VK_FORMAT_R16G16B16_UINT:
+		case VK_FORMAT_R16G16B16A16_UINT:
+			return subgroupExtendedTypesFeatures.shaderSubgroupExtendedTypes & features2.features.shaderInt16 & storage16bit.storageBuffer16BitAccess ? true : false;
+		case VK_FORMAT_R64_SINT:
+		case VK_FORMAT_R64G64_SINT:
+		case VK_FORMAT_R64G64B64_SINT:
+		case VK_FORMAT_R64G64B64A64_SINT:
+		case VK_FORMAT_R64_UINT:
+		case VK_FORMAT_R64G64_UINT:
+		case VK_FORMAT_R64G64B64_UINT:
+		case VK_FORMAT_R64G64B64A64_UINT:
+			return subgroupExtendedTypesFeatures.shaderSubgroupExtendedTypes & features2.features.shaderInt64 ? true : false;
 	}
+}
+
+bool vkt::subgroups::isSubgroupBroadcastDynamicIdSupported (Context& context)
+{
+	return context.contextSupports(vk::ApiVersion(1, 2, 0)) &&
+		vk::getPhysicalDeviceVulkan12Features(context.getInstanceInterface(), context.getPhysicalDevice()).subgroupBroadcastDynamicId;
 }
 
 std::string vkt::subgroups::getFormatNameForGLSL (VkFormat format)
@@ -1041,6 +1446,38 @@ std::string vkt::subgroups::getFormatNameForGLSL (VkFormat format)
 		default:
 			DE_FATAL("Unhandled format!");
 			return "";
+		case VK_FORMAT_R8_SINT:
+			return "int8_t";
+		case VK_FORMAT_R8G8_SINT:
+			return "i8vec2";
+		case VK_FORMAT_R8G8B8_SINT:
+			return "i8vec3";
+		case VK_FORMAT_R8G8B8A8_SINT:
+			return "i8vec4";
+		case VK_FORMAT_R8_UINT:
+			return "uint8_t";
+		case VK_FORMAT_R8G8_UINT:
+			return "u8vec2";
+		case VK_FORMAT_R8G8B8_UINT:
+			return "u8vec3";
+		case VK_FORMAT_R8G8B8A8_UINT:
+			return "u8vec4";
+		case VK_FORMAT_R16_SINT:
+			return "int16_t";
+		case VK_FORMAT_R16G16_SINT:
+			return "i16vec2";
+		case VK_FORMAT_R16G16B16_SINT:
+			return "i16vec3";
+		case VK_FORMAT_R16G16B16A16_SINT:
+			return "i16vec4";
+		case VK_FORMAT_R16_UINT:
+			return "uint16_t";
+		case VK_FORMAT_R16G16_UINT:
+			return "u16vec2";
+		case VK_FORMAT_R16G16B16_UINT:
+			return "u16vec3";
+		case VK_FORMAT_R16G16B16A16_UINT:
+			return "u16vec4";
 		case VK_FORMAT_R32_SINT:
 			return "int";
 		case VK_FORMAT_R32G32_SINT:
@@ -1057,6 +1494,30 @@ std::string vkt::subgroups::getFormatNameForGLSL (VkFormat format)
 			return "uvec3";
 		case VK_FORMAT_R32G32B32A32_UINT:
 			return "uvec4";
+		case VK_FORMAT_R64_SINT:
+			return "int64_t";
+		case VK_FORMAT_R64G64_SINT:
+			return "i64vec2";
+		case VK_FORMAT_R64G64B64_SINT:
+			return "i64vec3";
+		case VK_FORMAT_R64G64B64A64_SINT:
+			return "i64vec4";
+		case VK_FORMAT_R64_UINT:
+			return "uint64_t";
+		case VK_FORMAT_R64G64_UINT:
+			return "u64vec2";
+		case VK_FORMAT_R64G64B64_UINT:
+			return "u64vec3";
+		case VK_FORMAT_R64G64B64A64_UINT:
+			return "u64vec4";
+		case VK_FORMAT_R16_SFLOAT:
+			return "float16_t";
+		case VK_FORMAT_R16G16_SFLOAT:
+			return "f16vec2";
+		case VK_FORMAT_R16G16B16_SFLOAT:
+			return "f16vec3";
+		case VK_FORMAT_R16G16B16A16_SFLOAT:
+			return "f16vec4";
 		case VK_FORMAT_R32_SFLOAT:
 			return "float";
 		case VK_FORMAT_R32G32_SFLOAT:
@@ -1084,6 +1545,177 @@ std::string vkt::subgroups::getFormatNameForGLSL (VkFormat format)
 	}
 }
 
+std::string vkt::subgroups::getAdditionalExtensionForFormat (vk::VkFormat format)
+{
+	switch (format)
+	{
+		default:
+			return "";
+		case VK_FORMAT_R8_SINT:
+		case VK_FORMAT_R8G8_SINT:
+		case VK_FORMAT_R8G8B8_SINT:
+		case VK_FORMAT_R8G8B8A8_SINT:
+		case VK_FORMAT_R8_UINT:
+		case VK_FORMAT_R8G8_UINT:
+		case VK_FORMAT_R8G8B8_UINT:
+		case VK_FORMAT_R8G8B8A8_UINT:
+			return "#extension GL_EXT_shader_subgroup_extended_types_int8 : enable\n";
+		case VK_FORMAT_R16_SINT:
+		case VK_FORMAT_R16G16_SINT:
+		case VK_FORMAT_R16G16B16_SINT:
+		case VK_FORMAT_R16G16B16A16_SINT:
+		case VK_FORMAT_R16_UINT:
+		case VK_FORMAT_R16G16_UINT:
+		case VK_FORMAT_R16G16B16_UINT:
+		case VK_FORMAT_R16G16B16A16_UINT:
+			return "#extension GL_EXT_shader_subgroup_extended_types_int16 : enable\n";
+		case VK_FORMAT_R64_SINT:
+		case VK_FORMAT_R64G64_SINT:
+		case VK_FORMAT_R64G64B64_SINT:
+		case VK_FORMAT_R64G64B64A64_SINT:
+		case VK_FORMAT_R64_UINT:
+		case VK_FORMAT_R64G64_UINT:
+		case VK_FORMAT_R64G64B64_UINT:
+		case VK_FORMAT_R64G64B64A64_UINT:
+			return "#extension GL_EXT_shader_subgroup_extended_types_int64 : enable\n";
+		case VK_FORMAT_R16_SFLOAT:
+		case VK_FORMAT_R16G16_SFLOAT:
+		case VK_FORMAT_R16G16B16_SFLOAT:
+		case VK_FORMAT_R16G16B16A16_SFLOAT:
+			return "#extension GL_EXT_shader_subgroup_extended_types_float16 : enable\n";
+	}
+}
+
+const std::vector<vk::VkFormat> vkt::subgroups::getAllFormats()
+{
+	std::vector<VkFormat> formats;
+
+	formats.push_back(VK_FORMAT_R8_SINT);
+	formats.push_back(VK_FORMAT_R8G8_SINT);
+	formats.push_back(VK_FORMAT_R8G8B8_SINT);
+	formats.push_back(VK_FORMAT_R8G8B8A8_SINT);
+	formats.push_back(VK_FORMAT_R8_UINT);
+	formats.push_back(VK_FORMAT_R8G8_UINT);
+	formats.push_back(VK_FORMAT_R8G8B8_UINT);
+	formats.push_back(VK_FORMAT_R8G8B8A8_UINT);
+	formats.push_back(VK_FORMAT_R16_SINT);
+	formats.push_back(VK_FORMAT_R16G16_SINT);
+	formats.push_back(VK_FORMAT_R16G16B16_SINT);
+	formats.push_back(VK_FORMAT_R16G16B16A16_SINT);
+	formats.push_back(VK_FORMAT_R16_UINT);
+	formats.push_back(VK_FORMAT_R16G16_UINT);
+	formats.push_back(VK_FORMAT_R16G16B16_UINT);
+	formats.push_back(VK_FORMAT_R16G16B16A16_UINT);
+	formats.push_back(VK_FORMAT_R32_SINT);
+	formats.push_back(VK_FORMAT_R32G32_SINT);
+	formats.push_back(VK_FORMAT_R32G32B32_SINT);
+	formats.push_back(VK_FORMAT_R32G32B32A32_SINT);
+	formats.push_back(VK_FORMAT_R32_UINT);
+	formats.push_back(VK_FORMAT_R32G32_UINT);
+	formats.push_back(VK_FORMAT_R32G32B32_UINT);
+	formats.push_back(VK_FORMAT_R32G32B32A32_UINT);
+	formats.push_back(VK_FORMAT_R64_SINT);
+	formats.push_back(VK_FORMAT_R64G64_SINT);
+	formats.push_back(VK_FORMAT_R64G64B64_SINT);
+	formats.push_back(VK_FORMAT_R64G64B64A64_SINT);
+	formats.push_back(VK_FORMAT_R64_UINT);
+	formats.push_back(VK_FORMAT_R64G64_UINT);
+	formats.push_back(VK_FORMAT_R64G64B64_UINT);
+	formats.push_back(VK_FORMAT_R64G64B64A64_UINT);
+	formats.push_back(VK_FORMAT_R16_SFLOAT);
+	formats.push_back(VK_FORMAT_R16G16_SFLOAT);
+	formats.push_back(VK_FORMAT_R16G16B16_SFLOAT);
+	formats.push_back(VK_FORMAT_R16G16B16A16_SFLOAT);
+	formats.push_back(VK_FORMAT_R32_SFLOAT);
+	formats.push_back(VK_FORMAT_R32G32_SFLOAT);
+	formats.push_back(VK_FORMAT_R32G32B32_SFLOAT);
+	formats.push_back(VK_FORMAT_R32G32B32A32_SFLOAT);
+	formats.push_back(VK_FORMAT_R64_SFLOAT);
+	formats.push_back(VK_FORMAT_R64G64_SFLOAT);
+	formats.push_back(VK_FORMAT_R64G64B64_SFLOAT);
+	formats.push_back(VK_FORMAT_R64G64B64A64_SFLOAT);
+	formats.push_back(VK_FORMAT_R8_USCALED);
+	formats.push_back(VK_FORMAT_R8G8_USCALED);
+	formats.push_back(VK_FORMAT_R8G8B8_USCALED);
+	formats.push_back(VK_FORMAT_R8G8B8A8_USCALED);
+
+	return formats;
+}
+
+bool vkt::subgroups::isFormatSigned (VkFormat format)
+{
+	switch (format)
+	{
+		default:
+			return false;
+		case VK_FORMAT_R8_SINT:
+		case VK_FORMAT_R8G8_SINT:
+		case VK_FORMAT_R8G8B8_SINT:
+		case VK_FORMAT_R8G8B8A8_SINT:
+		case VK_FORMAT_R16_SINT:
+		case VK_FORMAT_R16G16_SINT:
+		case VK_FORMAT_R16G16B16_SINT:
+		case VK_FORMAT_R16G16B16A16_SINT:
+		case VK_FORMAT_R32_SINT:
+		case VK_FORMAT_R32G32_SINT:
+		case VK_FORMAT_R32G32B32_SINT:
+		case VK_FORMAT_R32G32B32A32_SINT:
+		case VK_FORMAT_R64_SINT:
+		case VK_FORMAT_R64G64_SINT:
+		case VK_FORMAT_R64G64B64_SINT:
+		case VK_FORMAT_R64G64B64A64_SINT:
+			return true;
+	}
+}
+
+bool vkt::subgroups::isFormatUnsigned (VkFormat format)
+{
+	switch (format)
+	{
+		default:
+			return false;
+		case VK_FORMAT_R8_UINT:
+		case VK_FORMAT_R8G8_UINT:
+		case VK_FORMAT_R8G8B8_UINT:
+		case VK_FORMAT_R8G8B8A8_UINT:
+		case VK_FORMAT_R16_UINT:
+		case VK_FORMAT_R16G16_UINT:
+		case VK_FORMAT_R16G16B16_UINT:
+		case VK_FORMAT_R16G16B16A16_UINT:
+		case VK_FORMAT_R32_UINT:
+		case VK_FORMAT_R32G32_UINT:
+		case VK_FORMAT_R32G32B32_UINT:
+		case VK_FORMAT_R32G32B32A32_UINT:
+		case VK_FORMAT_R64_UINT:
+		case VK_FORMAT_R64G64_UINT:
+		case VK_FORMAT_R64G64B64_UINT:
+		case VK_FORMAT_R64G64B64A64_UINT:
+			return true;
+	}
+}
+
+bool vkt::subgroups::isFormatFloat (VkFormat format)
+{
+	switch (format)
+	{
+		default:
+			return false;
+		case VK_FORMAT_R16_SFLOAT:
+		case VK_FORMAT_R16G16_SFLOAT:
+		case VK_FORMAT_R16G16B16_SFLOAT:
+		case VK_FORMAT_R16G16B16A16_SFLOAT:
+		case VK_FORMAT_R32_SFLOAT:
+		case VK_FORMAT_R32G32_SFLOAT:
+		case VK_FORMAT_R32G32B32_SFLOAT:
+		case VK_FORMAT_R32G32B32A32_SFLOAT:
+		case VK_FORMAT_R64_SFLOAT:
+		case VK_FORMAT_R64G64_SFLOAT:
+		case VK_FORMAT_R64G64B64_SFLOAT:
+		case VK_FORMAT_R64G64B64A64_SFLOAT:
+			return true;
+	}
+}
+
 void vkt::subgroups::setVertexShaderFrameBuffer (SourceCollections& programCollection)
 {
 	/*
@@ -1091,13 +1723,14 @@ void vkt::subgroups::setVertexShaderFrameBuffer (SourceCollections& programColle
 		"void main (void)\n"
 		"{\n"
 		"  gl_Position = in_position;\n"
+		"  gl_PointSize = 1.0f;\n"
 		"}\n";
 	*/
 	programCollection.spirvAsmSources.add("vert") <<
 		"; SPIR-V\n"
 		"; Version: 1.3\n"
-		"; Generator: Khronos Glslang Reference Front End; 2\n"
-		"; Bound: 21\n"
+		"; Generator: Khronos Glslang Reference Front End; 7\n"
+		"; Bound: 25\n"
 		"; Schema: 0\n"
 		"OpCapability Shader\n"
 		"%1 = OpExtInstImport \"GLSL.std.450\"\n"
@@ -1124,11 +1757,16 @@ void vkt::subgroups::setVertexShaderFrameBuffer (SourceCollections& programColle
 		"%16 = OpTypePointer Input %7\n"
 		"%17 = OpVariable %16 Input\n"
 		"%19 = OpTypePointer Output %7\n"
+		"%21 = OpConstant %14 1\n"
+		"%22 = OpConstant %6 1\n"
+		"%23 = OpTypePointer Output %6\n"
 		"%4 = OpFunction %2 None %3\n"
 		"%5 = OpLabel\n"
 		"%18 = OpLoad %7 %17\n"
 		"%20 = OpAccessChain %19 %13 %15\n"
 		"OpStore %20 %18\n"
+		"%24 = OpAccessChain %23 %13 %21\n"
+		"OpStore %24 %22\n"
 		"OpReturn\n"
 		"OpFunctionEnd\n";
 }
@@ -1182,7 +1820,7 @@ void vkt::subgroups::setTesCtrlShaderFrameBuffer (vk::SourceCollections& program
 		"void main (void)\n"
 		"{\n"
 		"  if (gl_InvocationID == 0)\n"
-		  {\n"
+		"  {\n"
 		"    gl_TessLevelOuter[0] = 1.0f;\n"
 		"    gl_TessLevelOuter[1] = 1.0f;\n"
 		"  }\n"
@@ -1399,10 +2037,54 @@ void initializeMemory(Context& context, const Allocation& alloc, subgroups::SSBO
 			default:
 				DE_FATAL("Illegal buffer format");
 				break;
+			case VK_FORMAT_R8_SINT:
+			case VK_FORMAT_R8G8_SINT:
+			case VK_FORMAT_R8G8B8_SINT:
+			case VK_FORMAT_R8G8B8A8_SINT:
+			case VK_FORMAT_R8_UINT:
+			case VK_FORMAT_R8G8_UINT:
+			case VK_FORMAT_R8G8B8_UINT:
+			case VK_FORMAT_R8G8B8A8_UINT:
+			{
+				deUint8* ptr = reinterpret_cast<deUint8*>(alloc.getHostPtr());
+
+				for (vk::VkDeviceSize k = 0; k < (size / sizeof(deUint8)); k++)
+				{
+					ptr[k] = rnd.getUint8();
+				}
+			}
+			break;
+			case VK_FORMAT_R16_SINT:
+			case VK_FORMAT_R16G16_SINT:
+			case VK_FORMAT_R16G16B16_SINT:
+			case VK_FORMAT_R16G16B16A16_SINT:
+			case VK_FORMAT_R16_UINT:
+			case VK_FORMAT_R16G16_UINT:
+			case VK_FORMAT_R16G16B16_UINT:
+			case VK_FORMAT_R16G16B16A16_UINT:
+			{
+				deUint16* ptr = reinterpret_cast<deUint16*>(alloc.getHostPtr());
+
+				for (vk::VkDeviceSize k = 0; k < (size / sizeof(deUint16)); k++)
+				{
+					ptr[k] = rnd.getUint16();
+				}
+			}
+			break;
 			case VK_FORMAT_R8_USCALED:
 			case VK_FORMAT_R8G8_USCALED:
 			case VK_FORMAT_R8G8B8_USCALED:
 			case VK_FORMAT_R8G8B8A8_USCALED:
+			{
+				deUint32* ptr = reinterpret_cast<deUint32*>(alloc.getHostPtr());
+
+				for (vk::VkDeviceSize k = 0; k < (size / sizeof(deUint32)); k++)
+				{
+					deUint32 r = rnd.getUint32();
+					ptr[k] = (r & 1) ? r : 0;
+				}
+			}
+			break;
 			case VK_FORMAT_R32_SINT:
 			case VK_FORMAT_R32G32_SINT:
 			case VK_FORMAT_R32G32B32_SINT:
@@ -1417,6 +2099,36 @@ void initializeMemory(Context& context, const Allocation& alloc, subgroups::SSBO
 				for (vk::VkDeviceSize k = 0; k < (size / sizeof(deUint32)); k++)
 				{
 					ptr[k] = rnd.getUint32();
+				}
+			}
+			break;
+			case VK_FORMAT_R64_SINT:
+			case VK_FORMAT_R64G64_SINT:
+			case VK_FORMAT_R64G64B64_SINT:
+			case VK_FORMAT_R64G64B64A64_SINT:
+			case VK_FORMAT_R64_UINT:
+			case VK_FORMAT_R64G64_UINT:
+			case VK_FORMAT_R64G64B64_UINT:
+			case VK_FORMAT_R64G64B64A64_UINT:
+			{
+				deUint64* ptr = reinterpret_cast<deUint64*>(alloc.getHostPtr());
+
+				for (vk::VkDeviceSize k = 0; k < (size / sizeof(deUint64)); k++)
+				{
+					ptr[k] = rnd.getUint64();
+				}
+			}
+			break;
+			case VK_FORMAT_R16_SFLOAT:
+			case VK_FORMAT_R16G16_SFLOAT:
+			case VK_FORMAT_R16G16B16_SFLOAT:
+			case VK_FORMAT_R16G16B16A16_SFLOAT:
+			{
+				deFloat16* ptr = reinterpret_cast<deFloat16*>(alloc.getHostPtr());
+
+				for (vk::VkDeviceSize k = 0; k < (size / sizeof(deFloat16)); k++)
+				{
+					ptr[k] = deFloat32To16(rnd.getFloat());
 				}
 			}
 			break;
@@ -1488,13 +2200,15 @@ deUint32 getResultBinding (const VkShaderStageFlagBits shaderStage)
 	return -1;
 }
 
-tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest(
+tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest (
 	Context& context, VkFormat format, SSBOData* extraData,
 	deUint32 extraDataCount,
 	bool (*checkResult)(std::vector<const void*> datas, deUint32 width, deUint32 subgroupSize),
 	const VkShaderStageFlags shaderStage)
 {
-	const deUint32							maxWidth				= 1024u;
+	const DeviceInterface&					vk						= context.getDeviceInterface();
+	const VkDevice							device					= context.getDevice();
+	const deUint32							maxWidth				= getMaxWidth();
 	vector<de::SharedPtr<BufferOrImage> >	inputBuffers			(extraDataCount);
 	DescriptorSetLayoutBuilder				layoutBuilder;
 	DescriptorPoolBuilder					poolBuilder;
@@ -1502,13 +2216,13 @@ tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest(
 	Move <VkDescriptorPool>					descriptorPool;
 	Move <VkDescriptorSet>					descriptorSet;
 
-	const Unique<VkShaderModule>			vertexShaderModule		(createShaderModule(context.getDeviceInterface(), context.getDevice(),
+	const Unique<VkShaderModule>			vertexShaderModule		(createShaderModule(vk, device,
 																		context.getBinaryCollection().get("vert"), 0u));
-	const Unique<VkShaderModule>			teCtrlShaderModule		(createShaderModule(context.getDeviceInterface(), context.getDevice(),
+	const Unique<VkShaderModule>			teCtrlShaderModule		(createShaderModule(vk, device,
 																		context.getBinaryCollection().get("tesc"), 0u));
-	const Unique<VkShaderModule>			teEvalShaderModule		(createShaderModule(context.getDeviceInterface(), context.getDevice(),
+	const Unique<VkShaderModule>			teEvalShaderModule		(createShaderModule(vk, device,
 																		context.getBinaryCollection().get("tese"), 0u));
-	const Unique<VkShaderModule>			fragmentShaderModule	(createShaderModule(context.getDeviceInterface(), context.getDevice(),
+	const Unique<VkShaderModule>			fragmentShaderModule	(createShaderModule(vk, device,
 																	context.getBinaryCollection().get("fragment"), 0u));
 	const Unique<VkRenderPass>				renderPass				(makeRenderPass(context, format));
 
@@ -1545,9 +2259,9 @@ tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest(
 	for (deUint32 ndx = 0u; ndx < extraDataCount; ndx++)
 		layoutBuilder.addBinding(inputBuffers[ndx]->getType(), 1u, shaderStage, DE_NULL);
 
-	const Unique<VkDescriptorSetLayout>		descriptorSetLayout		(layoutBuilder.build(context.getDeviceInterface(), context.getDevice()));
+	const Unique<VkDescriptorSetLayout>		descriptorSetLayout		(layoutBuilder.build(vk, device));
 
-	const Unique<VkPipelineLayout>			pipelineLayout			(makePipelineLayout(context, *descriptorSetLayout));
+	const Unique<VkPipelineLayout>			pipelineLayout			(makePipelineLayout(vk, device, *descriptorSetLayout));
 
 	const Unique<VkPipeline>				pipeline				(makeGraphicsPipeline(context, *pipelineLayout,
 																	VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT |
@@ -1560,9 +2274,9 @@ tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest(
 
 	if (extraDataCount > 0)
 	{
-		descriptorPool = poolBuilder.build(context.getDeviceInterface(), context.getDevice(),
+		descriptorPool = poolBuilder.build(vk, device,
 							VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
-		descriptorSet = makeDescriptorSet(context, *descriptorPool, *descriptorSetLayout);
+		descriptorSet = makeDescriptorSet(vk, device, *descriptorPool, *descriptorSetLayout);
 	}
 
 	for (deUint32 buffersNdx = 0u; buffersNdx < inputBuffers.size(); buffersNdx++)
@@ -1589,9 +2303,11 @@ tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest(
 		}
 	}
 
-	updateBuilder.update(context.getDeviceInterface(), context.getDevice());
+	updateBuilder.update(vk, device);
 
-	const Unique<VkCommandPool>				cmdPool					(makeCommandPool(context));
+	const VkQueue							queue					= context.getUniversalQueue();
+	const deUint32							queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
+	const Unique<VkCommandPool>				cmdPool					(makeCommandPool(vk, device, queueFamilyIndex));
 	const deUint32							subgroupSize			= getSubgroupSize(context);
 	const Unique<VkCommandBuffer>			cmdBuffer				(makeCommandBuffer(context, *cmdPool));
 	const vk::VkDeviceSize					vertexBufferSize		= 2ull * maxWidth * sizeof(tcu::Vec4);
@@ -1614,52 +2330,51 @@ tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest(
 		}
 
 		deMemcpy(alloc.getHostPtr(), &data[0], data.size() * sizeof(tcu::Vec4));
-		flushAlloc(context.getDeviceInterface(), context.getDevice(), alloc);
+		flushAlloc(vk, device, alloc);
 	}
 
-	for (deUint32 width = 1u; width < maxWidth; ++width)
-	{
-		const Unique<VkFramebuffer>	framebuffer			(makeFramebuffer(context, *renderPass, discardableImage.getImageView(), maxWidth, 1));
-		const VkViewport			viewport			= makeViewport(maxWidth, 1u);
-		const VkRect2D				scissor				= makeRect2D(maxWidth, 1u);
-		const vk::VkDeviceSize		imageResultSize		= tcu::getPixelSize(vk::mapVkFormat(format)) * maxWidth;
-		Buffer						imageBufferResult	(context, imageResultSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		const VkDeviceSize			vertexBufferOffset	= 0u;
+	const Unique<VkFramebuffer>	framebuffer			(makeFramebuffer(vk, device, *renderPass, discardableImage.getImageView(), maxWidth, 1u));
+	const VkViewport			viewport			= makeViewport(maxWidth, 1u);
+	const VkRect2D				scissor				= makeRect2D(maxWidth, 1u);
+	const vk::VkDeviceSize		imageResultSize		= tcu::getPixelSize(vk::mapVkFormat(format)) * maxWidth;
+	Buffer						imageBufferResult	(context, imageResultSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	const VkDeviceSize			vertexBufferOffset	= 0u;
 
+	for (deUint32 width = 1u; width < maxWidth; width = getNextWidth(width))
+	{
 		totalIterations++;
 
-		beginCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+		beginCommandBuffer(vk, *cmdBuffer);
 		{
 
-			context.getDeviceInterface().cmdSetViewport(*cmdBuffer, 0, 1, &viewport);
-			context.getDeviceInterface().cmdSetScissor(*cmdBuffer, 0, 1, &scissor);
+			vk.cmdSetViewport(*cmdBuffer, 0, 1, &viewport);
+			vk.cmdSetScissor(*cmdBuffer, 0, 1, &scissor);
 
-			beginRenderPass(context.getDeviceInterface(), *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
+			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
 
-			context.getDeviceInterface().cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
+			vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
 			if (extraDataCount > 0)
 			{
-				context.getDeviceInterface().cmdBindDescriptorSets(*cmdBuffer,
+				vk.cmdBindDescriptorSets(*cmdBuffer,
 					VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
 					&descriptorSet.get(), 0u, DE_NULL);
 			}
 
-			context.getDeviceInterface().cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, vertexBuffer.getBufferPtr(), &vertexBufferOffset);
-			context.getDeviceInterface().cmdDraw(*cmdBuffer, 2 * width, 1, 0, 0);
+			vk.cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, vertexBuffer.getBufferPtr(), &vertexBufferOffset);
+			vk.cmdDraw(*cmdBuffer, 2 * width, 1, 0, 0);
 
-			endRenderPass(context.getDeviceInterface(), *cmdBuffer);
+			endRenderPass(vk, *cmdBuffer);
 
-			copyImageToBuffer(context.getDeviceInterface(), *cmdBuffer, discardableImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(maxWidth, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-			endCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+			copyImageToBuffer(vk, *cmdBuffer, discardableImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(maxWidth, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			endCommandBuffer(vk, *cmdBuffer);
 
-			Move<VkFence> fence(submitCommandBuffer(context, *cmdBuffer));
-			waitFence(context, fence);
+			submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 		}
 
 		{
 			const Allocation& allocResult = imageBufferResult.getAllocation();
-			invalidateAlloc(context.getDeviceInterface(), context.getDevice(), allocResult);
+			invalidateAlloc(vk, device, allocResult);
 
 			std::vector<const void*> datas;
 			datas.push_back(allocResult.getHostPtr());
@@ -1670,8 +2385,10 @@ tcu::TestStatus vkt::subgroups::makeTessellationEvaluationFrameBufferTest(
 
 	if (0 < failedIterations)
 	{
+		unsigned valuesPassed = (failedIterations > totalIterations) ? 0u : (totalIterations - failedIterations);
+
 		context.getTestContext().getLog()
-				<< TestLog::Message << (totalIterations - failedIterations) << " / "
+				<< TestLog::Message << valuesPassed << " / "
 				<< totalIterations << " values passed" << TestLog::EndMessage;
 		return tcu::TestStatus::fail("Failed!");
 	}
@@ -1711,7 +2428,9 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 	deUint32 extraDataCount,
 	bool (*checkResult)(std::vector<const void*> datas, deUint32 width, deUint32 subgroupSize))
 {
-	const deUint32							maxWidth				= 1024u;
+	const DeviceInterface&					vk						= context.getDeviceInterface();
+	const VkDevice							device					= context.getDevice();
+	const deUint32							maxWidth				= getMaxWidth();
 	vector<de::SharedPtr<BufferOrImage> >	inputBuffers			(extraDataCount);
 	DescriptorSetLayoutBuilder				layoutBuilder;
 	DescriptorPoolBuilder					poolBuilder;
@@ -1719,12 +2438,9 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 	Move <VkDescriptorPool>					descriptorPool;
 	Move <VkDescriptorSet>					descriptorSet;
 
-	const Unique<VkShaderModule>			vertexShaderModule		(createShaderModule(context.getDeviceInterface(), context.getDevice(),
-																		context.getBinaryCollection().get("vert"), 0u));
-	const Unique<VkShaderModule>			geometryShaderModule	(createShaderModule(context.getDeviceInterface(), context.getDevice(),
-																		context.getBinaryCollection().get("geometry"), 0u));
-	const Unique<VkShaderModule>			fragmentShaderModule	(createShaderModule(context.getDeviceInterface(), context.getDevice(),
-																	context.getBinaryCollection().get("fragment"), 0u));
+	const Unique<VkShaderModule>			vertexShaderModule		(createShaderModule(vk, device, context.getBinaryCollection().get("vert"), 0u));
+	const Unique<VkShaderModule>			geometryShaderModule	(createShaderModule(vk, device, context.getBinaryCollection().get("geometry"), 0u));
+	const Unique<VkShaderModule>			fragmentShaderModule	(createShaderModule(vk, device, context.getBinaryCollection().get("fragment"), 0u));
 	const Unique<VkRenderPass>				renderPass				(makeRenderPass(context, format));
 	const VkVertexInputBindingDescription	vertexInputBinding		=
 	{
@@ -1759,9 +2475,9 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 	for (deUint32 ndx = 0u; ndx < extraDataCount; ndx++)
 		layoutBuilder.addBinding(inputBuffers[ndx]->getType(), 1u, VK_SHADER_STAGE_GEOMETRY_BIT, DE_NULL);
 
-	const Unique<VkDescriptorSetLayout>		descriptorSetLayout		(layoutBuilder.build(context.getDeviceInterface(), context.getDevice()));
+	const Unique<VkDescriptorSetLayout>		descriptorSetLayout		(layoutBuilder.build(vk, device));
 
-	const Unique<VkPipelineLayout>			pipelineLayout			(makePipelineLayout(context, *descriptorSetLayout));
+	const Unique<VkPipelineLayout>			pipelineLayout			(makePipelineLayout(vk, device, *descriptorSetLayout));
 
 	const Unique<VkPipeline>				pipeline				(makeGraphicsPipeline(context, *pipelineLayout,
 																	VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
@@ -1773,9 +2489,9 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 
 	if (extraDataCount > 0)
 	{
-		descriptorPool = poolBuilder.build(context.getDeviceInterface(), context.getDevice(),
+		descriptorPool = poolBuilder.build(vk, device,
 							VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
-		descriptorSet = makeDescriptorSet(context, *descriptorPool, *descriptorSetLayout);
+		descriptorSet = makeDescriptorSet(vk, device, *descriptorPool, *descriptorSetLayout);
 	}
 
 	for (deUint32 buffersNdx = 0u; buffersNdx < inputBuffers.size(); buffersNdx++)
@@ -1802,9 +2518,11 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 		}
 	}
 
-	updateBuilder.update(context.getDeviceInterface(), context.getDevice());
+	updateBuilder.update(vk, device);
 
-	const Unique<VkCommandPool>				cmdPool					(makeCommandPool(context));
+	const VkQueue							queue					= context.getUniversalQueue();
+	const deUint32							queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
+	const Unique<VkCommandPool>				cmdPool					(makeCommandPool(vk, device, queueFamilyIndex));
 	const deUint32							subgroupSize			= getSubgroupSize(context);
 	const Unique<VkCommandBuffer>			cmdBuffer				(makeCommandBuffer(context, *cmdPool));
 	const vk::VkDeviceSize					vertexBufferSize		= maxWidth * sizeof(tcu::Vec4);
@@ -1826,18 +2544,19 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 		}
 
 		deMemcpy(alloc.getHostPtr(), &data[0], maxWidth * sizeof(tcu::Vec4));
-		flushAlloc(context.getDeviceInterface(), context.getDevice(), alloc);
+		flushAlloc(vk, device, alloc);
 	}
 
-	for (deUint32 width = 1u; width < maxWidth; width++)
+	const Unique<VkFramebuffer>	framebuffer			(makeFramebuffer(vk, device, *renderPass, discardableImage.getImageView(), maxWidth, 1u));
+	const VkViewport			viewport			= makeViewport(maxWidth, 1u);
+	const VkRect2D				scissor				= makeRect2D(maxWidth, 1u);
+	const vk::VkDeviceSize		imageResultSize		= tcu::getPixelSize(vk::mapVkFormat(format)) * maxWidth;
+	Buffer						imageBufferResult	(context, imageResultSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	const VkDeviceSize			vertexBufferOffset	= 0u;
+
+	for (deUint32 width = 1u; width < maxWidth; width = getNextWidth(width))
 	{
 		totalIterations++;
-		const Unique<VkFramebuffer>	framebuffer			(makeFramebuffer(context, *renderPass, discardableImage.getImageView(), maxWidth, 1));
-		const VkViewport			viewport			= makeViewport(maxWidth, 1u);
-		const VkRect2D				scissor				= makeRect2D(maxWidth, 1u);
-		const vk::VkDeviceSize		imageResultSize		= tcu::getPixelSize(vk::mapVkFormat(format)) * maxWidth;
-		Buffer						imageBufferResult	(context, imageResultSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		const VkDeviceSize			vertexBufferOffset	= 0u;
 
 		for (deUint32 ndx = 0u; ndx < inputBuffers.size(); ndx++)
 		{
@@ -1845,42 +2564,38 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 			initializeMemory(context, alloc, extraData[ndx]);
 		}
 
-		beginCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+		beginCommandBuffer(vk, *cmdBuffer);
 		{
-			context.getDeviceInterface().cmdSetViewport(
-				*cmdBuffer, 0, 1, &viewport);
+			vk.cmdSetViewport(*cmdBuffer, 0, 1, &viewport);
 
-			context.getDeviceInterface().cmdSetScissor(
-				*cmdBuffer, 0, 1, &scissor);
+			vk.cmdSetScissor(*cmdBuffer, 0, 1, &scissor);
 
-			beginRenderPass(context.getDeviceInterface(), *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
+			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
 
-			context.getDeviceInterface().cmdBindPipeline(
-				*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
+			vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
 			if (extraDataCount > 0)
 			{
-				context.getDeviceInterface().cmdBindDescriptorSets(*cmdBuffer,
-					VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
+				vk.cmdBindDescriptorSets(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
 					&descriptorSet.get(), 0u, DE_NULL);
 			}
 
-			context.getDeviceInterface().cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, vertexBuffer.getBufferPtr(), &vertexBufferOffset);
+			vk.cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, vertexBuffer.getBufferPtr(), &vertexBufferOffset);
 
-			context.getDeviceInterface().cmdDraw(*cmdBuffer, width, 1u, 0u, 0u);
+			vk.cmdDraw(*cmdBuffer, width, 1u, 0u, 0u);
 
-			endRenderPass(context.getDeviceInterface(), *cmdBuffer);
+			endRenderPass(vk, *cmdBuffer);
 
-			copyImageToBuffer(context.getDeviceInterface(), *cmdBuffer, discardableImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(maxWidth, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			copyImageToBuffer(vk, *cmdBuffer, discardableImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(maxWidth, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-			endCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
-			Move<VkFence> fence(submitCommandBuffer(context, *cmdBuffer));
-			waitFence(context, fence);
+			endCommandBuffer(vk, *cmdBuffer);
+
+			submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 		}
 
 		{
 			const Allocation& allocResult = imageBufferResult.getAllocation();
-			invalidateAlloc(context.getDeviceInterface(), context.getDevice(), allocResult);
+			invalidateAlloc(vk, device, allocResult);
 
 			std::vector<const void*> datas;
 			datas.push_back(allocResult.getHostPtr());
@@ -1891,9 +2606,12 @@ tcu::TestStatus vkt::subgroups::makeGeometryFrameBufferTest(
 
 	if (0 < failedIterations)
 	{
+		unsigned valuesPassed = (failedIterations > totalIterations) ? 0u : (totalIterations - failedIterations);
+
 		context.getTestContext().getLog()
-				<< TestLog::Message << (totalIterations - failedIterations) << " / "
+				<< TestLog::Message << valuesPassed << " / "
 				<< totalIterations << " values passed" << TestLog::EndMessage;
+
 		return tcu::TestStatus::fail("Failed!");
 	}
 
@@ -1907,7 +2625,9 @@ tcu::TestStatus vkt::subgroups::allStages(
 	bool (*checkResult)(std::vector<const void*> datas, deUint32 width, deUint32 subgroupSize),
 	const VkShaderStageFlags shaderStageTested)
 {
-	const deUint32					maxWidth			= 1024u;
+	const DeviceInterface&			vk					= context.getDeviceInterface();
+	const VkDevice					device				= context.getDevice();
+	const deUint32					maxWidth			= getMaxWidth();
 	vector<VkShaderStageFlagBits>	stagesVector;
 	VkShaderStageFlags				shaderStageRequired	= (VkShaderStageFlags)0ull;
 
@@ -1952,27 +2672,27 @@ tcu::TestStatus vkt::subgroups::allStages(
 
 	shaderStageRequired = shaderStageTested | shaderStageRequired;
 
-	vertexShaderModule = createShaderModule(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get(vert), 0u);
+	vertexShaderModule = createShaderModule(vk, device, context.getBinaryCollection().get(vert), 0u);
 	if (shaderStageRequired & VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT)
 	{
-		teCtrlShaderModule = createShaderModule(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get(tesc), 0u);
-		teEvalShaderModule = createShaderModule(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get(tese), 0u);
+		teCtrlShaderModule = createShaderModule(vk, device, context.getBinaryCollection().get(tesc), 0u);
+		teEvalShaderModule = createShaderModule(vk, device, context.getBinaryCollection().get(tese), 0u);
 	}
 	if (shaderStageRequired & VK_SHADER_STAGE_GEOMETRY_BIT)
 	{
 		if (shaderStageRequired & VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT)
 		{
 			// tessellation shaders output line primitives
-			geometryShaderModule = createShaderModule(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get("geometry_lines"), 0u);
+			geometryShaderModule = createShaderModule(vk, device, context.getBinaryCollection().get("geometry_lines"), 0u);
 		}
 		else
 		{
 			// otherwise points are processed by geometry shader
-			geometryShaderModule = createShaderModule(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get("geometry_points"), 0u);
+			geometryShaderModule = createShaderModule(vk, device, context.getBinaryCollection().get("geometry_points"), 0u);
 		}
 	}
 	if (shaderStageRequired & VK_SHADER_STAGE_FRAGMENT_BIT)
-		fragmentShaderModule = createShaderModule(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get("fragment"), 0u);
+		fragmentShaderModule = createShaderModule(vk, device, context.getBinaryCollection().get("fragment"), 0u);
 
 	std::vector< de::SharedPtr<BufferOrImage> > inputBuffers(stagesCount + extraDatasCount);
 
@@ -2007,11 +2727,10 @@ tcu::TestStatus vkt::subgroups::allStages(
 								extraDatas[datasNdx].stages, extraDatas[datasNdx].binding, DE_NULL);
 	}
 
-	const Unique<VkDescriptorSetLayout> descriptorSetLayout(
-		layoutBuilder.build(context.getDeviceInterface(), context.getDevice()));
+	const Unique<VkDescriptorSetLayout> descriptorSetLayout(layoutBuilder.build(vk, device));
 
 	const Unique<VkPipelineLayout> pipelineLayout(
-		makePipelineLayout(context, *descriptorSetLayout));
+		makePipelineLayout(vk, device, *descriptorSetLayout));
 
 	const Unique<VkRenderPass> renderPass(makeRenderPass(context, format));
 	const Unique<VkPipeline> pipeline(makeGraphicsPipeline(context, *pipelineLayout,
@@ -2020,80 +2739,66 @@ tcu::TestStatus vkt::subgroups::allStages(
 										*renderPass,
 										(shaderStageRequired & VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT) ? VK_PRIMITIVE_TOPOLOGY_PATCH_LIST : VK_PRIMITIVE_TOPOLOGY_POINT_LIST));
 
-	DescriptorPoolBuilder poolBuilder;
+	Move <VkDescriptorPool>	descriptorPool;
+	Move <VkDescriptorSet>	descriptorSet;
 
-	for (deUint32 ndx = 0u; ndx < static_cast<deUint32>(inputBuffers.size()); ndx++)
+	if (inputBuffers.size() > 0)
 	{
-		poolBuilder.addType(inputBuffers[ndx]->getType());
+		DescriptorPoolBuilder poolBuilder;
+
+		for (deUint32 ndx = 0u; ndx < static_cast<deUint32>(inputBuffers.size()); ndx++)
+		{
+			poolBuilder.addType(inputBuffers[ndx]->getType());
+		}
+
+		descriptorPool = poolBuilder.build(vk, device, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
+
+		// Create descriptor set
+		descriptorSet = makeDescriptorSet(vk, device, *descriptorPool, *descriptorSetLayout);
+
+		DescriptorSetUpdateBuilder updateBuilder;
+
+		for (deUint32 ndx = 0u; ndx < stagesCount + extraDatasCount; ndx++)
+		{
+			deUint32 binding;
+			if (ndx < stagesCount) binding = getResultBinding(stagesVector[ndx]);
+			else binding = extraDatas[ndx -stagesCount].binding;
+
+			if (inputBuffers[ndx]->isImage())
+			{
+				VkDescriptorImageInfo info =
+					makeDescriptorImageInfo(inputBuffers[ndx]->getAsImage()->getSampler(),
+											inputBuffers[ndx]->getAsImage()->getImageView(), VK_IMAGE_LAYOUT_GENERAL);
+
+				updateBuilder.writeSingle(	*descriptorSet,
+											DescriptorSetUpdateBuilder::Location::binding(binding),
+											inputBuffers[ndx]->getType(), &info);
+			}
+			else
+			{
+				VkDescriptorBufferInfo info =
+					makeDescriptorBufferInfo(inputBuffers[ndx]->getAsBuffer()->getBuffer(),
+							0ull, inputBuffers[ndx]->getAsBuffer()->getSize());
+
+				updateBuilder.writeSingle(	*descriptorSet,
+													DescriptorSetUpdateBuilder::Location::binding(binding),
+													inputBuffers[ndx]->getType(), &info);
+			}
+		}
+
+		updateBuilder.update(vk, device);
 	}
 
-	const Unique<VkDescriptorPool> descriptorPool(
-		poolBuilder.build(context.getDeviceInterface(), context.getDevice(),
-						  VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u));
-
-	// Create descriptor set
-	const Unique<VkDescriptorSet> descriptorSet(
-		makeDescriptorSet(context, *descriptorPool, *descriptorSetLayout));
-
-	DescriptorSetUpdateBuilder updateBuilder;
-
-	for (deUint32 ndx = 0u; ndx < stagesCount; ndx++)
 	{
-		if (inputBuffers[ndx]->isImage())
-		{
-			VkDescriptorImageInfo info =
-				makeDescriptorImageInfo(inputBuffers[ndx]->getAsImage()->getSampler(),
-										inputBuffers[ndx]->getAsImage()->getImageView(), VK_IMAGE_LAYOUT_GENERAL);
-
-			updateBuilder.writeSingle(*descriptorSet,
-									  DescriptorSetUpdateBuilder::Location::binding(getResultBinding(stagesVector[ndx])),
-									  inputBuffers[ndx]->getType(), &info);
-		}
-		else
-		{
-			VkDescriptorBufferInfo info =
-				makeDescriptorBufferInfo(inputBuffers[ndx]->getAsBuffer()->getBuffer(),
-										 0ull, inputBuffers[ndx]->getAsBuffer()->getSize());
-
-			updateBuilder.writeSingle(*descriptorSet,
-									  DescriptorSetUpdateBuilder::Location::binding(getResultBinding(stagesVector[ndx])),
-									  inputBuffers[ndx]->getType(), &info);
-		}
-	}
-
-	for (deUint32 ndx = stagesCount; ndx < stagesCount + extraDatasCount; ndx++)
-	{
-		if (inputBuffers[ndx]->isImage())
-		{
-			VkDescriptorImageInfo info =
-				makeDescriptorImageInfo(inputBuffers[ndx]->getAsImage()->getSampler(),
-										inputBuffers[ndx]->getAsImage()->getImageView(), VK_IMAGE_LAYOUT_GENERAL);
-
-			updateBuilder.writeSingle(*descriptorSet,
-									  DescriptorSetUpdateBuilder::Location::binding(extraDatas[ndx -stagesCount].binding),
-									  inputBuffers[ndx]->getType(), &info);
-		}
-		else
-		{
-			VkDescriptorBufferInfo info =
-				makeDescriptorBufferInfo(inputBuffers[ndx]->getAsBuffer()->getBuffer(),
-										 0ull, inputBuffers[ndx]->getAsBuffer()->getSize());
-
-			updateBuilder.writeSingle(*descriptorSet,
-									  DescriptorSetUpdateBuilder::Location::binding(extraDatas[ndx - stagesCount].binding),
-									  inputBuffers[ndx]->getType(), &info);
-		}
-	}
-	updateBuilder.update(context.getDeviceInterface(), context.getDevice());
-
-	{
-		const Unique<VkCommandPool>		cmdPool					(makeCommandPool(context));
+		const VkQueue					queue					= context.getUniversalQueue();
+		const deUint32					queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
+		const Unique<VkCommandPool>		cmdPool					(makeCommandPool(vk, device, queueFamilyIndex));
 		const deUint32					subgroupSize			= getSubgroupSize(context);
 		const Unique<VkCommandBuffer>	cmdBuffer				(makeCommandBuffer(context, *cmdPool));
 		unsigned						totalIterations			= 0u;
 		unsigned						failedIterations		= 0u;
 		Image							resultImage				(context, maxWidth, 1, format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-		const Unique<VkFramebuffer>		framebuffer				(makeFramebuffer(context, *renderPass, resultImage.getImageView(), maxWidth, 1));
+		const Unique<VkFramebuffer>		framebuffer				(makeFramebuffer(vk, device, *renderPass, resultImage.getImageView(), maxWidth, 1u));
 		const VkViewport				viewport				= makeViewport(maxWidth, 1u);
 		const VkRect2D					scissor					= makeRect2D(maxWidth, 1u);
 		const vk::VkDeviceSize			imageResultSize			= tcu::getPixelSize(vk::mapVkFormat(format)) * maxWidth;
@@ -2112,7 +2817,7 @@ tcu::TestStatus vkt::subgroups::allStages(
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			resultImage.getImage(), subresourceRange);
 
-		for (deUint32 width = 1u; width < maxWidth; width++)
+		for (deUint32 width = 1u; width < maxWidth; width = getNextWidth(width))
 		{
 			for (deUint32 ndx = stagesCount; ndx < stagesCount + extraDatasCount; ++ndx)
 			{
@@ -2123,32 +2828,32 @@ tcu::TestStatus vkt::subgroups::allStages(
 
 			totalIterations++;
 
-			beginCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+			beginCommandBuffer(vk, *cmdBuffer);
 
-			context.getDeviceInterface().cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &colorAttachmentBarrier);
+			vk.cmdPipelineBarrier(*cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, (VkDependencyFlags)0, 0u, (const VkMemoryBarrier*)DE_NULL, 0u, (const VkBufferMemoryBarrier*)DE_NULL, 1u, &colorAttachmentBarrier);
 
-			context.getDeviceInterface().cmdSetViewport(*cmdBuffer, 0, 1, &viewport);
+			vk.cmdSetViewport(*cmdBuffer, 0, 1, &viewport);
 
-			context.getDeviceInterface().cmdSetScissor(*cmdBuffer, 0, 1, &scissor);
+			vk.cmdSetScissor(*cmdBuffer, 0, 1, &scissor);
 
-			beginRenderPass(context.getDeviceInterface(), *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
+			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
 
-			context.getDeviceInterface().cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
+			vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
-			context.getDeviceInterface().cmdBindDescriptorSets(*cmdBuffer,
-					VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
-					&descriptorSet.get(), 0u, DE_NULL);
+			if (stagesCount + extraDatasCount > 0)
+				vk.cmdBindDescriptorSets(*cmdBuffer,
+						VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
+						&descriptorSet.get(), 0u, DE_NULL);
 
-			context.getDeviceInterface().cmdDraw(*cmdBuffer, width, 1, 0, 0);
+			vk.cmdDraw(*cmdBuffer, width, 1, 0, 0);
 
-			endRenderPass(context.getDeviceInterface(), *cmdBuffer);
+			endRenderPass(vk, *cmdBuffer);
 
-			copyImageToBuffer(context.getDeviceInterface(), *cmdBuffer, resultImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(width, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			copyImageToBuffer(vk, *cmdBuffer, resultImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(width, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-			endCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+			endCommandBuffer(vk, *cmdBuffer);
 
-			Move<VkFence> fence(submitCommandBuffer(context, *cmdBuffer));
-			waitFence(context, fence);
+			submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 
 			for (deUint32 ndx = 0u; ndx < stagesCount; ++ndx)
 			{
@@ -2156,7 +2861,7 @@ tcu::TestStatus vkt::subgroups::allStages(
 				if (!inputBuffers[ndx]->isImage())
 				{
 					const Allocation& resultAlloc = inputBuffers[ndx]->getAllocation();
-					invalidateAlloc(context.getDeviceInterface(), context.getDevice(), resultAlloc);
+					invalidateAlloc(vk, device, resultAlloc);
 					// we always have our result data first
 					datas.push_back(resultAlloc.getHostPtr());
 				}
@@ -2167,7 +2872,7 @@ tcu::TestStatus vkt::subgroups::allStages(
 					if ((stagesVector[ndx] & extraDatas[datasNdx].stages) && (!inputBuffers[index]->isImage()))
 					{
 						const Allocation& resultAlloc = inputBuffers[index]->getAllocation();
-						invalidateAlloc(context.getDeviceInterface(), context.getDevice(), resultAlloc);
+						invalidateAlloc(vk, device, resultAlloc);
 						// we always have our result data first
 						datas.push_back(resultAlloc.getHostPtr());
 					}
@@ -2180,7 +2885,7 @@ tcu::TestStatus vkt::subgroups::allStages(
 			{
 				std::vector<const void*> datas;
 				const Allocation& resultAlloc = imageBufferResult.getAllocation();
-				invalidateAlloc(context.getDeviceInterface(), context.getDevice(), resultAlloc);
+				invalidateAlloc(vk, device, resultAlloc);
 
 				// we always have our result data first
 				datas.push_back(resultAlloc.getHostPtr());
@@ -2191,24 +2896,27 @@ tcu::TestStatus vkt::subgroups::allStages(
 					if (VK_SHADER_STAGE_FRAGMENT_BIT & extraDatas[datasNdx].stages && (!inputBuffers[index]->isImage()))
 					{
 						const Allocation& alloc = inputBuffers[index]->getAllocation();
-						invalidateAlloc(context.getDeviceInterface(), context.getDevice(), alloc);
+						invalidateAlloc(vk, device, alloc);
 						// we always have our result data first
 						datas.push_back(alloc.getHostPtr());
 					}
 				}
 
-				if (!checkResult(datas, width , subgroupSize))
+				if (!checkResult(datas, width, subgroupSize))
 					failedIterations++;
 			}
 
-			context.getDeviceInterface().resetCommandBuffer(*cmdBuffer, 0);
+			vk.resetCommandBuffer(*cmdBuffer, 0);
 		}
 
 		if (0 < failedIterations)
 		{
+			unsigned valuesPassed = (failedIterations > totalIterations) ? 0u : (totalIterations - failedIterations);
+
 			context.getTestContext().getLog()
-					<< TestLog::Message << (totalIterations - failedIterations) << " / "
-					<< totalIterations << " values passed" << TestLog::EndMessage;
+				<< TestLog::Message << valuesPassed << " / "
+				<< totalIterations << " values passed" << TestLog::EndMessage;
+
 			return tcu::TestStatus::fail("Failed!");
 		}
 	}
@@ -2220,13 +2928,15 @@ tcu::TestStatus vkt::subgroups::makeVertexFrameBufferTest(Context& context, vk::
 	SSBOData* extraData, deUint32 extraDataCount,
 	bool (*checkResult)(std::vector<const void*> datas, deUint32 width, deUint32 subgroupSize))
 {
-	const deUint32							maxWidth				= 1024u;
+	const DeviceInterface&					vk						= context.getDeviceInterface();
+	const VkDevice							device					= context.getDevice();
+	const VkQueue							queue					= context.getUniversalQueue();
+	const deUint32							maxWidth				= getMaxWidth();
+	const deUint32							queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
 	vector<de::SharedPtr<BufferOrImage> >	inputBuffers			(extraDataCount);
 	DescriptorSetLayoutBuilder				layoutBuilder;
-	const Unique<VkShaderModule>			vertexShaderModule		(createShaderModule
-																		(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get("vert"), 0u));
-	const Unique<VkShaderModule>			fragmentShaderModule	(createShaderModule
-																		(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get("fragment"), 0u));
+	const Unique<VkShaderModule>			vertexShaderModule		(createShaderModule(vk, device, context.getBinaryCollection().get("vert"), 0u));
+	const Unique<VkShaderModule>			fragmentShaderModule	(createShaderModule(vk, device, context.getBinaryCollection().get("fragment"), 0u));
 	const Unique<VkRenderPass>				renderPass				(makeRenderPass(context, format));
 
 	const VkVertexInputBindingDescription	vertexInputBinding		=
@@ -2262,9 +2972,9 @@ tcu::TestStatus vkt::subgroups::makeVertexFrameBufferTest(Context& context, vk::
 	for (deUint32 ndx = 0u; ndx < extraDataCount; ndx++)
 		layoutBuilder.addBinding(inputBuffers[ndx]->getType(), 1u, VK_SHADER_STAGE_VERTEX_BIT, DE_NULL);
 
-	const Unique<VkDescriptorSetLayout>		descriptorSetLayout		(layoutBuilder.build(context.getDeviceInterface(), context.getDevice()));
+	const Unique<VkDescriptorSetLayout>		descriptorSetLayout		(layoutBuilder.build(vk, device));
 
-	const Unique<VkPipelineLayout>			pipelineLayout			(makePipelineLayout(context, *descriptorSetLayout));
+	const Unique<VkPipelineLayout>			pipelineLayout			(makePipelineLayout(vk, device, *descriptorSetLayout));
 
 	const Unique<VkPipeline>				pipeline				(makeGraphicsPipeline(context, *pipelineLayout,
 																		VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -2284,9 +2994,8 @@ tcu::TestStatus vkt::subgroups::makeVertexFrameBufferTest(Context& context, vk::
 
 	if (extraDataCount > 0)
 	{
-		descriptorPool = poolBuilder.build(context.getDeviceInterface(), context.getDevice(),
-							VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
-		descriptorSet = makeDescriptorSet(context, *descriptorPool, *descriptorSetLayout);
+		descriptorPool = poolBuilder.build(vk, device, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
+		descriptorSet = makeDescriptorSet(vk, device, *descriptorPool, *descriptorSetLayout);
 	}
 
 	for (deUint32 ndx = 0u; ndx < extraDataCount; ndx++)
@@ -2318,9 +3027,9 @@ tcu::TestStatus vkt::subgroups::makeVertexFrameBufferTest(Context& context, vk::
 										inputBuffers[buffersNdx]->getType(), &info);
 		}
 	}
-	updateBuilder.update(context.getDeviceInterface(), context.getDevice());
+	updateBuilder.update(vk, device);
 
-	const Unique<VkCommandPool>				cmdPool					(makeCommandPool(context));
+	const Unique<VkCommandPool>				cmdPool					(makeCommandPool(vk, device, queueFamilyIndex));
 
 	const deUint32							subgroupSize			= getSubgroupSize(context);
 
@@ -2347,18 +3056,19 @@ tcu::TestStatus vkt::subgroups::makeVertexFrameBufferTest(Context& context, vk::
 		}
 
 		deMemcpy(alloc.getHostPtr(), &data[0], maxWidth * sizeof(tcu::Vec4));
-		flushAlloc(context.getDeviceInterface(), context.getDevice(), alloc);
+		flushAlloc(vk, device, alloc);
 	}
 
-	for (deUint32 width = 1u; width < maxWidth; width++)
+	const Unique<VkFramebuffer>	framebuffer			(makeFramebuffer(vk, device, *renderPass, discardableImage.getImageView(), maxWidth, 1u));
+	const VkViewport			viewport			= makeViewport(maxWidth, 1u);
+	const VkRect2D				scissor				= makeRect2D(maxWidth, 1u);
+	const vk::VkDeviceSize		imageResultSize		= tcu::getPixelSize(vk::mapVkFormat(format)) * maxWidth;
+	Buffer						imageBufferResult	(context, imageResultSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	const VkDeviceSize			vertexBufferOffset	= 0u;
+
+	for (deUint32 width = 1u; width < maxWidth; width = getNextWidth(width))
 	{
 		totalIterations++;
-		const Unique<VkFramebuffer>	framebuffer			(makeFramebuffer(context, *renderPass, discardableImage.getImageView(), maxWidth, 1));
-		const VkViewport			viewport			= makeViewport(maxWidth, 1u);
-		const VkRect2D				scissor				= makeRect2D(maxWidth, 1u);
-		const vk::VkDeviceSize		imageResultSize		= tcu::getPixelSize(vk::mapVkFormat(format)) * maxWidth;
-		Buffer						imageBufferResult	(context, imageResultSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-		const VkDeviceSize			vertexBufferOffset	= 0u;
 
 		for (deUint32 ndx = 0u; ndx < inputBuffers.size(); ndx++)
 		{
@@ -2366,42 +3076,38 @@ tcu::TestStatus vkt::subgroups::makeVertexFrameBufferTest(Context& context, vk::
 			initializeMemory(context, alloc, extraData[ndx]);
 		}
 
-		beginCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+		beginCommandBuffer(vk, *cmdBuffer);
 		{
-			context.getDeviceInterface().cmdSetViewport(
-				*cmdBuffer, 0, 1, &viewport);
+			vk.cmdSetViewport(*cmdBuffer, 0, 1, &viewport);
 
-			context.getDeviceInterface().cmdSetScissor(
-				*cmdBuffer, 0, 1, &scissor);
+			vk.cmdSetScissor(*cmdBuffer, 0, 1, &scissor);
 
-			beginRenderPass(context.getDeviceInterface(), *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
+			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, maxWidth, 1u), tcu::Vec4(0.0f));
 
-			context.getDeviceInterface().cmdBindPipeline(
-				*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
+			vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
 			if (extraDataCount > 0)
 			{
-				context.getDeviceInterface().cmdBindDescriptorSets(*cmdBuffer,
-					VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
+				vk.cmdBindDescriptorSets(*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
 					&descriptorSet.get(), 0u, DE_NULL);
 			}
 
-			context.getDeviceInterface().cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, vertexBuffer.getBufferPtr(), &vertexBufferOffset);
+			vk.cmdBindVertexBuffers(*cmdBuffer, 0u, 1u, vertexBuffer.getBufferPtr(), &vertexBufferOffset);
 
-			context.getDeviceInterface().cmdDraw(*cmdBuffer, width, 1u, 0u, 0u);
+			vk.cmdDraw(*cmdBuffer, width, 1u, 0u, 0u);
 
-			endRenderPass(context.getDeviceInterface(), *cmdBuffer);
+			endRenderPass(vk, *cmdBuffer);
 
-			copyImageToBuffer(context.getDeviceInterface(), *cmdBuffer, discardableImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(maxWidth, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			copyImageToBuffer(vk, *cmdBuffer, discardableImage.getImage(), imageBufferResult.getBuffer(), tcu::IVec2(maxWidth, 1), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-			endCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
-			Move<VkFence> fence(submitCommandBuffer(context, *cmdBuffer));
-			waitFence(context, fence);
+			endCommandBuffer(vk, *cmdBuffer);
+
+			submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 		}
 
 		{
 			const Allocation& allocResult = imageBufferResult.getAllocation();
-			invalidateAlloc(context.getDeviceInterface(), context.getDevice(), allocResult);
+			invalidateAlloc(vk, device, allocResult);
 
 			std::vector<const void*> datas;
 			datas.push_back(allocResult.getHostPtr());
@@ -2412,9 +3118,12 @@ tcu::TestStatus vkt::subgroups::makeVertexFrameBufferTest(Context& context, vk::
 
 	if (0 < failedIterations)
 	{
+		unsigned valuesPassed = (failedIterations > totalIterations) ? 0u : (totalIterations - failedIterations);
+
 		context.getTestContext().getLog()
-				<< TestLog::Message << (totalIterations - failedIterations) << " / "
-				<< totalIterations << " values passed" << TestLog::EndMessage;
+			<< TestLog::Message << valuesPassed << " / "
+			<< totalIterations << " values passed" << TestLog::EndMessage;
+
 		return tcu::TestStatus::fail("Failed!");
 	}
 
@@ -2427,10 +3136,14 @@ tcu::TestStatus vkt::subgroups::makeFragmentFrameBufferTest	(Context& context, V
 	bool (*checkResult)(std::vector<const void*> datas, deUint32 width,
 						deUint32 height, deUint32 subgroupSize))
 {
+	const DeviceInterface&					vk						= context.getDeviceInterface();
+	const VkDevice							device					= context.getDevice();
+	const VkQueue							queue					= context.getUniversalQueue();
+	const deUint32							queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
 	const Unique<VkShaderModule>			vertexShaderModule		(createShaderModule
-																		(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get("vert"), 0u));
+																		(vk, device, context.getBinaryCollection().get("vert"), 0u));
 	const Unique<VkShaderModule>			fragmentShaderModule	(createShaderModule
-																		(context.getDeviceInterface(), context.getDevice(), context.getBinaryCollection().get("fragment"), 0u));
+																		(vk, device, context.getBinaryCollection().get("fragment"), 0u));
 
 	std::vector< de::SharedPtr<BufferOrImage> > inputBuffers(extraDatasCount);
 
@@ -2461,10 +3174,10 @@ tcu::TestStatus vkt::subgroups::makeFragmentFrameBufferTest	(Context& context, V
 	}
 
 	const Unique<VkDescriptorSetLayout> descriptorSetLayout(
-		layoutBuilder.build(context.getDeviceInterface(), context.getDevice()));
+		layoutBuilder.build(vk, device));
 
 	const Unique<VkPipelineLayout> pipelineLayout(
-		makePipelineLayout(context, *descriptorSetLayout));
+		makePipelineLayout(vk, device, *descriptorSetLayout));
 
 	const Unique<VkRenderPass> renderPass(makeRenderPass(context, format));
 	const Unique<VkPipeline> pipeline(makeGraphicsPipeline(context, *pipelineLayout,
@@ -2487,10 +3200,9 @@ tcu::TestStatus vkt::subgroups::makeFragmentFrameBufferTest	(Context& context, V
 
 	if (extraDatasCount > 0)
 	{
-		descriptorPool = poolBuilder.build(context.getDeviceInterface(), context.getDevice(),
-													VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
+		descriptorPool = poolBuilder.build(vk, device, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
 
-		descriptorSet	= makeDescriptorSet(context, *descriptorPool, *descriptorSetLayout);
+		descriptorSet	= makeDescriptorSet(vk, device, *descriptorPool, *descriptorSetLayout);
 	}
 
 	DescriptorSetUpdateBuilder updateBuilder;
@@ -2520,14 +3232,13 @@ tcu::TestStatus vkt::subgroups::makeFragmentFrameBufferTest	(Context& context, V
 	}
 
 	if (extraDatasCount > 0)
-		updateBuilder.update(context.getDeviceInterface(), context.getDevice());
+		updateBuilder.update(vk, device);
 
-	const Unique<VkCommandPool> cmdPool(makeCommandPool(context));
+	const Unique<VkCommandPool>		cmdPool				(makeCommandPool(vk, device, queueFamilyIndex));
 
-	const deUint32 subgroupSize = getSubgroupSize(context);
+	const deUint32					subgroupSize		= getSubgroupSize(context);
 
-	const Unique<VkCommandBuffer> cmdBuffer(
-		makeCommandBuffer(context, *cmdPool));
+	const Unique<VkCommandBuffer>	cmdBuffer			(makeCommandBuffer(context, *cmdPool));
 
 	unsigned totalIterations = 0;
 	unsigned failedIterations = 0;
@@ -2556,49 +3267,46 @@ tcu::TestStatus vkt::subgroups::makeFragmentFrameBufferTest	(Context& context, V
 			Buffer resultBuffer(context, resultImageSizeInBytes,
 								VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-			const Unique<VkFramebuffer> framebuffer(makeFramebuffer(context,
-													*renderPass, resultImage.getImageView(), width, height));
+			const Unique<VkFramebuffer> framebuffer(makeFramebuffer(vk, device, *renderPass, resultImage.getImageView(), width, height));
 
-			beginCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+			beginCommandBuffer(vk, *cmdBuffer);
 
 			VkViewport viewport = makeViewport(width, height);
 
-			context.getDeviceInterface().cmdSetViewport(
+			vk.cmdSetViewport(
 				*cmdBuffer, 0, 1, &viewport);
 
 			VkRect2D scissor = {{0, 0}, {width, height}};
 
-			context.getDeviceInterface().cmdSetScissor(
+			vk.cmdSetScissor(
 				*cmdBuffer, 0, 1, &scissor);
 
-			beginRenderPass(context.getDeviceInterface(), *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, width, height), tcu::Vec4(0.0f));
+			beginRenderPass(vk, *cmdBuffer, *renderPass, *framebuffer, makeRect2D(0, 0, width, height), tcu::Vec4(0.0f));
 
-			context.getDeviceInterface().cmdBindPipeline(
+			vk.cmdBindPipeline(
 				*cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
 
 			if (extraDatasCount > 0)
 			{
-				context.getDeviceInterface().cmdBindDescriptorSets(*cmdBuffer,
+				vk.cmdBindDescriptorSets(*cmdBuffer,
 						VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0u, 1u,
 						&descriptorSet.get(), 0u, DE_NULL);
 			}
 
-			context.getDeviceInterface().cmdDraw(*cmdBuffer, 4, 1, 0, 0);
+			vk.cmdDraw(*cmdBuffer, 4, 1, 0, 0);
 
-			endRenderPass(context.getDeviceInterface(), *cmdBuffer);
+			endRenderPass(vk, *cmdBuffer);
 
-			copyImageToBuffer(context.getDeviceInterface(), *cmdBuffer, resultImage.getImage(), resultBuffer.getBuffer(), tcu::IVec2(width, height), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+			copyImageToBuffer(vk, *cmdBuffer, resultImage.getImage(), resultBuffer.getBuffer(), tcu::IVec2(width, height), VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-			endCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+			endCommandBuffer(vk, *cmdBuffer);
 
-			Move<VkFence> fence(submitCommandBuffer(context, *cmdBuffer));
-
-			waitFence(context, fence);
+			submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 
 			std::vector<const void*> datas;
 			{
 				const Allocation& resultAlloc = resultBuffer.getAllocation();
-				invalidateAlloc(context.getDeviceInterface(), context.getDevice(), resultAlloc);
+				invalidateAlloc(vk, device, resultAlloc);
 
 				// we always have our result data first
 				datas.push_back(resultAlloc.getHostPtr());
@@ -2609,15 +3317,18 @@ tcu::TestStatus vkt::subgroups::makeFragmentFrameBufferTest	(Context& context, V
 				failedIterations++;
 			}
 
-			context.getDeviceInterface().resetCommandBuffer(*cmdBuffer, 0);
+			vk.resetCommandBuffer(*cmdBuffer, 0);
 		}
 	}
 
 	if (0 < failedIterations)
 	{
+		unsigned valuesPassed = (failedIterations > totalIterations) ? 0u : (totalIterations - failedIterations);
+
 		context.getTestContext().getLog()
-				<< TestLog::Message << (totalIterations - failedIterations) << " / "
-				<< totalIterations << " values passed" << TestLog::EndMessage;
+			<< TestLog::Message << valuesPassed << " / "
+			<< totalIterations << " values passed" << TestLog::EndMessage;
+
 		return tcu::TestStatus::fail("Failed!");
 	}
 
@@ -2630,7 +3341,11 @@ tcu::TestStatus vkt::subgroups::makeComputeTest(
 						const deUint32 numWorkgroups[3], const deUint32 localSize[3],
 						deUint32 subgroupSize))
 {
-	VkDeviceSize elementSize = getFormatSizeInBytes(format);
+	const DeviceInterface&					vk						= context.getDeviceInterface();
+	const VkDevice							device					= context.getDevice();
+	const VkQueue							queue					= context.getUniversalQueue();
+	const deUint32							queueFamilyIndex		= context.getUniversalQueueFamilyIndex();
+	VkDeviceSize							elementSize				= getFormatSizeInBytes(format);
 
 	const VkDeviceSize resultBufferSize = maxSupportedSubgroupSize() *
 										  maxSupportedSubgroupSize() *
@@ -2671,13 +3386,13 @@ tcu::TestStatus vkt::subgroups::makeComputeTest(
 	}
 
 	const Unique<VkDescriptorSetLayout> descriptorSetLayout(
-		layoutBuilder.build(context.getDeviceInterface(), context.getDevice()));
+		layoutBuilder.build(vk, device));
 
 	const Unique<VkShaderModule> shaderModule(
-		createShaderModule(context.getDeviceInterface(), context.getDevice(),
+		createShaderModule(vk, device,
 						   context.getBinaryCollection().get("comp"), 0u));
 	const Unique<VkPipelineLayout> pipelineLayout(
-		makePipelineLayout(context, *descriptorSetLayout));
+		makePipelineLayout(vk, device, *descriptorSetLayout));
 
 	DescriptorPoolBuilder poolBuilder;
 
@@ -2689,12 +3404,11 @@ tcu::TestStatus vkt::subgroups::makeComputeTest(
 	}
 
 	const Unique<VkDescriptorPool> descriptorPool(
-		poolBuilder.build(context.getDeviceInterface(), context.getDevice(),
-						  VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u));
+		poolBuilder.build(vk, device, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u));
 
 	// Create descriptor set
 	const Unique<VkDescriptorSet> descriptorSet(
-		makeDescriptorSet(context, *descriptorPool, *descriptorSetLayout));
+		makeDescriptorSet(vk, device, *descriptorPool, *descriptorSetLayout));
 
 	DescriptorSetUpdateBuilder updateBuilder;
 
@@ -2731,9 +3445,9 @@ tcu::TestStatus vkt::subgroups::makeComputeTest(
 		}
 	}
 
-	updateBuilder.update(context.getDeviceInterface(), context.getDevice());
+	updateBuilder.update(vk, device);
 
-	const Unique<VkCommandPool> cmdPool(makeCommandPool(context));
+	const Unique<VkCommandPool>		cmdPool				(makeCommandPool(vk, device, queueFamilyIndex));
 
 	unsigned totalIterations = 0;
 	unsigned failedIterations = 0;
@@ -2745,66 +3459,65 @@ tcu::TestStatus vkt::subgroups::makeComputeTest(
 
 	const deUint32 numWorkgroups[3] = {4, 2, 2};
 
-	const deUint32 localSizesToTestCount = 15;
+	const deUint32 localSizesToTestCount = 8;
 	deUint32 localSizesToTest[localSizesToTestCount][3] =
 	{
 		{1, 1, 1},
-		{32, 4, 1},
-		{32, 1, 4},
-		{1, 32, 4},
-		{1, 4, 32},
-		{4, 1, 32},
-		{4, 32, 1},
 		{subgroupSize, 1, 1},
 		{1, subgroupSize, 1},
 		{1, 1, subgroupSize},
+		{32, 4, 1},
+		{1, 4, 32},
 		{3, 5, 7},
-		{128, 1, 1},
-		{1, 128, 1},
-		{1, 1, 64},
 		{1, 1, 1} // Isn't used, just here to make double buffering checks easier
 	};
 
-	Move<VkPipeline> lastPipeline(
+	Move<VkPipeline> pipelines[localSizesToTestCount - 1];
+
+	context.getTestContext().touchWatchdog();
+	pipelines[0] =
 		makeComputePipeline(context, *pipelineLayout, *shaderModule,
-							localSizesToTest[0][0], localSizesToTest[0][1], localSizesToTest[0][2]));
+							VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT, (VkPipeline) DE_NULL,
+							localSizesToTest[0][0], localSizesToTest[0][1], localSizesToTest[0][2]);
+	context.getTestContext().touchWatchdog();
+	for (deUint32 index = 1; index < (localSizesToTestCount - 1); index++)
+	{
+		const deUint32 nextX = localSizesToTest[index][0];
+		const deUint32 nextY = localSizesToTest[index][1];
+		const deUint32 nextZ = localSizesToTest[index][2];
+		context.getTestContext().touchWatchdog();
+		pipelines[index] =
+			makeComputePipeline(context, *pipelineLayout, *shaderModule,
+								VK_PIPELINE_CREATE_DERIVATIVE_BIT, *pipelines[0],
+								nextX, nextY, nextZ);
+		context.getTestContext().touchWatchdog();
+	}
 
 	for (deUint32 index = 0; index < (localSizesToTestCount - 1); index++)
 	{
-		const deUint32 nextX = localSizesToTest[index + 1][0];
-		const deUint32 nextY = localSizesToTest[index + 1][1];
-		const deUint32 nextZ = localSizesToTest[index + 1][2];
 
 		// we are running one test
 		totalIterations++;
 
-		beginCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+		beginCommandBuffer(vk, *cmdBuffer);
 
-		context.getDeviceInterface().cmdBindPipeline(
-			*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *lastPipeline);
+		vk.cmdBindPipeline(*cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, *pipelines[index]);
 
-		context.getDeviceInterface().cmdBindDescriptorSets(*cmdBuffer,
+		vk.cmdBindDescriptorSets(*cmdBuffer,
 				VK_PIPELINE_BIND_POINT_COMPUTE, *pipelineLayout, 0u, 1u,
 				&descriptorSet.get(), 0u, DE_NULL);
 
-		context.getDeviceInterface().cmdDispatch(*cmdBuffer,
-				numWorkgroups[0], numWorkgroups[1], numWorkgroups[2]);
+		vk.cmdDispatch(*cmdBuffer,numWorkgroups[0], numWorkgroups[1], numWorkgroups[2]);
 
-		endCommandBuffer(context.getDeviceInterface(), *cmdBuffer);
+		endCommandBuffer(vk, *cmdBuffer);
 
-		Move<VkFence> fence(submitCommandBuffer(context, *cmdBuffer));
-
-		Move<VkPipeline> nextPipeline(
-			makeComputePipeline(context, *pipelineLayout, *shaderModule,
-								nextX, nextY, nextZ));
-
-		waitFence(context, fence);
+		submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 
 		std::vector<const void*> datas;
 
 		{
 			const Allocation& resultAlloc = resultBuffer.getAllocation();
-			invalidateAlloc(context.getDeviceInterface(), context.getDevice(), resultAlloc);
+			invalidateAlloc(vk, device, resultAlloc);
 
 			// we always have our result data first
 			datas.push_back(resultAlloc.getHostPtr());
@@ -2815,7 +3528,7 @@ tcu::TestStatus vkt::subgroups::makeComputeTest(
 			if (!inputBuffers[i]->isImage())
 			{
 				const Allocation& resultAlloc = inputBuffers[i]->getAllocation();
-				invalidateAlloc(context.getDeviceInterface(), context.getDevice(), resultAlloc);
+				invalidateAlloc(vk, device, resultAlloc);
 
 				// we always have our result data first
 				datas.push_back(resultAlloc.getHostPtr());
@@ -2827,16 +3540,17 @@ tcu::TestStatus vkt::subgroups::makeComputeTest(
 			failedIterations++;
 		}
 
-		context.getDeviceInterface().resetCommandBuffer(*cmdBuffer, 0);
-
-		lastPipeline = nextPipeline;
+		vk.resetCommandBuffer(*cmdBuffer, 0);
 	}
 
 	if (0 < failedIterations)
 	{
+		unsigned valuesPassed = (failedIterations > totalIterations) ? 0u : (totalIterations - failedIterations);
+
 		context.getTestContext().getLog()
-				<< TestLog::Message << (totalIterations - failedIterations) << " / "
-				<< totalIterations << " values passed" << TestLog::EndMessage;
+			<< TestLog::Message << valuesPassed << " / "
+			<< totalIterations << " values passed" << TestLog::EndMessage;
+
 		return tcu::TestStatus::fail("Failed!");
 	}
 

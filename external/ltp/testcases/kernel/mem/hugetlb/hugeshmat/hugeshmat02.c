@@ -36,9 +36,10 @@
 
 #include <pwd.h>
 #include <limits.h>
+#include "lapi/abisize.h"
 #include "hugetlb.h"
 
-#if __WORDSIZE == 64
+#ifdef TST_ABI64
 #define NADDR	0x10000000eef	/* a 64bit non alligned address value */
 #else
 #define NADDR	0x60000eef	/* a non alligned address value */
@@ -95,6 +96,7 @@ void setup(void)
 	if (nr_opt)
 		hugepages = SAFE_STRTOL(nr_opt, 0, LONG_MAX);
 
+	limit_hugepages(&hugepages);
 	set_sys_tune("nr_hugepages", hugepages, 1);
 	hpage_size = SAFE_READ_MEMINFO("Hugepagesize:") * 1024;
 

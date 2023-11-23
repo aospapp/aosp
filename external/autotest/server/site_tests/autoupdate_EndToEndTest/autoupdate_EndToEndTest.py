@@ -2,11 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import collections
 import json
 import logging
 import os
-import urlparse
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import dev_server
@@ -88,104 +86,27 @@ class autoupdate_EndToEndTest(update_engine_test.UpdateEngineTest):
     _DEVSERVER_HOSTLOG_ROOTFS = 'devserver_hostlog_rootfs'
     _DEVSERVER_HOSTLOG_REBOOT = 'devserver_hostlog_reboot'
 
-    StagedURLs = collections.namedtuple('StagedURLs', ['source_url',
-                                                       'source_stateful_url',
-                                                       'target_url',
-                                                       'target_stateful_url'])
-
     def initialize(self):
         """Sets up variables that will be used by test."""
         super(autoupdate_EndToEndTest, self).initialize()
         self._host = None
         self._autotest_devserver = None
 
-    def _get_least_loaded_devserver(self, test_conf):
-        """Find a devserver to use.
-
-        We first try to pick a devserver with the least load. In case all
-        devservers' load are higher than threshold, fall back to
-        the old behavior by picking a devserver based on the payload URI,
-        with which ImageServer.resolve will return a random devserver based on
-        the hash of the URI. The picked devserver needs to respect the
-        location of the host if 'prefer_local_devserver' is set to True or
-        'restricted_subnets' is  set.
-
-        @param test_conf: a dictionary of test settings.
-        """
-        hostname = self._host.hostname if self._host else None
-        least_loaded_devserver = dev_server.get_least_loaded_devserver(
-            hostname=hostname)
-        if least_loaded_devserver:
-            logging.debug('Choosing the least loaded devserver: %s',
-                          least_loaded_devserver)
-            autotest_devserver = dev_server.ImageServer(least_loaded_devserver)
-        else:
-            logging.warning('No devserver meets the maximum load requirement. '
-                            'Picking a random devserver to use.')
-            autotest_devserver = dev_server.ImageServer.resolve(
-                test_conf['target_payload_uri'], self._host.hostname)
-        devserver_hostname = urlparse.urlparse(
-            autotest_devserver.url()).hostname
-
-        logging.info('Devserver chosen for this run: %s', devserver_hostname)
-        return autotest_devserver
-
-
     def _stage_payloads_onto_devserver(self, test_conf):
         """Stages payloads that will be used by the test onto the devserver.
 
         @param test_conf: a dictionary containing payload urls to stage.
 
-        @return a StagedURLs tuple containing the staged urls.
         """
         logging.info('Staging images onto autotest devserver (%s)',
                      self._autotest_devserver.url())
 
-        source_uri = test_conf['source_payload_uri']
-        staged_src_uri, staged_src_stateful = self._stage_payloads(
-            source_uri, test_conf['source_archive_uri'])
+        self._stage_payloads(test_conf['source_payload_uri'],
+                             test_conf['source_archive_uri'])
 
-        target_uri = test_conf['target_payload_uri']
-        staged_target_uri, staged_target_stateful = self._stage_payloads(
-            target_uri, test_conf['target_archive_uri'],
-            test_conf['update_type'])
-
-        return self.StagedURLs(staged_src_uri, staged_src_stateful,
-                               staged_target_uri, staged_target_stateful)
-
-
-    def _stage_payloads(self, payload_uri, archive_uri, payload_type='full'):
-        """Stages a payload and its associated stateful on devserver."""
-        if payload_uri:
-            staged_uri = self._stage_payload_by_uri(payload_uri)
-
-            # Figure out where to get the matching stateful payload.
-            if archive_uri:
-                stateful_uri = self._get_stateful_uri(archive_uri)
-            else:
-                stateful_uri = self._payload_to_stateful_uri(payload_uri)
-            staged_stateful = self._stage_payload_by_uri(stateful_uri)
-
-            logging.info('Staged %s payload from %s at %s.', payload_type,
-                         payload_uri, staged_uri)
-            logging.info('Staged stateful from %s at %s.', stateful_uri,
-                         staged_stateful)
-            return staged_uri, staged_stateful
-
-
-    @staticmethod
-    def _get_stateful_uri(build_uri):
-        """Returns a complete GS URI of a stateful update given a build path."""
-        return '/'.join([build_uri.rstrip('/'), 'stateful.tgz'])
-
-
-    def _payload_to_stateful_uri(self, payload_uri):
-        """Given a payload GS URI, returns the corresponding stateful URI."""
-        build_uri = payload_uri.rpartition('/')[0]
-        if build_uri.endswith('payloads'):
-            build_uri = build_uri.rpartition('/')[0]
-        return self._get_stateful_uri(build_uri)
-
+        self._stage_payloads(test_conf['target_payload_uri'],
+                             test_conf['target_archive_uri'],
+                             test_conf['update_type'])
 
     def _get_hostlog_file(self, filename, pid):
         """Return the hostlog file location.
@@ -314,19 +235,24 @@ class autoupdate_EndToEndTest(update_engine_test.UpdateEngineTest):
             # Update the DUT to the target image.
             pid = cros_device.install_target_image(test_conf[
                 'target_payload_uri'])
+        except dev_server.DevServerException as e:
+            logging.fatal('ERROR: Failure occurred during the target update.')
+            raise error.TestFail(str(e))
 
-            # Verify the hostlog of events was returned from the update.
-            file_url = self._get_hostlog_file(self._DEVSERVER_HOSTLOG_ROOTFS,
-                                              pid)
+        # Verify the hostlog of events was returned from the update.
+        file_url = self._get_hostlog_file(self._DEVSERVER_HOSTLOG_ROOTFS,
+                                          pid)
 
+        try:
             # Call into base class to compare expected events against hostlog.
             self.verify_update_events(source_release, file_url)
-        except:
-            logging.fatal('ERROR: Failure occurred during the target update.')
+        except update_engine_test.UpdateEngineEventMissing:
+            self._dump_update_engine_log(cros_device)
             raise
 
         # Collect perf stats about this update run.
-        perf_file = cros_device.get_perf_stats_for_update(self.job.resultdir)
+        perf_file = cros_device.get_perf_stats_for_update(
+            self.job.resultdir)
         if perf_file is not None:
             self._report_perf_data(perf_file)
 
@@ -337,14 +263,21 @@ class autoupdate_EndToEndTest(update_engine_test.UpdateEngineTest):
             # post-reboot update check. So we just check the version from
             # lsb-release.
             logging.info('Skipping post reboot update check.')
-            self._verify_version(target_release, cros_device.get_cros_version())
+            self._verify_version(target_release,
+                                 cros_device.get_cros_version())
         else:
             # Verify we have a hostlog for the post-reboot update check.
-            file_url = self._get_hostlog_file(self._DEVSERVER_HOSTLOG_REBOOT,
-                                              pid)
+            file_url = self._get_hostlog_file(
+                self._DEVSERVER_HOSTLOG_REBOOT, pid)
 
-            # Call into base class to compare expected events against hostlog.
-            self.verify_update_events(source_release, file_url, target_release)
+            try:
+                # Compare expected events against hostlog.
+                self.verify_update_events(source_release, file_url,
+                                          target_release)
+            except update_engine_test.UpdateEngineEventMissing:
+                self._dump_update_engine_log(cros_device)
+                raise
+
 
         self._verify_active_slot_changed(source_active_slot,
                                          cros_device.get_active_slot(),
@@ -373,15 +306,16 @@ class autoupdate_EndToEndTest(update_engine_test.UpdateEngineTest):
             self._host, self._autotest_devserver, self.job.resultdir)
 
         # Install source image
-        cros_device.install_source_image(test_conf['source_payload_uri'])
-        cros_device.check_login_after_source_update()
+        source_payload_uri = test_conf['source_payload_uri']
+        if source_payload_uri is not None:
+            try:
+                cros_device.install_source_image(source_payload_uri)
+            except dev_server.DevServerException as e:
+                raise error.TestFail(str(e))
+            cros_device.check_login_after_source_update()
 
         # Start the update to the target image.
-        try:
-            self.run_update_test(cros_device, test_conf)
-        except update_engine_test.UpdateEngineEventMissing:
-            self._dump_update_engine_log(cros_device)
-            raise
+        self.run_update_test(cros_device, test_conf)
 
         # Check we can login after the update.
         cros_device.check_login_after_target_update()

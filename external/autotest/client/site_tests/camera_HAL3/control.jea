@@ -32,7 +32,7 @@ facing_options = [
 
 job.run_test(
     'camera_HAL3',
-    cmd_timeout=5,
+    cmd_timeout=10,
     options=[
         '--gtest_filter=*/Camera3SimpleStillCaptureTest.TakePictureTest/0'
     ] + facing_options,

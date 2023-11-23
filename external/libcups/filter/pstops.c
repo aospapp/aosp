@@ -1,8 +1,8 @@
 /*
  * PostScript filter for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
- * Copyright 1993-2007 by Easy Software Products.
+ * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 1993-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -162,8 +162,7 @@ static ssize_t		copy_trailer(cups_file_t *fp, pstops_doc_t *doc,
 				     ssize_t linelen, size_t linesize);
 static void		do_prolog(pstops_doc_t *doc, ppd_file_t *ppd);
 static void 		do_setup(pstops_doc_t *doc, ppd_file_t *ppd);
-static void		doc_printf(pstops_doc_t *doc, const char *format, ...)
-			__attribute__ ((__format__ (__printf__, 2, 3)));
+static void		doc_printf(pstops_doc_t *doc, const char *format, ...) _CUPS_FORMAT(2, 3);
 static void		doc_puts(pstops_doc_t *doc, const char *s);
 static void		doc_write(pstops_doc_t *doc, const char *s, size_t len);
 static void		end_nup(pstops_doc_t *doc, int number);
@@ -2235,7 +2234,7 @@ parse_text(const char *start,		/* I - Start of text value */
   bufptr = buffer;
   bufend = buffer + bufsize - 1;
 
-  while (bufptr < bufend)
+  while (*start && bufptr < bufend)
   {
     if (isspace(*start & 255) && !level)
       break;

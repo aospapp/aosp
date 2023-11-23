@@ -22,19 +22,16 @@
 #define CONFIG_FSL_PCI_INIT	1	/* Use common FSL init code */
 #define CONFIG_PCI_INDIRECT_BRIDGE 1	/* indirect PCI bridge support */
 #define CONFIG_SYS_PCI_64BIT	1	/* enable 64-bit PCI resources */
-#define CONFIG_FSL_PCIE_RESET	1	/* need PCIe reset errata */
 
 /*
  * Multicore config
  */
-#define CONFIG_MP
 #define CONFIG_BPTR_VIRT_ADDR	0xee000000	/* virt boot page address */
 #define CONFIG_MPC8xxx_DISABLE_BPTR		/* Don't leave BPTR enabled */
 
 /*
  * DDR config
  */
-#undef CONFIG_FSL_DDR_INTERACTIVE
 #define CONFIG_SPD_EEPROM		/* Use SPD EEPROM for DDR setup */
 #define CONFIG_DDR_SPD
 #define CONFIG_MEM_INIT_VALUE		0xdeadbeef
@@ -114,9 +111,6 @@ extern unsigned long get_board_ddr_clk(unsigned long dummy);
 #define CONFIG_SYS_MAX_FLASH_SECT	1024		/* sectors per device */
 #define CONFIG_SYS_FLASH_ERASE_TOUT	60000		/* Flash Erase Timeout (ms) */
 #define CONFIG_SYS_FLASH_WRITE_TOUT	500		/* Flash Write Timeout (ms) */
-#define CONFIG_FLASH_CFI_DRIVER
-#define CONFIG_SYS_FLASH_CFI
-#define CONFIG_SYS_FLASH_USE_BUFFER_WRITE
 #define CONFIG_SYS_FLASH_AUTOPROTECT_LIST	{ {0xfff40000, 0xc0000}, \
 						  {0xf7f40000, 0xc0000} }
 #define CONFIG_SYS_MONITOR_BASE	CONFIG_SYS_TEXT_BASE	/* start of monitor */
@@ -296,7 +290,6 @@ extern unsigned long get_board_ddr_clk(unsigned long dummy);
  * Networking options
  */
 #define CONFIG_TSEC_TBI
-#define CONFIG_MII		1	/* MII PHY management */
 #define CONFIG_MII_DEFAULT_TSEC	1	/* Allow unregistered phys */
 #define CONFIG_ETHPRIME		"eTSEC2"
 
@@ -329,7 +322,6 @@ extern unsigned long get_board_ddr_clk(unsigned long dummy);
  */
 #define CONFIG_SYS_LOAD_ADDR	0x2000000	/* default load address */
 #define CONFIG_LOADADDR		0x1000000	/* default location for tftp and bootm */
-#define CONFIG_PREBOOT				/* enable preboot variable */
 #define CONFIG_INTEGRITY			/* support booting INTEGRITY OS */
 
 /*
@@ -343,9 +335,6 @@ extern unsigned long get_board_ddr_clk(unsigned long dummy);
 /*
  * Environment Configuration
  */
-#define CONFIG_ENV_SECT_SIZE	0x20000		/* 128k (one sector) for env */
-#define CONFIG_ENV_SIZE		0x8000
-#define CONFIG_ENV_ADDR		(CONFIG_SYS_MONITOR_BASE - (256 * 1024))
 
 /*
  * Flash memory map:

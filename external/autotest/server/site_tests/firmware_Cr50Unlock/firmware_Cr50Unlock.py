@@ -19,12 +19,15 @@ class firmware_Cr50Unlock(Cr50Test):
         """Check cr50 can see dev mode open works correctly"""
         # Make sure testlab mode is enabled, so we can guarantee the password
         # can be cleared.
+        if not self.faft_config.has_powerbutton:
+            raise error.TestNAError('Can not run test without power button')
+            return
+
         self.fast_open(enable_testlab=True)
         self.cr50.send_command('ccd reset')
-
         # Set the password
         self.set_ccd_password(self.PASSWORD)
-        if self.cr50.get_ccd_info()['Password'] != 'set':
+        if self.cr50.password_is_reset():
             raise error.TestFail('Failed to set password')
 
         self.cr50.set_ccd_level('lock')
@@ -80,3 +83,5 @@ class firmware_Cr50Unlock(Cr50Test):
                     'password')
         # Test immediate unlock from AP
         self.ccd_unlock_from_ap(self.PASSWORD)
+        # Clear the password which has set at the beginning of this test.
+        self.set_ccd_password('clear:' + self.PASSWORD)

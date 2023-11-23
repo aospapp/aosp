@@ -91,29 +91,39 @@ class audio_AudioBasicUSBPlaybackRecord(audio_test.AudioTest):
                             host, audio_facade, self.resultsdir,
                             'after_suspend')
 
-                    audio_test_utils.check_and_set_chrome_active_node_types(
-                            audio_facade, 'USB', 'USB')
+                    # Explicitly select the node as there is a known issue
+                    # that the selected node might change after a suspension.
+                    # We should remove this after the issue is addressed
+                    # (crbug:987529).
+                    # Directly select the node through cras
+                    # Should switch to check_and_set_chrome_active_node_types
+                    # to set the active node through chrome.audio API when
+                    # the telemetry bug is fixed (crbug.com/965704)
+                    audio_facade.set_selected_node_types(['USB'], ['USB'])
 
                     audio_test_utils.dump_cros_audio_logs(
                             host, audio_facade, self.resultsdir,
                             'after_resume_select')
 
-                    audio_test_utils.check_audio_nodes(audio_facade,
-                                                       (['USB'], ['USB']))
+                    audio_test_utils.check_audio_nodes(
+                            audio_facade, (['USB'], ['USB']))
 
                 logging.info('Start recording from Chameleon.')
                 playback_recorder.start_recording()
                 logging.info('Start recording from Cros device.')
-                record_recorder.start_recording()
+                record_recorder.start_recording(block_size=1024)
 
                 logging.info('Start playing %s on Cros device',
                              golden_file.path)
-                playback_source.start_playback()
+                playback_source.start_playback(block_size=1024)
                 logging.info('Start playing %s on Chameleon',
                              golden_file.path)
                 record_source.start_playback()
 
                 time.sleep(self.RECORD_SECONDS)
+
+                audio_test_utils.dump_cros_audio_logs(
+                        host, audio_facade, self.resultsdir, 'during_recording')
 
                 playback_recorder.stop_recording()
                 logging.info('Stopped recording from Chameleon.')

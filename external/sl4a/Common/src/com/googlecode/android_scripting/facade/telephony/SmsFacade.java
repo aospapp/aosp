@@ -442,9 +442,10 @@ public class SmsFacade extends RpcReceiver {
     public void smsStartTrackingGsmEmergencyCBMessage() {
         if (!mGsmEmergencyCBListenerRegistered) {
             for (int messageId : mGsmCbMessageIdList) {
-                mSms.enableCellBroadcast(
+                mSms.enableCellBroadcastRange(
                         messageId,
-                        SmsManager.CELL_BROADCAST_RAN_TYPE_GSM);
+                        messageId,
+                        SmsCbMessage.MESSAGE_FORMAT_3GPP);
             }
 
             mEmergencyCBMessage = new IntentFilter(EMERGENCY_CB_MESSAGE_RECEIVED_ACTION);
@@ -460,9 +461,10 @@ public class SmsFacade extends RpcReceiver {
             mService.unregisterReceiver(mGsmEmergencyCBMessageListener);
             mGsmEmergencyCBListenerRegistered = false;
             for (int messageId : mGsmCbMessageIdList) {
-                mSms.disableCellBroadcast(
+                mSms.disableCellBroadcastRange(
                         messageId,
-                        SmsManager.CELL_BROADCAST_RAN_TYPE_GSM);
+                        messageId,
+                        SmsCbMessage.MESSAGE_FORMAT_3GPP);
             }
         }
     }
@@ -471,9 +473,10 @@ public class SmsFacade extends RpcReceiver {
     public void smsStartTrackingCdmaEmergencyCBMessage() {
         if (!mCdmaEmergencyCBListenerRegistered) {
             for (int messageId : mCdmaCbMessageIdList) {
-                mSms.enableCellBroadcast(
+                mSms.enableCellBroadcastRange(
                         messageId,
-                        SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA);
+                        messageId,
+                        SmsCbMessage.MESSAGE_FORMAT_3GPP2);
             }
             mEmergencyCBMessage = new IntentFilter(EMERGENCY_CB_MESSAGE_RECEIVED_ACTION);
             mService.registerReceiver(mCdmaEmergencyCBMessageListener,
@@ -488,9 +491,10 @@ public class SmsFacade extends RpcReceiver {
             mService.unregisterReceiver(mCdmaEmergencyCBMessageListener);
             mCdmaEmergencyCBListenerRegistered = false;
             for (int messageId : mCdmaCbMessageIdList) {
-                mSms.disableCellBroadcast(
+                mSms.disableCellBroadcastRange(
                         messageId,
-                        SmsManager.CELL_BROADCAST_RAN_TYPE_CDMA);
+                        messageId,
+                        SmsCbMessage.MESSAGE_FORMAT_3GPP2);
             }
         }
     }
@@ -874,7 +878,7 @@ public class SmsFacade extends RpcReceiver {
                 return "CELL_WIDE_IMMEDIATE";
             case SmsCbMessage.GEOGRAPHICAL_SCOPE_PLMN_WIDE:
                 return "PLMN_WIDE ";
-            case SmsCbMessage.GEOGRAPHICAL_SCOPE_LA_WIDE:
+            case SmsCbMessage.GEOGRAPHICAL_SCOPE_LOCATION_AREA_WIDE:
                 return "LA_WIDE";
             case SmsCbMessage.GEOGRAPHICAL_SCOPE_CELL_WIDE:
                 return "CELL_WIDE";

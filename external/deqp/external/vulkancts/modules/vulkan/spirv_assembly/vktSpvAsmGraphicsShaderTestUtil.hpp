@@ -99,12 +99,14 @@ struct GraphicsResources
 	VerifyIOFunc				verifyIO;
 	GraphicsVerifyBinaryFunc	verifyBinary;
 	SpirvVersion				spirvVersion;
+	bool						spirvVersion14;
 
 							GraphicsResources()
-								: inputFormat	(VK_FORMAT_R32G32B32A32_SFLOAT)
-								, verifyIO		(DE_NULL)
-								, verifyBinary	(DE_NULL)
-								, spirvVersion	(SPIRV_VERSION_1_0)
+								: inputFormat		(VK_FORMAT_R32G32B32A32_SFLOAT)
+								, verifyIO			(DE_NULL)
+								, verifyBinary		(DE_NULL)
+								, spirvVersion		(SPIRV_VERSION_1_0)
+								, spirvVersion14	(false)
 							{}
 };
 
@@ -285,6 +287,7 @@ struct InstanceContext
 	qpTestResult							failResult;
 	std::string								failMessageTemplate;	//!< ${reason} in the template will be replaced with a detailed failure message
 	bool									renderFullSquare;		// Forces to render whole render area, though with background color
+	bool									splitRenderArea;		// Split render into multiple submissions.
 
 	InstanceContext (const tcu::RGBA							(&inputs)[4],
 					 const tcu::RGBA							(&outputs)[4],
@@ -300,6 +303,40 @@ struct InstanceContext
 	InstanceContext (const InstanceContext& other);
 
 	std::string getSpecializedFailMessage (const std::string& failureReason);
+};
+
+enum ShaderTask
+{
+	SHADER_TASK_NONE = 0,
+	SHADER_TASK_NORMAL,
+	SHADER_TASK_UNUSED_VAR,
+	SHADER_TASK_UNUSED_FUNC,
+	SHADER_TASK_LAST
+};
+
+enum ShaderTaskIndex
+{
+	SHADER_TASK_INDEX_VERTEX		= 0,
+	SHADER_TASK_INDEX_GEOMETRY		= 1,
+	SHADER_TASK_INDEX_TESS_CONTROL	= 2,
+	SHADER_TASK_INDEX_TESS_EVAL		= 3,
+	SHADER_TASK_INDEX_FRAGMENT		= 4,
+	SHADER_TASK_INDEX_LAST			= 5
+};
+
+typedef ShaderTask ShaderTaskArray[SHADER_TASK_INDEX_LAST];
+
+struct UnusedVariableContext
+{
+	InstanceContext		instanceContext;
+	ShaderTaskArray		shaderTasks;
+	VariableLocation	variableLocation;
+
+	UnusedVariableContext(const InstanceContext& ctx, const ShaderTaskArray& tasks, const VariableLocation& location)
+		: instanceContext(ctx), shaderTasks(), variableLocation(location)
+	{
+		deMemcpy(shaderTasks, tasks, sizeof(tasks));
+	}
 };
 
 // A description of a shader to be used for a single stage of the graphics pipeline.
@@ -325,10 +362,6 @@ const std::string numberToString (T number)
 	return ss.str();
 }
 
-template<typename T>	T			randomScalar	(de::Random& rnd, T minValue, T maxValue);
-template<> inline		float		randomScalar	(de::Random& rnd, float minValue, float maxValue)		{ return rnd.getFloat(minValue, maxValue);	}
-template<> inline		deInt32		randomScalar	(de::Random& rnd, deInt32 minValue, deInt32 maxValue)	{ return rnd.getInt(minValue, maxValue);	}
-
 void getDefaultColors (tcu::RGBA (&colors)[4]);
 
 void getHalfColorsFullAlpha (tcu::RGBA (&colors)[4]);
@@ -338,18 +371,20 @@ void getInvertedDefaultColors (tcu::RGBA (&colors)[4]);
 // Creates fragments that specialize into a simple pass-through shader (of any kind).
 std::map<std::string, std::string> passthruFragments (void);
 
-// Creates a combined shader module based on VkShaderStageFlagBits defined in InstanceContext
+// Creates a combined shader module based on VkShaderStageFlagBits defined in InstanceContext.
 void createCombinedModule (vk::SourceCollections& dst, InstanceContext ctx);
+
+// Creates shaders with unused variables based on the UnusedVariableContext.
+void createUnusedVariableModules (vk::SourceCollections& dst, UnusedVariableContext ctx);
 
 // This has two shaders of each stage. The first
 // is a passthrough, the second inverts the color.
 void createMultipleEntries (vk::SourceCollections& dst, InstanceContext);
 
-// Turns a statically sized array of ShaderElements into an instance-context
-// by setting up the mapping of modules to their contained shaders and stages.
-// The inputs and expected outputs are given by inputColors and outputColors
-template<size_t N>
-InstanceContext createInstanceContext (const ShaderElement							(&elements)[N],
+// Turns a vector of ShaderElements into an instance-context by setting up the mapping of modules
+// to their contained shaders and stages. The inputs and expected outputs are given by inputColors
+// and outputColors
+InstanceContext createInstanceContext (const std::vector<ShaderElement>&			elements,
 									   const tcu::RGBA								(&inputColors)[4],
 									   const tcu::RGBA								(&outputColors)[4],
 									   const std::map<std::string, std::string>&	testCodeFragments,
@@ -361,42 +396,62 @@ InstanceContext createInstanceContext (const ShaderElement							(&elements)[N],
 									   VulkanFeatures								vulkanFeatures,
 									   VkShaderStageFlags							customizedStages,
 									   const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
-									   const std::string&							failMessageTemplate	= std::string())
+									   const std::string&							failMessageTemplate	= std::string());
+
+// Same as above but using a statically sized array.
+template <size_t N>
+inline InstanceContext createInstanceContext (const ShaderElement							(&elements)[N],
+											  const tcu::RGBA								(&inputColors)[4],
+											  const tcu::RGBA								(&outputColors)[4],
+											  const std::map<std::string, std::string>&		testCodeFragments,
+											  const StageToSpecConstantMap&					specConstants,
+											  const PushConstants&							pushConstants,
+											  const GraphicsResources&						resources,
+											  const GraphicsInterfaces&						interfaces,
+											  const std::vector<std::string>&				extensions,
+											  VulkanFeatures								vulkanFeatures,
+											  VkShaderStageFlags							customizedStages,
+											  const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
+											  const std::string&							failMessageTemplate	= std::string())
 {
-	InstanceContext ctx (inputColors, outputColors, testCodeFragments, specConstants, pushConstants, resources, interfaces, extensions, vulkanFeatures, customizedStages);
-	for (size_t i = 0; i < N; ++i)
-	{
-		ctx.moduleMap[elements[i].moduleName].push_back(std::make_pair(elements[i].entryName, elements[i].stage));
-		ctx.requiredStages = static_cast<VkShaderStageFlagBits>(ctx.requiredStages | elements[i].stage);
-	}
-	ctx.failResult				= failResult;
-	if (!failMessageTemplate.empty())
-		ctx.failMessageTemplate	= failMessageTemplate;
-	return ctx;
+	std::vector<ShaderElement> elementsVector(elements, elements + N);
+	return createInstanceContext(elementsVector, inputColors, outputColors, testCodeFragments, specConstants, pushConstants,
+								 resources, interfaces, extensions, vulkanFeatures, customizedStages, failResult, failMessageTemplate);
 }
 
 // The same as createInstanceContext above, without extensions, spec constants, and resources.
-template<size_t N>
-inline InstanceContext createInstanceContext (const ShaderElement						(&elements)[N],
-											  tcu::RGBA									(&inputColors)[4],
-											  const tcu::RGBA							(&outputColors)[4],
-											  const std::map<std::string, std::string>&	testCodeFragments)
+InstanceContext createInstanceContext (const std::vector<ShaderElement>&			elements,
+									   tcu::RGBA									(&inputColors)[4],
+									   const tcu::RGBA								(&outputColors)[4],
+									   const std::map<std::string, std::string>&	testCodeFragments);
+
+// Same as above, but using a statically sized array.
+template <size_t N>
+inline InstanceContext createInstanceContext (const ShaderElement							(&elements)[N],
+											  tcu::RGBA										(&inputColors)[4],
+											  const tcu::RGBA								(&outputColors)[4],
+											  const std::map<std::string, std::string>&		testCodeFragments)
 {
-	return createInstanceContext(elements, inputColors, outputColors, testCodeFragments,
-								 StageToSpecConstantMap(), PushConstants(), GraphicsResources(),
-								 GraphicsInterfaces(), std::vector<std::string>(),
-								 VulkanFeatures(), vk::VK_SHADER_STAGE_ALL);
+	std::vector<ShaderElement> elementsVector(elements, elements + N);
+	return createInstanceContext(elementsVector, inputColors, outputColors, testCodeFragments);
 }
 
 // The same as createInstanceContext above, but with default colors.
+InstanceContext createInstanceContext (const std::vector<ShaderElement>&			elements,
+									   const std::map<std::string, std::string>&	testCodeFragments);
+
+// Same as above, but using a statically sized array.
 template<size_t N>
-InstanceContext createInstanceContext (const ShaderElement							(&elements)[N],
-									   const std::map<std::string, std::string>&	testCodeFragments)
+inline InstanceContext createInstanceContext (const ShaderElement						(&elements)[N],
+											  const std::map<std::string, std::string>&	testCodeFragments)
 {
-	tcu::RGBA defaultColors[4];
-	getDefaultColors(defaultColors);
-	return createInstanceContext(elements, defaultColors, defaultColors, testCodeFragments);
+	std::vector<ShaderElement> elementsVector(elements, elements + N);
+	return createInstanceContext(elementsVector, testCodeFragments);
 }
+
+
+// Create an unused variable context for the given combination.
+UnusedVariableContext createUnusedVariableContext(const ShaderTaskArray& shaderTasks, const VariableLocation& location);
 
 void addShaderCodeCustomVertex (vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
 void addShaderCodeCustomTessControl (vk::SourceCollections& dst, InstanceContext& context, const SpirVAsmBuildOptions* spirVAsmBuildOptions);
@@ -418,7 +473,8 @@ void createTestForStage (vk::VkShaderStageFlagBits					stage,
 						 tcu::TestCaseGroup*						tests,
 						 const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
 						 const std::string&							failMessageTemplate = std::string(),
-						 const bool									renderFullSquare	= false);
+						 const bool									renderFullSquare	= false,
+						 const bool									splitRenderArea		= false);
 
 void createTestsForAllStages (const std::string&						name,
 							  const tcu::RGBA							(&inputColors)[4],
@@ -432,7 +488,8 @@ void createTestsForAllStages (const std::string&						name,
 							  VulkanFeatures							vulkanFeatures,
 							  tcu::TestCaseGroup*						tests,
 							  const qpTestResult						failResult			= QP_TEST_RESULT_FAIL,
-							  const std::string&						failMessageTemplate	= std::string());
+							  const std::string&						failMessageTemplate	= std::string(),
+							  const bool								splitRenderArea		= false);
 
 inline void createTestsForAllStages (const std::string&							name,
 									 const tcu::RGBA							(&inputColors)[4],
@@ -483,7 +540,8 @@ inline void createTestsForAllStages (const std::string&							name,
 									 tcu::TestCaseGroup*						tests,
 									 VulkanFeatures								vulkanFeatures		= VulkanFeatures(),
 									 const qpTestResult							failResult			= QP_TEST_RESULT_FAIL,
-									 const std::string&							failMessageTemplate	= std::string())
+									 const std::string&							failMessageTemplate	= std::string(),
+									 const bool									splitRenderArea = false)
 {
 	SpecConstants				noSpecConstants;
 	PushConstants				noPushConstants;
@@ -492,7 +550,7 @@ inline void createTestsForAllStages (const std::string&							name,
 	createTestsForAllStages(
 			name, inputColors, outputColors, testCodeFragments, noSpecConstants, noPushConstants,
 			resources, noInterfaces, extensions, vulkanFeatures,
-			tests, failResult, failMessageTemplate);
+			tests, failResult, failMessageTemplate, splitRenderArea );
 }
 
 inline void createTestsForAllStages (const std::string& name,
@@ -542,6 +600,9 @@ inline void createTestsForAllStages (const std::string& name,
 // rendered image.  The surface is cleared before executing the pipeline, so
 // whatever the shaders draw can be directly spot-checked.
 tcu::TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instance);
+
+// Use the instance context in the UnusedVariableContext to run the function above.
+tcu::TestStatus runAndVerifyUnusedVariablePipeline (Context &context, UnusedVariableContext unusedVariableContext);
 
 // Adds a new test to group using custom fragments for the tessellation-control
 // stage and passthrough fragments for all other stages.  Uses default colors

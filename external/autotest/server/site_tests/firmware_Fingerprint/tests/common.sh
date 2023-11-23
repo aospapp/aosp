@@ -13,6 +13,26 @@ Writable flags:      0x00000004 all_now
 SETVAR
 )"
 
+readonly _FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_DISABLED="$(cat <<SETVAR
+Flash protect flags: 0x00000000
+Valid flags:         0x0000003f wp_gpio_asserted ro_at_boot ro_now all_now STUCK INCONSISTENT
+Writable flags:      0x00000001 ro_at_boot
+SETVAR
+)"
+
+readonly _FLASHPROTECT_OUTPUT_HW_WRITE_PROTECT_DISABLED_AND_SW_WRITE_PROTECT_ENABLED="$(cat <<SETVAR
+Flash protect flags: 0x00000003 ro_at_boot ro_now
+Valid flags:         0x0000003f wp_gpio_asserted ro_at_boot ro_now all_now STUCK INCONSISTENT
+Writable flags:      0x00000000
+SETVAR
+)"
+
+readonly _FP_FRAME_RAW_ACCESS_DENIED_ERROR="$(cat <<SETVAR
+EC result 4 (ACCESS_DENIED)
+Failed to get FP sensor frame
+SETVAR
+)"
+
 readonly _FW_NAMES="rb0 rb1 rb9 dev"
 readonly _FW_TYPES="ro rw"
 
@@ -60,9 +80,39 @@ reboot_ec_to_ro() {
   sleep 2
 }
 
+get_raw_fpframe() {
+  run_ectool_cmd "fpframe" "raw"
+}
+
+check_raw_fpframe_fails() {
+  local stderr_output_file="$(mktemp)"
+  # Using sub-shell since we have "set -e" enabled
+  if (get_raw_fpframe 2> "${stderr_output_file}"); then
+    echo "Firmware should not allow getting raw fpframe"
+    exit 1
+  fi
+
+  local stderr_output="$(cat "${stderr_output_file}")"
+  if [[ "${stderr_output}" != "${_FP_FRAME_RAW_ACCESS_DENIED_ERROR}" ]]; then
+    echo "raw fpframe command returned unexpected value"
+    echo "stderr_output: ${stderr_output}"
+    exit 1
+  fi
+}
+
 read_from_flash() {
   local output_file="${1}"
   run_ectool_cmd "flashread" "0xe0000" "0x1000" "${output_file}"
+}
+
+read_from_flash_in_bootloader_mode_without_modifying_RDP_level() {
+  local output_file="${1}"
+  flash_fp_mcu --read --noremove_flash_read_protect "${output_file}"
+}
+
+read_from_flash_in_bootloader_mode_while_setting_RDP_to_level_0() {
+  local output_file="${1}"
+  flash_fp_mcu --read "${output_file}"
 }
 
 get_running_firmware_copy() {
@@ -87,8 +137,7 @@ get_ro_firmware_version() {
 }
 
 _get_rollback_info() {
-  # TODO(crbug.com/924283): rollbackinfo command always returns exit code 1.
-  run_ectool_cmd_ignoring_error "rollbackinfo"
+  run_ectool_cmd "rollbackinfo"
 }
 
 get_rollback_block_id() {
@@ -128,6 +177,12 @@ check_rollback_rw_version_matches() {
 
 check_is_rollback_set_to_initial_val() {
   check_rollback_block_id_matches "1"
+  check_rollback_min_version_matches "0"
+  check_rollback_rw_version_matches "0"
+}
+
+check_rollback_is_unset() {
+  check_rollback_block_id_matches "0"
   check_rollback_min_version_matches "0"
   check_rollback_rw_version_matches "0"
 }
@@ -215,6 +270,36 @@ disable_sw_write_protect() {
   run_ectool_cmd "flashprotect" "disable"
 }
 
+_get_hw_write_protect_state() {
+  local output
+  # NOTE: "wspw_cur" stands for "write protect switch current"
+  output="$(crossystem wpsw_cur)"
+  if [[ $? -ne 0 ]]; then
+    echo "Error getting hardware write protect state"
+    exit 1
+  fi
+  echo "${output}"
+}
+
+check_hw_write_protect_enabled() {
+  local output
+  output="$(_get_hw_write_protect_state)"
+  if [[ "${output}" -ne 1 ]]; then
+    echo "Expected HW write protect to be enabled, but it is not"
+    exit 1
+  fi
+}
+
+check_hw_write_protect_disabled() {
+  local output
+  output="$(_get_hw_write_protect_state)"
+  echo "output: ${output}"
+  if [[ "${output}" -ne 0 ]]; then
+    echo "Expected HW write protect to be disabled, but it is not"
+    exit 1
+  fi
+}
+
 check_hw_and_sw_write_protect_enabled() {
   local output
   output="$(get_flashprotect_status)"
@@ -222,6 +307,29 @@ check_hw_and_sw_write_protect_enabled() {
   if [[ "${output}" != "${_FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED}" ]]; then
     echo "Incorrect flashprotect state: ${output}"
     echo "Make sure HW write protect is enabled (wp_gpio_asserted)"
+    exit 1
+  fi
+}
+
+check_hw_and_sw_write_protect_disabled() {
+  local output
+  output="$(get_flashprotect_status)"
+
+  if [[ "${output}" != "${_FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_DISABLED}" ]]; then
+    echo "Incorrect flashprotect state: ${output}"
+    echo "Make sure HW write protect is disabled"
+    exit 1
+  fi
+}
+
+check_hw_write_protect_disabled_and_sw_write_protect_enabled() {
+  local output
+  output="$(get_flashprotect_status)"
+
+  if [[ "${output}" != \
+    "${_FLASHPROTECT_OUTPUT_HW_WRITE_PROTECT_DISABLED_AND_SW_WRITE_PROTECT_ENABLED}" ]]; then
+    echo "Incorrect flashprotect state: ${output}"
+    echo "Make sure HW write protect is disabled and SW write protect is enabled"
     exit 1
   fi
 }
@@ -235,4 +343,55 @@ check_fingerprint_task_is_not_running() {
     echo "Fingerprint task should not be running"
     exit 1
   fi
+}
+
+check_firmware_is_functional() {
+  run_ectool_cmd "version"
+}
+
+check_firmware_is_not_functional() {
+  if (check_firmware_is_functional); then
+    echo "Firmware should not be responding to commands"
+    exit 1
+  fi
+}
+
+check_files_match() {
+  cmp $1 $2
+  if [[ $? -ne 0 ]]; then
+    echo "Expected files to match, but they do not"
+    exit 1
+  fi
+}
+
+check_files_do_not_match() {
+  if (check_files_match); then
+    echo "Expected files to not match, but they do"
+    exit 1
+  fi
+}
+
+get_file_size() {
+  stat --printf %s "${1}"
+}
+
+check_file_size_equals_zero() {
+  local file_size="$(get_file_size ${1})"
+  if [[ "${file_size}" -ne 0 ]]; then
+    echo "File is not empty"
+    exit 1
+  fi
+}
+
+check_file_contains_all_0xFF_bytes() {
+  local tmp_file="all_0xff.bin"
+  local file_to_compare="$1"
+  local file_expected_byte_size="$2"
+  # create file full of zeros and then replace with 0xFF
+  dd if='/dev/zero' bs=1 count="${file_expected_byte_size}" | \
+    sed 's#\x00#\xFF#g' > "${tmp_file}"
+
+  check_files_match "${file_to_compare}" "${tmp_file}"
+
+  rm -rf "${tmp_file}"
 }

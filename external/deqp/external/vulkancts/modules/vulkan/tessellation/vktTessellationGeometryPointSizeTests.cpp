@@ -329,12 +329,12 @@ tcu::TestStatus test (Context& context, const Flags flags)
 
 	// Pipeline
 
-	const Unique<VkImageView>		colorAttachmentView(makeImageView						(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
-	const Unique<VkRenderPass>		renderPass		   (makeRenderPass						(vk, device, colorFormat));
-	const Unique<VkFramebuffer>		framebuffer		   (makeFramebuffer						(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y(), 1u));
-	const Unique<VkPipelineLayout>	pipelineLayout	   (makePipelineLayoutWithoutDescriptors(vk, device));
-	const Unique<VkCommandPool>		cmdPool			   (makeCommandPool						(vk, device, queueFamilyIndex));
-	const Unique<VkCommandBuffer>	cmdBuffer		   (allocateCommandBuffer				(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+	const Unique<VkImageView>		colorAttachmentView	(makeImageView			(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
+	const Unique<VkRenderPass>		renderPass			(makeRenderPass			(vk, device, colorFormat));
+	const Unique<VkFramebuffer>		framebuffer			(makeFramebuffer		(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y()));
+	const Unique<VkPipelineLayout>	pipelineLayout		(makePipelineLayout		(vk, device));
+	const Unique<VkCommandPool>		cmdPool				(makeCommandPool		(vk, device, queueFamilyIndex));
+	const Unique<VkCommandBuffer>	cmdBuffer			(allocateCommandBuffer	(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
 	GraphicsPipelineBuilder			pipelineBuilder;
 
@@ -391,11 +391,13 @@ tcu::TestStatus test (Context& context, const Flags flags)
 
 	// Verify results
 	{
-		const Allocation& alloc = colorBuffer.getAllocation();
-		invalidateMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), colorBufferSizeBytes);
-		tcu::ConstPixelBufferAccess image(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, alloc.getHostPtr());
+		const Allocation&			alloc	= colorBuffer.getAllocation();
+		tcu::TestLog&				log		= context.getTestContext().getLog();
 
-		tcu::TestLog& log = context.getTestContext().getLog();
+		invalidateAlloc(vk, device, alloc);
+
+		tcu::ConstPixelBufferAccess	image	(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, alloc.getHostPtr());
+
 		log << tcu::LogImage("color0", "", image);
 
 		if (verifyImage(log, image, expectedPointSize))

@@ -46,8 +46,24 @@ class Undefined(object):
     symbol_name: Text, identifier for the undefined symbol
   """
 
+  __slots__ = ('symbol_name',)
+
   def __init__(self, symbol_name):
     self.symbol_name = symbol_name
+
+  def __repr__(self):
+    return self.symbol_name
+
+  def __getattribute__(self, name):
+    try:
+      # If it's an existing attribute, return it.
+      return object.__getattribute__(self, name)
+    except AttributeError:
+      # Otherwise return Undefined.
+      return self
+
+  def __getitem__(self, i):
+    return self
 
 
 def is_undefined(value):
@@ -63,3 +79,21 @@ def is_undefined(value):
     Boolean, whether the input value is undefined.
   """
   return isinstance(value, Undefined)
+
+
+# TODO(mdan): Refactor as a RetVal object, aggregating the value and do_return.
+class UndefinedReturnValue(object):
+  """Represents a default return value from a function (None in Python)."""
+  pass
+
+
+def retval(value):
+  """Returns the actual value that a return statement should produce."""
+  if isinstance(value, UndefinedReturnValue):
+    return None
+  return value
+
+
+def is_undefined_return(value):
+  """Checks whether `value` is the default return value."""
+  return isinstance(value, UndefinedReturnValue)

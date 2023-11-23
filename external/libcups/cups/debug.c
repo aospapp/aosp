@@ -18,7 +18,7 @@
 
 #include "cups-private.h"
 #include "thread-private.h"
-#ifdef WIN32
+#ifdef _WIN32
 #  include <sys/timeb.h>
 #  include <time.h>
 #  include <io.h>
@@ -36,7 +36,7 @@ _cups_gettimeofday(struct timeval *tv,	/* I  - Timeval struct */
 #else
 #  include <sys/time.h>
 #  include <unistd.h>
-#endif /* WIN32 */
+#endif /* _WIN32 */
 #include <regex.h>
 #include <fcntl.h>
 
@@ -83,7 +83,7 @@ debug_thread_id(void)
  * '_cups_debug_printf()' - Write a formatted line to the log.
  */
 
-void DLLExport
+void
 _cups_debug_printf(const char *format,	/* I - Printf-style format string */
                    ...)			/* I - Additional arguments as needed */
 {
@@ -168,7 +168,7 @@ _cups_debug_printf(const char *format,	/* I - Printf-style format string */
  * '_cups_debug_puts()' - Write a single line to the log.
  */
 
-void DLLExport
+void
 _cups_debug_puts(const char *s)		/* I - String to output */
 {
   struct timeval	curtime;	/* Current time */
@@ -248,7 +248,7 @@ _cups_debug_puts(const char *s)		/* I - String to output */
  * '_cups_debug_set()' - Enable or disable debug logging.
  */
 
-void DLLExport
+void
 _cups_debug_set(const char *logfile,	/* I - Log file or NULL */
                 const char *level,	/* I - Log level or NULL */
 		const char *filter,	/* I - Filter string or NULL */

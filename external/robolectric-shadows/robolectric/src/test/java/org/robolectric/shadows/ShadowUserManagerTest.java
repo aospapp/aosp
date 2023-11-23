@@ -34,6 +34,11 @@ public class ShadowUserManagerTest {
   private UserManager userManager;
   private Context context;
 
+  private static final int TEST_USER_HANDLE = 0;
+  private static final int PROFILE_USER_HANDLE = 2;
+  private static final String PROFILE_USER_NAME = "profile";
+  private static final int PROFILE_USER_FLAGS = 0;
+
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
@@ -128,6 +133,18 @@ public class ShadowUserManagerTest {
     assertThat(userManager.isManagedProfile()).isFalse();
     shadowOf(userManager).setManagedProfile(true);
     assertThat(userManager.isManagedProfile()).isTrue();
+  }
+
+  @Test
+  @Config(minSdk = N)
+  public void isManagedProfileWithHandle() {
+    shadowOf(userManager).addUser(TEST_USER_HANDLE, "secondary user", 0);
+    shadowOf(userManager).addProfile(
+            TEST_USER_HANDLE,
+            PROFILE_USER_HANDLE,
+            "another managed profile",
+            ShadowUserManager.FLAG_MANAGED_PROFILE);
+    assertThat(userManager.isManagedProfile(PROFILE_USER_HANDLE)).isTrue();
   }
 
   @Test
@@ -333,6 +350,15 @@ public class ShadowUserManagerTest {
     } catch (UnsupportedOperationException e) {
       assertThat(e).hasMessageThat().isEqualTo("Must add user before switching to it");
     }
+  }
+
+  @Test
+  @Config(minSdk = LOLLIPOP)
+  public void getProfiles_addedProfile_containsProfile() {
+    shadowOf(userManager).addProfile(
+            TEST_USER_HANDLE, PROFILE_USER_HANDLE, PROFILE_USER_NAME, PROFILE_USER_FLAGS);
+
+    assertThat(userManager.getProfiles(TEST_USER_HANDLE).get(0).id).isEqualTo(PROFILE_USER_HANDLE);
   }
 
   // Create user handle from parcel since UserHandle.of() was only added in later APIs.

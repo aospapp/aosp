@@ -1447,8 +1447,7 @@ public abstract class NumberFormat extends UFormat {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(desiredLocale);
 
         // Here we assume that the locale passed in is in the canonical
-        // form, e.g: pt_PT_@currency=PTE not pt_PT_PREEURO
-        // This style wont work for currency plural format.
+        // form, e.g: pt_PT_@currency=PTE
         // For currency plural format, the pattern is get from
         // the locale (from CurrencyUnitPatterns) without override.
         if (choice == CURRENCYSTYLE || choice == ISOCURRENCYSTYLE || choice == ACCOUNTINGCURRENCYSTYLE
@@ -1962,6 +1961,16 @@ public abstract class NumberFormat extends UFormat {
         public static final Field CURRENCY = new Field("currency");
 
         /**
+         * @draft ICU 64
+         */
+        public static final Field MEASURE_UNIT = new Field("measure unit");
+
+        /**
+         * @draft ICU 64
+         */
+        public static final Field COMPACT = new Field("compact");
+
+        /**
          * Constructs a new instance of NumberFormat.Field with the given field
          * name.
          * @stable ICU 3.6
@@ -1999,6 +2008,10 @@ public abstract class NumberFormat extends UFormat {
                 return PERMILLE;
             if (this.getName().equals(SIGN.getName()))
                 return SIGN;
+            if (this.getName().equals(MEASURE_UNIT.getName()))
+                return MEASURE_UNIT;
+            if (this.getName().equals(COMPACT.getName()))
+                return COMPACT;
 
             throw new InvalidObjectException("An invalid object.");
         }

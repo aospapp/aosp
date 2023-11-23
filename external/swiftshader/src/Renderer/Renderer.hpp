@@ -165,7 +165,6 @@ namespace sw
 		float lineWidth;
 
 		PixelProcessor::Stencil stencil[2];   // clockwise, counterclockwise
-		PixelProcessor::Stencil stencilCCW;
 		PixelProcessor::Fog fog;
 		PixelProcessor::Factor factor;
 		unsigned int occlusion[16];   // Number of pixels passing depth test
@@ -459,9 +458,9 @@ namespace sw
 		SetupProcessor::State setupState;
 		PixelProcessor::State pixelState;
 
-		Routine *vertexRoutine;
-		Routine *setupRoutine;
-		Routine *pixelRoutine;
+		std::shared_ptr<Routine> vertexRoutine;
+		std::shared_ptr<Routine> setupRoutine;
+		std::shared_ptr<Routine> pixelRoutine;
 	};
 
 	struct DrawCall
@@ -473,9 +472,9 @@ namespace sw
 		AtomicInt drawType;
 		AtomicInt batchSize;
 
-		Routine *vertexRoutine;
-		Routine *setupRoutine;
-		Routine *pixelRoutine;
+		std::shared_ptr<Routine> vertexRoutine;
+		std::shared_ptr<Routine> setupRoutine;
+		std::shared_ptr<Routine> pixelRoutine;
 
 		VertexProcessor::RoutinePointer vertexPointer;
 		SetupProcessor::RoutinePointer setupPointer;

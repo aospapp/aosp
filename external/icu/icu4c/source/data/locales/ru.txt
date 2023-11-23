@@ -15,10 +15,10 @@ ru{
     }
     ExemplarCharacters{"[а б в г д е ё ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я]"}
     ExemplarCharactersIndex{"[А Б В Г Д Е Ё Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ы Э Ю Я]"}
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ‚ \u0022 “ „ « » ( ) \\[ \\] \\{ \\} § @ * / "
-        "\\& #]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ‚ \u0022 “ „ « » ( ) \\[ \\] \\{ \\} § @ * "
+        "/ \\& #]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -292,7 +292,7 @@ ru{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.45.15"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -703,6 +703,48 @@ ru{
                 yyyyQQQQ{"QQQQ y 'г'. G"}
             }
             intervalFormats{
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y 'г'. G – y 'г'. G"}
+                    y{"y–y 'гг'. G"}
+                }
+                GyM{
+                    G{"MM.y G – MM.y G"}
+                    M{"MM.y – MM.y G"}
+                    y{"MM.y – MM.y G"}
+                }
+                GyMEd{
+                    G{"ccc, dd.MM.y G – ccc, dd.MM.y G"}
+                    M{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    d{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    y{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                }
+                GyMMM{
+                    G{"LLL y 'г'. G – LLL y 'г'. G"}
+                    M{"LLL – LLL y 'г'. G"}
+                    y{"LLL y – LLL y 'гг'. G"}
+                }
+                GyMMMEd{
+                    G{"ccc, d MMM y 'г'. G – ccc, d MMM y 'г'. G"}
+                    M{"ccc, d MMM – ccc, d MMM y 'г'. G"}
+                    d{"ccc, d MMM – ccc, d MMM y 'г'. G"}
+                    y{"ccc, d MMM y – ccc, d MMM y 'гг'. G"}
+                }
+                GyMMMd{
+                    G{"d MMM y 'г'. G – d MMM y 'г'. G"}
+                    M{"d MMM – d MMM y 'г'. G"}
+                    d{"d–d MMM y 'г'. G"}
+                    y{"d MMM y – d MMM y 'гг'. G"}
+                }
+                GyMd{
+                    G{"dd.MM.y G – dd.MM.y G"}
+                    M{"dd.MM.y – dd.MM.y G"}
+                    d{"dd.MM.y – dd.MM.y G"}
+                    y{"dd.MM.y – dd.MM.y G"}
+                }
                 H{
                     H{"H–H"}
                 }
@@ -1036,12 +1078,16 @@ ru{
                     "н. э.",
                 }
                 abbreviated%variant{
-                    "BCE",
+                    "до н. э.",
                     "н. э.",
                 }
                 narrow{
                     "до н.э.",
                     "н.э.",
+                }
+                narrow%variant{
+                    "до н. э.",
+                    "н. э.",
                 }
                 wide{
                     "до Рождества Христова",
@@ -1053,6 +1099,48 @@ ru{
                 }
             }
             intervalFormats{
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y 'г'. G – y 'г'. G"}
+                    y{"y–y 'гг'. G"}
+                }
+                GyM{
+                    G{"MM.y G – MM.y G"}
+                    M{"MM.y – MM.y G"}
+                    y{"MM.y – MM.y G"}
+                }
+                GyMEd{
+                    G{"ccc, dd.MM.y G – ccc, dd.MM.y G"}
+                    M{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    d{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                    y{"ccc, dd.MM.y – ccc, dd.MM.y G"}
+                }
+                GyMMM{
+                    G{"LLL y 'г'. G – LLL y 'г'. G"}
+                    M{"LLL – LLL y 'г'. G"}
+                    y{"LLL y – LLL y 'гг'. G"}
+                }
+                GyMMMEd{
+                    G{"ccc, d MMM y 'г'. G – ccc, d MMM y 'г'. G"}
+                    M{"ccc, d MMM – ccc, d MMM y 'г'. G"}
+                    d{"ccc, d MMM – ccc, d MMM y 'г'. G"}
+                    y{"ccc, d MMM y – ccc, d MMM y 'гг'. G"}
+                }
+                GyMMMd{
+                    G{"d MMM y 'г'. G – d MMM y 'г'. G"}
+                    M{"d MMM – d MMM y 'г'. G"}
+                    d{"d–d MMM y 'г'. G"}
+                    y{"d MMM y – d MMM y 'гг'. G"}
+                }
+                GyMd{
+                    G{"dd.MM.y G – dd.MM.y G"}
+                    M{"dd.MM.y – dd.MM.y G"}
+                    d{"dd.MM.y – dd.MM.y G"}
+                    y{"dd.MM.y – dd.MM.y G"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -2139,7 +2227,10 @@ ru{
         day-narrow{
             dn{"дн."}
             relative{
+                "-1"{"вчера"}
                 "-2"{"позавчера"}
+                "0"{"сегодня"}
+                "1"{"завтра"}
                 "2"{"послезавтра"}
             }
             relativeTime{
@@ -2160,7 +2251,10 @@ ru{
         day-short{
             dn{"дн."}
             relative{
+                "-1"{"вчера"}
                 "-2"{"позавчера"}
+                "0"{"сегодня"}
+                "1"{"завтра"}
                 "2"{"послезавтра"}
             }
             relativeTime{
@@ -2295,16 +2389,16 @@ ru{
             }
             relativeTime{
                 future{
-                    few{"+{0} ч."}
-                    many{"+{0} ч."}
-                    one{"+{0} ч."}
-                    other{"+{0} ч."}
+                    few{"+{0} ч"}
+                    many{"+{0} ч"}
+                    one{"+{0} ч"}
+                    other{"+{0} ч"}
                 }
                 past{
-                    few{"-{0} ч."}
-                    many{"-{0} ч."}
-                    one{"-{0} ч."}
-                    other{"-{0} ч."}
+                    few{"-{0} ч"}
+                    many{"-{0} ч"}
+                    one{"-{0} ч"}
+                    other{"-{0} ч"}
                 }
             }
         }
@@ -2312,16 +2406,16 @@ ru{
             dn{"ч"}
             relativeTime{
                 future{
-                    few{"через {0} ч."}
-                    many{"через {0} ч."}
-                    one{"через {0} ч."}
-                    other{"через {0} ч."}
+                    few{"через {0} ч"}
+                    many{"через {0} ч"}
+                    one{"через {0} ч"}
+                    other{"через {0} ч"}
                 }
                 past{
-                    few{"{0} ч. назад"}
-                    many{"{0} ч. назад"}
-                    one{"{0} ч. назад"}
-                    other{"{0} ч. назад"}
+                    few{"{0} ч назад"}
+                    many{"{0} ч назад"}
+                    one{"{0} ч назад"}
+                    other{"{0} ч назад"}
                 }
             }
         }
@@ -2349,16 +2443,16 @@ ru{
             dn{"мин"}
             relativeTime{
                 future{
-                    few{"+{0} мин."}
-                    many{"+{0} мин."}
-                    one{"+{0} мин."}
-                    other{"+{0} мин."}
+                    few{"+{0} мин"}
+                    many{"+{0} мин"}
+                    one{"+{0} мин"}
+                    other{"+{0} мин"}
                 }
                 past{
-                    few{"-{0} мин."}
-                    many{"-{0} мин."}
-                    one{"-{0} мин."}
-                    other{"-{0} мин."}
+                    few{"-{0} мин"}
+                    many{"-{0} мин"}
+                    one{"-{0} мин"}
+                    other{"-{0} мин"}
                 }
             }
         }
@@ -2971,7 +3065,7 @@ ru{
             relative{
                 "-1"{"на пр. нед."}
                 "0"{"на эт. нед."}
-                "1"{"на след. неделе"}
+                "1"{"на след. нед."}
             }
             relativePeriod{"на нед. {0}"}
             relativeTime{
@@ -3127,6 +3221,10 @@ ru{
             end{"{0} и {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
         }
         standard-short{
             2{"{0} и {1}"}

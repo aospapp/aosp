@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2014-2015 Freescale Semiconductor
+ * Copyright 2019 NXP
  *
  * Extracted from armv8/start.S
  */
@@ -70,6 +71,15 @@ ENDPROC(smp_kick_all_cpus)
 
 ENTRY(lowlevel_init)
 	mov	x29, lr			/* Save LR */
+
+	/* unmask SError and abort */
+	msr daifclr, #4
+
+	/* Set HCR_EL2[AMO] so SError @EL2 is taken */
+	mrs	x0, hcr_el2
+	orr	x0, x0, #0x20			/* AMO */
+	msr	hcr_el2, x0
+	isb
 
 	switch_el x1, 1f, 100f, 100f	/* skip if not in EL3 */
 1:
@@ -295,7 +305,8 @@ ENTRY(lowlevel_init)
 100:
 #endif
 
-#if defined(CONFIG_FSL_LSCH2) && !defined(CONFIG_SPL_BUILD)
+#if !defined(CONFIG_TFABOOT) && \
+	(defined(CONFIG_FSL_LSCH2) && !defined(CONFIG_SPL_BUILD))
 	bl	fsl_ocram_init
 #endif
 
@@ -344,33 +355,24 @@ get_svr:
 	ret
 #endif
 
-#ifdef CONFIG_SYS_FSL_HAS_CCN504
+#if defined(CONFIG_SYS_FSL_HAS_CCN504) || defined(CONFIG_SYS_FSL_HAS_CCN508)
 hnf_pstate_poll:
-	/* x0 has the desired status, return 0 for success, 1 for timeout
-	 * clobber x1, x2, x3, x4, x6, x7
+	/* x0 has the desired status, return only if operation succeed
+	 * clobber x1, x2, x6
 	 */
 	mov	x1, x0
-	mov	x7, #0			/* flag for timeout */
-	mrs	x3, cntpct_el0		/* read timer */
-	add	x3, x3, #1200		/* timeout after 100 microseconds */
+	mov	w6, #8			/* HN-F node count */
 	mov	x0, #0x18
 	movk	x0, #0x420, lsl #16	/* HNF0_PSTATE_STATUS */
-	mov	w6, #8			/* HN-F node count */
 1:
 	ldr	x2, [x0]
 	cmp	x2, x1			/* check status */
 	b.eq	2f
-	mrs	x4, cntpct_el0
-	cmp	x4, x3
-	b.ls	1b
-	mov	x7, #1			/* timeout */
-	b	3f
+	b	1b
 2:
 	add	x0, x0, #0x10000	/* move to next node */
 	subs	w6, w6, #1
 	cbnz	w6, 1b
-3:
-	mov	x0, x7
 	ret
 
 hnf_set_pstate:
@@ -395,10 +397,8 @@ ENTRY(__asm_flush_l3_dcache)
 	/*
 	 * Return status in x0
 	 *    success 0
-	 *    timeout 1 for setting SFONLY, 2 for FAM, 3 for both
 	 */
 	mov	x29, lr
-	mov	x8, #0
 
 	dsb	sy
 	mov	x0, #0x1		/* HNFPSTAT_SFONLY */
@@ -406,19 +406,15 @@ ENTRY(__asm_flush_l3_dcache)
 
 	mov	x0, #0x4		/* SFONLY status */
 	bl	hnf_pstate_poll
-	cbz	x0, 1f
-	mov	x8, #1			/* timeout */
-1:
+
 	dsb	sy
 	mov	x0, #0x3		/* HNFPSTAT_FAM */
 	bl	hnf_set_pstate
 
 	mov	x0, #0xc		/* FAM status */
 	bl	hnf_pstate_poll
-	cbz	x0, 1f
-	add	x8, x8, #0x2
-1:
-	mov	x0, x8
+
+	mov	x0, #0
 	mov	lr, x29
 	ret
 ENDPROC(__asm_flush_l3_dcache)

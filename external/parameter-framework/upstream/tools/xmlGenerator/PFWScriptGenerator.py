@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright (c) 2015, Intel Corporation
 # All rights reserved.
@@ -28,11 +28,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import EddParser
-from PfwBaseTranslator import PfwBaseTranslator
 
 import argparse
 import sys
+
+import EddParser
+from PfwBaseTranslator import PfwBaseTranslator
 
 class PfwScriptTranslator(PfwBaseTranslator):
 
@@ -66,9 +67,10 @@ class PfwScriptTranslator(PfwBaseTranslator):
         self._appendCommand("setRule", self._ctx_domain, self._ctx_configuration, rule)
 
     def _doSetParameter(self, path, value):
-        self._appendCommand("setConfigurationParameter", self._ctx_domain, self._ctx_configuration, path, value)
+        self._appendCommand("setConfigurationParameter", self._ctx_domain, self._ctx_configuration,
+                            path, value)
 
-class ArgparseArgumentParser(object) :
+class ArgparseArgumentParser(object):
     """class that parse command line arguments with argparse library
 
     result of parsing are the class atributs"""
@@ -77,21 +79,22 @@ class ArgparseArgumentParser(object) :
         myArgParser = argparse.ArgumentParser(description='Process domain scripts.')
 
         myArgParser.add_argument('input', nargs='?',
-                type=argparse.FileType('r'), default=sys.stdin,
-                help="the domain script file, default stdin")
+                                 type=argparse.FileType('r'), default=sys.stdin,
+                                 help="the domain script file, default stdin")
 
         myArgParser.add_argument('-o', '--output',
-                type=argparse.FileType('w'), default=sys.stdout,
-                help="the output file, default stdout")
+                                 type=argparse.FileType('w'), default=sys.stdout,
+                                 help="the output file, default stdout")
 
         myArgParser.add_argument('-d', '--debug',
-                action='store_true',
-                help="print debug warnings")
+                                 action='store_true',
+                                 help="print debug warnings")
 
         myArgParser.add_argument('--output-kind',
-                choices=['pfw', 'raw'],
-                default='pfw',
-                help="output kind; can be either 'raw' (debug only) or 'pfw' (pfw commands; default choice)")
+                                 choices=['pfw', 'raw'],
+                                 default='pfw',
+                                 help="output kind; can be either 'raw' (debug only) or 'pfw' \
+                                    (pfw commands; default choice)")
 
 
         # process command line arguments
@@ -114,7 +117,7 @@ def printE(s):
     """print in stderr"""
     sys.stderr.write(str(s))
 
-def main ():
+def main():
 
     options = ArgparseArgumentParser()
 
@@ -133,7 +136,7 @@ def main ():
         try:
             myroot.propagate()
 
-        except EddParser.MyPropagationError as ex :
+        except EddParser.MyPropagationError as ex:
             printE(ex)
             printE("EXIT ON FAILURE")
             exit(1)
@@ -144,6 +147,6 @@ def main ():
             options.output.write("\n".join(translator.getScript()))
 
 # execute main function if the python interpreter is running this module as the main program
-if __name__ == "__main__" :
+if __name__ == "__main__":
     main()
 

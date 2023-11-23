@@ -779,20 +779,22 @@ tcu::TestStatus UserDefinedIOTestInstance::iterate (void)
 
 	{
 		const Allocation& alloc = vertexBuffer.getAllocation();
+
 		deMemcpy(alloc.getHostPtr(), &attributes[0], static_cast<std::size_t>(vertexDataSizeBytes));
-		flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), vertexDataSizeBytes);
+		flushAlloc(vk, device, alloc);
 	}
 
 	// Output buffer: number of invocations and verification indices
 
-	const int		   resultBufferMaxVertices	= refNumVertices;
-	const VkDeviceSize resultBufferSizeBytes    = sizeof(deInt32) + resultBufferMaxVertices * sizeof(deUint32);
-	const Buffer       resultBuffer             (vk, device, allocator, makeBufferCreateInfo(resultBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT), MemoryRequirement::HostVisible);
+	const int			resultBufferMaxVertices	= refNumVertices;
+	const VkDeviceSize	resultBufferSizeBytes	= sizeof(deInt32) + resultBufferMaxVertices * sizeof(deUint32);
+	const Buffer		resultBuffer			(vk, device, allocator, makeBufferCreateInfo(resultBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT), MemoryRequirement::HostVisible);
 
 	{
 		const Allocation& alloc = resultBuffer.getAllocation();
+
 		deMemset(alloc.getHostPtr(), 0, static_cast<std::size_t>(resultBufferSizeBytes));
-		flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), resultBufferSizeBytes);
+		flushAlloc(vk, device, alloc);
 	}
 
 	// Color attachment
@@ -828,22 +830,22 @@ tcu::TestStatus UserDefinedIOTestInstance::iterate (void)
 
 	// Pipeline
 
-	const Unique<VkImageView>      colorAttachmentView(makeImageView(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
-	const Unique<VkRenderPass>     renderPass         (makeRenderPass(vk, device, colorFormat));
-	const Unique<VkFramebuffer>    framebuffer        (makeFramebuffer(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y(), 1u));
-	const Unique<VkPipelineLayout> pipelineLayout     (makePipelineLayout(vk, device, *descriptorSetLayout));
-	const Unique<VkCommandPool>    cmdPool            (makeCommandPool(vk, device, queueFamilyIndex));
-	const Unique<VkCommandBuffer>  cmdBuffer          (allocateCommandBuffer (vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+	const Unique<VkImageView>		colorAttachmentView	(makeImageView(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
+	const Unique<VkRenderPass>		renderPass			(makeRenderPass(vk, device, colorFormat));
+	const Unique<VkFramebuffer>		framebuffer			(makeFramebuffer(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y()));
+	const Unique<VkPipelineLayout>	pipelineLayout		(makePipelineLayout(vk, device, *descriptorSetLayout));
+	const Unique<VkCommandPool>		cmdPool				(makeCommandPool(vk, device, queueFamilyIndex));
+	const Unique<VkCommandBuffer>	cmdBuffer			(allocateCommandBuffer (vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
-	const Unique<VkPipeline> pipeline(GraphicsPipelineBuilder()
-		.setRenderSize                (renderSize)
-		.setPatchControlPoints        (numAttributes)
-		.setVertexInputSingleAttribute(vertexFormat, vertexStride)
-		.setShader                    (vk, device, VK_SHADER_STAGE_VERTEX_BIT,					m_context.getBinaryCollection().get("vert"), DE_NULL)
-		.setShader                    (vk, device, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,	m_context.getBinaryCollection().get("tesc"), DE_NULL)
-		.setShader                    (vk, device, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, m_context.getBinaryCollection().get("tese"), DE_NULL)
-		.setShader                    (vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,				m_context.getBinaryCollection().get("frag"), DE_NULL)
-		.build                        (vk, device, *pipelineLayout, *renderPass));
+	const Unique<VkPipeline> pipeline	(GraphicsPipelineBuilder()
+		.setRenderSize					(renderSize)
+		.setPatchControlPoints			(numAttributes)
+		.setVertexInputSingleAttribute	(vertexFormat, vertexStride)
+		.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,					m_context.getBinaryCollection().get("vert"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,		m_context.getBinaryCollection().get("tesc"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,	m_context.getBinaryCollection().get("tese"), DE_NULL)
+		.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,					m_context.getBinaryCollection().get("frag"), DE_NULL)
+		.build							(vk, device, *pipelineLayout, *renderPass));
 
 	// Begin draw
 
@@ -888,7 +890,8 @@ tcu::TestStatus UserDefinedIOTestInstance::iterate (void)
 	bool isImageCompareOK = false;
 	{
 		const Allocation& colorBufferAlloc = colorBuffer.getAllocation();
-		invalidateMappedMemoryRange(vk, device, colorBufferAlloc.getMemory(), colorBufferAlloc.getOffset(), colorBufferSizeBytes);
+
+		invalidateAlloc(vk, device, colorBufferAlloc);
 
 		// Load reference image
 		tcu::TextureLevel referenceImage;
@@ -901,7 +904,8 @@ tcu::TestStatus UserDefinedIOTestInstance::iterate (void)
 	}
 	{
 		const Allocation& resultAlloc = resultBuffer.getAllocation();
-		invalidateMappedMemoryRange(vk, device, resultAlloc.getMemory(), resultAlloc.getOffset(), resultBufferSizeBytes);
+
+		invalidateAlloc(vk, device, resultAlloc);
 
 		const deInt32			numVertices = *static_cast<deInt32*>(resultAlloc.getHostPtr());
 		const deUint32* const	vertices    = reinterpret_cast<deUint32*>(static_cast<deUint8*>(resultAlloc.getHostPtr()) + sizeof(deInt32));

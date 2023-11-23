@@ -3,21 +3,10 @@
 set -e
 
 install_brew_package() {
-  if brew list -1 | grep -q "^$1\$"; then
-    # Package is installed, upgrade if needed
-    time (brew outdated "$1" || brew upgrade "$@")
-  else
-    # Package not installed yet, install.
-    # If there are conflicts, try overwriting the files (these are in /usr/local anyway so it should be ok).
-    time (brew install "$@" || brew link --overwrite gcc49)
-  fi
+  time (brew install "$@" || brew outdated "$1" || brew upgrade "$@")
 }
 
-time brew update
-
-# For md5sum
-install_brew_package md5sha1sum
-# For `timeout'
+# For md5sum, timeout
 install_brew_package coreutils
 
 if [[ "${INSTALL_VALGRIND}" == "1" ]]
@@ -31,15 +20,22 @@ case "${COMPILER}" in
 gcc-4.9)       install_brew_package gcc@4.9 ;;
 gcc-5)         install_brew_package gcc@5 ;;
 gcc-6)         install_brew_package gcc@6 ;;
+gcc-7)         install_brew_package gcc@7 ;;
+gcc-8)         install_brew_package gcc@8 ;;
+gcc-9)         install_brew_package gcc@9 ;;
 clang-default) ;;
-clang-3.7)     install_brew_package llvm@3.7 --with-clang --with-libcxx;;
-clang-3.8)     install_brew_package llvm@3.8 --with-clang --with-libcxx;;
-clang-3.9)     install_brew_package llvm@3.9 --with-clang --with-libcxx;;
-clang-4.0)     install_brew_package llvm     --with-clang --with-libcxx;;
+clang-3.9)     install_brew_package llvm@3.9 ;;
+clang-4.0)     install_brew_package llvm@4   ;;
+clang-5.0)     install_brew_package llvm@5   ;;
+clang-6.0)     install_brew_package llvm@6   ;;
+clang-7.0)     install_brew_package llvm@7   ;;
+clang-8.0)     install_brew_package llvm@8   ;;
 *) echo "Compiler not supported: ${COMPILER}. See travis_ci_install_osx.sh"; exit 1 ;;
 esac
 
+install_brew_package boost
 install_brew_package python
+time pip3 install absl-py
 time pip3 install pytest
 time pip3 install pytest-xdist
 time pip3 install sh

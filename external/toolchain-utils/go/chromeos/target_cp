@@ -22,7 +22,7 @@ fi
 
 if [[ -d ${src} ]]
 then
-	tar -C $(dirname ${src}) -zcf - $(basename ${src}) | ssh ${target} "tar -C ${dest} -zxf -"
+	tar -C $(dirname ${src}) -zcf - $(basename ${src}) | ssh -i ${HOME}/.ssh/testing_rsa ${target} "tar -C ${dest} -zxf -"
 else
-	scp -q ${src} ${target}:${dest}
+	scp -i ${HOME}/.ssh/testing_rsa -q ${src} ${target}:${dest}
 fi

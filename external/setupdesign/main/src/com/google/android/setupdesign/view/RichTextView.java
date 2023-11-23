@@ -32,10 +32,10 @@ import android.text.style.TypefaceSpan;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
+import com.google.android.setupdesign.accessibility.LinkAccessibilityHelper;
 import com.google.android.setupdesign.span.LinkSpan;
 import com.google.android.setupdesign.span.LinkSpan.OnLinkClickListener;
 import com.google.android.setupdesign.span.SpanHelper;
-import com.google.android.setupdesign.util.LinkAccessibilityHelper;
 import com.google.android.setupdesign.view.TouchableMovementMethod.TouchableLinkMovementMethod;
 
 /**

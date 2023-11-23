@@ -1,4 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Script to generate a list of object files.
 
 0 represents a good object file.
@@ -12,7 +17,7 @@ import os
 import random
 import sys
 
-import common
+from binary_search_tool.test import common
 
 
 def Main(argv):
@@ -77,15 +82,14 @@ def Main(argv):
   if os.path.isfile(common.WORKING_SET_FILE):
     os.remove(common.WORKING_SET_FILE)
 
-  f = open(common.OBJECTS_FILE, 'w')
-  w = open(common.WORKING_SET_FILE, 'w')
-  for i in obj_list:
-    f.write('{0}\n'.format(i))
-    w.write('{0}\n'.format(i))
-  f.close()
+  with open(common.OBJECTS_FILE, 'w', encoding='utf-8') as f:
+    with open(common.WORKING_SET_FILE, 'w', encoding='utf-8') as w:
+      for i in obj_list:
+        f.write('{0}\n'.format(i))
+        w.write('{0}\n'.format(i))
 
   obj_num = len(obj_list)
-  bad_obj_num = obj_list.count('1')
+  bad_obj_num = obj_list.count(1)
   print('Generated {0} object files, with {1} bad ones.'.format(
       obj_num, bad_obj_num))
 

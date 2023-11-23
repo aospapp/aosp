@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "src/traced/probes/ftrace/ftrace_config.h"
+#include "src/traced/probes/ftrace/ftrace_config_utils.h"
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include "test/gtest_and_gmock.h"
 
 using testing::Contains;
 

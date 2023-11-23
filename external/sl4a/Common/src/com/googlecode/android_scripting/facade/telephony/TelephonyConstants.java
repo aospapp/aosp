@@ -120,6 +120,29 @@ public class TelephonyConstants {
     public static final String CALL_CAPABILITY_UNKOWN = "UNKOWN";
 
     /**
+     * Constant for MmTel Capability
+     * **/
+    public static final String CAPABILITY_TYPE_VOICE = "VOICE";
+    public static final String CAPABILITY_TYPE_VIDEO = "VIDEO";
+    public static final String CAPABILITY_TYPE_UT = "UT";
+    public static final String CAPABILITY_TYPE_SMS = "SMS";
+
+    /**
+     * Constant for ProvisioningManager Key and Values
+     * **/
+    public static final String KEY_VOLTE_PROVISIONING_STATUS = "VOICE";
+    public static final String KEY_VT_PROVISIONING_STATUS = "VIDEO";
+    public static final String PROVISIONING_VALUE_ENABLED = "ENABLE";
+    public static final String PROVISIONING_VALUE_DISABLED = "DISABLE";
+
+    /**
+     * Constant for AccessNetwork Transport Type
+     * **/
+    public static final String TRANSPORT_TYPE_INVALID = "INVALID";
+    public static final String TRANSPORT_TYPE_WWAN = "WWAN";
+    public static final String TRANSPORT_TYPE_WLAN = "WLAN";
+
+    /**
      * Constant for Call Property
      * **/
     public static final String CALL_PROPERTY_HIGH_DEF_AUDIO = "HIGH_DEF_AUDIO";
@@ -166,6 +189,13 @@ public class TelephonyConstants {
     public static final String RAT_GLOBAL = "GLOBAL";
     public static final String RAT_LTE_CA = "LTE_CA";
     public static final String RAT_UNKNOWN = "UNKNOWN";
+
+    /**
+     * Constant for Ims Registration RAT
+     * **/
+    public static final String REGISTRATION_TECH_NONE = "NONE";
+    public static final String REGISTRATION_TECH_LTE = "LTE";
+    public static final String REGISTRATION_TECH_IWLAN = "IWLAN";
 
     /**
      * Constant for Phone Type

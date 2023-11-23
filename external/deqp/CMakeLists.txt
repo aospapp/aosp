@@ -1,10 +1,10 @@
 # dEQP cmake file
 
 # Module FindGit requires cmake >= 2.8.2
-cmake_minimum_required(VERSION 2.8.2)
+cmake_minimum_required(VERSION 3.0)
 
 find_package(Git)
-find_package(PythonInterp 2)
+find_package(PythonInterp 3)
 
 # dEQP Target.
 set(DEQP_TARGET "default" CACHE STRING "dEQP Target (default, android...)")
@@ -55,8 +55,10 @@ include_directories(
 include(targets/${DEQP_TARGET}/${DEQP_TARGET}.cmake)
 
 # zlib
-find_path(ZLIB_INCLUDE_PATH	zlib.h)
-find_library(ZLIB_LIBRARY	z)
+find_package(ZLIB)
+# dEQP CMake compatibility (as for libpng)
+set(ZLIB_INCLUDE_PATH ${ZLIB_INCLUDE_DIRS})
+set(ZLIB_LIBRARY ${ZLIB_LIBRARIES})
 
 if (NOT ZLIB_INCLUDE_PATH OR NOT ZLIB_LIBRARY)
 	message(STATUS "System version of zlib not found, using external/zlib")
@@ -79,7 +81,7 @@ include_directories(${ZLIB_INCLUDE_PATH})
 # CMake files expect the non-standard PNG_INCLUDE_PATH and PNG_LIBRARY. Set the
 # non-standard variables here to retain compatibility with dEQP's existing
 # CMake files.
-include(FindPNG)
+find_package(PNG)
 set(PNG_INCLUDE_PATH ${PNG_INCLUDE_DIRS})
 set(PNG_LIBRARY ${PNG_LIBRARIES})
 
@@ -95,23 +97,16 @@ add_subdirectory(external/glslang)
 # spirv-tools
 add_subdirectory(external/spirv-tools)
 
-# VkRunner
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/vkrunner/src")
-	message(STATUS "VkRunner found, integration enabled")
-	set(DEQP_HAVE_VKRUNNER 1)
-	add_definitions("-DDEQP_HAVE_VKRUNNER=1")
-	add_subdirectory(external/vkrunner)
-	include_directories(external/vkrunner/src)
-else()
-	message(STATUS "VkRunner not found, integration disabled")
-endif ()
-
 # spirv-headers
 set(SPIRV_INCLUDE_PATH "${PROJECT_SOURCE_DIR}/external/spirv-headers/src/include")
 if (NOT EXISTS ${SPIRV_INCLUDE_PATH})
 	message(FATAL_ERROR "SPIR-V headers not found, please run external/fetch_sources.py")
 endif()
 include_directories(${SPIRV_INCLUDE_PATH})
+
+# Amber
+add_subdirectory(external/amber)
+include_directories(external/amber)
 
 # RenderDoc API
 include_directories(external/renderdoc/src)

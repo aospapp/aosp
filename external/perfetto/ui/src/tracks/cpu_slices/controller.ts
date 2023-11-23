@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {fromNs} from '../../common/time';
+import {fromNs, toNs} from '../../common/time';
+import {LIMIT} from '../../common/track_data';
+
 import {
   TrackController,
   trackControllerRegistry
@@ -28,22 +30,13 @@ import {
 
 class CpuSliceTrackController extends TrackController<Config, Data> {
   static readonly kind = CPU_SLICE_TRACK_KIND;
-  private busy = false;
   private setup = false;
 
-  onBoundsChange(start: number, end: number, resolution: number): void {
-    this.update(start, end, resolution);
-  }
+  async onBoundsChange(start: number, end: number, resolution: number):
+      Promise<Data> {
+    const startNs = toNs(start);
+    const endNs = toNs(end);
 
-  private async update(start: number, end: number, resolution: number):
-      Promise<void> {
-    // TODO: we should really call TraceProcessor.Interrupt() at this point.
-    if (this.busy) return;
-
-    const startNs = Math.round(start * 1e9);
-    const endNs = Math.round(end * 1e9);
-
-    this.busy = true;
     if (this.setup === false) {
       await this.query(
           `create virtual table ${this.tableName('window')} using window;`);
@@ -69,20 +62,18 @@ class CpuSliceTrackController extends TrackController<Config, Data> {
       where rowid = 0;`);
 
     if (isQuantized) {
-      this.publish(await this.computeSummary(
-          fromNs(windowStartNs), end, resolution, bucketSizeNs));
+      return this.computeSummary(
+          fromNs(windowStartNs), end, resolution, bucketSizeNs);
     } else {
-      this.publish(
-          await this.computeSlices(fromNs(windowStartNs), end, resolution));
+      return this.computeSlices(fromNs(windowStartNs), end, resolution);
     }
-    this.busy = false;
   }
 
   private async computeSummary(
       start: number, end: number, resolution: number,
       bucketSizeNs: number): Promise<SummaryData> {
-    const startNs = Math.round(start * 1e9);
-    const endNs = Math.round(end * 1e9);
+    const startNs = toNs(start);
+    const endNs = toNs(end);
     const numBuckets = Math.ceil((endNs - startNs) / bucketSizeNs);
 
     const query = `select
@@ -91,7 +82,7 @@ class CpuSliceTrackController extends TrackController<Config, Data> {
         from ${this.tableName('span')}
         where cpu = ${this.config.cpu}
         and utid != 0
-        group by quantum_ts`;
+        group by quantum_ts limit ${LIMIT}`;
 
     const rawResult = await this.query(query);
     const numRows = +rawResult.numRecords;
@@ -101,6 +92,7 @@ class CpuSliceTrackController extends TrackController<Config, Data> {
       start,
       end,
       resolution,
+      length: numRows,
       bucketSizeSeconds: fromNs(bucketSizeNs),
       utilizations: new Float64Array(numBuckets),
     };
@@ -117,7 +109,7 @@ class CpuSliceTrackController extends TrackController<Config, Data> {
     // TODO(hjd): Remove LIMIT
     const LIMIT = 10000;
 
-    const query = `select ts,dur,utid,row_id from ${this.tableName('span')}
+    const query = `select ts,dur,utid,id from ${this.tableName('span')}
         where cpu = ${this.config.cpu}
         and utid != 0
         limit ${LIMIT};`;
@@ -129,6 +121,7 @@ class CpuSliceTrackController extends TrackController<Config, Data> {
       start,
       end,
       resolution,
+      length: numRows,
       ids: new Float64Array(numRows),
       starts: new Float64Array(numRows),
       ends: new Float64Array(numRows),
@@ -149,14 +142,6 @@ class CpuSliceTrackController extends TrackController<Config, Data> {
     return slices;
   }
 
-  private async query(query: string) {
-    const result = await this.engine.query(query);
-    if (result.error) {
-      console.error(`Query error "${query}": ${result.error}`);
-      throw new Error(`Query error "${query}": ${result.error}`);
-    }
-    return result;
-  }
 
   onDestroy(): void {
     if (this.setup) {

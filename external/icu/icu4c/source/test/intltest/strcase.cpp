@@ -747,7 +747,7 @@ StringCaseTest::assertGreekUpper(const char16_t *s, const char16_t *expected) {
     msg = UnicodeString("ucasemap_utf8ToUpper/Greek(\"") + s16 + "\")";
     char dest8[1000];
     length = ucasemap_utf8ToUpper(csm.getAlias(), dest8, UPRV_LENGTHOF(dest8),
-                                  s8.data(), s8.length(), &errorCode);
+                                  s8.data(), static_cast<int32_t>(s8.length()), &errorCode);
     assertSuccess("ucasemap_utf8ToUpper", errorCode);
     StringPiece result8(dest8, length);
     UnicodeString result16From8 = UnicodeString::fromUTF8(result8);
@@ -765,7 +765,7 @@ StringCaseTest::assertGreekUpper(const char16_t *s, const char16_t *expected) {
         memset(dest8b, 0x5A, UPRV_LENGTHOF(dest8b));
         UErrorCode errorCode = U_ZERO_ERROR;
         length = ucasemap_utf8ToUpper(csm.getAlias(), dest8b, cap,
-                                      s8.data(), s8.length(), &errorCode);
+                                      s8.data(), static_cast<int32_t>(s8.length()), &errorCode);
         assertEquals(msg + cap, expected8Length, length);
         UErrorCode expectedErrorCode;
         if (cap < expected8Length) {
@@ -910,7 +910,7 @@ void StringCaseTest::TestBufferOverflow() {
     std::string data_utf8;
     data.toUTF8String(data_utf8);
 #if !UCONFIG_NO_BREAK_ITERATION
-    result = ucasemap_utf8ToTitle(csm.getAlias(), NULL, 0, data_utf8.c_str(), data_utf8.length(), errorCode);
+    result = ucasemap_utf8ToTitle(csm.getAlias(), NULL, 0, data_utf8.c_str(), static_cast<int32_t>(data_utf8.length()), errorCode);
     if (errorCode.get() != U_BUFFER_OVERFLOW_ERROR || result != (int32_t)data_utf8.length()) {
         errln("%s:%d ucasemap_toTitle(\"hello world\") failed: "
               "expected (U_BUFFER_OVERFLOW_ERROR, %d), got (%s, %d)",
@@ -1314,7 +1314,7 @@ void StringCaseTest::TestCaseMapUTF8WithEdits() {
     Edits edits;
 
     int32_t length = CaseMap::utf8ToLower("tr", U_OMIT_UNCHANGED_TEXT,
-                                          u8"IstanBul", 8, dest, UPRV_LENGTHOF(dest), &edits, errorCode);
+                                          reinterpret_cast<const char*>(u8"IstanBul"), 8, dest, UPRV_LENGTHOF(dest), &edits, errorCode);
     assertEquals(u"toLower(IstanBul)", UnicodeString(u"ıb"),
                  UnicodeString::fromUTF8(StringPiece(dest, length)));
     static const EditChange lowerExpectedChanges[] = {
@@ -1330,7 +1330,7 @@ void StringCaseTest::TestCaseMapUTF8WithEdits() {
 
     edits.reset();
     length = CaseMap::utf8ToUpper("el", U_OMIT_UNCHANGED_TEXT,
-                                  u8"Πατάτα", 6 * 2, dest, UPRV_LENGTHOF(dest), &edits, errorCode);
+                                  reinterpret_cast<const char*>(u8"Πατάτα"), 6 * 2, dest, UPRV_LENGTHOF(dest), &edits, errorCode);
     assertEquals(u"toUpper(Πατάτα)", UnicodeString(u"ΑΤΑΤΑ"),
                  UnicodeString::fromUTF8(StringPiece(dest, length)));
     static const EditChange upperExpectedChanges[] = {
@@ -1352,7 +1352,7 @@ void StringCaseTest::TestCaseMapUTF8WithEdits() {
                                   U_OMIT_UNCHANGED_TEXT |
                                   U_TITLECASE_NO_BREAK_ADJUSTMENT |
                                   U_TITLECASE_NO_LOWERCASE,
-                                  nullptr, u8"IjssEL IglOo", 12,
+                                  nullptr, reinterpret_cast<const char*>(u8"IjssEL IglOo"), 12,
                                   dest, UPRV_LENGTHOF(dest), &edits, errorCode);
     assertEquals(u"toTitle(IjssEL IglOo)", UnicodeString(u"J"),
                  UnicodeString::fromUTF8(StringPiece(dest, length)));
@@ -1370,7 +1370,7 @@ void StringCaseTest::TestCaseMapUTF8WithEdits() {
     // No explicit nor automatic edits.reset(). Edits should be appended.
     length = CaseMap::utf8Fold(U_OMIT_UNCHANGED_TEXT | U_EDITS_NO_RESET |
                                    U_FOLD_CASE_EXCLUDE_SPECIAL_I,
-                               u8"IßtanBul", 1 + 2 + 6, dest, UPRV_LENGTHOF(dest), &edits, errorCode);
+                               reinterpret_cast<const char*>(u8"IßtanBul"), 1 + 2 + 6, dest, UPRV_LENGTHOF(dest), &edits, errorCode);
     assertEquals(u"foldCase(IßtanBul)", UnicodeString(u"ıssb"),
                  UnicodeString::fromUTF8(StringPiece(dest, length)));
     static const EditChange foldExpectedChanges[] = {
@@ -1454,44 +1454,44 @@ void StringCaseTest::TestCaseMapUTF8ToString() {
     StringByteSink<std::string> sink(&dest);
 
     // Omit unchanged text.
-    CaseMap::utf8ToLower("tr", U_OMIT_UNCHANGED_TEXT, u8"IstanBul", sink, nullptr, errorCode);
+    CaseMap::utf8ToLower("tr", U_OMIT_UNCHANGED_TEXT, reinterpret_cast<const char*>(u8"IstanBul"), sink, nullptr, errorCode);
     assertEquals(u"toLower(IstanBul)", UnicodeString(u"ıb"), UnicodeString::fromUTF8(dest));
     dest.clear();
-    CaseMap::utf8ToUpper("el", U_OMIT_UNCHANGED_TEXT, u8"Πατάτα", sink, nullptr, errorCode);
+    CaseMap::utf8ToUpper("el", U_OMIT_UNCHANGED_TEXT, reinterpret_cast<const char*>(u8"Πατάτα"), sink, nullptr, errorCode);
     assertEquals(u"toUpper(Πατάτα)", UnicodeString(u"ΑΤΑΤΑ"),
                  UnicodeString::fromUTF8(dest));
 #if !UCONFIG_NO_BREAK_ITERATION
     dest.clear();
     CaseMap::utf8ToTitle(
         "nl", U_OMIT_UNCHANGED_TEXT | U_TITLECASE_NO_BREAK_ADJUSTMENT | U_TITLECASE_NO_LOWERCASE,
-        nullptr, u8"IjssEL IglOo", sink, nullptr, errorCode);
+        nullptr, reinterpret_cast<const char*>(u8"IjssEL IglOo"), sink, nullptr, errorCode);
     assertEquals(u"toTitle(IjssEL IglOo)", UnicodeString(u"J"),
                  UnicodeString::fromUTF8(dest));
 #endif
     dest.clear();
     CaseMap::utf8Fold(U_OMIT_UNCHANGED_TEXT | U_FOLD_CASE_EXCLUDE_SPECIAL_I,
-                      u8"IßtanBul", sink, nullptr, errorCode);
+                      reinterpret_cast<const char*>(u8"IßtanBul"), sink, nullptr, errorCode);
     assertEquals(u"foldCase(IßtanBul)", UnicodeString(u"ıssb"),
                  UnicodeString::fromUTF8(dest));
 
     // Return the whole result string.
     dest.clear();
-    CaseMap::utf8ToLower("tr", 0, u8"IstanBul", sink, nullptr, errorCode);
+    CaseMap::utf8ToLower("tr", 0, reinterpret_cast<const char*>(u8"IstanBul"), sink, nullptr, errorCode);
     assertEquals(u"toLower(IstanBul)", UnicodeString(u"ıstanbul"),
                  UnicodeString::fromUTF8(dest));
     dest.clear();
-    CaseMap::utf8ToUpper("el", 0, u8"Πατάτα", sink, nullptr, errorCode);
+    CaseMap::utf8ToUpper("el", 0, reinterpret_cast<const char*>(u8"Πατάτα"), sink, nullptr, errorCode);
     assertEquals(u"toUpper(Πατάτα)", UnicodeString(u"ΠΑΤΑΤΑ"),
                  UnicodeString::fromUTF8(dest));
 #if !UCONFIG_NO_BREAK_ITERATION
     dest.clear();
     CaseMap::utf8ToTitle("nl", U_TITLECASE_NO_BREAK_ADJUSTMENT | U_TITLECASE_NO_LOWERCASE,
-                         nullptr, u8"IjssEL IglOo", sink, nullptr, errorCode);
+                         nullptr, reinterpret_cast<const char*>(u8"IjssEL IglOo"), sink, nullptr, errorCode);
     assertEquals(u"toTitle(IjssEL IglOo)", UnicodeString(u"IJssEL IglOo"),
                  UnicodeString::fromUTF8(dest));
 #endif
     dest.clear();
-    CaseMap::utf8Fold(U_FOLD_CASE_EXCLUDE_SPECIAL_I, u8"IßtanBul", sink, nullptr, errorCode);
+    CaseMap::utf8Fold(U_FOLD_CASE_EXCLUDE_SPECIAL_I, reinterpret_cast<const char*>(u8"IßtanBul"), sink, nullptr, errorCode);
     assertEquals(u"foldCase(IßtanBul)", UnicodeString(u"ısstanbul"),
                  UnicodeString::fromUTF8(dest));
 }

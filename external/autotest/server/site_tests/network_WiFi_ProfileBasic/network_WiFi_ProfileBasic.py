@@ -96,7 +96,7 @@ class network_WiFi_ProfileBasic(wifi_cell_test_base.WiFiCellTestBase):
                                       bottom.profile_name)
 
             self._assert_state_transition(client_config0.ssid,
-                                          ['ready', 'portal', 'online'])
+                                          self.context.client.CONNECTED_STATES)
 
             # Explicitly disconnect from the AP.
             self.context.client.shill.disconnect(client_config0.ssid)
@@ -108,7 +108,7 @@ class network_WiFi_ProfileBasic(wifi_cell_test_base.WiFiCellTestBase):
                 # disconnected" flag on all services.  This should cause shill
                 # to re-connect to the AP.
                 self._assert_state_transition(client_config0.ssid,
-                                              ['ready', 'portal', 'online'])
+                                              self.context.client.CONNECTED_STATES)
 
                 self.context.configure(ap_config1, multi_interface=True)
                 client_config1 = xmlrpc_datatypes.AssociationParameters(
@@ -125,7 +125,7 @@ class network_WiFi_ProfileBasic(wifi_cell_test_base.WiFiCellTestBase):
 
                 self._assert_state_transition(client_config1.ssid, ['idle'])
                 self._assert_state_transition(client_config0.ssid,
-                                              ['ready', 'portal', 'online'])
+                                              self.context.client.CONNECTED_STATES)
                 # Verify that the same sort of thing happens when we pop
                 # a profile on top of another one.
                 self.context.assert_connect_wifi(client_config1)
@@ -135,7 +135,7 @@ class network_WiFi_ProfileBasic(wifi_cell_test_base.WiFiCellTestBase):
                                           top.profile_name)
                 self._assert_state_transition(client_config1.ssid, ['idle'])
                 self._assert_state_transition(client_config0.ssid,
-                                              ['ready', 'portal', 'online'])
+                                              self.context.client.CONNECTED_STATES)
 
                 # Re-push the top profile.
                 if not self.context.client.shill.push_profile(top.profile_name):
@@ -157,4 +157,4 @@ class network_WiFi_ProfileBasic(wifi_cell_test_base.WiFiCellTestBase):
                 # reconnect to the service, since the "explicitly disconnected"
                 # flag will be removed.
                 self._assert_state_transition(client_config0.ssid,
-                                              ['ready', 'portal', 'online'])
+                                              self.context.client.CONNECTED_STATES)

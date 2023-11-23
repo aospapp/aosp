@@ -56,7 +56,7 @@ class power_ProbeDriver(test.test):
         if not status.battery:
             raise error.TestFail('No battery found')
 
-        if not status.battery[0].present:
+        if not status.battery.present:
             raise error.TestFail('No battery present')
 
         if not status.battery_discharging():

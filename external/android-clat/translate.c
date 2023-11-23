@@ -26,7 +26,6 @@
 #include "icmp.h"
 #include "logging.h"
 #include "translate.h"
-#include "tun.h"
 
 /* function: packet_checksum
  * calculates the checksum over all the packet components starting from pos
@@ -524,7 +523,7 @@ void translate_packet(int fd, int to_ipv6, const uint8_t *packet, size_t packets
     if (iov_len > 0) {
       fill_tun_header(&tun_targ, ETH_P_IP);
       out[CLAT_POS_TUNHDR].iov_len = sizeof(tun_targ);
-      send_tun(fd, out, iov_len);
+      writev(fd, out, iov_len);
     }
   }
 }

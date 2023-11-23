@@ -2,13 +2,22 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
-import sys
 import subprocess
+import sys
 import tempfile
-import StringIO
 
 from py_vulcanize import html_generation_controller
+
+try:
+  from six import StringIO
+except ImportError:
+  from io import StringIO
+
 
 
 html_warning_message = """
@@ -45,7 +54,7 @@ css_warning_message = """
 
 
 def _AssertIsUTF8(f):
-  if isinstance(f, StringIO.StringIO):
+  if isinstance(f, StringIO):
     return
   assert f.encoding == 'utf-8'
 
@@ -79,7 +88,7 @@ def GenerateJS(load_sequence,
                dir_for_include_tag_root=None,
                minify=False,
                report_sizes=False):
-  f = StringIO.StringIO()
+  f = StringIO()
   GenerateJSToFile(f,
                    load_sequence,
                    use_include_tags_for_scripts,
@@ -106,7 +115,7 @@ def GenerateJSToFile(f,
   if not minify:
     flatten_to_file = f
   else:
-    flatten_to_file = StringIO.StringIO()
+    flatten_to_file = StringIO()
 
   for module in load_sequence:
     module.AppendJSContentsToFile(flatten_to_file,
@@ -120,7 +129,7 @@ def GenerateJSToFile(f,
 
   if report_sizes:
     for module in load_sequence:
-      s = StringIO.StringIO()
+      s = StringIO()
       module.AppendJSContentsToFile(s,
                                     use_include_tags_for_scripts,
                                     dir_for_include_tag_root)
@@ -140,7 +149,8 @@ def GenerateJSToFile(f,
       sln = '.'.join(parts[:2])
 
       # Output
-      print '%i\t%s\t%s\t%s\t%s' % (len(js), min_js_size, module.name, tln, sln)
+      print(('%i\t%s\t%s\t%s\t%s' %
+             (len(js), min_js_size, module.name, tln, sln)))
       sys.stdout.flush()
 
 
@@ -192,7 +202,7 @@ def _MinifyCSS(css_text):
 
 
 def GenerateStandaloneHTMLAsString(*args, **kwargs):
-  f = StringIO.StringIO()
+  f = StringIO()
   GenerateStandaloneHTMLToFile(f, *args, **kwargs)
   return f.getvalue()
 

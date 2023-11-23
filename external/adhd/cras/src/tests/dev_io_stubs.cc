@@ -2,18 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
-#include <memory>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 
+#include <algorithm>
+#include <memory>
+
 extern "C" {
-#include "dev_stream.h"
-#include "cras_rstream.h"
 #include "cras_iodev.h"
+#include "cras_rstream.h"
 #include "cras_shm.h"
 #include "cras_types.h"
+#include "dev_stream.h"
 #include "utlist.h"
 }
 
@@ -22,20 +23,34 @@ extern "C" {
 ShmPtr create_shm(size_t cb_threshold) {
   uint32_t frame_bytes = 4;
   uint32_t used_size = cb_threshold * 2 * frame_bytes;
-  uint32_t shm_size = sizeof(cras_audio_shm_area) + used_size * 2;
-  ShmPtr shm(reinterpret_cast<cras_audio_shm_area*>(calloc(1, shm_size)),
-              free);
-  shm->config.used_size = used_size;
-  shm->config.frame_bytes = frame_bytes;
-  shm->volume_scaler = 1.0;
+
+  ShmPtr shm(reinterpret_cast<struct cras_audio_shm*>(
+                 calloc(1, sizeof(struct cras_audio_shm))),
+             destroy_shm);
+
+  shm->header = reinterpret_cast<struct cras_audio_shm_header*>(
+      calloc(1, sizeof(struct cras_audio_shm_header)));
+  shm->header->config.used_size = used_size;
+  shm->header->config.frame_bytes = frame_bytes;
+  shm->config = shm->header->config;
+
+  uint32_t samples_size = cras_shm_calculate_samples_size(used_size);
+  shm->samples = reinterpret_cast<uint8_t*>(calloc(1, samples_size));
+  shm->samples_info.length = samples_size;
   return shm;
+}
+
+void destroy_shm(struct cras_audio_shm* shm) {
+  free(shm->header);
+  free(shm->samples);
+  free(shm);
 }
 
 RstreamPtr create_rstream(cras_stream_id_t id,
                           CRAS_STREAM_DIRECTION direction,
                           size_t cb_threshold,
                           const cras_audio_format* format,
-                          cras_audio_shm_area* shm) {
+                          cras_audio_shm* shm) {
   RstreamPtr rstream(
       reinterpret_cast<cras_rstream*>(calloc(1, sizeof(cras_rstream))), free);
   rstream->stream_id = id;
@@ -43,22 +58,20 @@ RstreamPtr create_rstream(cras_stream_id_t id,
   rstream->fd = RSTREAM_FAKE_POLL_FD;
   rstream->buffer_frames = cb_threshold * 2;
   rstream->cb_threshold = cb_threshold;
-  rstream->shm.area = shm;
-  rstream->shm.config = shm->config;
+  rstream->shm = shm;
   rstream->format = *format;
-  cras_frames_to_time(cb_threshold,
-                      rstream->format.frame_rate,
+  cras_frames_to_time(cb_threshold, rstream->format.frame_rate,
                       &rstream->sleep_interval_ts);
   return rstream;
 }
 
 DevStreamPtr create_dev_stream(unsigned int dev_id, cras_rstream* rstream) {
   DevStreamPtr dstream(
-      reinterpret_cast<dev_stream*>(calloc(1, sizeof(dev_stream))),
-      free);
+      reinterpret_cast<dev_stream*>(calloc(1, sizeof(dev_stream))), free);
   dstream->dev_id = dev_id;
   dstream->stream = rstream;
   dstream->dev_rate = rstream->format.frame_rate;
+  dstream->is_running = true;
   return dstream;
 }
 
@@ -68,18 +81,17 @@ StreamPtr create_stream(cras_stream_id_t id,
                         size_t cb_threshold,
                         const cras_audio_format* format) {
   ShmPtr shm = create_shm(cb_threshold);
-  RstreamPtr rstream = create_rstream(1, CRAS_STREAM_INPUT, cb_threshold,
-                                      format, shm.get());
+  RstreamPtr rstream =
+      create_rstream(1, CRAS_STREAM_INPUT, cb_threshold, format, shm.get());
   DevStreamPtr dstream = create_dev_stream(1, rstream.get());
-  StreamPtr s(new Stream(std::move(shm),
-                         std::move(rstream),
-                         std::move(dstream)));
+  StreamPtr s(
+      new Stream(std::move(shm), std::move(rstream), std::move(dstream)));
   return s;
 }
 
 void AddFakeDataToStream(Stream* stream, unsigned int frames) {
-  cras_shm_check_write_overrun(&stream->rstream->shm);
-  cras_shm_buffer_written(&stream->rstream->shm, frames);
+  cras_shm_check_write_overrun(stream->rstream->shm);
+  cras_shm_buffer_written(stream->rstream->shm, frames);
 }
 
 int delay_frames_stub(const struct cras_iodev* iodev) {
@@ -93,12 +105,16 @@ IonodePtr create_ionode(CRAS_NODE_TYPE type) {
   return ionode;
 }
 
+int fake_flush_buffer(struct cras_iodev* iodev) {
+  return 0;
+}
+
 IodevPtr create_open_iodev(CRAS_STREAM_DIRECTION direction,
                            size_t cb_threshold,
                            cras_audio_format* format,
                            cras_ionode* active_node) {
   IodevPtr iodev(reinterpret_cast<cras_iodev*>(calloc(1, sizeof(cras_iodev))),
-                  free);
+                 free);
   iodev->is_enabled = 1;
   iodev->direction = direction;
   iodev->format = format;
@@ -108,6 +124,8 @@ IodevPtr create_open_iodev(CRAS_STREAM_DIRECTION direction,
   iodev->buffer_size = cb_threshold * 2;
   iodev->min_cb_level = UINT_MAX;
   iodev->max_cb_level = 0;
+  iodev->largest_cb_level = 0;
+  iodev->flush_buffer = &fake_flush_buffer;
   return iodev;
 }
 
@@ -117,8 +135,8 @@ DevicePtr create_device(CRAS_STREAM_DIRECTION direction,
                         CRAS_NODE_TYPE active_node_type) {
   IonodePtr node = create_ionode(active_node_type);
   IodevPtr dev = create_open_iodev(direction, cb_threshold, format, node.get());
-  OpendevPtr odev(
-      reinterpret_cast<open_dev*>(calloc(1, sizeof(open_dev))), free);
+  OpendevPtr odev(reinterpret_cast<open_dev*>(calloc(1, sizeof(open_dev))),
+                  free);
   odev->dev = dev.get();
 
   DevicePtr d(new Device(std::move(dev), std::move(node), std::move(odev)));
@@ -131,6 +149,8 @@ void add_stream_to_dev(IodevPtr& dev, const StreamPtr& stream) {
                                static_cast<size_t>(dev->min_cb_level));
   dev->max_cb_level = std::max(stream->rstream->cb_threshold,
                                static_cast<size_t>(dev->max_cb_level));
+  dev->largest_cb_level = std::max(stream->rstream->cb_threshold,
+                                   static_cast<size_t>(dev->max_cb_level));
 }
 
 void fill_audio_format(cras_audio_format* format, unsigned int rate) {

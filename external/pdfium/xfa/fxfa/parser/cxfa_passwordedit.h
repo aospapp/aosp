@@ -9,10 +9,13 @@
 
 #include "xfa/fxfa/parser/cxfa_node.h"
 
-class CXFA_PasswordEdit : public CXFA_Node {
+class CXFA_PasswordEdit final : public CXFA_Node {
  public:
   CXFA_PasswordEdit(CXFA_Document* doc, XFA_PacketType packet);
   ~CXFA_PasswordEdit() override;
+
+  XFA_FFWidgetType GetDefaultFFWidgetType() const override;
+  WideString GetPasswordChar();
 };
 
 #endif  // XFA_FXFA_PARSER_CXFA_PASSWORDEDIT_H_

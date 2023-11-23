@@ -42,4 +42,4 @@ print("X Windows system window dump file (color) ...\n");
 testReadWrite( 'XWD:input.xwd',
   'XWD:output.xwd',
   q//,
-  '6a4a257921582768b774aeeac549b7c0c0b51f665395eddf921cce53a0ad2a33');
+  'd0b17026dc758a4088c96bc0f21a2bf14e3ab4af8a35638129f7731f2f1cbe7e');

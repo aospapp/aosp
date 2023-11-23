@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE keyboard SYSTEM "../dtd/ldmlKeyboard.dtd">
 <keyboard locale="nb-t-k0-android-600dpi">
-	<version platform="4.4" number="$Revision: 11914 $"/>
+	<version platform="4.4" number="$Revision$"/>
 	<names>
 		<name value="Norwegian Bokmål (600dpi)"/>
 	</names>

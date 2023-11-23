@@ -176,15 +176,14 @@ static void init_emphasis_eq(struct drc *drc)
 
 	float stage_gain = drc_get_param(drc, 0, PARAM_FILTER_STAGE_GAIN);
 	float stage_ratio = drc_get_param(drc, 0, PARAM_FILTER_STAGE_RATIO);
-	float anchor_freq = drc_get_param(drc, 0,  PARAM_FILTER_ANCHOR);
+	float anchor_freq = drc_get_param(drc, 0, PARAM_FILTER_ANCHOR);
 
 	drc->emphasis_eq = eq2_new();
 	drc->deemphasis_eq = eq2_new();
 
 	for (i = 0; i < 2; i++) {
 		emphasis_stage_pair_biquads(stage_gain, anchor_freq,
-					    anchor_freq / stage_ratio,
-					    &e, &d);
+					    anchor_freq / stage_ratio, &e, &d);
 		for (j = 0; j < 2; j++) {
 			eq2_append_biquad_direct(drc->emphasis_eq, j, &e);
 			eq2_append_biquad_direct(drc->deemphasis_eq, j, &d);
@@ -230,19 +229,10 @@ static void init_kernel(struct drc *drc)
 		float db_post_gain = drc_get_param(drc, i, PARAM_POST_GAIN);
 		int enabled = drc_get_param(drc, i, PARAM_ENABLED);
 
-		dk_set_parameters(&drc->kernel[i],
-				  db_threshold,
-				  db_knee,
-				  ratio,
-				  attack_time,
-				  release_time,
-				  pre_delay_time,
-				  db_post_gain,
-				  releaseZone1,
-				  releaseZone2,
-				  releaseZone3,
-				  releaseZone4
-			);
+		dk_set_parameters(&drc->kernel[i], db_threshold, db_knee, ratio,
+				  attack_time, release_time, pre_delay_time,
+				  db_post_gain, releaseZone1, releaseZone2,
+				  releaseZone3, releaseZone4);
 
 		dk_set_enabled(&drc->kernel[i], enabled);
 	}
@@ -266,6 +256,7 @@ static void sum3(float *data, const float *data1, const float *data2, int n)
 	int i;
 
 	if (count) {
+		// clang-format off
 		__asm__ __volatile(
 			"1:                                         \n"
 			"ld1 {v0.4s}, [%[data1]], #16               \n"
@@ -283,8 +274,8 @@ static void sum3(float *data, const float *data1, const float *data2, int n)
 			  [count]"+r"(count)
 			: /* input */
 			: /* clobber */
-			  "v0", "v1", "v2", "memory", "cc"
-			);
+			  "v0", "v1", "v2", "memory", "cc");
+		// clang-format on
 	}
 
 	n &= 3;
@@ -298,6 +289,7 @@ static void sum3(float *data, const float *data1, const float *data2, int n)
 	int i;
 
 	if (count) {
+		// clang-format off
 		__asm__ __volatile(
 			"1:                                         \n"
 			"vld1.32 {q0}, [%[data1]]!                  \n"
@@ -315,8 +307,8 @@ static void sum3(float *data, const float *data1, const float *data2, int n)
 			  [count]"+r"(count)
 			: /* input */
 			: /* clobber */
-			  "q0", "q1", "q2", "memory", "cc"
-			);
+			  "q0", "q1", "q2", "memory", "cc");
+		// clang-format on
 	}
 
 	n &= 3;
@@ -332,6 +324,7 @@ static void sum3(float *data, const float *data1, const float *data2, int n)
 	int i;
 
 	if (count) {
+		// clang-format off
 		__asm__ __volatile(
 			"1:                                         \n"
 			"lddqu (%[data1]), %[x]                     \n"
@@ -355,8 +348,8 @@ static void sum3(float *data, const float *data1, const float *data2, int n)
 			  [z]"=x"(z)
 			: /* input */
 			: /* clobber */
-			  "memory", "cc"
-			);
+			  "memory", "cc");
+		// clang-format on
 	}
 
 	n &= 3;
@@ -383,8 +376,8 @@ void drc_process(struct drc *drc, float **data, int frames)
 		eq2_process(drc->emphasis_eq, data[0], data[1], frames);
 
 	/* Crossover */
-	crossover2_process(&drc->xo2, frames, data[0], data[1],
-			   data1[0], data1[1], data2[0], data2[1]);
+	crossover2_process(&drc->xo2, frames, data[0], data[1], data1[0],
+			   data1[1], data2[0], data2[1]);
 
 	/* Apply compression to each band of the signal. The processing is
 	 * performed in place.

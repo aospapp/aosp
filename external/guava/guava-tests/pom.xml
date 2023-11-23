@@ -5,7 +5,7 @@
   <parent>
     <groupId>com.google.guava</groupId>
     <artifactId>guava-parent</artifactId>
-    <version>18.0</version>
+    <version>27.1-jre</version>
   </parent>
   <artifactId>guava-tests</artifactId>
   <name>Guava Unit Tests</name>
@@ -26,6 +26,14 @@
       <artifactId>jsr305</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.checkerframework</groupId>
+      <artifactId>checker-qual</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>error_prone_annotations</artifactId>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
     </dependency>
@@ -40,6 +48,14 @@
     <dependency>
       <groupId>com.google.truth</groupId>
       <artifactId>truth</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.truth.extensions</groupId>
+      <artifactId>truth-java8-extension</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.jimfs</groupId>
+      <artifactId>jimfs</artifactId>
     </dependency>
     <dependency>
       <groupId>com.google.caliper</groupId>
@@ -66,18 +82,31 @@
       </plugin>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>2.3.1</version>
         <executions>
           <execution>
+            <id>default-jar</id>
+            <goals><goal>jar</goal></goals>
+            <configuration>
+              <skipIfEmpty>true</skipIfEmpty>
+            </configuration>
+          </execution>
+          <execution>
+            <id>create-test-jar</id>
             <goals><goal>test-jar</goal></goals>
           </execution>
         </executions>
       </plugin>
       <plugin>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>2.8.2</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>animal-sniffer-maven-plugin</artifactId>
       </plugin>
-      <!-- TODO(cpovirk): reenable after a matching Caliper snapshot is pushed to Maven Central
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -95,7 +124,6 @@
           </execution>
         </executions>
       </plugin>
-      -->
     </plugins>
   </build>
 </project>

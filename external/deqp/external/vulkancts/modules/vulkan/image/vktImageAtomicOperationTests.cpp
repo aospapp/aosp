@@ -36,6 +36,7 @@
 #include "vkRefUtil.hpp"
 #include "vkTypeUtil.hpp"
 #include "vkCmdUtil.hpp"
+#include "vkObjUtil.hpp"
 
 #include "tcuTextureUtil.hpp"
 #include "tcuTexture.hpp"
@@ -122,12 +123,15 @@ static string getAtomicFuncArgumentShaderStr (const AtomicOperation	op,
 	switch (op)
 	{
 		case ATOMIC_OPERATION_ADD:
-		case ATOMIC_OPERATION_MIN:
-		case ATOMIC_OPERATION_MAX:
 		case ATOMIC_OPERATION_AND:
 		case ATOMIC_OPERATION_OR:
 		case ATOMIC_OPERATION_XOR:
 			return string("(" + x + "*" + x + " + " + y + "*" + y + " + " + z + "*" + z + ")");
+		case ATOMIC_OPERATION_MIN:
+		case ATOMIC_OPERATION_MAX:
+			// multiply by (1-2*(value % 2) to make half of the data negative
+			// this will result in generating large numbers for uint formats
+			return string("((1 - 2*(" + x + " % 2)) * (" + x + "*" + x + " + " + y + "*" + y + " + " + z + "*" + z + "))");
 		case ATOMIC_OPERATION_EXCHANGE:
 		case ATOMIC_OPERATION_COMPARE_EXCHANGE:
 			return string("((" + z + "*" + toString(gridSize.x()) + " + " + x + ")*" + toString(gridSize.y()) + " + " + y + ")");
@@ -192,7 +196,10 @@ static deInt32 getOperationInitialValue (const AtomicOperation op)
 	}
 }
 
-static deInt32 getAtomicFuncArgument (const AtomicOperation op, const IVec3& invocationID, const IVec3& gridSize)
+template <typename T>
+static T getAtomicFuncArgument (const AtomicOperation	op,
+								const IVec3&			invocationID,
+								const IVec3&			gridSize)
 {
 	const int x = invocationID.x();
 	const int y = invocationID.y();
@@ -202,12 +209,14 @@ static deInt32 getAtomicFuncArgument (const AtomicOperation op, const IVec3& inv
 	{
 		// \note Fall-throughs.
 		case ATOMIC_OPERATION_ADD:
-		case ATOMIC_OPERATION_MIN:
-		case ATOMIC_OPERATION_MAX:
 		case ATOMIC_OPERATION_AND:
 		case ATOMIC_OPERATION_OR:
 		case ATOMIC_OPERATION_XOR:
 			return x*x + y*y + z*z;
+		case ATOMIC_OPERATION_MIN:
+		case ATOMIC_OPERATION_MAX:
+			// multiply half of the data by -1
+			return (1-2*(x % 2))*(x*x + y*y + z*z);
 		case ATOMIC_OPERATION_EXCHANGE:
 		case ATOMIC_OPERATION_COMPARE_EXCHANGE:
 			return (z*gridSize.x() + x)*gridSize.y() + y;
@@ -229,7 +238,8 @@ static bool isOrderIndependentAtomicOperation (const AtomicOperation op)
 }
 
 //! Computes the result of an atomic operation where "a" is the data operated on and "b" is the parameter to the atomic function.
-static deInt32 computeBinaryAtomicOperationResult (const AtomicOperation op, const deInt32 a, const deInt32 b)
+template <typename T>
+static T computeBinaryAtomicOperationResult (const AtomicOperation op, const T a, const T b)
 {
 	switch (op)
 	{
@@ -250,19 +260,20 @@ static deInt32 computeBinaryAtomicOperationResult (const AtomicOperation op, con
 class BinaryAtomicEndResultCase : public vkt::TestCase
 {
 public:
-								BinaryAtomicEndResultCase  (tcu::TestContext&			testCtx,
-															const string&				name,
-															const string&				description,
-															const ImageType				imageType,
-															const tcu::UVec3&			imageSize,
-															const tcu::TextureFormat&	format,
-															const AtomicOperation		operation,
-															const glu::GLSLVersion		glslVersion);
+								BinaryAtomicEndResultCase	(tcu::TestContext&			testCtx,
+															 const string&				name,
+															 const string&				description,
+															 const ImageType			imageType,
+															 const tcu::UVec3&			imageSize,
+															 const tcu::TextureFormat&	format,
+															 const AtomicOperation		operation,
+															 const glu::GLSLVersion		glslVersion);
 
-	void						initPrograms			   (SourceCollections&			sourceCollections) const;
-	TestInstance*				createInstance			   (Context&					context) const;
+	void						initPrograms				(SourceCollections&			sourceCollections) const;
+	TestInstance*				createInstance				(Context&					context) const;
+	virtual void				checkSupport				(Context&					context) const;
+
 private:
-
 	const ImageType				m_imageType;
 	const tcu::UVec3			m_imageSize;
 	const tcu::TextureFormat	m_format;
@@ -285,6 +296,12 @@ BinaryAtomicEndResultCase::BinaryAtomicEndResultCase (tcu::TestContext&			testCt
 	, m_operation	(operation)
 	, m_glslVersion	(glslVersion)
 {
+}
+
+void BinaryAtomicEndResultCase::checkSupport (Context& context) const
+{
+	if (m_imageType == IMAGE_TYPE_CUBE_ARRAY)
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_IMAGE_CUBE_ARRAY);
 }
 
 void BinaryAtomicEndResultCase::initPrograms (SourceCollections& sourceCollections) const
@@ -324,19 +341,20 @@ void BinaryAtomicEndResultCase::initPrograms (SourceCollections& sourceCollectio
 class BinaryAtomicIntermValuesCase : public vkt::TestCase
 {
 public:
-								BinaryAtomicIntermValuesCase   (tcu::TestContext&			testCtx,
-																const string&				name,
-																const string&				description,
-																const ImageType				imageType,
-																const tcu::UVec3&			imageSize,
-																const tcu::TextureFormat&	format,
-																const AtomicOperation		operation,
-																const glu::GLSLVersion		glslVersion);
+								BinaryAtomicIntermValuesCase	(tcu::TestContext&			testCtx,
+																 const string&				name,
+																 const string&				description,
+																 const ImageType			imageType,
+																 const tcu::UVec3&			imageSize,
+																 const tcu::TextureFormat&	format,
+																 const AtomicOperation		operation,
+																 const glu::GLSLVersion		glslVersion);
 
-	void						initPrograms				   (SourceCollections&			sourceCollections) const;
-	TestInstance*				createInstance				   (Context&					context) const;
+	void						initPrograms					(SourceCollections&			sourceCollections) const;
+	TestInstance*				createInstance					(Context&					context) const;
+	virtual void				checkSupport					(Context&					context) const;
+
 private:
-
 	const ImageType				m_imageType;
 	const tcu::UVec3			m_imageSize;
 	const tcu::TextureFormat	m_format;
@@ -359,6 +377,12 @@ BinaryAtomicIntermValuesCase::BinaryAtomicIntermValuesCase (TestContext&			testC
 	, m_operation	(operation)
 	, m_glslVersion	(glslVersion)
 {
+}
+
+void BinaryAtomicIntermValuesCase::checkSupport (Context& context) const
+{
+	if (m_imageType == IMAGE_TYPE_CUBE_ARRAY)
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_IMAGE_CUBE_ARRAY);
 }
 
 void BinaryAtomicIntermValuesCase::initPrograms (SourceCollections& sourceCollections) const
@@ -419,7 +443,6 @@ public:
 	virtual void				commandsAfterCompute	 (const VkCommandBuffer			cmdBuffer) const = 0;
 
 	virtual bool				verifyResult			 (Allocation&					outputBufferAllocation) const = 0;
-	void						checkRequirements		 (void) const;
 
 protected:
 	const string				m_name;
@@ -451,14 +474,6 @@ BinaryAtomicInstanceBase::BinaryAtomicInstanceBase (Context&				context,
 {
 }
 
-void BinaryAtomicInstanceBase::checkRequirements (void) const
-{
-	if (m_imageType == IMAGE_TYPE_CUBE_ARRAY && !m_context.getDeviceFeatures().imageCubeArray)
-	{
-		TCU_THROW(NotSupportedError, "imageCubeArray feature not supported");
-	}
-}
-
 tcu::TestStatus	BinaryAtomicInstanceBase::iterate (void)
 {
 	const VkDevice			device				= m_context.getDevice();
@@ -468,8 +483,6 @@ tcu::TestStatus	BinaryAtomicInstanceBase::iterate (void)
 	Allocator&				allocator			= m_context.getDefaultAllocator();
 	const VkDeviceSize		imageSizeInBytes	= tcu::getPixelSize(m_format) * getNumPixels(m_imageType, m_imageSize);
 	const VkDeviceSize		outBuffSizeInBytes	= getOutputBufferSize();
-
-	checkRequirements();
 
 	const VkImageCreateInfo imageParams	=
 	{
@@ -596,6 +609,16 @@ public:
 	virtual void		commandsAfterCompute		   (const VkCommandBuffer	cmdBuffer) const;
 
 	virtual bool		verifyResult				   (Allocation&				outputBufferAllocation) const;
+
+protected:
+
+	template <typename T>
+	bool				isValueCorrect				   (deInt32 resultValue,
+														deInt32 x,
+														deInt32 y,
+														deInt32 z,
+														const UVec3& gridSize,
+														const IVec3 extendedGridSize) const;
 };
 
 deUint32 BinaryAtomicEndResultInstance::getOutputBufferSize (void) const
@@ -649,6 +672,7 @@ void BinaryAtomicEndResultInstance::commandsAfterCompute (const VkCommandBuffer	
 
 bool BinaryAtomicEndResultInstance::verifyResult (Allocation& outputBufferAllocation) const
 {
+	const bool	uintFormat			= isUintFormat(mapTextureFormat(m_format));
 	const UVec3	gridSize			= getShaderGridSize(m_imageType, m_imageSize);
 	const IVec3 extendedGridSize	= IVec3(NUM_INVOCATIONS_PER_PIXEL*gridSize.x(), gridSize.y(), gridSize.z());
 
@@ -662,16 +686,16 @@ bool BinaryAtomicEndResultInstance::verifyResult (Allocation& outputBufferAlloca
 
 		if (isOrderIndependentAtomicOperation(m_operation))
 		{
-			deInt32 reference = getOperationInitialValue(m_operation);
-
-			for (deInt32 i = 0; i < static_cast<deInt32>(NUM_INVOCATIONS_PER_PIXEL); i++)
+			if (uintFormat)
 			{
-				const IVec3 gid(x + i*gridSize.x(), y, z);
-				reference = computeBinaryAtomicOperationResult(m_operation, reference, getAtomicFuncArgument(m_operation, gid, extendedGridSize));
+				if (!isValueCorrect<deUint32>(resultValue, x, y, z, gridSize, extendedGridSize))
+					return false;
 			}
-
-			if (resultValue != reference)
-				return false;
+			else
+			{
+				if (!isValueCorrect<deInt32>(resultValue, x, y, z, gridSize, extendedGridSize))
+					return false;
+			}
 		}
 		else if (m_operation == ATOMIC_OPERATION_EXCHANGE)
 		{
@@ -681,7 +705,7 @@ bool BinaryAtomicEndResultInstance::verifyResult (Allocation& outputBufferAlloca
 			for (deInt32 i = 0; i < static_cast<deInt32>(NUM_INVOCATIONS_PER_PIXEL) && !matchFound; i++)
 			{
 				const IVec3 gid(x + i*gridSize.x(), y, z);
-				matchFound = (resultValue == getAtomicFuncArgument(m_operation, gid, extendedGridSize));
+				matchFound = (resultValue == getAtomicFuncArgument<deInt32>(m_operation, gid, extendedGridSize));
 			}
 
 			if (!matchFound)
@@ -695,7 +719,7 @@ bool BinaryAtomicEndResultInstance::verifyResult (Allocation& outputBufferAlloca
 			for (deInt32 i = 0; i < static_cast<deInt32>(NUM_INVOCATIONS_PER_PIXEL) && !matchFound; i++)
 			{
 				const IVec3 gid(x + i*gridSize.x(), y, z);
-				matchFound = (resultValue == getAtomicFuncArgument(m_operation, gid, extendedGridSize));
+				matchFound = (resultValue == getAtomicFuncArgument<deInt32>(m_operation, gid, extendedGridSize));
 			}
 
 			if (!matchFound)
@@ -705,6 +729,19 @@ bool BinaryAtomicEndResultInstance::verifyResult (Allocation& outputBufferAlloca
 			DE_ASSERT(false);
 	}
 	return true;
+}
+
+template <typename T>
+bool BinaryAtomicEndResultInstance::isValueCorrect(deInt32 resultValue, deInt32 x, deInt32 y, deInt32 z, const UVec3& gridSize, const IVec3 extendedGridSize) const
+{
+	T reference = static_cast<T>(getOperationInitialValue(m_operation));
+	for (deInt32 i = 0; i < static_cast<deInt32>(NUM_INVOCATIONS_PER_PIXEL); i++)
+	{
+		const IVec3 gid(x + i*gridSize.x(), y, z);
+		T			arg = getAtomicFuncArgument<T>(m_operation, gid, extendedGridSize);
+		reference = computeBinaryAtomicOperationResult(m_operation, reference, arg);
+	}
+	return (static_cast<T>(resultValue) == reference);
 }
 
 TestInstance* BinaryAtomicEndResultCase::createInstance (Context& context) const
@@ -736,11 +773,20 @@ public:
 
 protected:
 
+	template <typename T>
+	bool				areValuesCorrect				   (tcu::ConstPixelBufferAccess& resultBuffer,
+															deInt32 x,
+															deInt32 y,
+															deInt32 z,
+															const UVec3& gridSize,
+															const IVec3 extendedGridSize) const;
+
+	template <typename T>
 	bool				verifyRecursive					   (const deInt32			index,
-															const deInt32			valueSoFar,
+															const T					valueSoFar,
 															bool					argsUsed[NUM_INVOCATIONS_PER_PIXEL],
-															const deInt32			atomicArgs[NUM_INVOCATIONS_PER_PIXEL],
-															const deInt32			resultValues[NUM_INVOCATIONS_PER_PIXEL]) const;
+															const T					atomicArgs[NUM_INVOCATIONS_PER_PIXEL],
+															const T					resultValues[NUM_INVOCATIONS_PER_PIXEL]) const;
 	de::MovePtr<Image>	m_intermResultsImage;
 	Move<VkImageView>	m_intermResultsImageView;
 };
@@ -858,6 +904,7 @@ void BinaryAtomicIntermValuesInstance::commandsAfterCompute (const VkCommandBuff
 
 bool BinaryAtomicIntermValuesInstance::verifyResult (Allocation&	outputBufferAllocation) const
 {
+	const bool	uintFormat		 = isUintFormat(mapTextureFormat(m_format));
 	const UVec3	gridSize		 = getShaderGridSize(m_imageType, m_imageSize);
 	const IVec3 extendedGridSize = IVec3(NUM_INVOCATIONS_PER_PIXEL*gridSize.x(), gridSize.y(), gridSize.z());
 
@@ -867,34 +914,47 @@ bool BinaryAtomicIntermValuesInstance::verifyResult (Allocation&	outputBufferAll
 	for (deInt32 y = 0; y < resultBuffer.getHeight(); y++)
 	for (deUint32 x = 0; x < gridSize.x(); x++)
 	{
-		deInt32 resultValues[NUM_INVOCATIONS_PER_PIXEL];
-		deInt32 atomicArgs[NUM_INVOCATIONS_PER_PIXEL];
-		bool	argsUsed[NUM_INVOCATIONS_PER_PIXEL];
-
-		for (deInt32 i = 0; i < static_cast<deInt32>(NUM_INVOCATIONS_PER_PIXEL); i++)
+		if (uintFormat)
 		{
-			IVec3 gid(x + i*gridSize.x(), y, z);
-
-			resultValues[i] = resultBuffer.getPixelInt(gid.x(), gid.y(), gid.z()).x();
-			atomicArgs[i]	= getAtomicFuncArgument(m_operation, gid, extendedGridSize);
-			argsUsed[i]		= false;
+			if (!areValuesCorrect<deUint32>(resultBuffer, x, y, z, gridSize, extendedGridSize))
+				return false;
 		}
-
-		// Verify that the return values form a valid sequence.
-		if (!verifyRecursive(0, getOperationInitialValue(m_operation), argsUsed, atomicArgs, resultValues))
+		else
 		{
-			return false;
+			if (!areValuesCorrect<deInt32>(resultBuffer, x, y, z, gridSize, extendedGridSize))
+				return false;
 		}
 	}
 
 	return true;
 }
 
+template <typename T>
+bool BinaryAtomicIntermValuesInstance::areValuesCorrect(tcu::ConstPixelBufferAccess& resultBuffer, deInt32 x, deInt32 y, deInt32 z, const UVec3& gridSize, const IVec3 extendedGridSize) const
+{
+	T		resultValues[NUM_INVOCATIONS_PER_PIXEL];
+	T		atomicArgs[NUM_INVOCATIONS_PER_PIXEL];
+	bool	argsUsed[NUM_INVOCATIONS_PER_PIXEL];
+
+	for (deInt32 i = 0; i < static_cast<deInt32>(NUM_INVOCATIONS_PER_PIXEL); i++)
+	{
+		IVec3 gid(x + i*gridSize.x(), y, z);
+
+		resultValues[i] = resultBuffer.getPixelInt(gid.x(), gid.y(), gid.z()).cast<T>().x();
+		atomicArgs[i]	= getAtomicFuncArgument<T>(m_operation, gid, extendedGridSize);
+		argsUsed[i]		= false;
+	}
+
+	// Verify that the return values form a valid sequence.
+	return verifyRecursive(0, static_cast<T>(getOperationInitialValue(m_operation)), argsUsed, atomicArgs, resultValues);
+}
+
+template <typename T>
 bool BinaryAtomicIntermValuesInstance::verifyRecursive (const deInt32	index,
-														const deInt32	valueSoFar,
+														const T			valueSoFar,
 														bool			argsUsed[NUM_INVOCATIONS_PER_PIXEL],
-														const deInt32	atomicArgs[NUM_INVOCATIONS_PER_PIXEL],
-														const deInt32	resultValues[NUM_INVOCATIONS_PER_PIXEL]) const
+														const T			atomicArgs[NUM_INVOCATIONS_PER_PIXEL],
+														const T			resultValues[NUM_INVOCATIONS_PER_PIXEL]) const
 {
 	if (index >= static_cast<deInt32>(NUM_INVOCATIONS_PER_PIXEL))
 		return true;

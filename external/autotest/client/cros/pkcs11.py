@@ -118,7 +118,7 @@ def verify_pkcs11_initialized():
         logging.error('Expecting a single signed-in user with a token.')
         return False
 
-    verify_cmd = ('cryptohome --action=pkcs11_token_status')
+    verify_cmd = ('cryptohome --action=pkcs11_is_user_token_ok')
     __run_cmd(verify_cmd)
 
     verify_result = True

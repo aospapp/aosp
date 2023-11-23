@@ -107,19 +107,18 @@ public final class HelloWorldMaker {
 Use it in your app
 ------------------
 
-Maven users can get dexmaker from Sonatype's central repository. The Mockito dependency is optional.
+For Mockito support, download the latest .jar via Maven:
+```xml
+    <dependency>
+      <groupId>com.linkedin.dexmaker</groupId>
+      <artifactId>dexmaker-mockito</artifactId>
+      <version>2.25.0</version>
+      <type>pom</type>
+    </dependency>
+```
 
 ```
-  <dependency>
-    <groupId>com.google.dexmaker</groupId>
-    <artifactId>dexmaker</artifactId>
-    <version>1.2</version>
-  </dependency>
-  <dependency>
-    <groupId>com.google.dexmaker</groupId>
-    <artifactId>dexmaker-mockito</artifactId>
-    <version>1.2</version>
-  </dependency>
+    androidTestCompile 'com.linkedin.dexmaker:dexmaker-mockito:2.25.0'
 ```
 
 Download [dexmaker-1.2.jar](http://search.maven.org/remotecontent?filepath=com/google/dexmaker/dexmaker/1.2/dexmaker-1.2.jar)

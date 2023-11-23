@@ -45,8 +45,21 @@ def _CheckUnwantedDependencies(input_api, output_api):
   # eval-ed and thus doesn't have __file__.
   original_sys_path = sys.path
   try:
-    sys.path = sys.path + [input_api.os_path.join(
-        input_api.PresubmitLocalPath(), 'buildtools', 'checkdeps')]
+    def GenerateCheckdepsPath(base_path):
+      return input_api.os_path.join(base_path, 'buildtools', 'checkdeps')
+
+    presubmit_path = input_api.PresubmitLocalPath()
+    presubmit_parent_path = input_api.os_path.dirname(presubmit_path)
+    not_standalone_pdfium = \
+        input_api.os_path.basename(presubmit_parent_path) == "third_party" and \
+        input_api.os_path.basename(presubmit_path) == "pdfium"
+
+    sys.path.append(GenerateCheckdepsPath(presubmit_path))
+    if not_standalone_pdfium:
+      presubmit_grandparent_path = input_api.os_path.dirname(
+          presubmit_parent_path)
+      sys.path.append(GenerateCheckdepsPath(presubmit_grandparent_path))
+
     import checkdeps
     from cpp_checker import CppChecker
     from rules import Rule
@@ -257,6 +270,8 @@ def _CheckTestDuplicates(input_api, output_api):
   tests_added = []
   results = []
   for f in input_api.AffectedFiles():
+    if f.Action() == 'D':
+      continue
     if not f.LocalPath().startswith(('testing/resources/pixel/',
         'testing/resources/javascript/')):
       continue
@@ -293,11 +308,14 @@ def _CheckPNGFormat(input_api, output_api):
   return results
 
 def CheckChangeOnUpload(input_api, output_api):
+  cpp_source_filter = lambda x: input_api.FilterSourceFile(
+      x, white_list=(r'\.(?:c|cc|cpp|h)$',))
+
   results = []
   results += _CheckUnwantedDependencies(input_api, output_api)
   results += input_api.canned_checks.CheckPatchFormatted(input_api, output_api)
   results += input_api.canned_checks.CheckChangeLintsClean(
-      input_api, output_api, None, LINT_FILTERS)
+      input_api, output_api, cpp_source_filter, LINT_FILTERS)
   results += _CheckIncludeOrder(input_api, output_api)
   results += _CheckTestDuplicates(input_api, output_api)
   results += _CheckPNGFormat(input_api, output_api)

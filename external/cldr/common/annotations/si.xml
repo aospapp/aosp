@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="si"/>
 	</identity>
 	<annotations>
@@ -23,52 +23,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏾" type="tts">සමෙහි වර්ගය-5</annotation>
 		<annotation cp="🏿">ඉමෝජි විකරණකාරකය | වර්ණය | සම | සමෙහි වර්ගය-6 | ෆ්ට්ස්පැට්‍රික්</annotation>
 		<annotation cp="🏿" type="tts">සමෙහි වර්ගය-6</annotation>
+		<annotation cp="⚧">සංක්‍රාන්ති ලිංගික සංකේතය | සංක්‍රාන්ති ලිංගිකයන්</annotation>
+		<annotation cp="⚧" type="tts">සංක්‍රාන්ති ලිංගික සංකේතය</annotation>
+		<annotation cp="🤌">අත් ඉඟිය | ඇඟිලි | උපහාසාත්මක | ප්‍රශ්න කිරීම | වකුටු කළ | වකුටු කළ ඇඟිලි</annotation>
+		<annotation cp="🤌" type="tts">වකුටු කළ ඇඟිලි</annotation>
+		<annotation cp="🥲">ආඩම්බර | කඳුළු | කඳුළු වලින් සිනහ මුසු මුහුණ | ප්‍රසන්න | සහන | සිනාසෙමින් | ස්පර්ශ කළා</annotation>
+		<annotation cp="🥲" type="tts">කඳුළු වලින් සිනහ මුසු මුහුණ</annotation>
+		<annotation cp="🥷">නින්ජා | රහසිගත | සටන්කරුවා | සැඟවුණු</annotation>
+		<annotation cp="🥷" type="tts">නින්ජා</annotation>
+		<annotation cp="🥸">කණ්නාඩි | නාසය | නොපැහැදිලි | මුහුණ | වෙස්වලාගත් මුහුණ | වෙස්වළාගෙන</annotation>
+		<annotation cp="🥸" type="tts">වෙස්වලාගත් මුහුණ</annotation>
+		<annotation cp="🦣">ඇත්දළ | මැමත් | ලොම් | වඳවීම | විශාල</annotation>
+		<annotation cp="🦣" type="tts">මැමත්</annotation>
+		<annotation cp="🦤">ඩෝඩෝ | මොරිෂස් | වඳවීම | විශාල</annotation>
+		<annotation cp="🦤" type="tts">ඩෝඩෝ</annotation>
+		<annotation cp="🦫">බීවර් | වේල්ල</annotation>
+		<annotation cp="🦫" type="tts">බීවර්</annotation>
+		<annotation cp="🦬">බයිසන් | බුද්ධිමත් | මී හරක් | රංචුව</annotation>
+		<annotation cp="🦬" type="tts">බයිසන්</annotation>
+		<annotation cp="🦭">මුහුදු සිංහයා | සීල් මත්ස්‍යයා</annotation>
+		<annotation cp="🦭" type="tts">සීල් මත්ස්‍යයා</annotation>
+		<annotation cp="🧋">කිරි | තේ | බුබුල | බුබුලු තේ | මුතු</annotation>
+		<annotation cp="🧋" type="tts">බුබුලු තේ</annotation>
+		<annotation cp="🩴">පටි | පටි සෙරෙප්පුව | බීච් සෙරෙප්පු | සෙරෙප්පු</annotation>
+		<annotation cp="🩴" type="tts">පටි සෙරෙප්පුව</annotation>
+		<annotation cp="🪃">ඕස්ට්‍රේලියාව | නැවත පැමිණීම | පරාවර්තනය | බූමරංගය</annotation>
+		<annotation cp="🪃" type="tts">බූමරංගය</annotation>
+		<annotation cp="🪄">මායාකාරයා | මැජික් | යෂ්ටිය</annotation>
+		<annotation cp="🪄" type="tts">මැජික් යෂ්ටිය</annotation>
+		<annotation cp="🪅">පිනාට | සාදය | සැමරුම</annotation>
+		<annotation cp="🪅" type="tts">පිනාට</annotation>
+		<annotation cp="🪆">කැදැල්ල | බෝනික්කා | රුසියානු බෝනික්කන් | රුසියාව</annotation>
+		<annotation cp="🪆" type="tts">රුසියානු බෝනික්කන්</annotation>
+		<annotation cp="🪖">යුද්ධ හමුදාව | රණශූර | සොල්දාදුවා | හමුදා හිස් වැස්ම | හමුදාව | හිස් වැසුම</annotation>
+		<annotation cp="🪖" type="tts">හමුදා හිස් වැස්ම</annotation>
+		<annotation cp="🪗">එකෝඩින් | කොන්සටීන | මිරිකන පෙට්ටිය</annotation>
+		<annotation cp="🪗" type="tts">එකෝඩින්</annotation>
+		<annotation cp="🪘">කොන්ගා | දිගු බෙර | පහර | බෙර | රිද්මය</annotation>
+		<annotation cp="🪘" type="tts">දිගු බෙර</annotation>
+		<annotation cp="🪙">කාසිය | නිධානය | මුදල් | රන් | රිදී | ලෝහ</annotation>
+		<annotation cp="🪙" type="tts">කාසිය</annotation>
+		<annotation cp="🪚">කියත | මෙවලම | ලී | වඩු කාර්මිකයා | වඩු වැඩ කියත</annotation>
+		<annotation cp="🪚" type="tts">වඩු වැඩ කියත</annotation>
+		<annotation cp="🪛">ඉස්කුරුප්පු | ඉස්කුරුප්පු නියන | මෙවලම</annotation>
+		<annotation cp="🪛" type="tts">ඉස්කුරුප්පු නියන</annotation>
+		<annotation cp="🪜">ඉණිමං පෙත්ත | ඉණිමඟ | නගින්න | පියවර</annotation>
+		<annotation cp="🪜" type="tts">ඉණිමඟ</annotation>
+		<annotation cp="🪝">ඇල්ලීම | උගුල් අටවනවා | කෙක්ක | කොක්ක | වක්‍රය | විකුණුම් ස්ථානය</annotation>
+		<annotation cp="🪝" type="tts">කොක්ක</annotation>
+		<annotation cp="🪞">කැඩපත | පරාවර්තකය | පරාවර්තනය | සමපේක්ෂනය</annotation>
+		<annotation cp="🪞" type="tts">කැඩපත</annotation>
+		<annotation cp="🪟">කවුළුව | නරඹන්න | නැවුම් වාතය | රාමුව | විනිවිද පෙනෙන | විවෘත</annotation>
+		<annotation cp="🪟" type="tts">කවුළුව</annotation>
+		<annotation cp="🪠">චූෂණ | ජලනල | ජලනල පොම්පය | බල කුසලාන | වැසිකිළිය</annotation>
+		<annotation cp="🪠" type="tts">ජලනල පොම්පය</annotation>
+		<annotation cp="🪡">ඉඳිකටුව | එම්බ්‍රොයිඩරි | මහන ඉඳිකටුව | මැහුම්</annotation>
+		<annotation cp="🪡" type="tts">මහන ඉඳිකටුව</annotation>
+		<annotation cp="🪢">කඹය | ගැටය | ටයි | ට්වයින් | පටලැවිල්ල</annotation>
+		<annotation cp="🪢" type="tts">ගැටය</annotation>
+		<annotation cp="🪣">කුඩා බාල්දිය | පීප්පය | බාල්දිය | විශාල බාල්දිය</annotation>
+		<annotation cp="🪣" type="tts">බාල්දිය</annotation>
+		<annotation cp="🪤">ඇමක් | උගුල | මී කතුර</annotation>
+		<annotation cp="🪤" type="tts">මී කතුර</annotation>
+		<annotation cp="🪥">දත් | දත් පිළිබඳ | නාන කාමරය | පිරිසිදු | බුරුසුව | සනීපාරක්ෂාව</annotation>
+		<annotation cp="🪥" type="tts">දත් බුරුසුව</annotation>
+		<annotation cp="🪦">මුදුන්ගල | සුසාන භූමිය | සොහොන | සොහොන් ගල | සොහොන් බිම</annotation>
+		<annotation cp="🪦" type="tts">මුදුන්ගල</annotation>
+		<annotation cp="🪧">නිරූපණය | පිකට් | පුවරුව | ලකුණ | විරෝධතා</annotation>
+		<annotation cp="🪧" type="tts">පුවරුව</annotation>
+		<annotation cp="🪨">ගල | ගල් | ගල්පර්වතය | ඝන | පාෂාණය | බර</annotation>
+		<annotation cp="🪨" type="tts">ගල</annotation>
+		<annotation cp="🪰">කුණුවීම | පළිබෝධ | මැසි පිළවා | මැස්සා | රෝග</annotation>
+		<annotation cp="🪰" type="tts">මැස්සා</annotation>
+		<annotation cp="🪱">පණුවා | පරපෝෂිතයා | පස් පණුවා | වාලසික</annotation>
+		<annotation cp="🪱" type="tts">පණුවා</annotation>
+		<annotation cp="🪲">කුරුමිණියා | කෘමීන් | මකුණා</annotation>
+		<annotation cp="🪲" type="tts">කුරුමිණියා</annotation>
+		<annotation cp="🪳">කැරපොත්ත | කැරපොත්තා | කෘමීන් | පළිබෝධ</annotation>
+		<annotation cp="🪳" type="tts">කැරපොත්තා</annotation>
+		<annotation cp="🪴">කම්මැලි | නිවස | නිෂ්එල | පෝච්චි කළ පැලය | පෝෂණය | වර්ධනය | ශාකය</annotation>
+		<annotation cp="🪴" type="tts">පෝච්චි කළ පැලය</annotation>
+		<annotation cp="🪵">දැව | ලී</annotation>
+		<annotation cp="🪵" type="tts">දැව</annotation>
+		<annotation cp="🪶">පිහාටු</annotation>
+		<annotation cp="🪶" type="tts">පිහාටු</annotation>
+		<annotation cp="🫀">ඉන්ද්‍රිය | ස්පන්දනය | හෘද ඉන්ද්‍රිය | හෘද විද්‍යාව | හෘද ස්පන්දනය</annotation>
+		<annotation cp="🫀" type="tts">හෘද ඉන්ද්‍රිය</annotation>
+		<annotation cp="🫁">ආශ්වාසය | ඉන්ද්‍රිය | පෙනහළු | ශ්වසනය | හුස්ම | හුස්ම ගැනීම</annotation>
+		<annotation cp="🫁" type="tts">පෙනහළු</annotation>
+		<annotation cp="🫂">ආයුබෝවන් | මිනිස්සු බදාගන්නවා | වැළඳ ගැනීම | ස්තූතියි | හෙලෝ</annotation>
+		<annotation cp="🫂" type="tts">මිනිස්සු බදාගන්නවා</annotation>
+		<annotation cp="🫐">නිල් | බිල්බෙරි | බෙරී | බ්ලූ බෙරි | බ්ලූබෙරී</annotation>
+		<annotation cp="🫐" type="tts">බ්ලූබෙරී</annotation>
+		<annotation cp="🫑">එළවළු | කැප්සියම් | ගම්මිරිස් | බෙල් පෙපර්</annotation>
+		<annotation cp="🫑" type="tts">බෙල් පෙපර්</annotation>
+		<annotation cp="🫒">ආහාර | ඔලිව්</annotation>
+		<annotation cp="🫒" type="tts">ඔලිව්</annotation>
+		<annotation cp="🫓">නාන් | පැතලි පාන් | පිටා | ලවාෂ්</annotation>
+		<annotation cp="🫓" type="tts">පැතලි පාන්</annotation>
+		<annotation cp="🫔">එතූ | තමලේ | මෙක්සිකානු</annotation>
+		<annotation cp="🫔" type="tts">තමලේ</annotation>
+		<annotation cp="🫕">උණු කොට | චීස් | චොකලට් | බඳුන | ස්විට්සර්ලන්තය | ෆොන්ඩි</annotation>
+		<annotation cp="🫕" type="tts">ෆොන්ඩි</annotation>
+		<annotation cp="🫖">තේ | තේ පෝච්චිය | බඳුන | බොන්න</annotation>
+		<annotation cp="🫖" type="tts">තේ පෝච්චිය</annotation>
+		<annotation cp="🛖">නිවස | පැල්පත | මැටියෙන් තැනූ පැල | වටරවුම නිවාස</annotation>
+		<annotation cp="🛖" type="tts">පැල්පත</annotation>
+		<annotation cp="🛗">ඔසවන්න | ප්‍රවේශ්‍යතාව | සෝපානය</annotation>
+		<annotation cp="🛗" type="tts">සෝපානය</annotation>
+		<annotation cp="🛻">කැබ් රථය | ට්‍රක් රථය | පිකප්</annotation>
+		<annotation cp="🛻" type="tts">කැබ් රථය</annotation>
+		<annotation cp="🛼">රෝද | ලිස්සා යෑම | සපත්තු</annotation>
+		<annotation cp="🛼" type="tts">රෝද සපත්තු</annotation>
 		<annotation cp="😀">මුහුණ | සිනහ මුහුණ | සිනහව</annotation>
 		<annotation cp="😀" type="tts">සිනහ මුහුණ</annotation>
-		<annotation cp="😁">ඇස | මුහුණ | සිනහව | සිනාසෙන ඇස් සහිත දත් විරිතත්න මුහුණ</annotation>
-		<annotation cp="😁" type="tts">සිනාසෙන ඇස් සහිත දත් විරිතත්න මුහුණ</annotation>
-		<annotation cp="😂">කඳුළු | මුහුණ | සතුට | සතුටු කඳුළු සහිත මුහුණ | සිනහව</annotation>
-		<annotation cp="😂" type="tts">සතුටු කඳුළු සහිත මුහුණ</annotation>
-		<annotation cp="🤣">පෙරළීම | බිම | බිම පෙරළීමෙන් සිනාසීම | මුහුණ | සිනාසෙනවා</annotation>
-		<annotation cp="🤣" type="tts">බිම පෙරළීමෙන් සිනාසීම</annotation>
 		<annotation cp="😃">කට | කට ඇරුණ සිනාසෙන මුහුණ | මුහුණ | විවෘත | සිනහව</annotation>
 		<annotation cp="😃" type="tts">කට ඇරුණ සිනාසෙන මුහුණ</annotation>
 		<annotation cp="😄">ඇස | කට | කට ඇරුණ සිනාාසෙන ඇස් සහිත සිනහ මුහුණ | මුහුණ | විවෘත | සිනහව</annotation>
 		<annotation cp="😄" type="tts">කට ඇරුණ සිනාාසෙන ඇස් සහිත සිනහ මුහුණ</annotation>
+		<annotation cp="😁">ඇස | මුහුණ | සිනහව | සිනාසෙන ඇස් සහිත දත් විරිතත්න මුහුණ</annotation>
+		<annotation cp="😁" type="tts">සිනාසෙන ඇස් සහිත දත් විරිතත්න මුහුණ</annotation>
+		<annotation cp="😆">කට | කට ඇරුණ ඇස් තදින් වසා ගත් සිනහ | කට ඇරුණ ඇස් තදින් වසා ගත් සිනහ මුහුණ | තෘප්තිමත් | මුහුණ | විවෘත | සිනහව</annotation>
+		<annotation cp="😆" type="tts">කට ඇරුණ ඇස් තදින් වසා ගත් සිනහ මුහුණ</annotation>
 		<annotation cp="😅">කට ඇරුණ දහඩිය දමන සිනහ මුහුණ | දහඩිය | මුහුණ | විවෘත | සිනහව | සීතල</annotation>
 		<annotation cp="😅" type="tts">කට ඇරුණ දහඩිය දමන සිනහ මුහුණ</annotation>
-		<annotation cp="😆">කට | කට ඇරුණ ඇස් තදින් වසා ගත් සිනහ මුහුණ | තෘප්තිමත් | මුහුණ | විවෘත | සිනහව</annotation>
-		<annotation cp="😆" type="tts">කට ඇරුණ ඇස් තදින් වසා ගත් සිනහ මුහුණ</annotation>
+		<annotation cp="🤣">පෙරළීම | බිම | බිම පෙරළීමෙන් සිනාසීම | මුහුණ | සිනාසෙනවා</annotation>
+		<annotation cp="🤣" type="tts">බිම පෙරළීමෙන් සිනාසීම</annotation>
+		<annotation cp="😂">කඳුළු | මුහුණ | සතුට | සතුටු කඳුළු සහිත මුහුණ | සිනහව</annotation>
+		<annotation cp="😂" type="tts">සතුටු කඳුළු සහිත මුහුණ</annotation>
+		<annotation cp="🙂">මුහුණ | යන්තම් සිනාවෙන මුහුණ | සිනහව</annotation>
+		<annotation cp="🙂" type="tts">යන්තම් සිනාවෙන මුහුණ</annotation>
+		<annotation cp="🙃">උඩු යටිකුරු | මුහුණ | යටිකුරු වූ මුහුණ</annotation>
+		<annotation cp="🙃" type="tts">යටිකුරු වූ මුහුණ</annotation>
 		<annotation cp="😉">ඇස් ගසන මුහුණ | ඇස් ගැසීම | මුහුණ</annotation>
 		<annotation cp="😉" type="tts">ඇස් ගසන මුහුණ</annotation>
 		<annotation cp="😊">ඇස | මුහුණ | රතු වීම | සිනහව | සිනාසෙන ඇස් සහිිත සිනහ මුහුණ</annotation>
 		<annotation cp="😊" type="tts">සිනාසෙන ඇස් සහිිත සිනහ මුහුණ</annotation>
-		<annotation cp="😋">මුහුණ | ම් | යම් | රස | රස ආහාරවලින් පිනා යන මුහුණ | රසවත් | සිනහව</annotation>
-		<annotation cp="😋" type="tts">රස ආහාරවලින් පිනා යන මුහුණ</annotation>
-		<annotation cp="😎">අව් කණ්ණාඩි | අව් කණ්ණාඩි පැළඳි සිනහ මුහුණ | ඇස | ඇස් ආවරණ | කණ්ණාඩි | කාලගුණය | දීප්තිමත් | මුහුණ | සන්සුන් | සිනහව | සූර්යයා</annotation>
-		<annotation cp="😎" type="tts">අව් කණ්ණාඩි පැළඳි සිනහ මුහුණ</annotation>
-		<annotation cp="😍">ආදරය | ඇස | මුහුණ | සිනහව | හදවත | හදවතක හැඩය ගත් ඇස් සහිත සිනහ මුහුණ</annotation>
-		<annotation cp="😍" type="tts">හදවතක හැඩය ගත් ඇස් සහිත සිනහ මුහුණ</annotation>
-		<annotation cp="😘">මුහුණ | සිප ගැනීමක් ලබා දෙන මුහුණ | හදවත | හාදුව</annotation>
-		<annotation cp="😘" type="tts">සිප ගැනීමක් ලබා දෙන මුහුණ</annotation>
+		<annotation cp="😇">අහිංසක | රැස් වළල්ල සහිත සිනහ මුහුණ | සුරංගනා කථාව | සුරංගනාවිය | හලෝ</annotation>
+		<annotation cp="😇" type="tts">රැස් වළල්ල සහිත සිනහ මුහුණ</annotation>
 		<annotation cp="🥰">ආදරයෙන් සිටින | කැමති | ගෞරව කරනවා | හදවත් 3ක් සහිත සිනාසී සිටින මුහුණක්</annotation>
 		<annotation cp="🥰" type="tts">හදවත් 3ක් සහිත සිනාසී සිටින මුහුණක්</annotation>
-		<annotation cp="😗">මුහුණ | සිඹින මුහුණ | හාදුව</annotation>
-		<annotation cp="😗" type="tts">සිඹින මුහුණ</annotation>
-		<annotation cp="😙">ඇස | මුහුණ | සිනහව | සිනාසෙන ඇසි සහිත සිඹින මුහුණ | හාදුව</annotation>
-		<annotation cp="😙" type="tts">සිනාසෙන ඇසි සහිත සිඹින මුහුණ</annotation>
-		<annotation cp="😚">ඇස | මුහුණ | වැසුණු | වැසුණු ඇස් සහිත සිඹින මුහුණ | හාදුව</annotation>
-		<annotation cp="😚" type="tts">වැසුණු ඇස් සහිත සිඹින මුහුණ</annotation>
-		<annotation cp="☺">කැපී පෙනෙන | මුහුණ | සන්සුන් | සිනහ මුුහුණ | සිනහව</annotation>
-		<annotation cp="☺" type="tts">සිනහ මුුහුණ</annotation>
-		<annotation cp="🙂">මුහුණ | යන්තම් සිනාවෙන මුහුණ | සිනහව</annotation>
-		<annotation cp="🙂" type="tts">යන්තම් සිනාවෙන මුහුණ</annotation>
-		<annotation cp="🤗">මුහුණ | වැළඳ ගන්නවා | වැළඳ ගන්නා මුහුණ | වැළඳ ගැනීම</annotation>
-		<annotation cp="🤗" type="tts">වැළඳ ගන්නා මුහුණ</annotation>
+		<annotation cp="😍">ආදරය | ඇස | මුහුණ | සිනහව | හදවත | හදවතක හැඩය ගත් ඇස් සහිත සිනහ මුහුණ</annotation>
+		<annotation cp="😍" type="tts">හදවතක හැඩය ගත් ඇස් සහිත සිනහ මුහුණ</annotation>
 		<annotation cp="🤩">ඇස් | ඇස් වල තරු ඇති සිනාවෙන මුහුණ | තරුව | මුහුණ | සිනාවෙමින්</annotation>
 		<annotation cp="🤩" type="tts">ඇස් වල තරු ඇති සිනාවෙන මුහුණ</annotation>
+		<annotation cp="😘">මුහුණ | සිප ගැනීමක් ලබා දෙන මුහුණ | හදවත | හාදුව</annotation>
+		<annotation cp="😘" type="tts">සිප ගැනීමක් ලබා දෙන මුහුණ</annotation>
+		<annotation cp="😗">මුහුණ | සිඹින මුහුණ | හාදුව</annotation>
+		<annotation cp="😗" type="tts">සිඹින මුහුණ</annotation>
+		<annotation cp="☺">කැපී පෙනෙන | මුහුණ | සන්සුන් | සිනහ මුුහුණ | සිනහව</annotation>
+		<annotation cp="☺" type="tts">සිනහ මුුහුණ</annotation>
+		<annotation cp="😚">ඇස | මුහුණ | වැසුණු | වැසුණු ඇස් සහිත සිඹින මුහුණ | හාදුව</annotation>
+		<annotation cp="😚" type="tts">වැසුණු ඇස් සහිත සිඹින මුහුණ</annotation>
+		<annotation cp="😙">ඇස | මුහුණ | සිනහව | සිනාසෙන ඇසි සහිත සිඹින මුහුණ | හාදුව</annotation>
+		<annotation cp="😙" type="tts">සිනාසෙන ඇසි සහිත සිඹින මුහුණ</annotation>
+		<annotation cp="😋">මුහුණ | යම් | රස | රස ආහාරවලින් පිනා යන | රස ආහාරවලින් පිනා යන මුහුණ | රසවත් | සිනහව</annotation>
+		<annotation cp="😋" type="tts">රස ආහාරවලින් පිනා යන මුහුණ</annotation>
+		<annotation cp="😛">දිව | දිව එළියට දැමූ මුහුණ | මුහුණ</annotation>
+		<annotation cp="😛" type="tts">දිව එළියට දැමූ මුහුණ</annotation>
+		<annotation cp="😜">ඇස් ගැසීම | දිව | දිව එළියට දැමූ සහ ඇස් ගසන මුහුණ | දිිව එළියට දැමූ සහ ඇස් ගසන මුහුණ | මුහුණ | විහිළු</annotation>
+		<annotation cp="😜" type="tts">දිිව එළියට දැමූ සහ ඇස් ගසන මුහුණ</annotation>
+		<annotation cp="🤪">ඇස | පිස්සු මුහුණ | පොඩි | ලොකු</annotation>
+		<annotation cp="🤪" type="tts">පිස්සු මුහුණ</annotation>
+		<annotation cp="😝">ඇස | දිව | දිව එළියට දැමූ සහ තදින් වැසුණ ඇස් සහිත මුහුණ | දිව එළිියට දැමූ සහ තදින් වැසුණ ඇස් සහිත මුහුණ | පිළිකුල් | මුහුණ | රසය</annotation>
+		<annotation cp="😝" type="tts">දිව එළියට දැමූ සහ තදින් වැසුණ ඇස් සහිත මුහුණ</annotation>
+		<annotation cp="🤑">කට | කටේ මුදල් රුවා ගත් මුහුණ | මුහුණ | සල්ලි</annotation>
+		<annotation cp="🤑" type="tts">කටේ මුදල් රුවා ගත් මුහුණ</annotation>
+		<annotation cp="🤗">මුහුණ | වැළඳ ගන්නවා | වැළඳ ගන්නා මුහුණ | වැළඳ ගැනීම</annotation>
+		<annotation cp="🤗" type="tts">වැළඳ ගන්නා මුහුණ</annotation>
+		<annotation cp="🤭">අතින් කට වැසුණු මුහුණ | හපොයි</annotation>
+		<annotation cp="🤭" type="tts">අතින් කට වැසුණු මුහුණ</annotation>
+		<annotation cp="🤫">නිශ්ශබ්ද | නිශ්ශබ්ද කිරීමේ මුහුණ | නිශ්ශබ්ද වන්න</annotation>
+		<annotation cp="🤫" type="tts">නිශ්ශබ්ද කිරීමේ මුහුණ</annotation>
 		<annotation cp="🤔">කල්පනා කරන මුහුණ | මුහුණ | සිතීම</annotation>
 		<annotation cp="🤔" type="tts">කල්පනා කරන මුහුණ</annotation>
+		<annotation cp="🤐">කට | කටට සිප් එකක් දැමූ මුහුණ | මුහුණ | සිප්</annotation>
+		<annotation cp="🤐" type="tts">කටට සිප් එකක් දැමූ මුහුණ</annotation>
 		<annotation cp="🤨">අවිශ්වාසය | ඉහළ ගිය ඇහි බැමි ඇති මුහුණ | සංශයවාදයකි</annotation>
 		<annotation cp="🤨" type="tts">ඉහළ ගිය ඇහි බැමි ඇති මුහුණ</annotation>
 		<annotation cp="😐">උදාසීන | මුහුණ | හැඟීම් රහිත</annotation>
@@ -77,99 +207,27 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😑" type="tts">හැඟීමක් පළ නොකරන මුහුණ</annotation>
 		<annotation cp="😶">කට | කටක් රහිත මුහුණ | නිශ්ශබ්ද | නිහඬ | මුහුණ</annotation>
 		<annotation cp="😶" type="tts">කටක් රහිත මුහුණ</annotation>
-		<annotation cp="🙄">ඇස් | කරකවන ඇස් ඇති මුහුණ | කරකැවීම | මුහුණ</annotation>
-		<annotation cp="🙄" type="tts">කරකවන ඇස් ඇති මුහුණ</annotation>
 		<annotation cp="😏">නියවන මුහුණ | නියවීම | මුහුණ</annotation>
 		<annotation cp="😏" type="tts">නියවන මුහුණ</annotation>
-		<annotation cp="😣">උත්සාහය | උත්සාහවන්ත මුහුණ | මුහුණ</annotation>
-		<annotation cp="😣" type="tts">උත්සාහවන්ත මුහුණ</annotation>
-		<annotation cp="😥">බලාපොරොත්තු සුන්වූ | බලාපොරොත්තු සුන්වූ නමුත් සැනසුමක් ලත් මුහුණ | මුහුණ | විව් | සැනසුමක් ලත්</annotation>
-		<annotation cp="😥" type="tts">බලාපොරොත්තු සුන්වූ නමුත් සැනසුමක් ලත් මුහුණ</annotation>
-		<annotation cp="😮">කට | කට ඇරුණ මුහුණ | දුක | මුහුණ | විවෘත</annotation>
-		<annotation cp="😮" type="tts">කට ඇරුණ මුහුණ</annotation>
-		<annotation cp="🤐">කට | කටට සිප් එකක් දැමූ මුහුණ | මුහුණ | සිප්</annotation>
-		<annotation cp="🤐" type="tts">කටට සිප් එකක් දැමූ මුහුණ</annotation>
-		<annotation cp="😯">නිශ්ශබ්ද | නිහඩ | පුදුම | මුහුණ</annotation>
-		<annotation cp="😯" type="tts">නිශ්ශබ්ද මුහුණ</annotation>
-		<annotation cp="😪">නිදිබර මුහුණ | නින්ද | මුහුණ</annotation>
-		<annotation cp="😪" type="tts">නිදිබර මුහුණ</annotation>
-		<annotation cp="😫">මහුණ | විඩාබර මුහුණ | වෙහෙසකර</annotation>
-		<annotation cp="😫" type="tts">විඩාබර මුහුණ</annotation>
-		<annotation cp="😴">නිදින මුහුණ | නින්ද | මුහුණ | ස්ස්ස්</annotation>
-		<annotation cp="😴" type="tts">නිදින මුහුණ</annotation>
-		<annotation cp="😌">මුහුණ | සැනසුමක් ලත් | සැනසුමක් ලත් මුහුණ</annotation>
-		<annotation cp="😌" type="tts">සැනසුමක් ලත් මුහුණ</annotation>
-		<annotation cp="😛">දිව | දිව එළියට දැමූ මුහුණ | මුහුණ</annotation>
-		<annotation cp="😛" type="tts">දිව එළියට දැමූ මුහුණ</annotation>
-		<annotation cp="😜">ඇස් ගැසීම | දිව | දිව එළියට දැමූ සහ ඇස් ගසන මුහුණ | දිිව එළියට දැමූ සහ ඇස් ගසන මුහුණ | මුහුණ | විහිළු</annotation>
-		<annotation cp="😜" type="tts">දිිව එළියට දැමූ සහ ඇස් ගසන මුහුණ</annotation>
-		<annotation cp="😝">ඇස | දිව | දිව එළියට දැමූ සහ තදින් වැසුණ ඇස් සහිත මුහුණ | දිව එළිියට දැමූ සහ තදින් වැසුණ ඇස් සහිත මුහුණ | පිළිකුල් | මුහුණ | රසය</annotation>
-		<annotation cp="😝" type="tts">දිව එළියට දැමූ සහ තදින් වැසුණ ඇස් සහිත මුහුණ</annotation>
-		<annotation cp="🤤">කෙළ බේරෙන | කෙළ බේරෙන මුහුණ | මුහුණ</annotation>
-		<annotation cp="🤤" type="tts">කෙළ බේරෙන මුහුණ</annotation>
 		<annotation cp="😒">අසතුටු | මුහුණ | විනෝදයක් නැති | විනෝදයක් නැති මුහුණ</annotation>
 		<annotation cp="😒" type="tts">විනෝදයක් නැති මුහුණ</annotation>
-		<annotation cp="😓">දහඩිය | දහඩිය දමා ගත් මුහුණ | මුුහුණ | සීතල</annotation>
-		<annotation cp="😓" type="tts">දහඩිය දමා ගත් මුහුණ</annotation>
-		<annotation cp="😔">අධෛර්යය | කල්පනාකාරී | කල්පනාවෙහි ගැලුණ මුහුණ | මුහුණ</annotation>
-		<annotation cp="😔" type="tts">කල්පනාවෙහි ගැලුණ මුහුණ</annotation>
-		<annotation cp="😕">මුහුණ | ව්‍යාකූල | ව්‍යාකූල වූ මුහුණ</annotation>
-		<annotation cp="😕" type="tts">ව්‍යාකූල වූ මුහුණ</annotation>
-		<annotation cp="🙃">උඩු යටිකුරු | මුහුණ | යටිකුරු වූ මුහුණ</annotation>
-		<annotation cp="🙃" type="tts">යටිකුරු වූ මුහුණ</annotation>
-		<annotation cp="🤑">කට | කටේ මුදල් රුවා ගත් මුහුණ | මුහුණ | සල්ලි</annotation>
-		<annotation cp="🤑" type="tts">කටේ මුදල් රුවා ගත් මුහුණ</annotation>
-		<annotation cp="😲">පුදුම | මුහුණ | විස්මයට පත් | විස්මයට පත් මුහුණ | සම්පූර්ණයෙන්</annotation>
-		<annotation cp="😲" type="tts">විස්මයට පත් මුහුණ</annotation>
-		<annotation cp="☹">මුහුණ | රවන මුහුණ | රැවීම</annotation>
-		<annotation cp="☹" type="tts">රවන මුහුණ</annotation>
-		<annotation cp="🙁">මදක් රවන මුහුණ | මුහුණ | රැවීම</annotation>
-		<annotation cp="🙁" type="tts">මදක් රවන මුහුණ</annotation>
-		<annotation cp="😖">අවුල් සහගත | අවුල් සහගත වූ මුහුණ | මුහුණ</annotation>
-		<annotation cp="😖" type="tts">අවුල් සහගත වූ මුහුණ</annotation>
-		<annotation cp="😞">බලාපොරොත්තු සුුන්වූ | බලාාපොරොත්තු සුන් වූ මුහුණ | මුහුණ</annotation>
-		<annotation cp="😞" type="tts">බලාාපොරොත්තු සුන් වූ මුහුණ</annotation>
-		<annotation cp="😟">කනගාටුවට පත් | කනගාටුවට පත් මුහුණ | මුහුණ</annotation>
-		<annotation cp="😟" type="tts">කනගාටුවට පත් මුහුණ</annotation>
-		<annotation cp="😤">ජයග්‍රහණය | දිනුම | නහයෙන් හුමාලය එන මුහුණ | මුහුණ</annotation>
-		<annotation cp="😤" type="tts">නහයෙන් හුමාලය එන මුහුණ</annotation>
-		<annotation cp="😢">අඬන මුහුණ | ඇඬීම | කඳුළු | දුක | මුහුණ</annotation>
-		<annotation cp="😢" type="tts">අඬන මුහුණ</annotation>
-		<annotation cp="😭">ඇඬීම | කඳුළු | දුක | මුහුණ | හයියෙන් අඩන මුහුණ</annotation>
-		<annotation cp="😭" type="tts">හයියෙන් අඩන මුහුණ</annotation>
-		<annotation cp="😦">කට | කට ඇරුණ රවන මුහුණ | මුහුණ | රැවීම | විවෘත</annotation>
-		<annotation cp="😦" type="tts">කට ඇරුණ රවන මුහුණ</annotation>
-		<annotation cp="😧">මුහුණ | වේදනාව | වේදනාවට පත් වූ මුහුණ</annotation>
-		<annotation cp="😧" type="tts">වේදනාවට පත් වූ මුහුණ</annotation>
-		<annotation cp="😨">බය | බිය | බියජනක | බියට පත් වූ මුහුණ | මුහුණ</annotation>
-		<annotation cp="😨" type="tts">බියට පත් වූ මුහුණ</annotation>
-		<annotation cp="😩">මහන්සිය | මුහුණ | වෙහෙස | වෙහෙසට පත් වූ මුහුණ</annotation>
-		<annotation cp="😩" type="tts">වෙහෙසට පත් වූ මුහුණ</annotation>
-		<annotation cp="🤯">කම්පාවට පත් වූ මුහුණ | පිපිරෙන හිස</annotation>
-		<annotation cp="🤯" type="tts">පිපිරෙන හිස</annotation>
+		<annotation cp="🙄">ඇස් | කරකවන ඇස් ඇති මුහුණ | කරකැවීම | මුහුණ</annotation>
+		<annotation cp="🙄" type="tts">කරකවන ඇස් ඇති මුහුණ</annotation>
 		<annotation cp="😬">පුලුටු කර ගත් මුහුණ | පුලුටු කරගත් | මුහුණ</annotation>
 		<annotation cp="😬" type="tts">පුලුටු කර ගත් මුහුණ</annotation>
-		<annotation cp="😰">ඇරුණු දහඩිය දමන මුහුණ | කට ඇරුණු දහඩිය දමන මුහුණ | දහඩිය | නිල් | මුහුණ | සීතල</annotation>
-		<annotation cp="😰" type="tts">කට ඇරුණු දහඩිය දමන මුහුණ</annotation>
-		<annotation cp="😱">බිය | බියජනක | බියෙන් කෑගසන | බියෙන් කෑගසන මුහුණ | මුහුණ</annotation>
-		<annotation cp="😱" type="tts">බියෙන් කෑගසන මුහුණ</annotation>
-		<annotation cp="🥵">ඇවිස්සුණු | උණුසුම් | දාඩිය දැමීමි | රතු වූ මුහුණ | රත් වූ පහර | රත් වූ මුහුණ</annotation>
-		<annotation cp="🥵" type="tts">රත් වූ මුහුණ</annotation>
-		<annotation cp="🥶">අයිස් කූරු | ඉතා ශ්‍රීතල | නිල් මුහුණැති | සීතල මුහුණ | සීතලයි | හමේ ඇතිවන තුවාල</annotation>
-		<annotation cp="🥶" type="tts">සීතල මුහුණ</annotation>
-		<annotation cp="😳">මුහුණ | රතු වූ | රතු වූ මුහුණ | ලැජ්ජාව</annotation>
-		<annotation cp="😳" type="tts">රතු වූ මුහුණ</annotation>
-		<annotation cp="🤪">ඇස | පිස්සු මුහුණ | පොඩි | ලොකු</annotation>
-		<annotation cp="🤪" type="tts">පිස්සු මුහුණ</annotation>
-		<annotation cp="😵">නිදිමත ගතියක් ඇති මුහුණ | නිිදිමත | මුහුණ</annotation>
-		<annotation cp="😵" type="tts">නිදිමත ගතියක් ඇති මුහුණ</annotation>
-		<annotation cp="😡">අමනාපය | අමනාපයෙන් යුතු මුහුණ | තරහව | පළිගැනීම | මුහුණ | රතු</annotation>
-		<annotation cp="😡" type="tts">අමනාපයෙන් යුතු මුහුණ</annotation>
-		<annotation cp="😠">කේන්තියෙන් යුතු මුහුණ | තරහව | මුහුණ | මෝඩ</annotation>
-		<annotation cp="😠" type="tts">කේන්තියෙන් යුතු මුහුණ</annotation>
-		<annotation cp="🤬">කටේ ලකුණු ඇති මුහුණ | දිව්රුම් දීම</annotation>
-		<annotation cp="🤬" type="tts">කටේ ලකුණු ඇති මුහුණ</annotation>
-		<annotation cp="😷">බෙහෙත් | මුකවාඩම | මුකවාඩමක් සහිත මුහුණ | මුහුණ | රෝගී | වෛද්‍යවරයා | සීතල</annotation>
+		<annotation cp="🤥">පිනොකියෝ | බොරුකියන මුහුණ | බොරුව | මුහුණ</annotation>
+		<annotation cp="🤥" type="tts">බොරුකියන මුහුණ</annotation>
+		<annotation cp="😌">මුහුණ | සැනසුමක් ලත් | සැනසුමක් ලත් මුහුණ</annotation>
+		<annotation cp="😌" type="tts">සැනසුමක් ලත් මුහුණ</annotation>
+		<annotation cp="😔">අධෛර්යය | කල්පනාකාරී | කල්පනාවෙහි ගැලුණ මුහුණ | මුහුණ</annotation>
+		<annotation cp="😔" type="tts">කල්පනාවෙහි ගැලුණ මුහුණ</annotation>
+		<annotation cp="😪">නිදිබර මුහුණ | නින්ද | මුහුණ</annotation>
+		<annotation cp="😪" type="tts">නිදිබර මුහුණ</annotation>
+		<annotation cp="🤤">කෙළ බේරෙන | කෙළ බේරෙන මුහුණ | මුහුණ</annotation>
+		<annotation cp="🤤" type="tts">කෙළ බේරෙන මුහුණ</annotation>
+		<annotation cp="😴">නිදින මුහුණ | නින්ද | මුහුණ | ස්ස්ස්</annotation>
+		<annotation cp="😴" type="tts">නිදින මුහුණ</annotation>
+		<annotation cp="😷">මුකවාඩම | මුකවාඩමක් සහිත මුහුණ | මුහුණ | රෝගී | වෛද්‍යවරයා | සීතල</annotation>
 		<annotation cp="😷" type="tts">මුකවාඩමක් සහිත මුහුණ</annotation>
 		<annotation cp="🤒">අසනීප | උණ කටුව | උණකටුවක් රඳවා ගත් මුහුණ | මුහුණ | ලෙඩ</annotation>
 		<annotation cp="🤒" type="tts">උණකටුවක් රඳවා ගත් මුහුණ</annotation>
@@ -181,50 +239,106 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤮" type="tts">වමනය යන මුහුණ</annotation>
 		<annotation cp="🤧">කිඹුහුම | කිඹුහුම් යවන මුහුණ | මුහුණ</annotation>
 		<annotation cp="🤧" type="tts">කිඹුහුම් යවන මුහුණ</annotation>
-		<annotation cp="😇">අහිංසක | රැස් වළල්ල සහිත සිනහ මුහුණ | සුරංගනා කථාව | සුරංගනාවිය | හලෝ</annotation>
-		<annotation cp="😇" type="tts">රැස් වළල්ල සහිත සිනහ මුහුණ</annotation>
-		<annotation cp="🤠">ගොප තොප්පි මුහුණ | ගොපල්ලා | ගොපල්ලි | තොප්පිය | මුහුණ</annotation>
+		<annotation cp="🥵">ඇවිස්සුණු | උණුසුම් | දාඩිය දැමීමි | රතු වූ මුහුණ | රත් වූ පහර | රත් වූ මුහුණ</annotation>
+		<annotation cp="🥵" type="tts">රත් වූ මුහුණ</annotation>
+		<annotation cp="🥶">අයිස් කූරු | ඉතා ශ්‍රීතල | නිල් මුහුණැති | සීතල මුහුණ | සීතලයි | හමේ ඇතිවන තුවාල</annotation>
+		<annotation cp="🥶" type="tts">සීතල මුහුණ</annotation>
+		<annotation cp="🥴">අසමාන ඇස් | ඉස කරකැවිල්ල | දුක්ඛිත මුහුණ | මත් වූ | රැලි සහිත කට | වෙරි වූ</annotation>
+		<annotation cp="🥴" type="tts">දුක්ඛිත මුහුණ</annotation>
+		<annotation cp="😵">නිදිමත ගතියක් ඇති | නිදිමත ගතියක් ඇති මුහුණ | මුහුණ</annotation>
+		<annotation cp="😵" type="tts">නිදිමත ගතියක් ඇති මුහුණ</annotation>
+		<annotation cp="🤯">කම්පාවට පත් වූ මුහුණ | පිපිරෙන හිස</annotation>
+		<annotation cp="🤯" type="tts">පිපිරෙන හිස</annotation>
+		<annotation cp="🤠">ගොප තොප්පි මුහුණ | ගොපලු කෙල්ල | ගොපලු තොප්පිය | ගොපල්ලා | තොප්පිය | මුහුණ</annotation>
 		<annotation cp="🤠" type="tts">ගොප තොප්පි මුහුණ</annotation>
 		<annotation cp="🥳">උත්සව මුහුණ | උත්සවය | තොපිය | නලාව | සැමරීම</annotation>
 		<annotation cp="🥳" type="tts">උත්සව මුහුණ</annotation>
-		<annotation cp="🥴">අසමාන ඇස් | ඉස කරකැවිල්ල | දුක්ඛිත මුහුණ | මත් වූ | රැලි සහිත කට | වෙරි වූ</annotation>
-		<annotation cp="🥴" type="tts">දුක්ඛිත මුහුණ</annotation>
-		<annotation cp="🥺">අනුකම්පාව | කණගාටුයි මුහුණ | බලු පැටවූ ඇස් | සිඟාකෑම</annotation>
-		<annotation cp="🥺" type="tts">කණගාටුයි මුහුණ</annotation>
-		<annotation cp="🤥">පිනොකියෝ | බොරුකියන මුහුණ | බොරුව | මුහුණ</annotation>
-		<annotation cp="🤥" type="tts">බොරුකියන මුහුණ</annotation>
-		<annotation cp="🤫">නිශ්ශබ්ද | නිශ්ශබ්ද කිරීමේ මුහුණ | නිශ්ශබ්ද වන්න</annotation>
-		<annotation cp="🤫" type="tts">නිශ්ශබ්ද කිරීමේ මුහුණ</annotation>
-		<annotation cp="🤭">අතින් කට වැසුණු මුහුණ | හපොයි</annotation>
-		<annotation cp="🤭" type="tts">අතින් කට වැසුණු මුහුණ</annotation>
-		<annotation cp="🧐">කේන්ති ගිය | තනි කාචයක් සහිත මුහුණ</annotation>
-		<annotation cp="🧐" type="tts">තනි කාචයක් සහිත මුහුණ</annotation>
+		<annotation cp="😎">අව් කණ්ණාඩි | අව් කණ්ණාඩි පැළඳි සිනහ මුහුණ | කණ්ණාඩි | දීප්තිමත් | මුහුණ | සන්සුන් | සූර්යයා</annotation>
+		<annotation cp="😎" type="tts">අව් කණ්ණාඩි පැළඳි සිනහ මුහුණ</annotation>
 		<annotation cp="🤓">මුහුණ | මොට්ට | මෝඩ</annotation>
 		<annotation cp="🤓" type="tts">මෝඩ මුහුණ</annotation>
+		<annotation cp="🧐">කේන්ති ගිය | තනි කාචයක් සහිත මුහුණ</annotation>
+		<annotation cp="🧐" type="tts">තනි කාචයක් සහිත මුහුණ</annotation>
+		<annotation cp="😕">මුහුණ | ව්‍යාකූල | ව්‍යාකූල වූ මුහුණ</annotation>
+		<annotation cp="😕" type="tts">ව්‍යාකූල වූ මුහුණ</annotation>
+		<annotation cp="😟">කනගාටුවට පත් | කනගාටුවට පත් මුහුණ | මුහුණ</annotation>
+		<annotation cp="😟" type="tts">කනගාටුවට පත් මුහුණ</annotation>
+		<annotation cp="🙁">මදක් රවන මුහුණ | මුහුණ | රැවීම</annotation>
+		<annotation cp="🙁" type="tts">මදක් රවන මුහුණ</annotation>
+		<annotation cp="☹">මුහුණ | රවන මුහුණ | රැවීම</annotation>
+		<annotation cp="☹" type="tts">රවන මුහුණ</annotation>
+		<annotation cp="😮">කට | කට ඇරුණ මුහුණ | දුක | මුහුණ | විවෘත</annotation>
+		<annotation cp="😮" type="tts">කට ඇරුණ මුහුණ</annotation>
+		<annotation cp="😯">නිශ්ශබ්ද | නිහඩ | පුදුම | මුහුණ</annotation>
+		<annotation cp="😯" type="tts">නිශ්ශබ්ද මුහුණ</annotation>
+		<annotation cp="😲">පුදුම | මුහුණ | විස්මයට පත් | විස්මයට පත් මුහුණ | සම්පූර්ණයෙන්</annotation>
+		<annotation cp="😲" type="tts">විස්මයට පත් මුහුණ</annotation>
+		<annotation cp="😳">මුහුණ | රතු වූ | රතු වූ මුහුණ | ලැජ්ජාව</annotation>
+		<annotation cp="😳" type="tts">රතු වූ මුහුණ</annotation>
+		<annotation cp="🥺">අනුකම්පාව | කණගාටුයි මුහුණ | බලු පැටවූ ඇස් | සිඟාකෑම</annotation>
+		<annotation cp="🥺" type="tts">කණගාටුයි මුහුණ</annotation>
+		<annotation cp="😦">කට | කට ඇරුණ රවන මුහුණ | මුහුණ | රැවීම | විවෘත</annotation>
+		<annotation cp="😦" type="tts">කට ඇරුණ රවන මුහුණ</annotation>
+		<annotation cp="😧">මුහුණ | වේදනාව | වේදනාවට පත් වූ මුහුණ</annotation>
+		<annotation cp="😧" type="tts">වේදනාවට පත් වූ මුහුණ</annotation>
+		<annotation cp="😨">බය | බිය | බියජනක | බියට පත් වූ මුහුණ | මුහුණ</annotation>
+		<annotation cp="😨" type="tts">බියට පත් වූ මුහුණ</annotation>
+		<annotation cp="😰">ඇරුණු දහඩිය දමන මුහුණ | කට ඇරුණු දහඩිය දමන මුහුණ | දහඩිය | නිල් | මුහුණ | සීතල</annotation>
+		<annotation cp="😰" type="tts">කට ඇරුණු දහඩිය දමන මුහුණ</annotation>
+		<annotation cp="😥">බලාපොරොත්තු සුන්වූ | බලාපොරොත්තු සුන්වූ නමුත් සැනසුමක් ලත් මුහුණ | මුහුණ | විව් | සැනසුමක් ලත්</annotation>
+		<annotation cp="😥" type="tts">බලාපොරොත්තු සුන්වූ නමුත් සැනසුමක් ලත් මුහුණ</annotation>
+		<annotation cp="😢">අඬන මුහුණ | ඇඬීම | කඳුළු | දුක | මුහුණ</annotation>
+		<annotation cp="😢" type="tts">අඬන මුහුණ</annotation>
+		<annotation cp="😭">ඇඬීම | කඳුළු | දුක | මුහුණ | හයියෙන් අඩන මුහුණ</annotation>
+		<annotation cp="😭" type="tts">හයියෙන් අඩන මුහුණ</annotation>
+		<annotation cp="😱">බිය | බියජනක | බියෙන් කෑගසන | බියෙන් කෑගසන මුහුණ | මුහුණ</annotation>
+		<annotation cp="😱" type="tts">බියෙන් කෑගසන මුහුණ</annotation>
+		<annotation cp="😖">අවුල් සහගත | අවුල් සහගත වූ මුහුණ | මුහුණ</annotation>
+		<annotation cp="😖" type="tts">අවුල් සහගත වූ මුහුණ</annotation>
+		<annotation cp="😣">උත්සාහය | උත්සාහවන්ත මුහුණ | මුහුණ</annotation>
+		<annotation cp="😣" type="tts">උත්සාහවන්ත මුහුණ</annotation>
+		<annotation cp="😞">බලාපොරොත්තු සුුන්වූ | බලාාපොරොත්තු සුන් වූ මුහුණ | මුහුණ</annotation>
+		<annotation cp="😞" type="tts">බලාාපොරොත්තු සුන් වූ මුහුණ</annotation>
+		<annotation cp="😓">දහඩිය | දහඩිය දමා ගත් මුහුණ | මුුහුණ | සීතල</annotation>
+		<annotation cp="😓" type="tts">දහඩිය දමා ගත් මුහුණ</annotation>
+		<annotation cp="😩">මහන්සිය | මුහුණ | වෙහෙස | වෙහෙසට පත් වූ මුහුණ</annotation>
+		<annotation cp="😩" type="tts">වෙහෙසට පත් වූ මුහුණ</annotation>
+		<annotation cp="😫">මහුණ | විඩාබර මුහුණ | වෙහෙසකර</annotation>
+		<annotation cp="😫" type="tts">විඩාබර මුහුණ</annotation>
+		<annotation cp="🥱">ඈනුම් අරින | ඈනුම් අරින මුහුණ | කම්මැලි | වෙහෙසුණු</annotation>
+		<annotation cp="🥱" type="tts">ඈනුම් අරින මුහුණ</annotation>
+		<annotation cp="😤">ජයග්‍රහණය | දිනුම | නහයෙන් හුමාලය එන මුහුණ | මුහුණ</annotation>
+		<annotation cp="😤" type="tts">නහයෙන් හුමාලය එන මුහුණ</annotation>
+		<annotation cp="😡">අමනාපය | අමනාපයෙන් යුතු මුහුණ | තරහව | පළිගැනීම | මුහුණ | රතු</annotation>
+		<annotation cp="😡" type="tts">අමනාපයෙන් යුතු මුහුණ</annotation>
+		<annotation cp="😠">කේන්තියෙන් යුතු මුහුණ | තරහව | මුහුණ | මෝඩ</annotation>
+		<annotation cp="😠" type="tts">කේන්තියෙන් යුතු මුහුණ</annotation>
+		<annotation cp="🤬">කටේ ලකුණු ඇති මුහුණ | දිව්රුම් දීම</annotation>
+		<annotation cp="🤬" type="tts">කටේ ලකුණු ඇති මුහුණ</annotation>
 		<annotation cp="😈">අං | අං සහිත සිනහ මුහුණ | මායාව | මුහුණ | සිනහව | සුරංගනා කථාව</annotation>
 		<annotation cp="😈" type="tts">අං සහිත සිනහ මුහුණ</annotation>
-		<annotation cp="👿">මායාව | මිත්‍යා කථාවල එන සත්ත්වයා | මුහුණ | යකා | යක්ෂයා | සුරංගනා කථාව</annotation>
+		<annotation cp="👿">මායාව | මිත්‍යා කථාවල එන සත්ත්වයා | මුහුණ | යකා | යක්ෂයා | සුරංගනාව</annotation>
 		<annotation cp="👿" type="tts">මිත්‍යා කථාවල එන සත්ත්වයා</annotation>
+		<annotation cp="💀">මරණය | මිනී ඔළුව | මුහුණ | යක්ෂයා | ශරීරය | සුරංගනා කථාව</annotation>
+		<annotation cp="💀" type="tts">මිනී ඔළුව</annotation>
+		<annotation cp="☠">මරණය | මිනී ඔළුව | මිනී ඔළුව සහ හරස් ඇටකටු | මුහුණ | යක්ෂයා | ශරීරය | හරස් ඇටකටු</annotation>
+		<annotation cp="☠" type="tts">මිනී ඔළුව සහ හරස් ඇටකටු</annotation>
+		<annotation cp="💩">අසූචි | අසූචි ගොඩ | කසල | ගොම | මුහුණ</annotation>
+		<annotation cp="💩" type="tts">අසූචි ගොඩ</annotation>
 		<annotation cp="🤡">මුහුණ | විකටය මුහුණ | විකටයා</annotation>
 		<annotation cp="🤡" type="tts">විකටය මුහුණ</annotation>
 		<annotation cp="👹">ජපන් | මායාව | මිනී කන යක්ෂයා | මුහුණ | යක්ෂයා | සතා | සුරංගනා කථාව</annotation>
 		<annotation cp="👹" type="tts">මිනී කන යක්ෂයා</annotation>
 		<annotation cp="👺">ගොබ්ලින් යක්ෂයා | ජපන් | මායාව | මුහුණ | යක්ෂයා | සතා | සුරංගනා කථාව</annotation>
 		<annotation cp="👺" type="tts">ගොබ්ලින් යක්ෂයා</annotation>
-		<annotation cp="💀">මරණය | මිනී ඔළුව | මුහුණ | යක්ෂයා | ශරීරය | සුරංගනා කථාව</annotation>
-		<annotation cp="💀" type="tts">මිනී ඔළුව</annotation>
-		<annotation cp="☠">මරණය | මිනී ඔළුව | මිනී ඔළුව සහ හරස් ඇටකටු | මුහුණ | යක්ෂයා | ශරීරය | හරස් ඇටකටු</annotation>
-		<annotation cp="☠" type="tts">මිනී ඔළුව සහ හරස් ඇටකටු</annotation>
 		<annotation cp="👻">ජපන් | මායාව | මුහුණ | යක්ෂයා | සතා | සුරංගනා කථාව | හොල්මන</annotation>
 		<annotation cp="👻" type="tts">හොල්මන</annotation>
-		<annotation cp="👽">අභ්‍යවකාශය | පාරභෞම | පිටසක්වල ජීවියා | පියාඹන පීරිසි | මායාව | මුහුණ | යක්ෂයා | සතා | සුරංගනා කථාව</annotation>
+		<annotation cp="👽">අභ්‍යවකාශය | පිටසක්වල ජීවියා | පියාඹන පීරිසි | මායාව | මුහුණ | සුරංගනා කථාව</annotation>
 		<annotation cp="👽" type="tts">පිටසක්වල ජීවියා</annotation>
-		<annotation cp="👾">අභ්‍යවකාශය | පාරභෞම | පිටසක්වල ජීවියා | පිටසක්වල යක්ෂයා | පියාඹන පීරිසි | මායාව | මුහුණ | යක්ෂයා | සතා | සුරංගනා කථාව</annotation>
+		<annotation cp="👾">අභ්‍යවකාශය | පිටසක්වල ජීවියා | පිටසක්වල යක්ෂයා | පියාඹන පීරිසි | මායාව | මුහුණ | යක්ෂයා</annotation>
 		<annotation cp="👾" type="tts">පිටසක්වල යක්ෂයා</annotation>
 		<annotation cp="🤖">මුහුණ | යක්ෂයා | රොබෝ</annotation>
 		<annotation cp="🤖" type="tts">රොබෝ මුහුණ</annotation>
-		<annotation cp="💩">අසූචි | අසූචි ගොඩ | කසල | ගොම | මුහුණ | යක්ෂයා | විහිළු</annotation>
-		<annotation cp="💩" type="tts">අසූචි ගොඩ</annotation>
 		<annotation cp="😺">කට | කට ඇරුණ සිනාසෙන බළල් මුහුණ | පූසා | මුහුණ | විවෘත | සිනහව</annotation>
 		<annotation cp="😺" type="tts">කට ඇරුණ සිනාසෙන බළල් මුහුණ</annotation>
 		<annotation cp="😸">ඇස | පූසා | මුහුණ | විරිත්තීම | සිනහව | සිනාසෙන ඇස් සහිත දත් විරිතත්න බළල් මුහුණ</annotation>
@@ -235,7 +349,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😻" type="tts">හදවතක හැඩය ගත් ඇස් සහිත සිනාසෙන බළල් මුහුණ</annotation>
 		<annotation cp="😼">ඇද වූ | උපහාසාත්මක | කට ඇදවූ සිනහව සහිත බළල් මුහුණ | පූසා | මුහුුණ | සිනහව</annotation>
 		<annotation cp="😼" type="tts">කට ඇදවූ සිනහව සහිත බළල් මුහුණ</annotation>
-		<annotation cp="😽">ඇස | ඇස් වැසුණ සිඹින බළල් මුහුණ | පූසා | මුහුුණ | හාදුව</annotation>
+		<annotation cp="😽">ඇස | ඇස් වැසුණ සිඹින බළලා | ඇස් වැසුණ සිඹින බළල් මුහුණ | පූසා | බළලා | මුහුණ | හාදුව</annotation>
 		<annotation cp="😽" type="tts">ඇස් වැසුණ සිඹින බළල් මුහුණ</annotation>
 		<annotation cp="🙀">අපොයි | පුදුමයට පත් | පූසා | මුහුණ | විඩාබර | වෙහෙසට පත් වූ බළල් මුහුණ</annotation>
 		<annotation cp="🙀" type="tts">වෙහෙසට පත් වූ බළල් මුහුණ</annotation>
@@ -249,94 +363,360 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🙉" type="tts">නරක දේවල් නොඅසන්න</annotation>
 		<annotation cp="🙊">අභින | කථනය | තහනම් කළ | දුෂ්ට | නරක දේවල් කථා නොකරන්න | නැත | මුහුණ | වඳුුරා</annotation>
 		<annotation cp="🙊" type="tts">නරක දේවල් කථා නොකරන්න</annotation>
+		<annotation cp="💋">තොල් | හදවත | හාදු ලකුණ | හාදුව</annotation>
+		<annotation cp="💋" type="tts">හාදු ලකුණ</annotation>
+		<annotation cp="💌">ආදර හසුන | ආදරය | තැපෑල | ප්‍රේමය | ලිපිය</annotation>
+		<annotation cp="💌" type="tts">ආදර හසුන</annotation>
+		<annotation cp="💘">අනංගයා | ඊතලය | ඊතලය සහිත හදවත | ප්‍රේමය | හදවත</annotation>
+		<annotation cp="💘" type="tts">ඊතලය සහිත හදවත</annotation>
+		<annotation cp="💝">පීත්ත පටිය | පීත්ත පටියක් සහිත හදවත | වැලන්ටයින් | හදවත</annotation>
+		<annotation cp="💝" type="tts">පීත්ත පටියක් සහිත හදවත</annotation>
+		<annotation cp="💖">දිදුලන | ප්‍රබෝදමත් | හදවත</annotation>
+		<annotation cp="💖" type="tts">දිදුලන හදවත</annotation>
+		<annotation cp="💗">චංචල | ප්‍රබෝදමත් | වැඩෙන | හදවත | හෘද ස්පන්දනය</annotation>
+		<annotation cp="💗" type="tts">වැඩෙන හදවත</annotation>
+		<annotation cp="💓">ගැහෙන | ස්පන්දනය | හදවත</annotation>
+		<annotation cp="💓" type="tts">ගැහෙන හදවත</annotation>
+		<annotation cp="💞">කරකැවෙන | කරකැවෙන හදවත් | හදවත</annotation>
+		<annotation cp="💞" type="tts">කරකැවෙන හදවත්</annotation>
+		<annotation cp="💕">ආදරය | හදවත | හදවත් දෙකක්</annotation>
+		<annotation cp="💕" type="tts">හදවත් දෙකක්</annotation>
+		<annotation cp="💟">හදවත | හදවත් සැරසිල්ල</annotation>
+		<annotation cp="💟" type="tts">හදවත් සැරසිල්ල</annotation>
+		<annotation cp="❣">ලකුණ | වස්මයාර්ථ | විරාම ලකුණ | හදවතක හැඩය ගත් විස්මයාර්ථ ලකුණ</annotation>
+		<annotation cp="❣" type="tts">හදවතක හැඩය ගත් විස්මයාර්ථ ලකුණ</annotation>
+		<annotation cp="💔">බිඳීම | බිඳුණු | හදවත</annotation>
+		<annotation cp="💔" type="tts">බිඳුණු හදවත</annotation>
+		<annotation cp="❤">රතු හදවත | හදවත</annotation>
+		<annotation cp="❤" type="tts">රතු හදවත</annotation>
+		<annotation cp="🧡">තැඹිලි | තැඹිලි හදවත</annotation>
+		<annotation cp="🧡" type="tts">තැඹිලි හදවත</annotation>
+		<annotation cp="💛">කහ | හදවත</annotation>
+		<annotation cp="💛" type="tts">කහ හදවත</annotation>
+		<annotation cp="💚">කොල | කොළ හදවත | හදවත</annotation>
+		<annotation cp="💚" type="tts">කොළ හදවත</annotation>
+		<annotation cp="💙">නිල් | නිල් හදවත | හදචත</annotation>
+		<annotation cp="💙" type="tts">නිල් හදවත</annotation>
+		<annotation cp="💜">දම් | හදවත</annotation>
+		<annotation cp="💜" type="tts">දම් හදවත</annotation>
+		<annotation cp="🤎">දුඹුරු | හදවත</annotation>
+		<annotation cp="🤎" type="tts">දුඹුරු හදවත</annotation>
+		<annotation cp="🖤">කළු | දුෂ්ට | නපුරු | හදවත</annotation>
+		<annotation cp="🖤" type="tts">කළු හදවත</annotation>
+		<annotation cp="🤍">සුදු | හදවත</annotation>
+		<annotation cp="🤍" type="tts">සුදු හදවත</annotation>
+		<annotation cp="💯">100 | ලකුණු | ලකුණු සියයි | සම්පූර්ණ | සියය</annotation>
+		<annotation cp="💯" type="tts">ලකුණු සියයි</annotation>
+		<annotation cp="💢">කේන්ති | තරහ ලකුණ | පිස්සු | හාස්‍යජනක</annotation>
+		<annotation cp="💢" type="tts">තරහ ලකුණ</annotation>
+		<annotation cp="💥">ඝට්ටනය | පිපිරීම | හාස්‍යජනක</annotation>
+		<annotation cp="💥" type="tts">ඝට්ටනය</annotation>
+		<annotation cp="💫">තරුව | වල්ග තාරකාව | හාස්‍යජනක</annotation>
+		<annotation cp="💫" type="tts">වල්ග තාරකාව</annotation>
+		<annotation cp="💦">දහඩිය | දහඩිය බිඳු | වැගිරීම | හාස්‍යජනක</annotation>
+		<annotation cp="💦" type="tts">දහඩිය බිඳු</annotation>
+		<annotation cp="💨">දුවමින් | ලිස්සා යාම | හාස්‍යජනක</annotation>
+		<annotation cp="💨" type="tts">ලිස්සා යාම</annotation>
+		<annotation cp="🕳">කුහරය</annotation>
+		<annotation cp="🕳" type="tts">කුහරය</annotation>
+		<annotation cp="💣">බෝම්බය | හාස්‍යජනක</annotation>
+		<annotation cp="💣" type="tts">බෝම්බය</annotation>
+		<annotation cp="💬">කථන බැලුනය | කථාව | දෙබස | බැලූනය | හාස්‍යජනක</annotation>
+		<annotation cp="💬" type="tts">කථන බැලුනය</annotation>
+		<annotation cp="👁‍🗨">ඇස | කථන බුබුළ | කථන බුබුළක තිබෙන ඇස | සාක්ෂිකරු</annotation>
+		<annotation cp="👁‍🗨" type="tts">කථන බුබුළක තිබෙන ඇස</annotation>
+		<annotation cp="🗨">කථාව | දෙබස | වම් කථන බුබුළ</annotation>
+		<annotation cp="🗨" type="tts">වම් කථන බුබුළ</annotation>
+		<annotation cp="🗯">කේන්තිි | දකුණු තරහ බුබුළ | පිස්සු | බැලූනය | බුබුල</annotation>
+		<annotation cp="🗯" type="tts">දකුණු තරහ බුබුළ</annotation>
+		<annotation cp="💭">බැලූූනය | බුබුල | සිතුවිලි | සිතුවිලි බැලුනය | හාස්‍යජනක</annotation>
+		<annotation cp="💭" type="tts">සිතුවිලි බැලුනය</annotation>
+		<annotation cp="💤">නිදා ගැනීම | ස්ස්ස් | හාස්‍යජනක</annotation>
+		<annotation cp="💤" type="tts">ස්ස්ස්</annotation>
+		<annotation cp="👋">අත | අත වනමින් | අත වැනීම</annotation>
+		<annotation cp="👋" type="tts">අත වැනීම</annotation>
+		<annotation cp="🤚">ඔසවිම | පිටි අත | පිටි අත ඔසවන ලදි</annotation>
+		<annotation cp="🤚" type="tts">පිටි අත ඔසවන ලදි</annotation>
+		<annotation cp="🖐">අත | ඇඟිල්ල | පළල් කළ | විදහන ලද ඇඟිලි සහිත එසවූ අත | ශරීරය</annotation>
+		<annotation cp="🖐" type="tts">විදහන ලද ඇඟිලි සහිත එසවූ අත</annotation>
+		<annotation cp="✋">අත | එසවූූ අත | ශරීරය</annotation>
+		<annotation cp="✋" type="tts">එසවූූ අත</annotation>
+		<annotation cp="🖖">අත | ඇඟිල්ල | වල්කන් | වල්කන් සැලියුට් | ස්පොක්</annotation>
+		<annotation cp="🖖" type="tts">වල්කන් සැලියුට්</annotation>
+		<annotation cp="👌">අත | හරි | හරිි යන්න දක්වන අත</annotation>
+		<annotation cp="👌" type="tts">හරිි යන්න දක්වන අත</annotation>
+		<annotation cp="🤏">අත මිරිකීම | කුඩා ප්‍රමාණයක්</annotation>
+		<annotation cp="🤏" type="tts">අත මිරිකීම</annotation>
+		<annotation cp="✌">අත | ජ | ජයග්‍රහණය | ජයග්‍රහණය දක්වන අත | ශරීරය</annotation>
+		<annotation cp="✌" type="tts">ජයග්‍රහණය දක්වන අත</annotation>
+		<annotation cp="🤞">අත | ඇඟිල්ල | වාසනාව | හරස් | හරස් කළ ඇඟිලි</annotation>
+		<annotation cp="🤞" type="tts">හරස් කළ ඇඟිලි</annotation>
+		<annotation cp="🤟">අත | ඔආඉ | ඔබට ආදරෙයි ඉඟිය</annotation>
+		<annotation cp="🤟" type="tts">ඔබට ආදරෙයි ඉඟිය</annotation>
+		<annotation cp="🤘">අං | අත | ඇඟිල්ල | රොක් ඔන් | හෝන්ස් ලකුණ</annotation>
+		<annotation cp="🤘" type="tts">හෝන්ස් ලකුණ</annotation>
+		<annotation cp="🤙">අත | ඇමතුම | මට ඇමතුමක් දෙන්න ඇගවීම</annotation>
+		<annotation cp="🤙" type="tts">මට ඇමතුමක් දෙන්න ඇගවීම</annotation>
+		<annotation cp="👈">අත | ඇඟිල්ල | පිටි අත් පහර | ලක්ෂ්‍ය | වමට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
+		<annotation cp="👈" type="tts">වමට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
+		<annotation cp="👉">අත | ඇඟිල්ල | දකුණට යොමු වූ අත පිටුපස දබරැඟිල්ල | පිටි අත් පහර | ලක්ෂ්‍ය</annotation>
+		<annotation cp="👉" type="tts">දකුණට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
+		<annotation cp="👆">අත | අත පිටුපස ඉහළට යොමු වූ දබරැඟිල්ල | ඇඟිල්ල | ඉහළට එල්ල කර | දබර</annotation>
+		<annotation cp="👆" type="tts">අත පිටුපස ඉහළට යොමු වූ දබරැඟිල්ල</annotation>
+		<annotation cp="🖕">අත | ඇඟිල්ල | මැදඟිල්ල | ශරීරය</annotation>
+		<annotation cp="🖕" type="tts">මැදඟිල්ල</annotation>
+		<annotation cp="👇">අත | ඇඟිල්ල | දබර | පහළට එල්ල කර | පහළට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
+		<annotation cp="👇" type="tts">පහළට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
+		<annotation cp="☝">අත | ඇඟිල්ල | ඉහළට | ඉහළට යොමු වූ දබරැඟිල්ල | ලක්ෂ්‍ය</annotation>
+		<annotation cp="☝" type="tts">ඉහළට යොමු වූ දබරැඟිල්ල</annotation>
+		<annotation cp="👍">1 | අත | ඉහළට. | මහපටැඟිල්ල | මහපටැඟිල්ල ඉහළට</annotation>
+		<annotation cp="👍" type="tts">මහපටැඟිල්ල ඉහළට</annotation>
+		<annotation cp="👎">1 | අත | පහළට | මහපටැඟිල්ල | මහපටැඟිිල්ල පහළට</annotation>
+		<annotation cp="👎" type="tts">මහපටැඟිිල්ල පහළට</annotation>
+		<annotation cp="✊">අත | එසවූ මිට මෙළවීම | මිට මෙළවීම | මිට මෙළවූ | මිටින් පහර දීම</annotation>
+		<annotation cp="✊" type="tts">එසවූ මිට මෙළවීම</annotation>
+		<annotation cp="👊">අත | ඉදිරියට එන මිට මෙළවීම | ඉදිිරියට එන මිට මෙළවීම | මිට මෙළවීම | මිට මෙළවූ | මිටින් පහර දීම</annotation>
+		<annotation cp="👊" type="tts">ඉදිිරියට එන මිට මෙළවීම</annotation>
+		<annotation cp="🤛">මිට මොළ වීම | මිට මොළ වූ වම | වමට</annotation>
+		<annotation cp="🤛" type="tts">මිට මොළ වූ වම</annotation>
+		<annotation cp="🤜">දකුණට | මිට මොළ වීම | මිට මොළ වූ දකුණ</annotation>
+		<annotation cp="🤜" type="tts">මිට මොළ වූ දකුණ</annotation>
+		<annotation cp="👏">අත | අත්පුඩි ගැසීම | ශරීරය</annotation>
+		<annotation cp="👏" type="tts">අත්පුඩි ගැසීම</annotation>
+		<annotation cp="🙌">අත | අත් ඔසවන පුද්ගලයා | උත්සවය | උස්සන ලද | ඔල්වරසන් දීම</annotation>
+		<annotation cp="🙌" type="tts">අත් ඔසවන පුද්ගලයා</annotation>
+		<annotation cp="👐">අත | විවෘත | විවෘත අත් | ශරීරය</annotation>
+		<annotation cp="👐" type="tts">විවෘත අත්</annotation>
+		<annotation cp="🤲">අත්ලවල් එකට ඉහළ ඔසවා | යාච්ඤා කරනවා</annotation>
+		<annotation cp="🤲" type="tts">අත්ලවල් එකට ඉහළ ඔසවා</annotation>
+		<annotation cp="🤝">අත | අතට අත දීම | එකඟත්වය | සෙලවීම | හමුවීම</annotation>
+		<annotation cp="🤝" type="tts">අතට අත දීම</annotation>
+		<annotation cp="🙏">අත | ආචාර කිරීම | එක් කළ දෙඅත් | කරුණාකර | යාච්ඥා කිරීම | ස්තූතිය පළ කිරීම</annotation>
+		<annotation cp="🙏" type="tts">එක් කළ දෙඅත්</annotation>
+		<annotation cp="✍">අත | ලියමින් සිටින අත | ලිවීම | ශරීරය</annotation>
+		<annotation cp="✍" type="tts">ලියමින් සිටින අත</annotation>
+		<annotation cp="💅">අත් සහ නිය අලංකාරකරණය | අලේපන | නිය ආලේපන | විලවුන් | සත්කාරය</annotation>
+		<annotation cp="💅" type="tts">නිය ආලේපන</annotation>
+		<annotation cp="🤳">කැමරාව | දුරකථනය | සෙල්ෆි</annotation>
+		<annotation cp="🤳" type="tts">සෙල්ෆි</annotation>
+		<annotation cp="💪">නැමීම | බාහු පේශිය | මාංශ පේශි | සුනම්‍ය මස්ගොබ | හාස්‍යජනක</annotation>
+		<annotation cp="💪" type="tts">සුනම්‍ය මස්ගොබ</annotation>
+		<annotation cp="🦾">යාන්ත්‍රික හස්තය | සංලග්න | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🦾" type="tts">යාන්ත්‍රික හස්තය</annotation>
+		<annotation cp="🦿">යාන්ත්‍රික පාදය | සංලග්න | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🦿" type="tts">යාන්ත්‍රික පාදය</annotation>
+		<annotation cp="🦵">කකුල | පයින් ගසනවා | බාහුව</annotation>
+		<annotation cp="🦵" type="tts">කකුල</annotation>
+		<annotation cp="🦶">අඩිය | නැටුමක් | පයින් ගසනවා</annotation>
+		<annotation cp="🦶" type="tts">අඩිය</annotation>
+		<annotation cp="👂">කණ | ශරීරය</annotation>
+		<annotation cp="👂" type="tts">කණ</annotation>
+		<annotation cp="🦻">ඇසීමට අමාරුයි | ශ්‍රවණාධාර සහිත කන | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🦻" type="tts">ශ්‍රවණාධාර සහිත කන</annotation>
+		<annotation cp="👃">නාසය | ශරීරය</annotation>
+		<annotation cp="👃" type="tts">නාසය</annotation>
+		<annotation cp="🧠">බුද්ධිමත් | මොළය</annotation>
+		<annotation cp="🧠" type="tts">මොළය</annotation>
+		<annotation cp="🦷">දත් | දන්ත වෛද්‍ය</annotation>
+		<annotation cp="🦷" type="tts">දත්</annotation>
+		<annotation cp="🦴">අස්ථි | ඇටසැකිල්ල</annotation>
+		<annotation cp="🦴" type="tts">අස්ථි</annotation>
+		<annotation cp="👀">ඇස් | මුහුණ | ශරීරය</annotation>
+		<annotation cp="👀" type="tts">ඇස්</annotation>
+		<annotation cp="👁">ඇස | ශරීරය</annotation>
+		<annotation cp="👁" type="tts">ඇස</annotation>
+		<annotation cp="👅">දිව | ශරීරය</annotation>
+		<annotation cp="👅" type="tts">දිව</annotation>
+		<annotation cp="👄">කට | තොල් | ශරීරය</annotation>
+		<annotation cp="👄" type="tts">කට</annotation>
 		<annotation cp="👶">බබා</annotation>
 		<annotation cp="👶" type="tts">බබා</annotation>
-		<annotation cp="🧒">තරුණ | ස්ත්‍රී පුරුෂභාවය උදාසීන | ළමයා</annotation>
+		<annotation cp="🧒">තරුණ | දරුවා | නම් නොකළ ස්ත්‍රී පුරුෂ භාවය | ස්ත්‍රී පුරුෂ | ළමයා</annotation>
 		<annotation cp="🧒" type="tts">ළමයා</annotation>
 		<annotation cp="👦">පිරිමි ළමයා | පිිරිමි ළමයා</annotation>
 		<annotation cp="👦" type="tts">පිරිමි ළමයා</annotation>
 		<annotation cp="👧">කන්‍යා රාශිය | කන්‍යාව | ගැහුණු ළමයා | තරුණිය | රාශී චක්‍රය</annotation>
 		<annotation cp="👧" type="tts">ගැහුණු ළමයා</annotation>
-		<annotation cp="🧑">වැඩිහිටියා | ස්ත්‍රී පුරුෂභාවය උදාසීන</annotation>
+		<annotation cp="🧑">නම් නොකළ ස්ත්‍රී පුරුෂ භාවය | පුද්ගලයා | වැඩිහිටි | වැඩිහිටියා | ස්ත්‍රී පුරුෂ භාවය උදාසීන</annotation>
 		<annotation cp="🧑" type="tts">වැඩිහිටියා</annotation>
 		<annotation cp="👱">තඹ පැහැ | තඹ පැහැ කොණ්ඩය සහිත පුද්ගලයා</annotation>
 		<annotation cp="👱" type="tts">තඹ පැහැ කොණ්ඩය සහිත පුද්ගලයා</annotation>
-		<annotation cp="👨">පිරිමියා | පිරිිමියා</annotation>
+		<annotation cp="🧑‍🍼">කිරි දීම | දරුවා පෝෂණය කරන පුද්ගලයා | පුද්ගලයා | පෝෂණය | බබා පෝෂණය කරන පුද්ගලයා | ළදරුවා</annotation>
+		<annotation cp="🧑‍🍼" type="tts">බබා පෝෂණය කරන පුද්ගලයා</annotation>
+		<annotation cp="🧑‍🎄">නත්තල් සීය | නත්තල් සීයා | සීයා, නත්තල</annotation>
+		<annotation cp="🧑‍🎄" type="tts">නත්තල් සීය</annotation>
+		<annotation cp="👨">පිරිිමියා | මිනිසා | වැඩිහිටි</annotation>
 		<annotation cp="👨" type="tts">පිරිිමියා</annotation>
-		<annotation cp="👱‍♂">තඹ පැහැ | තඹ පැහැ කොණ්ඩය සහිත මිනිසා | පිරිමි | මිනිහා</annotation>
-		<annotation cp="👱‍♂" type="tts">තඹ පැහැ කොණ්ඩය සහිත මිනිසා</annotation>
 		<annotation cp="🧔">රැවුල | රැවුල සහිත පුද්ගලයා</annotation>
 		<annotation cp="🧔" type="tts">රැවුල සහිත පුද්ගලයා</annotation>
-		<annotation cp="👩">කාන්තාව | ස්ත්‍රිය</annotation>
+		<annotation cp="👱‍♂">තඹ පැහැ | තඹ පැහැ කොණ්ඩය සහිත මිනිසා | පිරිමි | මිනිහා</annotation>
+		<annotation cp="👱‍♂" type="tts">තඹ පැහැ කොණ්ඩය සහිත මිනිසා</annotation>
+		<annotation cp="👨‍🍼">පෝෂණය | බබා | බබා පෝෂණය කරන මිනිසා | මිනිසා | හෙද සේවය</annotation>
+		<annotation cp="👨‍🍼" type="tts">බබා පෝෂණය කරන මිනිසා</annotation>
+		<annotation cp="👩">කාන්තාව | වැඩිහිටි</annotation>
 		<annotation cp="👩" type="tts">කාන්තාව</annotation>
 		<annotation cp="👱‍♀">තඹ පැහැ | තඹ පැහැ කොණ්ඩය සහිත කාන්තාව | පිරිමි | මිනිහා</annotation>
 		<annotation cp="👱‍♀" type="tts">තඹ පැහැ කොණ්ඩය සහිත කාන්තාව</annotation>
+		<annotation cp="👩‍🍼">කාන්තාව | පෝෂණය | බබා | බබා පෝෂණය කරන කාන්තාව | හෙද</annotation>
+		<annotation cp="👩‍🍼" type="tts">බබා පෝෂණය කරන කාන්තාව</annotation>
 		<annotation cp="🧓">මහලු | මහලු වැඩිහිටියා | ස්ත්‍රී පුරුෂභාවය උදාසීන</annotation>
 		<annotation cp="🧓" type="tts">මහලු වැඩිහිටියා</annotation>
-		<annotation cp="👴">මිනිසා | වයසක</annotation>
+		<annotation cp="👴">මහළු | මිනිසා | වයසක මිනිසා | වැඩිහිටි</annotation>
 		<annotation cp="👴" type="tts">වයසක මිනිසා</annotation>
-		<annotation cp="👵">කාන්තාව | වයසක</annotation>
+		<annotation cp="👵">කාන්තාවක් | වයසක | වයසක කාන්තාව | වැඩිහිටි</annotation>
 		<annotation cp="👵" type="tts">වයසක කාන්තාව</annotation>
+		<annotation cp="🙍">අභින | රවන පුද්ගලයා | රැවීම</annotation>
+		<annotation cp="🙍" type="tts">රවන පුද්ගලයා</annotation>
+		<annotation cp="🙍‍♂">අභින | පිරිමියා | මිනිහා | රවන මිනිසා | රැවීම</annotation>
+		<annotation cp="🙍‍♂" type="tts">රවන මිනිසා</annotation>
+		<annotation cp="🙍‍♀">අභින | කාන්තාව | රවන කාන්තාව | රැවීම | ස්ත්‍රිය</annotation>
+		<annotation cp="🙍‍♀" type="tts">රවන කාන්තාව</annotation>
+		<annotation cp="🙎">අභින | අමනාපය දක්වන පුද්ගලයා | අමනාපය දැක්වීම</annotation>
+		<annotation cp="🙎" type="tts">අමනාපය දක්වන පුද්ගලයා</annotation>
+		<annotation cp="🙎‍♂">අභින | කට උල්කරන මිනිසා | කට උල්කිරීම | පිරිමියා | මිනිහා</annotation>
+		<annotation cp="🙎‍♂" type="tts">කට උල්කරන මිනිසා</annotation>
+		<annotation cp="🙎‍♀">අභින | කට උල්කරන කාන්තාව | කට උල්කිරීම | කාන්තාව | ස්ත්‍රිය</annotation>
+		<annotation cp="🙎‍♀" type="tts">කට උල්කරන කාන්තාව</annotation>
+		<annotation cp="🙅">අත | අභින | තහනම් | නැත | නැත යන අභිනය</annotation>
+		<annotation cp="🙅" type="tts">නැත යන අභිනය</annotation>
+		<annotation cp="🙅‍♂">අත | තහනම් | නැහැ | හරි නැති බව පෙන්වන මිනිසා | හරි නැහැ</annotation>
+		<annotation cp="🙅‍♂" type="tts">හරි නැති බව පෙන්වන මිනිසා</annotation>
+		<annotation cp="🙅‍♀">අත | කාන්තාව | තහනම් | හරි නැති බව පෙන්වන කාන්තාව | හරි නැහැ</annotation>
+		<annotation cp="🙅‍♀" type="tts">හරි නැති බව පෙන්වන කාන්තාව</annotation>
+		<annotation cp="🙆">අත | අභිින | හරි | හරි යන අභිනය</annotation>
+		<annotation cp="🙆" type="tts">හරි යන අභිනය</annotation>
+		<annotation cp="🙆‍♂">අත | පිරිමියා | මිනිහා | හරි | හරි බව පෙන්වන මිනිසා</annotation>
+		<annotation cp="🙆‍♂" type="tts">හරි බව පෙන්වන මිනිසා</annotation>
+		<annotation cp="🙆‍♀">අත | කාන්තාව | ස්ත්‍රිය | හරි | හරි බව පෙන්වන කාන්තාව</annotation>
+		<annotation cp="🙆‍♀" type="tts">හරි බව පෙන්වන කාන්තාව</annotation>
+		<annotation cp="💁">අත | උපකාර කවුළු පුද්ගලයා | උපකාරය | එඩිතර | තොරතුරු</annotation>
+		<annotation cp="💁" type="tts">උපකාර කවුළු පුද්ගලයා</annotation>
+		<annotation cp="💁‍♂">අත හෙළන මිනිසා | අත හෙළීම | ආත්මීය | පිරිමියා | මිනිහා</annotation>
+		<annotation cp="💁‍♂" type="tts">අත හෙළන මිනිසා</annotation>
+		<annotation cp="💁‍♀">අත හෙළන කාන්තාව | අත හෙළීම | ආත්මීය | කාන්තාව | ස්ත්‍රිය</annotation>
+		<annotation cp="💁‍♀" type="tts">අත හෙළන කාන්තාව</annotation>
+		<annotation cp="🙋">අත | අත ඔසවන ප්‍රීතිමත් පුද්ගලයා | අභින | උස්සන ලද | ප්‍රීතිමත්</annotation>
+		<annotation cp="🙋" type="tts">අත ඔසවන ප්‍රීතිමත් පුද්ගලයා</annotation>
+		<annotation cp="🙋‍♂">අත එසවීම | අත ඔසවන මිනිසා | අභිනය | පිරිමියා | මිනිහා</annotation>
+		<annotation cp="🙋‍♂" type="tts">අත ඔසවන මිනිසා</annotation>
+		<annotation cp="🙋‍♀">අත එසවීම | අත ඔසවන කාන්තාව | අභින | කාන්තාව | ස්ත්‍රිය</annotation>
+		<annotation cp="🙋‍♀" type="tts">අත ඔසවන කාන්තාව</annotation>
+		<annotation cp="🧏">ඇසීම | කන | බිහිරි | බිහිරි පුද්ගලයා | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🧏" type="tts">බිහිරි පුද්ගලයා</annotation>
+		<annotation cp="🧏‍♂">බිහිරි | මිනිසා</annotation>
+		<annotation cp="🧏‍♂" type="tts">බිහිරි මිනිසා</annotation>
+		<annotation cp="🧏‍♀">කාන්තාව | බිහිරි</annotation>
+		<annotation cp="🧏‍♀" type="tts">බිහිරි කාන්තාව</annotation>
+		<annotation cp="🙇">අභින | ආචාර කිරීම | සමාව ඉල්ලීම | හිස නවන පුද්ගලයා</annotation>
+		<annotation cp="🙇" type="tts">හිස නවන පුද්ගලයා</annotation>
+		<annotation cp="🙇‍♂">උදව්ව | ගැඹුරින් හිස නවන මිනිසා | නැමීම | මිනිහා | සමාවන්න</annotation>
+		<annotation cp="🙇‍♂" type="tts">ගැඹුරින් හිස නවන මිනිසා</annotation>
+		<annotation cp="🙇‍♀">උදව්ව | කාන්තාව | ගැඹුරින් හිස නවන කාන්තාව | නැමීම | සමාවන්න</annotation>
+		<annotation cp="🙇‍♀" type="tts">ගැඹුරින් හිස නවන කාන්තාව</annotation>
+		<annotation cp="🤦">අල්ල | අවිශ්වාසය | බලවත් කෝපය | මුහුණ | මුහුණේ අල්ල ගසා සිටීම</annotation>
+		<annotation cp="🤦" type="tts">මුහුණේ අල්ල ගසා සිටීම</annotation>
+		<annotation cp="🤦‍♂">අවිශ්වාසය | පිරිමියා | බලවත් කෝපය | මුහුණේ අල්ල ගසා සිටින මිනිසා | මුහුණේ අල්ල ගසා සිටීම</annotation>
+		<annotation cp="🤦‍♂" type="tts">මුහුණේ අල්ල ගසා සිටින මිනිසා</annotation>
+		<annotation cp="🤦‍♀">අවිශ්වාසය | කාන්තාව | බලවත් කෝපය | මුහුණේ අල්ල ගසා සිටින කාන්තාව | මුහුණේ අල්ල ගසා සිටීම</annotation>
+		<annotation cp="🤦‍♀" type="tts">මුහුණේ අල්ල ගසා සිටින කාන්තාව</annotation>
+		<annotation cp="🤷">උදාසීනත්වය | උරහිස් සෙලවීම | නොදැනුම | සැකය</annotation>
+		<annotation cp="🤷" type="tts">උරහිස් සෙලවීම</annotation>
+		<annotation cp="🤷‍♂">උරහිස් සෙලවීම | උරහිස් සොලවන මිනිසා | නොතැකීම | මිනිහා | සැකය</annotation>
+		<annotation cp="🤷‍♂" type="tts">උරහිස් සොලවන මිනිසා</annotation>
+		<annotation cp="🤷‍♀">උරහිස් සෙලවීම | උරහිස් සොලවන කාන්තාව | කාන්තාව | නොතැකීම | සැකය</annotation>
+		<annotation cp="🤷‍♀" type="tts">උරහිස් සොලවන කාන්තාව</annotation>
+		<annotation cp="🧑‍⚕">චිකිත්සක | දොස්තර | සෞඛ්‍ය සේවකයා | සෞඛ්‍ය සේවා | හෙදිය</annotation>
+		<annotation cp="🧑‍⚕" type="tts">සෞඛ්‍ය සේවකයා</annotation>
 		<annotation cp="👨‍⚕">චිකිත්සක | දොස්තර | මිනිහා | සාත්තුකාරයා | සෞඛ්‍යය සත්කාර</annotation>
 		<annotation cp="👨‍⚕" type="tts">දොස්තර</annotation>
 		<annotation cp="👩‍⚕">කාන්තාව | චිකිත්සකවරිය | දොස්තරවරිය | සෞඛ්‍යය සත්කාර | හෙදිය</annotation>
 		<annotation cp="👩‍⚕" type="tts">දොස්තරවරිය</annotation>
+		<annotation cp="🧑‍🎓">උපාධිධාරීයා | ශිෂ්‍යයා</annotation>
+		<annotation cp="🧑‍🎓" type="tts">ශිෂ්‍යයා</annotation>
 		<annotation cp="👨‍🎓">උපාධි ප්‍රදානෝත්සවය | පිරිමියා | මිනිහා | සිසුවා</annotation>
 		<annotation cp="👨‍🎓" type="tts">සිසුවා</annotation>
 		<annotation cp="👩‍🎓">උපාධි ප්‍රදානෝත්සවය | කාන්තාව | සිසුවිය | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍🎓" type="tts">සිසුවිය</annotation>
-		<annotation cp="👨‍🏫">උපදේශක | ගුරුවරයා | පිරිමියා | මහාචාර්යතුමා | මිනිහා</annotation>
-		<annotation cp="👨‍🏫" type="tts">ගුරුවරයා</annotation>
+		<annotation cp="🧑‍🏫">උපදේශක | ගුරුවරයා | මහාචාර්යවරයා</annotation>
+		<annotation cp="🧑‍🏫" type="tts">ගුරුවරයා</annotation>
+		<annotation cp="👨‍🏫">උපදේශක | ගුරුවරයා | පිරිමි ගුරුවරයා | පිරිමියා | මහාචාර්යතුමා | මිනිහා</annotation>
+		<annotation cp="👨‍🏫" type="tts">පිරිමි ගුරුවරයා</annotation>
 		<annotation cp="👩‍🏫">උපදේශක | කාන්තාව | ගුරුවරිය | මහාචාර්යතුමිය | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍🏫" type="tts">ගුරුවරිය</annotation>
+		<annotation cp="🧑‍⚖">තුලාව | විනිසුරු</annotation>
+		<annotation cp="🧑‍⚖" type="tts">විනිසුරු</annotation>
 		<annotation cp="👨‍⚖">තුලා | පිරිමියා | මිනිහා | විනිසුරුතුමා</annotation>
 		<annotation cp="👨‍⚖" type="tts">විනිසුරුතුමා</annotation>
 		<annotation cp="👩‍⚖">කාන්තාව | තුලා | විනිසුරුවරිය | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍⚖" type="tts">විනිසුරුවරිය</annotation>
-		<annotation cp="👨‍🌾">උයන්පල්ලා | ගොවිපළ හිමිකරු | ගොවියා | පිරිමියා | මිනිහා</annotation>
-		<annotation cp="👨‍🌾" type="tts">ගොවියා</annotation>
+		<annotation cp="🧑‍🌾">උයන්පල්ලා | ගොවියා | වතුකාරයා</annotation>
+		<annotation cp="🧑‍🌾" type="tts">ගොවියා</annotation>
+		<annotation cp="👨‍🌾">උයන්පල්ලා | ගොවිපළ හිමිකරු | ගොවියා | පිරිමි ගොවියා | පිරිමියා | මිනිහා</annotation>
+		<annotation cp="👨‍🌾" type="tts">පිරිමි ගොවියා</annotation>
 		<annotation cp="👩‍🌾">උයන්පල්ලා | කාන්තාව | ගෙවිලිය | ගොවිපළ හිමිකාරිය | ගොවියා | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍🌾" type="tts">ගෙවිලිය</annotation>
+		<annotation cp="🧑‍🍳">අරක්කැමියා | සූපවේදීයා</annotation>
+		<annotation cp="🧑‍🍳" type="tts">අරක්කැමියා</annotation>
 		<annotation cp="👨‍🍳">අරක්කැමියා | කෝකියා | පිරිමියා | මිනිහා</annotation>
 		<annotation cp="👨‍🍳" type="tts">කෝකියා</annotation>
 		<annotation cp="👩‍🍳">අරක්කැමියා | කාන්තාව | කෝකිය | කෝකියා | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍🍳" type="tts">කෝකිය</annotation>
-		<annotation cp="👨‍🔧">කාර්මිකයා | ගනුදෙනු පුද්ගලයා | ජල නළ කාර්මිකයා | මිනිහා | විදුලි ශිල්පියා</annotation>
-		<annotation cp="👨‍🔧" type="tts">කාර්මිකයා</annotation>
+		<annotation cp="🧑‍🔧">කාර්මිකයා | ජල නළ කාර්මිකයා | විදුලි කාර්මිකයා</annotation>
+		<annotation cp="🧑‍🔧" type="tts">කාර්මිකයා</annotation>
+		<annotation cp="👨‍🔧">කාර්මිකයා | ගනුදෙනු පුද්ගලයා | ජල නළ කාර්මිකයා | පිරිමි කාර්මිකයා | මිනිහා | විදුලි ශිල්පියා</annotation>
+		<annotation cp="👨‍🔧" type="tts">පිරිමි කාර්මිකයා</annotation>
 		<annotation cp="👩‍🔧">කාන්තාව | කාර්මිකයා | කාර්මිකවරිය | ගනුදෙනු පුද්ගලයා | ජල නළ කාර්මිකයා | විදුලි ශිල්පිණිය</annotation>
 		<annotation cp="👩‍🔧" type="tts">කාර්මිකවරිය</annotation>
+		<annotation cp="🧑‍🏭">එකලස් කිරීම | කර්මාන්ත ශාලාව | කර්මාන්තශාලා සේවකයා | කාර්මික | සේවකයා</annotation>
+		<annotation cp="🧑‍🏭" type="tts">කර්මාන්තශාලා සේවකයා</annotation>
 		<annotation cp="👨‍🏭">එකලස | කම්කරුවා | කම්හල | කාර්මික | පිරිමි කම්හල් කම්කරුවා | පිරිමියා</annotation>
 		<annotation cp="👨‍🏭" type="tts">පිරිමි කම්හල් කම්කරුවා</annotation>
 		<annotation cp="👩‍🏭">එකලස | කම්කරුවා | කම්හල | කාන්තාව | කාර්මික | ගැහැණු කම්හල් කම්කරුවා</annotation>
 		<annotation cp="👩‍🏭" type="tts">ගැහැණු කම්හල් කම්කරුවා</annotation>
+		<annotation cp="🧑‍💼">කළමනාකරු | කාර්යාල සේවකයා | ගෘහ නිර්මාණ ශිල්පියා | ව්‍යාපාර | සුදු කොලරය</annotation>
+		<annotation cp="🧑‍💼" type="tts">කාර්යාල සේවකයා</annotation>
 		<annotation cp="👨‍💼">කළමනාකරු | කාර්යාලය | පිරිමි කාර්යාල කම්කරුවා | පිරිමියා | ව්‍යාපාරය | සුදු කොලරය</annotation>
 		<annotation cp="👨‍💼" type="tts">පිරිමි කාර්යාල කම්කරුවා</annotation>
 		<annotation cp="👩‍💼">කළමනාකරු | කාන්තාව | ගැහැණු කාර්යාල කම්කරුවා | නිර්මාණ ශිල්පිණිය | ව්‍යාපාරය | සුදු කොලරය</annotation>
 		<annotation cp="👩‍💼" type="tts">ගැහැණු කාර්යාල කම්කරුවා</annotation>
-		<annotation cp="👨‍🔬">ඉංජිනේරුවා | ගණිතඥයා | ජීවවිද්‍යාඥයා | පිරිමියා | භෞතිකඥයා | විද්‍යාඥයා</annotation>
-		<annotation cp="👨‍🔬" type="tts">විද්‍යාඥයා</annotation>
+		<annotation cp="🧑‍🔬">ඉංජිනේරු | ජීව විද්‍යාඥයා | භෞතික විද්‍යාඥයා | රසායන විද්‍යාඥයා | විද්‍යාඥයා</annotation>
+		<annotation cp="🧑‍🔬" type="tts">විද්‍යාඥයා</annotation>
+		<annotation cp="👨‍🔬">ඉංජිනේරුවා | ගණිතඥයා | ජීවවිද්‍යාඥයා | පිරිමි විද්‍යාඥයා | පිරිමියා | භෞතිකඥයා | විද්‍යාඥයා</annotation>
+		<annotation cp="👨‍🔬" type="tts">පිරිමි විද්‍යාඥයා</annotation>
 		<annotation cp="👩‍🔬">ඉංජිනේරුවරිය | කාන්තාව | ගණිතඥයා | ජීවවිද්‍යාඥයා | භෞතිකඥයා | විද්‍යාඥවරිය</annotation>
 		<annotation cp="👩‍🔬" type="tts">විද්‍යාඥවරිය</annotation>
+		<annotation cp="🧑‍💻">කේතකරු | තාක්ෂණවේදියා | නව නිපැයුම්කරු | මෘදුකාංග | සංවර්ධකයා</annotation>
+		<annotation cp="🧑‍💻" type="tts">තාක්ෂණවේදියා</annotation>
 		<annotation cp="👨‍💻">කර්මාන්ත ශිල්පියා | කේතකරු | තාක්ෂණවේදියා | නව නිපැයුම්කරුවා | පිරිමියා | මෘදුකාංග සංවර්ධකයා</annotation>
 		<annotation cp="👨‍💻" type="tts">කර්මාන්ත ශිල්පියා</annotation>
 		<annotation cp="👩‍💻">කර්මාන්ත ශිල්පිණිය | කාන්තාව | කේතකරු | තාක්ෂණවේදිණිය | නව නිපැයුම්කරුවා | මෘදුකාංග සංවර්ධකයා</annotation>
 		<annotation cp="👩‍💻" type="tts">කර්මාන්ත ශිල්පිණිය</annotation>
-		<annotation cp="👨‍🎤">ගායකයා | තරුව | නළුවා | පිරිමියා | රොක්</annotation>
-		<annotation cp="👨‍🎤" type="tts">ගායකයා</annotation>
+		<annotation cp="🧑‍🎤">ගායකයා | තරුව | නළුවා | විනෝදාස්වාදය සපයන්නා</annotation>
+		<annotation cp="🧑‍🎤" type="tts">ගායකයා</annotation>
+		<annotation cp="👨‍🎤">ගායකයා | තරුව | නළුවා | පිරිමි ගායකයා | පිරිමියා | රොක්</annotation>
+		<annotation cp="👨‍🎤" type="tts">පිරිමි ගායකයා</annotation>
 		<annotation cp="👩‍🎤">කාන්තාව | ගායිකාව | නිළිය | රොක් තරුව | විනෝද ක්‍රීඩකයා</annotation>
 		<annotation cp="👩‍🎤" type="tts">ගායිකාව</annotation>
-		<annotation cp="👨‍🎨">එලකය | කලාකරු | පිරිමියා | මිනිහා</annotation>
-		<annotation cp="👨‍🎨" type="tts">කලාකරු</annotation>
+		<annotation cp="🧑‍🎨">කලාකරු | කලාකරුවා | වර්ණ එලකය</annotation>
+		<annotation cp="🧑‍🎨" type="tts">කලාකරු</annotation>
+		<annotation cp="👨‍🎨">එලකය | කලාකරු | පිරිමි කලාකරු | පිරිමියා | මිනිහා</annotation>
+		<annotation cp="👨‍🎨" type="tts">පිරිමි කලාකරු</annotation>
 		<annotation cp="👩‍🎨">කලාකාරිණිය | කාන්තාව | ඵලකය | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍🎨" type="tts">කලාකාරිණිය</annotation>
+		<annotation cp="🧑‍✈">ගුවන් නියමුවා | යානය</annotation>
+		<annotation cp="🧑‍✈" type="tts">ගුවන් නියමුවා</annotation>
 		<annotation cp="👨‍✈">ගුවන් යානය | නියමුවා | පිරිමියා | මිනිහා</annotation>
 		<annotation cp="👨‍✈" type="tts">නියමුවා</annotation>
 		<annotation cp="👩‍✈">කාන්තාව | ගුවන් යානය | නියමුවරිය | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍✈" type="tts">නියමුවරිය</annotation>
-		<annotation cp="👨‍🚀">අභ්‍යවකාශය | ගගනගාමියා | පිරිමියා | මිනිහා | රොකට්ටුව</annotation>
-		<annotation cp="👨‍🚀" type="tts">ගගනගාමියා</annotation>
+		<annotation cp="🧑‍🚀">ගගනගාමියා | රොකට්ටුව</annotation>
+		<annotation cp="🧑‍🚀" type="tts">ගගනගාමියා</annotation>
+		<annotation cp="👨‍🚀">අභ්‍යවකාශය | ගගනගාමියා | පිරිමි ගගනගාමියා | පිරිමියා | මිනිහා | රොකට්ටුව</annotation>
+		<annotation cp="👨‍🚀" type="tts">පිරිමි ගගනගාමියා</annotation>
 		<annotation cp="👩‍🚀">අභ්‍යවකාශය | කාන්තාව | ගගනගාමීවරිය | රොකට්ටුව | ස්ත්‍රිය</annotation>
 		<annotation cp="👩‍🚀" type="tts">ගගනගාමීවරිය</annotation>
+		<annotation cp="🧑‍🚒">ගිනි නිවන භටයා | ගිනි නිවන රථය</annotation>
+		<annotation cp="🧑‍🚒" type="tts">ගිනි නිවන භටයා</annotation>
 		<annotation cp="👨‍🚒">ගිනි නිවන භටයා | ගිනිනිවන රථය | පිරිමි ගිනි නිවන භටයා | පිරිමියා | මිනිහා</annotation>
 		<annotation cp="👨‍🚒" type="tts">පිරිමි ගිනි නිවන භටයා</annotation>
 		<annotation cp="👩‍🚒">කාන්තාව | ගැහැණු ගිනි නිවන භටයා | ගිනි නිවන භටයා | ගිනිනිවන රථය | ස්ත්‍රිය</annotation>
@@ -379,10 +759,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👲" type="tts">චීන තොප්පිය සහිත මිනිසා</annotation>
 		<annotation cp="🧕">අඳිනවා | ටිචෙල් | මැන්ටිල්ලා | හිස් වැසුම් සහිත කාන්තාවකි | හීජාබ්</annotation>
 		<annotation cp="🧕" type="tts">හිස් වැසුම් සහිත කාන්තාවකි</annotation>
-		<annotation cp="🤵">උත්සව කබාය | උත්සව කබායක් ඇද සිටින පිරිමියා | පිරිමියා | මනමාලයා</annotation>
-		<annotation cp="🤵" type="tts">උත්සව කබායක් ඇද සිටින පිරිමියා</annotation>
-		<annotation cp="👰">මනාලිය | විවාහ මංග්‍යලය | වේලය | වේලය දැමූ මනාලිය</annotation>
-		<annotation cp="👰" type="tts">වේලය දැමූ මනාලිය</annotation>
+		<annotation cp="🤵">ටක්සෙඩෝ | ටක්සෙඩෝ කබායක් ඇද සිටින පිරිමියා | ටක්සෙඩෝව ඇද සිටින පුද්ගලයා | පිරිමියා | මනමාලයා</annotation>
+		<annotation cp="🤵" type="tts">ටක්සෙඩෝව ඇද සිටින පුද්ගලයා</annotation>
+		<annotation cp="🤵‍♀">කාන්තාව | ටක්සෙඩෝව | ටක්සෙඩෝවෙන් සිටින කාන්තාව</annotation>
+		<annotation cp="🤵‍♀" type="tts">ටක්සෙඩෝවෙන් සිටින කාන්තාව</annotation>
+		<annotation cp="🤵‍♂">ටක්සෙඩෝව | ටක්සෙඩෝවෙන් සිටින මිනිසා | මිනිසා</annotation>
+		<annotation cp="🤵‍♂" type="tts">ටක්සෙඩෝවෙන් සිටින මිනිසා</annotation>
+		<annotation cp="👰">පුද්ගලයා | මනාලිය | විවාහ මංග්‍යලය | වේලය | වේලය දැමූ පුද්ගලයා</annotation>
+		<annotation cp="👰" type="tts">වේලය දැමූ පුද්ගලයා</annotation>
+		<annotation cp="👰‍♀">කාන්තාව | වැස්ම | වැස්ම සහිත කාන්තාව</annotation>
+		<annotation cp="👰‍♀" type="tts">වැස්ම සහිත කාන්තාව</annotation>
+		<annotation cp="👰‍♂">මිනිසා | වැස්ම | වැස්ම සහිත මිනිසා</annotation>
+		<annotation cp="👰‍♂" type="tts">වැස්ම සහිත මිනිසා</annotation>
 		<annotation cp="🤰">ගැබිණිය | ගැහැණිය</annotation>
 		<annotation cp="🤰" type="tts">ගැබිණිය</annotation>
 		<annotation cp="🤱">කිරි දීම | දරුවා | පියයුරු</annotation>
@@ -395,112 +783,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤶" type="tts">නතල් ආච්චි</annotation>
 		<annotation cp="🦸">වීරයෙක් | සුපිරි බලයක් | සුපිරි වීරයා | හෙරෝයින් | හොඳයි</annotation>
 		<annotation cp="🦸" type="tts">සුපිරි වීරයා</annotation>
-		<annotation cp="🦸‍♀">කාන්තා සුපිරි වීරයා | කාන්තාව | වීරයෙක් | සුපිරි බලය | හිරෝයින් | හොඳයි</annotation>
-		<annotation cp="🦸‍♀" type="tts">කාන්තා සුපිරි වීරයා</annotation>
 		<annotation cp="🦸‍♂">මිනිසා | මිනිසා සුපිරි වීරයා | වීරයෙක් | සුපිරි බලවතා | හොඳයි</annotation>
 		<annotation cp="🦸‍♂" type="tts">මිනිසා සුපිරි වීරයා</annotation>
+		<annotation cp="🦸‍♀">කාන්තා සුපිරි වීරයා | කාන්තාව | වීරයෙක් | සුපිරි බලය | හිරෝයින් | හොඳයි</annotation>
+		<annotation cp="🦸‍♀" type="tts">කාන්තා සුපිරි වීරයා</annotation>
 		<annotation cp="🦹">අපරාධකාරයෙක් | දුෂ්ටයා | නරකයි | සුපිරි දුෂ්ටයා | සුපිරි බලවතා</annotation>
 		<annotation cp="🦹" type="tts">සුපිරි දුෂ්ටයා</annotation>
-		<annotation cp="🦹‍♀">අපරාධකාරයෙක් | කාන්තාව දුෂ්ටයා | කාන්තාවක් | දුෂ්ටයා | නරකයි | සුපිරි බලවතා</annotation>
-		<annotation cp="🦹‍♀" type="tts">කාන්තාව දුෂ්ටයා</annotation>
 		<annotation cp="🦹‍♂">අපරාධකාරයෙක් | දුෂ්ටයා | නරකයි | පිරිමි සුපිරි දුෂ්ටයා | මිනිසා | සුපිරි බලවතා</annotation>
 		<annotation cp="🦹‍♂" type="tts">පිරිමි සුපිරි දුෂ්ටයා</annotation>
+		<annotation cp="🦹‍♀">අපරාධකාරයෙක් | කාන්තාව දුෂ්ටයා | කාන්තාවක් | දුෂ්ටයා | නරකයි | සුපිරි බලවතා</annotation>
+		<annotation cp="🦹‍♀" type="tts">කාන්තාව දුෂ්ටයා</annotation>
 		<annotation cp="🧙">මන්ත්‍රකාරිය | මායාකරුවා | මායාකාරිය</annotation>
 		<annotation cp="🧙" type="tts">මායාකරුවා</annotation>
-		<annotation cp="🧙‍♀">මන්ත්‍රකාරිය | මායාකාරිය</annotation>
-		<annotation cp="🧙‍♀" type="tts">මායාකාරිය</annotation>
 		<annotation cp="🧙‍♂">පිරිමි මායාකරුවා | මන්ත්‍රකරුවා | මායාකරුවා</annotation>
 		<annotation cp="🧙‍♂" type="tts">පිරිමි මායාකරුවා</annotation>
+		<annotation cp="🧙‍♀">මන්ත්‍රකාරිය | මායාකාරිය</annotation>
+		<annotation cp="🧙‍♀" type="tts">මායාකාරිය</annotation>
 		<annotation cp="🧚">ඔබෙරෝන් | ටයිටානියා | පක් | සුරඟන</annotation>
 		<annotation cp="🧚" type="tts">සුරඟන</annotation>
-		<annotation cp="🧚‍♀">ටයිටානියා | සුරංගනාව</annotation>
-		<annotation cp="🧚‍♀" type="tts">සුරංගනාව</annotation>
 		<annotation cp="🧚‍♂">ඔබෙරෝන් | පක් | පිරිමි සුරඟන</annotation>
 		<annotation cp="🧚‍♂" type="tts">පිරිමි සුරඟන</annotation>
+		<annotation cp="🧚‍♀">ටයිටානියා | සුරංගනාව</annotation>
+		<annotation cp="🧚‍♀" type="tts">සුරංගනාව</annotation>
 		<annotation cp="🧛">ඩ්‍රකියූලා | නොමැරුණු | වැම්පයර්</annotation>
 		<annotation cp="🧛" type="tts">වැම්පයර්</annotation>
-		<annotation cp="🧛‍♀">ගැණු වැම්පයර් | නොමැරුණු</annotation>
-		<annotation cp="🧛‍♀" type="tts">ගැණු වැම්පයර්</annotation>
 		<annotation cp="🧛‍♂">ඩ්‍රකියූලා | නොමැරුණු | පිරිමි වැම්පයර්</annotation>
 		<annotation cp="🧛‍♂" type="tts">පිරිමි වැම්පයර්</annotation>
+		<annotation cp="🧛‍♀">ගැණු වැම්පයර් | නොමැරුණු</annotation>
+		<annotation cp="🧛‍♀" type="tts">ගැණු වැම්පයර්</annotation>
 		<annotation cp="🧜">දියකිඳුරා | දියකිඳුරිය | දියකිඳුරු</annotation>
 		<annotation cp="🧜" type="tts">දියකිඳුරු</annotation>
-		<annotation cp="🧜‍♀">දියකිඳුරා | දියකිඳුරිය</annotation>
-		<annotation cp="🧜‍♀" type="tts">දියකිඳුරා</annotation>
 		<annotation cp="🧜‍♂">ට්‍රිටෝන් | පිරිමි දියකිඳුරා</annotation>
 		<annotation cp="🧜‍♂" type="tts">පිරිමි දියකිඳුරා</annotation>
+		<annotation cp="🧜‍♀">දියකිඳුරා | දියකිඳුරිය</annotation>
+		<annotation cp="🧜‍♀" type="tts">දියකිඳුරා</annotation>
 		<annotation cp="🧝">ඉන්ද්රජාලික | එල්ෆ්</annotation>
 		<annotation cp="🧝" type="tts">එල්ෆ්</annotation>
-		<annotation cp="🧝‍♀">ඉන්ද්රජාලික | ගෑනු එල්ෆ්</annotation>
-		<annotation cp="🧝‍♀" type="tts">ගෑනු එල්ෆ්</annotation>
 		<annotation cp="🧝‍♂">පිරිමි එල්ෆ් | මායාවී</annotation>
 		<annotation cp="🧝‍♂" type="tts">පිරිමි එල්ෆ්</annotation>
+		<annotation cp="🧝‍♀">ඉන්ද්රජාලික | ගෑනු එල්ෆ්</annotation>
+		<annotation cp="🧝‍♀" type="tts">ගෑනු එල්ෆ්</annotation>
 		<annotation cp="🧞">ජින් | බහිරවයා</annotation>
 		<annotation cp="🧞" type="tts">බහිරවයා</annotation>
-		<annotation cp="🧞‍♀">ගැනු බහිරවයා | ජින්</annotation>
-		<annotation cp="🧞‍♀" type="tts">ගැනු බහිරවයා</annotation>
 		<annotation cp="🧞‍♂">ජින් | පිරිමි බහිරවයා</annotation>
 		<annotation cp="🧞‍♂" type="tts">පිරිමි බහිරවයා</annotation>
+		<annotation cp="🧞‍♀">ගැනු බහිරවයා | ජින්</annotation>
+		<annotation cp="🧞‍♀" type="tts">ගැනු බහිරවයා</annotation>
 		<annotation cp="🧟">නොමැරුණු | මැරී ඇවිදිම | සොම්බි</annotation>
 		<annotation cp="🧟" type="tts">සොම්බි</annotation>
-		<annotation cp="🧟‍♀">ගැනු සොම්බි | නොමැරුණු | මැරී ඇවිදිම</annotation>
-		<annotation cp="🧟‍♀" type="tts">ගැනු සොම්බි</annotation>
 		<annotation cp="🧟‍♂">නොමැරුණු | පිරිමි සොම්බි | මැරී ඇවිදිම</annotation>
 		<annotation cp="🧟‍♂" type="tts">පිරිමි සොම්බි</annotation>
-		<annotation cp="🙍">අභින | රවන පුද්ගලයා | රැවීම</annotation>
-		<annotation cp="🙍" type="tts">රවන පුද්ගලයා</annotation>
-		<annotation cp="🙍‍♂">අභින | පිරිමියා | මිනිහා | රවන මිනිසා | රැවීම</annotation>
-		<annotation cp="🙍‍♂" type="tts">රවන මිනිසා</annotation>
-		<annotation cp="🙍‍♀">අභින | කාන්තාව | රවන කාන්තාව | රැවීම | ස්ත්‍රිය</annotation>
-		<annotation cp="🙍‍♀" type="tts">රවන කාන්තාව</annotation>
-		<annotation cp="🙎">අභින | අමනාපය දක්වන පුද්ගලයා | අමනාපය දැක්වීම</annotation>
-		<annotation cp="🙎" type="tts">අමනාපය දක්වන පුද්ගලයා</annotation>
-		<annotation cp="🙎‍♂">අභින | කට උල්කරන මිනිසා | කට උල්කිරීම | පිරිමියා | මිනිහා</annotation>
-		<annotation cp="🙎‍♂" type="tts">කට උල්කරන මිනිසා</annotation>
-		<annotation cp="🙎‍♀">අභින | කට උල්කරන කාන්තාව | කට උල්කිරීම | කාන්තාව | ස්ත්‍රිය</annotation>
-		<annotation cp="🙎‍♀" type="tts">කට උල්කරන කාන්තාව</annotation>
-		<annotation cp="🙅">අත | අභින | තහනම් | නැත | නැත යන අභිනය</annotation>
-		<annotation cp="🙅" type="tts">නැත යන අභිනය</annotation>
-		<annotation cp="🙅‍♂">අත | තහනම් | නැහැ | හරි නැති බව පෙන්වන මිනිසා | හරි නැහැ</annotation>
-		<annotation cp="🙅‍♂" type="tts">හරි නැති බව පෙන්වන මිනිසා</annotation>
-		<annotation cp="🙅‍♀">අත | කාන්තාව | තහනම් | හරි නැති බව පෙන්වන කාන්තාව | හරි නැහැ</annotation>
-		<annotation cp="🙅‍♀" type="tts">හරි නැති බව පෙන්වන කාන්තාව</annotation>
-		<annotation cp="🙆">අත | අභිින | හරි | හරි යන අභිනය</annotation>
-		<annotation cp="🙆" type="tts">හරි යන අභිනය</annotation>
-		<annotation cp="🙆‍♂">අත | පිරිමියා | මිනිහා | හරි | හරි බව පෙන්වන මිනිසා</annotation>
-		<annotation cp="🙆‍♂" type="tts">හරි බව පෙන්වන මිනිසා</annotation>
-		<annotation cp="🙆‍♀">අත | කාන්තාව | ස්ත්‍රිය | හරි | හරි බව පෙන්වන කාන්තාව</annotation>
-		<annotation cp="🙆‍♀" type="tts">හරි බව පෙන්වන කාන්තාව</annotation>
-		<annotation cp="💁">අත | උපකාර කවුළු පුද්ගලයා | උපකාරය | එඩිතර | තොරතුරු</annotation>
-		<annotation cp="💁" type="tts">උපකාර කවුළු පුද්ගලයා</annotation>
-		<annotation cp="💁‍♂">අත හෙළන මිනිසා | අත හෙළීම | ආත්මීය | පිරිමියා | මිනිහා</annotation>
-		<annotation cp="💁‍♂" type="tts">අත හෙළන මිනිසා</annotation>
-		<annotation cp="💁‍♀">අත හෙළන කාන්තාව | අත හෙළීම | ආත්මීය | කාන්තාව | ස්ත්‍රිය</annotation>
-		<annotation cp="💁‍♀" type="tts">අත හෙළන කාන්තාව</annotation>
-		<annotation cp="🙋">අත | අත ඔසවන ප්‍රීතිමත් පුද්ගලයා | අභින | උස්සන ලද | ප්‍රීතිමත්</annotation>
-		<annotation cp="🙋" type="tts">අත ඔසවන ප්‍රීතිමත් පුද්ගලයා</annotation>
-		<annotation cp="🙋‍♂">අත එසවීම | අත ඔසවන මිනිසා | අභිනය | පිරිමියා | මිනිහා</annotation>
-		<annotation cp="🙋‍♂" type="tts">අත ඔසවන මිනිසා</annotation>
-		<annotation cp="🙋‍♀">අත එසවීම | අත ඔසවන කාන්තාව | අභින | කාන්තාව | ස්ත්‍රිය</annotation>
-		<annotation cp="🙋‍♀" type="tts">අත ඔසවන කාන්තාව</annotation>
-		<annotation cp="🙇">අභින | ආචාර කිරීම | සමාව ඉල්ලීම | හිස නවන පුද්ගලයා</annotation>
-		<annotation cp="🙇" type="tts">හිස නවන පුද්ගලයා</annotation>
-		<annotation cp="🙇‍♂">උදව්ව | ගැඹුරින් හිස නවන මිනිසා | නැමීම | මිනිහා | සමාවන්න</annotation>
-		<annotation cp="🙇‍♂" type="tts">ගැඹුරින් හිස නවන මිනිසා</annotation>
-		<annotation cp="🙇‍♀">උදව්ව | කාන්තාව | ගැඹුරින් හිස නවන කාන්තාව | නැමීම | සමාවන්න</annotation>
-		<annotation cp="🙇‍♀" type="tts">ගැඹුරින් හිස නවන කාන්තාව</annotation>
-		<annotation cp="🤦">අල්ල | අවිශ්වාසය | බලවත් කෝපය | මුහුණ | මුහුණේ අල්ල ගසා සිටීම</annotation>
-		<annotation cp="🤦" type="tts">මුහුණේ අල්ල ගසා සිටීම</annotation>
-		<annotation cp="🤦‍♂">අවිශ්වාසය | පිරිමියා | බලවත් කෝපය | මුහුණේ අල්ල ගසා සිටින මිනිසා | මුහුණේ අල්ල ගසා සිටීම</annotation>
-		<annotation cp="🤦‍♂" type="tts">මුහුණේ අල්ල ගසා සිටින මිනිසා</annotation>
-		<annotation cp="🤦‍♀">අවිශ්වාසය | කාන්තාව | බලවත් කෝපය | මුහුණේ අල්ල ගසා සිටින කාන්තාව | මුහුණේ අල්ල ගසා සිටීම</annotation>
-		<annotation cp="🤦‍♀" type="tts">මුහුණේ අල්ල ගසා සිටින කාන්තාව</annotation>
-		<annotation cp="🤷">උදාසීනත්වය | උරහිස් සෙලවීම | නොදැනුම | සැකය</annotation>
-		<annotation cp="🤷" type="tts">උරහිස් සෙලවීම</annotation>
-		<annotation cp="🤷‍♂">උරහිස් සෙලවීම | උරහිස් සොලවන මිනිසා | නොතැකීම | මිනිහා | සැකය</annotation>
-		<annotation cp="🤷‍♂" type="tts">උරහිස් සොලවන මිනිසා</annotation>
-		<annotation cp="🤷‍♀">උරහිස් සෙලවීම | උරහිස් සොලවන කාන්තාව | කාන්තාව | නොතැකීම | සැකය</annotation>
-		<annotation cp="🤷‍♀" type="tts">උරහිස් සොලවන කාන්තාව</annotation>
+		<annotation cp="🧟‍♀">ගැනු සොම්බි | නොමැරුණු | මැරී ඇවිදිම</annotation>
+		<annotation cp="🧟‍♀" type="tts">ගැනු සොම්බි</annotation>
 		<annotation cp="💆">පණිවිඩය | මුහුණ මසාජ් කිරීම | සැලෝනය</annotation>
 		<annotation cp="💆" type="tts">මුහුණ මසාජ් කිරීම</annotation>
 		<annotation cp="💆‍♂">පිරිමියා | මසාජ් කිරීම | මිනිහා | මුහුණ | මුහුණට මසාජ් කිරීමක් ලබන මිනිසා</annotation>
@@ -519,52 +853,66 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">ඇවිදීන පිරිමියා</annotation>
 		<annotation cp="🚶‍♀">ඇවිදීන කාන්තාව | ඇවිදීම | කාන්තාව | පයින් යාම | ස්ත්‍රිය</annotation>
 		<annotation cp="🚶‍♀" type="tts">ඇවිදීන කාන්තාව</annotation>
+		<annotation cp="🧍">පුද්ගලයා සිටගෙන සිටී | සිටින්න | සිටීම</annotation>
+		<annotation cp="🧍" type="tts">පුද්ගලයා සිටගෙන සිටී</annotation>
+		<annotation cp="🧍‍♂">මිනිසා | මිනිසා සිටිගෙන සිටී | සිටීම</annotation>
+		<annotation cp="🧍‍♂" type="tts">මිනිසා සිටිගෙන සිටී</annotation>
+		<annotation cp="🧍‍♀">කාන්තාව | කාන්තාව සිටිගෙන සිටී | සිටීම</annotation>
+		<annotation cp="🧍‍♀" type="tts">කාන්තාව සිටිගෙන සිටී</annotation>
+		<annotation cp="🧎">දණ ගසන පුද්ගලයා | දණ ගසන්න | දණ ගැසීම</annotation>
+		<annotation cp="🧎" type="tts">දණ ගසන පුද්ගලයා</annotation>
+		<annotation cp="🧎‍♂">දණ ගැසීම | මිනිසා | මිනිසා දණ ගසයි</annotation>
+		<annotation cp="🧎‍♂" type="tts">මිනිසා දණ ගසයි</annotation>
+		<annotation cp="🧎‍♀">කාන්තාව | කාන්තාව දණ ගසයි | දණ ගැසීම</annotation>
+		<annotation cp="🧎‍♀" type="tts">කාන්තාව දණ ගසයි</annotation>
+		<annotation cp="🧑‍🦯">අන්ධ | ප්‍රවේශ්‍යතාව | සැරයැටියක් රැගෙන යන පුද්ගලයා</annotation>
+		<annotation cp="🧑‍🦯" type="tts">සැරයැටියක් රැගෙන යන පුද්ගලයා</annotation>
+		<annotation cp="👨‍🦯">අන්ධ | ඒෂණ දණ්ඩක් සහිත මිනිසා | මිනිසා | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="👨‍🦯" type="tts">ඒෂණ දණ්ඩක් සහිත මිනිසා</annotation>
+		<annotation cp="👩‍🦯">අන්ධ | ඒෂණ දණ්ඩක් සහිත කාන්තාව | කාන්තාව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="👩‍🦯" type="tts">ඒෂණ දණ්ඩක් සහිත කාන්තාව</annotation>
+		<annotation cp="🧑‍🦼">ප්‍රවේශ්‍යතාව | මෝටර් රෝද පුටුවේ සිටින පුද්ගලයා | රෝද පුටුව</annotation>
+		<annotation cp="🧑‍🦼" type="tts">මෝටර් රෝද පුටුවේ සිටින පුද්ගලයා</annotation>
+		<annotation cp="👨‍🦼">මිනිසා | මෝටර් රෝද පුටුවක සිටින මිනිසා | රෝද පුටුව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="👨‍🦼" type="tts">මෝටර් රෝද පුටුවක සිටින මිනිසා</annotation>
+		<annotation cp="👩‍🦼">කාන්තාව | මෝටර් රෝද පුටුවක සිටින කාන්තාව | රෝද පුටුව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="👩‍🦼" type="tts">මෝටර් රෝද පුටුවක සිටින කාන්තාව</annotation>
+		<annotation cp="🧑‍🦽">රෝද පුටුවේ සිටින පුද්ගලයා</annotation>
+		<annotation cp="🧑‍🦽" type="tts">රෝද පුටුවේ සිටින පුද්ගලයා</annotation>
+		<annotation cp="👨‍🦽">අතින් කරකන රෝද පුටුවක සිටින මිනිසා | මිනිසා | රෝද පුටුව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="👨‍🦽" type="tts">අතින් කරකන රෝද පුටුවක සිටින මිනිසා</annotation>
+		<annotation cp="👩‍🦽">අතින් කරකන රෝද පුටුවක සිටින කාන්තාව | කාන්තාව | රෝද පුටුව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="👩‍🦽" type="tts">අතින් කරකන රෝද පුටුවක සිටින කාන්තාව</annotation>
 		<annotation cp="🏃">දුවන්නා | දුවමින් | මැරතන්</annotation>
 		<annotation cp="🏃" type="tts">දුවන්නා</annotation>
 		<annotation cp="🏃‍♂">දිවීම | දුවන පිරිමියා | පිරිමියා | මැරතන් | මිනිහා</annotation>
 		<annotation cp="🏃‍♂" type="tts">දුවන පිරිමියා</annotation>
 		<annotation cp="🏃‍♀">කාන්තාව | දිවීම | දුවන කාන්තාව | මැරතන් | ස්ත්‍රිය</annotation>
 		<annotation cp="🏃‍♀" type="tts">දුවන කාන්තාව</annotation>
-		<annotation cp="💃">නැට්ටුක්කාරි | නැට්ටුම්කාරී</annotation>
+		<annotation cp="💃">කාන්තාව | නැටුම් | නැට්ටුක්කාරි</annotation>
 		<annotation cp="💃" type="tts">නැට්ටුක්කාරි</annotation>
 		<annotation cp="🕺">නටන | පිරිමියා</annotation>
 		<annotation cp="🕺" type="tts">නටන පිරිමියා</annotation>
-		<annotation cp="👯">කන | කාන්තාව | නැට්ටුවා | සාද පවත්වන ගැහැණු | ළදැරිය</annotation>
-		<annotation cp="👯" type="tts">සාද පවත්වන ගැහැණු</annotation>
-		<annotation cp="👯‍♂">නර්තන ශිල්පියා | පිරිමියා | මිනිහා | සාද පවත්වන පිරිමි | හා කන</annotation>
-		<annotation cp="👯‍♂" type="tts">සාද පවත්වන පිරිමි</annotation>
-		<annotation cp="👯‍♀">කාන්තාව | නර්තන ශිල්පිනිය | සාද පවත්වන කාන්තාවන් | ස්ත්‍රිය | හා කන</annotation>
-		<annotation cp="👯‍♀" type="tts">සාද පවත්වන කාන්තාවන්</annotation>
-		<annotation cp="🧖">හුමාල කාමරය | හුමාල කාමරය තුළ පුද්ගලයා | හුමාල ස්නානය</annotation>
-		<annotation cp="🧖" type="tts">හුමාල කාමරය තුළ පුද්ගලයා</annotation>
-		<annotation cp="🧖‍♀">හුමාල කාමරය | හුමාල කාමරය තුළ ගැහැණිය | හුමාල ස්නානය</annotation>
-		<annotation cp="🧖‍♀" type="tts">හුමාල කාමරය තුළ ගැහැණිය</annotation>
-		<annotation cp="🧖‍♂">හුමාල කාමරය | හුමාල කාමරය තුළ පිරිමියා | හුමාල ස්නානය</annotation>
-		<annotation cp="🧖‍♂" type="tts">හුමාල කාමරය තුළ පිරිමියා</annotation>
-		<annotation cp="🧗">කඳු නගින පුද්ගලයා | කඳු නගින්නා</annotation>
-		<annotation cp="🧗" type="tts">කඳු නගින පුද්ගලයා</annotation>
-		<annotation cp="🧗‍♀">කඳු නගින ගැහැණිය | කඳු නගින්නා</annotation>
-		<annotation cp="🧗‍♀" type="tts">කඳු නගින ගැහැණිය</annotation>
-		<annotation cp="🧗‍♂">කඳු නගින පිරිමියා | කඳු නගින්නා</annotation>
-		<annotation cp="🧗‍♂" type="tts">කඳු නගින පිරිමියා</annotation>
-		<annotation cp="🧘">පද්මාකාර ඉරියව්වෙන් සිටින පුද්ගලයා | භාවනාව | යෝග</annotation>
-		<annotation cp="🧘" type="tts">පද්මාකාර ඉරියව්වෙන් සිටින පුද්ගලයා</annotation>
-		<annotation cp="🧘‍♀">පද්මාකාර ඉරියව්වෙන් සිටින ගැහැණිය | භාවනාව | යෝග</annotation>
-		<annotation cp="🧘‍♀" type="tts">පද්මාකාර ඉරියව්වෙන් සිටින ගැහැණිය</annotation>
-		<annotation cp="🧘‍♂">පද්මාකාර ඉරියව්වෙන් සිටින පිරිමියා | භාවනාව | යෝග</annotation>
-		<annotation cp="🧘‍♂" type="tts">පද්මාකාර ඉරියව්වෙන් සිටින පිරිමියා</annotation>
-		<annotation cp="🛀">නාන පුද්ගලයා | නාන බේසම | නෑම</annotation>
-		<annotation cp="🛀" type="tts">නාන පුද්ගලයා</annotation>
-		<annotation cp="🛌">ඇ‍ඳෙහි සිටින පුද්ගලයා | නින්ද | හෝටලය</annotation>
-		<annotation cp="🛌" type="tts">ඇ‍ඳෙහි සිටින පුද්ගලයා</annotation>
 		<annotation cp="🕴">ඇඳුම් කට්ටලය | මිනිසා | ව්‍යාාපාර ඇඳුමෙන් ඉහළ පහළ යන මිනිසා | ව්‍යාාපාරය</annotation>
 		<annotation cp="🕴" type="tts">ව්‍යාාපාර ඇඳුමෙන් ඉහළ පහළ යන මිනිසා</annotation>
-		<annotation cp="🗣">කථා කරන හිස | කථා කරනවා | කථා කිරීම | මුහුණ | හිස</annotation>
-		<annotation cp="🗣" type="tts">කථා කරන හිස</annotation>
-		<annotation cp="👤">උඩුකය | සිලුවටය | සිලුවටයෙහි උඩුකය</annotation>
-		<annotation cp="👤" type="tts">සිලුවටයෙහි උඩුකය</annotation>
-		<annotation cp="👥">උඩුකය | සිලුවටය | සිලුවටයෙහිි උඩුකයවල්</annotation>
-		<annotation cp="👥" type="tts">සිලුවටයෙහිි උඩුකයවල්</annotation>
+		<annotation cp="👯">කන | කාන්තාව | නැට්ටුවා | සාද පවත්වන ගැහැණු | හා කන් ඇති මිනිසුන් | ළදැරිය</annotation>
+		<annotation cp="👯" type="tts">හා කන් ඇති මිනිසුන්</annotation>
+		<annotation cp="👯‍♂">නර්තන ශිල්පියා | පිරිමියා | මිනිහා | සාද පවත්වන පිරිමි | හා කන | හා කන් ඇති පිරිමි</annotation>
+		<annotation cp="👯‍♂" type="tts">හා කන් ඇති පිරිමි</annotation>
+		<annotation cp="👯‍♀">කාන්තාව | නර්තන ශිල්පිනිය | සාද පවත්වන කාන්තාවන් | ස්ත්‍රිය | හා කන | හා කන් ඇති කාන්තාව</annotation>
+		<annotation cp="👯‍♀" type="tts">හා කන් ඇති කාන්තාව</annotation>
+		<annotation cp="🧖">හුමාල කාමරය | හුමාල කාමරය තුළ පුද්ගලයා | හුමාල ස්නානය</annotation>
+		<annotation cp="🧖" type="tts">හුමාල කාමරය තුළ පුද්ගලයා</annotation>
+		<annotation cp="🧖‍♂">හුමාල කාමරය | හුමාල කාමරය තුළ පිරිමියා | හුමාල ස්නානය</annotation>
+		<annotation cp="🧖‍♂" type="tts">හුමාල කාමරය තුළ පිරිමියා</annotation>
+		<annotation cp="🧖‍♀">හුමාල කාමරය | හුමාල කාමරය තුළ ගැහැණිය | හුමාල ස්නානය</annotation>
+		<annotation cp="🧖‍♀" type="tts">හුමාල කාමරය තුළ ගැහැණිය</annotation>
+		<annotation cp="🧗">කඳු නගින පුද්ගලයා | කඳු නගින්නා</annotation>
+		<annotation cp="🧗" type="tts">කඳු නගින පුද්ගලයා</annotation>
+		<annotation cp="🧗‍♂">කඳු නගින පිරිමියා | කඳු නගින්නා</annotation>
+		<annotation cp="🧗‍♂" type="tts">කඳු නගින පිරිමියා</annotation>
+		<annotation cp="🧗‍♀">කඳු නගින ගැහැණිය | කඳු නගින්නා</annotation>
+		<annotation cp="🧗‍♀" type="tts">කඳු නගින ගැහැණිය</annotation>
 		<annotation cp="🤺">කඩු හරඹ කරු | කඩු හරඹ කිරීම | කඩුව | ක්‍රීඩා | පුද්ගලයා</annotation>
 		<annotation cp="🤺" type="tts">කඩු හරඹ කරු</annotation>
 		<annotation cp="🏇">අශ්ව රේස් | අශ්වයා | ජොකී | රේස්</annotation>
@@ -581,9 +929,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏌‍♀" type="tts">ගොල්ෆ් ක්‍රීඩා කරන කාන්තාව</annotation>
 		<annotation cp="🏄">හිම පුවරුවේ යන්නා | හිම පුවරුවේ යාම</annotation>
 		<annotation cp="🏄" type="tts">හිම පුවරුවේ යන්නා</annotation>
-		<annotation cp="🏄‍♂">පිරිමියා | මිනිහා | රැළි පැදීම | හිම පුවරුවේ යන මිනිසා</annotation>
+		<annotation cp="🏄‍♂">මිනිහා | රැළි පැදීම | හිම පුවරුවේ යන මිනිසා</annotation>
 		<annotation cp="🏄‍♂" type="tts">හිම පුවරුවේ යන මිනිසා</annotation>
-		<annotation cp="🏄‍♀">කාන්තාව | රැළි පැදීම | ස්ත්‍රිය | හිම පුවරුවේ යන කාන්තාව</annotation>
+		<annotation cp="🏄‍♀">කාන්තාව | රැළි පැදීම | හිම පුවරුවේ යන කාන්තාව</annotation>
 		<annotation cp="🏄‍♀" type="tts">හිම පුවරුවේ යන කාන්තාව</annotation>
 		<annotation cp="🚣">පදින බෝට්ටුව | බෝට්ටුව | වාහනය</annotation>
 		<annotation cp="🚣" type="tts">පදින බෝට්ටුව</annotation>
@@ -621,10 +969,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">කඳු බයිසිකල් පදින මිනිසා</annotation>
 		<annotation cp="🚵‍♀">කඳු | කඳු බයිසිකල් පදින කාන්තාව | කාන්තාව | බයිසිකලය | බයිසිකල් පැදීම</annotation>
 		<annotation cp="🚵‍♀" type="tts">කඳු බයිසිකල් පදින කාන්තාව</annotation>
-		<annotation cp="🏎">මෝටර් රථය | රේසිං | රේසිං මෝටර් රථය</annotation>
-		<annotation cp="🏎" type="tts">රේසිං මෝටර් රථය</annotation>
-		<annotation cp="🏍">මෝටර් බයිසිකලය | රේසිං</annotation>
-		<annotation cp="🏍" type="tts">මෝටර් බයිසිකලය</annotation>
 		<annotation cp="🤸">කරත්ත රෝදය | ක්‍රීඩා | පුද්ගලයා | සරඹ ක්‍රීඩා</annotation>
 		<annotation cp="🤸" type="tts">කරත්ත රෝදය</annotation>
 		<annotation cp="🤸‍♂">කරත්ත රෝද කරන කාන්තාව | කරත්ත රෝද කරන මිනිහා | කරත්ත රෝදය | ක්‍රීඩාව | ජවසරඹ | මිනිහා</annotation>
@@ -651,114 +995,42 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤾‍♀" type="tts">අත් පන්දු ක්‍රීඩා කරන කාන්තාව</annotation>
 		<annotation cp="🤹">නිපුණතාව | බහු කාර්යය | විජ්ජා කිරීම | විජ්ජාව | සම බරතාව</annotation>
 		<annotation cp="🤹" type="tts">විජ්ජා කිරීම</annotation>
-		<annotation cp="🤹‍♂">පිරිමියා | බහුකාර්ය | මිනිහා | විජ්ජා කරන මිනිසා | විජ්ජා කිරීම</annotation>
+		<annotation cp="🤹‍♂">බහුකාර්ය | මිනිහා | විජ්ජා කරන මිනිසා | විජ්ජා කිරීම</annotation>
 		<annotation cp="🤹‍♂" type="tts">විජ්ජා කරන මිනිසා</annotation>
 		<annotation cp="🤹‍♀">කාන්තාව | බහුකාර්ය | විජ්ජා කරන කාන්තාව | විජ්ජා කිරීම | ස්ත්‍රිය</annotation>
 		<annotation cp="🤹‍♀" type="tts">විජ්ජා කරන කාන්තාව</annotation>
+		<annotation cp="🧘">පද්මාකාර ඉරියව්වෙන් සිටින පුද්ගලයා | භාවනාව | යෝග</annotation>
+		<annotation cp="🧘" type="tts">පද්මාකාර ඉරියව්වෙන් සිටින පුද්ගලයා</annotation>
+		<annotation cp="🧘‍♂">පද්මාකාර ඉරියව්වෙන් සිටින පිරිමියා | භාවනාව | යෝග</annotation>
+		<annotation cp="🧘‍♂" type="tts">පද්මාකාර ඉරියව්වෙන් සිටින පිරිමියා</annotation>
+		<annotation cp="🧘‍♀">පද්මාකාර ඉරියව්වෙන් සිටින ගැහැණිය | භාවනාව | යෝග</annotation>
+		<annotation cp="🧘‍♀" type="tts">පද්මාකාර ඉරියව්වෙන් සිටින ගැහැණිය</annotation>
+		<annotation cp="🛀">නාන පුද්ගලයා | නාන බේසම | නෑම</annotation>
+		<annotation cp="🛀" type="tts">නාන පුද්ගලයා</annotation>
+		<annotation cp="🛌">ඇ‍ඳෙහි සිටින පුද්ගලයා | නින්ද | හෝටලය</annotation>
+		<annotation cp="🛌" type="tts">ඇ‍ඳෙහි සිටින පුද්ගලයා</annotation>
+		<annotation cp="🧑‍🤝‍🧑">අත | අත් අල්ලා ගෙන සිටින පුද්ගලයන් | අල්ලාගෙන සිටින | පුද්ගලයා | යුවල</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">අත් අල්ලා ගෙන සිටින පුද්ගලයන්</annotation>
+		<annotation cp="👭">අත | අත් අල්ලාගෙන සිටින කාන්තාවන් දෙදෙනෙක් | අල්ලා ගැනීම | කාන්තාව | ජෝඩුව</annotation>
+		<annotation cp="👭" type="tts">අත් අල්ලාගෙන සිටින කාන්තාවන් දෙදෙනෙක්</annotation>
 		<annotation cp="👫">අත | අත් අල්ලාගෙන සිටින පිරිමියා සහ කාන්තාව | කාන්තාව | ජෝඩුව | පිරිමියා</annotation>
 		<annotation cp="👫" type="tts">අත් අල්ලාගෙන සිටින පිරිමියා සහ කාන්තාව</annotation>
 		<annotation cp="👬">අත | අත් අල්ලාගෙන සිටින පිරිමි දෙදෙනෙක් | ජෝඩුව | පිරිමි | රාශි චක්‍රය</annotation>
 		<annotation cp="👬" type="tts">අත් අල්ලාගෙන සිටින පිරිමි දෙදෙනෙක්</annotation>
-		<annotation cp="👭">අත | අත් අල්ලාගෙන සිටින කාන්තාවන් දෙදෙනෙක් | අල්ලා ගැනීම | කාන්තාව | ජෝඩුව</annotation>
-		<annotation cp="👭" type="tts">අත් අල්ලාගෙන සිටින කාන්තාවන් දෙදෙනෙක්</annotation>
 		<annotation cp="💏">ජෝඩුව | ප්‍රේමය | හාදුව</annotation>
 		<annotation cp="💏" type="tts">හාදුව</annotation>
 		<annotation cp="💑">ආදරය | ජෝඩුුව | ප්‍රේමය | හදවත | හදවතක් සමගින් යුවල</annotation>
 		<annotation cp="💑" type="tts">හදවතක් සමගින් යුවල</annotation>
 		<annotation cp="👪">පවුල | පියා | මව | ළමයා</annotation>
 		<annotation cp="👪" type="tts">පවුල</annotation>
-		<annotation cp="🤳">කැමරාව | දුරකථනය | සෙල්ෆි</annotation>
-		<annotation cp="🤳" type="tts">සෙල්ෆි</annotation>
-		<annotation cp="💪">නැමීම | බාහු පේශිය | මාංශ පේශි | සුනම්‍ය මස්ගොබ | හාස්‍යජනක</annotation>
-		<annotation cp="💪" type="tts">සුනම්‍ය මස්ගොබ</annotation>
-		<annotation cp="🦵">කකුල | පයින් ගසනවා | බාහුව</annotation>
-		<annotation cp="🦵" type="tts">කකුල</annotation>
-		<annotation cp="🦶">අඩිය | නැටුමක් | පයින් ගසනවා</annotation>
-		<annotation cp="🦶" type="tts">අඩිය</annotation>
-		<annotation cp="👈">අත | ඇඟිල්ල | පිටි අත් පහර | ලක්ෂ්‍ය | වමට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
-		<annotation cp="👈" type="tts">වමට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
-		<annotation cp="👉">අත | ඇඟිල්ල | දකුණට යොමු වූ අත පිටුපස දබරැඟිල්ල | පිටි අත් පහර | ලක්ෂ්‍ය</annotation>
-		<annotation cp="👉" type="tts">දකුණට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
-		<annotation cp="☝">අත | ඇඟිල්ල | ඉහළට | ඉහළට යොමු වූ දබරැඟිල්ල | ලක්ෂ්‍ය</annotation>
-		<annotation cp="☝" type="tts">ඉහළට යොමු වූ දබරැඟිල්ල</annotation>
-		<annotation cp="👆">අත | අත පිටුපස ඉහළට යොමු වූ දබරැඟිල්ල | ඇඟිල්ල | ඉහළට එල්ල කර | දබර</annotation>
-		<annotation cp="👆" type="tts">අත පිටුපස ඉහළට යොමු වූ දබරැඟිල්ල</annotation>
-		<annotation cp="🖕">අත | ඇඟිල්ල | මැදඟිල්ල | ශරීරය</annotation>
-		<annotation cp="🖕" type="tts">මැදඟිල්ල</annotation>
-		<annotation cp="👇">අත | ඇඟිල්ල | දබර | පහළට එල්ල කර | පහළට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
-		<annotation cp="👇" type="tts">පහළට යොමු වූ අත පිටුපස දබරැඟිල්ල</annotation>
-		<annotation cp="✌">අත | ජ | ජයග්‍රහණය | ජයග්‍රහණය දක්වන අත | ශරීරය</annotation>
-		<annotation cp="✌" type="tts">ජයග්‍රහණය දක්වන අත</annotation>
-		<annotation cp="🤞">අත | ඇඟිල්ල | වාසනාව | හරස් | හරස් කළ ඇඟිලි</annotation>
-		<annotation cp="🤞" type="tts">හරස් කළ ඇඟිලි</annotation>
-		<annotation cp="🖖">අත | ඇඟිල්ල | වල්කන් | වල්කන් සැලියුට් | ස්පොක්</annotation>
-		<annotation cp="🖖" type="tts">වල්කන් සැලියුට්</annotation>
-		<annotation cp="🤘">අං | අත | ඇඟිල්ල | රොක් ඔන් | හෝන්ස් ලකුණ</annotation>
-		<annotation cp="🤘" type="tts">හෝන්ස් ලකුණ</annotation>
-		<annotation cp="🤙">අත | ඇමතුම | මට ඇමතුමක් දෙන්න ඇගවීම</annotation>
-		<annotation cp="🤙" type="tts">මට ඇමතුමක් දෙන්න ඇගවීම</annotation>
-		<annotation cp="🖐">අත | ඇඟිල්ල | පළල් කළ | විදහන ලද ඇඟිලි සහිත එසවූ අත | ශරීරය</annotation>
-		<annotation cp="🖐" type="tts">විදහන ලද ඇඟිලි සහිත එසවූ අත</annotation>
-		<annotation cp="✋">අත | එසවූූ අත | ශරීරය</annotation>
-		<annotation cp="✋" type="tts">එසවූූ අත</annotation>
-		<annotation cp="👌">අත | ශරීරය | හරි | හරිි යන්න දක්වන අත</annotation>
-		<annotation cp="👌" type="tts">හරිි යන්න දක්වන අත</annotation>
-		<annotation cp="👍">1 | අත | ඉහළට. | මහපටැඟිල්ල | මහපටැඟිල්ල ඉහළට</annotation>
-		<annotation cp="👍" type="tts">මහපටැඟිල්ල ඉහළට</annotation>
-		<annotation cp="👎">1 | අත | පහළට | මහපටැඟිල්ල | මහපටැඟිිල්ල පහළට</annotation>
-		<annotation cp="👎" type="tts">මහපටැඟිිල්ල පහළට</annotation>
-		<annotation cp="✊">අත | එසවූ මිට මෙළවීම | මිට මෙළවීම | මිට මෙළවූ | මිටින් පහර දීම</annotation>
-		<annotation cp="✊" type="tts">එසවූ මිට මෙළවීම</annotation>
-		<annotation cp="👊">අත | ඉදිරියට එන මිට මෙළවීම | ඉදිිරියට එන මිට මෙළවීම | මිට මෙළවීම | මිට මෙළවූ | මිටින් පහර දීම</annotation>
-		<annotation cp="👊" type="tts">ඉදිිරියට එන මිට මෙළවීම</annotation>
-		<annotation cp="🤛">මිට මොළ වීම | මිට මොළ වූ වම | වමට</annotation>
-		<annotation cp="🤛" type="tts">මිට මොළ වූ වම</annotation>
-		<annotation cp="🤜">දකුණට | මිට මොළ වීම | මිට මොළ වූ දකුණ</annotation>
-		<annotation cp="🤜" type="tts">මිට මොළ වූ දකුණ</annotation>
-		<annotation cp="🤚">ඔසවිම | පිටි අත | පිටි අත ඔසවන ලදි</annotation>
-		<annotation cp="🤚" type="tts">පිටි අත ඔසවන ලදි</annotation>
-		<annotation cp="👋">අත | අත වනමින් | අත වැනීම | ශරීරය</annotation>
-		<annotation cp="👋" type="tts">අත වැනීම</annotation>
-		<annotation cp="🤟">අත | ඔආඉ | ඔබට ආදරෙයි ඉඟිය</annotation>
-		<annotation cp="🤟" type="tts">ඔබට ආදරෙයි ඉඟිය</annotation>
-		<annotation cp="✍">අත | ලියමින් සිටින අත | ලිවීම | ශරීරය</annotation>
-		<annotation cp="✍" type="tts">ලියමින් සිටින අත</annotation>
-		<annotation cp="👏">අත | අත්පුඩි ගැසීම | ශරීරය</annotation>
-		<annotation cp="👏" type="tts">අත්පුඩි ගැසීම</annotation>
-		<annotation cp="👐">අත | විවෘත | විවෘත අත් | ශරීරය</annotation>
-		<annotation cp="👐" type="tts">විවෘත අත්</annotation>
-		<annotation cp="🙌">අත | අත් ඔසවන පුද්ගලයා | උත්සවය | උස්සන ලද | ඔල්වරසන් දීම</annotation>
-		<annotation cp="🙌" type="tts">අත් ඔසවන පුද්ගලයා</annotation>
-		<annotation cp="🤲">අත්ලවල් එකට ඉහළ ඔසවා | යාච්ඤා කරනවා</annotation>
-		<annotation cp="🤲" type="tts">අත්ලවල් එකට ඉහළ ඔසවා</annotation>
-		<annotation cp="🙏">අත | ආචාර කිරීම | එක් කළ දෙඅත් | කරුණාකර | යාච්ඥා කිරීම | ස්තූතිය පළ කිරීම</annotation>
-		<annotation cp="🙏" type="tts">එක් කළ දෙඅත්</annotation>
-		<annotation cp="🤝">අත | අතට අත දීම | එකඟත්වය | සෙලවීම | හමුවීම</annotation>
-		<annotation cp="🤝" type="tts">අතට අත දීම</annotation>
-		<annotation cp="💅">අත් සහ නිය අලංකාරකරණය | අලේපන | නිය ආලේපන | විලවුන් | සත්කාරය</annotation>
-		<annotation cp="💅" type="tts">නිය ආලේපන</annotation>
-		<annotation cp="👂">කණ | ශරීරය</annotation>
-		<annotation cp="👂" type="tts">කණ</annotation>
-		<annotation cp="👃">නාසය | ශරීරය</annotation>
-		<annotation cp="👃" type="tts">නාසය</annotation>
+		<annotation cp="🗣">කථා කරන හිස | කථා කරනවා | කථා කිරීම | මුහුණ | හිස</annotation>
+		<annotation cp="🗣" type="tts">කථා කරන හිස</annotation>
+		<annotation cp="👤">උඩුකය | සිලුවටය | සිලුවටයෙහි උඩුකය</annotation>
+		<annotation cp="👤" type="tts">සිලුවටයෙහි උඩුකය</annotation>
+		<annotation cp="👥">උඩුකය | සිලුවටය | සිලුවටයෙහිි උඩුකයවල්</annotation>
+		<annotation cp="👥" type="tts">සිලුවටයෙහිි උඩුකයවල්</annotation>
 		<annotation cp="👣">ඇඳුම් | පා සලකුණු | ශරීරය | සලකුණු</annotation>
 		<annotation cp="👣" type="tts">පා සලකුණු</annotation>
-		<annotation cp="👀">ඇස් | මුහුණ | ශරීරය</annotation>
-		<annotation cp="👀" type="tts">ඇස්</annotation>
-		<annotation cp="👁">ඇස | ශරීරය</annotation>
-		<annotation cp="👁" type="tts">ඇස</annotation>
-		<annotation cp="👁‍🗨">ඇස | කථන බුබුළ | කථන බුබුළක තිබෙන ඇස | සාක්ෂිකරු</annotation>
-		<annotation cp="👁‍🗨" type="tts">කථන බුබුළක තිබෙන ඇස</annotation>
-		<annotation cp="🧠">බුද්ධිමත් | මොළය</annotation>
-		<annotation cp="🧠" type="tts">මොළය</annotation>
-		<annotation cp="🦴">අස්ථි | ඇටසැකිල්ල</annotation>
-		<annotation cp="🦴" type="tts">අස්ථි</annotation>
-		<annotation cp="🦷">දත් | දන්ත වෛද්‍ය</annotation>
-		<annotation cp="🦷" type="tts">දත්</annotation>
-		<annotation cp="👅">දිව | ශරීරය</annotation>
-		<annotation cp="👅" type="tts">දිව</annotation>
-		<annotation cp="👄">කට | තොල් | ශරීරය</annotation>
-		<annotation cp="👄" type="tts">කට</annotation>
 		<annotation cp="🦰">ඉඟුරු | රතු කොණ්ඩය | රතු පැහැති</annotation>
 		<annotation cp="🦰" type="tts">රතු කොණ්ඩය</annotation>
 		<annotation cp="🦱">අප්‍රිකානු | කුඩා මුදු | රොද සහිත | රොද සහිත කොණ්ඩය</annotation>
@@ -767,157 +1039,27 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">සුදු කොන්ඩය</annotation>
 		<annotation cp="🦲">කොණ්ඩය නැති | තට්ට | මුඩ | රසායනික චිකිත්සාව | හිසකෙස් නැති</annotation>
 		<annotation cp="🦲" type="tts">තට්ට</annotation>
-		<annotation cp="💋">තොල් | හදවත | හාදු ලකුණ | හාදුව</annotation>
-		<annotation cp="💋" type="tts">හාදු ලකුණ</annotation>
-		<annotation cp="💘">අනංගයා | ඊතලය | ඊතලය සහිත හදවත | ප්‍රේමය | හදවත</annotation>
-		<annotation cp="💘" type="tts">ඊතලය සහිත හදවත</annotation>
-		<annotation cp="💝">පීත්ත පටිය | පීත්ත පටියක් සහිත හදවත | වැලන්ටයින් | හදවත</annotation>
-		<annotation cp="💝" type="tts">පීත්ත පටියක් සහිත හදවත</annotation>
-		<annotation cp="💖">දිදුලන | ප්‍රබෝදමත් | හදවත</annotation>
-		<annotation cp="💖" type="tts">දිදුලන හදවත</annotation>
-		<annotation cp="💗">චංචල | ප්‍රබෝදමත් | වැඩෙන | හදවත | හෘද ස්පන්දනය</annotation>
-		<annotation cp="💗" type="tts">වැඩෙන හදවත</annotation>
-		<annotation cp="💓">ගැහෙන | ස්පන්දනය | හදවත</annotation>
-		<annotation cp="💓" type="tts">ගැහෙන හදවත</annotation>
-		<annotation cp="💞">කරකැවෙන | කරකැවෙන හදවත් | හදවත</annotation>
-		<annotation cp="💞" type="tts">කරකැවෙන හදවත්</annotation>
-		<annotation cp="💕">ආදරය | හදවත | හදවත් දෙකක්</annotation>
-		<annotation cp="💕" type="tts">හදවත් දෙකක්</annotation>
-		<annotation cp="💌">ආදර හසුන | ආදරය | තැපෑල | ප්‍රේමය | ලිපිය</annotation>
-		<annotation cp="💌" type="tts">ආදර හසුන</annotation>
-		<annotation cp="❣">ලකුණ | වස්මයාර්ථ | විරාම ලකුණ | හදවත | හදවතක හැඩය ගත් විස්මයාර්ථ ලකුණ</annotation>
-		<annotation cp="❣" type="tts">හදවතක හැඩය ගත් විස්මයාර්ථ ලකුණ</annotation>
-		<annotation cp="💔">බිඳීම | බිඳුණු | හදවත</annotation>
-		<annotation cp="💔" type="tts">බිඳුණු හදවත</annotation>
-		<annotation cp="❤">රතු හදවත | හදවත</annotation>
-		<annotation cp="❤" type="tts">රතු හදවත</annotation>
-		<annotation cp="🧡">තැඹිලි | තැඹිලි හදවත</annotation>
-		<annotation cp="🧡" type="tts">තැඹිලි හදවත</annotation>
-		<annotation cp="💛">කහ | හදවත</annotation>
-		<annotation cp="💛" type="tts">කහ හදවත</annotation>
-		<annotation cp="💚">කොල | කොළ හදවත | හදවත</annotation>
-		<annotation cp="💚" type="tts">කොළ හදවත</annotation>
-		<annotation cp="💙">නිල් | නිල් හදවත | හදචත</annotation>
-		<annotation cp="💙" type="tts">නිල් හදවත</annotation>
-		<annotation cp="💜">දම් | හදවත</annotation>
-		<annotation cp="💜" type="tts">දම් හදවත</annotation>
-		<annotation cp="🖤">කළු | දුෂ්ට | නපුරු | හදවත</annotation>
-		<annotation cp="🖤" type="tts">කළු හදවත</annotation>
-		<annotation cp="💟">හදවත | හදවත් සැරසිල්ල</annotation>
-		<annotation cp="💟" type="tts">හදවත් සැරසිල්ල</annotation>
-		<annotation cp="💤">නිදා ගැනීම | ස්ස්ස් | හාස්‍යජනක</annotation>
-		<annotation cp="💤" type="tts">ස්ස්ස්</annotation>
-		<annotation cp="💢">කේන්ති | තරහ ලකුණ | පිස්සු | හාස්‍යජනක</annotation>
-		<annotation cp="💢" type="tts">තරහ ලකුණ</annotation>
-		<annotation cp="💣">බෝම්බය | හාස්‍යජනක</annotation>
-		<annotation cp="💣" type="tts">බෝම්බය</annotation>
-		<annotation cp="💥">ඝට්ටනය | පිපිරීම | හාස්‍යජනක</annotation>
-		<annotation cp="💥" type="tts">ඝට්ටනය</annotation>
-		<annotation cp="💦">දහඩිය | දහඩිය බිඳු | වැගිරීම | හාස්‍යජනක</annotation>
-		<annotation cp="💦" type="tts">දහඩිය බිඳු</annotation>
-		<annotation cp="💨">දුවමින් | ලිස්සා යාම | හාස්‍යජනක</annotation>
-		<annotation cp="💨" type="tts">ලිස්සා යාම</annotation>
-		<annotation cp="💫">තරුව | වල්ග තාරකාව | හාස්‍යජනක</annotation>
-		<annotation cp="💫" type="tts">වල්ග තාරකාව</annotation>
-		<annotation cp="💬">කථන බැලුනය | කථාව | දෙබස | බැලූනය | හාස්‍යජනක</annotation>
-		<annotation cp="💬" type="tts">කථන බැලුනය</annotation>
-		<annotation cp="🗨">කථාව | දෙබස | වම් කථන බුබුළ</annotation>
-		<annotation cp="🗨" type="tts">වම් කථන බුබුළ</annotation>
-		<annotation cp="🗯">කේන්තිි | දකුණු තරහ බුබුළ | පිස්සු | බැලූනය | බුබුල</annotation>
-		<annotation cp="🗯" type="tts">දකුණු තරහ බුබුළ</annotation>
-		<annotation cp="💭">බැලූූනය | බුබුල | සිතුවිලි | සිතුවිලි බැලුනය | හාස්‍යජනක</annotation>
-		<annotation cp="💭" type="tts">සිතුවිලි බැලුනය</annotation>
-		<annotation cp="🕳">කුහරය</annotation>
-		<annotation cp="🕳" type="tts">කුහරය</annotation>
-		<annotation cp="👓">ඇඳුම් | ඇස | ඇස් පැළදුම් | කණ්ණාඩි</annotation>
-		<annotation cp="👓" type="tts">කණ්ණාඩි</annotation>
-		<annotation cp="🕶">අඳුරු | අව් කණ්ණාඩි | ඇස | ඇස් පැළදුම් | කණ්ණාඩි</annotation>
-		<annotation cp="🕶" type="tts">අව් කණ්ණාඩි</annotation>
-		<annotation cp="🥽">ඇස් ආරක්ෂා කිරීම | ඇස් ආවරණ | පිහිනීම | වෙල්ඩින්</annotation>
-		<annotation cp="🥽" type="tts">ඇස් ආවරණ</annotation>
-		<annotation cp="🥼">අත්හදා බැලීම් | පරීක්ෂණාගාර කබාය | විද්‍යාඥයා | වෛද්‍යවරයා</annotation>
-		<annotation cp="🥼" type="tts">පරීක්ෂණාගාර කබාය</annotation>
-		<annotation cp="👔">ඇඳුුම් | ගෙළ පටිය</annotation>
-		<annotation cp="👔" type="tts">ගෙළ පටිය</annotation>
-		<annotation cp="👕">ඇඳුම් | කමිසය | ටී-ෂර්ටය | ටීෂර්ට්</annotation>
-		<annotation cp="👕" type="tts">ටී-ෂර්ටය</annotation>
-		<annotation cp="👖">ඇඳුම් | කලිසම් | දිග කලිසම්</annotation>
-		<annotation cp="👖" type="tts">දිග කලිසම්</annotation>
-		<annotation cp="🧣">උතුරුසළුව | බෙල්ල</annotation>
-		<annotation cp="🧣" type="tts">උතුරුසළුව</annotation>
-		<annotation cp="🧤">අත | අත්වැසුම්</annotation>
-		<annotation cp="🧤" type="tts">අත්වැසුම්</annotation>
-		<annotation cp="🧥">කබාය | ජැකට්ටුව</annotation>
-		<annotation cp="🧥" type="tts">කබාය</annotation>
-		<annotation cp="🧦">මේස් | ස්ටොකිං</annotation>
-		<annotation cp="🧦" type="tts">මේස්</annotation>
-		<annotation cp="👗">ඇඳුම් | ගවුම</annotation>
-		<annotation cp="👗" type="tts">ගවුම</annotation>
-		<annotation cp="👘">ඇඳුම් | කිමොනාව</annotation>
-		<annotation cp="👘" type="tts">කිමොනාව</annotation>
-		<annotation cp="👙">ඇඳුම් | පිහිනුම් | බිකිනිය</annotation>
-		<annotation cp="👙" type="tts">බිකිනිය</annotation>
-		<annotation cp="👚">ඇඳුම් | කාන්තා</annotation>
-		<annotation cp="👚" type="tts">කාන්තා ඇඳුම්</annotation>
-		<annotation cp="👛">ඇඳුම් | කාසි | පර්ස් එක</annotation>
-		<annotation cp="👛" type="tts">පර්ස් එක</annotation>
-		<annotation cp="👜">අත් බෑගය | ඇඳුම් | බෑගය</annotation>
-		<annotation cp="👜" type="tts">අත් බෑගය</annotation>
-		<annotation cp="👝">ඇඳුම් | පසුම්බිය | බෑගය</annotation>
-		<annotation cp="👝" type="tts">පසුම්බිය</annotation>
-		<annotation cp="🛍">බෑගය | ෂොපින් බෑග් | සාප්පු සවාරිය | හෝටලය</annotation>
-		<annotation cp="🛍" type="tts">ෂොපින් බෑග්</annotation>
-		<annotation cp="🎒">උරහිස් බෑගය | පාසල | පිටේ බැඳන් යන පාසැල් බෑගය | බෑගය</annotation>
-		<annotation cp="🎒" type="tts">පිටේ බැඳන් යන පාසැල් බෑගය</annotation>
-		<annotation cp="👞">ඇඳුම් | පිරිමියා | පිරිමිි සපත්තුව | සපත්තුව</annotation>
-		<annotation cp="👞" type="tts">පිරිමිි සපත්තුව</annotation>
-		<annotation cp="👟">ඇඳුම් | කැන්වස් පාවහන් | දිවීමේ සපත්තුව | මලල ක්‍රීඩා | සපත්තුව</annotation>
-		<annotation cp="👟" type="tts">දිවීමේ සපත්තුව</annotation>
-		<annotation cp="🥾">ඇවිදීමේ බූට් | උර පොදියක් ගෙන සංචාරය කිරීම | කඳවුරු බැඳි | දිඟු පාගමන් | බූට්‌</annotation>
-		<annotation cp="🥾" type="tts">ඇවිදීමේ බූට්</annotation>
-		<annotation cp="🥿">පැතලි සපත්තු | පැළදා සිටින | බැලේ පැතළි | සෙරෙප්පුව</annotation>
-		<annotation cp="🥿" type="tts">පැතලි සපත්තු</annotation>
-		<annotation cp="👠">අඩි උස සපත්තුව | අඩිය | ඇඳුම් | කාන්තාව | සපත්තුව</annotation>
-		<annotation cp="👠" type="tts">අඩි උස සපත්තුව</annotation>
-		<annotation cp="👡">ඇඳුම් | කාන්තා පටි සපත්තුව | කාන්තාව | සපත්තුව | සැඬලය</annotation>
-		<annotation cp="👡" type="tts">කාන්තා පටි සපත්තුව</annotation>
-		<annotation cp="👢">ඇඳුම් | කාන්තා බූට් සපත්තුව | කාන්තාව | බූට් සපත්තුව | සපත්තුව</annotation>
-		<annotation cp="👢" type="tts">කාන්තා බූට් සපත්තුව</annotation>
-		<annotation cp="👑">ඇඳුම් | ඔටුන්න | රජ | රැජිණ</annotation>
-		<annotation cp="👑" type="tts">ඔටුන්න</annotation>
-		<annotation cp="👒">ඇඳුම් | කාන්තා හිස් වැසුම | කාන්තාව | තොප්පිය</annotation>
-		<annotation cp="👒" type="tts">කාන්තා හිස් වැසුම</annotation>
-		<annotation cp="🎩">ඇඳුම් | උස තොප්පිය | උස් | තොප්පිය</annotation>
-		<annotation cp="🎩" type="tts">උස තොප්පිය</annotation>
-		<annotation cp="🎓">ඇඳුම් | උත්සවය | උපාධි තොප්පිය | උපාධි ප්‍රදානෝත්සවය | තොප්පිය</annotation>
-		<annotation cp="🎓" type="tts">උපාධි තොප්පිය</annotation>
-		<annotation cp="🧢">බිල්ඩ් තොප්පිය | බේස්බෝල් තොප්පිය</annotation>
-		<annotation cp="🧢" type="tts">බිල්ඩ් තොප්පිය</annotation>
-		<annotation cp="⛑">ආධාරය | කුරුසය | තොප්පිය | සුදු කුරුසය සහිත හෙල්මටය | හෙල්මටය</annotation>
-		<annotation cp="⛑" type="tts">සුදු කුරුසය සහිත හෙල්මටය</annotation>
-		<annotation cp="📿">ආගම | ඇඳුම් | මාලය | යාච්ඥාව | යාඥා මාලය</annotation>
-		<annotation cp="📿" type="tts">යාඥා මාලය</annotation>
-		<annotation cp="💄">අලංකාරයෙන් සැරසීම | තොල් ආලේපන | විලවුන්</annotation>
-		<annotation cp="💄" type="tts">තොල් ආලේපන</annotation>
-		<annotation cp="💍">දියමන්ති | ප්‍රේමය | මුදුව</annotation>
-		<annotation cp="💍" type="tts">මුදුව</annotation>
-		<annotation cp="💎">දියමන්තිි | ප්‍රේමය | මැණික් ගල | මැනික් | ස්වර්ණාභරණ</annotation>
-		<annotation cp="💎" type="tts">මැණික් ගල</annotation>
 		<annotation cp="🐵">මුහුණ | වඳුරා | වඳුරු මුහුණ</annotation>
 		<annotation cp="🐵" type="tts">වඳුරු මුහුණ</annotation>
 		<annotation cp="🐒">වඳුරා</annotation>
 		<annotation cp="🐒" type="tts">වඳුරා</annotation>
 		<annotation cp="🦍">ගෝරිල්ලා | සතා</annotation>
 		<annotation cp="🦍" type="tts">ගෝරිල්ලා</annotation>
+		<annotation cp="🦧">ඔරං ඔටං | වානරයා</annotation>
+		<annotation cp="🦧" type="tts">ඔරං ඔටං</annotation>
 		<annotation cp="🐶">බල්ලා | මුහුණ | සුනඛ මුහුණ | සුරතල් සතා</annotation>
 		<annotation cp="🐶" type="tts">සුනඛ මුහුණ</annotation>
 		<annotation cp="🐕">සුනඛයා | සුරතල් සතා</annotation>
 		<annotation cp="🐕" type="tts">සුනඛයා</annotation>
+		<annotation cp="🦮">අන්ධ | මඟ පෙන්වන බල්ලා | මඟ පෙන්වීම | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🦮" type="tts">මඟ පෙන්වන බල්ලා</annotation>
+		<annotation cp="🐕‍🦺">උපකාරය | බල්ලා | සේවා බල්ලා | සේවාව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🐕‍🦺" type="tts">සේවා බල්ලා</annotation>
 		<annotation cp="🐩">කුඩා පූඩල් බල්ලා | බල්ලා</annotation>
 		<annotation cp="🐩" type="tts">කුඩා පූඩල් බල්ලා</annotation>
 		<annotation cp="🐺">මුහුණ | වෘක මුහුණ | වෘකයා</annotation>
 		<annotation cp="🐺" type="tts">වෘක මුහුණ</annotation>
-		<annotation cp="🦊">නරියා | මුහුණ | සතා</annotation>
+		<annotation cp="🦊">නරියා | මුහුණ</annotation>
 		<annotation cp="🦊" type="tts">නරියා</annotation>
 		<annotation cp="🦝">කුතුහලයෙන් යුතු | ප්‍රයෝගකාර | රාකියුං</annotation>
 		<annotation cp="🦝" type="tts">රාකියුං</annotation>
@@ -925,7 +1067,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐱" type="tts">බළල් මුහුණ</annotation>
 		<annotation cp="🐈">බළලා | සුරතල් සතා</annotation>
 		<annotation cp="🐈" type="tts">බළලා</annotation>
-		<annotation cp="🦁">මුහුණ | රාශි චක්‍රය | සිංහ මුහුණ | සිංහ රාශිය | සිංහයා</annotation>
+		<annotation cp="🐈‍⬛">අවාසනාවන්ත | කළු | කළු බළලා | පූසා</annotation>
+		<annotation cp="🐈‍⬛" type="tts">කළු බළලා</annotation>
+		<annotation cp="🦁">මුහුණ | රාශි චක්‍රය | සිංහ මුහුණ | සිංහ රාශි | සිංහයා</annotation>
 		<annotation cp="🦁" type="tts">සිංහ මුහුණ</annotation>
 		<annotation cp="🐯">කොටි මුහුණ | කොටියා | මුහුණ</annotation>
 		<annotation cp="🐯" type="tts">කොටි මුහුණ</annotation>
@@ -951,7 +1095,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐃" type="tts">දිය මීහරකා</annotation>
 		<annotation cp="🐄">එළදෙන</annotation>
 		<annotation cp="🐄" type="tts">එළදෙන</annotation>
-		<annotation cp="🐷">උෟරා | උෟරු මුහුණ | මුහුණ</annotation>
+		<annotation cp="🐷">උෟරු මුහුණ | ඌරා | මුහුණ</annotation>
 		<annotation cp="🐷" type="tts">උෟරු මුහුණ</annotation>
 		<annotation cp="🐖">ඊරි | ඌරා</annotation>
 		<annotation cp="🐖" type="tts">ඌරා</annotation>
@@ -961,8 +1105,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐽" type="tts">ඌරු නහය</annotation>
 		<annotation cp="🐏">බැටළුවා | මේෂ රාශිය | රාශි චක්‍රය</annotation>
 		<annotation cp="🐏" type="tts">මේෂ රාශිය</annotation>
-		<annotation cp="🐑">එළුවා | බැටළුවා</annotation>
-		<annotation cp="🐑" type="tts">බැටළුවා</annotation>
+		<annotation cp="🐑">එළුවා | බැටළු දෙන | බැටළුවා</annotation>
+		<annotation cp="🐑" type="tts">බැටළු දෙන</annotation>
 		<annotation cp="🐐">එළුවා | මකර රාශිය | රාශි චක්‍රය</annotation>
 		<annotation cp="🐐" type="tts">එළුවා</annotation>
 		<annotation cp="🐪">ඔටුුවා | මොල්ලිය | මොල්ලිය සහිත ඔටුවා</annotation>
@@ -987,11 +1131,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐀" type="tts">ලොකු මීයා</annotation>
 		<annotation cp="🐹">මුහුණ | සුරතල් සතා | හැම්ස්ටර්</annotation>
 		<annotation cp="🐹" type="tts">හැම්ස්ටර් මුහුණ</annotation>
-		<annotation cp="🐰">මුහුණ | සුරතල් සතා | හා පැටිියා | හා මුහුණ | හාවා</annotation>
+		<annotation cp="🐰">මුහුණ | සුරතල් සතා | හා පැටිය | හා මුහුණ | හාවා</annotation>
 		<annotation cp="🐰" type="tts">හා මුහුණ</annotation>
 		<annotation cp="🐇">සුරතල් සතා | හා පැටියා | හාවා</annotation>
 		<annotation cp="🐇" type="tts">හාවා</annotation>
-		<annotation cp="🐿">දඬුලේනා</annotation>
+		<annotation cp="🐿">දඬුලේනා | ලේනා</annotation>
 		<annotation cp="🐿" type="tts">දඬුලේනා</annotation>
 		<annotation cp="🦔">ඉත්තෑවා | කටු සහිත</annotation>
 		<annotation cp="🦔" type="tts">ඉත්තෑවා</annotation>
@@ -999,35 +1143,43 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦇" type="tts">වවුලා</annotation>
 		<annotation cp="🐻">මුහුණ | වළසා | වළස් මුහුණ</annotation>
 		<annotation cp="🐻" type="tts">වළස් මුහුණ</annotation>
+		<annotation cp="🐻‍❄">ආක්ටික් | වලසා | සුදු | හිම වලසා | හිම වලහා</annotation>
+		<annotation cp="🐻‍❄" type="tts">හිම වලහා</annotation>
 		<annotation cp="🐨">කෝලා | වළසා</annotation>
 		<annotation cp="🐨" type="tts">කෝලා</annotation>
 		<annotation cp="🐼">පැන්ඩා | මුහුණ</annotation>
 		<annotation cp="🐼" type="tts">පැන්ඩා මුහුණ</annotation>
+		<annotation cp="🦥">අලස | කම්මැලි | මන්දගාමී</annotation>
+		<annotation cp="🦥" type="tts">අලස</annotation>
+		<annotation cp="🦦">දියබල්ලා | මසුන් ඇල්ලීම | සෙල්ලක්කාර</annotation>
+		<annotation cp="🦦" type="tts">දියබල්ලා</annotation>
+		<annotation cp="🦨">උරුලෑවා | දුගඳ</annotation>
+		<annotation cp="🦨" type="tts">උරුලෑවා</annotation>
 		<annotation cp="🦘">ඕස්ට්‍රේලියාව | කැන්ගරු | ජෝයි | පැනීම | සුන්බුන්</annotation>
 		<annotation cp="🦘" type="tts">කැන්ගරු</annotation>
 		<annotation cp="🦡">කරදර කරනවා | බැජර් | මීපැණි බැජර්</annotation>
 		<annotation cp="🦡" type="tts">බැජර්</annotation>
 		<annotation cp="🐾">අඩි | අඩිය | අඩිි සලකුණ | සලකුණ</annotation>
 		<annotation cp="🐾" type="tts">අඩිි සලකුණ</annotation>
-		<annotation cp="🦃">කළුකුමා</annotation>
+		<annotation cp="🦃">කළුකුමා | කුරුල්ලා</annotation>
 		<annotation cp="🦃" type="tts">කළුකුමා</annotation>
-		<annotation cp="🐔">කිකිළි</annotation>
+		<annotation cp="🐔">කිකිළි | කුකුල් මස් | කුරුල්ලා</annotation>
 		<annotation cp="🐔" type="tts">කිකිළි</annotation>
-		<annotation cp="🐓">කුකුළා</annotation>
+		<annotation cp="🐓">කුකුළා | කුරුල්ලා</annotation>
 		<annotation cp="🐓" type="tts">කුකුළා</annotation>
 		<annotation cp="🐣">කුකුළු පැටියා | පැටියා | බිත්තරයෙන් එළියට එන කුකුළු පැටියා | බිත්තරයෙන් එළියට ඒම</annotation>
 		<annotation cp="🐣" type="tts">බිත්තරයෙන් එළියට එන කුකුළු පැටියා</annotation>
-		<annotation cp="🐤">කුකුළු පැටියා | පැටියා | ළදරු කුකුළු පැටියා</annotation>
+		<annotation cp="🐤">කුරුල්ලා | පැටියා | බබා | ළදරු කුකුළු පැටියා</annotation>
 		<annotation cp="🐤" type="tts">ළදරු කුකුළු පැටියා</annotation>
 		<annotation cp="🐥">ඉදිරියට මුහුණ පා සිටින ළදරු කුකුළු පැටියා | කුකුළු පැටියා | පැටියා</annotation>
 		<annotation cp="🐥" type="tts">ඉදිරියට මුහුණ පා සිටින ළදරු කුකුළු පැටියා</annotation>
 		<annotation cp="🐦">කුරුල්ලා</annotation>
 		<annotation cp="🐦" type="tts">කුරුල්ලා</annotation>
-		<annotation cp="🐧">පෙන්ගුවින්</annotation>
+		<annotation cp="🐧">කුරුල්ලා | පෙන්ගුයින් | පෙන්ගුවින්</annotation>
 		<annotation cp="🐧" type="tts">පෙන්ගුවින්</annotation>
 		<annotation cp="🕊">ඉගිලීම | කුරුල්ලා | පරෙවියා | සාමය</annotation>
 		<annotation cp="🕊" type="tts">පරෙවියා</annotation>
-		<annotation cp="🦅">උකුස්සා | කුරුල්ලා</annotation>
+		<annotation cp="🦅">උකුස්සා | කුරුල්ලා | රාජාලියා</annotation>
 		<annotation cp="🦅" type="tts">උකුස්සා</annotation>
 		<annotation cp="🦆">කුරුල්ලා | තාරාව</annotation>
 		<annotation cp="🦆" type="tts">තාරාව</annotation>
@@ -1035,15 +1187,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">හංසයා</annotation>
 		<annotation cp="🦉">කුරුල්ලා | පණ්ඩිතයා | බකමුහුණා</annotation>
 		<annotation cp="🦉" type="tts">බකමුහුණා</annotation>
+		<annotation cp="🦩">චිත්තාකර්ෂණීය | නිවර්තන | රණහංසයා</annotation>
+		<annotation cp="🦩" type="tts">රණහංසයා</annotation>
 		<annotation cp="🦚">ආඩම්බර | ඕස්ටන්ටෙයිසස් | කුරුල්ලා | මොනරා | සෙබඩ</annotation>
 		<annotation cp="🦚" type="tts">මොනරා</annotation>
 		<annotation cp="🦜">කථා කරන | කුරුල්ලා | ගිරවා | මුහුදු කොල්ලකාරයා</annotation>
 		<annotation cp="🦜" type="tts">ගිරවා</annotation>
-		<annotation cp="🐸">ගෙම්ඹා | ගෙඹි මුහුණ | මුහුණ</annotation>
+		<annotation cp="🐸">ගෙඹි මුහුණ | මුහුණ</annotation>
 		<annotation cp="🐸" type="tts">ගෙඹි මුහුණ</annotation>
 		<annotation cp="🐊">කිඹුලා</annotation>
 		<annotation cp="🐊" type="tts">කිඹුලා</annotation>
-		<annotation cp="🐢">ඉබ්බා</annotation>
+		<annotation cp="🐢">ඉබ්බා | කැස්බෑවා</annotation>
 		<annotation cp="🐢" type="tts">ඉබ්බා</annotation>
 		<annotation cp="🦎">උරගයා | කටුස්සා</annotation>
 		<annotation cp="🦎" type="tts">කටුස්සා</annotation>
@@ -1057,7 +1211,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦕" type="tts">සාරූපෝඩ්</annotation>
 		<annotation cp="🦖">ටිරානාශ්රෝරස් රෙක්ස් ටයිරාන්නොසෝරස් | ටී-රෙක්ස්</annotation>
 		<annotation cp="🦖" type="tts">ටී-රෙක්ස්</annotation>
-		<annotation cp="🐳">තල්මසා | දිය විදින තල්මසා | දිය විදීමින් | මුහුණ</annotation>
+		<annotation cp="🐳">තල්මසා | දිය විදින තල්මසා | මුහුණ</annotation>
 		<annotation cp="🐳" type="tts">දිය විදින තල්මසා</annotation>
 		<annotation cp="🐋">තල්මහා</annotation>
 		<annotation cp="🐋" type="tts">තල්මහා</annotation>
@@ -1073,16 +1227,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦈" type="tts">මෝරා</annotation>
 		<annotation cp="🐙">බූවල්ලා</annotation>
 		<annotation cp="🐙" type="tts">බූවල්ලා</annotation>
-		<annotation cp="🐚">කටුව | සර්පිල කටුව | සර්පිලාකාර</annotation>
+		<annotation cp="🐚">සර්පිල කටුව | සර්පිලාකාර</annotation>
 		<annotation cp="🐚" type="tts">සර්පිල කටුව</annotation>
-		<annotation cp="🦀">කකුළුවා | කටක රාශිය | රාශි චක්‍රය</annotation>
-		<annotation cp="🦀" type="tts">කකුළුවා</annotation>
-		<annotation cp="🦞">නියපොතු | පොකිරිස්සන් සුප් | පොකිරිස්සා | මුහුදු ආහාර</annotation>
-		<annotation cp="🦞" type="tts">පොකිරිස්සා</annotation>
-		<annotation cp="🦐">කෑම | කුඩා | කූනිස්සා | සිප්පි බෙල්ලා</annotation>
-		<annotation cp="🦐" type="tts">කූනිස්සා</annotation>
-		<annotation cp="🦑">කෑම | දැල්ලා | පුෂ්ටිකයන්</annotation>
-		<annotation cp="🦑" type="tts">දැල්ලා</annotation>
 		<annotation cp="🐌">ගොළුබෙල්ලා</annotation>
 		<annotation cp="🐌" type="tts">ගොළුබෙල්ලා</annotation>
 		<annotation cp="🦋">කෘමියා | සමනළයා | සුරුබුහුටි</annotation>
@@ -1099,7 +1245,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦗" type="tts">පළගැටියා</annotation>
 		<annotation cp="🕷">කෘමියා | මකුළුවා</annotation>
 		<annotation cp="🕷" type="tts">මකුළුවා</annotation>
-		<annotation cp="🕸">දැල | මකුළු දැල | මකුළුවා</annotation>
+		<annotation cp="🕸">මකුළු දැල | මකුළුවා</annotation>
 		<annotation cp="🕸" type="tts">මකුළු දැල</annotation>
 		<annotation cp="🦂">ගොනුස්සා | රාශි චක්‍රය | වෘශ්චික රාශිය</annotation>
 		<annotation cp="🦂" type="tts">ගොනුස්සා</annotation>
@@ -1143,7 +1289,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌿" type="tts">ඔසු පැළය</annotation>
 		<annotation cp="☘">තුන්පෙති මල | පැළය</annotation>
 		<annotation cp="☘" type="tts">තුන්පෙති මල</annotation>
-		<annotation cp="🍀">උඳුපියලිය | තිපත්‍ර | පත්‍රය | පැළය | හතර</annotation>
+		<annotation cp="🍀">4 | උඳුපියලිය | තිපත්‍ර | පත්‍රය | පැළය | හතර</annotation>
 		<annotation cp="🍀" type="tts">උඳුපියලිය</annotation>
 		<annotation cp="🍁">පත්‍රය | පැළය | මේපල් | වැටෙන</annotation>
 		<annotation cp="🍁" type="tts">මේපල් පත්‍රය</annotation>
@@ -1203,6 +1349,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥬" type="tts">හරිත කොළ</annotation>
 		<annotation cp="🥦">බ්රොකොලී | වල් ගෝවා</annotation>
 		<annotation cp="🥦" type="tts">බ්රොකොලී</annotation>
+		<annotation cp="🧄">රස ගැන්වීම | සුදුළුනු</annotation>
+		<annotation cp="🧄" type="tts">සුදුළුනු</annotation>
+		<annotation cp="🧅">රස ගැන්වීම | ලූනු</annotation>
+		<annotation cp="🧅" type="tts">ලූනු</annotation>
 		<annotation cp="🍄">පැළය | හතු</annotation>
 		<annotation cp="🍄" type="tts">හතු</annotation>
 		<annotation cp="🥜">අච්චාරු | කජු | කෑම | රටකජු</annotation>
@@ -1221,6 +1371,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥯" type="tts">මුදු හැඩැති පාන්</annotation>
 		<annotation cp="🥞">උණුසුම් කේක් | කෑම | පැන් කේක්</annotation>
 		<annotation cp="🥞" type="tts">පැන් කේක්</annotation>
+		<annotation cp="🧇">අනිශ්වත | ඉතා ශක්තිමත් | වැෆල්</annotation>
+		<annotation cp="🧇" type="tts">වැෆල්</annotation>
 		<annotation cp="🧀">චීස් | චීස් පෙත්ත</annotation>
 		<annotation cp="🧀" type="tts">චීස් පෙත්ත</annotation>
 		<annotation cp="🍖">කටු | කටුවෙහි මස් | මස්</annotation>
@@ -1233,7 +1385,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥓" type="tts">බේකන්</annotation>
 		<annotation cp="🍔">බර්ගර්ය | හැම්බර්ගර්</annotation>
 		<annotation cp="🍔" type="tts">හැම්බර්ගර්</annotation>
-		<annotation cp="🍟">ප්‍රෙන්ච් | ෆ්රයිස් | ෆ්‍රෙන්ච් ෆ්රයිස්</annotation>
+		<annotation cp="🍟">ප්‍රෙන්ච් | ෆ්‍රෙන්ච් ෆ්රයිස්</annotation>
 		<annotation cp="🍟" type="tts">ෆ්‍රෙන්ච් ෆ්රයිස්</annotation>
 		<annotation cp="🍕">චීස් | පීසා | පෙත්ත</annotation>
 		<annotation cp="🍕" type="tts">පීසා</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">බුරිටෝ</annotation>
 		<annotation cp="🥙">කෑම | කෙබාබ් | ගයිරෝ | පිරවූ පාන් | ෆලෆෙල්</annotation>
 		<annotation cp="🥙" type="tts">පිරවූ පාන්</annotation>
+		<annotation cp="🧆">කොණ්ඩකඩල | මීට්බෝල් | ෆැලෆෙල්</annotation>
+		<annotation cp="🧆" type="tts">ෆැලෆෙල්</annotation>
 		<annotation cp="🥚">කෑම | බිත්තර</annotation>
 		<annotation cp="🥚" type="tts">බිත්තර</annotation>
 		<annotation cp="🍳">තාච්චිය | පිසීම | බදින | බිත්තරය</annotation>
@@ -1261,6 +1415,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">කොළ සලාදය</annotation>
 		<annotation cp="🍿">පොරි</annotation>
 		<annotation cp="🍿" type="tts">පොරි</annotation>
+		<annotation cp="🧈">කිරි | බටර්</annotation>
+		<annotation cp="🧈" type="tts">බටර්</annotation>
 		<annotation cp="🧂">තුනපහ | ලුණු | ෂේකර්</annotation>
 		<annotation cp="🧂" type="tts">ලුණු</annotation>
 		<annotation cp="🥫">ටින් | ටින් කළ ආහාර</annotation>
@@ -1285,7 +1441,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🍢" type="tts">ඕඩන්</annotation>
 		<annotation cp="🍣">සුෂි</annotation>
 		<annotation cp="🍣" type="tts">සුෂි</annotation>
-		<annotation cp="🍤">ඉස්සා | කූනිස්සා | බදින ලද | බදින ලද ඉස්සා | මාළු බැදුම</annotation>
+		<annotation cp="🍤">ඉස්සා | කූනිස්සා | බදින ලද | බදින ලද ඉස්සා</annotation>
 		<annotation cp="🍤" type="tts">බදින ලද ඉස්සා</annotation>
 		<annotation cp="🍥">කරකැවෙුණු මාළු කේක් | කේක් | පේස්ට්‍රි | මාළු | සුළිය</annotation>
 		<annotation cp="🍥" type="tts">කරකැවෙුණු මාළු කේක්</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">වාසනාවන්ත කුකී</annotation>
 		<annotation cp="🥡">කෑම ගෙන යන පෙට්ටිය | බෙල්ලන් පියලි</annotation>
 		<annotation cp="🥡" type="tts">කෑම ගෙන යන පෙට්ටිය</annotation>
+		<annotation cp="🦀">කකුළුවා | කටක රාශිය | රාශි චක්‍රය</annotation>
+		<annotation cp="🦀" type="tts">කකුළුවා</annotation>
+		<annotation cp="🦞">නියපොතු | පොකිරිස්සන් සුප් | පොකිරිස්සා | මුහුදු ආහාර</annotation>
+		<annotation cp="🦞" type="tts">පොකිරිස්සා</annotation>
+		<annotation cp="🦐">කෑම | කුඩා | කූනිස්සා | සිප්පි බෙල්ලා</annotation>
+		<annotation cp="🦐" type="tts">කූනිස්සා</annotation>
+		<annotation cp="🦑">කෑම | දැල්ලා | පුෂ්ටිකයන්</annotation>
+		<annotation cp="🦑" type="tts">දැල්ලා</annotation>
+		<annotation cp="🦪">කිමිදීම | බෙල්ලා | මුතු ඇටය</annotation>
+		<annotation cp="🦪" type="tts">බෙල්ලා</annotation>
 		<annotation cp="🍦">අතුරුපස | අයිස් | ක්‍රීම් | මෘදු අයිස් ක්‍රීම් | මෘදු. පැණි රස</annotation>
 		<annotation cp="🍦" type="tts">මෘදු අයිස් ක්‍රීම්</annotation>
 		<annotation cp="🍧">අතුරුපස | අයිස් | පැණි රස | වර්ණ ගැන්වූ | වර්ණ ගැන්වූ අයිස්</annotation>
@@ -1317,7 +1483,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧁" type="tts">කප්කේක්</annotation>
 		<annotation cp="🥧">පයි | පිරවීම් | පේස්ට්රි</annotation>
 		<annotation cp="🥧" type="tts">පයි</annotation>
-		<annotation cp="🍫">අතුරුපස | චොකලට් තීරුව | ඩොකලට් | තීරුව | පැණි රස</annotation>
+		<annotation cp="🍫">අතුරුපස | චොකලට් | තීරුව | පැණි රස</annotation>
 		<annotation cp="🍫" type="tts">චොකලට් තීරුව</annotation>
 		<annotation cp="🍬">අතුරුපස | කැන්ඩි | පැණි රස</annotation>
 		<annotation cp="🍬" type="tts">කැන්ඩි</annotation>
@@ -1345,7 +1511,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🍸" type="tts">කොක්ටේල් වීදුරුව</annotation>
 		<annotation cp="🍹">තැබෑරුම | නිවර්තන | නිවර්තන පානය | පානය කිරීම</annotation>
 		<annotation cp="🍹" type="tts">නිවර්තන පානය</annotation>
-		<annotation cp="🍺">තැබෑරුම | පානය කිරීම්. ජෝග්ගුව | බියර් | බියර් ජෝග්ගුව</annotation>
+		<annotation cp="🍺">තැබෑරුම | බියර් | බියර් ජෝග්ගුව</annotation>
 		<annotation cp="🍺" type="tts">බියර් ජෝග්ගුව</annotation>
 		<annotation cp="🍻">එකිනෙක ගැටෙන බියර් ජෝගු | එකිනෙක ගැටෙන හඬ | ජෝග්ගුව | පානය කිරීම | බියර්</annotation>
 		<annotation cp="🍻" type="tts">එකිනෙක ගැටෙන බියර් ජෝගු</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">බොන වීදුරුව</annotation>
 		<annotation cp="🥤">බටය සමඟ කෝප්පයක | යුෂ | සෝඩා</annotation>
 		<annotation cp="🥤" type="tts">බටය සමඟ කෝප්පයක</annotation>
+		<annotation cp="🧃">බීම පෙට්ටිය | යුෂ පෙට්ටිය</annotation>
+		<annotation cp="🧃" type="tts">බීම පෙට්ටිය</annotation>
+		<annotation cp="🧉">අත් උදව්කරුවා | පානය</annotation>
+		<annotation cp="🧉" type="tts">අත් උදව්කරුවා</annotation>
+		<annotation cp="🧊">අයිස් කැටය | සීත | හිම කුට්ටිය</annotation>
+		<annotation cp="🧊" type="tts">අයිස් කැටය</annotation>
 		<annotation cp="🥢">චොප්ස්ටික්ස් | හැෂි</annotation>
 		<annotation cp="🥢" type="tts">චොප්ස්ටික්ස්</annotation>
 		<annotation cp="🍽">ගැරැප්පුව | පිඟාන | පිඟාන සමගින් ගෑරප්පුව සහ පිහිය | පිසීම | පිහිය</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">පල්ලිය</annotation>
 		<annotation cp="🕌">ආගම | ඉස්ලාම් | මුස්ලිම් | මුස්ලිම් පල්ලිය</annotation>
 		<annotation cp="🕌" type="tts">මුස්ලිම් පල්ලිය</annotation>
+		<annotation cp="🛕">කෝවිල | හින්දු</annotation>
+		<annotation cp="🛕" type="tts">හින්දු කෝවිල</annotation>
 		<annotation cp="🕍">ආගම | දේවස්ථානය | යුදෙව් | යුදෙව්වන් | සිනගෝගය</annotation>
 		<annotation cp="🕍" type="tts">සිනගෝගය</annotation>
 		<annotation cp="⛩">ආගම | ආශ්‍රමය | ෂින්ටෝ | ෂින්ටෝ දේවස්ථානය</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">රාත්‍රියේදී පාලම</annotation>
 		<annotation cp="♨">උණු දිය උල්පත් | උණුසුම් | උල්පත් | බුබුළු දැමීම</annotation>
 		<annotation cp="♨" type="tts">උණු දිය උල්පත්</annotation>
-		<annotation cp="🌌">අභ්‍යවකාශය | කාලගුණය | ක්ෂීර පථය</annotation>
-		<annotation cp="🌌" type="tts">ක්ෂීර පථය</annotation>
 		<annotation cp="🎠">අශ්වයා | කැරවුසල්</annotation>
 		<annotation cp="🎠" type="tts">කැරවුසල් අශ්වයා</annotation>
 		<annotation cp="🎡">රෝදය | විනෝද උයන | ෆෙරිස්</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">ට්‍රැක්ටර් ට්‍රේලර් ලොරිය</annotation>
 		<annotation cp="🚜">ට්‍රැක්ටරය | වාහනය</annotation>
 		<annotation cp="🚜" type="tts">ට්‍රැක්ටරය</annotation>
+		<annotation cp="🏎">මෝටර් රථය | රේසිං | රේසිං මෝටර් රථය</annotation>
+		<annotation cp="🏎" type="tts">රේසිං මෝටර් රථය</annotation>
+		<annotation cp="🏍">මෝටර් බයිසිකලය | රේසිං</annotation>
+		<annotation cp="🏍" type="tts">මෝටර් බයිසිකලය</annotation>
+		<annotation cp="🛵">මෝටර් | ස්කූටරය</annotation>
+		<annotation cp="🛵" type="tts">මෝටර් ස්කූටරය</annotation>
+		<annotation cp="🦽">අතින් කරකවන රෝද පුටුව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🦽" type="tts">අතින් කරකවන රෝද පුටුව</annotation>
+		<annotation cp="🦼">මෝටර් රෝද පුටුව | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🦼" type="tts">මෝටර් රෝද පුටුව</annotation>
+		<annotation cp="🛺">ත්‍රීවිලය | ස්වයං රික්ෂෝරථය</annotation>
+		<annotation cp="🛺" type="tts">ස්වයං රික්ෂෝරථය</annotation>
 		<annotation cp="🚲">බයිසිකලය | වාහනය</annotation>
 		<annotation cp="🚲" type="tts">බයිසිකලය</annotation>
 		<annotation cp="🛴">පෙඩල ස්කූටරය | පෙඩලය | ස්කූටරය</annotation>
 		<annotation cp="🛴" type="tts">පෙඩල ස්කූටරය</annotation>
 		<annotation cp="🛹">බෝඩ් | ස්කේට්බෝඩ්</annotation>
 		<annotation cp="🛹" type="tts">ස්කේට්බෝඩ්</annotation>
-		<annotation cp="🛵">මෝටර් | ස්කූටරය</annotation>
-		<annotation cp="🛵" type="tts">මෝටර් ස්කූටරය</annotation>
 		<annotation cp="🚏">නැවතුම | බසය | බස් නැවතුම</annotation>
 		<annotation cp="🚏" type="tts">බස් නැවතුම</annotation>
 		<annotation cp="🛣">අධිවේගී | මාර්ගය | මෝටර් රථ මාර්ගය</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">ගුවන් යානය පිටත්වීම</annotation>
 		<annotation cp="🛬">ගුවන් යානය පැමිණීම | ගුවන් යාානය | ගොඩබෑම් | පැමිණීම | වාහනය</annotation>
 		<annotation cp="🛬" type="tts">ගුවන් යානය පැමිණීම</annotation>
+		<annotation cp="🪂">අහසේ කිමිදීම | එල්ලී-ලිස්සිම | පැරෂූටය | පැරසේලය</annotation>
+		<annotation cp="🪂" type="tts">පැරෂූටය</annotation>
 		<annotation cp="💺">ආසනය | පුටුව</annotation>
 		<annotation cp="💺" type="tts">ආසනය</annotation>
 		<annotation cp="🚁">වාහනය | හෙලිකොප්ටරය</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">මුහුණ සහිත පුරසඳ</annotation>
 		<annotation cp="🌞">අභ්‍යවකාශය | කාලගුණය | දීප්තිමත් | මුහුණ | මුහුණ සහිත සූර්යයා</annotation>
 		<annotation cp="🌞" type="tts">මුහුණ සහිත සූර්යයා</annotation>
+		<annotation cp="🪐">නරච්ඡාගයා | වටකුරු ග්‍රහයා | සෙනසුරු</annotation>
+		<annotation cp="🪐" type="tts">වටකුරු ග්‍රහයා</annotation>
 		<annotation cp="⭐">තරුව | සුදු මධ්‍යම තරුව</annotation>
 		<annotation cp="⭐" type="tts">සුදු මධ්‍යම තරුව</annotation>
 		<annotation cp="🌟">තරුව | දිදුලන | දිලෙන තරුව | දිළිසීම | දිළිසෙන | බැබළීම</annotation>
 		<annotation cp="🌟" type="tts">දිලෙන තරුව</annotation>
 		<annotation cp="🌠">අභ්‍යවකාශය | කඩා වැටීම | කඩා වැටෙන තරුව | තරුව | වැටීම</annotation>
 		<annotation cp="🌠" type="tts">කඩා වැටෙන තරුව</annotation>
+		<annotation cp="🌌">අභ්‍යවකාශය | කාලගුණය | ක්ෂීර පථය</annotation>
+		<annotation cp="🌌" type="tts">ක්ෂීර පථය</annotation>
 		<annotation cp="☁">කාලගුණය | වලාකුළ</annotation>
 		<annotation cp="☁" type="tts">වලාකුළ</annotation>
 		<annotation cp="⛅">කාලගුණය | වලාකුළ | වළාකුළෙන් වැසුණ සඳ | සූර්යයා</annotation>
@@ -1807,7 +1995,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎀" type="tts">පීත්ත පටිය</annotation>
 		<annotation cp="🎁">ඔතන ලද | ඔතන ලද තෑග්ග | තෑග්ග | ත්‍යාගය | පෙට්ටිය</annotation>
 		<annotation cp="🎁" type="tts">ඔතන ලද තෑග්ග</annotation>
-		<annotation cp="🎗">පීත්ත පටිය | මතක් කිරීමේ පීත්ත පටිය | සැමරුම | සිහිකැඳවීම</annotation>
+		<annotation cp="🎗">උත්සවය | පීත්ත පටිය | මතක් කිරීමේ | මතක් කිරීමේ පීත්ත පටිය | සිහිකැඳවීම</annotation>
 		<annotation cp="🎗" type="tts">මතක් කිරීමේ පීත්ත පටිය</annotation>
 		<annotation cp="🎟">අැතුළත් වීම | ඇතුළත් වීමේ ටිකට් පත් | ටිකට් පත</annotation>
 		<annotation cp="🎟" type="tts">ඇතුළත් වීමේ ටිකට් පත්</annotation>
@@ -1845,8 +2033,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥏" type="tts">පියාඹන තැටිය</annotation>
 		<annotation cp="🎳">ක්‍රීඩාව | පන්දු දමන්නා | බෝලය</annotation>
 		<annotation cp="🎳" type="tts">පන්දු දමන්නා</annotation>
-		<annotation cp="🏏">ක්‍රිකට් | ක්‍රීඩාව | පිත්ත | බෝලය</annotation>
-		<annotation cp="🏏" type="tts">ක්‍රිකට්</annotation>
+		<annotation cp="🏏">ක්‍රිකට් | ක්‍රිකට් තරඟය | ක්‍රීඩාව | පිත්ත | බෝලය</annotation>
+		<annotation cp="🏏" type="tts">ක්‍රිකට් තරඟය</annotation>
 		<annotation cp="🏑">ක්‍රීඩාව | පිටියේ හොකී | පිත්ත | බෝලය | හොකී</annotation>
 		<annotation cp="🏑" type="tts">පිටියේ හොකී</annotation>
 		<annotation cp="🏒">අයිස් | අයිස් හොකී ස්ටික් | අයිස් හොකී ස්ටික් සහ පක් | ක්‍රීඩාව | පිත්ත | හොකී</annotation>
@@ -1861,7 +2049,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥊" type="tts">බොක්සිං අත්වැස්ම</annotation>
 		<annotation cp="🥋">කරාටේ | ජුඩෝ | ටයි කොන්ඩෝ | සටන් කලාව | සටන් නිල ඇඳුම</annotation>
 		<annotation cp="🥋" type="tts">සටන් නිල ඇඳුම</annotation>
-		<annotation cp="🥅">ක්‍රීඩා | ගෝල | දැල | පාපන්දු දැල</annotation>
+		<annotation cp="🥅">ගෝල | දැල | පාපන්දු දැල</annotation>
 		<annotation cp="🥅" type="tts">පාපන්දු දැල</annotation>
 		<annotation cp="⛳">ගොල්ෆ් | හිල | හිල තුළ කොඩිය</annotation>
 		<annotation cp="⛳" type="tts">හිල තුළ කොඩිය</annotation>
@@ -1869,7 +2057,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">අයිස් මත ලිස්සා යාම</annotation>
 		<annotation cp="🎣">පිත්ත | මත්ස්‍ය ධ්‍රැවය | මාළු</annotation>
 		<annotation cp="🎣" type="tts">මත්ස්‍ය ධ්‍රැවය</annotation>
-		<annotation cp="🎽">කමිසය | දිවීම | ධාවන කමිසය | සෑෂ්</annotation>
+		<annotation cp="🤿">කිමිදීම | කිමිදුම | කිමිදුම් ආවරණය | දිය යට කිමිදීම</annotation>
+		<annotation cp="🤿" type="tts">කිමිදුම් ආවරණය</annotation>
+		<annotation cp="🎽">කමිසය | දිවීම | ධාවන | සෑෂ්</annotation>
 		<annotation cp="🎽" type="tts">ධාවන කමිසය</annotation>
 		<annotation cp="🎿">ස්කයි | හිම</annotation>
 		<annotation cp="🎿" type="tts">ස්කයි</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">කැරකෙන ගල</annotation>
 		<annotation cp="🎯">ඉලක්කය | ක්‍රීඩාව | ඩාර්ට් | බුල්ස්අයි | සෘජු පහර</annotation>
 		<annotation cp="🎯" type="tts">සෘජු පහර</annotation>
+		<annotation cp="🪀">උච්චාවචනය | යෝ-යෝ | සෙල්ලම් බඩුව</annotation>
+		<annotation cp="🪀" type="tts">යෝ-යෝ</annotation>
+		<annotation cp="🪁">අහසට පියාසර කිරීම | පියැඹීම | සරුංගලය</annotation>
+		<annotation cp="🪁" type="tts">සරුංගලය</annotation>
 		<annotation cp="🎱">8 | ක්‍රීඩාව | බිලියඩ් | බිලියර්ඩ් | බෝල</annotation>
 		<annotation cp="🎱" type="tts">බිලියඩ්</annotation>
 		<annotation cp="🔮">බෝලය | මායාව | මෙවලම | වීදුරු | සුරංගනා කථාව</annotation>
@@ -1923,6 +2117,92 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">නූල්</annotation>
 		<annotation cp="🧶">කැටිනූල් | ගෙතුම | ගොතනවා | බෝලය</annotation>
 		<annotation cp="🧶" type="tts">කැටිනූල්</annotation>
+		<annotation cp="👓">ඇඳුම් | ඇස | ඇස් පැළදුම් | කණ්ණාඩි</annotation>
+		<annotation cp="👓" type="tts">කණ්ණාඩි</annotation>
+		<annotation cp="🕶">අඳුරු | අව් කණ්ණාඩි | ඇස | ඇස් පැළදුම් | කණ්ණාඩි</annotation>
+		<annotation cp="🕶" type="tts">අව් කණ්ණාඩි</annotation>
+		<annotation cp="🥽">ඇස් ආරක්ෂා කිරීම | ඇස් ආවරණ | පිහිනීම | වෙල්ඩින්</annotation>
+		<annotation cp="🥽" type="tts">ඇස් ආවරණ</annotation>
+		<annotation cp="🥼">අත්හදා බැලීම් | පරීක්ෂණාගාර කබාය | විද්‍යාඥයා | වෛද්‍යවරයා</annotation>
+		<annotation cp="🥼" type="tts">පරීක්ෂණාගාර කබාය</annotation>
+		<annotation cp="🦺">ආරක්ෂක බැනියම | ආරක්ෂාව | බැනියම | හදිසි</annotation>
+		<annotation cp="🦺" type="tts">ආරක්ෂක බැනියම</annotation>
+		<annotation cp="👔">ඇඳුුම් | ගෙළ පටිය</annotation>
+		<annotation cp="👔" type="tts">ගෙළ පටිය</annotation>
+		<annotation cp="👕">ඇඳුම් | කමිසය | ටී-ෂර්ටය | ටීෂර්ට්</annotation>
+		<annotation cp="👕" type="tts">ටී-ෂර්ටය</annotation>
+		<annotation cp="👖">ඇඳුම් | කලිසම් | දිග කලිසම්</annotation>
+		<annotation cp="👖" type="tts">දිග කලිසම්</annotation>
+		<annotation cp="🧣">උතුරුසළුව | බෙල්ල</annotation>
+		<annotation cp="🧣" type="tts">උතුරුසළුව</annotation>
+		<annotation cp="🧤">අත | අත්වැසුම්</annotation>
+		<annotation cp="🧤" type="tts">අත්වැසුම්</annotation>
+		<annotation cp="🧥">කබාය | ජැකට්ටුව</annotation>
+		<annotation cp="🧥" type="tts">කබාය</annotation>
+		<annotation cp="🧦">මේස් | ස්ටොකිං</annotation>
+		<annotation cp="🧦" type="tts">මේස්</annotation>
+		<annotation cp="👗">ඇඳුම් | ගවුම</annotation>
+		<annotation cp="👗" type="tts">ගවුම</annotation>
+		<annotation cp="👘">ඇඳුම් | කිමොනාව</annotation>
+		<annotation cp="👘" type="tts">කිමොනාව</annotation>
+		<annotation cp="🥻">ඇඳුම | ඇඳුම් | සාරිය</annotation>
+		<annotation cp="🥻" type="tts">සාරිය</annotation>
+		<annotation cp="🩱">තනි-කොටස් පිහිනුම් ඇඳුම | නාන ඇඳුම</annotation>
+		<annotation cp="🩱" type="tts">තනි-කොටස් පිහිනුම් ඇඳුම</annotation>
+		<annotation cp="🩲">තනි-කැබැල්ල | නාන ඇඳුම | පිහිනුම් ඇඳුම | යට ඇඳුම් | සංක්ෂිප්තයන්</annotation>
+		<annotation cp="🩲" type="tts">සංක්ෂිප්තයන්</annotation>
+		<annotation cp="🩳">කොට කලිසම් | නාන ඇඳුම | යට ඇඳුම | යට කලිසම්</annotation>
+		<annotation cp="🩳" type="tts">කොට කලිසම්</annotation>
+		<annotation cp="👙">ඇඳුම් | පිහිනුම් | බිකිනිය</annotation>
+		<annotation cp="👙" type="tts">බිකිනිය</annotation>
+		<annotation cp="👚">ඇඳුම් | කාන්තා</annotation>
+		<annotation cp="👚" type="tts">කාන්තා ඇඳුම්</annotation>
+		<annotation cp="👛">ඇඳුම් | කාසි | පර්ස් එක</annotation>
+		<annotation cp="👛" type="tts">පර්ස් එක</annotation>
+		<annotation cp="👜">අත් බෑගය | ඇඳුම් | බෑගය</annotation>
+		<annotation cp="👜" type="tts">අත් බෑගය</annotation>
+		<annotation cp="👝">ඇඳුම් | පසුම්බිය | බෑගය</annotation>
+		<annotation cp="👝" type="tts">පසුම්බිය</annotation>
+		<annotation cp="🛍">බෑගය | ෂොපින් බෑග් | සාප්පු සවාරිය | හෝටලය</annotation>
+		<annotation cp="🛍" type="tts">ෂොපින් බෑග්</annotation>
+		<annotation cp="🎒">උරහිස් බෑගය | පාසල | පිටේ බැඳන් යන පාසැල් බෑගය | බෑගය</annotation>
+		<annotation cp="🎒" type="tts">පිටේ බැඳන් යන පාසැල් බෑගය</annotation>
+		<annotation cp="👞">ඇඳුම් | පිරිමියා | පිරිමිි සපත්තුව | සපත්තුව</annotation>
+		<annotation cp="👞" type="tts">පිරිමිි සපත්තුව</annotation>
+		<annotation cp="👟">ඇඳුම් | කැන්වස් පාවහන් | දිවීමේ සපත්තුව | මලල ක්‍රීඩා | සපත්තුව</annotation>
+		<annotation cp="👟" type="tts">දිවීමේ සපත්තුව</annotation>
+		<annotation cp="🥾">ඇවිදීමේ බූට් | උර පොදියක් ගෙන සංචාරය කිරීම | කඳවුරු බැඳි | දිඟු පාගමන් | බූට්‌</annotation>
+		<annotation cp="🥾" type="tts">ඇවිදීමේ බූට්</annotation>
+		<annotation cp="🥿">පැතලි සපත්තු | පැළදා සිටින | බැලේ පැතළි | සෙරෙප්පුව</annotation>
+		<annotation cp="🥿" type="tts">පැතලි සපත්තු</annotation>
+		<annotation cp="👠">අඩි උස සපත්තුව | අඩිය | ඇඳුම් | කාන්තාව | සපත්තුව</annotation>
+		<annotation cp="👠" type="tts">අඩි උස සපත්තුව</annotation>
+		<annotation cp="👡">ඇඳුම් | කාන්තා පටි සපත්තුව | කාන්තාව | සපත්තුව | සැඬලය</annotation>
+		<annotation cp="👡" type="tts">කාන්තා පටි සපත්තුව</annotation>
+		<annotation cp="🩰">නර්තනය | බැලට් | බැලට් සපත්තු</annotation>
+		<annotation cp="🩰" type="tts">බැලට් සපත්තු</annotation>
+		<annotation cp="👢">ඇඳුම් | කාන්තා බූට් සපත්තුව | කාන්තාව | බූට් සපත්තුව | සපත්තුව</annotation>
+		<annotation cp="👢" type="tts">කාන්තා බූට් සපත්තුව</annotation>
+		<annotation cp="👑">ඇඳුම් | ඔටුන්න | රජ | රැජිණ</annotation>
+		<annotation cp="👑" type="tts">ඔටුන්න</annotation>
+		<annotation cp="👒">ඇඳුම් | කාන්තා හිස් වැසුම | කාන්තාව | තොප්පිය</annotation>
+		<annotation cp="👒" type="tts">කාන්තා හිස් වැසුම</annotation>
+		<annotation cp="🎩">ඇඳුම් | උස තොප්පිය | උස් | තොප්පිය</annotation>
+		<annotation cp="🎩" type="tts">උස තොප්පිය</annotation>
+		<annotation cp="🎓">ඇඳුම් | උත්සවය | උපාධි තොප්පිය | උපාධි ප්‍රදානෝත්සවය | තොප්පිය</annotation>
+		<annotation cp="🎓" type="tts">උපාධි තොප්පිය</annotation>
+		<annotation cp="🧢">බිල්ඩ් තොප්පිය | බේස්බෝල් තොප්පිය</annotation>
+		<annotation cp="🧢" type="tts">බිල්ඩ් තොප්පිය</annotation>
+		<annotation cp="⛑">ආධාරය | කුරුසය | තොප්පිය | සුදු කුරුසය සහිත හෙල්මටය | හෙල්මටය</annotation>
+		<annotation cp="⛑" type="tts">සුදු කුරුසය සහිත හෙල්මටය</annotation>
+		<annotation cp="📿">ආගම | ඇඳුම් | මාලය | යාච්ඥාව | යාඥා මාලය</annotation>
+		<annotation cp="📿" type="tts">යාඥා මාලය</annotation>
+		<annotation cp="💄">අලංකාරයෙන් සැරසීම | තොල් ආලේපන | විලවුන්</annotation>
+		<annotation cp="💄" type="tts">තොල් ආලේපන</annotation>
+		<annotation cp="💍">දියමන්ති | ප්‍රේමය | මුදුව</annotation>
+		<annotation cp="💍" type="tts">මුදුව</annotation>
+		<annotation cp="💎">දියමන්තිි | ප්‍රේමය | මැණික් ගල | මැනික් | ස්වර්ණාභරණ</annotation>
+		<annotation cp="💎" type="tts">මැණික් ගල</annotation>
 		<annotation cp="🔇">නිහඬ | ශබ්ද නැති | ස්පීකරය | ස්පීකරය ක්‍රියාවිරහිතයි | හඬ පරිමාව</annotation>
 		<annotation cp="🔇" type="tts">ස්පීකරය ක්‍රියාවිරහිතයි</annotation>
 		<annotation cp="🔈">ස්පීකරය | හඬ පරිමාව</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">ට්‍රම්පට්</annotation>
 		<annotation cp="🎻">උපකරණය | වයලීනය | සංගීතය</annotation>
 		<annotation cp="🎻" type="tts">වයලීනය</annotation>
+		<annotation cp="🪕">තන්ත්‍රිය | බන්ජෝ | සංගීතය</annotation>
+		<annotation cp="🪕" type="tts">බන්ජෝ</annotation>
 		<annotation cp="🥁">බෙරය | සංගීතය</annotation>
 		<annotation cp="🥁" type="tts">බෙරය</annotation>
 		<annotation cp="📱">ජංගම | දුරකථනය | සෙල් | ෆෝන්</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">ෆ්ලෑෂ්ලයිට්</annotation>
 		<annotation cp="🏮">ආලෝකය | ජපන් | බාර් | රතු | රතු කඩදාසි පහන</annotation>
 		<annotation cp="🏮" type="tts">රතු කඩදාසි පහන</annotation>
+		<annotation cp="🪔">තෙල් | දියා | ලාම්පුව</annotation>
+		<annotation cp="🪔" type="tts">දියා ලාම්පුව</annotation>
 		<annotation cp="📔">අලංකාර කවරයක් සහිත සටහන් පොත | කවරය | පොත | සටහන් පොත | සැරසිලි</annotation>
 		<annotation cp="📔" type="tts">අලංකාර කවරයක් සහිත සටහන් පොත</annotation>
 		<annotation cp="📕">පොත | වැසූ</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">පැරණි යතුර</annotation>
 		<annotation cp="🔨">මිටිය | මෙවලම</annotation>
 		<annotation cp="🔨" type="tts">මිටිය</annotation>
+		<annotation cp="🪓">අත් පොරොව | කැපුම | දැව | පැළුම | පොරොව</annotation>
+		<annotation cp="🪓" type="tts">පොරොව</annotation>
 		<annotation cp="⛏">කටුව | මෙවලම | හෑරීම</annotation>
 		<annotation cp="⛏" type="tts">කටුව</annotation>
 		<annotation cp="⚒">කටුව | මිටිය | මිටිය සහ කටුව | මෙවලම</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">සම්පීඩකය</annotation>
 		<annotation cp="⚖">තරාදි | තුලන තරාදිය | බර | රාශිය | සාධාරණත්වය</annotation>
 		<annotation cp="⚖" type="tts">තුලන තරාදිය</annotation>
+		<annotation cp="🦯">අන්ධ | ඒෂණ දණ්ඩ | ළඟාවිය හැකි බව</annotation>
+		<annotation cp="🦯" type="tts">ඒෂණ දණ්ඩ</annotation>
 		<annotation cp="🔗">ගාන්චුව</annotation>
 		<annotation cp="🔗" type="tts">ගාන්චුව</annotation>
 		<annotation cp="⛓">දම්වැල | දම්වැල්</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">චන්ද්‍රිකා අැන්ටනාව</annotation>
 		<annotation cp="💉">ඉඳිකටුව | ඖෂධ | මාත්‍රාව | ලෙඩ | සිරින්ජය</annotation>
 		<annotation cp="💉" type="tts">සිරින්ජය</annotation>
+		<annotation cp="🩸">ඔසප් වීම | ඖෂධ | රුධිරය පරිත්‍යාගය | ලේ බින්දුව</annotation>
+		<annotation cp="🩸" type="tts">ලේ බින්දුව</annotation>
 		<annotation cp="💊">ඖෂධ | රෝගී | වර්තිකාව | වෛද්‍යවරයා</annotation>
 		<annotation cp="💊" type="tts">වර්තිකාව</annotation>
+		<annotation cp="🩹">ඇලෙන වෙළුම් පටිය | වෙළුම් පටිය</annotation>
+		<annotation cp="🩹" type="tts">ඇලෙන වෙළුම් පටිය</annotation>
+		<annotation cp="🩺">ඖෂධ | දොස්තර | වෙද නළාව | හදවත</annotation>
+		<annotation cp="🩺" type="tts">වෙද නළාව</annotation>
 		<annotation cp="🚪">දොර</annotation>
 		<annotation cp="🚪" type="tts">දොර</annotation>
 		<annotation cp="🛏">ඇඳ | නින්ද | හෝටලය</annotation>
 		<annotation cp="🛏" type="tts">ඇඳ</annotation>
 		<annotation cp="🛋">කවිච්චිය | කුඩා ඇඳ සහ ලාම්පුව | ලාම්පුව | හෝටලය</annotation>
 		<annotation cp="🛋" type="tts">කුඩා ඇඳ සහ ලාම්පුව</annotation>
+		<annotation cp="🪑">අසුන | ඉඳ ගැනීම | පුටුව</annotation>
+		<annotation cp="🪑" type="tts">පුටුව</annotation>
 		<annotation cp="🚽">වැසිකිළිය</annotation>
 		<annotation cp="🚽" type="tts">වැසිකිළිය</annotation>
 		<annotation cp="🚿">වතුර | වතුර මල</annotation>
 		<annotation cp="🚿" type="tts">වතුර මල</annotation>
 		<annotation cp="🛁">නාන බේසම | නෑම</annotation>
 		<annotation cp="🛁" type="tts">නාන බේසම</annotation>
+		<annotation cp="🪒">තියුණු | දැළි පිහිය | රැවුල බෑම</annotation>
+		<annotation cp="🪒" type="tts">දැළි පිහිය</annotation>
 		<annotation cp="🧴">මොයිස්චරයිසර් | ලෝෂන් | ලෝෂන් බෝතලය | ෂැම්පු | හිරු ක්‍රීම්</annotation>
 		<annotation cp="🧴" type="tts">ලෝෂන් බෝතලය</annotation>
 		<annotation cp="🧷">ආරක්ෂිත පින් | ඩයපර් | පැන්ක් රොක්</annotation>
@@ -2503,18 +2801,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☑" type="tts">හරි ලකුණ සහිත ඡන්ද පෙට්ටිය</annotation>
 		<annotation cp="✔">බර හරි ලකුණ | ලකුණ | හරි</annotation>
 		<annotation cp="✔" type="tts">බර හරි ලකුණ</annotation>
-		<annotation cp="✖">x | අවලංගු | ගුණ කිරීම | ගුණිතය | බර ගුණ කිරීමේ x | බර ගුණ කිරීමේx</annotation>
-		<annotation cp="✖" type="tts">බර ගුණ කිරීමේ x</annotation>
+		<annotation cp="✖">× | අවලංගු | ගුණ කිරීම | ගුණිතය | ලකුණ</annotation>
+		<annotation cp="✖" type="tts">ගුණ කිරීම</annotation>
 		<annotation cp="❌">x | අවලංගු | කතිර ලකුණ | ගුණ කිරීම | ගුණිතය | ලකුණ</annotation>
 		<annotation cp="❌" type="tts">කතිර ලකුණ</annotation>
 		<annotation cp="❎">කතිර ලකුණු බොත්තම | කොටුව | ලකුණ</annotation>
 		<annotation cp="❎" type="tts">කතිර ලකුණු බොත්තම</annotation>
-		<annotation cp="➕">එකතු කිරීමේ ලකුණ | ගණිතය | බර එකතු කිරීමේ ලකුණ</annotation>
-		<annotation cp="➕" type="tts">බර එකතු කිරීමේ ලකුණ</annotation>
-		<annotation cp="➖">අඩු කිරීමේ ලකුණ | ගණිතය | බර සෘණ ලකුණ</annotation>
-		<annotation cp="➖" type="tts">බර සෘණ ලකුණ</annotation>
-		<annotation cp="➗">ගණිතය | බර බෙදීමේ ලකුණ | බෙදීම</annotation>
-		<annotation cp="➗" type="tts">බර බෙදීමේ ලකුණ</annotation>
+		<annotation cp="➕">+ | ගණිතය | ධන | ලකුණ</annotation>
+		<annotation cp="➕" type="tts">ධන</annotation>
+		<annotation cp="➖">- | − | ඍණ | ගණිතය | ලකුණ</annotation>
+		<annotation cp="➖" type="tts">ඍණ</annotation>
+		<annotation cp="➗">÷ | ගණිතය | බෙදීම | ලකුණ</annotation>
+		<annotation cp="➗" type="tts">බෙදීම</annotation>
 		<annotation cp="➰">රැල්ල | රැළි ලූපය | ලූපය</annotation>
 		<annotation cp="➰" type="tts">රැළි ලූපය</annotation>
 		<annotation cp="➿">ද්වි | ද්වි රැළි ලූපය | රැල්ල | ලූපය</annotation>
@@ -2547,8 +2845,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="®" type="tts">ලියාපදිංචි</annotation>
 		<annotation cp="™">ලකුණ | වෙළඳ ලකුණ | වෙළඳ සලකුණ</annotation>
 		<annotation cp="™" type="tts">වෙළඳ ලකුණ</annotation>
-		<annotation cp="💯">100 | ලකුණු | ලකුණු සියයි | සම්පූර්ණ | සියය</annotation>
-		<annotation cp="💯" type="tts">ලකුණු සියයි</annotation>
 		<annotation cp="🔠">අකුරු | ආදානය | කැපිටල් අකුරු | ලතින් | ලතින් කැපිටල් අකුරු අදානය</annotation>
 		<annotation cp="🔠" type="tts">ලතින් කැපිටල් අකුරු අදානය</annotation>
 		<annotation cp="🔡">abcd | අකුරු | ආදානය | ලතින් | ලතින් සිම්පල් අකුරු ආදානය | සිම්පල් අකුරු</annotation>
@@ -2629,28 +2925,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🈵" type="tts">හතරැස් පූර්ණයි සංකල්ප ලකුණ</annotation>
 		<annotation cp="🔴">ජ්‍යාමිතික | රතු | රවුම</annotation>
 		<annotation cp="🔴" type="tts">රතු රවුම</annotation>
+		<annotation cp="🟠">තැඹිලි | රවුම</annotation>
+		<annotation cp="🟠" type="tts">තැඹිලි රවුම</annotation>
+		<annotation cp="🟡">කහ | රවුම</annotation>
+		<annotation cp="🟡" type="tts">කහ රවුම</annotation>
+		<annotation cp="🟢">කොළ | රවුම</annotation>
+		<annotation cp="🟢" type="tts">කොළ රවුම</annotation>
 		<annotation cp="🔵">ජ්‍යාමිතික | නිල් | රවුම</annotation>
 		<annotation cp="🔵" type="tts">නිල් රවුම</annotation>
-		<annotation cp="⚪">ජ්‍යාමිතික | රවුම | සුදු රවුම</annotation>
-		<annotation cp="⚪" type="tts">සුදු රවුම</annotation>
+		<annotation cp="🟣">දම් | රවුම</annotation>
+		<annotation cp="🟣" type="tts">දම් රවුම</annotation>
+		<annotation cp="🟤">දුඹුරු | රවුම</annotation>
+		<annotation cp="🟤" type="tts">දුඹුරු රවුම</annotation>
 		<annotation cp="⚫">කළු රවුම | ජ්‍යාමිතික | රවුම</annotation>
 		<annotation cp="⚫" type="tts">කළු රවුම</annotation>
-		<annotation cp="⬜">ජ්‍යාමිතික | සුදු විශාල කොටුව | හතරැස්</annotation>
-		<annotation cp="⬜" type="tts">සුදු විශාල කොටුව</annotation>
+		<annotation cp="⚪">ජ්‍යාමිතික | රවුම | සුදු රවුම</annotation>
+		<annotation cp="⚪" type="tts">සුදු රවුම</annotation>
+		<annotation cp="🟥">චතුරස්‍රය | රතු</annotation>
+		<annotation cp="🟥" type="tts">රතු චතුරස්‍රය</annotation>
+		<annotation cp="🟧">චතුරස්‍රය | තැඹිලි</annotation>
+		<annotation cp="🟧" type="tts">තැඹිලි චතුරස්‍රය</annotation>
+		<annotation cp="🟨">කහ | චතුරස්‍රය</annotation>
+		<annotation cp="🟨" type="tts">කහ චතුරස්‍රය</annotation>
+		<annotation cp="🟩">කොළ | චතුරස්‍රය</annotation>
+		<annotation cp="🟩" type="tts">කොළ චතුරස්‍රය</annotation>
+		<annotation cp="🟦">චතුරස්‍රය | නිල චතුරස්‍රය | නිල්</annotation>
+		<annotation cp="🟦" type="tts">නිල චතුරස්‍රය</annotation>
+		<annotation cp="🟪">චතුරස්‍රය | දම්</annotation>
+		<annotation cp="🟪" type="tts">දම් චතුරස්‍රය</annotation>
+		<annotation cp="🟫">චතුරස්‍රය | දුඹුරු</annotation>
+		<annotation cp="🟫" type="tts">දුඹුරු චතුරස්‍රය</annotation>
 		<annotation cp="⬛">කළු විශාල කොටුව | ජ්‍යාමිතික | හතරැස්</annotation>
 		<annotation cp="⬛" type="tts">කළු විශාල කොටුව</annotation>
+		<annotation cp="⬜">ජ්‍යාමිතික | සුදු විශාල කොටුව | හතරැස්</annotation>
+		<annotation cp="⬜" type="tts">සුදු විශාල කොටුව</annotation>
 		<annotation cp="◼">කළු මධ්‍යම ප්‍රමාණයේ කොටුව | ජ්‍යාමිතික | හතරැස්</annotation>
 		<annotation cp="◼" type="tts">කළු මධ්‍යම ප්‍රමාණයේ කොටුව</annotation>
 		<annotation cp="◻">ජ්‍යාමිතික | සුදු මධ්‍යම ප්‍රමාණයේ කොටුව | හතරැස්</annotation>
 		<annotation cp="◻" type="tts">සුදු මධ්‍යම ප්‍රමාණයේ කොටුව</annotation>
-		<annotation cp="◽">ජ්‍යාමිතික | සුදු මධ්‍යම ප්‍රමාණයේ-කුඩා කොටුව | හතරැස්</annotation>
-		<annotation cp="◽" type="tts">සුදු මධ්‍යම ප්‍රමාණයේ-කුඩා කොටුව</annotation>
 		<annotation cp="◾">කළු මධ්‍යම ප්‍රමාණයේ-කුඩා කොටුව | ජ්‍යාමිතික | හතරැස්</annotation>
 		<annotation cp="◾" type="tts">කළු මධ්‍යම ප්‍රමාණයේ-කුඩා කොටුව</annotation>
-		<annotation cp="▫">ජ්‍යාමිතික | සුදු කුඩා කොටුව | හතරැස්</annotation>
-		<annotation cp="▫" type="tts">සුදු කුඩා කොටුව</annotation>
+		<annotation cp="◽">ජ්‍යාමිතික | සුදු මධ්‍යම ප්‍රමාණයේ-කුඩා කොටුව | හතරැස්</annotation>
+		<annotation cp="◽" type="tts">සුදු මධ්‍යම ප්‍රමාණයේ-කුඩා කොටුව</annotation>
 		<annotation cp="▪">කළු කුඩා කොටුව | ජ්‍යාමිතික | හතරැස්</annotation>
 		<annotation cp="▪" type="tts">කළු කුඩා කොටුව</annotation>
+		<annotation cp="▫">ජ්‍යාමිතික | සුදු කුඩා කොටුව | හතරැස්</annotation>
+		<annotation cp="▫" type="tts">සුදු කුඩා කොටුව</annotation>
 		<annotation cp="🔶">ජ්‍යාමිතික | තැඹිලි | දියමන්තිය | විශාල තැඹිලි දියමන්තිය</annotation>
 		<annotation cp="🔶" type="tts">විශාල තැඹිලි දියමන්තිය</annotation>
 		<annotation cp="🔷">ජ්‍යාමිතික | දියමන්තිය | නිල් | විශාාල නිල් දියමන්තිය</annotation>
@@ -2667,10 +2987,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">තිතක් සහිත දියමන්තිය</annotation>
 		<annotation cp="🔘">ජ්‍යාමිතික | බොත්තම | රේඩියෝ බොත්තම | රේඩියෝව</annotation>
 		<annotation cp="🔘" type="tts">රේඩියෝ බොත්තම</annotation>
-		<annotation cp="🔲">කළු හතරැස් බොත්තම | කොටුව | ජ්‍යාමිතික | බොත්තම</annotation>
-		<annotation cp="🔲" type="tts">කළු හතරැස් බොත්තම</annotation>
 		<annotation cp="🔳">කොටුව | ජ්‍යාමිතික | බොත්තම | වැටිසන | සුදු හතරැස් බොත්තම</annotation>
 		<annotation cp="🔳" type="tts">සුදු හතරැස් බොත්තම</annotation>
+		<annotation cp="🔲">කළු හතරැස් බොත්තම | කොටුව | ජ්‍යාමිතික | බොත්තම</annotation>
+		<annotation cp="🔲" type="tts">කළු හතරැස් බොත්තම</annotation>
 		<annotation cp="🏁">කොටු | කොටු කොඩිය | කොටු සහිත | රේසිං</annotation>
 		<annotation cp="🏁" type="tts">කොටු කොඩිය</annotation>
 		<annotation cp="🚩">ත්‍රිකෝණාකාර කොඩිය | සැතපුම් කණුව</annotation>
@@ -2681,6 +3001,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏴" type="tts">වැනෙන කළු කොඩිය</annotation>
 		<annotation cp="🏳">වැනීම | වැනෙන කොඩිය</annotation>
 		<annotation cp="🏳" type="tts">වැනෙන කොඩිය</annotation>
+		<annotation cp="🏳‍⚧">කොඩිය | නිල්, රෝස සහ සුදු කොඩිය | සංක්‍රාන්ති ලිංගිකයන්</annotation>
+		<annotation cp="🏳‍⚧" type="tts">නිල්, රෝස සහ සුදු කොඩිය</annotation>
 		<annotation cp="🏳‍🌈">කොඩිය | දේදුනු කොඩිය | දේදුන්න</annotation>
 		<annotation cp="🏳‍🌈" type="tts">දේදුනු කොඩිය</annotation>
 		<annotation cp="🏴‍☠">කොල්ලකෑම | ජොලි රොජර් | නිධානය | මුහුදු කොල්ලකාර කොඩිය | මුහුදු කොල්ලාකරු</annotation>

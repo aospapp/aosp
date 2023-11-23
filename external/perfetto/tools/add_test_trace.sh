@@ -1,4 +1,18 @@
 #!/bin/bash
+# Copyright (C) 2019 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 set -e
 
 echo ""
@@ -39,10 +53,10 @@ gsutil acl ch -u AllUsers:R gs://perfetto/$NEW_TEST_DATA
 
 echo ""
 echo "SHA1 of file $NEW_TEST_DATA is"
-if which shasum; then
-NEW_SHA=$(shasum /tmp/$NEW_TEST_DATA)  # Mac OS
+if which shasum > /dev/null; then
+NEW_SHA=$(shasum /tmp/$NEW_TEST_DATA | cut -c1-40)  # Mac OS
 else
-NEW_SHA=$(sha1sum /tmp/$NEW_TEST_DATA)  # Linux
+NEW_SHA=$(sha1sum /tmp/$NEW_TEST_DATA | cut -c1-40)  # Linux
 fi
 echo $NEW_SHA
 
@@ -56,10 +70,16 @@ rm /tmp/$NEW_TEST_DATA
 echo ""
 echo "Updating tools/install-build-deps"
 echo ""
-OLD_URL="https://\(.*/perfetto\)/test-data-.*.zip"
-NEW_URL="https://\1/$NEW_TEST_DATA"
-OLD_SHA="\w*"
-SED_MAGIC="s|'$OLD_URL',\n\(\s*\)'$OLD_SHA'|'$NEW_URL',\n\2'$NEW_SHA'|g"
-sed -i '' -z -e "$SED_MAGIC" tools/install-build-deps
+
+OLD_SHA=$(cat tools/install-build-deps | grep '/test-data-.*.zip' -A1 | tail -n1 | cut -c10-49)
+
+# Cannot easily use sed -i, it has different syntax on Linux vs Mac.
+cat tools/install-build-deps \
+  | sed -e "s|/test-data-.*.zip|/$NEW_TEST_DATA|g" \
+  | sed -e "s|$OLD_SHA|$NEW_SHA|g" \
+  > tools/install-build-deps.tmp
+
+mv -f tools/install-build-deps.tmp tools/install-build-deps
+chmod 755 tools/install-build-deps
 
 echo "All done!"

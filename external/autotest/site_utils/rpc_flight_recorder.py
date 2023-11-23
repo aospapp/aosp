@@ -1,9 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Standalone service to monitor AFE servers and report to ts_mon"""
+
+import argparse
 import sys
 import time
 import logging
@@ -18,7 +20,6 @@ from autotest_lib.server import frontend
 # pylint: disable=unused-import
 from autotest_lib.server import site_host_attributes
 from autotest_lib.site_utils import server_manager_utils
-from chromite.lib import commandline
 from chromite.lib import metrics
 from chromite.lib import ts_mon_config
 
@@ -258,7 +259,7 @@ class AfeMonitor(object):
 
 def get_parser():
     """Returns argparse parser"""
-    parser = commandline.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument('-a', '--afe', action='append', default=[],
                         help='Autotest FrontEnd server to monitor')

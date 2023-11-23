@@ -24,13 +24,15 @@
 #include <sys/mman.h>
 #include <sys/socket.h>
 
+#include "config.h"
 #include "logging.h"
 #include "ring.h"
 #include "translate.h"
-#include "tun.h"
 
 int ring_create(struct tun_data *tunnel) {
-  int packetsock = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC, htons(ETH_P_IPV6));
+  // Will eventually be bound to htons(ETH_P_IPV6) protocol,
+  // but only after appropriate bpf filter is attached.
+  int packetsock = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   if (packetsock < 0) {
     logmsg(ANDROID_LOG_FATAL, "packet socket failed: %s", strerror(errno));
     return -1;

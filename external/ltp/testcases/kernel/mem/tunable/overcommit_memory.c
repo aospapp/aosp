@@ -36,11 +36,10 @@
  *
  * The program is designed to test the two tunables:
  *
- * When overcommit_memory = 0, allocatable memory can't overextends
- * the amount of free memory. I choose the three cases:
+ * When overcommit_memory = 0, allocatable memory can't overextend
+ * the amount of total memory:
  * a. less than free_total:    free_total / 2, alloc should pass.
- * b. greater than free_total: free_total * 2, alloc should fail.
- * c. equal to sum_total:      sum_tatal,      alloc should fail
+ * b. greater than sum_total:   sum_total * 2, alloc should fail.
  *
  * When overcommit_memory = 1, it can alloc enough much memory, I
  * choose the three cases:
@@ -69,6 +68,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+#include "lapi/abisize.h"
 #include "mem.h"
 
 #define DEFAULT_OVER_RATIO	50L
@@ -146,7 +146,7 @@ static void cleanup(void)
 static void overcommit_memory_test(void)
 {
 
-#if __WORDSIZE == 32
+#ifdef TST_ABI32
 	tst_brk(TCONF, "test is not designed for 32-bit system.");
 #endif
 	/* start to test overcommit_memory=2 */
@@ -163,9 +163,7 @@ static void overcommit_memory_test(void)
 
 	update_mem();
 	alloc_and_check(free_total / 2, EXPECT_PASS);
-	update_mem();
-	alloc_and_check(free_total * 2, EXPECT_FAIL);
-	alloc_and_check(sum_total, EXPECT_FAIL);
+	alloc_and_check(sum_total * 2, EXPECT_FAIL);
 
 	/* start to test overcommit_memory=1 */
 	set_sys_tune("overcommit_memory", 1, 1);

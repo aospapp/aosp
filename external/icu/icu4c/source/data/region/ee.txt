@@ -179,7 +179,6 @@ ee{
         MF{"Saint Martin nutome"}
         MG{"Madagaska nutome"}
         MH{"Marshal ƒudomekpowo nutome"}
-        MK{"Makedonia (FYROM) nutome"}
         ML{"Mali nutome"}
         MM{"Myanmar (Burma) nutome"}
         MN{"Mongolia nutome"}
@@ -292,5 +291,5 @@ ee{
         CI{"Ivory Kost nutome"}
         TL{"Ɣedzeƒe Timɔ nutome"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
 }

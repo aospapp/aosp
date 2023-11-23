@@ -7,9 +7,9 @@
 #ifndef XFA_FXFA_CXFA_FFIMAGE_H_
 #define XFA_FXFA_CXFA_FFIMAGE_H_
 
-#include "xfa/fxfa/cxfa_ffdraw.h"
+#include "xfa/fxfa/cxfa_ffwidget.h"
 
-class CXFA_FFImage : public CXFA_FFDraw {
+class CXFA_FFImage final : public CXFA_FFWidget {
  public:
   explicit CXFA_FFImage(CXFA_Node* pNode);
   ~CXFA_FFImage() override;
@@ -17,10 +17,9 @@ class CXFA_FFImage : public CXFA_FFDraw {
   // CXFA_FFWidget
   void RenderWidget(CXFA_Graphics* pGS,
                     const CFX_Matrix& matrix,
-                    uint32_t dwStatus) override;
+                    HighlightOption highlight) override;
   bool IsLoaded() override;
   bool LoadWidget() override;
-  void UnloadWidget() override;
 };
 
 #endif  // XFA_FXFA_CXFA_FFIMAGE_H_

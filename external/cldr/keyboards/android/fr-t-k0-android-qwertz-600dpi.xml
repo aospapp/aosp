@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE keyboard SYSTEM "../dtd/ldmlKeyboard.dtd">
 <keyboard locale="fr-t-k0-android-qwertz-600dpi">
-	<version platform="4.4" number="$Revision: 11914 $"/>
+	<version platform="4.4" number="$Revision$"/>
 	<names>
 		<name value="French (QWERTZ) (600dpi)"/>
 	</names>

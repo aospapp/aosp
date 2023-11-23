@@ -10,24 +10,22 @@
 
 #include "cras_audio_format.h"
 
-
 /* Table for allowed alternatives when doing channel re-mapping.
  * When channel_alt[X][Y] is non-zero, it's allowed to map channel
  * from X to Y. */
-static const int channel_alt[CRAS_CH_MAX][CRAS_CH_MAX] =
-{
-	/* FL FR RL RR FC LFE SL SR RC FLC FRC */
-	{  0, 0, 0, 0, 0, 0,  0, 0, 0, 0,  0 }, /* FL */
-	{  0, 0, 0, 0, 0, 0,  0, 0, 0, 0,  0 }, /* FR */
-	{  0, 0, 0, 0, 0, 0,  1, 0, 0, 0,  0 }, /* RL */
-	{  0, 0, 0, 0, 0, 0,  0, 1, 0, 0,  0 }, /* RR */
-	{  0, 0, 0, 0, 0, 0,  0, 0, 0, 0,  0 }, /* FC */
-	{  0, 0, 0, 0, 0, 0,  0, 0, 0, 0,  0 }, /* LFE */
-	{  0, 0, 1, 0, 0, 0,  0, 0, 0, 0,  0 }, /* SL */
-	{  0, 0, 0, 1, 0, 0,  0, 0, 0, 0,  0 }, /* SR */
-	{  0, 0, 0, 0, 0, 0,  0, 0, 0, 0,  0 }, /* RC */
-	{  0, 0, 0, 0, 0, 0,  0, 0, 0, 0,  0 }, /* FLC */
-	{  0, 0, 0, 0, 0, 0,  0, 0, 0, 0,  0 }, /* FRC */
+static const int channel_alt[CRAS_CH_MAX][CRAS_CH_MAX] = {
+	/*FL FR RL RR FC LFE SL SR RC FLC FRC */
+	{ 0, 0, 0, 0, 0, 0, +0, 0, 0, 0, +0 }, /* FL */
+	{ 0, 0, 0, 0, 0, 0, +0, 0, 0, 0, +0 }, /* FR */
+	{ 0, 0, 0, 0, 0, 0, +1, 0, 0, 0, +0 }, /* RL */
+	{ 0, 0, 0, 0, 0, 0, +0, 1, 0, 0, +0 }, /* RR */
+	{ 0, 0, 0, 0, 0, 0, +0, 0, 0, 0, +0 }, /* FC */
+	{ 0, 0, 0, 0, 0, 0, +0, 0, 0, 0, +0 }, /* LFE */
+	{ 0, 0, 1, 0, 0, 0, +0, 0, 0, 0, +0 }, /* SL */
+	{ 0, 0, 0, 1, 0, 0, +0, 0, 0, 0, +0 }, /* SR */
+	{ 0, 0, 0, 0, 0, 0, +0, 0, 0, 0, +0 }, /* RC */
+	{ 0, 0, 0, 0, 0, 0, +0, 0, 0, 0, +0 }, /* FLC */
+	{ 0, 0, 0, 0, 0, 0, +0, 0, 0, 0, +0 }, /* FRC */
 };
 
 /* Create an audio format structure. */
@@ -79,7 +77,7 @@ void cras_audio_format_destroy(struct cras_audio_format *fmt)
 	free(fmt);
 }
 
-float** cras_channel_conv_matrix_alloc(size_t in_ch, size_t out_ch)
+float **cras_channel_conv_matrix_alloc(size_t in_ch, size_t out_ch)
 {
 	size_t i;
 	float **p;
@@ -102,7 +100,7 @@ alloc_err:
 void cras_channel_conv_matrix_destroy(float **p, size_t out_ch)
 {
 	size_t i;
-	for (i = 0; i < out_ch; i ++)
+	for (i = 0; i < out_ch; i++)
 		free(p[i]);
 	free(p);
 }
@@ -129,11 +127,9 @@ float **cras_channel_conv_matrix_create(const struct cras_audio_format *in,
 	 * in use, create a permutation matrix for them.
 	 */
 	for (i = 0; i < CRAS_CH_MAX; i++) {
-		if (in->channel_layout[i] == -1 &&
-		    out->channel_layout[i] == -1)
+		if (in->channel_layout[i] == -1 && out->channel_layout[i] == -1)
 			continue;
-		if (in->channel_layout[i] != -1 &&
-		    out->channel_layout[i] != -1)
+		if (in->channel_layout[i] != -1 && out->channel_layout[i] != -1)
 			mtx[out->channel_layout[i]][in->channel_layout[i]] = 1;
 		else if (in->channel_layout[i] != -1) {
 			/* When the same channel does not appear at output
@@ -148,7 +144,7 @@ float **cras_channel_conv_matrix_create(const struct cras_audio_format *in,
 				    in->channel_layout[alt] == -1 &&
 				    out->channel_layout[alt] != -1) {
 					mtx[out->channel_layout[alt]]
-					    [in->channel_layout[i]] = 1;
+					   [in->channel_layout[i]] = 1;
 					break;
 				}
 			}

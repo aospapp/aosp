@@ -299,6 +299,7 @@ recvmmsg 299
 fanotify_init 300
 fanotify_mark 301
 prlimit64 302
+syncfs 306
 process_vm_readv 310
 process_vm_writev 311
 kcmp 312
@@ -307,10 +308,16 @@ sched_getattr 315
 renameat2 316
 getrandom 318
 memfd_create 319
+bpf 321
 execveat 322
+userfaultfd 323
 membarrier 324
 mlock2 325
 copy_file_range 326
 preadv2 327
 pwritev2 328
+pkey_mprotect 329
+pkey_alloc 330
+pkey_free 331
 statx 332
+pidfd_send_signal 424

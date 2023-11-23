@@ -19,7 +19,7 @@
 
 /*
  * Source:
- * http://code.google.com/p/smhasher/source/browse/trunk/MurmurHash3.cpp
+ * https://github.com/aappleby/smhasher/blob/master/src/MurmurHash3.cpp
  * (Modified to adapt to Guava coding conventions and to use the HashFunction interface)
  */
 
@@ -27,20 +27,26 @@ package com.google.common.hash;
 
 import static com.google.common.primitives.UnsignedBytes.toInt;
 
+import com.google.errorprone.annotations.Immutable;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * See http://smhasher.googlecode.com/svn/trunk/MurmurHash3.cpp
- * MurmurHash3_x64_128
+ * See MurmurHash3_x64_128 in <a href="http://smhasher.googlecode.com/svn/trunk/MurmurHash3.cpp">the
+ * C++ implementation</a>.
  *
  * @author Austin Appleby
  * @author Dimitris Andreou
  */
-final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implements Serializable {
+@Immutable
+final class Murmur3_128HashFunction extends AbstractHashFunction implements Serializable {
+  static final HashFunction MURMUR3_128 = new Murmur3_128HashFunction(0);
+
+  static final HashFunction GOOD_FAST_HASH_128 =
+      new Murmur3_128HashFunction(Hashing.GOOD_FAST_HASH_SEED);
+
   // TODO(user): when the shortcuts are implemented, update BloomFilterStrategies
   private final int seed;
 
@@ -48,11 +54,13 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
     this.seed = seed;
   }
 
-  @Override public int bits() {
+  @Override
+  public int bits() {
     return 128;
   }
 
-  @Override public Hasher newHasher() {
+  @Override
+  public Hasher newHasher() {
     return new Murmur3_128Hasher(seed);
   }
 
@@ -90,7 +98,8 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
       this.length = 0;
     }
 
-    @Override protected void process(ByteBuffer bb) {
+    @Override
+    protected void process(ByteBuffer bb) {
       long k1 = bb.getLong();
       long k2 = bb.getLong();
       bmix64(k1, k2);
@@ -111,7 +120,8 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
       h2 = h2 * 5 + 0x38495ab5;
     }
 
-    @Override protected void processRemaining(ByteBuffer bb) {
+    @Override
+    protected void processRemaining(ByteBuffer bb) {
       long k1 = 0;
       long k2 = 0;
       length += bb.remaining();
@@ -155,7 +165,8 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
       h2 ^= mixK2(k2);
     }
 
-    @Override public HashCode makeHash() {
+    @Override
+    public HashCode makeHash() {
       h1 ^= length;
       h2 ^= length;
 
@@ -168,12 +179,12 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
       h1 += h2;
       h2 += h1;
 
-      return HashCode.fromBytesNoCopy(ByteBuffer
-          .wrap(new byte[CHUNK_SIZE])
-          .order(ByteOrder.LITTLE_ENDIAN)
-          .putLong(h1)
-          .putLong(h2)
-          .array());
+      return HashCode.fromBytesNoCopy(
+          ByteBuffer.wrap(new byte[CHUNK_SIZE])
+              .order(ByteOrder.LITTLE_ENDIAN)
+              .putLong(h1)
+              .putLong(h2)
+              .array());
     }
 
     private static long fmix64(long k) {

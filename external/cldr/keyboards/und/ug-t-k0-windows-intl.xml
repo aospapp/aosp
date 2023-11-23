@@ -3,7 +3,7 @@
 <!-- Originally prepared by Waris Abdukerim Janbaz <oyghan@gmail.com> of the Uyghur Computer Science Association http://ukij.org -->
 <!-- Uyghur letter names in comments are written in Latin-Script Uyghur alphabet -->
 <keyboard locale='ug-t-k0-windows-intl'>
-	<version platform='6.1' number='$Revision: 11914 $'/>
+	<version platform='6.1' number='$Revision$'/>
 	<names>
 		<name value='Uyghur (International)'/>
 	</names>

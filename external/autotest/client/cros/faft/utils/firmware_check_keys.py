@@ -9,7 +9,10 @@ from threading import Timer
 
 from autotest_lib.client.bin.input.input_device import *
 
+
 class firmwareCheckKeys(object):
+    """An abstraction to deal with checking firmware keys."""
+    # pylint: disable=undefined-variable
     version = 1
     actual_output = []
     device = None
@@ -28,7 +31,8 @@ class firmwareCheckKeys(object):
         while True:
             self.ev.read(self.device.f)
             if self.ev.code != KEY_RESERVED:
-                print "EventCode is %d value is %d" % (self.ev.code, self.ev.value)
+                print "EventCode is %d value is %d" % (self.ev.code,
+                                                       self.ev.value)
                 if self.ev.type == 0 or self.ev.type == 1:
                     self.actual_output.append(self.ev.code)
                     index = index + 1
@@ -57,4 +61,3 @@ class firmwareCheckKeys(object):
             return -1
         print 'Key match expected: %s' % pprint.pformat(uniq_actual_output)
         return len(uniq_actual_output)
-

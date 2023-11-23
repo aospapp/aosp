@@ -111,7 +111,7 @@ def _TransformBenchmarks(raw_benchmarks):
         if len(results) < len(samples):
           results.extend({
               'retval': 0
-          } for _ in xrange(len(samples) - len(results)))
+          } for _ in range(len(samples) - len(results)))
 
         time_mul = _GetTimeMultiplier(friendly_name)
         for sample, app in itertools.izip(samples, results):

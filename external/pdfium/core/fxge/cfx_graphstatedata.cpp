@@ -6,47 +6,34 @@
 
 #include "core/fxge/cfx_graphstatedata.h"
 
-#include "core/fxcrt/fx_memory.h"
-#include "core/fxcrt/fx_system.h"
+CFX_GraphStateData::CFX_GraphStateData() = default;
 
-CFX_GraphStateData::CFX_GraphStateData()
-    : m_LineCap(LineCapButt),
-      m_DashCount(0),
-      m_DashArray(nullptr),
-      m_DashPhase(0),
-      m_LineJoin(LineJoinMiter),
-      m_MiterLimit(10 * 1.0f),
-      m_LineWidth(1.0f) {}
+CFX_GraphStateData::CFX_GraphStateData(const CFX_GraphStateData& src) = default;
 
-CFX_GraphStateData::CFX_GraphStateData(const CFX_GraphStateData& src) {
-  m_DashArray = nullptr;
-  Copy(src);
-}
+CFX_GraphStateData::CFX_GraphStateData(CFX_GraphStateData&& src) = default;
 
-void CFX_GraphStateData::Copy(const CFX_GraphStateData& src) {
-  m_LineCap = src.m_LineCap;
-  m_DashCount = src.m_DashCount;
-  FX_Free(m_DashArray);
-  m_DashArray = nullptr;
-  m_DashPhase = src.m_DashPhase;
-  m_LineJoin = src.m_LineJoin;
-  m_MiterLimit = src.m_MiterLimit;
-  m_LineWidth = src.m_LineWidth;
-  if (m_DashCount) {
-    m_DashArray = FX_Alloc(float, m_DashCount);
-    memcpy(m_DashArray, src.m_DashArray, m_DashCount * sizeof(float));
-  }
-}
+CFX_GraphStateData::~CFX_GraphStateData() = default;
 
-CFX_GraphStateData::~CFX_GraphStateData() {
-  FX_Free(m_DashArray);
-}
+CFX_GraphStateData& CFX_GraphStateData::operator=(
+    const CFX_GraphStateData& that) = default;
 
-void CFX_GraphStateData::SetDashCount(int count) {
-  FX_Free(m_DashArray);
-  m_DashArray = nullptr;
-  m_DashCount = count;
-  if (count == 0)
-    return;
-  m_DashArray = FX_Alloc(float, count);
+CFX_GraphStateData& CFX_GraphStateData::operator=(CFX_GraphStateData&& that) =
+    default;
+
+CFX_RetainableGraphStateData::CFX_RetainableGraphStateData() = default;
+
+// Note: can't default the copy constructor since Retainable has a deleted
+// copy constructor (as it should). Instead, we want the default Retainable
+// constructor to be invoked so as to create a copy with a ref-count of 1 as
+// of the time it is created, then populate the remainder of the members from
+// the |src| object.
+CFX_RetainableGraphStateData::CFX_RetainableGraphStateData(
+    const CFX_RetainableGraphStateData& src)
+    : CFX_GraphStateData(src) {}
+
+CFX_RetainableGraphStateData::~CFX_RetainableGraphStateData() = default;
+
+RetainPtr<CFX_RetainableGraphStateData> CFX_RetainableGraphStateData::Clone()
+    const {
+  return pdfium::MakeRetain<CFX_RetainableGraphStateData>(*this);
 }

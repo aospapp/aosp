@@ -45,8 +45,8 @@ void cras_dsp_set_variable_string(struct cras_dsp_context *ctx, const char *key,
 				  const char *value);
 
 /* Sets a configuration boolean variable in the context. */
-void cras_dsp_set_variable_boolean(struct cras_dsp_context *ctx, const char *key,
-				   char value);
+void cras_dsp_set_variable_boolean(struct cras_dsp_context *ctx,
+				   const char *key, char value);
 
 /* Loads the pipeline to the context. This should be called again when
  * new values of configuration variables may change the plugin

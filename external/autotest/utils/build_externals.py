@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Please keep this code python 2.4 compatible and standalone.
 
@@ -77,8 +77,8 @@ def main():
 
     fetched_packages, fetch_errors = fetch_necessary_packages(
         package_dir, install_dir, set(options.names_to_check))
-    install_errors = build_and_install_packages(
-        fetched_packages, install_dir, options.use_chromite_master)
+    install_errors = build_and_install_packages(fetched_packages, install_dir,
+                                                options.use_chromite_master)
 
     # Byte compile the code after it has been installed in its final
     # location as .pyc files contain the path passed to compile_dir().
@@ -160,20 +160,31 @@ def fetch_necessary_packages(dest_dir, install_dir, names_to_check=set()):
 
 
 def build_and_install_packages(packages, install_dir,
-                               use_chromite_master=False):
+                               use_chromite_master=True):
     """
     Builds and installs all packages into install_dir.
 
     @param packages - A list of already fetched ExternalPackage instances.
     @param install_dir - Directory the packages should be installed into.
-    @param use_chromite_master: True if updating chromite to master branch.
+    @param use_chromite_master: True if updating chromite to master branch. Due
+                                to the non-usage of origin/prod tag, the default
+                                value for this argument has been set to True.
+                                This argument has not been removed for backward
+                                compatibility.
 
     @returns A list of error messages for any installs that failed.
     """
     errors = []
     for package in packages:
-        if use_chromite_master and package.name.lower() == 'chromiterepo':
-            result = package.build_and_install(install_dir, master_branch=True)
+        if package.name.lower() == 'chromiterepo':
+            if not use_chromite_master:
+                logging.warning(
+                    'Even though use_chromite_master has been set to %s, it '
+                    'will be checked out to master as the origin/prod tag '
+                    'carries little value now.', use_chromite_master)
+            logging.info('Checking out autotest-chromite to master branch.')
+            result = package.build_and_install(
+                install_dir, master_branch=True)
         else:
             result = package.build_and_install(install_dir)
         if isinstance(result, bool):

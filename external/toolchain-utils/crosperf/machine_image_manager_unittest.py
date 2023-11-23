@@ -1,6 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2015 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 
-# Copyright 2015 Google Inc. All Rights Reserved.
 """Unit tests for the MachineImageManager class."""
 
 from __future__ import print_function
@@ -50,13 +53,6 @@ class MachineImageManagerTester(unittest.TestCase):
       duts.append(MockDut(n))
     return duts
 
-  def print_matrix(self, matrix):
-    # pylint: disable=expression-not-assigned
-    for r in matrix:
-      for v in r:
-        print('{} '.format('.' if v == ' ' else v)),
-      print('')
-
   def create_labels_and_duts_from_pattern(self, pattern):
     labels = []
     duts = []
@@ -98,62 +94,67 @@ class MachineImageManagerTester(unittest.TestCase):
 
   def test_case1(self):
     labels = [
-        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
-            'l3', ['m1'])
+        MockLabel('l1', ['m1', 'm2']),
+        MockLabel('l2', ['m2', 'm3']),
+        MockLabel('l3', ['m1'])
     ]
     duts = [MockDut('m1'), MockDut('m2'), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
-    self.assertTrue(mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '],
-                                    [' ', 'X', 'X']])
+    self.assertTrue(
+        mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '], [' ', 'X', 'X']])
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
-                                    ['Y', 'X', 'X']])
+    self.assertTrue(
+        mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X', 'X']])
 
   def test_case2(self):
     labels = [
-        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
-            'l3', ['m1'])
+        MockLabel('l1', ['m1', 'm2']),
+        MockLabel('l2', ['m2', 'm3']),
+        MockLabel('l3', ['m1'])
     ]
     duts = [MockDut('m1'), MockDut('m2'), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
-    self.assertTrue(mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '],
-                                    [' ', 'X', 'X']])
+    self.assertTrue(
+        mim.matrix_ == [[' ', ' ', 'X'], ['X', ' ', ' '], [' ', 'X', 'X']])
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
-                                    ['Y', 'X', 'X']])
+    self.assertTrue(
+        mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X', 'X']])
 
   def test_case3(self):
     labels = [
-        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
-            'l3', ['m1'])
+        MockLabel('l1', ['m1', 'm2']),
+        MockLabel('l2', ['m2', 'm3']),
+        MockLabel('l3', ['m1'])
     ]
     duts = [MockDut('m1', labels[0]), MockDut('m2'), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
-                                    ['Y', 'X', 'X']])
+    self.assertTrue(
+        mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X', 'X']])
 
   def test_case4(self):
     labels = [
-        MockLabel('l1', ['m1', 'm2']), MockLabel('l2', ['m2', 'm3']), MockLabel(
-            'l3', ['m1'])
+        MockLabel('l1', ['m1', 'm2']),
+        MockLabel('l2', ['m2', 'm3']),
+        MockLabel('l3', ['m1'])
     ]
     duts = [MockDut('m1'), MockDut('m2', labels[0]), MockDut('m3')]
     mim = MachineImageManager(labels, duts)
     mim.compute_initial_allocation()
-    self.assertTrue(mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'],
-                                    ['Y', 'X', 'X']])
+    self.assertTrue(
+        mim.matrix_ == [[' ', 'Y', 'X'], ['X', ' ', 'Y'], ['Y', 'X', 'X']])
 
   def test_case5(self):
     labels = [
-        MockLabel('l1', ['m3']), MockLabel('l2', ['m3']), MockLabel(
-            'l3', ['m1'])
+        MockLabel('l1', ['m3']),
+        MockLabel('l2', ['m3']),
+        MockLabel('l3', ['m1'])
     ]
     duts = self.gen_duts_by_name('m1', 'm2', 'm3')
     mim = MachineImageManager(labels, duts)
     self.assertTrue(mim.compute_initial_allocation())
-    self.assertTrue(mim.matrix_ == [['X', 'X', 'Y'], ['X', 'X', 'Y'],
-                                    ['Y', 'X', 'X']])
+    self.assertTrue(
+        mim.matrix_ == [['X', 'X', 'Y'], ['X', 'X', 'Y'], ['Y', 'X', 'X']])
 
   def test_2x2_with_allocation(self):
     labels = [MockLabel('l0'), MockLabel('l1')]
@@ -249,13 +250,13 @@ class MachineImageManagerTester(unittest.TestCase):
     self.assertTrue(mim.allocate(mim.duts_[3]) is None)
     self.assertTrue(mim.allocate(mim.duts_[2]) is None)
     self.assertTrue(mim.allocate(mim.duts_[1]) == mim.labels_[1])
-    self.assertTrue(mim.allocate(mim.duts_[1]) == None)
-    self.assertTrue(mim.allocate(mim.duts_[0]) == None)
+    self.assertTrue(mim.allocate(mim.duts_[1]) is None)
+    self.assertTrue(mim.allocate(mim.duts_[0]) is None)
     self.assertTrue(mim.label_duts_[0] == [2, 3])
     self.assertTrue(mim.label_duts_[1] == [0, 3, 1])
     self.assertTrue(mim.label_duts_[2] == [3, 1])
-    self.assertTrue(mim.allocate_log_ == [(0, 2), (2, 3), (1, 0), (2, 1),
-                                          (1, 3), (0, 3), (1, 1)])
+    self.assertListEqual(mim.allocate_log_, [(0, 2), (2, 3), (1, 0), (2, 1),
+                                             (1, 3), (0, 3), (1, 1)])
 
   def test_cornercase_1(self):
     """This corner case is brought up by Caroline.

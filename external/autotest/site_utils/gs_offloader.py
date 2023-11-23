@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -30,6 +30,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib
 
 from optparse import OptionParser
 
@@ -46,6 +47,7 @@ except ImportError:
 from autotest_lib.tko import models
 from autotest_lib.utils import labellib
 from autotest_lib.utils import gslib
+from autotest_lib.utils.side_effects import config_loader
 from chromite.lib import timeout_util
 
 # Autotest requires the psutil module from site-packages, so it must be imported
@@ -112,7 +114,14 @@ GS_OFFLOADER_MULTIPROCESSING = global_config.global_config.get_config_value(
 D = '[0-9][0-9]'
 TIMESTAMP_PATTERN = '%s%s.%s.%s_%s.%s.%s' % (D, D, D, D, D, D, D)
 CTS_RESULT_PATTERN = 'testResult.xml'
+CTS_COMPRESSED_RESULT_PATTERN = 'testResult.xml.tgz'
 CTS_V2_RESULT_PATTERN = 'test_result.xml'
+CTS_V2_COMPRESSED_RESULT_PATTERN = 'test_result.xml.tgz'
+
+CTS_COMPRESSED_RESULT_TYPES = {
+        CTS_COMPRESSED_RESULT_PATTERN: CTS_RESULT_PATTERN,
+        CTS_V2_COMPRESSED_RESULT_PATTERN: CTS_V2_RESULT_PATTERN}
+
 # Google Storage bucket URI to store results in.
 DEFAULT_CTS_RESULTS_GSURI = global_config.global_config.get_config_value(
         'CROS', 'cts_results_server', default='')
@@ -161,7 +170,7 @@ def _get_metrics_fields(dir_entry):
                     # gs_offloader.
                     pass
 
-    return fields;
+    return fields
 
 
 def _get_cmd_list(multiprocessing, dir_entry, gs_path):
@@ -186,6 +195,23 @@ def _get_cmd_list(multiprocessing, dir_entry, gs_path):
         target = gs_path
     cmd += ['-eR', dir_entry, target]
     return cmd
+
+
+def _get_finish_cmd_list(gs_path):
+    """Returns a command to remotely mark a given gs path as finished.
+
+    @param gs_path: Location in google storage where the offload directory
+                    should be marked as finished.
+
+    @return A command list to be executed by Popen.
+    """
+    target = os.path.join(gs_path, '.finished_offload')
+    return [
+        'gsutil',
+        'cp',
+        '/dev/null',
+        target,
+        ]
 
 
 def sanitize_dir(dirpath):
@@ -365,7 +391,7 @@ def correct_results_folder_permission(dir_entry):
         owner = '%s:%s' % (os.getuid(), os.getgid())
         subprocess.check_call(
                 ['sudo', '-n', 'chown', '-R', owner, dir_entry])
-        subprocess.check_call(['chmod', '-R', 'u+r', dir_entry])
+        subprocess.check_call(['chmod', '-R', 'u+rw', dir_entry])
         subprocess.check_call(
                 ['find', dir_entry, '-type', 'd',
                  '-exec', 'chmod', 'u+x', '{}', ';'])
@@ -391,7 +417,9 @@ def _upload_cts_testresult(dir_entry, multiprocessing):
         gts_v2_path = os.path.join(host, 'cheets_GTS*', 'results', '*',
                                    TIMESTAMP_PATTERN)
         for result_path, result_pattern in [(cts_path, CTS_RESULT_PATTERN),
+                            (cts_path, CTS_COMPRESSED_RESULT_PATTERN),
                             (cts_v2_path, CTS_V2_RESULT_PATTERN),
+                            (cts_v2_path, CTS_V2_COMPRESSED_RESULT_PATTERN),
                             (gts_v2_path, CTS_V2_RESULT_PATTERN)]:
             for path in glob.glob(result_path):
                 try:
@@ -447,6 +475,7 @@ def _is_valid_result(build, result_pattern, suite):
             suite.startswith('arc-cts') or
             suite.startswith('arc-gts') or
             suite.startswith('bvt-arc') or
+            suite.startswith('cros_test_platform') or
             suite.startswith('test_that_wrapper')):
         return False
 
@@ -463,11 +492,60 @@ def _is_test_collector(package):
     return TEST_LIST_COLLECTOR in package
 
 
+def _get_swarming_req_dir(path):
+    """
+    Returns the parent directory of |path|, if |path| is a swarming task result.
+
+    @param path: Full path to the result of a task.
+                      e.g. /tmp/results/swarming-44466815c4bc951/1
+
+    @return string of the parent dir or None if not a swarming task.
+    """
+    m_parent = re.match(
+            '(?P<parent_dir>.*/swarming-[0-9a-fA-F]*0)/[1-9a-fA-F]$', path)
+    if m_parent:
+        return m_parent.group('parent_dir')
+    return None
+
+
+def _parse_cts_job_results_file_path(path):
+    """Parse CTS file paths an extract required information from them."""
+
+    # Autotest paths look like:
+    # /317739475-chromeos-test/chromeos4-row9-rack11-host22/
+    # cheets_CTS.android.dpi/results/cts-results/2016.04.28_01.41.44
+
+    # Swarming paths look like:
+    # /swarming-458e3a3a7fc6f210/1/autoserv_test/
+    # cheets_CTS.android.dpi/results/cts-results/2016.04.28_01.41.44
+
+    folders = path.split(os.sep)
+    if 'swarming' in folders[1]:
+        # Swarming job and attempt combined
+        job_id = "%s-%s" % (folders[-7], folders[-6])
+    else:
+        job_id = folders[-6]
+
+    cts_package = folders[-4]
+    timestamp = folders[-1]
+
+    return job_id, cts_package, timestamp
+
+
 def _upload_files(host, path, result_pattern, multiprocessing,
                   result_gs_bucket, apfe_gs_bucket):
     keyval = models.test.parse_job_keyval(host)
     build = keyval.get('build')
     suite = keyval.get('suite')
+
+    host_keyval = models.test.parse_host_keyval(host, keyval.get('hostname'))
+    labels =  urllib.unquote(host_keyval.get('labels'))
+    try:
+        host_model_name = re.search(r'model:(\w+)', labels).group(1)
+    except AttributeError:
+        logging.error('Model: name attribute is missing in %s/host_keyval/%s.',
+                      host, keyval.get('hostname'))
+        return
 
     if not _is_valid_result(build, result_pattern, suite):
         # No need to upload current folder, return.
@@ -475,10 +553,7 @@ def _upload_files(host, path, result_pattern, multiprocessing,
 
     parent_job_id = str(keyval['parent_job_id'])
 
-    folders = path.split(os.sep)
-    job_id = folders[-6]
-    package = folders[-4]
-    timestamp = folders[-1]
+    job_id, package, timestamp = _parse_cts_job_results_file_path(path)
 
     # Results produced by CTS test list collector are dummy results.
     # They don't need to be copied to APFE bucket which is mainly being used for
@@ -486,8 +561,20 @@ def _upload_files(host, path, result_pattern, multiprocessing,
     if not _is_test_collector(package):
         # Path: bucket/build/parent_job_id/cheets_CTS.*/job_id_timestamp/
         # or bucket/build/parent_job_id/cheets_GTS.*/job_id_timestamp/
+        index = build.find('-release')
+        build_with_model_name = ''
+        if index == -1:
+            logging.info('Not a release build.'
+                         'Non release build results can be skipped from offloading')
+            return
+
+        # CTS v2 pipeline requires device info in 'board.model' format.
+        # e.g. coral.robo360-release, eve.eve-release
+        build_with_model_name = (build[:index] + '.' + host_model_name +
+                                     build[index:])
+
         cts_apfe_gs_path = os.path.join(
-                apfe_gs_bucket, build, parent_job_id,
+                apfe_gs_bucket, build_with_model_name, parent_job_id,
                 package, job_id + '_' + timestamp) + '/'
 
         for zip_file in glob.glob(os.path.join('%s.zip' % path)):
@@ -507,6 +594,24 @@ def _upload_files(host, path, result_pattern, multiprocessing,
         for test_result_file in glob.glob(os.path.join(path, result_pattern)):
             # gzip test_result_file(testResult.xml/test_result.xml)
 
+            test_result_tgz_file = ''
+            if test_result_file.endswith('tgz'):
+                # Extract .xml file from tgz file for better handling in the
+                # CTS dashboard pipeline.
+                # TODO(rohitbm): work with infra team to produce .gz file so
+                # tgz to gz middle conversion is not needed.
+                try:
+                    with tarfile.open(test_result_file, 'r:gz') as tar_file:
+                        tar_file.extract(
+                                CTS_COMPRESSED_RESULT_TYPES[result_pattern])
+                        test_result_tgz_file = test_result_file
+                        test_result_file = os.path.join(path,
+                                CTS_COMPRESSED_RESULT_TYPES[result_pattern])
+                except tarfile.ReadError as error:
+                    logging.debug(error)
+                except KeyError as error:
+                    logging.debug(error)
+
             test_result_file_gz =  '%s.gz' % test_result_file
             with open(test_result_file, 'r') as f_in, (
                     gzip.open(test_result_file_gz, 'w')) as f_out:
@@ -517,6 +622,9 @@ def _upload_files(host, path, result_pattern, multiprocessing,
                           test_result_file_gz, test_result_gs_path)
             # Remove test_result_file_gz(testResult.xml.gz/test_result.xml.gz)
             os.remove(test_result_file_gz)
+            # Remove extracted test_result.xml file.
+            if test_result_tgz_file:
+               os.remove(test_result_file)
 
 
 def _emit_gs_returncode_metric(returncode):
@@ -662,6 +770,10 @@ class GSOffloader(BaseGSOffloader):
                     correct_results_folder_permission(dir_entry)
             else:
                 self._prune(dir_entry, job_complete_time)
+                swarming_req_dir = _get_swarming_req_dir(dir_entry)
+                if swarming_req_dir:
+                    self._prune_swarming_req_dir(swarming_req_dir)
+
 
     def _try_offload(self, dir_entry, dest_path,
                  stdout_file, stderr_file):
@@ -680,9 +792,25 @@ class GSOffloader(BaseGSOffloader):
         start_time = time.time()
         metrics_fields = _get_metrics_fields(dir_entry)
         error_obj = _OffloadError(start_time)
+        config = config_loader.load(dir_entry)
+        cts_enabled = True
+        if config:
+          # TODO(linxinan): use credential file assigned by the side_effect
+          # config.
+          if not config.cts.enabled:
+            cts_enabled = config.cts.enabled
+          if config.google_storage.bucket:
+            gs_prefix = ('' if config.google_storage.bucket.startswith('gs://')
+                         else 'gs://')
+            self._gs_uri = gs_prefix + config.google_storage.bucket
+        else:
+          # For now, the absence of config does not block gs_offloader
+          # from uploading files via default credential.
+          logging.debug('Failed to load the side effects config in %s.',
+                        dir_entry)
         try:
             sanitize_dir(dir_entry)
-            if DEFAULT_CTS_RESULTS_GSURI:
+            if DEFAULT_CTS_RESULTS_GSURI and cts_enabled:
                 _upload_cts_testresult(dir_entry, self._multiprocessing)
 
             if LIMIT_FILE_COUNT:
@@ -696,7 +824,9 @@ class GSOffloader(BaseGSOffloader):
                 process = subprocess.Popen(
                     cmd, stdout=stdout_file, stderr=stderr_file)
                 process.wait()
-                logging.debug('Offload command %s completed.', cmd)
+                logging.debug('Offload command %s completed; '
+                              'marking offload complete.', cmd)
+                _mark_upload_finished(gs_path, stdout_file, stderr_file)
 
             _emit_gs_returncode_metric(process.returncode)
             if process.returncode != 0:
@@ -751,6 +881,20 @@ class GSOffloader(BaseGSOffloader):
             _handle_dir_os_error(dir_entry, e.errno==errno.EACCES)
             # Try again after the permission issue is fixed.
             shutil.rmtree(dir_entry)
+
+    def _prune_swarming_req_dir(self, swarming_req_dir):
+        """Prune swarming request directory, if it is empty.
+
+        @param swarming_req_dir: Directory entry of a swarming request.
+        """
+        try:
+            logging.debug('Pruning swarming request directory %s',
+                          swarming_req_dir)
+            os.rmdir(swarming_req_dir)
+        except OSError as e:
+            # Do nothing and leave this directory to next attempt to remove.
+            logging.debug('Failed to prune swarming request directory %s',
+                          swarming_req_dir)
 
 
 class _OffloadError(Exception):
@@ -891,6 +1035,18 @@ def _mark_uploaded(dirpath):
     logging.debug('Creating uploaded marker for directory %s', dirpath)
     with open(_get_uploaded_marker_file(dirpath), 'a'):
         pass
+
+
+def _mark_upload_finished(gs_path, stdout_file, stderr_file):
+    """Mark a given gs_path upload as finished (remotely).
+
+    @param gs_path: gs:// url of the remote directory that is finished
+                    upload.
+    """
+    cmd = _get_finish_cmd_list(gs_path)
+    process = subprocess.Popen(cmd, stdout=stdout_file, stderr=stderr_file)
+    process.wait()
+    logging.debug('Finished marking as complete %s', cmd)
 
 
 def _get_uploaded_marker_file(dirpath):

@@ -17,7 +17,7 @@
 %                                 July 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -66,7 +66,7 @@
 /*
   Define declarations.
 */
-#if defined(MAGICKCORE_HAVE_NEWLOCALE) || defined(MAGICKCORE_WINDOWS_SUPPORT)
+#if (defined(MAGICKCORE_HAVE_NEWLOCALE) || defined(MAGICKCORE_WINDOWS_SUPPORT)) && !defined(__MINGW32__)
 #  define MAGICKCORE_LOCALE_SUPPORT
 #endif
 #define LocaleFilename  "locale.xml"
@@ -226,7 +226,7 @@ static SplayTreeInfo *AcquireLocaleSplayTree(const char *filename,
   cache=NewSplayTree(CompareSplayTreeString,(void *(*)(void *)) NULL,
     DestroyLocaleNode);
   status=MagickTrue;
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -1220,7 +1220,7 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
     /*
       Interpret XML.
     */
-    GetNextToken(q,&q,extent,token);
+    (void) GetNextToken(q,&q,extent,token);
     if (*token == '\0')
       break;
     (void) CopyMagickString(keyword,token,MagickLocaleExtent);
@@ -1231,7 +1231,7 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
         */
         while ((LocaleNCompare(q,"]>",2) != 0) && (*q != '\0'))
         {
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           while (isspace((int) ((unsigned char) *q)) != 0)
             q++;
         }
@@ -1244,7 +1244,7 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
         */
         while ((LocaleNCompare(q,"->",2) != 0) && (*q != '\0'))
         {
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           while (isspace((int) ((unsigned char) *q)) != 0)
             q++;
         }
@@ -1258,10 +1258,10 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
         while (((*token != '/') && (*(token+1) != '>')) && (*q != '\0'))
         {
           (void) CopyMagickString(keyword,token,MagickLocaleExtent);
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (*token != '=')
             continue;
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"locale") == 0)
             {
               if (LocaleCompare(locale,token) != 0)
@@ -1308,10 +1308,10 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
         while ((*token != '>') && (*q != '\0'))
         {
           (void) CopyMagickString(keyword,token,MagickLocaleExtent);
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (*token != '=')
             continue;
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
         }
         continue;
       }
@@ -1333,10 +1333,10 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
         while ((*token != '>') && (*q != '\0'))
         {
           (void) CopyMagickString(keyword,token,MagickLocaleExtent);
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (*token != '=')
             continue;
-          GetNextToken(q,&q,extent,token);
+          (void) GetNextToken(q,&q,extent,token);
           if (LocaleCompare(keyword,"name") == 0)
             {
               (void) ConcatenateMagickString(tag,token,MagickLocaleExtent);
@@ -1393,7 +1393,7 @@ static MagickBooleanType LoadLocaleCache(SplayTreeInfo *cache,const char *xml,
         (void) ConcatenateMagickString(tag,"/",MagickLocaleExtent);
         continue;
       }
-    GetNextToken(q,(const char **) NULL,extent,token);
+    (void) GetNextToken(q,(const char **) NULL,extent,token);
     if (*token != '=')
       continue;
   }
@@ -1521,11 +1521,13 @@ MagickExport void LocaleLower(char *string)
 */
 MagickExport int LocaleLowercase(const int c)
 {
+  if (c == EOF)
+    return(c);
 #if defined(MAGICKCORE_LOCALE_SUPPORT)
   if (c_locale != (locale_t) NULL)
-    return(tolower_l(c,c_locale));
+    return(tolower_l((int) ((unsigned char) c),c_locale));
 #endif
-  return(tolower(c));
+  return(tolower((int) ((unsigned char) c)));
 }
 
 /*
@@ -1659,11 +1661,13 @@ MagickExport void LocaleUpper(char *string)
 */
 MagickExport int LocaleUppercase(const int c)
 {
+  if (c == EOF)
+    return(c);
 #if defined(MAGICKCORE_LOCALE_SUPPORT)
   if (c_locale != (locale_t) NULL)
-    return(toupper_l(c,c_locale));
+    return(toupper_l((int) ((unsigned char) c),c_locale));
 #endif
-  return(toupper(c));
+  return(toupper((int) ((unsigned char) c)));
 }
 
 /*
@@ -1688,6 +1692,9 @@ MagickPrivate MagickBooleanType LocaleComponentGenesis(void)
 {
   if (locale_semaphore == (SemaphoreInfo *) NULL)
     locale_semaphore=AcquireSemaphoreInfo();
+#if defined(MAGICKCORE_LOCALE_SUPPORT)
+  (void) AcquireCLocale();
+#endif
   return(MagickTrue);
 }
 

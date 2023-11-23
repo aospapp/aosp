@@ -165,8 +165,4 @@ public final class EngineHandshakeBenchmark {
             }
         }
     }
-
-    private static boolean isHandshakeFinished(SSLEngineResult result) {
-        return result.getHandshakeStatus() == SSLEngineResult.HandshakeStatus.FINISHED;
-    }
 }

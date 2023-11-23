@@ -193,35 +193,6 @@ struct param_pair {
 	int value;
 };
 
-unsigned short apicmd_get_unused_port(int argc, char *argv[])
-{
-	if (argc != 3)
-		goto err;
-
-	const struct param_pair params[][3] = {
-		{{"ipv4", AF_INET}, {"ipv6", AF_INET6}, {NULL, 0}},
-		{{"stream", SOCK_STREAM}, {"dgram", SOCK_DGRAM}, {NULL, 0}}
-	};
-
-	int i;
-	const struct param_pair *p[2];
-	for (i = 0; i < 2; ++i) {
-		for (p[i] = params[i]; p[i]->cmd; ++p[i]) {
-			if (!strcmp(p[i]->cmd, argv[i]))
-				break;
-		}
-		if (!p[i]->cmd)
-			goto err;
-	}
-	return  tst_get_unused_port(NULL, p[0]->value, p[1]->value);
-
-err:
-	fprintf(stderr, "Usage: tst_get_unused_port FAMILY TYPE\n"
-		"where FAMILY := { ipv4 | ipv6 }\n"
-		"      TYPE := { stream | dgram }\n");
-	exit(1);
-}
-
 int apicmd_fs_has_free(int argc, char *argv[])
 {
 	if (argc != 3) {
@@ -291,8 +262,7 @@ int main(int argc, char *argv[])
 	tst_total = getenv("TST_TOTAL");
 	tst_cntstr = getenv("TST_COUNT");
 	if (TCID == NULL || tst_total == NULL || tst_cntstr == NULL) {
-		 if(!strcmp(cmd_name, "tst_fs_has_free") &&
-		    !strcmp(cmd_name, "tst_get_unused_port")) {
+		 if(!strcmp(cmd_name, "tst_fs_has_free")) {
 			fprintf(stderr,
 				"\nSet variables TCID, TST_TOTAL, and TST_COUNT before each test:\n"
 				"export TCID=<test name>\n"
@@ -336,8 +306,6 @@ int main(int argc, char *argv[])
 		printf("%li\n", tst_ncpus_conf());
 	} else if (strcmp(cmd_name, "tst_ncpus_max") == 0) {
 		printf("%li\n", tst_ncpus_max());
-	} else if (strcmp(cmd_name, "tst_get_unused_port") == 0) {
-		printf("%u\n", apicmd_get_unused_port(argc, argv));
 	} else if (strcmp(cmd_name, "tst_fs_has_free") == 0) {
 		apicmd_fs_has_free(argc, argv);
 	}

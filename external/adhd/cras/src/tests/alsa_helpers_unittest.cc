@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <gtest/gtest.h>
+
 #include <vector>
 
 extern "C" {
@@ -27,28 +28,27 @@ static void ResetStubData() {
 
 namespace {
 
-static snd_pcm_chmap_query_t *create_chmap_cap(snd_pcm_chmap_type type,
-					       size_t channels)
-{
-  snd_pcm_chmap_query_t *c;
-  c = (snd_pcm_chmap_query_t *)calloc(channels + 2, sizeof(int));
+static snd_pcm_chmap_query_t* create_chmap_cap(snd_pcm_chmap_type type,
+                                               size_t channels) {
+  snd_pcm_chmap_query_t* c;
+  c = (snd_pcm_chmap_query_t*)calloc(channels + 2, sizeof(int));
   c->type = type;
   c->map.channels = channels;
   return c;
 }
 
 TEST(AlsaHelper, MatchChannelMapCapabilityStereo) {
-  snd_pcm_chmap_query_t **caps;
-  snd_pcm_chmap_query_t *c;
-  struct cras_audio_format *fmt;
+  snd_pcm_chmap_query_t** caps;
+  snd_pcm_chmap_query_t* c;
+  struct cras_audio_format* fmt;
 
-  caps = (snd_pcm_chmap_query_t **)calloc(4, sizeof(*caps));
+  caps = (snd_pcm_chmap_query_t**)calloc(4, sizeof(*caps));
 
   /* Layout (CRAS_CH_RL, CRAS_CH_RR) corresponds to
    * ALSA channel map (5, 6)
    */
-  int8_t channel_layout[CRAS_CH_MAX] =
-      {-1, -1, 0, 1, -1, -1, -1, -1, -1, -1, -1};
+  int8_t channel_layout[CRAS_CH_MAX] = {-1, -1, 0,  1,  -1, -1,
+                                        -1, -1, -1, -1, -1};
 
   fmt = cras_audio_format_create(SND_PCM_FORMAT_S16_LE, 44100, 2);
   cras_audio_format_set_channel_layout(fmt, channel_layout);
@@ -74,13 +74,13 @@ TEST(AlsaHelper, MatchChannelMapCapabilityStereo) {
 
   /* Test if there's a cap matches fmt */
   c = cras_chmap_caps_match(caps, fmt);
-  ASSERT_NE((void *)NULL, c);
+  ASSERT_NE((void*)NULL, c);
 
   caps[1]->map.pos[0] = 5;
   caps[1]->map.pos[1] = 7;
 
   c = cras_chmap_caps_match(caps, fmt);
-  ASSERT_EQ((void *)NULL, c);
+  ASSERT_EQ((void*)NULL, c);
 
   free(caps[0]);
   free(caps[1]);
@@ -91,17 +91,16 @@ TEST(AlsaHelper, MatchChannelMapCapabilityStereo) {
 }
 
 TEST(AlsaHelper, MatchChannelMapCapability51) {
-  snd_pcm_chmap_query_t **caps = NULL;
-  snd_pcm_chmap_query_t *c = NULL;
-  struct cras_audio_format *fmt;
+  snd_pcm_chmap_query_t** caps = NULL;
+  snd_pcm_chmap_query_t* c = NULL;
+  struct cras_audio_format* fmt;
 
-  caps = (snd_pcm_chmap_query_t **)calloc(4, sizeof(*caps));
+  caps = (snd_pcm_chmap_query_t**)calloc(4, sizeof(*caps));
 
   /* Layout (CRAS_CH_FL, CRAS_CH_FR, CRAS_CH_RL, CRAS_CH_RR, CRAS_CH_FC)
    * corresponds to ALSA channel map (3, 4, 5, 6, 7)
    */
-  int8_t channel_layout[CRAS_CH_MAX] =
-      {0, 1, 2, 3, 4, 5, -1, -1, -1, -1, -1};
+  int8_t channel_layout[CRAS_CH_MAX] = {0, 1, 2, 3, 4, 5, -1, -1, -1, -1, -1};
 
   fmt = cras_audio_format_create(SND_PCM_FORMAT_S16_LE, 44100, 6);
   cras_audio_format_set_channel_layout(fmt, channel_layout);
@@ -133,27 +132,27 @@ TEST(AlsaHelper, MatchChannelMapCapability51) {
 
   /* Test if there's a cap matches fmt */
   c = cras_chmap_caps_match(caps, fmt);
-  ASSERT_NE((void *)NULL, c);
+  ASSERT_NE((void*)NULL, c);
 
   caps[0]->map.pos[0] = 7;
   caps[0]->map.pos[1] = 8;
   caps[0]->map.pos[4] = 3;
   caps[0]->map.pos[5] = 4;
   c = cras_chmap_caps_match(caps, fmt);
-  ASSERT_EQ((void *)NULL, c);
+  ASSERT_EQ((void*)NULL, c);
 
   caps[0]->type = SND_CHMAP_TYPE_PAIRED;
   c = cras_chmap_caps_match(caps, fmt);
-  ASSERT_NE((void *)NULL, c);
+  ASSERT_NE((void*)NULL, c);
 
   caps[0]->map.pos[0] = 8;
   caps[0]->map.pos[1] = 7;
   c = cras_chmap_caps_match(caps, fmt);
-  ASSERT_EQ((void *)NULL, c);
+  ASSERT_EQ((void*)NULL, c);
 
   caps[0]->type = SND_CHMAP_TYPE_VAR;
   c = cras_chmap_caps_match(caps, fmt);
-  ASSERT_NE((void *)NULL, c);
+  ASSERT_NE((void*)NULL, c);
 
   free(caps[0]);
   free(caps[1]);
@@ -164,12 +163,12 @@ TEST(AlsaHelper, MatchChannelMapCapability51) {
 }
 
 TEST(AlsaHelper, Htimestamp) {
-  snd_pcm_t *dummy_handle = reinterpret_cast<snd_pcm_t*>(0x1);
+  snd_pcm_t* dummy_handle = reinterpret_cast<snd_pcm_t*>(0x1);
   snd_pcm_uframes_t used;
   snd_pcm_uframes_t severe_underrun_frames = 480;
   struct timespec tstamp;
   int htimestamp_enabled = 1;
-  const char *dev_name = "dev_name";
+  const char* dev_name = "dev_name";
 
   // Enable htimestamp use.
   ResetStubData();
@@ -207,27 +206,27 @@ TEST(AlsaHelper, Htimestamp) {
 }
 
 TEST(AlsaHelper, GetAvailFramesSevereUnderrun) {
-  snd_pcm_t *dummy_handle = reinterpret_cast<snd_pcm_t*>(0x1);
+  snd_pcm_t* dummy_handle = reinterpret_cast<snd_pcm_t*>(0x1);
   snd_pcm_uframes_t avail;
   snd_pcm_uframes_t severe_underrun_frames = 480;
   snd_pcm_uframes_t buffer_size = 48000;
   struct timespec tstamp;
   int rc;
-  const char *dev_name = "dev_name";
+  const char* dev_name = "dev_name";
 
   ResetStubData();
   snd_pcm_htimestamp_avail_ret_val = buffer_size + severe_underrun_frames + 1;
   rc = cras_alsa_get_avail_frames(dummy_handle, buffer_size,
-                                  severe_underrun_frames, dev_name,
-                                  &avail, &tstamp);
+                                  severe_underrun_frames, dev_name, &avail,
+                                  &tstamp);
   // Returns -EPIPE when severe underrun happens.
   EXPECT_EQ(rc, -EPIPE);
 
   ResetStubData();
   snd_pcm_htimestamp_avail_ret_val = buffer_size + severe_underrun_frames;
   rc = cras_alsa_get_avail_frames(dummy_handle, buffer_size,
-                                  severe_underrun_frames, dev_name,
-                                  &avail, &tstamp);
+                                  severe_underrun_frames, dev_name, &avail,
+                                  &tstamp);
   // Underrun which is not severe enough will be masked.
   // avail will be adjusted to buffer_size.
   EXPECT_EQ(avail, buffer_size);
@@ -236,57 +235,58 @@ TEST(AlsaHelper, GetAvailFramesSevereUnderrun) {
   ResetStubData();
   snd_pcm_htimestamp_avail_ret_val = buffer_size - 1;
   rc = cras_alsa_get_avail_frames(dummy_handle, buffer_size,
-                                  severe_underrun_frames, dev_name,
-                                  &avail, &tstamp);
+                                  severe_underrun_frames, dev_name, &avail,
+                                  &tstamp);
   // When avail < buffer_size, there is no underrun.
   EXPECT_EQ(avail, buffer_size - 1);
   EXPECT_EQ(rc, 0);
 }
-} // namespace
+}  // namespace
 
 extern "C" {
 
-int snd_pcm_sw_params_current(snd_pcm_t *pcm, snd_pcm_sw_params_t *params) {
+int snd_pcm_sw_params_current(snd_pcm_t* pcm, snd_pcm_sw_params_t* params) {
   return 0;
 }
 
-int snd_pcm_sw_params_get_boundary(const snd_pcm_sw_params_t *params,
-                                   snd_pcm_uframes_t *val) {
+int snd_pcm_sw_params_get_boundary(const snd_pcm_sw_params_t* params,
+                                   snd_pcm_uframes_t* val) {
   return 0;
 }
 
-int snd_pcm_sw_params_set_stop_threshold(snd_pcm_t *pcm,
-                                         snd_pcm_sw_params_t *params,
+int snd_pcm_sw_params_set_stop_threshold(snd_pcm_t* pcm,
+                                         snd_pcm_sw_params_t* params,
                                          snd_pcm_uframes_t val) {
   return 0;
 }
 
-int snd_pcm_sw_params_set_start_threshold(snd_pcm_t *pcm,
-                                          snd_pcm_sw_params_t *params,
+int snd_pcm_sw_params_set_start_threshold(snd_pcm_t* pcm,
+                                          snd_pcm_sw_params_t* params,
                                           snd_pcm_uframes_t val) {
   return 0;
 }
 
-int snd_pcm_sw_params_set_period_event(snd_pcm_t *pcm,
-                                       snd_pcm_sw_params_t *params, int val) {
+int snd_pcm_sw_params_set_period_event(snd_pcm_t* pcm,
+                                       snd_pcm_sw_params_t* params,
+                                       int val) {
   return 0;
 }
 
-int snd_pcm_sw_params_set_tstamp_mode(snd_pcm_t *pcm,
-                                      snd_pcm_sw_params_t *params,
+int snd_pcm_sw_params_set_tstamp_mode(snd_pcm_t* pcm,
+                                      snd_pcm_sw_params_t* params,
                                       snd_pcm_tstamp_t val) {
   snd_pcm_sw_params_set_tstamp_mode_called++;
   return 0;
 }
 
-int snd_pcm_sw_params_set_tstamp_type(snd_pcm_t *pcm,
-                                      snd_pcm_sw_params_t *params,
+int snd_pcm_sw_params_set_tstamp_type(snd_pcm_t* pcm,
+                                      snd_pcm_sw_params_t* params,
                                       snd_pcm_tstamp_type_t val) {
   snd_pcm_sw_params_set_tstamp_type_called++;
   return 0;
 }
 
-int snd_pcm_sw_params(snd_pcm_t *pcm, snd_pcm_sw_params_t *params) {
+int snd_pcm_sw_params(snd_pcm_t* pcm, snd_pcm_sw_params_t* params) {
   int rc;
 
   if (snd_pcm_sw_params_ret_vals.size() == 0)
@@ -296,20 +296,20 @@ int snd_pcm_sw_params(snd_pcm_t *pcm, snd_pcm_sw_params_t *params) {
   return rc;
 }
 
-snd_pcm_sframes_t snd_pcm_avail(snd_pcm_t *pcm) {
+snd_pcm_sframes_t snd_pcm_avail(snd_pcm_t* pcm) {
   return snd_pcm_htimestamp_avail_ret_val;
 }
 
-int snd_pcm_htimestamp(snd_pcm_t *pcm, snd_pcm_uframes_t *avail,
-                       snd_htimestamp_t *tstamp) {
+int snd_pcm_htimestamp(snd_pcm_t* pcm,
+                       snd_pcm_uframes_t* avail,
+                       snd_htimestamp_t* tstamp) {
   *avail = snd_pcm_htimestamp_avail_ret_val;
   *tstamp = snd_pcm_htimestamp_tstamp_ret_val;
   return 0;
 }
-
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

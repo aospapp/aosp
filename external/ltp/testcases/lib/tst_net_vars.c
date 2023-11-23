@@ -1,20 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2017 Petr Vorel <pvorel@suse.cz>
  * Copyright (c) 1997-2015 Red Hat, Inc. All rights reserved.
  * Copyright (c) 2011-2013 Rich Felker, et al.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <arpa/inet.h>
@@ -153,7 +141,7 @@ static int is_in_subnet_ipv6(const struct in6_addr *network,
  */
 static char *get_ipv4_netmask(unsigned int prefix)
 {
-	char buf[INET_ADDRSTRLEN + 1];
+	char buf[INET_ADDRSTRLEN];
 	struct in_addr mask = prefix2mask(prefix);
 
 	if (prefix > MAX_IPV4_PREFIX)
@@ -200,7 +188,7 @@ static char *get_ipv4_broadcast(struct in_addr ip, unsigned int prefix)
 {
 	struct in_addr mask = prefix2mask(prefix);
 	struct in_addr broadcast;
-	char buf[INET_ADDRSTRLEN + 1];
+	char buf[INET_ADDRSTRLEN];
 
 	memset(&broadcast, 0, sizeof(broadcast));
 	broadcast.s_addr = (ip.s_addr & mask.s_addr) | ~mask.s_addr;
@@ -220,7 +208,7 @@ static char *get_ipv4_net16_unused(const struct in_addr *ip,
 	unsigned int prefix)
 {
 	struct in_addr mask, network;
-	char buf[128], net_unused[128];
+	char buf[132], net_unused[128];
 
 	mask = prefix2mask(prefix);
 	network = calc_network(ip, &mask);
@@ -274,7 +262,7 @@ static char *get_ipv6_net32_unused(const struct in6_addr *ip6,
 {
 	int i, j;
 	struct in6_addr mask, network;
-	char buf[128], net_unused[128];
+	char buf[130], net_unused[128];
 
 	memset(&mask, 0x0, sizeof(mask));
 
@@ -471,10 +459,12 @@ static void check_prefix_range(unsigned int prefix, int is_ipv6, int is_lhost)
 
 static char *get_ipv4_network(int ip, unsigned int prefix)
 {
-	char buf[INET_ADDRSTRLEN + 1];
+	char buf[INET_ADDRSTRLEN];
 	char *p_buf = buf;
 	unsigned char byte;
 	unsigned int i;
+
+	ip = htonl(ip);
 
 	if (prefix > MAX_IPV4_PREFIX)
 		return NULL;
@@ -482,17 +472,11 @@ static char *get_ipv4_network(int ip, unsigned int prefix)
 	if (prefix == MAX_IPV4_PREFIX)
 		return strdup("\0");
 
-	prefix &= 0x18;
+	prefix &= MAX_IPV4_PREFIX - 8;
 
-	for (i = 0; i < MAX_IPV4_PREFIX && (prefix == 0 || i < prefix);
-	     i += 8) {
-		if (i == 0) {
-			byte = ip & 0xff;
-			sprintf(p_buf, "%d", byte);
-		} else {
-			byte = (ip >> i) & 0xff;
-			sprintf(p_buf, ".%d", byte);
-		}
+	for (i = prefix; i > 0; i -= 8) {
+		byte = (ip >> i) & 0xff;
+		sprintf(p_buf, i < prefix ? ".%d" : "%d", byte);
 		p_buf += strlen(p_buf);
 	}
 

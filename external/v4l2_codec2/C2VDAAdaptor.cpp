@@ -40,7 +40,7 @@ VideoDecodeAcceleratorAdaptor::Result C2VDAAdaptor::initialize(
 
     // TODO(johnylin): may need to implement factory to create VDA if there are multiple VDA
     // implementations in the future.
-    scoped_refptr<media::V4L2Device> device = new media::V4L2Device();
+    scoped_refptr<media::V4L2Device> device = media::V4L2Device::Create();
     std::unique_ptr<media::VideoDecodeAccelerator> vda(
             new media::V4L2VideoDecodeAccelerator(device));
     if (!vda->Initialize(config, this)) {
@@ -56,22 +56,23 @@ VideoDecodeAcceleratorAdaptor::Result C2VDAAdaptor::initialize(
 
 void C2VDAAdaptor::decode(int32_t bitstreamId, int ashmemFd, off_t offset, uint32_t bytesUsed) {
     CHECK(mVDA);
-    mVDA->Decode(media::BitstreamBuffer(bitstreamId, base::SharedMemoryHandle(ashmemFd, true),
-                                        bytesUsed, offset));
+    ::base::SharedMemoryHandle shmHandle(::base::FileDescriptor(ashmemFd, true), 0u,
+                                         ::base::UnguessableToken::Create());
+    mVDA->Decode(media::BitstreamBuffer(bitstreamId, shmHandle, bytesUsed, offset));
 }
 
-void C2VDAAdaptor::assignPictureBuffers(uint32_t numOutputBuffers) {
+void C2VDAAdaptor::assignPictureBuffers(uint32_t numOutputBuffers, const media::Size& size) {
     CHECK(mVDA);
     std::vector<media::PictureBuffer> buffers;
     for (uint32_t id = 0; id < numOutputBuffers; ++id) {
-        buffers.push_back(media::PictureBuffer(static_cast<int32_t>(id), mPictureSize));
+        buffers.push_back(media::PictureBuffer(static_cast<int32_t>(id), size));
     }
     mVDA->AssignPictureBuffers(buffers);
     mNumOutputBuffers = numOutputBuffers;
 }
 
 void C2VDAAdaptor::importBufferForPicture(int32_t pictureBufferId, HalPixelFormat format,
-                                          int dmabufFd,
+                                          std::vector<::base::ScopedFD> dmabufFds,
                                           const std::vector<VideoFramePlane>& planes) {
     CHECK(mVDA);
     CHECK_LT(pictureBufferId, static_cast<int32_t>(mNumOutputBuffers));
@@ -90,7 +91,9 @@ void C2VDAAdaptor::importBufferForPicture(int32_t pictureBufferId, HalPixelForma
     }
 
     media::NativePixmapHandle handle;
-    handle.fds.emplace_back(base::FileDescriptor(dmabufFd, true));
+    for (auto& fd: dmabufFds)
+        handle.fds.emplace_back(::base::FileDescriptor(fd.release(), true));
+
     for (const auto& plane : planes) {
         handle.planes.emplace_back(plane.mStride, plane.mOffset, 0, 0);
     }
@@ -117,7 +120,6 @@ void C2VDAAdaptor::reset() {
 void C2VDAAdaptor::destroy() {
     mVDA.reset(nullptr);
     mNumOutputBuffers = 0u;
-    mPictureSize = media::Size();
 }
 
 //static
@@ -137,7 +139,7 @@ media::VideoDecodeAccelerator::SupportedProfiles C2VDAAdaptor::GetSupportedProfi
     auto allProfiles = media::V4L2VideoDecodeAccelerator::GetSupportedProfiles();
     for (const auto& profile : allProfiles) {
         if (inputFormatFourcc ==
-            media::V4L2Device::VideoCodecProfileToV4L2PixFmt(profile.profile)) {
+            media::V4L2Device::VideoCodecProfileToV4L2PixFmt(profile.profile, false)) {
             supportedProfiles.push_back(profile);
         }
     }

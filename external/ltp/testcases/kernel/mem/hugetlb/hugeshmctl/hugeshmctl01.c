@@ -315,6 +315,7 @@ void setup(void)
 	if (nr_opt)
 		hugepages = SAFE_STRTOL(nr_opt, 0, LONG_MAX);
 
+	limit_hugepages(&hugepages);
 	set_sys_tune("nr_hugepages", hugepages, 1);
 	hpage_size = SAFE_READ_MEMINFO("Hugepagesize:") * 1024;
 
@@ -332,7 +333,6 @@ void cleanup(void)
 static struct tst_test test = {
 	.needs_root = 1,
 	.forks_child = 1,
-	.needs_tmpdir = 1,
 	.options = options,
 	.setup = setup,
 	.cleanup = cleanup,

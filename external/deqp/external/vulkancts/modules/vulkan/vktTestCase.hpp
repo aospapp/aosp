@@ -29,10 +29,11 @@
 #include "deUniquePtr.hpp"
 #include "vkPrograms.hpp"
 #include "vkApiVersion.hpp"
+#include "vkDebugReportUtil.hpp"
+#include "vkPlatform.hpp"
 #include "vktTestCaseDefs.hpp"
-
-struct vr_executor;
-struct vr_config;
+#include <vector>
+#include <string>
 
 namespace glu
 {
@@ -54,62 +55,60 @@ class DefaultDevice;
 class Context
 {
 public:
-												Context							(tcu::TestContext&				testCtx,
-																				 const vk::PlatformInterface&	platformInterface,
-																				 vk::BinaryCollection&			progCollection);
-												~Context						(void);
+												Context								(tcu::TestContext&				testCtx,
+																					 const vk::PlatformInterface&	platformInterface,
+																					 vk::BinaryCollection&			progCollection);
+												~Context							(void);
 
-	tcu::TestContext&							getTestContext					(void) const { return m_testCtx;			}
-	const vk::PlatformInterface&				getPlatformInterface			(void) const { return m_platformInterface;	}
-	vk::BinaryCollection&						getBinaryCollection				(void) const { return m_progCollection;		}
+	tcu::TestContext&							getTestContext						(void) const { return m_testCtx;			}
+	const vk::PlatformInterface&				getPlatformInterface				(void) const { return m_platformInterface;	}
+	vk::BinaryCollection&						getBinaryCollection					(void) const { return m_progCollection;		}
 
 	// Default instance & device, selected with --deqp-vk-device-id=N
-	deUint32									getAvailableInstanceVersion		(void) const;
-	const std::vector<std::string>&				getInstanceExtensions			(void) const;
-	vk::VkInstance								getInstance						(void) const;
-	const vk::InstanceInterface&				getInstanceInterface			(void) const;
-	vk::VkPhysicalDevice						getPhysicalDevice				(void) const;
-	deUint32									getDeviceVersion				(void) const;
-	const vk::VkPhysicalDeviceFeatures&			getDeviceFeatures				(void) const;
-	const vk::VkPhysicalDeviceFeatures2&		getDeviceFeatures2				(void) const;
-	const vk::VkPhysicalDeviceSamplerYcbcrConversionFeatures&
-												getSamplerYCbCrConversionFeatures
-																				(void) const;
-	const vk::VkPhysicalDevice8BitStorageFeaturesKHR&
-												get8BitStorageFeatures			(void) const;
-	const vk::VkPhysicalDevice16BitStorageFeatures&
-												get16BitStorageFeatures			(void) const;
-	const vk::VkPhysicalDeviceVariablePointerFeatures&
-												getVariablePointerFeatures		(void) const;
-	const vk::VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT&
-												getVertexAttributeDivisorFeatures(void) const;
-	const vk::VkPhysicalDeviceVulkanMemoryModelFeaturesKHR&
-												getVulkanMemoryModelFeatures	(void) const;
-	const vk::VkPhysicalDeviceShaderAtomicInt64FeaturesKHR&
-												getShaderAtomicInt64Features	(void) const;
-	const vk::VkPhysicalDeviceConditionalRenderingFeaturesEXT&
-												getConditionalRenderingFeatures	(void) const;
-	const vk::VkPhysicalDeviceScalarBlockLayoutFeaturesEXT&
-												getScalarBlockLayoutFeatures	(void) const;
-	const vk::VkPhysicalDeviceFloat16Int8FeaturesKHR&
-												getFloat16Int8Features			(void) const;
-	const vk::VkPhysicalDeviceProperties&		getDeviceProperties				(void) const;
-	const std::vector<std::string>&				getDeviceExtensions				(void) const;
-	vk::VkDevice								getDevice						(void) const;
-	const vk::DeviceInterface&					getDeviceInterface				(void) const;
-	deUint32									getUniversalQueueFamilyIndex	(void) const;
-	vk::VkQueue									getUniversalQueue				(void) const;
-	deUint32									getUsedApiVersion				(void) const;
-	deUint32									getSparseQueueFamilyIndex		(void) const;
-	vk::VkQueue									getSparseQueue					(void) const;
-	vk::Allocator&								getDefaultAllocator				(void) const;
-	vr_executor*								getExecutor						(void) const;
-	bool										contextSupports					(const deUint32 majorNum, const deUint32 minorNum, const deUint32 patchNum) const;
-	bool										contextSupports					(const vk::ApiVersion version) const;
-	bool										contextSupports					(const deUint32 requiredApiVersionBits) const;
-	bool										requireDeviceExtension			(const std::string& required);
-	bool										requireInstanceExtension		(const std::string& required);
-	bool										requireDeviceCoreFeature		(const DeviceCoreFeature requiredDeviceCoreFeature);
+	deUint32									getMaximumFrameworkVulkanVersion	(void) const;
+	deUint32									getAvailableInstanceVersion			(void) const;
+	const std::vector<std::string>&				getInstanceExtensions				(void) const;
+	vk::VkInstance								getInstance							(void) const;
+	const vk::InstanceInterface&				getInstanceInterface				(void) const;
+	vk::VkPhysicalDevice						getPhysicalDevice					(void) const;
+	deUint32									getDeviceVersion					(void) const;
+	bool										isDeviceFeatureInitialized			(vk::VkStructureType sType) const;
+	const vk::VkPhysicalDeviceFeatures&			getDeviceFeatures					(void) const;
+	const vk::VkPhysicalDeviceFeatures2&		getDeviceFeatures2					(void) const;
+
+	bool										isInstanceFunctionalitySupported	(const std::string& extension) const;
+	bool										isDeviceFunctionalitySupported		(const std::string& extension) const;
+
+#include "vkDeviceFeaturesForContextDecl.inl"
+
+	bool										isDevicePropertyInitialized			(vk::VkStructureType sType) const;
+	const vk::VkPhysicalDeviceProperties&		getDeviceProperties					(void) const;
+	const vk::VkPhysicalDeviceProperties2&		getDeviceProperties2				(void) const;
+
+#include "vkDevicePropertiesForContextDecl.inl"
+
+	const std::vector<std::string>&				getDeviceExtensions					(void) const;
+	vk::VkDevice								getDevice							(void) const;
+	const vk::DeviceInterface&					getDeviceInterface					(void) const;
+	deUint32									getUniversalQueueFamilyIndex		(void) const;
+	vk::VkQueue									getUniversalQueue					(void) const;
+	deUint32									getUsedApiVersion					(void) const;
+	deUint32									getSparseQueueFamilyIndex			(void) const;
+	vk::VkQueue									getSparseQueue						(void) const;
+	vk::Allocator&								getDefaultAllocator					(void) const;
+	bool										contextSupports						(const deUint32 majorNum, const deUint32 minorNum, const deUint32 patchNum) const;
+	bool										contextSupports						(const vk::ApiVersion version) const;
+	bool										contextSupports						(const deUint32 requiredApiVersionBits) const;
+	bool										requireDeviceFunctionality			(const std::string& required) const;
+	bool										requireInstanceFunctionality		(const std::string& required) const;
+	bool										requireDeviceCoreFeature			(const DeviceCoreFeature requiredDeviceCoreFeature);
+
+	void*										getInstanceProcAddr					();
+
+	bool										isBufferDeviceAddressSupported						(void) const;
+
+	bool										resultSetOnValidation			() const		{ return m_resultSetOnValidation;	}
+	void										resultSetOnValidation			(bool value)	{ m_resultSetOnValidation = value;	}
 
 protected:
 	tcu::TestContext&							m_testCtx;
@@ -119,15 +118,11 @@ protected:
 	const de::UniquePtr<DefaultDevice>			m_device;
 	const de::UniquePtr<vk::Allocator>			m_allocator;
 
-	vr_executor*								m_executor;
-	vr_config*									m_config;
+	bool										m_resultSetOnValidation;
 
 private:
-												Context							(const Context&); // Not allowed
-	Context&									operator=						(const Context&); // Not allowed
-
-	static void*								getInstanceProc					(const char* name, void* user_data);
-	static void									errorCb							(const char *message, void *user_data);
+												Context								(const Context&); // Not allowed
+	Context&									operator=							(const Context&); // Not allowed
 };
 
 class TestInstance;
@@ -139,6 +134,7 @@ public:
 							TestCase		(tcu::TestContext& testCtx, tcu::TestNodeType type, const std::string& name, const std::string& description);
 	virtual					~TestCase		(void) {}
 
+	virtual void			delayedInit		(void); // non-const init called after checkSupport but before initPrograms
 	virtual void			initPrograms	(vk::SourceCollections& programCollection) const;
 	virtual TestInstance*	createInstance	(Context& context) const = 0;
 	virtual void			checkSupport	(Context& context) const;
@@ -171,6 +167,8 @@ inline TestCase::TestCase (tcu::TestContext& testCtx, tcu::TestNodeType type, co
 	: tcu::TestCase(testCtx, type, name.c_str(), description.c_str())
 {
 }
+
+void collectAndReportDebugMessages(vk::DebugReportRecorder &debugReportRecorder, Context& context);
 
 } // vkt
 

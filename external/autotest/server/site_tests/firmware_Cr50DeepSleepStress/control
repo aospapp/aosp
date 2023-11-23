@@ -24,7 +24,9 @@ servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
 
-    suspend_count = int(args_dict.get("suspend_count", 10))
+    basic = args_dict.get("basic", "").lower() == "true"
+    default_count = 10 if basic else 100
+    suspend_count = int(args_dict.get("suspend_count", default_count))
     reset_type = args_dict.get("reset_type", "mem")
 
     job.run_test("firmware_Cr50DeepSleepStress", host=host, cmdline_args=args,

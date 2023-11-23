@@ -482,7 +482,8 @@ static errcode_t try_lseek_copy(ext2_filsys fs, int fd, struct stat *statbuf,
 			return EXT2_ET_UNIMPLEMENTED;
 
 		data_blk = data & ~(off_t)(fs->blocksize - 1);
-		hole_blk = (hole + (fs->blocksize - 1)) & ~(off_t)(fs->blocksize - 1);
+		hole_blk = ((hole + (off_t)(fs->blocksize - 1)) &
+			    ~(off_t)(fs->blocksize - 1));
 		err = copy_file_chunk(fs, fd, e2_file, data_blk, hole_blk, buf,
 				      zerobuf);
 		if (err)
@@ -705,10 +706,12 @@ struct file_info {
 static errcode_t path_append(struct file_info *target, const char *file)
 {
 	if (strlen(file) + target->path_len + 1 > target->path_max_len) {
+		void *p;
 		target->path_max_len *= 2;
-		target->path = realloc(target->path, target->path_max_len);
-		if (!target->path)
+		p = realloc(target->path, target->path_max_len);
+		if (p == NULL)
 			return EXT2_ET_NO_MEMORY;
+		target->path = p;
 	}
 	target->path_len += sprintf(target->path + target->path_len, "/%s",
 				    file);

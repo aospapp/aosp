@@ -22,8 +22,6 @@
 /* Size of malloc() pool */
 #define CONFIG_SYS_MALLOC_LEN		(2 * 1024 * 1024)
 
-#define CONFIG_MISC_INIT_R
-
 #define CONFIG_MXC_UART
 #define CONFIG_MXC_UART_BASE		UART1_BASE
 
@@ -40,7 +38,6 @@
 #define CONFIG_SYS_FSL_USDHC_NUM	1
 
 #define CONFIG_FEC_MXC
-#define CONFIG_MII
 #define IMX_FEC_BASE			ENET_BASE_ADDR
 #define CONFIG_FEC_XCV_TYPE		RGMII
 #define CONFIG_FEC_MXC_PHYADDR		4
@@ -124,7 +121,6 @@
 #define CONFIG_BOOTCOMMAND		"run nand_ubifs"
 
 /* Physical Memory Map */
-#define CONFIG_NR_DRAM_BANKS		1
 #define PHYS_SDRAM			MMDC0_ARB_BASE_ADDR
 #define PHYS_SDRAM_SIZE			(512 << 20)
 
@@ -149,23 +145,14 @@
 /* DMA stuff, needed for GPMI/MXS NAND support */
 
 /* Environment in NAND */
-#define CONFIG_ENV_OFFSET		(16 << 20)
-#define CONFIG_ENV_SECT_SIZE		(128 << 10)
-#define CONFIG_ENV_SIZE			CONFIG_ENV_SECT_SIZE
-#define CONFIG_ENV_OFFSET_REDUND	(CONFIG_ENV_OFFSET + (512 << 10))
-#define CONFIG_ENV_SIZE_REDUND		CONFIG_ENV_SIZE
 
 #else /* CONFIG_CMD_NAND */
 
 /* Environment in MMC */
-#define CONFIG_ENV_SIZE			(8 << 10)
-#define CONFIG_ENV_OFFSET		(6 * 64 * 1024)
 #define CONFIG_SYS_MMC_ENV_DEV		0
 
 #endif /* CONFIG_CMD_NAND */
 
 /* UBI/UBIFS config options */
-#define CONFIG_MTD_DEVICE
-#define CONFIG_MTD_PARTITIONS
 
 #endif			       /* __CONFIG_H */

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -137,21 +137,30 @@ typedef struct _PixelChannels
     channel[CompositePixelChannel];
 } PixelChannels;
 
-static PixelChannels **DestroyPixelThreadSet(PixelChannels **pixels)
+static PixelChannels **DestroyPixelThreadSet(const Image *images,
+  PixelChannels **pixels)
 {
   register ssize_t
     i;
 
+  size_t
+    rows;
+
   assert(pixels != (PixelChannels **) NULL);
-  for (i=0; i < (ssize_t) GetMagickResourceLimit(ThreadResource); i++)
+  rows=MagickMax(GetImageListLength(images),
+    (size_t) GetMagickResourceLimit(ThreadResource));
+  for (i=0; i < (ssize_t) rows; i++)
     if (pixels[i] != (PixelChannels *) NULL)
       pixels[i]=(PixelChannels *) RelinquishMagickMemory(pixels[i]);
   pixels=(PixelChannels **) RelinquishMagickMemory(pixels);
   return(pixels);
 }
 
-static PixelChannels **AcquirePixelThreadSet(const Image *image)
+static PixelChannels **AcquirePixelThreadSet(const Image *images)
 {
+  const Image
+    *next;
+
   PixelChannels
     **pixels;
 
@@ -159,24 +168,27 @@ static PixelChannels **AcquirePixelThreadSet(const Image *image)
     i;
 
   size_t
-    number_threads;
+    columns,
+    rows;
 
-  number_threads=(size_t) GetMagickResourceLimit(ThreadResource);
-  pixels=(PixelChannels **) AcquireQuantumMemory(number_threads,
-    sizeof(*pixels));
+  rows=MagickMax(GetImageListLength(images),
+    (size_t) GetMagickResourceLimit(ThreadResource));
+  pixels=(PixelChannels **) AcquireQuantumMemory(rows,sizeof(*pixels));
   if (pixels == (PixelChannels **) NULL)
     return((PixelChannels **) NULL);
-  (void) memset(pixels,0,number_threads*sizeof(*pixels));
-  for (i=0; i < (ssize_t) number_threads; i++)
+  (void) memset(pixels,0,rows*sizeof(*pixels));
+  columns=MagickMax(GetImageListLength(images),MaxPixelChannels);
+  for (next=images; next != (Image *) NULL; next=next->next)
+    columns=MagickMax(next->columns,columns);
+  for (i=0; i < (ssize_t) rows; i++)
   {
     register ssize_t
       j;
 
-    pixels[i]=(PixelChannels *) AcquireQuantumMemory(image->columns,
-      sizeof(**pixels));
+    pixels[i]=(PixelChannels *) AcquireQuantumMemory(columns,sizeof(**pixels));
     if (pixels[i] == (PixelChannels *) NULL)
-      return(DestroyPixelThreadSet(pixels));
-    for (j=0; j < (ssize_t) image->columns; j++)
+      return(DestroyPixelThreadSet(images,pixels));
+    for (j=0; j < (ssize_t) columns; j++)
     {
       register ssize_t
         k;
@@ -229,6 +241,9 @@ static double ApplyEvaluateOperator(RandomInfo *random_info,const Quantum pixel,
   double
     result;
 
+  register ssize_t
+    i;
+
   result=0.0;
   switch (op)
   {
@@ -258,7 +273,7 @@ static double ApplyEvaluateOperator(RandomInfo *random_info,const Quantum pixel,
     }
     case AndEvaluateOperator:
     {
-      result=(double) ((size_t) pixel & (size_t) (value+0.5));
+      result=(double) ((ssize_t) pixel & (ssize_t) (value+0.5));
       break;
     }
     case CosineEvaluateOperator:
@@ -297,7 +312,9 @@ static double ApplyEvaluateOperator(RandomInfo *random_info,const Quantum pixel,
     }
     case LeftShiftEvaluateOperator:
     {
-      result=(double) ((size_t) pixel << (size_t) (value+0.5));
+      result=(double) pixel;
+      for (i=0; i < (ssize_t) value; i++)
+        result*=2.0;
       break;
     }
     case LogEvaluateOperator:
@@ -340,7 +357,7 @@ static double ApplyEvaluateOperator(RandomInfo *random_info,const Quantum pixel,
     }
     case OrEvaluateOperator:
     {
-      result=(double) ((size_t) pixel | (size_t) (value+0.5));
+      result=(double) ((ssize_t) pixel | (ssize_t) (value+0.5));
       break;
     }
     case PoissonNoiseEvaluateOperator:
@@ -351,13 +368,19 @@ static double ApplyEvaluateOperator(RandomInfo *random_info,const Quantum pixel,
     }
     case PowEvaluateOperator:
     {
-      result=(double) (QuantumRange*pow((double) (QuantumScale*pixel),(double)
-        value));
+      if (pixel < 0)
+        result=(double) -(QuantumRange*pow((double) -(QuantumScale*pixel),
+          (double) value));
+      else
+        result=(double) (QuantumRange*pow((double) (QuantumScale*pixel),
+          (double) value));
       break;
     }
     case RightShiftEvaluateOperator:
     {
-      result=(double) ((size_t) pixel >> (size_t) (value+0.5));
+      result=(double) pixel;
+      for (i=0; i < (ssize_t) value; i++)
+        result/=2.0;
       break;
     }
     case RootMeanSquareEvaluateOperator:
@@ -409,7 +432,7 @@ static double ApplyEvaluateOperator(RandomInfo *random_info,const Quantum pixel,
     }
     case XorEvaluateOperator:
     {
-      result=(double) ((size_t) pixel ^ (size_t) (value+0.5));
+      result=(double) ((ssize_t) pixel ^ (ssize_t) (value+0.5));
       break;
     }
   }
@@ -570,15 +593,15 @@ MagickExport Image *EvaluateImages(const Image *images,
             for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
             {
               PixelChannel channel = GetPixelChannelChannel(image,i);
-              PixelTrait evaluate_traits=GetPixelChannelTraits(image,channel);
               PixelTrait traits = GetPixelChannelTraits(next,channel);
+              PixelTrait evaluate_traits = GetPixelChannelTraits(image,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
                 continue;
               if ((traits & UpdatePixelTrait) == 0)
                 continue;
               evaluate_pixel[j].channel[i]=ApplyEvaluateOperator(
-                random_info[id],GetPixelChannel(image,channel,p),op,
+                random_info[id],GetPixelChannel(next,channel,p),op,
                 evaluate_pixel[j].channel[i]);
             }
             image_view=DestroyCacheView(image_view);
@@ -675,14 +698,14 @@ MagickExport Image *EvaluateImages(const Image *images,
             {
               PixelChannel channel = GetPixelChannelChannel(image,i);
               PixelTrait traits = GetPixelChannelTraits(next,channel);
-              PixelTrait evaluate_traits=GetPixelChannelTraits(image,channel);
+              PixelTrait evaluate_traits = GetPixelChannelTraits(image,channel);
               if ((traits == UndefinedPixelTrait) ||
                   (evaluate_traits == UndefinedPixelTrait))
                 continue;
               if ((traits & UpdatePixelTrait) == 0)
                 continue;
               evaluate_pixel[x].channel[i]=ApplyEvaluateOperator(
-                random_info[id],GetPixelChannel(image,channel,p),j == 0 ?
+                random_info[id],GetPixelChannel(next,channel,p),j == 0 ?
                 AddEvaluateOperator : op,evaluate_pixel[x].channel[i]);
             }
             p+=GetPixelChannels(next);
@@ -762,7 +785,7 @@ MagickExport Image *EvaluateImages(const Image *images,
       }
     }
   evaluate_view=DestroyCacheView(evaluate_view);
-  evaluate_pixels=DestroyPixelThreadSet(evaluate_pixels);
+  evaluate_pixels=DestroyPixelThreadSet(images,evaluate_pixels);
   random_info=DestroyRandomInfoThreadSet(random_info);
   if (status == MagickFalse)
     image=DestroyImage(image);
@@ -2168,7 +2191,6 @@ MagickExport ChannelStatistics *GetImageStatistics(const Image *image,
 %    o exception: return any errors or warnings in this structure.
 %
 */
-
 MagickExport Image *PolynomialImage(const Image *images,
   const size_t number_terms,const double *terms,ExceptionInfo *exception)
 {
@@ -2344,7 +2366,7 @@ MagickExport Image *PolynomialImage(const Image *images,
       }
   }
   polynomial_view=DestroyCacheView(polynomial_view);
-  polynomial_pixels=DestroyPixelThreadSet(polynomial_pixels);
+  polynomial_pixels=DestroyPixelThreadSet(images,polynomial_pixels);
   if (status == MagickFalse)
     image=DestroyImage(image);
   return(image);

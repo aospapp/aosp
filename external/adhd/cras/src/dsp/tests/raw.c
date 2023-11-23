@@ -43,8 +43,8 @@ float *read_raw(const char *filename, size_t *frames)
 	/* deinterleave and convert to float */
 	data = (float *)malloc(sizeof(float) * f * 2);
 	for (i = 0; i < f; i++) {
-		data[i] = buf[2*i] / 32768.0f;
-		data[i + f] = buf[2*i+1] / 32768.0f;
+		data[i] = buf[2 * i] / 32768.0f;
+		data[i + f] = buf[2 * i + 1] / 32768.0f;
 	}
 	free(buf);
 	*frames = f;
@@ -72,8 +72,8 @@ int write_raw(const char *filename, float *input, size_t frames)
 
 	buf = (int16_t *)malloc(n);
 	for (i = 0; i < frames; i++) {
-		buf[2*i] = f2s16(input[i]);
-		buf[2*i+1] = f2s16(input[i + frames]);
+		buf[2 * i] = f2s16(input[i]);
+		buf[2 * i + 1] = f2s16(input[i + frames]);
 	}
 
 	int fd = open(filename, O_WRONLY | O_CREAT, 0644);

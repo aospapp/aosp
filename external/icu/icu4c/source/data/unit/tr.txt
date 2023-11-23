@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 tr{
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -52,6 +52,11 @@ tr{
                 dnam{"akre"}
                 one{"{0} akre"}
                 other{"{0} akre"}
+            }
+            dunam{
+                dnam{"dunam"}
+                one{"{0} dunam"}
+                other{"{0} dunam"}
             }
             hectare{
                 dnam{"hektar"}
@@ -133,6 +138,11 @@ tr{
                 one{"binde {0}"}
                 other{"binde {0}"}
             }
+            permyriad{
+                dnam{"onbinde"}
+                one{"onbinde {0}"}
+                other{"onbinde {0}"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -192,7 +202,7 @@ tr{
             kilobyte{
                 dnam{"kilobayt"}
                 one{"{0} kilobayt"}
-                other{"{0} kilobyte"}
+                other{"{0} kilobayt"}
             }
             megabit{
                 dnam{"megabit"}
@@ -231,6 +241,11 @@ tr{
                 one{"{0} gün"}
                 other{"{0} gün"}
                 per{"{0}/gün"}
+            }
+            decade{
+                dnam{"on yıl"}
+                one{"{0} on yıl"}
+                other{"{0} on yıl"}
             }
             hour{
                 dnam{"saat"}
@@ -307,10 +322,20 @@ tr{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"İngiliz ısı birimi"}
+                one{"{0} İngiliz ısı birimi"}
+                other{"{0} İngiliz ısı birimi"}
+            }
             calorie{
                 dnam{"kalori"}
                 one{"{0} kalori"}
                 other{"{0} kalori"}
+            }
+            electronvolt{
+                dnam{"elektronvolt"}
+                one{"{0} elektronvolt"}
+                other{"{0} elektronvolt"}
             }
             foodcalorie{
                 dnam{"kilokalori"}
@@ -337,6 +362,23 @@ tr{
                 one{"{0} kilovatsaat"}
                 other{"{0} kilovatsaat"}
             }
+            therm-us{
+                dnam{"ABD ısı birimi"}
+                one{"{0} ABD ısı birimi"}
+                other{"{0} ABD ısı birimi"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newton"}
+                one{"{0} newton"}
+                other{"{0} newton"}
+            }
+            pound-force{
+                dnam{"pound kuvvet"}
+                one{"{0} pound kuvvet"}
+                other{"{0} pound kuvvet"}
+            }
         }
         frequency{
             gigahertz{
@@ -358,6 +400,41 @@ tr{
                 dnam{"megahertz"}
                 one{"{0} megahertz"}
                 other{"{0} megahertz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"nokta/santimetre"}
+                one{"{0} nokta/santimetre"}
+                other{"{0} nokta/santimetre"}
+            }
+            dot-per-inch{
+                dnam{"nokta/inç"}
+                one{"{0} nokta/inç"}
+                other{"{0} nokta/inç"}
+            }
+            em{
+                dnam{"tipografik em"}
+            }
+            megapixel{
+                dnam{"megapiksel"}
+                one{"{0} megapiksel"}
+                other{"{0} megapiksel"}
+            }
+            pixel{
+                dnam{"piksel"}
+                one{"{0} piksel"}
+                other{"{0} piksel"}
+            }
+            pixel-per-centimeter{
+                dnam{"piksel/santimetre"}
+                one{"{0} piksel/santimetre"}
+                other{"{0} piksel/santimetre"}
+            }
+            pixel-per-inch{
+                dnam{"piksel/inç"}
+                one{"{0} piksel/inç"}
+                other{"{0} piksel/inç"}
             }
         }
         length{
@@ -461,6 +538,11 @@ tr{
                 one{"{0} punto"}
                 other{"{0} punto"}
             }
+            solar-radius{
+                dnam{"Güneş yarıçapı"}
+                one{"{0} Güneş yarıçapı"}
+                other{"{0} Güneş yarıçapı"}
+            }
             yard{
                 dnam{"yarda"}
                 one{"{0} yarda"}
@@ -473,12 +555,27 @@ tr{
                 one{"{0} lüks"}
                 other{"{0} lüks"}
             }
+            solar-luminosity{
+                dnam{"Güneş parlaklığı"}
+                one{"{0} Güneş parlaklığı"}
+                other{"{0} Güneş parlaklığı"}
+            }
         }
         mass{
             carat{
                 dnam{"karat"}
                 one{"{0} karat"}
                 other{"{0} karat"}
+            }
+            dalton{
+                dnam{"dalton"}
+                one{"{0} dalton"}
+                other{"{0} dalton"}
+            }
+            earth-mass{
+                dnam{"Dünya kütlesi"}
+                one{"{0} Dünya kütlesi"}
+                other{"{0} Dünya kütlesi"}
             }
             gram{
                 dnam{"gram"}
@@ -523,6 +620,11 @@ tr{
                 one{"{0} libre"}
                 other{"{0} libre"}
                 per{"{0}/libre"}
+            }
+            solar-mass{
+                dnam{"Güneş kütlesi"}
+                one{"{0} Güneş kütlesi"}
+                other{"{0} Güneş kütlesi"}
             }
             stone{
                 dnam{"stone"}
@@ -583,6 +685,16 @@ tr{
                 one{"{0} inç cıva"}
                 other{"{0} inç cıva"}
             }
+            kilopascal{
+                dnam{"kilopaskal"}
+                one{"{0} kilopaskal"}
+                other{"{0} kilopaskal"}
+            }
+            megapascal{
+                dnam{"megapaskal"}
+                one{"{0} megapaskal"}
+                other{"{0} megapaskal"}
+            }
             millibar{
                 dnam{"milibar"}
                 one{"{0} milibar"}
@@ -592,6 +704,11 @@ tr{
                 dnam{"milimetre cıva"}
                 one{"{0} milimetre cıva"}
                 other{"{0} milimetre cıva"}
+            }
+            pascal{
+                dnam{"paskal"}
+                one{"{0} paskal"}
+                other{"{0} paskal"}
             }
             pound-per-square-inch{
                 dnam{"libre/inç kare"}
@@ -643,11 +760,28 @@ tr{
                 other{"{0} kelvin"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"newton metre"}
+                one{"{0} newton metre"}
+                other{"{0} newton metre"}
+            }
+            pound-foot{
+                dnam{"pound fit"}
+                one{"{0} pound fit"}
+                other{"{0} pound fit"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"akre fit"}
                 one{"{0} akre fit"}
                 other{"{0} akre fit"}
+            }
+            barrel{
+                dnam{"varil"}
+                one{"{0} varil"}
+                other{"{0} varil"}
             }
             bushel{
                 dnam{"buşel"}
@@ -702,9 +836,9 @@ tr{
                 other{"{0} su bardağı"}
             }
             cup-metric{
-                dnam{"mcup"}
-                one{"{0} mc"}
-                other{"{0} mc"}
+                dnam{"metrik su bardağı"}
+                one{"{0} metrik su bardağı"}
+                other{"{0} metrik su bardağı"}
             }
             deciliter{
                 dnam{"desilitre"}
@@ -715,6 +849,11 @@ tr{
                 dnam{"sıvı ons"}
                 one{"{0} sıvı ons"}
                 other{"{0} sıvı ons"}
+            }
+            fluid-ounce-imperial{
+                dnam{"İng. sıvı ons"}
+                one{"{0} İng. sıvı ons"}
+                other{"{0} İng. sıvı ons"}
             }
             gallon{
                 dnam{"galon"}
@@ -755,7 +894,7 @@ tr{
                 other{"{0} pint"}
             }
             pint-metric{
-                dnam{"mpt"}
+                dnam{"metrik pint"}
                 one{"{0} metrik pint"}
                 other{"{0} metrik pint"}
             }
@@ -792,13 +931,9 @@ tr{
         angle{
             arc-minute{
                 dnam{"açısal dk."}
-                one{"{0}′"}
-                other{"{0}′"}
             }
             arc-second{
                 dnam{"açısal sn."}
-                one{"{0}″"}
-                other{"{0}″"}
             }
             degree{
                 one{"{0}°"}
@@ -892,8 +1027,8 @@ tr{
             }
             percent{
                 dnam{"%"}
-                one{"{0}%"}
-                other{"{0}%"}
+                one{"%{0}"}
+                other{"%{0}"}
             }
             permille{
                 dnam{"‰"}
@@ -903,9 +1038,9 @@ tr{
         }
         consumption{
             liter-per-100kilometers{
-                dnam{"L/100km"}
-                one{"{0} L/100km"}
-                other{"{0} L/100km"}
+                dnam{"l/100km"}
+                one{"{0} l/100km"}
+                other{"{0} l/100km"}
             }
             liter-per-kilometer{
                 dnam{"l/km"}
@@ -932,8 +1067,6 @@ tr{
             }
             byte{
                 dnam{"bayt"}
-                one{"{0} byte"}
-                other{"{0} byte"}
             }
             gigabit{
                 dnam{"Gbit"}
@@ -1167,7 +1300,6 @@ tr{
                 per{"{0}/m"}
             }
             micrometer{
-                dnam{"µm"}
                 one{"{0} µm"}
                 other{"{0} µm"}
             }
@@ -1207,12 +1339,10 @@ tr{
                 other{"{0} pm"}
             }
             point{
-                dnam{"pt"}
                 one{"{0} pt"}
                 other{"{0} pt"}
             }
             yard{
-                dnam{"yd"}
                 one{"{0} yd"}
                 other{"{0} yd"}
             }
@@ -1269,7 +1399,6 @@ tr{
                 other{"{0} oz t"}
             }
             pound{
-                dnam{"lb"}
                 one{"{0} lb"}
                 other{"{0} lb"}
                 per{"{0}/lb"}
@@ -1291,8 +1420,8 @@ tr{
                 other{"{0} GW"}
             }
             horsepower{
-                one{"{0} hp"}
-                other{"{0} hp"}
+                one{"{0} bg"}
+                other{"{0} bg"}
             }
             kilowatt{
                 one{"{0} kW"}
@@ -1417,8 +1546,8 @@ tr{
                 other{"{0} m³"}
             }
             cubic-mile{
-                one{"{0} mi³"}
-                other{"{0} mi³"}
+                one{"{0} mil³"}
+                other{"{0} mil³"}
             }
             cubic-yard{
                 one{"{0} yarda³"}
@@ -1522,6 +1651,11 @@ tr{
                 one{"{0} ac"}
                 other{"{0} ac"}
             }
+            dunam{
+                dnam{"dunam"}
+                one{"{0} dunam"}
+                other{"{0} dunam"}
+            }
             hectare{
                 dnam{"hektar"}
                 one{"{0} ha"}
@@ -1578,14 +1712,14 @@ tr{
                 other{"{0} ayar"}
             }
             milligram-per-deciliter{
-                dnam{"mg/dL"}
-                one{"{0} mg/dL"}
-                other{"{0} mg/dL"}
+                dnam{"mg/dl"}
+                one{"{0} mg/dl"}
+                other{"{0} mg/dl"}
             }
             millimole-per-liter{
-                dnam{"mmol/L"}
-                one{"{0} mmol/L"}
-                other{"{0} mmol/L"}
+                dnam{"mmol/l"}
+                one{"{0} mmol/l"}
+                other{"{0} mmol/l"}
             }
             part-per-million{
                 dnam{"ppm"}
@@ -1594,20 +1728,25 @@ tr{
             }
             percent{
                 dnam{"%"}
-                one{"{0}%"}
-                other{"{0}%"}
+                one{"%{0}"}
+                other{"%{0}"}
             }
             permille{
                 dnam{"‰"}
-                one{"{0}‰"}
-                other{"{0}‰"}
+                one{"‰{0}"}
+                other{"‰{0}"}
+            }
+            permyriad{
+                dnam{"onbinde"}
+                one{"‱{0}"}
+                other{"‱{0}"}
             }
         }
         consumption{
             liter-per-100kilometers{
-                dnam{"L/100km"}
-                one{"{0} L/100km"}
-                other{"{0} L/100km"}
+                dnam{"l/100 km"}
+                one{"{0} l/100 km"}
+                other{"{0} l/100 km"}
             }
             liter-per-kilometer{
                 dnam{"l/km"}
@@ -1615,7 +1754,7 @@ tr{
                 other{"{0} l/km"}
             }
             mile-per-gallon{
-                dnam{"mil/galon"}
+                dnam{"mil/gal"}
                 one{"{0} mpg"}
                 other{"{0} mpg"}
             }
@@ -1701,6 +1840,11 @@ tr{
                 other{"{0} gün"}
                 per{"{0}/gün"}
             }
+            decade{
+                dnam{"on yıl"}
+                one{"{0} on yıl"}
+                other{"{0} on yıl"}
+            }
             hour{
                 dnam{"saat"}
                 one{"{0} sa."}
@@ -1776,10 +1920,20 @@ tr{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+                one{"{0} Btu"}
+                other{"{0} Btu"}
+            }
             calorie{
                 dnam{"cal"}
                 one{"{0} cal"}
                 other{"{0} cal"}
+            }
+            electronvolt{
+                dnam{"elektronvolt"}
+                one{"{0} eV"}
+                other{"{0} eV"}
             }
             foodcalorie{
                 dnam{"kcal"}
@@ -1806,6 +1960,21 @@ tr{
                 one{"{0} kWh"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"ABD ısı birimi"}
+                one{"{0} ABD ısı birimi"}
+                other{"{0} ABD ısı birimi"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newton"}
+            }
+            pound-force{
+                dnam{"pound kuvvet"}
+                one{"{0} lbf"}
+                other{"{0} lbf"}
+            }
         }
         frequency{
             gigahertz{
@@ -1827,6 +1996,14 @@ tr{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            megapixel{
+                dnam{"megapiksel"}
+            }
+            pixel{
+                dnam{"piksel"}
             }
         }
         length{
@@ -1930,6 +2107,11 @@ tr{
                 one{"{0} pt"}
                 other{"{0} pt"}
             }
+            solar-radius{
+                dnam{"Güneş yarıçapı"}
+                one{"{0} R☉"}
+                other{"{0} R☉"}
+            }
             yard{
                 dnam{"yarda"}
                 one{"{0} yd"}
@@ -1942,12 +2124,27 @@ tr{
                 one{"{0} lüks"}
                 other{"{0} lüks"}
             }
+            solar-luminosity{
+                dnam{"Güneş parlaklığı"}
+                one{"{0} L☉"}
+                other{"{0} L☉"}
+            }
         }
         mass{
             carat{
                 dnam{"karat"}
                 one{"{0} ct"}
                 other{"{0} ct"}
+            }
+            dalton{
+                dnam{"dalton"}
+                one{"{0} Da"}
+                other{"{0} Da"}
+            }
+            earth-mass{
+                dnam{"Dünya kütlesi"}
+                one{"{0} M⊕"}
+                other{"{0} M⊕"}
             }
             gram{
                 dnam{"gram"}
@@ -1992,6 +2189,11 @@ tr{
                 one{"{0} lb"}
                 other{"{0} lb"}
                 per{"{0}/lb"}
+            }
+            solar-mass{
+                dnam{"Güneş kütlesi"}
+                one{"{0} M☉"}
+                other{"{0} M☉"}
             }
             stone{
                 dnam{"stone"}
@@ -2051,6 +2253,16 @@ tr{
                 dnam{"inHg"}
                 one{"{0} inHg"}
                 other{"{0} inHg"}
+            }
+            kilopascal{
+                dnam{"kPa"}
+                one{"{0} kPa"}
+                other{"{0} kPa"}
+            }
+            megapascal{
+                dnam{"MPa"}
+                one{"{0} MPa"}
+                other{"{0} MPa"}
             }
             millibar{
                 dnam{"mbar"}
@@ -2112,11 +2324,28 @@ tr{
                 other{"{0}K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"N⋅m"}
+                one{"{0} N⋅m"}
+                other{"{0} N⋅m"}
+            }
+            pound-foot{
+                dnam{"lbf⋅ft"}
+                one{"{0} lbf⋅ft"}
+                other{"{0} lbf⋅ft"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"akre fit"}
                 one{"{0} akre fit"}
                 other{"{0} akre fit"}
+            }
+            barrel{
+                dnam{"varil"}
+                one{"{0} bbl"}
+                other{"{0} bbl"}
             }
             bushel{
                 dnam{"buşel"}
@@ -2171,9 +2400,9 @@ tr{
                 other{"{0} sb"}
             }
             cup-metric{
-                dnam{"mcup"}
-                one{"{0} mc"}
-                other{"{0} mc"}
+                dnam{"msub"}
+                one{"{0} msb"}
+                other{"{0} msb"}
             }
             deciliter{
                 dnam{"dl"}
@@ -2185,10 +2414,15 @@ tr{
                 one{"{0} sıvı ons"}
                 other{"{0} sıvı ons"}
             }
+            fluid-ounce-imperial{
+                dnam{"İng. sıvı ons"}
+                one{"{0} sıvı ons İng."}
+                other{"{0} sıvı ons İng."}
+            }
             gallon{
-                dnam{"galon"}
-                one{"{0} galon"}
-                other{"{0} galon"}
+                dnam{"gal"}
+                one{"{0} gal"}
+                other{"{0} gal"}
                 per{"{0}/gal"}
             }
             gallon-imperial{
@@ -2229,9 +2463,8 @@ tr{
                 other{"{0} mpt"}
             }
             quart{
-                dnam{"quart"}
-                one{"{0} quart"}
-                other{"{0} quart"}
+                one{"{0} qt"}
+                other{"{0} qt"}
             }
             tablespoon{
                 dnam{"yk"}

@@ -6,57 +6,118 @@
 
 #include "core/fpdfapi/page/cpdf_form.h"
 
+#include <algorithm>
+
 #include "core/fpdfapi/page/cpdf_contentparser.h"
+#include "core/fpdfapi/page/cpdf_imageobject.h"
 #include "core/fpdfapi/page/cpdf_pageobject.h"
 #include "core/fpdfapi/page/cpdf_pageobjectholder.h"
 #include "core/fpdfapi/parser/cpdf_dictionary.h"
 #include "core/fpdfapi/parser/cpdf_stream.h"
+#include "core/fxge/dib/cfx_dibitmap.h"
 #include "third_party/base/ptr_util.h"
+
+// static
+CPDF_Dictionary* CPDF_Form::ChooseResourcesDict(
+    CPDF_Dictionary* pResources,
+    CPDF_Dictionary* pParentResources,
+    CPDF_Dictionary* pPageResources) {
+  if (pResources)
+    return pResources;
+  return pParentResources ? pParentResources : pPageResources;
+}
+
+CPDF_Form::CPDF_Form(CPDF_Document* pDoc,
+                     CPDF_Dictionary* pPageResources,
+                     CPDF_Stream* pFormStream)
+    : CPDF_Form(pDoc, pPageResources, pFormStream, nullptr) {}
 
 CPDF_Form::CPDF_Form(CPDF_Document* pDoc,
                      CPDF_Dictionary* pPageResources,
                      CPDF_Stream* pFormStream,
                      CPDF_Dictionary* pParentResources)
-    : CPDF_PageObjectHolder(pDoc, pFormStream->GetDict()) {
-  m_pFormStream = pFormStream;
-  m_pResources = m_pFormDict->GetDictFor("Resources");
-  m_pPageResources = pPageResources;
-  if (!m_pResources)
-    m_pResources = pParentResources;
-  if (!m_pResources)
-    m_pResources = pPageResources;
-  m_iTransparency = 0;
-  LoadTransInfo();
+    : CPDF_PageObjectHolder(
+          pDoc,
+          pFormStream->GetDict(),
+          pPageResources,
+          ChooseResourcesDict(pFormStream->GetDict()->GetDictFor("Resources"),
+                              pParentResources,
+                              pPageResources)),
+      m_pFormStream(pFormStream) {
+  LoadTransparencyInfo();
 }
 
-CPDF_Form::~CPDF_Form() {}
-
-void CPDF_Form::StartParse(CPDF_AllStates* pGraphicStates,
-                           const CFX_Matrix* pParentMatrix,
-                           CPDF_Type3Char* pType3Char,
-                           std::set<const uint8_t*>* parsedSet) {
-  if (m_ParseState == CONTENT_PARSED || m_ParseState == CONTENT_PARSING)
-    return;
-
-  if (!parsedSet) {
-    if (!m_ParsedSet)
-      m_ParsedSet = pdfium::MakeUnique<std::set<const uint8_t*>>();
-    parsedSet = m_ParsedSet.get();
-  }
-
-  m_pParser = pdfium::MakeUnique<CPDF_ContentParser>(
-      this, pGraphicStates, pParentMatrix, pType3Char, parsedSet);
-  m_ParseState = CONTENT_PARSING;
-}
+CPDF_Form::~CPDF_Form() = default;
 
 void CPDF_Form::ParseContent() {
-  ParseContentWithParams(nullptr, nullptr, nullptr, nullptr);
+  ParseContentInternal(nullptr, nullptr, nullptr, nullptr);
 }
 
-void CPDF_Form::ParseContentWithParams(CPDF_AllStates* pGraphicStates,
-                                       const CFX_Matrix* pParentMatrix,
-                                       CPDF_Type3Char* pType3Char,
-                                       std::set<const uint8_t*>* parsedSet) {
-  StartParse(pGraphicStates, pParentMatrix, pType3Char, parsedSet);
+void CPDF_Form::ParseContent(const CPDF_AllStates* pGraphicStates,
+                             const CFX_Matrix* pParentMatrix,
+                             std::set<const uint8_t*>* pParsedSet) {
+  ParseContentInternal(pGraphicStates, pParentMatrix, nullptr, pParsedSet);
+}
+
+void CPDF_Form::ParseContentForType3Char(CPDF_Type3Char* pType3Char) {
+  ParseContentInternal(nullptr, nullptr, pType3Char, nullptr);
+}
+
+void CPDF_Form::ParseContentInternal(const CPDF_AllStates* pGraphicStates,
+                                     const CFX_Matrix* pParentMatrix,
+                                     CPDF_Type3Char* pType3Char,
+                                     std::set<const uint8_t*>* pParsedSet) {
+  if (GetParseState() == ParseState::kParsed)
+    return;
+
+  if (GetParseState() == ParseState::kNotParsed) {
+    if (!pParsedSet) {
+      if (!m_ParsedSet)
+        m_ParsedSet = pdfium::MakeUnique<std::set<const uint8_t*>>();
+      pParsedSet = m_ParsedSet.get();
+    }
+    StartParse(pdfium::MakeUnique<CPDF_ContentParser>(
+        this, pGraphicStates, pParentMatrix, pType3Char, pParsedSet));
+  }
+
+  ASSERT(GetParseState() == ParseState::kParsing);
   ContinueParse(nullptr);
+}
+
+bool CPDF_Form::HasPageObjects() const {
+  return GetPageObjectCount() != 0;
+}
+
+CFX_FloatRect CPDF_Form::CalcBoundingBox() const {
+  if (GetPageObjectCount() == 0)
+    return CFX_FloatRect();
+
+  float left = 1000000.0f;
+  float right = -1000000.0f;
+  float bottom = 1000000.0f;
+  float top = -1000000.0f;
+  for (const auto& pObj : *this) {
+    const auto& rect = pObj->GetRect();
+    left = std::min(left, rect.left);
+    right = std::max(right, rect.right);
+    bottom = std::min(bottom, rect.bottom);
+    top = std::max(top, rect.top);
+  }
+  return CFX_FloatRect(left, bottom, right, top);
+}
+
+const CPDF_Stream* CPDF_Form::GetStream() const {
+  return m_pFormStream.Get();
+}
+
+Optional<std::pair<RetainPtr<CFX_DIBitmap>, CFX_Matrix>>
+CPDF_Form::GetBitmapAndMatrixFromSoleImageOfForm() const {
+  if (GetPageObjectCount() != 1)
+    return {};
+
+  CPDF_ImageObject* pImageObject = (*begin())->AsImage();
+  if (!pImageObject)
+    return {};
+
+  return {{pImageObject->GetIndependentBitmap(), pImageObject->matrix()}};
 }

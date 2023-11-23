@@ -13,37 +13,28 @@
 #include "xfa/fxfa/fxfa.h"
 
 class CPDFXFA_Context;
-class IJS_EventContext;
+class IJS_Runtime;
 
-class CPDFXFA_DocEnvironment : public IXFA_DocEnvironment {
+class CPDFXFA_DocEnvironment final : public IXFA_DocEnvironment {
  public:
   explicit CPDFXFA_DocEnvironment(CPDFXFA_Context*);
   ~CPDFXFA_DocEnvironment() override;
 
-  // IXFA_DocEnvironment
+  // IXFA_DocEnvironment:
   void SetChangeMark(CXFA_FFDoc* hDoc) override;
-  // Used in dynamic xfa.
   void InvalidateRect(CXFA_FFPageView* pPageView, const CFX_RectF& rt) override;
-  // Show or hide caret.
   void DisplayCaret(CXFA_FFWidget* hWidget,
                     bool bVisible,
                     const CFX_RectF* pRtAnchor) override;
-  // dwPos: (0:bottom 1:top)
   bool GetPopupPos(CXFA_FFWidget* hWidget,
                    float fMinPopup,
                    float fMaxPopup,
                    const CFX_RectF& rtAnchor,
-                   CFX_RectF& rtPopup) override;
-  bool PopupMenu(CXFA_FFWidget* hWidget, CFX_PointF ptPopup) override;
-
-  // dwFlags XFA_PAGEVIEWEVENT_Added, XFA_PAGEVIEWEVENT_Removing
+                   CFX_RectF* pPopupRect) override;
+  bool PopupMenu(CXFA_FFWidget* hWidget, const CFX_PointF& ptPopup) override;
   void PageViewEvent(CXFA_FFPageView* pPageView, uint32_t dwFlags) override;
-  void WidgetPostAdd(CXFA_FFWidget* hWidget,
-                     CXFA_WidgetAcc* pWidgetAcc) override;
-  void WidgetPreRemove(CXFA_FFWidget* hWidget,
-                       CXFA_WidgetAcc* pWidgetAcc) override;
-
-  // Host method
+  void WidgetPostAdd(CXFA_FFWidget* hWidget) override;
+  void WidgetPreRemove(CXFA_FFWidget* hWidget) override;
   int32_t CountPages(CXFA_FFDoc* hDoc) override;
   int32_t GetCurrentPage(CXFA_FFDoc* hDoc) override;
   void SetCurrentPage(CXFA_FFDoc* hDoc, int32_t iCurPage) override;
@@ -63,25 +54,17 @@ class CPDFXFA_DocEnvironment : public IXFA_DocEnvironment {
              int32_t nEndPage,
              uint32_t dwOptions) override;
   FX_ARGB GetHighlightColor(CXFA_FFDoc* hDoc) override;
-
-  bool Submit(CXFA_FFDoc* hDoc, CXFA_Submit* submit) override;
-
-  bool GetGlobalProperty(CXFA_FFDoc* hDoc,
-                         const ByteStringView& szPropName,
-                         CFXJSE_Value* pValue) override;
-  bool SetGlobalProperty(CXFA_FFDoc* hDoc,
-                         const ByteStringView& szPropName,
-                         CFXJSE_Value* pValue) override;
-
+  IJS_Runtime* GetIJSRuntime(CXFA_FFDoc* hDoc) const override;
   RetainPtr<IFX_SeekableReadStream> OpenLinkedFile(
       CXFA_FFDoc* hDoc,
       const WideString& wsLink) override;
 
+#ifdef PDF_XFA_ELEMENT_SUBMIT_ENABLED
+  bool Submit(CXFA_FFDoc* hDoc, CXFA_Submit* submit) override;
+#endif  // PDF_XFA_ELEMENT_SUBMIT_ENABLED
+
  private:
-  bool OnBeforeNotifySubmit();
-  void OnAfterNotifySubmit();
-  bool NotifySubmit(bool bPrevOrPost);
-  bool SubmitInternal(CXFA_FFDoc* hDoc, CXFA_Submit* submit);
+#ifdef PDF_XFA_ELEMENT_SUBMIT_ENABLED
   bool MailToInfo(WideString& csURL,
                   WideString& csToAddress,
                   WideString& csCCAddress,
@@ -93,6 +76,11 @@ class CPDFXFA_DocEnvironment : public IXFA_DocEnvironment {
                         FPDF_DWORD encodeType,
                         FPDF_DWORD flag);
   void ToXFAContentFlags(WideString csSrcContent, FPDF_DWORD& flag);
+  bool OnBeforeNotifySubmit();
+  void OnAfterNotifySubmit();
+  bool NotifySubmit(bool bPrevOrPost);
+  bool SubmitInternal(CXFA_FFDoc* hDoc, CXFA_Submit* submit);
+#endif  // PDF_XFA_ELEMENT_SUBMIT_ENABLED
 
   UnownedPtr<CPDFXFA_Context> const m_pContext;
 };

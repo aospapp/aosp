@@ -71,8 +71,6 @@ class PrivetHelper(object):
 
         If the request fails due to error 111:Connection refused, try it again
         after |retry_delay| seconds and repeat this to a max |retry_count|.
-        This is needed to make sure peerd has a chance to start up and start
-        responding to HTTP requests.
 
         @param url: URL path to send the request to.
         @param request_data: json data to send in POST request.

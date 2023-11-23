@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -13,7 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  MagickCore private image color methods.
+  MagickCore private policy methods.
 */
 #ifndef MAGICKCORE_POLICY_PRIVATE_H
 #define MAGICKCORE_POLICY_PRIVATE_H
@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-#if defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
 /*
   Zero configuration security policy.  Discussion @
   https://imagemagick.org/script/security-policy.php.

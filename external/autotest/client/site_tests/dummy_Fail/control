@@ -14,6 +14,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "dummy"
 TEST_TYPE = "client"
+JOB_RETRIES = 1
 
 DOC = """
 This is a helper test that will fail in a number of ways.

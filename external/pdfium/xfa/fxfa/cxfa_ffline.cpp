@@ -15,11 +15,11 @@
 
 namespace {
 
-CFX_GraphStateData::LineCap LineCapToFXGE(XFA_AttributeEnum iLineCap) {
+CFX_GraphStateData::LineCap LineCapToFXGE(XFA_AttributeValue iLineCap) {
   switch (iLineCap) {
-    case XFA_AttributeEnum::Round:
+    case XFA_AttributeValue::Round:
       return CFX_GraphStateData::LineCapRound;
-    case XFA_AttributeEnum::Butt:
+    case XFA_AttributeValue::Butt:
       return CFX_GraphStateData::LineCapButt;
     default:
       break;
@@ -29,22 +29,23 @@ CFX_GraphStateData::LineCap LineCapToFXGE(XFA_AttributeEnum iLineCap) {
 
 }  // namespace
 
-CXFA_FFLine::CXFA_FFLine(CXFA_Node* pNode) : CXFA_FFDraw(pNode) {}
+CXFA_FFLine::CXFA_FFLine(CXFA_Node* pNode) : CXFA_FFWidget(pNode) {}
 
 CXFA_FFLine::~CXFA_FFLine() {}
 
 void CXFA_FFLine::GetRectFromHand(CFX_RectF& rect,
-                                  XFA_AttributeEnum iHand,
+                                  XFA_AttributeValue iHand,
                                   float fLineWidth) {
   float fHalfWidth = fLineWidth / 2.0f;
   if (rect.height < 1.0f) {
     switch (iHand) {
-      case XFA_AttributeEnum::Left:
+      case XFA_AttributeValue::Left:
         rect.top -= fHalfWidth;
         break;
-      case XFA_AttributeEnum::Right:
+      case XFA_AttributeValue::Right:
         rect.top += fHalfWidth;
-      case XFA_AttributeEnum::Even:
+        break;
+      case XFA_AttributeValue::Even:
         break;
       default:
         NOTREACHED();
@@ -52,13 +53,13 @@ void CXFA_FFLine::GetRectFromHand(CFX_RectF& rect,
     }
   } else if (rect.width < 1.0f) {
     switch (iHand) {
-      case XFA_AttributeEnum::Left:
+      case XFA_AttributeValue::Left:
         rect.left += fHalfWidth;
         break;
-      case XFA_AttributeEnum::Right:
+      case XFA_AttributeValue::Right:
         rect.left += fHalfWidth;
         break;
-      case XFA_AttributeEnum::Even:
+      case XFA_AttributeValue::Even:
         break;
       default:
         NOTREACHED();
@@ -66,13 +67,13 @@ void CXFA_FFLine::GetRectFromHand(CFX_RectF& rect,
     }
   } else {
     switch (iHand) {
-      case XFA_AttributeEnum::Left:
+      case XFA_AttributeValue::Left:
         rect.Inflate(fHalfWidth, fHalfWidth);
         break;
-      case XFA_AttributeEnum::Right:
+      case XFA_AttributeValue::Right:
         rect.Deflate(fHalfWidth, fHalfWidth);
         break;
-      case XFA_AttributeEnum::Even:
+      case XFA_AttributeValue::Even:
         break;
       default:
         NOTREACHED();
@@ -83,8 +84,8 @@ void CXFA_FFLine::GetRectFromHand(CFX_RectF& rect,
 
 void CXFA_FFLine::RenderWidget(CXFA_Graphics* pGS,
                                const CFX_Matrix& matrix,
-                               uint32_t dwStatus) {
-  if (!IsMatchVisibleStatus(dwStatus))
+                               HighlightOption highlight) {
+  if (!HasVisibleStatus())
     return;
 
   CXFA_Value* value = m_pNode->GetFormValueIfExists();
@@ -93,9 +94,8 @@ void CXFA_FFLine::RenderWidget(CXFA_Graphics* pGS,
 
   FX_ARGB lineColor = 0xFF000000;
   float fLineWidth = 1.0f;
-  XFA_AttributeEnum iStrokeType = XFA_AttributeEnum::Unknown;
-  XFA_AttributeEnum iCap = XFA_AttributeEnum::Unknown;
-
+  XFA_AttributeValue iStrokeType = XFA_AttributeValue::Unknown;
+  XFA_AttributeValue iCap = XFA_AttributeValue::Unknown;
   CXFA_Line* line = value->GetLineIfExists();
   if (line) {
     CXFA_Edge* edge = line->GetEdgeIfExists();
@@ -115,10 +115,9 @@ void CXFA_FFLine::RenderWidget(CXFA_Graphics* pGS,
 
   CFX_RectF rtLine = GetRectWithoutRotate();
   CXFA_Margin* margin = m_pNode->GetMarginIfExists();
-  if (margin)
-    XFA_RectWithoutMargin(rtLine, margin);
+  XFA_RectWithoutMargin(&rtLine, margin);
 
-  GetRectFromHand(rtLine, line ? line->GetHand() : XFA_AttributeEnum::Left,
+  GetRectFromHand(rtLine, line ? line->GetHand() : XFA_AttributeValue::Left,
                   fLineWidth);
   CXFA_GEPath linePath;
   if (line && line->GetSlope() && rtLine.right() > 0.0f &&

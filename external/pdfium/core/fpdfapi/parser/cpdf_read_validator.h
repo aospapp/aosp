@@ -10,12 +10,9 @@
 
 class CPDF_ReadValidator : public IFX_SeekableReadStream {
  public:
-  template <typename T, typename... Args>
-  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
-
   class Session {
    public:
-    explicit Session(CPDF_ReadValidator* validator);
+    explicit Session(const RetainPtr<CPDF_ReadValidator>& validator);
     ~Session();
 
    private:
@@ -24,13 +21,14 @@ class CPDF_ReadValidator : public IFX_SeekableReadStream {
     bool saved_has_unavailable_data_;
   };
 
+  template <typename T, typename... Args>
+  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
+
   void SetDownloadHints(CPDF_DataAvail::DownloadHints* hints) {
     hints_ = hints;
   }
-
   bool read_error() const { return read_error_; }
   bool has_unavailable_data() const { return has_unavailable_data_; }
-
   bool has_read_problems() const {
     return read_error() || has_unavailable_data();
   }
@@ -43,7 +41,9 @@ class CPDF_ReadValidator : public IFX_SeekableReadStream {
   bool CheckWholeFileAndRequestIfUnavailable();
 
   // IFX_SeekableReadStream overrides:
-  bool ReadBlock(void* buffer, FX_FILESIZE offset, size_t size) override;
+  bool ReadBlockAtOffset(void* buffer,
+                         FX_FILESIZE offset,
+                         size_t size) override;
   FX_FILESIZE GetSize() override;
 
  protected:

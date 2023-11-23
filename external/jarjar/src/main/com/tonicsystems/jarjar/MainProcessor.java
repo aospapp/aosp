@@ -21,14 +21,23 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+import com.android.jarjar.RemoveAndroidCompatAnnotationsJarTransformer;
+
 class MainProcessor implements JarProcessor
 {
     private final boolean verbose;
     private final JarProcessorChain chain;
     private final KeepProcessor kp;
     private final Map<String, String> renames = new HashMap<String, String>();
-    
+
+    // ANDROID-BEGIN: b/146418363 Add an Android-specific transformer to strip compat annotation
     public MainProcessor(List<PatternElement> patterns, boolean verbose, boolean skipManifest) {
+        this(patterns, verbose, skipManifest, false /* removeAndroidCompatAnnotations */);
+    }
+
+    public MainProcessor(List<PatternElement> patterns, boolean verbose, boolean skipManifest,
+            boolean removeAndroidCompatAnnotations) {
+        // ANDROID-END: b/146418363 Add an Android-specific transformer to strip compat annotation
         this.verbose = verbose;
         List<Zap> zapList = new ArrayList<Zap>();
         List<Rule> ruleList = new ArrayList<Rule>();
@@ -52,6 +61,10 @@ class MainProcessor implements JarProcessor
         if (kp != null)
             processors.add(kp);
         processors.add(new ZapProcessor(zapList));
+        // ANDROID-BEGIN: b/146418363 Add an Android-specific transformer to strip compat annotation
+        if (removeAndroidCompatAnnotations)
+            processors.add(new RemoveAndroidCompatAnnotationsJarTransformer(pr));
+        // ANDROID-END: b/146418363 Add an Android-specific transformer to strip compat annotation
         processors.add(new JarTransformerChain(new RemappingClassTransformer[]{ new RemappingClassTransformer(pr) }));
         processors.add(new ResourceProcessor(pr));
         chain = new JarProcessorChain(processors.toArray(new JarProcessor[processors.size()]));

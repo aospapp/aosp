@@ -59,37 +59,32 @@ class Testing(dbus_std_ifaces.DBusProperties):
 
 
     @utils.log_dbus_method()
-    @dbus.service.method(pm_constants.I_TESTING, in_signature='s')
-    def UpdatePcoInfo(self, pco_value):
+    @dbus.service.method(pm_constants.I_TESTING, in_signature='a(ubay)')
+    def UpdatePco(self, pco_value):
         """
-        Sets the VendorPcoInfo to the specified value. If the Modem.Modem3gpp
+        Sets the Pco to the specified value. If the Modem.Modem3gpp
         properties are currently not exposed (e.g. due to a locked or absent
         SIM), this method will do nothing.
 
-        @param pco_value: The PCO string.
+        @param pco_value: The PCO list.
 
         """
         if mm1_constants.I_MODEM_3GPP in self._modem.properties:
-            self._modem.AssignPcoValue(pco_value)
+            self._modem.AssignPco(pco_value)
 
     @utils.log_dbus_method()
-    @dbus.service.method(pm_constants.I_TESTING, in_signature='uu')
+    @dbus.service.method(pm_constants.I_TESTING, in_signature='u')
     def SetSubscriptionState(self,
-                             unregistered_subscription_state,
                              registered_subscription_state):
         """
-        Sets the SubscriptionState to the specified value. If the
-        Modem.Modem3gpp properties are currently not exposed (e.g. due to a
-        locked or absent SIM), this method will do nothing.
+        Sets the Pco to something denoting the requested subscription state.
+        If the Modem.Modem3gpp properties are currently not exposed (e.g. due
+        to a locked or absent SIM), this method will do nothing.
 
-        @param unregistered_subscription_state: This value is returned as the
-                subscription state when the modem is not registered on the
-                network. See mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_*.
         @param registered_subscription_state: This value is returned as the
                 subscription state when the modem is registered on the network.
                 See mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_*.
 
         """
         if mm1_constants.I_MODEM_3GPP in self._modem.properties:
-            self._modem.AssignSubscriptionState(unregistered_subscription_state,
-                                                registered_subscription_state)
+            self._modem.AssignSubscriptionState(registered_subscription_state)

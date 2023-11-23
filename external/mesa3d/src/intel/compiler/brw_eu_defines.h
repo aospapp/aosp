@@ -41,9 +41,16 @@
 /* Using the GNU statement expression extension */
 #define SET_FIELD(value, field)                                         \
    ({                                                                   \
-      uint32_t fieldval = (value) << field ## _SHIFT;                   \
+      uint32_t fieldval = (uint32_t)(value) << field ## _SHIFT;         \
       assert((fieldval & ~ field ## _MASK) == 0);                       \
       fieldval & field ## _MASK;                                        \
+   })
+
+#define SET_BITS(value, high, low)                                      \
+   ({                                                                   \
+      const uint32_t fieldval = (uint32_t)(value) << (low);             \
+      assert((fieldval & ~INTEL_MASK(high, low)) == 0);                 \
+      fieldval & INTEL_MASK(high, low);                                 \
    })
 
 #define GET_BITS(data, high, low) ((data & INTEL_MASK((high), (low))) >> (low))
@@ -200,7 +207,7 @@ enum opcode {
    BRW_OPCODE_SHR =	8,
    BRW_OPCODE_SHL =	9,
    BRW_OPCODE_DIM =	10,  /**< Gen7.5 only */ /* Reused */
-   // BRW_OPCODE_SMOV =	10,  /**< Gen8+       */ /* Reused */
+   BRW_OPCODE_SMOV =	10,  /**< Gen8+       */ /* Reused */
    /* Reserved - 11 */
    BRW_OPCODE_ASR =	12,
    /* Reserved - 13-15 */
@@ -216,27 +223,27 @@ enum opcode {
    BRW_OPCODE_BFI2 =	26,  /**< Gen7+ */
    /* Reserved - 27-31 */
    BRW_OPCODE_JMPI =	32,
-   // BRW_OPCODE_BRD =	33,  /**< Gen7+ */
+   BRW_OPCODE_BRD =	33,  /**< Gen7+ */
    BRW_OPCODE_IF =	34,
    BRW_OPCODE_IFF =	35,  /**< Pre-Gen6    */ /* Reused */
-   // BRW_OPCODE_BRC =	35,  /**< Gen7+       */ /* Reused */
+   BRW_OPCODE_BRC =	35,  /**< Gen7+       */ /* Reused */
    BRW_OPCODE_ELSE =	36,
    BRW_OPCODE_ENDIF =	37,
    BRW_OPCODE_DO =	38,  /**< Pre-Gen6    */ /* Reused */
-   // BRW_OPCODE_CASE =	38,  /**< Gen6 only   */ /* Reused */
+   BRW_OPCODE_CASE =	38,  /**< Gen6 only   */ /* Reused */
    BRW_OPCODE_WHILE =	39,
    BRW_OPCODE_BREAK =	40,
    BRW_OPCODE_CONTINUE = 41,
    BRW_OPCODE_HALT =	42,
-   // BRW_OPCODE_CALLA =	43,  /**< Gen7.5+     */
-   // BRW_OPCODE_MSAVE =	44,  /**< Pre-Gen6    */ /* Reused */
-   // BRW_OPCODE_CALL =	44,  /**< Gen6+       */ /* Reused */
-   // BRW_OPCODE_MREST =	45,  /**< Pre-Gen6    */ /* Reused */
-   // BRW_OPCODE_RET =	45,  /**< Gen6+       */ /* Reused */
-   // BRW_OPCODE_PUSH =	46,  /**< Pre-Gen6    */ /* Reused */
-   // BRW_OPCODE_FORK =	46,  /**< Gen6 only   */ /* Reused */
-   // BRW_OPCODE_GOTO =	46,  /**< Gen8+       */ /* Reused */
-   // BRW_OPCODE_POP =	47,  /**< Pre-Gen6    */
+   BRW_OPCODE_CALLA =	43,  /**< Gen7.5+     */
+   BRW_OPCODE_MSAVE =	44,  /**< Pre-Gen6    */ /* Reused */
+   BRW_OPCODE_CALL =	44,  /**< Gen6+       */ /* Reused */
+   BRW_OPCODE_MREST =	45,  /**< Pre-Gen6    */ /* Reused */
+   BRW_OPCODE_RET =	45,  /**< Gen6+       */ /* Reused */
+   BRW_OPCODE_PUSH =	46,  /**< Pre-Gen6    */ /* Reused */
+   BRW_OPCODE_FORK =	46,  /**< Gen6 only   */ /* Reused */
+   BRW_OPCODE_GOTO =	46,  /**< Gen8+       */ /* Reused */
+   BRW_OPCODE_POP =	47,  /**< Pre-Gen6    */
    BRW_OPCODE_WAIT =	48,
    BRW_OPCODE_SEND =	49,
    BRW_OPCODE_SENDC =	50,
@@ -273,7 +280,7 @@ enum opcode {
    BRW_OPCODE_PLN =	90,  /**< G45+ */
    BRW_OPCODE_MAD =	91,  /**< Gen6+ */
    BRW_OPCODE_LRP =	92,  /**< Gen6+ */
-   // BRW_OPCODE_MADM =	93,  /**< Gen8+ */
+   BRW_OPCODE_MADM =	93,  /**< Gen8+ */
    /* Reserved 94-124 */
    BRW_OPCODE_NENOP =	125, /**< G45 only */
    BRW_OPCODE_NOP =	126,
@@ -307,6 +314,13 @@ enum opcode {
    SHADER_OPCODE_INT_REMAINDER,
    SHADER_OPCODE_SIN,
    SHADER_OPCODE_COS,
+
+   /**
+    * A generic "send" opcode.  The first two sources are the message
+    * descriptor and extended message descriptor respectively.  The third
+    * and optional fourth sources are the message payload
+    */
+   SHADER_OPCODE_SEND,
 
    /**
     * Texture sampling opcodes.
@@ -347,6 +361,8 @@ enum opcode {
    SHADER_OPCODE_SAMPLEINFO,
    SHADER_OPCODE_SAMPLEINFO_LOGICAL,
 
+   SHADER_OPCODE_IMAGE_SIZE_LOGICAL,
+
    /**
     * Combines multiple sources of size 1 into a larger virtual GRF.
     * For example, parameters for a send-from-GRF message.  Or, updating
@@ -386,18 +402,32 @@ enum opcode {
     * Source 4: [required] Opcode-specific control immediate, same as source 2
     *                      of the matching non-LOGICAL opcode.
     */
-   SHADER_OPCODE_UNTYPED_ATOMIC,
+   VEC4_OPCODE_UNTYPED_ATOMIC,
    SHADER_OPCODE_UNTYPED_ATOMIC_LOGICAL,
-   SHADER_OPCODE_UNTYPED_SURFACE_READ,
+   SHADER_OPCODE_UNTYPED_ATOMIC_FLOAT_LOGICAL,
+   VEC4_OPCODE_UNTYPED_SURFACE_READ,
    SHADER_OPCODE_UNTYPED_SURFACE_READ_LOGICAL,
-   SHADER_OPCODE_UNTYPED_SURFACE_WRITE,
+   VEC4_OPCODE_UNTYPED_SURFACE_WRITE,
    SHADER_OPCODE_UNTYPED_SURFACE_WRITE_LOGICAL,
 
-   SHADER_OPCODE_TYPED_ATOMIC,
+   /**
+    * Untyped A64 surface access opcodes.
+    *
+    * Source 0: 64-bit address
+    * Source 1: Operational source
+    * Source 2: [required] Opcode-specific control immediate, same as source 2
+    *                      of the matching non-LOGICAL opcode.
+    */
+   SHADER_OPCODE_A64_UNTYPED_READ_LOGICAL,
+   SHADER_OPCODE_A64_UNTYPED_WRITE_LOGICAL,
+   SHADER_OPCODE_A64_BYTE_SCATTERED_READ_LOGICAL,
+   SHADER_OPCODE_A64_BYTE_SCATTERED_WRITE_LOGICAL,
+   SHADER_OPCODE_A64_UNTYPED_ATOMIC_LOGICAL,
+   SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT64_LOGICAL,
+   SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT_LOGICAL,
+
    SHADER_OPCODE_TYPED_ATOMIC_LOGICAL,
-   SHADER_OPCODE_TYPED_SURFACE_READ,
    SHADER_OPCODE_TYPED_SURFACE_READ_LOGICAL,
-   SHADER_OPCODE_TYPED_SURFACE_WRITE,
    SHADER_OPCODE_TYPED_SURFACE_WRITE_LOGICAL,
 
    SHADER_OPCODE_RND_MODE,
@@ -409,9 +439,7 @@ enum opcode {
     * opcode, but instead of taking a single payload blog they expect their
     * arguments separately as individual sources, like untyped write/read.
     */
-   SHADER_OPCODE_BYTE_SCATTERED_READ,
    SHADER_OPCODE_BYTE_SCATTERED_READ_LOGICAL,
-   SHADER_OPCODE_BYTE_SCATTERED_WRITE,
    SHADER_OPCODE_BYTE_SCATTERED_WRITE_LOGICAL,
 
    SHADER_OPCODE_MEMORY_FENCE,
@@ -451,7 +479,36 @@ enum opcode {
     */
    SHADER_OPCODE_BROADCAST,
 
+   /* Pick the channel from its first source register given by the index
+    * specified as second source.
+    *
+    * This is similar to the BROADCAST instruction except that it takes a
+    * dynamic index and potentially puts a different value in each output
+    * channel.
+    */
+   SHADER_OPCODE_SHUFFLE,
+
+   /* Select between src0 and src1 based on channel enables.
+    *
+    * This instruction copies src0 into the enabled channels of the
+    * destination and copies src1 into the disabled channels.
+    */
+   SHADER_OPCODE_SEL_EXEC,
+
+   /* This turns into an align16 mov from src0 to dst with a swizzle
+    * provided as an immediate in src1.
+    */
+   SHADER_OPCODE_QUAD_SWIZZLE,
+
+   /* Take every Nth element in src0 and broadcast it to the group of N
+    * channels in which it lives in the destination.  The offset within the
+    * cluster is given by src1 and the cluster size is given by src2.
+    */
+   SHADER_OPCODE_CLUSTER_BROADCAST,
+
    SHADER_OPCODE_GET_BUFFER_SIZE,
+
+   SHADER_OPCODE_INTERLOCK,
 
    VEC4_OPCODE_MOV_BYTES,
    VEC4_OPCODE_PACK_BYTES,
@@ -472,21 +529,16 @@ enum opcode {
     */
    FS_OPCODE_DDY_COARSE,
    FS_OPCODE_DDY_FINE,
-   FS_OPCODE_CINTERP,
    FS_OPCODE_LINTERP,
    FS_OPCODE_PIXEL_X,
    FS_OPCODE_PIXEL_Y,
    FS_OPCODE_UNIFORM_PULL_CONSTANT_LOAD,
    FS_OPCODE_UNIFORM_PULL_CONSTANT_LOAD_GEN7,
    FS_OPCODE_VARYING_PULL_CONSTANT_LOAD_GEN4,
-   FS_OPCODE_VARYING_PULL_CONSTANT_LOAD_GEN7,
    FS_OPCODE_VARYING_PULL_CONSTANT_LOAD_LOGICAL,
-   FS_OPCODE_MOV_DISPATCH_TO_FLAGS,
    FS_OPCODE_DISCARD_JUMP,
    FS_OPCODE_SET_SAMPLE_ID,
    FS_OPCODE_PACK_HALF_2x16_SPLIT,
-   FS_OPCODE_UNPACK_HALF_2x16_SPLIT_X,
-   FS_OPCODE_UNPACK_HALF_2x16_SPLIT_Y,
    FS_OPCODE_PLACEHOLDER_HALT,
    FS_OPCODE_INTERPOLATE_AT_SAMPLE,
    FS_OPCODE_INTERPOLATE_AT_SHARED_OFFSET,
@@ -773,6 +825,8 @@ enum tex_logical_srcs {
    TEX_LOGICAL_SRC_LOD,
    /** dPdy if the operation takes explicit derivatives */
    TEX_LOGICAL_SRC_LOD2,
+   /** Min LOD */
+   TEX_LOGICAL_SRC_MIN_LOD,
    /** Sample index */
    TEX_LOGICAL_SRC_SAMPLE_INDEX,
    /** MCS data */
@@ -781,6 +835,10 @@ enum tex_logical_srcs {
    TEX_LOGICAL_SRC_SURFACE,
    /** Texture sampler index */
    TEX_LOGICAL_SRC_SAMPLER,
+   /** Texture surface bindless handle */
+   TEX_LOGICAL_SRC_SURFACE_HANDLE,
+   /** Texture sampler bindless handle */
+   TEX_LOGICAL_SRC_SAMPLER_HANDLE,
    /** Texel offset for gathers */
    TEX_LOGICAL_SRC_TG4_OFFSET,
    /** REQUIRED: Number of coordinate components (as UD immediate) */
@@ -789,6 +847,23 @@ enum tex_logical_srcs {
    TEX_LOGICAL_SRC_GRAD_COMPONENTS,
 
    TEX_LOGICAL_NUM_SRCS,
+};
+
+enum surface_logical_srcs {
+   /** Surface binding table index */
+   SURFACE_LOGICAL_SRC_SURFACE,
+   /** Surface bindless handle */
+   SURFACE_LOGICAL_SRC_SURFACE_HANDLE,
+   /** Surface address; could be multi-dimensional for typed opcodes */
+   SURFACE_LOGICAL_SRC_ADDRESS,
+   /** Data to be written or used in an atomic op */
+   SURFACE_LOGICAL_SRC_DATA,
+   /** Surface number of dimensions.  Affects the size of ADDRESS */
+   SURFACE_LOGICAL_SRC_IMM_DIMS,
+   /** Per-opcode immediate argument.  For atomics, this is the atomic opcode */
+   SURFACE_LOGICAL_SRC_IMM_ARG,
+
+   SURFACE_LOGICAL_NUM_SRCS
 };
 
 #ifdef __cplusplus
@@ -1125,10 +1200,23 @@ enum brw_message_target {
 #define HSW_DATAPORT_DC_PORT1_ATOMIC_COUNTER_OP                     11
 #define HSW_DATAPORT_DC_PORT1_ATOMIC_COUNTER_OP_SIMD4X2             12
 #define HSW_DATAPORT_DC_PORT1_TYPED_SURFACE_WRITE                   13
+#define GEN9_DATAPORT_DC_PORT1_A64_SCATTERED_READ                   0x10
+#define GEN8_DATAPORT_DC_PORT1_A64_UNTYPED_SURFACE_READ             0x11
+#define GEN8_DATAPORT_DC_PORT1_A64_UNTYPED_ATOMIC_OP                0x12
+#define GEN8_DATAPORT_DC_PORT1_A64_UNTYPED_SURFACE_WRITE            0x19
+#define GEN8_DATAPORT_DC_PORT1_A64_SCATTERED_WRITE                  0x1a
+#define GEN9_DATAPORT_DC_PORT1_UNTYPED_ATOMIC_FLOAT_OP              0x1b
+#define GEN9_DATAPORT_DC_PORT1_A64_UNTYPED_ATOMIC_FLOAT_OP          0x1d
 
 /* GEN9 */
 #define GEN9_DATAPORT_RC_RENDER_TARGET_WRITE                        12
 #define GEN9_DATAPORT_RC_RENDER_TARGET_READ                         13
+
+/* A64 scattered message subtype */
+#define GEN8_A64_SCATTERED_SUBTYPE_BYTE                             0
+#define GEN8_A64_SCATTERED_SUBTYPE_DWORD                            1
+#define GEN8_A64_SCATTERED_SUBTYPE_QWORD                            2
+#define GEN8_A64_SCATTERED_SUBTYPE_HWORD                            3
 
 /* Dataport special binding table indices: */
 #define BRW_BTI_STATELESS                255
@@ -1142,8 +1230,11 @@ enum brw_message_target {
  */
 #define GEN8_BTI_STATELESS_IA_COHERENT   255
 #define GEN8_BTI_STATELESS_NON_COHERENT  253
+#define GEN9_BTI_BINDLESS                252
 
-/* dataport atomic operations. */
+/* Dataport atomic operations for Untyped Atomic Integer Operation message
+ * (and others).
+ */
 #define BRW_AOP_AND                   1
 #define BRW_AOP_OR                    2
 #define BRW_AOP_XOR                   3
@@ -1159,6 +1250,11 @@ enum brw_message_target {
 #define BRW_AOP_UMIN                  13
 #define BRW_AOP_CMPWR                 14
 #define BRW_AOP_PREDEC                15
+
+/* Dataport atomic operations for Untyped Atomic Float Operation message. */
+#define BRW_AOP_FMAX                  1
+#define BRW_AOP_FMIN                  2
+#define BRW_AOP_FCMPWR                3
 
 #define BRW_MATH_FUNCTION_INV                              1
 #define BRW_MATH_FUNCTION_LOG                              2

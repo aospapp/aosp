@@ -8,8 +8,7 @@ PURPOSE = 'Verifies we can draw and capture graphics from applications.'
 CRITERIA = """
 This test fails if application screen shots cannot capture the screen output.
 """
-#TODO(pwang): crbug.com/948506, change suite:bvt-perbuild back to bvt-cq.
-ATTRIBUTES = ("suite:bvt-perbuild, suite:graphics, suite:graphics_per-day,"
+ATTRIBUTES = ("suite:bvt-cq, suite:graphics, suite:graphics_per-day,"
               "suite:graphics_system")
 TIME='SHORT'
 TEST_CATEGORY = 'Functional'

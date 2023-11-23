@@ -25,19 +25,23 @@ import itertools
 import os.path
 import re
 
-import bpf
+try:
+    import bpf
+except ImportError:
+    from minijail import bpf
+
 
 Token = collections.namedtuple(
-    'token', ['type', 'value', 'filename', 'line', 'line_number', 'column'])
+    'Token', ['type', 'value', 'filename', 'line', 'line_number', 'column'])
 
 # A regex that can tokenize a Minijail policy file line.
 _TOKEN_SPECIFICATION = (
     ('COMMENT', r'#.*$'),
     ('WHITESPACE', r'\s+'),
     ('CONTINUATION', r'\\$'),
-    ('DEFAULT', r'@default'),
-    ('INCLUDE', r'@include'),
-    ('FREQUENCY', r'@frequency'),
+    ('DEFAULT', r'@default\b'),
+    ('INCLUDE', r'@include\b'),
+    ('FREQUENCY', r'@frequency\b'),
     ('PATH', r'(?:\.)?/\S+'),
     ('NUMERIC_CONSTANT', r'-?0[xX][0-9a-fA-F]+|-?0[Oo][0-7]+|-?[0-9]+'),
     ('COLON', r':'),
@@ -53,11 +57,14 @@ _TOKEN_SPECIFICATION = (
     ('OR', r'\|\|'),
     ('AND', r'&&'),
     ('BITWISE_OR', r'\|'),
-    ('OP', r'&|in|==|!=|<=|<|>=|>'),
+    ('OP', r'&|\bin\b|==|!=|<=|<|>=|>'),
     ('EQUAL', r'='),
-    ('ARGUMENT', r'arg[0-9]+'),
-    ('RETURN', r'return'),
-    ('ACTION', r'allow|kill-process|kill-thread|kill|trap|trace|log'),
+    ('ARGUMENT', r'\barg[0-9]+\b'),
+    ('RETURN', r'\breturn\b'),
+    ('ACTION',
+     r'\ballow\b|\bkill-process\b|\bkill-thread\b|\bkill\b|\btrap\b|'
+     r'\btrace\b|\blog\b'
+    ),
     ('IDENTIFIER', r'[a-zA-Z_][a-zA-Z_0-9-@]*'),
 )
 _TOKEN_RE = re.compile('|'.join(
@@ -182,8 +189,8 @@ of the inner list are Atoms.
 Syscall = collections.namedtuple('Syscall', ['name', 'number'])
 """A system call."""
 
-ParsedFilterStatement = collections.namedtuple('ParsedFilterStatement',
-                                               ['syscalls', 'filters'])
+ParsedFilterStatement = collections.namedtuple(
+    'ParsedFilterStatement', ['syscalls', 'filters', 'token'])
 """The result of parsing a filter statement.
 
 Statements have a list of syscalls, and an associated list of filters that will
@@ -518,7 +525,10 @@ class PolicyParser:
         if not tokens:
             self._parser_state.error('missing syscall descriptor')
         syscall_descriptor = tokens.pop(0)
-        if syscall_descriptor.type != 'IDENTIFIER':
+        # `kill` as a syscall name is a special case since kill is also a valid
+        # action and actions have precendence over identifiers.
+        if (syscall_descriptor.type != 'IDENTIFIER' and
+            syscall_descriptor.value != 'kill'):
             self._parser_state.error(
                 'invalid syscall descriptor', token=syscall_descriptor)
         if tokens and tokens[0].type == 'LBRACKET':
@@ -575,11 +585,15 @@ class PolicyParser:
             self._parser_state.error('missing colon')
         if tokens[0].type != 'COLON':
             self._parser_state.error('invalid colon', token=tokens[0])
-        tokens.pop(0)
+        # Given that there can be multiple syscalls and filters in a single
+        # filter statement, use the colon token as the anchor for error location
+        # purposes.
+        colon_token = tokens.pop(0)
         parsed_filter = self.parse_filter(tokens)
         if not syscall_descriptors:
             return None
-        return ParsedFilterStatement(tuple(syscall_descriptors), parsed_filter)
+        return ParsedFilterStatement(
+            tuple(syscall_descriptors), parsed_filter, colon_token)
 
     # include-statement = '@include' , posix-path
     #                   ;
@@ -716,10 +730,12 @@ class PolicyParser:
                 filename,
                 line=self._parser_states[-1].line)
 
-        # Collapse statements into a single syscall-to-filter-list.
+        # Collapse statements into a single syscall-to-filter-list, remembering
+        # the token for each filter for better diagnostics.
         syscall_filter_mapping = {}
+        syscall_filter_definitions = {}
         filter_statements = []
-        for syscalls, filters in statements:
+        for syscalls, filters, token in statements:
             for syscall in syscalls:
                 if syscall not in syscall_filter_mapping:
                     filter_statements.append(
@@ -727,7 +743,10 @@ class PolicyParser:
                             syscall, self._frequency_mapping.get(syscall, 1),
                             []))
                     syscall_filter_mapping[syscall] = filter_statements[-1]
-                syscall_filter_mapping[syscall].filters.extend(filters)
+                    syscall_filter_definitions[syscall] = []
+                for filt in filters:
+                    syscall_filter_mapping[syscall].filters.append(filt)
+                    syscall_filter_definitions[syscall].append(token)
         default_action = self._override_default_action or self._default_action
         for filter_statement in filter_statements:
             unconditional_actions_suffix = list(
@@ -738,13 +757,22 @@ class PolicyParser:
                 # to add another one.
                 continue
             if len(unconditional_actions_suffix) > 1:
+                previous_definition_token = syscall_filter_definitions[
+                    filter_statement.syscall][
+                        -len(unconditional_actions_suffix)]
+                current_definition_token = syscall_filter_definitions[
+                    filter_statement.syscall][
+                        -len(unconditional_actions_suffix) + 1]
                 raise ParseException(
                     ('Syscall %s (number %d) already had '
                      'an unconditional action applied') %
                     (filter_statement.syscall.name,
                      filter_statement.syscall.number),
-                    filename,
-                    line=self._parser_states[-1].line)
+                    filename=current_definition_token.filename,
+                    token=current_definition_token) from ParseException(
+                        'Previous definition',
+                        filename=previous_definition_token.filename,
+                        token=previous_definition_token)
             assert not unconditional_actions_suffix
             filter_statement.filters.append(
                 Filter(expression=None, action=default_action))

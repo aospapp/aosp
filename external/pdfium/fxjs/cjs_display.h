@@ -7,14 +7,13 @@
 #ifndef FXJS_CJS_DISPLAY_H_
 #define FXJS_CJS_DISPLAY_H_
 
-#include "fxjs/JS_Define.h"
+#include "fxjs/cjs_object.h"
 
-class CJS_Display : public CJS_Object {
+class CJS_Display final : public CJS_Object {
  public:
   static void DefineJSObjects(CFXJS_Engine* pEngine);
 
-  explicit CJS_Display(v8::Local<v8::Object> pObject) : CJS_Object(pObject) {}
-  ~CJS_Display() override {}
+  CJS_Display() = delete;
 
  private:
   static int ObjDefnID;

@@ -45,6 +45,36 @@ BasicMBRData::BasicMBRData(void) {
    EmptyMBR();
 } // BasicMBRData default constructor
 
+BasicMBRData::BasicMBRData(const BasicMBRData & orig) {
+   int i;
+
+   if (&orig != this) {
+      memcpy(code, orig.code, 440);
+      diskSignature = orig.diskSignature;
+      nulls = orig.nulls;
+      MBRSignature = orig.MBRSignature;
+      blockSize = orig.blockSize;
+      diskSize = orig.diskSize;
+      numHeads = orig.numHeads;
+      numSecspTrack = orig.numSecspTrack;
+      canDeleteMyDisk = orig.canDeleteMyDisk;
+      device = orig.device;
+      state = orig.state;
+
+      myDisk = new DiskIO;
+      if (myDisk == NULL) {
+         cerr << "Unable to allocate memory in BasicMBRData copy constructor! Terminating!\n";
+         exit(1);
+      } // if
+      if (orig.myDisk != NULL)
+         myDisk->OpenForRead(orig.myDisk->GetName());
+
+      for (i = 0; i < MAX_MBR_PARTS; i++) {
+         partitions[i] = orig.partitions[i];
+      } // for
+   } // if
+} // BasicMBRData copy constructor
+
 BasicMBRData::BasicMBRData(string filename) {
    blockSize = SECTOR_SIZE;
    diskSize = 0;
@@ -75,29 +105,31 @@ BasicMBRData::~BasicMBRData(void) {
 BasicMBRData & BasicMBRData::operator=(const BasicMBRData & orig) {
    int i;
 
-   memcpy(code, orig.code, 440);
-   diskSignature = orig.diskSignature;
-   nulls = orig.nulls;
-   MBRSignature = orig.MBRSignature;
-   blockSize = orig.blockSize;
-   diskSize = orig.diskSize;
-   numHeads = orig.numHeads;
-   numSecspTrack = orig.numSecspTrack;
-   canDeleteMyDisk = orig.canDeleteMyDisk;
-   device = orig.device;
-   state = orig.state;
+   if (&orig != this) {
+      memcpy(code, orig.code, 440);
+      diskSignature = orig.diskSignature;
+      nulls = orig.nulls;
+      MBRSignature = orig.MBRSignature;
+      blockSize = orig.blockSize;
+      diskSize = orig.diskSize;
+      numHeads = orig.numHeads;
+      numSecspTrack = orig.numSecspTrack;
+      canDeleteMyDisk = orig.canDeleteMyDisk;
+      device = orig.device;
+      state = orig.state;
 
-   myDisk = new DiskIO;
-   if (myDisk == NULL) {
-      cerr << "Unable to allocate memory in BasicMBRData::operator=()! Terminating!\n";
-      exit(1);
+      myDisk = new DiskIO;
+      if (myDisk == NULL) {
+         cerr << "Unable to allocate memory in BasicMBRData::operator=()! Terminating!\n";
+         exit(1);
+      } // if
+      if (orig.myDisk != NULL)
+         myDisk->OpenForRead(orig.myDisk->GetName());
+
+      for (i = 0; i < MAX_MBR_PARTS; i++) {
+         partitions[i] = orig.partitions[i];
+      } // for
    } // if
-   if (orig.myDisk != NULL)
-      myDisk->OpenForRead(orig.myDisk->GetName());
-
-   for (i = 0; i < MAX_MBR_PARTS; i++) {
-      partitions[i] = orig.partitions[i];
-   } // for
    return *this;
 } // BasicMBRData::operator=()
 
@@ -298,7 +330,7 @@ int BasicMBRData::ReadLogicalParts(uint64_t extendedStart, int partNum) {
          // the logical partition when this is the case....
          ebrType = ebr.partitions[0].partitionType;
          if ((ebrType == 0x05) || (ebrType == 0x0f) || (ebrType == 0x85)) {
-            cout << "EBR describes a logical partition!\n";
+            cout << "EBR points to an EBR!\n";
             offset = extendedStart + ebr.partitions[0].firstLBA;
          } else {
             // Copy over the basic data....
@@ -1499,11 +1531,11 @@ uint64_t BasicMBRData::GetFirstSector(int i) {
    uint64_t retval;
 
    thePart = GetPartition(i);
-   if (thePart != NULL) {
+   if (thePart != NULL)
       retval = thePart->GetStartLBA();
-   } else
+   else
       retval = UINT32_C(0);
-      return retval;
+   return retval;
 } // BasicMBRData::GetFirstSector()
 
 uint64_t BasicMBRData::GetLength(int i) {
@@ -1511,11 +1543,11 @@ uint64_t BasicMBRData::GetLength(int i) {
    uint64_t retval;
 
    thePart = GetPartition(i);
-   if (thePart != NULL) {
+   if (thePart != NULL)
       retval = thePart->GetLengthLBA();
-   } else
+   else
       retval = UINT64_C(0);
-      return retval;
+   return retval;
 } // BasicMBRData::GetLength()
 
 /***********************

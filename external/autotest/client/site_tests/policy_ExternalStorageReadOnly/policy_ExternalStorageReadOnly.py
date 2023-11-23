@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
 import os
 
 from autotest_lib.client.bin import utils
@@ -21,7 +20,8 @@ class policy_ExternalStorageReadOnly(
         'NotSet_Allow': None
     }
 
-    TEST_FILE = os.path.join(os.sep, 'media', 'removable', 'STATE', 'test')
+    TEST_DIR = os.path.join(os.sep, 'media', 'removable', 'STATE')
+    TEST_FILE = os.path.join(TEST_DIR, 'test')
 
     def cleanup(self):
         """Delete the test file, if it was created."""
@@ -32,7 +32,6 @@ class policy_ExternalStorageReadOnly(
             pass
 
         super(policy_ExternalStorageReadOnly, self).cleanup()
-
 
     def _test_external_storage(self, policy_value):
         """
@@ -48,17 +47,17 @@ class policy_ExternalStorageReadOnly(
 
         """
         # Attempt to modify the external storage by creating a file.
-        try:
-            return_code = utils.run('touch %s' % self.TEST_FILE)
-        except error.CmdError:
-            if not policy_value:
-                raise error.TestFail('External storage not readonly but '
-                                     'unable to write to storage')
-        else:
-            if policy_value:
-                raise error.TestFail('External storage was readonly but '
-                                     'external storage was modified')
-
+        if not os.path.isdir(self.TEST_DIR):
+            raise error.TestWarn('USB Missing. Exiting')
+        if os.path.isfile(self.TEST_FILE):
+            raise error.TestWarn('Test file existed prior to test.')
+        utils.run('touch %s' % self.TEST_FILE, ignore_status=True)
+        if policy_value and os.path.isfile(self.TEST_FILE):
+            raise error.TestFail('External storage set to read-only but '
+                                 'was able to write to storage.')
+        elif not policy_value and not os.path.isfile(self.TEST_FILE):
+            raise error.TestFail('External storage not read-only but '
+                                 'unable to write to storage.')
 
     def run_once(self, case):
         """

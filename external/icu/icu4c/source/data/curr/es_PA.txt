@@ -8,5 +8,5 @@ es_PA{
             "balboa panameño",
         }
     }
-    Version{"2.1.38.39"}
+    Version{"36.1"}
 }

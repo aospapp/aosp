@@ -32,8 +32,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", "scrip
 from build.common import DEQP_DIR
 from khr_util.format import indentLines, writeInlFile
 
-VULKAN_H	= os.path.join(os.path.dirname(__file__), "src", "vulkan.h.in")
-VULKAN_DIR	= os.path.join(os.path.dirname(__file__), "..", "framework", "vulkan")
+VULKAN_H_DIR	= os.path.join(os.path.dirname(__file__), "src")
+VULKAN_DIR		= os.path.join(os.path.dirname(__file__), "..", "framework", "vulkan")
 
 INL_HEADER = """\
 /* WARNING: This is auto-generated file. Do not modify, since changes will
@@ -42,12 +42,10 @@ INL_HEADER = """\
 """
 
 DEFINITIONS			= [
-	("VK_API_VERSION_1_0",					"deUint32"),
-	("VK_API_VERSION_1_1",					"deUint32"),
 	("VK_MAX_PHYSICAL_DEVICE_NAME_SIZE",	"size_t"),
 	("VK_MAX_EXTENSION_NAME_SIZE",			"size_t"),
-	("VK_MAX_DRIVER_NAME_SIZE_KHR",			"size_t"),
-	("VK_MAX_DRIVER_INFO_SIZE_KHR",			"size_t"),
+	("VK_MAX_DRIVER_NAME_SIZE",				"size_t"),
+	("VK_MAX_DRIVER_INFO_SIZE",				"size_t"),
 	("VK_UUID_SIZE",						"size_t"),
 	("VK_LUID_SIZE",						"size_t"),
 	("VK_MAX_MEMORY_TYPES",					"size_t"),
@@ -93,9 +91,16 @@ PLATFORM_TYPES		= [
 	(["HANDLE"],							["Win32Handle"],				"void*"),
 	(["const", "SECURITY_ATTRIBUTES", "*"],	["Win32SecurityAttributesPtr"],	"const void*"),
 	(["AHardwareBuffer", "*"],				["AndroidHardwareBufferPtr"],	"void*"),
+	(["HMONITOR"],							["Win32MonitorHandle"],			"void*"),
+	(["LPCWSTR"],							["Win32LPCWSTR"],				"const void*"),
 
 	# VK_EXT_acquire_xlib_display
-	(["RROutput"],							["RROutput"],					"void*")
+	(["RROutput"],							["RROutput"],					"void*"),
+
+	(["zx_handle_t"],						["zx_handle_t"],				"deInt32"),
+	(["GgpFrameToken"],						["GgpFrameToken"],				"deInt32"),
+	(["GgpStreamDescriptor"],				["GgpStreamDescriptor"],		"deInt32"),
+	(["CAMetalLayer"],						["CAMetalLayer"],				"void*"),
 ]
 
 PLATFORM_TYPE_NAMESPACE	= "pt"
@@ -115,11 +120,10 @@ TYPE_SUBSTITUTIONS		= [
 	# Platform-specific
 	("DWORD",		"deUint32"),
 	("HANDLE*",		PLATFORM_TYPE_NAMESPACE + "::" + "Win32Handle*"),
-	("LPCWSTR",		"char*"),
 ]
 
-EXTENSION_POSTFIXES				= ["KHR", "EXT", "NV", "NVX", "KHX", "NN", "MVK"]
-EXTENSION_POSTFIXES_STANDARD	= ["KHR"]
+EXTENSION_POSTFIXES				= ["KHR", "EXT", "NV", "NVX", "KHX", "NN", "MVK", "FUCHSIA", "GGP", "AMD"]
+EXTENSION_POSTFIXES_STANDARD	= ["KHR", "EXT"]
 
 def prefixName (prefix, name):
 	name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', name[2:])
@@ -137,7 +141,20 @@ def prefixName (prefix, name):
 	name = name.replace("TEXTURE_LOD", "TEXTURE_LOD_")
 	name = name.replace("VIEWPORT_W", "VIEWPORT_W_")
 	name = name.replace("_IDPROPERTIES", "_ID_PROPERTIES")
-	name = name.replace("PHYSICAL_DEVICE_FLOAT_16_INT_8_FEATURES", "PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES")
+	name = name.replace("PHYSICAL_DEVICE_SHADER_FLOAT_16_INT_8_FEATURES", "PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES")
+	name = name.replace("_PCIBUS_", "_PCI_BUS_")
+	name = name.replace("ASTCD", "ASTC_D")
+	name = name.replace("AABBNV", "AABB_NV")
+	name = name.replace("IMAGE_PIPE", "IMAGEPIPE")
+	name = name.replace("SMBUILTINS", "SM_BUILTINS")
+	name = name.replace("ASTCHDRFEATURES", "ASTC_HDR_FEATURES")
+	name = name.replace("UINT_8", "UINT8")
+	name = name.replace("VULKAN_11_FEATURES", "VULKAN_1_1_FEATURES")
+	name = name.replace("VULKAN_11_PROPERTIES", "VULKAN_1_1_PROPERTIES")
+	name = name.replace("VULKAN_12_FEATURES", "VULKAN_1_2_FEATURES")
+	name = name.replace("VULKAN_12_PROPERTIES", "VULKAN_1_2_PROPERTIES")
+	name = name.replace("INT_8_", "INT8_")
+	name = name.replace("AABBNV", "AABB_NV")
 
 	return prefix + name
 
@@ -148,20 +165,14 @@ class Version:
 		self.patch = versionTuple[2]
 
 	def getInHex (self):
-		if self.major == 1 and self.minor == 0 and self.patch == 0:
-			return "VK_API_VERSION_1_0"
-		elif self.major == 1 and self.minor == 1 and self.patch == 0:
-			return "VK_API_VERSION_1_1"
-		else:
-			hex = (self.major << 22) | (self.minor << 12) | self.patch
-			return '0x%Xu' % (hex)
+		if self.patch == 0:
+			return "VK_API_VERSION_%d_%d" % (self.major, self.minor)
+		return '0x%Xu' % (hash(self))
 
 	def isStandardVersion (self):
 		if self.patch != 0:
 			return False
 		if self.major != 1:
-			return False
-		if self.minor != 1 and self.minor != 0:
 			return False
 		return True
 
@@ -266,8 +277,8 @@ class Variable:
 		self.arraySize	= arraySize
 
 	def contains(self, big, small):
-		for i in xrange(len(big)-len(small)+1):
-			for j in xrange(len(small)):
+		for i in range(len(big)-len(small)+1):
+			for j in range(len(small)):
 				if big[i+j] != small[j]:
 					break
 			else:
@@ -381,7 +392,8 @@ class Extension:
 		return 'EXT:\n%s ->\nENUMS:\n%s\nCOMPOS:\n%s\nFUNCS:\n%s\nBITF:\n%s\nHAND:\n%s\nDEFS:\n%s\n' % (self.name, self.enums, self.compositeTypes, self.functions, self.bitfields, self.handles, self.definitions, self.versionInCore)
 
 class API:
-	def __init__ (self, definitions, handles, enums, bitfields, compositeTypes, functions, extensions):
+	def __init__ (self, versions, definitions, handles, enums, bitfields, compositeTypes, functions, extensions):
+		self.versions		= versions
 		self.definitions	= definitions
 		self.handles		= handles
 		self.enums			= enums
@@ -391,7 +403,7 @@ class API:
 		self.extensions		= extensions
 
 def readFile (filename):
-	with open(filename, 'rb') as f:
+	with open(filename, 'rt') as f:
 		return f.read()
 
 IDENT_PTRN	= r'[a-zA-Z_][a-zA-Z0-9_]*'
@@ -436,7 +448,6 @@ def getBitfieldNameForBitEnum (bitEnumName):
 def parsePreprocDefinedValue (src, name):
 	value = parsePreprocDefinedValueOptional(src, name)
 	if value is None:
-
 		raise Exception("No such definition: %s" % name)
 	return value
 
@@ -450,7 +461,7 @@ def parsePreprocDefinedValueOptional (src, name):
 	return value
 
 def parseEnum (name, src):
-	keyValuePtrn	= '(' + IDENT_PTRN + r')\s*=\s*([^\s,}]+)\s*[,}]'
+	keyValuePtrn	= '(' + IDENT_PTRN + r')\s*=\s*([^\s,\n}]+)\s*[,\n}]'
 	matches			= re.findall(keyValuePtrn, src)
 
 	return Enum(name, fixupEnumValues(matches))
@@ -479,6 +490,14 @@ def parseCompositeTypes (src):
 		types.append(parseCompositeType(typeMap[type], typename, contents))
 	return types
 
+def parseVersions (src):
+	# returns list of tuples each with four items:
+	# 1. string with version token (without ' 1' at the end)
+	# 2. starting point off version specific definitions in vulkan.h.in
+	# 3. major version number
+	# 4. minor version number
+	return [(m.group()[:-2], m.start(), int(m.group(1)), int(m.group(2))) for m in re.finditer('VK_VERSION_([1-9])_([0-9]) 1', src)]
+
 def parseHandles (src):
 	matches	= re.findall(r'VK_DEFINE(_NON_DISPATCHABLE|)_HANDLE\((' + IDENT_PTRN + r')\)[ \t]*[\n\r]', src)
 	handles	= []
@@ -502,16 +521,15 @@ def removeTypeExtPostfix (name):
 			return name[0:-len(extPostfix)]
 	return None
 
-def populateAliases (objects):
-	objectsByName = {}
-	for object in objects:
-		objectsByName[object.name] = object
-	for object in objects:
+def populateExtensionAliases(allObjects, extensionObjects):
+	for object in extensionObjects:
 		withoutPostfix = removeTypeExtPostfix(object.name)
-		if withoutPostfix != None and withoutPostfix in objectsByName:
-			objectsByName[withoutPostfix].alias = object
+		if withoutPostfix != None and withoutPostfix in allObjects:
+			# max 1 alias is assumed by functions in this file
+			assert allObjects[withoutPostfix].alias == None
+			allObjects[withoutPostfix].alias = object
 			object.isAlias = True
-	for object in objects:
+	for object in extensionObjects:
 		object.checkAliasValidity()
 
 def populateAliasesWithTypedefs (objects, src):
@@ -555,30 +573,33 @@ def parseFunctions (src):
 		functions.append(Function(name.strip(), returnType.strip(), parseArgList(argList)))
 	return functions
 
-def parseFunctionsByVersion (src):
-	ptrnVer10	= 'VK_VERSION_1_0 1'
-	ptrnVer11	= 'VK_VERSION_1_1 1'
-	matchVer10	= re.search(ptrnVer10, src)
-	matchVer11	= re.search(ptrnVer11, src)
+def parseFunctionsByVersion (src, versions):
+	# construct list of locations where version definitions start, and add the end of the file to it
+	sectionLocations = [versionDef[1] for versionDef in versions]
+	sectionLocations.append(len(src))
+
+	# construct function declaration pattern
 	ptrn		= r'VKAPI_ATTR\s+(' + TYPE_PTRN + ')\s+VKAPI_CALL\s+(' + IDENT_PTRN + r')\s*\(([^)]*)\)\s*;'
 	regPtrn		= re.compile(ptrn)
-	matches		= regPtrn.findall(src, matchVer10.start(), matchVer11.start())
 	functions	= []
-	for returnType, name, argList in matches:
-		functions.append(Function(name.strip(), returnType.strip(), parseArgList(argList), 'VK_VERSION_1_0'))
-	matches		= regPtrn.findall(src, matchVer11.start())
-	for returnType, name, argList in matches:
-		functions.append(Function(name.strip(), returnType.strip(), parseArgList(argList), 'VK_VERSION_1_1'))
+
+	# iterate over all versions and find all function definitions
+	for index, v in enumerate(versions):
+		matches = regPtrn.findall(src, sectionLocations[index], sectionLocations[index+1])
+		for returnType, name, argList in matches:
+			functions.append(Function(name.strip(), returnType.strip(), parseArgList(argList), v[0]))
 	return functions
 
 def splitByExtension (src):
 	ptrn		= r'#define\s+[A-Z0-9_]+_EXTENSION_NAME\s+"([^"]+)"'
+	# Construct long pattern that will be used to split whole source by extensions
 	match		= "#define\s+("
 	for part in re.finditer(ptrn, src):
 		 match += part.group(1)+"|"
 	match = match[:-1] + ")\s+1"
 	parts = re.split(match, src)
-	# First part is core
+
+	# First part is core, following tuples contain extension name and all its definitions
 	byExtension	= [(None, parts[0])]
 	for ndx in range(1, len(parts), 2):
 		byExtension.append((parts[ndx], parts[ndx+1]))
@@ -589,10 +610,12 @@ def parseDefinitions (extensionName, src):
 	def skipDefinition (extensionName, definition):
 		if extensionName == None:
 			return True
+		extNameUpper = extensionName.upper()
+		extNameUpper = extNameUpper.replace("VK_INTEL_SHADER_INTEGER_FUNCTIONS2", "VK_INTEL_SHADER_INTEGER_FUNCTIONS_2")
 		# SPEC_VERSION enums
-		if definition[0].startswith(extensionName.upper()) and definition[1].isdigit():
+		if definition[0].startswith(extNameUpper) and definition[1].isdigit():
 			return False
-		if definition[0].startswith(extensionName.upper()):
+		if definition[0].startswith(extNameUpper):
 			return True
 		if definition[1].isdigit():
 			return True
@@ -603,17 +626,21 @@ def parseDefinitions (extensionName, src):
 
 	return [Definition(None, match[0], match[1]) for match in matches if not skipDefinition(extensionName, match)]
 
-def parseExtensions (src, allFunctions, allCompositeTypes, allEnums, allBitfields, allHandles, allDefinitions):
+def parseExtensions (src, versions, allFunctions, allCompositeTypes, allEnums, allBitfields, allHandles, allDefinitions):
 
-	def getCoreVersion (extensionTuple):
-		if not extensionTuple[0]:
+	def getCoreVersion (extensionName, extensionsData):
+		# returns None when extension was not added to core for any Vulkan version
+		# returns array containing DEVICE or INSTANCE string followed by the vulkan version in which this extension is core
+		# note that this function is also called for vulkan 1.0 source for which extName is None
+		if not extensionName:
 			return None
-		ptrn		= r'\/\/\s*' + extensionTuple[0] + r'\s+(DEVICE|INSTANCE)\s+([0-9_]+)'
-		coreVersion = re.search(ptrn, extensionTuple[1], re.I)
+		ptrn		= extensionName + r'\s+(DEVICE|INSTANCE)\s+([0-9_]+)'
+		coreVersion = re.search(ptrn, extensionsData, re.I)
 		if coreVersion != None:
 			return [coreVersion.group(1)] + [int(number) for number in coreVersion.group(2).split('_')[:3]]
 		return None
 
+	extensionsData			= readFile(os.path.join(VULKAN_H_DIR, "extensions_data.txt"))
 	splitSrc				= splitByExtension(src)
 	extensions				= []
 	functionsByName			= {function.name: function for function in allFunctions}
@@ -624,7 +651,8 @@ def parseExtensions (src, allFunctions, allCompositeTypes, allEnums, allBitfield
 	definitionsByName		= {definition.name: definition for definition in allDefinitions}
 
 	for extensionName, extensionSrc in splitSrc:
-		definitions			= [Definition(type, name, parsePreprocDefinedValueOptional(extensionSrc, name)) for name, type in DEFINITIONS]
+		definitions			= [Definition("deUint32", v.getInHex(), parsePreprocDefinedValueOptional(extensionSrc, v.getInHex())) for v in versions]
+		definitions.extend([Definition(type, name, parsePreprocDefinedValueOptional(extensionSrc, name)) for name, type in DEFINITIONS])
 		definitions			= [definition for definition in definitions if definition.value != None]
 		additionalDefinitions = parseDefinitions(extensionName, extensionSrc)
 		handles				= parseHandles(extensionSrc)
@@ -635,13 +663,21 @@ def parseExtensions (src, allFunctions, allCompositeTypes, allEnums, allBitfield
 		enumBitfieldNames	= [getBitEnumNameForBitfield(name) for name in bitfieldNames]
 		enums				= [enum for enum in rawEnums if enum.name not in enumBitfieldNames]
 
-		extCoreVersion		= getCoreVersion((extensionName, extensionSrc))
+		extCoreVersion		= getCoreVersion(extensionName, extensionsData)
 		extFunctions		= [functionsByName[function.name] for function in functions]
 		extCompositeTypes	= [compositeTypesByName[compositeType.name] for compositeType in compositeTypes]
 		extEnums			= [enumsByName[enum.name] for enum in enums]
 		extBitfields		= [bitfieldsByName[bitfieldName] for bitfieldName in bitfieldNames]
 		extHandles			= [handlesByName[handle.name] for handle in handles]
 		extDefinitions		= [definitionsByName[definition.name] for definition in definitions]
+
+		if extCoreVersion != None:
+			populateExtensionAliases(functionsByName, extFunctions)
+			populateExtensionAliases(handlesByName, extHandles)
+			populateExtensionAliases(enumsByName, extEnums)
+			populateExtensionAliases(bitfieldsByName, extBitfields)
+			populateExtensionAliases(compositeTypesByName, extCompositeTypes)
+
 
 		extensions.append(Extension(extensionName, extHandles, extEnums, extBitfields, extCompositeTypes, extFunctions, extDefinitions, additionalDefinitions, extCoreVersion))
 	return extensions
@@ -653,7 +689,11 @@ def parseBitfieldNames (src):
 	return matches
 
 def parseAPI (src):
-	definitions		= [Definition(type, name, parsePreprocDefinedValue(src, name)) for name, type in DEFINITIONS]
+	versionsData = parseVersions(src)
+	versions     = [Version((v[2], v[3], 0)) for v in versionsData]
+	definitions	 = [Definition("deUint32", v.getInHex(), parsePreprocDefinedValue(src, v.getInHex())) for v in versions]
+	definitions.extend([Definition(type, name, parsePreprocDefinedValue(src, name)) for name, type in DEFINITIONS])
+
 	handles			= parseHandles(src)
 	rawEnums		= parseEnums(src)
 	bitfieldNames	= parseBitfieldNames(src)
@@ -661,7 +701,7 @@ def parseAPI (src):
 	bitfields		= []
 	bitfieldEnums	= set([getBitEnumNameForBitfield(n) for n in bitfieldNames if getBitEnumNameForBitfield(n) in [enum.name for enum in rawEnums]])
 	compositeTypes	= parseCompositeTypes(src)
-	allFunctions	= parseFunctionsByVersion(src)
+	allFunctions	= parseFunctionsByVersion(src, versionsData)
 
 	for enum in rawEnums:
 		if enum.name in bitfieldEnums:
@@ -674,23 +714,18 @@ def parseAPI (src):
 			# Add empty bitfield
 			bitfields.append(Bitfield(bitfieldName, []))
 
+	extensions = parseExtensions(src, versions, allFunctions, compositeTypes, enums, bitfields, handles, definitions)
+
 	# Populate alias fields
 	populateAliasesWithTypedefs(compositeTypes, src)
 	populateAliasesWithTypedefs(enums, src)
 	populateAliasesWithTypedefs(bitfields, src)
-	populateAliases(allFunctions)
-	populateAliases(handles)
-	populateAliases(enums)
-	populateAliases(bitfields)
-	populateAliases(compositeTypes)
-
 
 	for enum in enums:
 		removeAliasedValues(enum)
 
-	extensions			= parseExtensions(src, allFunctions, compositeTypes, enums, bitfields, handles, definitions)
-
 	return API(
+		versions		= versions,
 		definitions		= definitions,
 		handles			= handles,
 		enums			= enums,
@@ -749,21 +784,33 @@ def parseInt (value):
 def areEnumValuesLinear (enum):
 	curIndex = 0
 	for name, value in enum.values:
-		if parseInt(value) != curIndex:
-			return False
-		curIndex += 1
+		if value[:2] != "VK":
+			intValue = parseInt(value)
+			if intValue != curIndex:
+				# consider enums containing *_MAX_ENUM = 0x7FFFFFFF as linear
+				if intValue == 0x7FFFFFFF:
+					return True
+				return False
+			curIndex += 1
 	return True
 
 def genEnumSrc (enum):
 	yield "enum %s" % enum.name
 	yield "{"
 
-	for line in indentLines(["\t%s\t= %s," % v for v in enum.values]):
-		yield line
-
+	lines = ["\t%s\t= %s," % v for v in enum.values]
 	if areEnumValuesLinear(enum):
-		yield ""
-		yield "\t%s_LAST" % getEnumValuePrefix(enum)
+		lastItem = "\t%s_LAST," % getEnumValuePrefix(enum)
+		if parseInt(enum.values[-1][1]) == 0x7FFFFFFF:
+			# if last enum item is *_MAX_ENUM then we need to make sure
+			# it stays last entry also if we append *_LAST to generated
+			# source (without this value of *_LAST won't be correct)
+			lines.insert(-1, lastItem)
+		else:
+			lines.append(lastItem)
+
+	for line in indentLines(lines):
+		yield line
 
 	yield "};"
 
@@ -802,8 +849,14 @@ def genHandlesSrc (handles):
 	for line in indentLines(genLines(handles)):
 		yield line
 
+def stripTrailingComment(str):
+	index = str.find("//")
+	if index == -1:
+		return str
+	return str[:index]
+
 def genDefinitionsSrc (definitions):
-	for line in ["#define %s\t(static_cast<%s>\t(%s))" % (definition.name, definition.type, definition.value) for definition in definitions]:
+	for line in ["#define %s\t(static_cast<%s>\t(%s))" % (definition.name, definition.type, stripTrailingComment(definition.value)) for definition in definitions]:
 		yield line
 
 def genDefinitionsAliasSrc (definitions):
@@ -812,12 +865,27 @@ def genDefinitionsAliasSrc (definitions):
 			raise Exception("Value of %s (%s) is different than core definition value %s (%s)." % (definition.name, definition.value, definitions[definition].name, definitions[definition].value))
 		yield line
 
+def genMaxFrameworkVersion (definitions):
+	maxApiVersionMajor = 1
+	maxApiVersionMinor = 0
+	for definition in definitions:
+		match = re.match("VK_API_VERSION_(\d+)_(\d+)", definition.name)
+		if match:
+			apiVersionMajor = int(match.group(1))
+			apiVersionMinor = int(match.group(2))
+			if apiVersionMajor > maxApiVersionMajor:
+				maxApiVersionMajor = apiVersionMajor
+				maxApiVersionMinor = apiVersionMinor
+			elif apiVersionMajor == maxApiVersionMajor and apiVersionMinor > maxApiVersionMinor:
+				maxApiVersionMinor = apiVersionMinor
+	yield "#define VK_API_MAX_FRAMEWORK_VERSION\tVK_API_VERSION_%d_%d" % (maxApiVersionMajor, maxApiVersionMinor)
+
 def writeBasicTypes (api, filename):
 
 	def gen ():
 		definitionsCore, definitionDuplicates = splitUniqueAndDuplicatedEntries(api.definitions)
 
-		for line in indentLines(chain(genDefinitionsSrc(definitionsCore), genDefinitionsAliasSrc(definitionDuplicates))):
+		for line in indentLines(chain(genDefinitionsSrc(definitionsCore), genMaxFrameworkVersion(definitionsCore), genDefinitionsAliasSrc(definitionDuplicates))):
 			yield line
 		yield ""
 
@@ -853,6 +921,10 @@ def writeCompositeTypes (api, filename):
 			if not type.isAlias:
 				for line in genCompositeTypeSrc(type):
 					yield line
+			else:
+				for type2 in api.compositeTypes:
+					if type2.alias == type:
+						yield "typedef %s %s;" % (type2.name, type.name)
 			yield ""
 
 	writeInlFile(filename, INL_HEADER, gen())
@@ -973,7 +1045,7 @@ def writeStrUtilImpl (api, filename):
 			yield "{"
 			yield "\tswitch (value)"
 			yield "\t{"
-			for line in indentLines(["\t\tcase %s:\treturn \"%s\";" % (n, n) for n, v in enum.values] + ["\t\tdefault:\treturn DE_NULL;"]):
+			for line in indentLines(["\t\tcase %s:\treturn \"%s\";" % (n, n) for n, v in enum.values if v[:2] != "VK"] + ["\t\tdefault:\treturn DE_NULL;"]):
 				yield line
 			yield "\t}"
 			yield "}"
@@ -1012,6 +1084,8 @@ def writeStrUtilImpl (api, filename):
 						valFmt = "get%sStr(value.%s)" % (member.getType()[2:], member.name)
 					elif member.getType() == "const char*" or member.getType() == "char*":
 						valFmt = "getCharPtrStr(value.%s)" % member.name
+					elif member.getType() == PLATFORM_TYPE_NAMESPACE + "::Win32LPCWSTR":
+						valFmt = "getWStr(value.%s)" % member.name
 					elif member.arraySize != '':
 						if member.name in ["extensionName", "deviceName", "layerName", "description"]:
 							valFmt = "(const char*)value.%s" % member.name
@@ -1137,7 +1211,7 @@ def writeRefUtilImpl (api, filename):
 def writeStructTraitsImpl (api, filename):
 	def gen ():
 		for type in api.compositeTypes:
-			if type.getClassName() == "struct" and type.members[0].name == "sType" and not type.isAlias:
+			if type.getClassName() == "struct" and type.members[0].name == "sType" and not type.isAlias and type.name != "VkBaseOutStructure" and type.name != "VkBaseInStructure":
 				yield "template<> VkStructureType getStructureType<%s> (void)" % type.name
 				yield "{"
 				yield "\treturn %s;" % prefixName("VK_STRUCTURE_TYPE_", type.name)
@@ -1151,6 +1225,7 @@ def writeNullDriverImpl (api, filename):
 		specialFuncNames	= [
 				"vkCreateGraphicsPipelines",
 				"vkCreateComputePipelines",
+				"vkCreateRayTracingPipelinesNV",
 				"vkGetInstanceProcAddr",
 				"vkGetDeviceProcAddr",
 				"vkEnumeratePhysicalDevices",
@@ -1351,10 +1426,94 @@ def writeSupportedExtenions(api, filename):
 	""] + removeVersionDefines(versionSet)
 	writeInlFile(filename, INL_HEADER, lines)
 
-def writeCoreFunctionalities(api, filename):
-	functionOriginValues = ["FUNCTIONORIGIN_PLATFORM", "FUNCTIONORIGIN_INSTANCE", "FUNCTIONORIGIN_DEVICE"]
+def writeExtensionFunctions (api, filename):
 
-	lines = addVersionDefines([Version((1, 0, 0)), Version((1, 1, 0))]) + [
+	def isInstanceExtension (ext):
+		if ext.name and ext.functions:
+			if ext.functions[0].getType() == Function.TYPE_INSTANCE:
+				return True
+			else:
+				return False
+
+	def isDeviceExtension (ext):
+		if ext.name and ext.functions:
+			if ext.functions[0].getType() == Function.TYPE_DEVICE:
+				return True
+			else:
+				return False
+
+	def writeExtensionNameArrays ():
+		instanceExtensionNames = []
+		deviceExtensionNames = []
+		for ext in api.extensions:
+			if ext.name and isInstanceExtension(ext):
+				instanceExtensionNames += [ext.name]
+			elif ext.name and isDeviceExtension(ext):
+				deviceExtensionNames += [ext.name]
+		yield '::std::string instanceExtensionNames[] =\n{'
+		for instanceExtName in instanceExtensionNames:
+			if (instanceExtName == instanceExtensionNames[len(instanceExtensionNames) - 1]):
+				yield '\t"%s"' % instanceExtName
+			else:
+				yield '\t"%s",' % instanceExtName
+		yield '};\n'
+		yield '::std::string deviceExtensionNames[] =\n{'
+		for deviceExtName in deviceExtensionNames:
+			if (deviceExtName == deviceExtensionNames[len(deviceExtensionNames) - 1]):
+				yield '\t"%s"' % deviceExtName
+			else:
+				yield '\t"%s",' % deviceExtName
+		yield '};'
+
+	def writeExtensionFunctions (functionType):
+		isFirstWrite = True
+		dg_list = []	# Device groups functions need special casing, as Vulkan 1.0 keeps them in VK_KHR_device_groups whereas 1.1 moved them into VK_KHR_swapchain
+		if functionType == Function.TYPE_INSTANCE:
+			yield 'void getInstanceExtensionFunctions (deUint32 apiVersion, ::std::string extName, ::std::vector<const char*>& functions)\n{'
+			dg_list = ["vkGetPhysicalDevicePresentRectanglesKHR"]
+		elif functionType == Function.TYPE_DEVICE:
+			yield 'void getDeviceExtensionFunctions (deUint32 apiVersion, ::std::string extName, ::std::vector<const char*>& functions)\n{'
+			dg_list = ["vkGetDeviceGroupPresentCapabilitiesKHR", "vkGetDeviceGroupSurfacePresentModesKHR", "vkAcquireNextImage2KHR"]
+		for ext in api.extensions:
+			funcNames = []
+			if ext.name:
+				for func in ext.functions:
+					if func.getType() == functionType:
+						funcNames.append(func.name)
+			if (funcNames):
+				yield ('\tif (extName == "%s")' % ext.name) if isFirstWrite else  ('\telse if (extName == "%s")' % ext.name)
+				if (len(funcNames) > 0):
+					yield "\t{"
+				for funcName in funcNames:
+					if funcName in dg_list:
+						yield '\t\tif(apiVersion >= VK_API_VERSION_1_1) functions.push_back("%s");' % funcName
+					else:
+						yield '\t\tfunctions.push_back("%s");' % funcName
+				if ext.name == "VK_KHR_device_group":
+					for dg_func in dg_list:
+						yield '\t\tif(apiVersion < VK_API_VERSION_1_1) functions.push_back("%s");' % dg_func
+				if (len(funcNames) > 0):
+					yield '\t}'
+				isFirstWrite = False
+		if not isFirstWrite:
+			yield '\telse'
+			yield '\t\tDE_FATAL("Extension name not found");\n}'
+
+	lines = ['']
+	for line in writeExtensionFunctions(Function.TYPE_INSTANCE):
+		lines += [line]
+	lines += ['']
+	for line in writeExtensionFunctions(Function.TYPE_DEVICE):
+		lines += [line]
+	lines += ['']
+	for line in writeExtensionNameArrays():
+		lines += [line]
+
+	writeInlFile(filename, INL_HEADER, lines)
+
+def writeCoreFunctionalities(api, filename):
+	functionOriginValues    = ["FUNCTIONORIGIN_PLATFORM", "FUNCTIONORIGIN_INSTANCE", "FUNCTIONORIGIN_DEVICE"]
+	lines					= addVersionDefines(api.versions) + [
 	"",
 	'enum FunctionOrigin', '{'] + [line for line in indentLines([
 	'\t' + functionOriginValues[0] + '\t= 0,',
@@ -1368,65 +1527,456 @@ def writeCoreFunctionalities(api, filename):
 	"",
 	"void initApisMap (ApisMap& apis)",
 	"{",
-	"	apis.clear();",
-	"	apis.insert(::std::pair<deUint32, FunctionInfosList>(" + str(Version((1, 0, 0))) + ", FunctionInfosList()));",
-	"	apis.insert(::std::pair<deUint32, FunctionInfosList>(" + str(Version((1, 1, 0))) + ", FunctionInfosList()));",
+	"	apis.clear();"] + [
+	"	apis.insert(::std::pair<deUint32, FunctionInfosList>(" + str(v) + ", FunctionInfosList()));" for v in api.versions] + [
 	""]
 
-	def list10Funcs ():
-		for fun in api.functions:
-			if fun.apiVersion == 'VK_VERSION_1_0':
-				insert = '	apis[' + str(Version((1, 0, 0))) + '].push_back(FunctionInfo("' + fun.name + '",\t' + functionOriginValues[fun.getType()] + '));'
-				yield insert
-
-	def listAllFuncs ():
+	apiVersions = []
+	for index, v in enumerate(api.versions):
+		funcs = []
+		apiVersions.append("VK_VERSION_{0}_{1}".format(v.major, v.minor))
+		# iterate over all functions that are core in latest vulkan version
+		# note that first item in api.extension array are actually all definitions that are in vulkan.h.in before section with extensions
 		for fun in api.extensions[0].functions:
-			insert = '	apis[' + str(Version((1, 1, 0))) + '].push_back(FunctionInfo("' + fun.name + '",\t' + functionOriginValues[fun.getType()] + '));'
-			yield insert
+			if fun.apiVersion in apiVersions:
+				funcs.append('	apis[' + str(v) + '].push_back(FunctionInfo("' + fun.name + '",\t' + functionOriginValues[fun.getType()] + '));')
+		lines = lines + [line for line in indentLines(funcs)] + [""]
 
-	lines = lines + [line for line in indentLines(list10Funcs())]
-	lines.append("")
-	lines = lines + [line for line in indentLines(listAllFuncs())]
-
-	lines.append("}")
-	lines.append("")
-	lines = lines + removeVersionDefines([Version((1, 0, 0)), Version((1, 1, 0))])
-
+	lines = lines + ["}", ""] + removeVersionDefines(api.versions)
 	writeInlFile(filename, INL_HEADER, lines)
 
+def generateDeviceFeaturesDefs(src):
+	# look for definitions
+	ptrnSType	= r'VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_(\w+)_FEATURES(\w*)\s*='
+	matches		= re.findall(ptrnSType, src, re.M)
+	matches		= sorted(matches, key=lambda m: m[0])
+	# construct final list
+	defs = []
+	for sType, sSuffix in matches:
+		structName			= re.sub("[_0-9][a-z]", lambda match: match.group(0).upper(), sType.capitalize()).replace('_', '')
+		ptrnStructName		= r'\s*typedef\s+struct\s+(VkPhysicalDevice' + structName + 'Features' + sSuffix[1:] + ')'
+		matchStructName		= re.search(ptrnStructName, src, re.IGNORECASE)
+		if matchStructName:
+			# handle special cases
+			if sType == "EXCLUSIVE_SCISSOR":
+				sType = "SCISSOR_EXCLUSIVE"
+			elif sType == "ASTC_DECODE":
+				sType = "ASTC_DECODE_MODE"
+			elif sType == "TEXTURE_COMPRESSION_ASTC_HDR":
+				continue # skip due to const pNext
+			if sType in {'VULKAN_1_1', 'VULKAN_1_2'}:
+				continue
+			# end handling special cases
+			ptrnExtensionName	= r'^\s*#define\s+(\w+' + sSuffix + '_' + sType + '_EXTENSION_NAME).+$'
+			matchExtensionName	= re.search(ptrnExtensionName, src, re.M)
+			ptrnSpecVersion		= r'^\s*#define\s+(\w+' + sSuffix + '_' + sType + '_SPEC_VERSION).+$'
+			matchSpecVersion	= re.search(ptrnSpecVersion, src, re.M)
+			defs.append( (sType, sSuffix, matchStructName.group(1), \
+							matchExtensionName.group(0)	if matchExtensionName	else None,
+							matchExtensionName.group(1)	if matchExtensionName	else None,
+							matchSpecVersion.group	(1)	if matchSpecVersion		else '0') )
+	return defs
+
+def generateDevicePropertiesDefs(src):
+	# look for definitions
+	ptrnSType	= r'VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_(\w+)_PROPERTIES(\w*)\s*='
+	matches		= re.findall(ptrnSType, src, re.M)
+	matches		= sorted(matches, key=lambda m: m[0])
+	# construct final list
+	defs = []
+	for sType, sSuffix in matches:
+		# skip VkPhysicalDeviceGroupProperties
+		if sType == "GROUP":
+			continue
+		structName			= re.sub("[_0-9][a-z]", lambda match: match.group(0).upper(), sType.capitalize()).replace('_', '')
+		ptrnStructName		= r'\s*typedef\s+struct\s+(VkPhysicalDevice' + structName + 'Properties' + sSuffix[1:] + ')'
+		matchStructName		= re.search(ptrnStructName, src, re.M)
+		if matchStructName:
+			if sType in {'VULKAN_1_1', 'VULKAN_1_2'}:
+				continue
+			extType = sType
+			if extType == "MAINTENANCE_3":
+				extType = "MAINTENANCE3"
+			elif extType == "DISCARD_RECTANGLE":
+				extType = "DISCARD_RECTANGLES"
+			# end handling special cases
+			ptrnExtensionName	= r'^\s*#define\s+(\w+' + sSuffix + '_' + extType + '_EXTENSION_NAME).+$'
+			matchExtensionName	= re.search(ptrnExtensionName, src, re.M)
+			ptrnSpecVersion		= r'^\s*#define\s+(\w+' + sSuffix + '_' + extType + '_SPEC_VERSION).+$'
+			matchSpecVersion	= re.search(ptrnSpecVersion, src, re.M)
+			defs.append( (sType, sSuffix, matchStructName.group(1), \
+							matchExtensionName.group(0)	if matchExtensionName	else None,
+							matchExtensionName.group(1)	if matchExtensionName	else None,
+							matchSpecVersion.group	(1)	if matchSpecVersion		else '0') )
+	return defs
+
+def writeDeviceFeatures(api, dfDefs, filename):
+	# find VkPhysicalDeviceVulkan[1-9][0-9]Features blob structurs
+	# and construct dictionary with all of their attributes
+	blobMembers = {}
+	blobStructs = {}
+	blobPattern = re.compile("^VkPhysicalDeviceVulkan([1-9][0-9])Features$")
+	for structureType in api.compositeTypes:
+		match = blobPattern.match(structureType.name)
+		if match:
+			allMembers = [member.name for member in structureType.members]
+			vkVersion = match.group(1)
+			blobMembers[vkVersion] = allMembers[2:]
+			blobStructs[vkVersion] = set()
+	initFromBlobDefinitions = []
+	emptyInitDefinitions = []
+	# iterate over all feature structures
+	allFeaturesPattern = re.compile("^VkPhysicalDevice\w+Features")
+	nonExtFeaturesPattern = re.compile("^VkPhysicalDevice\w+Features$")
+	for structureType in api.compositeTypes:
+		# skip structures that are not feature structures
+		if not allFeaturesPattern.match(structureType.name):
+			continue
+		# skip structures that were previously identified as blobs
+		if blobPattern.match(structureType.name):
+			continue
+		if structureType.isAlias:
+			continue
+		# skip sType and pNext and just grab third and next attributes
+		structureMembers = structureType.members[2:]
+		notPartOfBlob = True
+		if nonExtFeaturesPattern.match(structureType.name):
+			# check if this member is part of any of the blobs
+			for blobName, blobMemberList in blobMembers.items():
+				# if just one member is not part of this blob go to the next blob
+				# (we asume that all members are part of blob - no need to check all)
+				if structureMembers[0].name not in blobMemberList:
+					continue
+				# add another feature structure name to this blob
+				blobStructs[blobName].add(structureType)
+				# add specialization for this feature structure
+				memberCopying = ""
+				for member in structureMembers:
+					memberCopying += "\tfeatureType.{0} = allBlobs.vk{1}.{0};\n".format(member.name, blobName)
+				wholeFunction = \
+					"template<> void initFromBlob<{0}>({0}& featureType, const AllBlobs& allBlobs)\n" \
+					"{{\n" \
+					"{1}" \
+					"}}".format(structureType.name, memberCopying)
+				initFromBlobDefinitions.append(wholeFunction)
+				notPartOfBlob = False
+				# assuming that all members are part of blob, goto next
+				break
+		# add empty template definition as on Fedora there are issue with
+		# linking using just generic template - all specializations are needed
+		if notPartOfBlob:
+			emptyFunction = "template<> void initFromBlob<{0}>({0}&, const AllBlobs&) {{}}"
+			emptyInitDefinitions.append(emptyFunction.format(structureType.name))
+	extensionDefines = []
+	makeFeatureDescDefinitions = []
+	featureStructWrappers = []
+	for idx, (sType, sSuffix, extStruct, extLine, extName, specVer) in enumerate(dfDefs):
+		extensionNameDefinition = extName
+		if not extensionNameDefinition:
+			extensionNameDefinition = 'DECL{0}_{1}_EXTENSION_NAME'.format((sSuffix if sSuffix else ''), sType)
+		# construct defines with names
+		if extLine:
+			extensionDefines.append(extLine)
+		else:
+			extensionDefines.append('#define {0} "not_existent_feature"'.format(extensionNameDefinition))
+		# handle special cases
+		if sType == "SCISSOR_EXCLUSIVE":
+			sType = "EXCLUSIVE_SCISSOR"
+		elif sType == "ASTC_DECODE_MODE":
+			sType = "ASTC_DECODE"
+		# end handling special cases
+		# construct makeFeatureDesc template function definitions
+		sTypeName = "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_{0}_FEATURES{1}".format(sType, sSuffix)
+		makeFeatureDescDefinitions.append("template<> FeatureDesc makeFeatureDesc<{0}>(void) " \
+			"{{ return FeatureDesc{{{1}, {2}, {3}, {4}}}; }}".format(extStruct, sTypeName, extensionNameDefinition, specVer, len(dfDefs)-idx))
+		# construct CreateFeatureStruct wrapper block
+		featureStructWrappers.append("\t{{ createFeatureStructWrapper<{0}>, {1}, {2} }},".format(extStruct, extensionNameDefinition, specVer))
+	# construct method that will check if structure sType is part of blob
+	blobChecker = "bool isPartOfBlobFeatures (VkStructureType sType)\n{\n" \
+				  "\tconst std::vector<VkStructureType> sTypeVect =" \
+				  "\t{\n"
+	# iterate over blobs with list of structures
+	for blobName in sorted(blobStructs.keys()):
+		blobChecker += "\t\t// Vulkan{0}\n".format(blobName)
+		# iterate over all feature structures in current blob
+		structuresList = list(blobStructs[blobName])
+		structuresList = sorted(structuresList, key=lambda s: s.name)
+		for structType in structuresList:
+			# find definition of this structure in dfDefs
+			structName = structType.name
+			# handle special cases
+			if structName == 'VkPhysicalDeviceShaderDrawParameterFeatures':
+				structName = 'VkPhysicalDeviceShaderDrawParametersFeatures'
+			# end handling special cases
+			structDef = [s for s in dfDefs if s[2] == structName][0]
+			sType = structDef[0]
+			sSuffix = structDef[1]
+			# handle special cases
+			if sType == "SCISSOR_EXCLUSIVE":
+				sType = "EXCLUSIVE_SCISSOR"
+			# end handling special cases
+			sTypeName = "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_{0}_FEATURES{1}".format(sType, sSuffix)
+			blobChecker += "\t\t{0},\n".format(sTypeName)
+	blobChecker += "\t};\n" \
+				   "\treturn de::contains(sTypeVect.begin(), sTypeVect.end(), sType);\n" \
+				   "}\n"
+	# combine all definition lists
+	stream = [
+	'#include "vkDeviceFeatures.hpp"\n',
+	'namespace vk\n{']
+	stream.extend(extensionDefines)
+	stream.append('\n')
+	stream.extend(initFromBlobDefinitions)
+	stream.append('\n// generic template is not enough for some compilers')
+	stream.extend(emptyInitDefinitions)
+	stream.append('\n')
+	stream.extend(makeFeatureDescDefinitions)
+	stream.append('\n')
+	stream.append('static const FeatureStructCreationData featureStructCreationArray[] =\n{')
+	stream.extend(featureStructWrappers)
+	stream.append('};\n')
+	stream.append(blobChecker)
+	stream.append('} // vk\n')
+	writeInlFile(filename, INL_HEADER, stream)
+
+def writeDeviceProperties(dfDefs, filename):
+	extensionDefines = []
+	makePropertyDescDefinitions = []
+	propertyStructWrappers = []
+	for idx, (sType, sSuffix, extStruct, extLine, extName, specVer) in enumerate(dfDefs):
+		extensionNameDefinition = extName
+		if not extensionNameDefinition:
+			extensionNameDefinition = 'DECL{0}_{1}_EXTENSION_NAME'.format((sSuffix if sSuffix else ''), sType)
+		# construct defines with names
+		if extLine:
+			extensionDefines.append(extLine)
+		else:
+			extensionDefines.append('#define {0} "not_existent_property"'.format(extensionNameDefinition))
+		# construct makePropertyDesc template function definitions
+		sTypeName = "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_{0}_PROPERTIES{1}".format(sType, sSuffix)
+		makePropertyDescDefinitions.append("template<> PropertyDesc makePropertyDesc<{0}>(void) " \
+			"{{ return PropertyDesc({1}, {2}, {3}, {4}); }}".format(extStruct, sTypeName, extensionNameDefinition, specVer, len(dfDefs)-idx))
+		# construct CreateProperty struct wrapper block
+		propertyStructWrappers.append("\t{{ createPropertyStructWrapper<{0}>, {1}, {2} }},".format(extStruct, extensionNameDefinition, specVer))
+	# combine all definition lists
+	stream = [
+	'#include "vkDeviceProperties.hpp"\n',
+	'namespace vk\n{']
+	stream.extend(extensionDefines)
+	stream.append('\n')
+	stream.extend(makePropertyDescDefinitions)
+	stream.append('\n')
+	stream.append('static const PropertyStructMapItem propertyStructCreatorMap[] =\n{')
+	stream.extend(propertyStructWrappers)
+	stream.append('};\n} // vk\n')
+	writeInlFile(filename, INL_HEADER, stream)
+
+def genericDeviceFeaturesWriter(dfDefs, pattern, filename):
+	stream = []
+	for sType, sSuffix, extStruct, _, _, _ in dfDefs:
+		nameSubStr = extStruct.replace("VkPhysicalDevice", "").replace("KHR", "").replace("NV", "")
+		stream.append(pattern.format(extStruct, nameSubStr))
+	writeInlFile(filename, INL_HEADER, indentLines(stream))
+
+def writeDeviceFeaturesDefaultDeviceDefs(dfDefs, filename):
+	pattern = "const {0}&\tget{1}\t(void) const {{ return m_deviceFeatures.getFeatureType<{0}>();\t}}"
+	genericDeviceFeaturesWriter(dfDefs, pattern, filename)
+
+def writeDeviceFeaturesContextDecl(dfDefs, filename):
+	pattern = "const vk::{0}&\tget{1}\t(void) const;"
+	genericDeviceFeaturesWriter(dfDefs, pattern, filename)
+
+def writeDeviceFeaturesContextDefs(dfDefs, filename):
+	pattern = "const vk::{0}&\tContext::get{1}\t(void) const {{ return m_device->get{1}();\t}}"
+	genericDeviceFeaturesWriter(dfDefs, pattern, filename)
+
+def genericDevicePropertiesWriter(dfDefs, pattern, filename):
+	stream = []
+	for _, _, extStruct, _, _, _ in dfDefs:
+		nameSubStr = extStruct.replace("VkPhysicalDevice", "").replace("KHR", "").replace("NV", "")
+		stream.append(pattern.format(extStruct, nameSubStr))
+	writeInlFile(filename, INL_HEADER, indentLines(stream))
+
+def writeDevicePropertiesDefaultDeviceDefs(dfDefs, filename):
+	pattern = "const {0}&\tget{1}\t(void) const {{ return m_devicePropertiesFull.getPropertyType<{0}>();\t}}"
+	genericDevicePropertiesWriter(dfDefs, pattern, filename)
+
+def writeDevicePropertiesContextDecl(dfDefs, filename):
+	pattern = "const vk::{0}&\tget{1}\t(void) const;"
+	genericDevicePropertiesWriter(dfDefs, pattern, filename)
+
+def writeDevicePropertiesContextDefs(dfDefs, filename):
+	pattern = "const vk::{0}&\tContext::get{1}\t(void) const {{ return m_device->get{1}();\t}}"
+	genericDevicePropertiesWriter(dfDefs, pattern, filename)
+
+def splitWithQuotation(line):
+	result = []
+	splitted = re.findall(r'[^"\s]\S*|".+?"', line)
+	for s in splitted:
+		result.append(s.replace('"', ''))
+	return result
+
+def writeMandatoryFeatures(filename):
+	stream = []
+	pattern = r'\s*([\w]+)\s+([\w]+)\s+REQUIREMENTS\s+\((.*)\)'
+	mandatoryFeatures = readFile(os.path.join(VULKAN_H_DIR, "mandatory_features.txt"))
+	matches = re.findall(pattern, mandatoryFeatures)
+	dictStructs = {}
+	dictData = []
+	for m in matches:
+		allRequirements = splitWithQuotation(m[2])
+		dictData.append( [ m[0], m[1], allRequirements ] )
+		if m[0] != 'VkPhysicalDeviceFeatures' :
+			if (m[0] not in dictStructs):
+				dictStructs[m[0]] = [m[0][2:3].lower() + m[0][3:]]
+			if (allRequirements[0]):
+				if (allRequirements[0] not in dictStructs[m[0]][1:]):
+					dictStructs[m[0]].append(allRequirements[0])
+
+	stream.extend(['bool checkMandatoryFeatures(const vkt::Context& context)\n{',
+				   '\tif (!context.isInstanceFunctionalitySupported("VK_KHR_get_physical_device_properties2"))',
+				   '\t\tTCU_THROW(NotSupportedError, "Extension VK_KHR_get_physical_device_properties2 is not present");',
+				   '',
+				   '\tVkPhysicalDevice\t\t\t\t\tphysicalDevice\t\t= context.getPhysicalDevice();',
+				   '\tconst InstanceInterface&\t\t\tvki\t\t\t\t\t= context.getInstanceInterface();',
+				   '\tconst vector<VkExtensionProperties>\tdeviceExtensions\t= enumerateDeviceExtensionProperties(vki, physicalDevice, DE_NULL);',
+				   '',
+				   '\ttcu::TestLog& log = context.getTestContext().getLog();',
+				   '\tvk::VkPhysicalDeviceFeatures2 coreFeatures;',
+				   '\tdeMemset(&coreFeatures, 0, sizeof(coreFeatures));',
+				   '\tcoreFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;',
+				   '\tvoid** nextPtr = &coreFeatures.pNext;',
+				   ''])
+
+	listStruct = sorted(dictStructs.items(), key=lambda tup: tup[0]) # sort to have same results for py2 and py3
+	for k, v in listStruct:
+		if (v[1].startswith("ApiVersion")):
+			cond = '\tif (context.contextSupports(vk::' + v[1] + '))'
+		else:
+			cond = '\tif (vk::isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "' + v[1] + '"))'
+		stream.extend(['\tvk::' + k + ' ' + v[0]+ ';',
+					'\tdeMemset(&' + v[0] + ', 0, sizeof(' + v[0] + '));',
+					''])
+		reqs = v[1:]
+		if len(reqs) > 0 :
+			cond = 'if ( '
+			for i, req in enumerate(reqs) :
+				if (req.startswith("ApiVersion")):
+					cond = cond + 'context.contextSupports(vk::' + req + ')'
+				else:
+					cond = cond + 'isExtensionSupported(deviceExtensions, RequiredExtension("' + req + '"))'
+				if i+1 < len(reqs) :
+					cond = cond + ' || '
+			cond = cond + ' )'
+			stream.append('\t' + cond)
+		stream.extend(['\t{',
+					   '\t\t' + v[0] + '.sType = getStructureType<' + k + '>();',
+					   '\t\t*nextPtr = &' + v[0] + ';',
+					   '\t\tnextPtr  = &' + v[0] + '.pNext;',
+					   '\t}',
+					   ''])
+	stream.extend(['\tcontext.getInstanceInterface().getPhysicalDeviceFeatures2(context.getPhysicalDevice(), &coreFeatures);',
+				   '\tbool result = true;',
+				   ''])
+
+	for v in dictData:
+		structType = v[0];
+		structName = 'coreFeatures.features';
+		if v[0] != 'VkPhysicalDeviceFeatures' :
+			structName = dictStructs[v[0]][0]
+		if len(v[2]) > 0 :
+			condition = 'if ( '
+			for i, req in enumerate(v[2]) :
+				if (req.startswith("ApiVersion")):
+					condition = condition + 'context.contextSupports(vk::' + req + ')'
+				elif '.' in req:
+					condition = condition + req
+				else:
+					condition = condition + 'isExtensionSupported(deviceExtensions, RequiredExtension("' + req + '"))'
+				if i+1 < len(v[2]) :
+					condition = condition + ' && '
+			condition = condition + ' )'
+			stream.append('\t' + condition)
+		stream.extend(['\t{',
+					   '\t\tif ( ' + structName + '.' + v[1] + ' == VK_FALSE )',
+					   '\t\t{',
+					   '\t\t\tlog << tcu::TestLog::Message << "Mandatory feature ' + v[1] + ' not supported" << tcu::TestLog::EndMessage;',
+					   '\t\t\tresult = false;',
+					   '\t\t}',
+					   '\t}',
+					   ''])
+	stream.append('\treturn result;')
+	stream.append('}\n')
+	writeInlFile(filename, INL_HEADER, stream)
+
+def writeExtensionList(filename, patternPart):
+	stream = []
+	stream.append('static const char* s_allowed{0}KhrExtensions[] =\n{{'.format(patternPart.title()))
+	extensionsData = readFile(os.path.join(VULKAN_H_DIR, "extensions_data.txt"))
+	pattern = r'\s*([^\s]+)\s+{0}\s*[0-9_]*'.format(patternPart)
+	matches	= re.findall(pattern, extensionsData)
+	for m in matches:
+		stream.append('\t"' + m + '",')
+	stream.append('};\n')
+	writeInlFile(filename, INL_HEADER, stream)
+
 if __name__ == "__main__":
-	src				= readFile(VULKAN_H)
+	# Read all .h files, with vulkan_core.h first
+	files			= os.listdir(VULKAN_H_DIR)
+	files			= [f for f in files if f.endswith(".h")]
+	files.sort()
+	files.remove("vulkan_core.h")
+	files.insert(0, "vulkan_core.h")
+	src				= ""
+	for file in files:
+		src += readFile(os.path.join(VULKAN_H_DIR,file))
 	api				= parseAPI(src)
 
 	platformFuncs	= [Function.TYPE_PLATFORM]
 	instanceFuncs	= [Function.TYPE_INSTANCE]
 	deviceFuncs		= [Function.TYPE_DEVICE]
 
-	writeHandleType				(api, os.path.join(VULKAN_DIR, "vkHandleType.inl"))
-	writeBasicTypes				(api, os.path.join(VULKAN_DIR, "vkBasicTypes.inl"))
-	writeCompositeTypes			(api, os.path.join(VULKAN_DIR, "vkStructTypes.inl"))
-	writeInterfaceDecl			(api, os.path.join(VULKAN_DIR, "vkVirtualPlatformInterface.inl"),		platformFuncs,	False)
-	writeInterfaceDecl			(api, os.path.join(VULKAN_DIR, "vkVirtualInstanceInterface.inl"),		instanceFuncs,	False)
-	writeInterfaceDecl			(api, os.path.join(VULKAN_DIR, "vkVirtualDeviceInterface.inl"),			deviceFuncs,	False)
-	writeInterfaceDecl			(api, os.path.join(VULKAN_DIR, "vkConcretePlatformInterface.inl"),		platformFuncs,	True)
-	writeInterfaceDecl			(api, os.path.join(VULKAN_DIR, "vkConcreteInstanceInterface.inl"),		instanceFuncs,	True)
-	writeInterfaceDecl			(api, os.path.join(VULKAN_DIR, "vkConcreteDeviceInterface.inl"),		deviceFuncs,	True)
-	writeFunctionPtrTypes		(api, os.path.join(VULKAN_DIR, "vkFunctionPointerTypes.inl"))
-	writeFunctionPointers		(api, os.path.join(VULKAN_DIR, "vkPlatformFunctionPointers.inl"),		platformFuncs)
-	writeFunctionPointers		(api, os.path.join(VULKAN_DIR, "vkInstanceFunctionPointers.inl"),		instanceFuncs)
-	writeFunctionPointers		(api, os.path.join(VULKAN_DIR, "vkDeviceFunctionPointers.inl"),			deviceFuncs)
-	writeInitFunctionPointers	(api, os.path.join(VULKAN_DIR, "vkInitPlatformFunctionPointers.inl"),	platformFuncs,	lambda f: f.name != "vkGetInstanceProcAddr")
-	writeInitFunctionPointers	(api, os.path.join(VULKAN_DIR, "vkInitInstanceFunctionPointers.inl"),	instanceFuncs)
-	writeInitFunctionPointers	(api, os.path.join(VULKAN_DIR, "vkInitDeviceFunctionPointers.inl"),		deviceFuncs)
-	writeFuncPtrInterfaceImpl	(api, os.path.join(VULKAN_DIR, "vkPlatformDriverImpl.inl"),				platformFuncs,	"PlatformDriver")
-	writeFuncPtrInterfaceImpl	(api, os.path.join(VULKAN_DIR, "vkInstanceDriverImpl.inl"),				instanceFuncs,	"InstanceDriver")
-	writeFuncPtrInterfaceImpl	(api, os.path.join(VULKAN_DIR, "vkDeviceDriverImpl.inl"),				deviceFuncs,	"DeviceDriver")
-	writeStrUtilProto			(api, os.path.join(VULKAN_DIR, "vkStrUtil.inl"))
-	writeStrUtilImpl			(api, os.path.join(VULKAN_DIR, "vkStrUtilImpl.inl"))
-	writeRefUtilProto			(api, os.path.join(VULKAN_DIR, "vkRefUtil.inl"))
-	writeRefUtilImpl			(api, os.path.join(VULKAN_DIR, "vkRefUtilImpl.inl"))
-	writeStructTraitsImpl		(api, os.path.join(VULKAN_DIR, "vkGetStructureTypeImpl.inl"))
-	writeNullDriverImpl			(api, os.path.join(VULKAN_DIR, "vkNullDriverImpl.inl"))
-	writeTypeUtil				(api, os.path.join(VULKAN_DIR, "vkTypeUtil.inl"))
-	writeSupportedExtenions		(api, os.path.join(VULKAN_DIR, "vkSupportedExtensions.inl"))
-	writeCoreFunctionalities	(api, os.path.join(VULKAN_DIR, "vkCoreFunctionalities.inl"))
+	dfd										= generateDeviceFeaturesDefs(src)
+	writeDeviceFeatures						(api, dfd, os.path.join(VULKAN_DIR, "vkDeviceFeatures.inl"))
+	writeDeviceFeaturesDefaultDeviceDefs	(dfd, os.path.join(VULKAN_DIR, "vkDeviceFeaturesForDefaultDeviceDefs.inl"))
+	writeDeviceFeaturesContextDecl			(dfd, os.path.join(VULKAN_DIR, "vkDeviceFeaturesForContextDecl.inl"))
+	writeDeviceFeaturesContextDefs			(dfd, os.path.join(VULKAN_DIR, "vkDeviceFeaturesForContextDefs.inl"))
+
+	dpd										= generateDevicePropertiesDefs(src)
+	writeDeviceProperties					(dpd, os.path.join(VULKAN_DIR, "vkDeviceProperties.inl"))
+	writeDevicePropertiesDefaultDeviceDefs	(dpd, os.path.join(VULKAN_DIR, "vkDevicePropertiesForDefaultDeviceDefs.inl"))
+	writeDevicePropertiesContextDecl		(dpd, os.path.join(VULKAN_DIR, "vkDevicePropertiesForContextDecl.inl"))
+	writeDevicePropertiesContextDefs		(dpd, os.path.join(VULKAN_DIR, "vkDevicePropertiesForContextDefs.inl"))
+
+	writeHandleType							(api, os.path.join(VULKAN_DIR, "vkHandleType.inl"))
+	writeBasicTypes							(api, os.path.join(VULKAN_DIR, "vkBasicTypes.inl"))
+	writeCompositeTypes						(api, os.path.join(VULKAN_DIR, "vkStructTypes.inl"))
+	writeInterfaceDecl						(api, os.path.join(VULKAN_DIR, "vkVirtualPlatformInterface.inl"),		platformFuncs,	False)
+	writeInterfaceDecl						(api, os.path.join(VULKAN_DIR, "vkVirtualInstanceInterface.inl"),		instanceFuncs,	False)
+	writeInterfaceDecl						(api, os.path.join(VULKAN_DIR, "vkVirtualDeviceInterface.inl"),			deviceFuncs,	False)
+	writeInterfaceDecl						(api, os.path.join(VULKAN_DIR, "vkConcretePlatformInterface.inl"),		platformFuncs,	True)
+	writeInterfaceDecl						(api, os.path.join(VULKAN_DIR, "vkConcreteInstanceInterface.inl"),		instanceFuncs,	True)
+	writeInterfaceDecl						(api, os.path.join(VULKAN_DIR, "vkConcreteDeviceInterface.inl"),		deviceFuncs,	True)
+	writeFunctionPtrTypes					(api, os.path.join(VULKAN_DIR, "vkFunctionPointerTypes.inl"))
+	writeFunctionPointers					(api, os.path.join(VULKAN_DIR, "vkPlatformFunctionPointers.inl"),		platformFuncs)
+	writeFunctionPointers					(api, os.path.join(VULKAN_DIR, "vkInstanceFunctionPointers.inl"),		instanceFuncs)
+	writeFunctionPointers					(api, os.path.join(VULKAN_DIR, "vkDeviceFunctionPointers.inl"),			deviceFuncs)
+	writeInitFunctionPointers				(api, os.path.join(VULKAN_DIR, "vkInitPlatformFunctionPointers.inl"),	platformFuncs,	lambda f: f.name != "vkGetInstanceProcAddr")
+	writeInitFunctionPointers				(api, os.path.join(VULKAN_DIR, "vkInitInstanceFunctionPointers.inl"),	instanceFuncs)
+	writeInitFunctionPointers				(api, os.path.join(VULKAN_DIR, "vkInitDeviceFunctionPointers.inl"),		deviceFuncs)
+	writeFuncPtrInterfaceImpl				(api, os.path.join(VULKAN_DIR, "vkPlatformDriverImpl.inl"),				platformFuncs,	"PlatformDriver")
+	writeFuncPtrInterfaceImpl				(api, os.path.join(VULKAN_DIR, "vkInstanceDriverImpl.inl"),				instanceFuncs,	"InstanceDriver")
+	writeFuncPtrInterfaceImpl				(api, os.path.join(VULKAN_DIR, "vkDeviceDriverImpl.inl"),				deviceFuncs,	"DeviceDriver")
+	writeStrUtilProto						(api, os.path.join(VULKAN_DIR, "vkStrUtil.inl"))
+	writeStrUtilImpl						(api, os.path.join(VULKAN_DIR, "vkStrUtilImpl.inl"))
+	writeRefUtilProto						(api, os.path.join(VULKAN_DIR, "vkRefUtil.inl"))
+	writeRefUtilImpl						(api, os.path.join(VULKAN_DIR, "vkRefUtilImpl.inl"))
+	writeStructTraitsImpl					(api, os.path.join(VULKAN_DIR, "vkGetStructureTypeImpl.inl"))
+	writeNullDriverImpl						(api, os.path.join(VULKAN_DIR, "vkNullDriverImpl.inl"))
+	writeTypeUtil							(api, os.path.join(VULKAN_DIR, "vkTypeUtil.inl"))
+	writeSupportedExtenions					(api, os.path.join(VULKAN_DIR, "vkSupportedExtensions.inl"))
+	writeCoreFunctionalities				(api, os.path.join(VULKAN_DIR, "vkCoreFunctionalities.inl"))
+	writeExtensionFunctions					(api, os.path.join(VULKAN_DIR, "vkExtensionFunctions.inl"))
+	writeMandatoryFeatures					(     os.path.join(VULKAN_DIR, "vkMandatoryFeatures.inl"))
+	writeExtensionList						(     os.path.join(VULKAN_DIR, "vkInstanceExtensions.inl"),				'INSTANCE')
+	writeExtensionList						(     os.path.join(VULKAN_DIR, "vkDeviceExtensions.inl"),				'DEVICE')

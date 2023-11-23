@@ -8,17 +8,11 @@ extern "C" {
 #include "rate_estimator.h"
 }
 
-static struct timespec window = {
-  .tv_sec = 0,
-  .tv_nsec = 10000000
-};
+static struct timespec window = {.tv_sec = 0, .tv_nsec = 10000000};
 
 TEST(RateEstimatorTest, EstimateOutputLinear) {
-  struct rate_estimator *re;
-  struct timespec t = {
-    .tv_sec = 1,
-    .tv_nsec = 0
-  };
+  struct rate_estimator* re;
+  struct timespec t = {.tv_sec = 1, .tv_nsec = 0};
   int i, rc, level, tmp;
 
   re = rate_estimator_create(10000, &window, 0.0f);
@@ -43,11 +37,8 @@ TEST(RateEstimatorTest, EstimateOutputLinear) {
 }
 
 TEST(RateEstimatorTest, EstimateOutputLinear2) {
-  struct rate_estimator *re;
-  struct timespec t = {
-    .tv_sec = 1,
-    .tv_nsec = 0
-  };
+  struct rate_estimator* re;
+  struct timespec t = {.tv_sec = 1, .tv_nsec = 0};
   int level = 240;
   int i, rc, tmp;
 
@@ -75,11 +66,8 @@ TEST(RateEstimatorTest, EstimateOutputLinear2) {
 }
 
 TEST(RateEstimatorTest, EstimateRateSkewTooLarge) {
-  struct rate_estimator *re;
-  struct timespec t = {
-    .tv_sec = 1,
-    .tv_nsec = 0
-  };
+  struct rate_estimator* re;
+  struct timespec t = {.tv_sec = 1, .tv_nsec = 0};
   int level = 240;
   int i, rc, tmp;
 
@@ -106,7 +94,7 @@ TEST(RateEstimatorTest, EstimateRateSkewTooLarge) {
 }
 
 TEST(RateEstimatorTest, EstimateOutputSmooth) {
-  struct rate_estimator *re;
+  struct rate_estimator* re;
   struct timespec t;
   int rc;
 
@@ -135,7 +123,7 @@ TEST(RateEstimatorTest, EstimateOutputSmooth) {
 }
 
 TEST(RateEstimatorTest, EstimateInputLinear) {
-  struct rate_estimator *re;
+  struct rate_estimator* re;
   struct timespec t;
   int i, rc, level, tmp;
 
@@ -162,13 +150,10 @@ TEST(RateEstimatorTest, EstimateInputLinear) {
 }
 
 TEST(RateEstimatorTest, EstimateInputLinear2) {
-  struct rate_estimator *re;
+  struct rate_estimator* re;
   struct timespec t;
   int rc;
-  static struct timespec this_window = {
-    .tv_sec = 0,
-    .tv_nsec = 100000000
-  };
+  static struct timespec this_window = {.tv_sec = 0, .tv_nsec = 100000000};
 
   re = rate_estimator_create(10000, &this_window, 0.0f);
   t.tv_sec = 1;
@@ -193,7 +178,7 @@ TEST(RateEstimatorTest, EstimateInputLinear2) {
   rate_estimator_destroy(re);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -87,9 +87,9 @@ tcu::TestStatus runTest (Context&							context,
 
 	{
 		const Allocation& alloc = vertexBuffer.getAllocation();
-		deMemcpy(alloc.getHostPtr(), vertexData, static_cast<std::size_t>(vertexDataSizeBytes));
 
-		flushMappedMemoryRange(vk, device, alloc.getMemory(), alloc.getOffset(), vertexDataSizeBytes);
+		deMemcpy(alloc.getHostPtr(), vertexData, static_cast<std::size_t>(vertexDataSizeBytes));
+		flushAlloc(vk, device, alloc);
 		// No barrier needed, flushed memory is automatically visible
 	}
 
@@ -109,12 +109,12 @@ tcu::TestStatus runTest (Context&							context,
 
 	// Pipeline
 
-	const Unique<VkImageView>		colorAttachmentView(makeImageView						(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
-	const Unique<VkRenderPass>		renderPass		   (makeRenderPass						(vk, device, colorFormat));
-	const Unique<VkFramebuffer>		framebuffer		   (makeFramebuffer						(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y(), 1u));
-	const Unique<VkPipelineLayout>	pipelineLayout	   (makePipelineLayoutWithoutDescriptors(vk, device));
-	const Unique<VkCommandPool>		cmdPool			   (makeCommandPool						(vk, device, queueFamilyIndex));
-	const Unique<VkCommandBuffer>	cmdBuffer		   (allocateCommandBuffer				(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+	const Unique<VkImageView>		colorAttachmentView	(makeImageView			(vk, device, *colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange));
+	const Unique<VkRenderPass>		renderPass			(makeRenderPass			(vk, device, colorFormat));
+	const Unique<VkFramebuffer>		framebuffer			(makeFramebuffer		(vk, device, *renderPass, *colorAttachmentView, renderSize.x(), renderSize.y()));
+	const Unique<VkPipelineLayout>	pipelineLayout		(makePipelineLayout		(vk, device));
+	const Unique<VkCommandPool>		cmdPool				(makeCommandPool		(vk, device, queueFamilyIndex));
+	const Unique<VkCommandBuffer>	cmdBuffer			(allocateCommandBuffer	(vk, device, *cmdPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
 	const Unique<VkPipeline> pipeline(GraphicsPipelineBuilder()
 		.setRenderSize				  (renderSize)
@@ -173,13 +173,15 @@ tcu::TestStatus runTest (Context&							context,
 	submitCommandsAndWait(vk, device, queue, *cmdBuffer);
 
 	{
-		const Allocation& colorBufferAlloc = colorBuffer.getAllocation();
-		invalidateMappedMemoryRange(vk, device, colorBufferAlloc.getMemory(), colorBufferAlloc.getOffset(), colorBufferSizeBytes);
+		const Allocation&					colorBufferAlloc	= colorBuffer.getAllocation();
+
+		invalidateAlloc(vk, device, colorBufferAlloc);
 
 		// Verify case result
-		const tcu::ConstPixelBufferAccess resultImageAccess(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, colorBufferAlloc.getHostPtr());
-		tcu::TestLog& log = context.getTestContext().getLog();
-		const bool ok = tcu::fuzzyCompare(log, "ImageComparison", "Image Comparison", referenceImageAccess, resultImageAccess, 0.002f, tcu::COMPARE_LOG_RESULT);
+		const tcu::ConstPixelBufferAccess	resultImageAccess	(mapVkFormat(colorFormat), renderSize.x(), renderSize.y(), 1, colorBufferAlloc.getHostPtr());
+		tcu::TestLog&						log					= context.getTestContext().getLog();
+		const bool							ok					= tcu::fuzzyCompare(log, "ImageComparison", "Image Comparison", referenceImageAccess, resultImageAccess,
+																  0.002f, tcu::COMPARE_LOG_RESULT);
 
 		return (ok ? tcu::TestStatus::pass("OK") : tcu::TestStatus::fail("Failure"));
 	}

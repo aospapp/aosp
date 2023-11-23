@@ -4,11 +4,12 @@
  */
 
 #include <common.h>
+#include <env.h>
 #include <image.h>
 #include <android_image.h>
 #include <malloc.h>
-#include <mapmem.h>
 #include <errno.h>
+#include <asm/unaligned.h>
 
 #define ANDROID_IMAGE_DEFAULT_KERNEL_ADDR	0x10008000
 
@@ -52,6 +53,8 @@ int android_image_get_kernel(const struct andr_img_hdr *hdr, int verify,
 			     ulong *os_data, ulong *os_len)
 {
 	u32 kernel_addr = android_image_get_kernel_addr(hdr);
+	const struct image_header *ihdr = (const struct image_header *)
+		((uintptr_t)hdr + hdr->page_size);
 
 	/*
 	 * Not all Android tools use the id field for signing the image with
@@ -93,11 +96,19 @@ int android_image_get_kernel(const struct andr_img_hdr *hdr, int verify,
 	env_set("bootargs", newbootargs);
 
 	if (os_data) {
-		*os_data = (ulong)hdr;
-		*os_data += hdr->page_size;
+		if (image_get_magic(ihdr) == IH_MAGIC) {
+			*os_data = image_get_data(ihdr);
+		} else {
+			*os_data = (ulong)hdr;
+			*os_data += hdr->page_size;
+		}
 	}
-	if (os_len)
-		*os_len = hdr->kernel_size;
+	if (os_len) {
+		if (image_get_magic(ihdr) == IH_MAGIC)
+			*os_len = image_get_data_size(ihdr);
+		else
+			*os_len = hdr->kernel_size;
+	}
 	return 0;
 }
 
@@ -109,6 +120,7 @@ int android_image_check_header(const struct andr_img_hdr *hdr)
 ulong android_image_get_end(const struct andr_img_hdr *hdr)
 {
 	ulong end;
+
 	/*
 	 * The header takes a full page, the remaining components are aligned
 	 * on page boundary
@@ -119,12 +131,30 @@ ulong android_image_get_end(const struct andr_img_hdr *hdr)
 	end += ALIGN(hdr->ramdisk_size, hdr->page_size);
 	end += ALIGN(hdr->second_size, hdr->page_size);
 
+	if (hdr->header_version >= 1)
+		end += ALIGN(hdr->recovery_dtbo_size, hdr->page_size);
+
+	if (hdr->header_version >= 2)
+		end += ALIGN(hdr->dtb_size, hdr->page_size);
+
 	return end;
 }
 
 ulong android_image_get_kload(const struct andr_img_hdr *hdr)
 {
 	return android_image_get_kernel_addr(hdr);
+}
+
+ulong android_image_get_kcomp(const struct andr_img_hdr *hdr)
+{
+	const void *p = (void *)((uintptr_t)hdr + hdr->page_size);
+
+	if (image_get_magic((image_header_t *)p) == IH_MAGIC)
+		return image_get_comp((image_header_t *)p);
+	else if (get_unaligned_le32(p) == LZ4F_MAGIC)
+		return IH_COMP_LZ4;
+	else
+		return IH_COMP_NONE;
 }
 
 int android_image_get_ramdisk(const struct andr_img_hdr *hdr,
@@ -144,56 +174,6 @@ int android_image_get_ramdisk(const struct andr_img_hdr *hdr,
 
 	*rd_len = hdr->ramdisk_size;
 	return 0;
-}
-
-long android_image_load(struct blk_desc *dev_desc,
-			const disk_partition_t *part_info,
-			unsigned long load_address,
-			unsigned long max_size) {
-	void *buf;
-	long blk_cnt, blk_read = 0;
-
-	if (max_size < part_info->blksz)
-		return -1;
-
-	/* We don't know the size of the Android image before reading the header
-	 * so we don't limit the size of the mapped memory.
-	 */
-	buf = map_sysmem(load_address, 0 /* size */);
-
-	/* Read the Android header first and then read the rest. */
-	if (blk_dread(dev_desc, part_info->start, 1, buf) != 1)
-		blk_read = -1;
-
-	if (!blk_read && android_image_check_header(buf) != 0) {
-		printf("** Invalid Android Image header **\n");
-		blk_read = -1;
-	}
-	if (!blk_read) {
-		blk_cnt = (android_image_get_end(buf) - (ulong)buf +
-			   part_info->blksz - 1) / part_info->blksz;
-		if (blk_cnt * part_info->blksz > max_size) {
-			debug("Android Image too big (%lu bytes, max %lu)\n",
-			      android_image_get_end(buf) - (ulong)buf,
-			      max_size);
-			blk_read = -1;
-		} else {
-			debug("Loading Android Image (%lu blocks) to 0x%lx... ",
-			      blk_cnt, load_address);
-			blk_read = blk_dread(dev_desc, part_info->start,
-					     blk_cnt, buf);
-		}
-	}
-
-	unmap_sysmem(buf);
-	if (blk_read < 0)
-		return blk_read;
-
-	debug("%lu blocks read: %s\n",
-	      blk_read, (blk_read == blk_cnt) ? "OK" : "ERROR");
-	if (blk_read != blk_cnt)
-		return -1;
-	return blk_read;
 }
 
 int android_image_get_second(const struct andr_img_hdr *hdr,
@@ -234,21 +214,36 @@ void android_print_contents(const struct andr_img_hdr *hdr)
 	u32 os_ver = hdr->os_version >> 11;
 	u32 os_lvl = hdr->os_version & ((1U << 11) - 1);
 
-	printf("%skernel size:      %x\n", p, hdr->kernel_size);
-	printf("%skernel address:   %x\n", p, hdr->kernel_addr);
-	printf("%sramdisk size:     %x\n", p, hdr->ramdisk_size);
-	printf("%sramdisk addrress: %x\n", p, hdr->ramdisk_addr);
-	printf("%ssecond size:      %x\n", p, hdr->second_size);
-	printf("%ssecond address:   %x\n", p, hdr->second_addr);
-	printf("%stags address:     %x\n", p, hdr->tags_addr);
-	printf("%spage size:        %x\n", p, hdr->page_size);
+	printf("%skernel size:          %x\n", p, hdr->kernel_size);
+	printf("%skernel address:       %x\n", p, hdr->kernel_addr);
+	printf("%sramdisk size:         %x\n", p, hdr->ramdisk_size);
+	printf("%sramdisk address:      %x\n", p, hdr->ramdisk_addr);
+	printf("%ssecond size:          %x\n", p, hdr->second_size);
+	printf("%ssecond address:       %x\n", p, hdr->second_addr);
+	printf("%stags address:         %x\n", p, hdr->tags_addr);
+	printf("%spage size:            %x\n", p, hdr->page_size);
 	/* ver = A << 14 | B << 7 | C         (7 bits for each of A, B, C)
 	 * lvl = ((Y - 2000) & 127) << 4 | M  (7 bits for Y, 4 bits for M) */
-	printf("%sos_version:       %x (ver: %u.%u.%u, level: %u.%u)\n",
+	printf("%sos_version:           %x (ver: %u.%u.%u, level: %u.%u)\n",
 	       p, hdr->os_version,
 	       (os_ver >> 7) & 0x7F, (os_ver >> 14) & 0x7F, os_ver & 0x7F,
 	       (os_lvl >> 4) + 2000, os_lvl & 0x0F);
-	printf("%sname:             %s\n", p, hdr->name);
-	printf("%scmdline:          %s\n", p, hdr->cmdline);
+	printf("%sname:                 %s\n", p, hdr->name);
+	printf("%scmdline:              %s\n", p, hdr->cmdline);
+	printf("%sheader_version:       %d\n", p, hdr->header_version);
+
+	if (hdr->header_version >= 1) {
+		printf("%srecovery dtbo size:   %x\n", p,
+		       hdr->recovery_dtbo_size);
+		printf("%srecovery dtbo offset: %llx\n", p,
+		       hdr->recovery_dtbo_offset);
+		printf("%sheader size:          %x\n", p,
+		       hdr->header_size);
+	}
+
+	if (hdr->header_version >= 2) {
+		printf("%sdtb size:             %x\n", p, hdr->dtb_size);
+		printf("%sdtb addr:             %llx\n", p, hdr->dtb_addr);
+	}
 }
 #endif

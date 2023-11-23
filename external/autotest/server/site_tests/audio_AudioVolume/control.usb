@@ -14,9 +14,9 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:chameleon_audio_perbuild"
+ATTRIBUTES = "suite:audio_basic"
 DEPENDENCIES = "chameleon, audio_board, test_usbaudio"
-JOB_RETRIES = 2
+JOB_RETRIES = 1
 
 DOC = """
 This test remotely tests USB audio volume function against DUT.

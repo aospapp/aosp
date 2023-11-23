@@ -27,6 +27,7 @@ import com.github.javaparser.ast.nodeTypes.NodeWithOptionalScope;
 import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
 import com.github.javaparser.ast.nodeTypes.NodeWithTypeArguments;
 import com.github.javaparser.ast.observer.ObservableProperty;
+import com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
@@ -36,20 +37,21 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.MethodCallExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import com.github.javaparser.metamodel.OptionalProperty;
-import com.github.javaparser.resolution.SymbolResolver;
+import com.github.javaparser.resolution.Resolvable;
+import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import java.util.function.Consumer;
+import com.github.javaparser.ast.Generated;
 
 /**
- * A method call on an object. <br/><code>circle.circumference()</code> <br/>In <code>a.&lt;String&gt;bb(15);</code> a
+ * A method call on an object or a class. <br/><code>circle.circumference()</code> <br/>In <code>a.&lt;String&gt;bb(15);</code> a
  * is the scope, String is a type argument, bb is the name and 15 is an argument.
  *
  * @author Julio Vilmar Gesser
  */
-public final class MethodCallExpr extends Expression implements NodeWithTypeArguments<MethodCallExpr>, NodeWithArguments<MethodCallExpr>, NodeWithSimpleName<MethodCallExpr>, NodeWithOptionalScope<MethodCallExpr> {
+public class MethodCallExpr extends Expression implements NodeWithTypeArguments<MethodCallExpr>, NodeWithArguments<MethodCallExpr>, NodeWithSimpleName<MethodCallExpr>, NodeWithOptionalScope<MethodCallExpr>, Resolvable<ResolvedMethodDeclaration> {
 
     @OptionalProperty
     private Expression scope;
@@ -62,27 +64,31 @@ public final class MethodCallExpr extends Expression implements NodeWithTypeArgu
     private NodeList<Expression> arguments;
 
     public MethodCallExpr() {
-        this(null, null, new NodeList<>(), new SimpleName(), new NodeList<>());
+        this(null, null, null, new SimpleName(), new NodeList<>());
     }
 
     public MethodCallExpr(String name, Expression... arguments) {
-        this(null, null, new NodeList<>(), new SimpleName(name), new NodeList<>(arguments));
+        this(null, null, null, new SimpleName(name), new NodeList<>(arguments));
     }
 
     public MethodCallExpr(final Expression scope, final String name) {
-        this(null, scope, new NodeList<>(), new SimpleName(name), new NodeList<>());
+        this(null, scope, null, new SimpleName(name), new NodeList<>());
     }
 
     public MethodCallExpr(final Expression scope, final SimpleName name) {
-        this(null, scope, new NodeList<>(), name, new NodeList<>());
+        this(null, scope, null, name, new NodeList<>());
     }
 
     public MethodCallExpr(final Expression scope, final String name, final NodeList<Expression> arguments) {
-        this(null, scope, new NodeList<>(), new SimpleName(name), arguments);
+        this(null, scope, null, new SimpleName(name), arguments);
+    }
+
+    public MethodCallExpr(final Expression scope, final NodeList<Type> typeArguments, final String name, final NodeList<Expression> arguments) {
+        this(null, scope, typeArguments, new SimpleName(name), arguments);
     }
 
     public MethodCallExpr(final Expression scope, final SimpleName name, final NodeList<Expression> arguments) {
-        this(null, scope, new NodeList<>(), name, arguments);
+        this(null, scope, null, name, arguments);
     }
 
     @AllFieldsConstructor
@@ -289,7 +295,21 @@ public final class MethodCallExpr extends Expression implements NodeWithTypeArgu
         action.accept(this);
     }
 
-    public ResolvedMethodDeclaration resolveInvokedMethod() {
+    /**
+     * Attempts to resolve the declaration corresponding to the invoked method. If successful, a
+     * {@link ResolvedMethodDeclaration} representing the declaration of the constructor invoked by this
+     * {@code MethodCallExpr} is returned. Otherwise, an {@link UnsolvedSymbolException} is thrown.
+     *
+     * @return a {@link ResolvedMethodDeclaration} representing the declaration of the invoked method.
+     * @throws UnsolvedSymbolException if the declaration corresponding to the method call expression could not be
+     *                                 resolved.
+     * @see NameExpr#resolve()
+     * @see FieldAccessExpr#resolve()
+     * @see ObjectCreationExpr#resolve()
+     * @see ExplicitConstructorInvocationStmt#resolve()
+     */
+    @Override
+    public ResolvedMethodDeclaration resolve() {
         return getSymbolResolver().resolveDeclaration(this, ResolvedMethodDeclaration.class);
     }
 

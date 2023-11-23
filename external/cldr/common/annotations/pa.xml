@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="pa"/>
 	</identity>
 	<annotations>
@@ -23,52 +23,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏾" type="tts">ਦਰਮਿਆਨਾ ਕਾਲਾ ਰੰਗ</annotation>
 		<annotation cp="🏿">ਇਮੋਜੀ ਸੋਧਕ | ਕਾਲਾ ਰੰਗ | ਚਮੜੀ ਦਾ ਰੰਗ | ਟੋਨ | ਫਿਟਜਪੈਟਰਿਕ</annotation>
 		<annotation cp="🏿" type="tts">ਕਾਲਾ ਰੰਗ</annotation>
+		<annotation cp="⚧">ਟਰਾਂਸਜੈਂਡਰ | ਟਰਾਂਸਜੈਂਡਰ ਪ੍ਰਤੀਕ</annotation>
+		<annotation cp="⚧" type="tts">ਟਰਾਂਸਜੈਂਡਰ ਪ੍ਰਤੀਕ</annotation>
+		<annotation cp="🤌" draft="contributed">ਇਕੱਠੀਆਂ ਉਂਗਲਾਂ</annotation>
+		<annotation cp="🤌" type="tts" draft="contributed">ਇਕੱਠੀਆਂ ਉਂਗਲਾਂ</annotation>
+		<annotation cp="🥲">ਅੱਥਰੂ | ਅੱਥਰੂ ਨਾਲ ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਆਭਾਰੀ | ਸਕੂਨ | ਮਾਣ | ਮੁਸਕਰਾਹਟ | ਲਗਾਅ</annotation>
+		<annotation cp="🥲" type="tts">ਅੱਥਰੂ ਨਾਲ ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥷">ਸੂਰਬੀਰ | ਹਿਡਨ | ਨਿੰਜਾ | ਭੇਤ</annotation>
+		<annotation cp="🥷" type="tts">ਨਿੰਜਾ</annotation>
+		<annotation cp="🥸">ਇਨਕੋਗਨਿਟੋ | ਗਲਾਸ | ਚਿਹਰਾ | ਢੌਂਗ | ਢੌਂਗੀ ਚਿਹਰਾ | ਨੱਕ</annotation>
+		<annotation cp="🥸" type="tts">ਢੌਂਗੀ ਚਿਹਰਾ</annotation>
+		<annotation cp="🦣">ਊਨੀ | ਅਲੋਪ | ਹਾਥੀ ਦੰਦ | ਮੈਮਥ | ਵੱਡਾ | ਵਿਲੁਪਤ</annotation>
+		<annotation cp="🦣" type="tts">ਮੈਮਥ</annotation>
+		<annotation cp="🦤">ਅਲੋਪ | ਡੋਡੋ | ਮਾਰੀਸ਼ਸ | ਵੱਡਾ | ਵਿਲੁਪਤ</annotation>
+		<annotation cp="🦤" type="tts">ਡੋਡੋ</annotation>
+		<annotation cp="🦫">ਊਦਬਿਲਾਉ | ਬੰਨ੍ਹ</annotation>
+		<annotation cp="🦫" type="tts">ਊਦਬਿਲਾਉ</annotation>
+		<annotation cp="🦬">ਇੱਝੜ | ਜੰਗਲੀ ਸਾਨ੍ਹ | ਮੱਝ | ਯੂਰਪੀ ਜੰਗਲੀ ਸਾਨ੍ਹ</annotation>
+		<annotation cp="🦬" type="tts">ਜੰਗਲੀ ਸਾਨ੍ਹ</annotation>
+		<annotation cp="🦭">ਸਮੁੰਦਰੀ ਸ਼ੇਰ | ਸੀਲ ਮੱਛੀ</annotation>
+		<annotation cp="🦭" type="tts">ਸੀਲ ਮੱਛੀ</annotation>
+		<annotation cp="🧋">ਚਾਹ | ਦੁੱਧ | ਬਬਲ ਚਾਹ | ਬੁਲਬੁਲੇਦਾਰ | ਮੋਤੀ</annotation>
+		<annotation cp="🧋" type="tts">ਬਬਲ ਚਾਹ</annotation>
+		<annotation cp="🩴">ਸੈਂਡਲ | ਚਸਮਾਂ | ਚੱਪਲ | ਚੱਪਲਾਂ | ਜਪਾਨੀ ਚੱਪਲਾਂ | ਬੀਚ ਸੈਂਡਲ</annotation>
+		<annotation cp="🩴" type="tts">ਚੱਪਲ</annotation>
+		<annotation cp="🪃">ਅਸਟਰੇਲੀਆ | ਆਦਿਵਾਸੀਆਂ ਦਾ ਹਥਿਆਰ | ਪਰਤਵਾਂ | ਬੂਮਰੈਂਗ | ਮੋੜਵਾਂ | ਲੱਕੜੀ ਦਾ ਹਥਿਆਰ</annotation>
+		<annotation cp="🪃" type="tts">ਬੂਮਰੈਂਗ</annotation>
+		<annotation cp="🪄">ਚੁੜੇਲ | ਜਾਦੂ | ਜਾਦੂਈ ਛੜੀ | ਜਾਦੂਗਰ | ਜਾਦੂਗਰਨੀ | ਡੈਣ</annotation>
+		<annotation cp="🪄" type="tts">ਜਾਦੂਈ ਛੜੀ</annotation>
+		<annotation cp="🪅">ਜਸ਼ਨ | ਪਾਰਟੀ | ਪਿਨਯਾਟਾ</annotation>
+		<annotation cp="🪅" type="tts">ਪਿਨਯਾਟਾ</annotation>
+		<annotation cp="🪆">ਡੋਲ | ਨੈਸਟਿੰਗ | ਰੂਸ</annotation>
+		<annotation cp="🪆" type="tts">ਨੈਸਟਿੰਗ ਡੋਲ</annotation>
+		<annotation cp="🪖">ਸਿਪਾਹੀ | ਸੈਨਾ | ਹੈਲਮਟ | ਫੌਜ | ਫੌਜੀ | ਮਿਲਟਰੀ | ਲੜਾਕਾ</annotation>
+		<annotation cp="🪖" type="tts">ਮਿਲਟਰੀ ਹੈਲਮਟ</annotation>
+		<annotation cp="🪗">ਅਕਾਰਡੀਅਨ | ਕਨਸਰਟਿਨਾ | ਦਬਾਉਣ ‘ਤੇ ਵੱਜਣ ਵਾਲਾ ਸਾਜ਼</annotation>
+		<annotation cp="🪗" type="tts">ਅਕਾਰਡੀਅਨ</annotation>
+		<annotation cp="🪘">ਸੱਟ | ਕਾਂਗੋ | ਡਰੱਮ | ਢੋਲ | ਢੋਲਕੀ | ਤਾਲ | ਬੀਟ | ਲੰਬਾ ਢੋਲ</annotation>
+		<annotation cp="🪘" type="tts">ਲੰਬਾ ਢੋਲ</annotation>
+		<annotation cp="🪙">ਸਿੱਕਾ | ਸੋਨਾ | ਖਜ਼ਾਨਾ | ਚਾਂਦੀ | ਧਨ | ਧਾਤੂ</annotation>
+		<annotation cp="🪙" type="tts">ਸਿੱਕਾ</annotation>
+		<annotation cp="🪚">ਆਰੀ | ਔਜ਼ਾਰ | ਗੇਲੀ | ਤਰਖਾਣ</annotation>
+		<annotation cp="🪚" type="tts">ਆਰੀ</annotation>
+		<annotation cp="🪛">ਔਜ਼ਾਰ | ਪੇਚ | ਪੇਚਕਸ</annotation>
+		<annotation cp="🪛" type="tts">ਪੇਚਕਸ</annotation>
+		<annotation cp="🪜">ਕਦਮ | ਚੜ੍ਹਨਾ | ਪੌੜੀ | ਪੌੜੀ ਦਾ ਡੰਡਾ</annotation>
+		<annotation cp="🪜" type="tts">ਪੌੜੀ</annotation>
+		<annotation cp="🪝">ਹੁੱਕ | ਘੁੰਡੀ | ਫਸਾਉਣਾ | ਫੜਨਾ | ਮੋੜ | ਵੇਚਣ ਦੀ ਜਗ੍ਹਾ</annotation>
+		<annotation cp="🪝" type="tts">ਘੁੰਡੀ</annotation>
+		<annotation cp="🪞">ਅਕਸ | ਸਪੈਕੁਲਮ | ਸ਼ੀਸ਼ਾ | ਦਰਪਣ | ਪ੍ਰਤਿਬਿੰਬ</annotation>
+		<annotation cp="🪞" type="tts">ਸ਼ੀਸ਼ਾ</annotation>
+		<annotation cp="🪟">ਖਿੜਕੀ | ਚੌਖਟਾ | ਤਾਜ਼ੀ ਹਵਾ | ਦ੍ਰਿਸ਼ | ਪਾਰਦਰਸ਼ੀ | ਫ੍ਰੇਮ | ਵਿਰਲ</annotation>
+		<annotation cp="🪟" type="tts">ਖਿੜਕੀ</annotation>
+		<annotation cp="🪠">ਸਕਸ਼ਨ | ਟੱਟੀਖਾਨਾ | ਟਾਇਲਟ | ਨਾਲਸਾਜ਼ | ਪਲੰਜਰ | ਪਲੰਬਰ</annotation>
+		<annotation cp="🪠" type="tts">ਪਲੰਜਰ</annotation>
+		<annotation cp="🪡">ਸਵਾਈ | ਸਿਲਾਈ | ਸੂਈ | ਕਸੀਦਾਕਾਰੀ | ਕਢਾਈ | ਟਾਂਕੇ | ਤੋਪੇ</annotation>
+		<annotation cp="🪡" type="tts">ਸੂਈ</annotation>
+		<annotation cp="🪢">ਗੰਢ | ਬੰਨ੍ਹਣਾ | ਮਰੋੜ | ਰੱਸੀ | ਵੱਟ</annotation>
+		<annotation cp="🪢" type="tts">ਗੰਢ</annotation>
+		<annotation cp="🪣">ਡੋਲ | ਤੋੜਾ | ਪੀਪਾ | ਬਾਲਟੀ | ਮਟਕਾ</annotation>
+		<annotation cp="🪣" type="tts">ਬਾਲਟੀ</annotation>
+		<annotation cp="🪤">ਚੂਹੇਦਾਨੀ | ਜਾਲ | ਜਾਲ ਵਿਛਾਉਣਾ | ਪਿੰਜਰਾ | ਫਸਾਉਣਾ | ਫੜਣਾ</annotation>
+		<annotation cp="🪤" type="tts">ਚੂਹੇਦਾਨੀ</annotation>
+		<annotation cp="🪥">ਸਫਾਈ | ਸਾਫ-ਸਫਾਈ | ਹਾਈਜੀਨ | ਗੁਸਲਖਾਨਾ | ਡੈਂਟਲ | ਦੰਦ | ਦੰਦਾਂ ਸੰਬੰਧੀ | ਬਾਥਰੂਮ | ਬੁਰਸ਼ | ਬ੍ਰਸ਼</annotation>
+		<annotation cp="🪥" type="tts">ਦੰਦ ਬੁਰਸ਼</annotation>
+		<annotation cp="🪦">ਸ਼ਮਸ਼ਾਨ | ਸ਼ਮਸ਼ਾਨ ਘਾਟ | ਸਮਾਧ ਦਾ ਪੱਥਰ | ਕਬਰ | ਕਬਰ ਦਾ ਪੱਥਰ | ਕਬਰਸਤਾਨ</annotation>
+		<annotation cp="🪦" type="tts">ਕਬਰ ਦਾ ਪੱਥਰ</annotation>
+		<annotation cp="🪧">ਸੰਕੇਤ | ਜਲੂਸ | ਧਰਨਾ | ਪਹਿਰੇਦਾਰੀ | ਪਲੈਕਾਰਡ | ਪੋਸਟਰ | ਪ੍ਰਦਰਸ਼ਨ | ਮੁਜ਼ਾਹਰਾ</annotation>
+		<annotation cp="🪧" type="tts">ਪਲੈਕਾਰਡ</annotation>
+		<annotation cp="🪨">ਸਿਲ | ਠੋਸ | ਪੱਥਰ | ਭਾਰੀ | ਵੱਡਾ ਗੋਲ-ਪੱਥਰ</annotation>
+		<annotation cp="🪨" type="tts">ਪੱਥਰ</annotation>
+		<annotation cp="🪰">ਸੜਣਾ | ਕੀੜਾ | ਬਿਮਾਰੀ | ਮੱਖੀ</annotation>
+		<annotation cp="🪰" type="tts">ਮੱਖੀ</annotation>
+		<annotation cp="🪱">ਸੁੰਡ | ਕਿਰਮ | ਕੁੰਡਲਦਾਰ ਕੀੜਾ | ਗੰਡੋਆ | ਪਰਜੀਵੀ</annotation>
+		<annotation cp="🪱" type="tts">ਸੁੰਡ</annotation>
+		<annotation cp="🪲">ਕੀਟ | ਕੀੜਾ | ਖਟਮਲ | ਬੀਂਡਾ</annotation>
+		<annotation cp="🪲" type="tts">ਬੀਂਡਾ</annotation>
+		<annotation cp="🪳">ਕਾਕਰੋਚ | ਕੀੜਾ | ਭੂੰਡ | ਮਕੋੜਾ</annotation>
+		<annotation cp="🪳" type="tts">ਕਾਕਰੋਚ</annotation>
+		<annotation cp="🪴">ਉਗਾਉਣਾ | ਅਕਾਊ | ਗਮਲੇ ਵਾਲਾ ਪੌਦਾ | ਘਰ | ਪਾਲਣ-ਪੋਸ਼ਣ | ਬੂਟਾ | ਬੇਕਾਰ</annotation>
+		<annotation cp="🪴" type="tts">ਗਮਲੇ ਵਾਲਾ ਪੌਦਾ</annotation>
+		<annotation cp="🪵">ਕਾਠ | ਖੁੰਢ | ਲੱਕੜ | ਲੰਬਰ</annotation>
+		<annotation cp="🪵" type="tts">ਲੱਕੜ</annotation>
+		<annotation cp="🪶">ਉਡਾਣ | ਹਲਕਾ | ਖੰਭ | ਪੰਛੀ | ਪਰਿੰਦਾ</annotation>
+		<annotation cp="🪶" type="tts">ਖੰਭ</annotation>
+		<annotation cp="🫀">ਅੰਗ | ਸੈਂਟਰ | ਹਿਰਦਾ-ਵਿਗਿਆਨ | ਦਿਲ ਦੀ ਧੜਕਣ | ਦਿਲ ਦੇ ਅੰਗ | ਨਬਜ਼</annotation>
+		<annotation cp="🫀" type="tts">ਦਿਲ ਦੇ ਅੰਗ</annotation>
+		<annotation cp="🫁">ਅੰਗ | ਸਾਹ | ਸਾਹ ਛੱਡਣਾ | ਸਾਹ ਪ੍ਰਣਾਲੀ | ਸੁਆਸ ਲੈਣਾ | ਫੇਫੜੇ</annotation>
+		<annotation cp="🫁" type="tts">ਫੇਫੜੇ</annotation>
+		<annotation cp="🫂" draft="contributed">ਗਲੇ ਮਿਲ ਰਹੇ ਲੋਕ</annotation>
+		<annotation cp="🫂" type="tts" draft="contributed">ਗਲੇ ਮਿਲ ਰਹੇ ਲੋਕ</annotation>
+		<annotation cp="🫐">ਨੀਲੀ | ਬਲੂਬੇਰੀ | ਬਿਲਬੇਰੀ | ਬੇਰੀ | ਰਸ ਭਰੀ</annotation>
+		<annotation cp="🫐" type="tts">ਬਲੂਬੇਰੀ</annotation>
+		<annotation cp="🫑">ਸਬਜ਼ੀ | ਸ਼ਿਮਲਾ ਮਿਰਚ | ਮਿਰਚ | ਲਾਲ ਸ਼ਿਮਲਾ ਮਿਰਚ</annotation>
+		<annotation cp="🫑" type="tts">ਲਾਲ ਸ਼ਿਮਲਾ ਮਿਰਚ</annotation>
+		<annotation cp="🫒">ਜੈਤੂਨ | ਭੋਜਨ</annotation>
+		<annotation cp="🫒" type="tts">ਜੈਤੂਨ</annotation>
+		<annotation cp="🫓">ਸ਼ੀਰਮਾਲ | ਕੁਲਚਾ | ਤੰਦੂਰੀ ਰੋਟੀ | ਨਾਨ | ਪਰੌਂਠਾ | ਲੱਛਾ ਪਰੌਂਠਾ</annotation>
+		<annotation cp="🫓" type="tts">ਪਰੌਂਠਾ</annotation>
+		<annotation cp="🫔">ਤਮਾਲ | ਮੈਕਸੀਕਨ | ਰੋਲ | ਲਪੇਟਿਆ</annotation>
+		<annotation cp="🫔" type="tts">ਤਮਾਲ</annotation>
+		<annotation cp="🫕">ਸਵਿੱਸ | ਚਾਕਲੇਟ | ਪਨੀਰ | ਪਿਗਲਿਆ | ਫੋਂਡਜੂ | ਬਰਤਨ</annotation>
+		<annotation cp="🫕" type="tts">ਫੋਂਡਜੂ</annotation>
+		<annotation cp="🫖">ਕੇਤਲੀ | ਚਾਹ | ਪੀਣਾ | ਬਰਤਨ</annotation>
+		<annotation cp="🫖" type="tts">ਕੇਤਲੀ</annotation>
+		<annotation cp="🛖">ਗੋਲਘਰ | ਘਰ | ਝੌਂਪੜੀ | ਯੁਰਟ</annotation>
+		<annotation cp="🛖" type="tts">ਝੌਂਪੜੀ</annotation>
+		<annotation cp="🛗">ਐਲੀਵੇਟਰ | ਪਹੁੰਚਯੋਗਤਾ | ਲਿਫਟ</annotation>
+		<annotation cp="🛗" type="tts">ਲਿਫਟ</annotation>
+		<annotation cp="🛻">ਟਰੱਕ | ਪਿੱਕ-ਅੱਪ | ਪਿੱਕਅੱਪ</annotation>
+		<annotation cp="🛻" type="tts">ਪਿੱਕਅੱਪ ਟਰੱਕ</annotation>
+		<annotation cp="🛼">ਸਕੇਟ | ਪਹੀਏਦਾਰ ਬੂਟ | ਪੈਡਲਦਾਰ ਬੂਟ | ਰੋਲਰ</annotation>
+		<annotation cp="🛼" type="tts">ਰੋਲਰ ਸਕੇਟ</annotation>
 		<annotation cp="😀">ਸਮਾਈਲੀ | ਹੱਸਣਾ | ਮੁਸਕਰਾਉਣਾ | ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਮੁਸਕਾਨ</annotation>
 		<annotation cp="😀" type="tts">ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😁">ਮੁਸਕਰਾਉਣਾ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹਸਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਵਾਲਾ ਹੱਸਦਾ ਚਿਹਰਾ | ਮੁਸਕਾਨ | ਮੁੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ</annotation>
-		<annotation cp="😁" type="tts">ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹਸਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😂">ਹੰਝੂ | ਖੁਸ਼ੀ | ਖੁਸ਼ੀ ਦੇ ਹੰਝੂ | ਖੁਸ਼ੀ ਦੇ ਹੰਝੂਆਂ ਨਾਲ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
-		<annotation cp="😂" type="tts">ਖੁਸ਼ੀ ਦੇ ਹੰਝੂਆਂ ਨਾਲ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤣">ਹੱਸ-ਹੱਸ ਲੋਟ-ਪੋਟ | ਹਾਸਾ | ਚਿਹਰਾ | ਫਰਸ਼ | ਲੇਟਣਾ</annotation>
-		<annotation cp="🤣" type="tts">ਹੱਸ-ਹੱਸ ਲੋਟ-ਪੋਟ</annotation>
 		<annotation cp="😃">ਸਮਾਈਲੀ | ਹਾਸਾ | ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਹਾਸਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਵਾਲਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😃" type="tts">ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😄">ਸਮਾਈਲੀ | ਹੱਸਦੀਆਂ ਅੱਖਾਂ | ਹਾਸਾ | ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇ ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਅਤੇ ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਹਾਸਾ</annotation>
 		<annotation cp="😄" type="tts">ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇ ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😅">ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਠੰਡਾ ਮੁੜ੍ਹਕਾ | ਠੰਡਾ ਮੁੜ੍ਹਕਾ ਮੁਸਕਾਨ | ਮੁਸਕਾਨ ਪਰ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਨਾਲ</annotation>
-		<annotation cp="😅" type="tts">ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😁">ਮੁਸਕਰਾਉਣਾ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹਸਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਵਾਲਾ ਹੱਸਦਾ ਚਿਹਰਾ | ਮੁਸਕਾਨ | ਮੁੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ</annotation>
+		<annotation cp="😁" type="tts">ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹਸਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😆">ਅੱਖਾਂ ਬੰਦ ਨਾਲ ਮੁਸਕਾਨ | ਖੁੱਲ੍ਹਾ ਮੁੰਹ | ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇ ਘੁੱਟ ਕੇ ਬੰਦ ਕੀਤੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਨਾਲ ਹਾਸਾ | ਚਿਹਰਾ | ਬੰਦ ਅੱਖਾਂ</annotation>
 		<annotation cp="😆" type="tts">ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇ ਘੁੱਟ ਕੇ ਬੰਦ ਕੀਤੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😅">ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਠੰਡਾ ਮੁੜ੍ਹਕਾ | ਠੰਡਾ ਮੁੜ੍ਹਕਾ ਮੁਸਕਾਨ | ਮੁਸਕਾਨ ਪਰ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਨਾਲ</annotation>
+		<annotation cp="😅" type="tts">ਖੁੱਲ੍ਹੇ ਮੁੰਹ ਅਤੇੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤣">ਹੱਸ-ਹੱਸ ਲੋਟ-ਪੋਟ | ਹਾਸਾ | ਚਿਹਰਾ | ਫਰਸ਼ | ਲੇਟਣਾ</annotation>
+		<annotation cp="🤣" type="tts">ਹੱਸ-ਹੱਸ ਲੋਟ-ਪੋਟ</annotation>
+		<annotation cp="😂">ਹੰਝੂ | ਖੁਸ਼ੀ | ਖੁਸ਼ੀ ਦੇ ਹੰਝੂ | ਖੁਸ਼ੀ ਦੇ ਹੰਝੂਆਂ ਨਾਲ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
+		<annotation cp="😂" type="tts">ਖੁਸ਼ੀ ਦੇ ਹੰਝੂਆਂ ਨਾਲ ਚਿਹਰਾ</annotation>
+		<annotation cp="🙂">ਚਿਹਰਾ | ਥੋੜ੍ਹਾ ਜਿਹਾ ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਹਟ</annotation>
+		<annotation cp="🙂" type="tts">ਥੋੜ੍ਹਾ ਜਿਹਾ ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🙃">ਚਿਹਰਾ | ਬੇਸਮਝ ਚਿਹਰਾ | ਬੇਹੂਦਗੀ | ਮੂਰਖ ਚਿਹਰਾ | ਮੂਰਖਤਾ</annotation>
+		<annotation cp="🙃" type="tts">ਮੂਰਖ ਚਿਹਰਾ</annotation>
 		<annotation cp="😉">ਅੱਖ ਮਟਕਾਉਂਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਝਪਕਣਾ | ਮਟਕਾਉਣਾ</annotation>
 		<annotation cp="😉" type="tts">ਅੱਖ ਮਟਕਾਉਂਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😊">ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ ਅਤੇ ਅੱਖਾਂ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਮੁਸਕਾਨ</annotation>
 		<annotation cp="😊" type="tts">ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😋">ਸੁਆਦੀ | ਸੁਆਦੀ ਖਾਣਾ | ਸੁਆਦੀ ਖਾਣੇ ਦਾ ਆਨੰਦ ਲੈਂਦਾ ਚਿਹਰਾ | ਸੁਆਦੀ ਚੰਗਾ | ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😋" type="tts">ਸੁਆਦੀ ਖਾਣੇ ਦਾ ਆਨੰਦ ਲੈਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😎">ਐਨਕਾਂ ਨਾਲ ਮੁਸਕਰਾਉਂਦਾ | ਕਾਲੀਆਂ ਐਨਕਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਚਮਕਦਾਰ | ਚਿਹਰਾ | ਠੰਡਾ | ਧੁੱਪ ਦੀਆਂ ਐਨਕਾਂ | ਮੁਸਕਰਾਉਂਦਾ</annotation>
-		<annotation cp="😎" type="tts">ਕਾਲੀਆਂ ਐਨਕਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😇">ਹਾਲੋ | ਹਾਲੋ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਕਲਪਨਾ | ਚਿਹਰਾ | ਪਰੀਆਂ ਦੀ ਕਹਾਣੀ | ਫਰਿਸ਼ਤਾ | ਮਾਸੂਮ ਚਿਹਰਾ | ਮੁਸਕਾਨ</annotation>
+		<annotation cp="😇" type="tts">ਹਾਲੋ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥰">ਕ੍ਰਸ਼ | ਦਿਲਾਂ ਨਾਲ ਮੁਸਕੁਰਾਉਂਦਾ ਚਿਹਰਾ | ਪਿਆਰ | ਪਿਆਰ ਵਿੱਚ | ਬਹੁਤ ਪਿਆਰ</annotation>
+		<annotation cp="🥰" type="tts">ਦਿਲਾਂ ਨਾਲ ਮੁਸਕੁਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😍">ਅੱਖਾਂ | ਚਿਹਰਾ | ਦਿਲ | ਦਿਲ ਵਰਗੀਆਂ ਅੱਖਾਂ | ਦਿਲ-ਵਰਗੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😍" type="tts">ਦਿਲ-ਵਰਗੀਆਂ ਅੱਖਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😘">ਚਿਹਰਾ | ਚੁੰੰਮੀ ਸੁੱਟਣਾ | ਚੁੰਮੀ-ਸੁੱਟਦਾ ਚਿਹਰਾ | ਚੁੰਮੀਆਂ ਸੁੱਟਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😘" type="tts">ਚੁੰਮੀ-ਸੁੱਟਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥰">3 ਦਿਲਾਂ ਨਾਲ ਮੁਸਕੁਰਾਉਂਦਾ ਚਿਹਰਾ | ਪਿਆਰ | ਪਿਆਰ ਵਿੱਚ | ਬਹੁਤ ਪਿਆਰ</annotation>
-		<annotation cp="🥰" type="tts">3 ਦਿਲਾਂ ਨਾਲ ਮੁਸਕੁਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😗">ਚਿਹਰਾ | ਚਿਹਰਾ ਚੁੰਮਣਾ | ਚੁੰਮ ਚਿਹਰਾ | ਚੁੰਮੀ | ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😗" type="tts">ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😙">ਚਿਹਰਾ | ਚੁੰਮੀ ਅਤੇ ਮੁਸਕਰਾਹਟ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਹਟ | ਮੁਸਕਰਾਹਟ ਨਾਲ ਚੁੰਮਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😙" type="tts">ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😚">ਅੱਖਾਂ ਬੰਦ ਕਰਕੇ ਚੁੰਮਣਾ | ਚਿਹਰਾ | ਚੁੰਮਣਾ | ਬੰਦ ਅੱਖਾਂ | ਬੰਦ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😚" type="tts">ਬੰਦ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="☺">ਸਮਾਇਲੀ | ਹੱਸਦਾ ਚਿਹਰਾ | ਖਾਲੀ ਸਮਾਇਲੀ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
-		<annotation cp="☺" type="tts">ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🙂">ਚਿਹਰਾ | ਥੋੜ੍ਹਾ ਜਿਹਾ ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਹਟ</annotation>
-		<annotation cp="🙂" type="tts">ਥੋੜ੍ਹਾ ਜਿਹਾ ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤗">ਖੁਸ਼ ਹੋ ਕੇ ਜੱਫੀ ਪਾਉਣਾ | ਚਿਹਰਾ | ਜੱਫੀ | ਜੱਫੀ ਪਾਉਣਾ | ਜੱਫੀ ਪਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤗" type="tts">ਜੱਫੀ ਪਾਉਂਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤩">ਅੱਖਾਂ | ਸ਼ਾਨੋ-ਸ਼ੌਕਤ ਤੋਂ ਪ੍ਰਭਾਵਿਤ | ਖਿਸਿਆਣਾ | ਚਿਹਰਾ | ਤਾਰਾ</annotation>
 		<annotation cp="🤩" type="tts">ਸ਼ਾਨੋ-ਸ਼ੌਕਤ ਤੋਂ ਪ੍ਰਭਾਵਿਤ</annotation>
+		<annotation cp="😘">ਚਿਹਰਾ | ਚੁੰੰਮੀ ਸੁੱਟਣਾ | ਚੁੰਮੀ-ਸੁੱਟਦਾ ਚਿਹਰਾ | ਚੁੰਮੀਆਂ ਸੁੱਟਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😘" type="tts">ਚੁੰਮੀ-ਸੁੱਟਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😗">ਚਿਹਰਾ | ਚਿਹਰਾ ਚੁੰਮਣਾ | ਚੁੰਮ ਚਿਹਰਾ | ਚੁੰਮੀ | ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😗" type="tts">ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="☺">ਸਮਾਇਲੀ | ਹੱਸਦਾ ਚਿਹਰਾ | ਖਾਲੀ ਸਮਾਇਲੀ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
+		<annotation cp="☺" type="tts">ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😚">ਅੱਖਾਂ ਬੰਦ ਕਰਕੇ ਚੁੰਮਣਾ | ਚਿਹਰਾ | ਚੁੰਮਣਾ | ਬੰਦ ਅੱਖਾਂ | ਬੰਦ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😚" type="tts">ਬੰਦ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😙">ਚਿਹਰਾ | ਚੁੰਮੀ ਅਤੇ ਮੁਸਕਰਾਹਟ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ | ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ | ਮੁਸਕਰਾਹਟ | ਮੁਸਕਰਾਹਟ ਨਾਲ ਚੁੰਮਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😙" type="tts">ਮੁਸਕਰਾਉਂਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਚੁੰਮੀ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😋">ਸੁਆਦੀ | ਸੁਆਦੀ ਖਾਣਾ | ਸੁਆਦੀ ਖਾਣੇ ਦਾ ਆਨੰਦ ਲੈਂਦਾ ਚਿਹਰਾ | ਸੁਆਦੀ ਚੰਗਾ | ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😋" type="tts">ਸੁਆਦੀ ਖਾਣੇ ਦਾ ਆਨੰਦ ਲੈਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😛">ਚਿਹਰਾ | ਜੀਭ ਨਿਕਲੀ | ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ | ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਨਾਲ ਚਿਹਰਾ</annotation>
+		<annotation cp="😛" type="tts">ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਨਾਲ ਚਿਹਰਾ</annotation>
+		<annotation cp="😜">ਚਿਹਰਾ | ਚੁਟਕਲਾ | ਜੀਭ ਨਿਕਲੀ | ਝਪਕਣਾ | ਝਪਕੀ ਨਾਲ ਜੀਭ ਨਿਕਲੀ | ਤਾੜ ਰਿਹਾ | ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਅਤੇ ਅੱਖ ਮਟਕਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😜" type="tts">ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਅਤੇ ਅੱਖ ਮਟਕਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤪">ਅੱਖਾਂ | ਛੋਟੀਆਂ | ਪਾਗਲ ਚਿਹਰਾ | ਵੱਡੀਆਂ</annotation>
+		<annotation cp="🤪" type="tts">ਪਾਗਲ ਚਿਹਰਾ</annotation>
+		<annotation cp="😝">ਅੱਖਾਂ ਬੰਦ | ਅੱਖਾਂ ਬੰਦ ਨਾਲ ਜੀਭ ਨਿਕਲੀ | ਗੰਦਾ | ਘੁੱਟ ਕੇ ਬੰਦ ਕੀਤੀਆਂ ਅੱਖਾਂ ਅਤੇ ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਜੀਭ ਬਾਹਰ ਨਿਕਲੀ | ਭਿਆਨਕ</annotation>
+		<annotation cp="😝" type="tts">ਘੁੱਟ ਕੇ ਬੰਦ ਕੀਤੀਆਂ ਅੱਖਾਂ ਅਤੇ ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤑">ਚਿਹਰਾ | ਧੰਨ | ਧੰਨ ਦੀ ਇੱਛਾ | ਪੈਸਾ | ਮੂੰਹ | ਲਾਲਚੀ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤑" type="tts">ਲਾਲਚੀ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤗">ਖੁਸ਼ ਹੋ ਕੇ ਜੱਫੀ ਪਾਉਣਾ | ਚਿਹਰਾ | ਜੱਫੀ | ਜੱਫੀ ਪਾਉਣਾ | ਜੱਫੀ ਪਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤗" type="tts">ਜੱਫੀ ਪਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤭">ਓ ਹੋ | ਮੂੰਹ ਉੱਤੇ ਹੱਥ ਰੱਖਿਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤭" type="tts">ਮੂੰਹ ਉੱਤੇ ਹੱਥ ਰੱਖਿਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤫">ਸ਼ਾਂਤ | ਚੁੱਪ | ਚੁੱਪ ਕਰਵਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤫" type="tts">ਚੁੱਪ ਕਰਵਾਉਂਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤔">ਸੋਚ ਰਿਹਾ ਚਿਹਰਾ | ਸੋਚ ਵਿੱਚ ਡੁੱਬਣਾ | ਸੋਚਣਾ | ਸੋਚਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
 		<annotation cp="🤔" type="tts">ਸੋਚ ਰਿਹਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤐">ਗੱਲ ਲੁਕਾਉਣਾ | ਗੁਪਤ ਰੱਖਣਾ | ਚਿਹਰਾ | ਜ਼ਿੱਪਰ | ਭੇਦ ਰੱਖਣਾ | ਮੂੰਹ | ਮੂੰਹ ਬੰਦ ਚਿਹਰਾ, ਮੂੰਹ ਬੰਦ ਰੱਖਣਾ</annotation>
+		<annotation cp="🤐" type="tts">ਮੂੰਹ ਬੰਦ ਚਿਹਰਾ, ਮੂੰਹ ਬੰਦ ਰੱਖਣਾ</annotation>
 		<annotation cp="🤨">ਇੱਕ ਭਰਵੱਟੇ ਚੁੱਕਿਆ ਚਿਹਰਾ | ਸ਼ੱਕੀ | ਬੇਵਿਸ਼ਵਾਸ | ਭਰਵੱਟੇ ਚੁੱਕਿਆ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤨" type="tts">ਇੱਕ ਭਰਵੱਟੇ ਚੁੱਕਿਆ ਚਿਹਰਾ</annotation>
 		<annotation cp="😐">ਕੋਈ ਟਿੱਪਣੀ ਨਹੀਂ | ਚਿਹਰਾ | ਨਿਰਪੱਖ | ਮੁਰਝਾਇਆ</annotation>
@@ -77,98 +207,26 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😑" type="tts">ਬਿਨਾਂ ਹਾਵ-ਭਾਵ ਵਾਲਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😶">ਚਿਹਰਾ | ਬਿਨਾਂ ਮੂੰਹ ਚਿਹਰਾ | ਬਿਨਾਂ ਮੂੰਹ ਵਾਲਾ ਚਿਹਰਾ | ਮੂੰਹ ਨਹੀਂ</annotation>
 		<annotation cp="😶" type="tts">ਬਿਨਾਂ ਮੂੰਹ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🙄">ਅੱਕਿਆ ਚਿਹਰਾ | ਅੱਖਾਂ | ਅੱਖਾਂ ਘੁੰਮਾਉਣਾ | ਅੱਖਾਂ ਘੁਮਾਉਂਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਮਾਣਹਾਨੀ</annotation>
-		<annotation cp="🙄" type="tts">ਅੱਖਾਂ ਘੁਮਾਉਂਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😏">ਚਲਾਕ ਚਿਹਰਾ | ਚਲਾਕੀ | ਚਲਾਕੀ ਭਰੀ ਮੁਸਕਾਨ | ਨੱਖਰੇ ਵਾਲਾ ਚਿਹਰਾ | ਮੁੂੂਰਖਤਾ</annotation>
 		<annotation cp="😏" type="tts">ਨੱਖਰੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😣">ਉਡਾ ਦਿਓ | ਸੁਰੱਖਿਅਤ | ਸੁਰੱਖਿਅਾ ਚਿਹਰਾ | ਸੁਰੱਖਿਆ ਵਿਖਾਉਣ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਮੈਂ ਉਡਾ ਦਿੱਤਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😣" type="tts">ਸੁਰੱਖਿਆ ਵਿਖਾਉਣ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😥">ਉਦਾਸ | ਓ ਹੋ | ਚਿਹਰਾ | ਨਿਰਾਸ਼ ਪਰ ਰਾਹਤ | ਨਿਰਾਸ਼ ਪਰ ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ | ਰਾਹਤ</annotation>
-		<annotation cp="😥" type="tts">ਨਿਰਾਸ਼ ਪਰ ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😮">ਖੁੱਲਾ ਮੂੰਹ | ਖੁੱਲਿਆ ਮੂੰਹ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਮੂੰਹ</annotation>
-		<annotation cp="😮" type="tts">ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤐">ਗੱਲ ਲੁਕਾਉਣਾ | ਗੁਪਤ ਰੱਖਣਾ | ਚਿਹਰਾ | ਜ਼ਿੱਪਰ | ਭੇਦ ਰੱਖਣਾ | ਮੂੰਹ | ਮੂੰਹ ਬੰਦ ਚਿਹਰਾ, ਮੂੰਹ ਬੰਦ ਰੱਖਣਾ</annotation>
-		<annotation cp="🤐" type="tts">ਮੂੰਹ ਬੰਦ ਚਿਹਰਾ, ਮੂੰਹ ਬੰਦ ਰੱਖਣਾ</annotation>
-		<annotation cp="😯">ਸਾਂਤ ਚਿਹਰਾ | ਹੈਰਾਨ | ਚਿਹਰਾ</annotation>
-		<annotation cp="😯" type="tts">ਹੈਰਾਨ ਚਿਹਰਾ</annotation>
-		<annotation cp="😪">ਚਿਹਰਾ | ਨੀਂਦਰਾ</annotation>
-		<annotation cp="😪" type="tts">ਨੀਂਦਰਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😫">ਚਿਹਰਾ | ਥੱਕਿਆ | ਥੱੱਕਿਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="😫" type="tts">ਥੱਕਿਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="😴">ਸੁੱਤਾ ਚਿਹਰਾ | ਸੌਣਾ | ਚਿਹਰਾ</annotation>
-		<annotation cp="😴" type="tts">ਸੁੱਤਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😌">ਚਿਹਰਾ | ਰਾਹਤ | ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😌" type="tts">ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😛">ਚਿਹਰਾ | ਜੀਭ ਨਿਕਲੀ | ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ | ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਨਾਲ ਚਿਹਰਾ</annotation>
-		<annotation cp="😛" type="tts">ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਨਾਲ ਚਿਹਰਾ</annotation>
-		<annotation cp="😜">ਚਿਹਰਾ | ਚੁਟਕਲਾ | ਜੀਭ ਨਿਕਲੀ | ਝਪਕਣਾ | ਝਪਕੀ ਨਾਲ ਜੀਭ ਨਿਕਲੀ | ਤਾੜ ਰਿਹਾ | ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਅਤੇ ਅੱਖ ਮਟਕਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😜" type="tts">ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਅਤੇ ਅੱਖ ਮਟਕਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😝">ਅੱਖਾਂ ਬੰਦ | ਅੱਖਾਂ ਬੰਦ ਨਾਲ ਜੀਭ ਨਿਕਲੀ | ਗੰਦਾ | ਘੁੱਟ ਕੇ ਬੰਦ ਕੀਤੀਆਂ ਅੱਖਾਂ ਅਤੇ ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਜੀਭ ਬਾਹਰ ਨਿਕਲੀ | ਭਿਆਨਕ</annotation>
-		<annotation cp="😝" type="tts">ਘੁੱਟ ਕੇ ਬੰਦ ਕੀਤੀਆਂ ਅੱਖਾਂ ਅਤੇ ਬਾਹਰ ਨਿਕਲੀ ਜੀਭ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤤">ਚਿਹਰਾ | ਲਾਰ ਟਪਕਣਾ | ਲਾਰ ਟਪਕਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤤" type="tts">ਲਾਰ ਟਪਕਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😒">ਚਿਹਰਾ | ਨਾ-ਖਸ਼ ਚਿਹਰਾ | ਨਾ-ਖੁਸ਼</annotation>
 		<annotation cp="😒" type="tts">ਨਾ-ਖਸ਼ ਚਿਹਰਾ</annotation>
-		<annotation cp="😓">ਚਿਹਰਾ | ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ | ਡਰਿਆ ਹੋਇਆ | ਡਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="😓" type="tts">ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😔">ਚਿਹਰਾ | ਵਿਚਾਰਸ਼ੀਲ</annotation>
-		<annotation cp="😔" type="tts">ਵਿਚਾਰਸ਼ੀਲ ਚਿਹਰਾ</annotation>
-		<annotation cp="😕">ਉਲਝਣ ਵਾਲਾ ਚਿਹਰਾ | ਉਲਝਿਆ | ਉਲਝਿਆ ਚਿਹਹਾ | ਚਿਹਰਾ</annotation>
-		<annotation cp="😕" type="tts">ਉਲਝਣ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🙃">ਚਿਹਰਾ | ਬੇਸਮਝ ਚਿਹਰਾ | ਬੇਹੂਦਗੀ | ਮੂਰਖ ਚਿਹਰਾ | ਮੂਰਖਤਾ</annotation>
-		<annotation cp="🙃" type="tts">ਮੂਰਖ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤑">ਚਿਹਰਾ | ਧੰਨ | ਧੰਨ ਦੀ ਇੱਛਾ | ਪੈਸਾ | ਮੂੰਹ | ਲਾਲਚੀ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤑" type="tts">ਲਾਲਚੀ ਚਿਹਰਾ</annotation>
-		<annotation cp="😲">ਹੈਰਤ ਵਾਲਾ ਚਿਹਰਾ | ਹੈਰਾਨ | ਹੈਰਾਨੀ | ਚਿਹਰਾ | ਪੂਰੀ ਤਰ੍ਹਾਂ ਹੈਰਾਨ</annotation>
-		<annotation cp="😲" type="tts">ਹੈਰਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="☹">ਉਦਾਸ ਹੋਣਾ | ਉਦਾਸ ਚਿਹਰਾ | ਚਿਹਰਾ | ਨਰਾਜ਼ ਚਿਹਰਾ | ਮੱਥੇ ਵੱਟ ਪਾਉਣਾ</annotation>
-		<annotation cp="☹" type="tts">ਨਰਾਜ਼ ਚਿਹਰਾ</annotation>
-		<annotation cp="🙁">ਉਦਾਸ ਹੋਣਾ | ਉਦਾਸ ਚਿਹਰਾ | ਚਿਹਰਾ | ਥੋੜ੍ਹਾ ਜਿਹਾ ਨਰਾਜ਼ ਚਿਹਰਾ | ਮੱਥੇ ਵੱਟ ਪਾਉਣਾ</annotation>
-		<annotation cp="🙁" type="tts">ਥੋੜ੍ਹਾ ਜਿਹਾ ਨਰਾਜ਼ ਚਿਹਰਾ</annotation>
-		<annotation cp="😖">ਸ਼ਰਮਸਾਰ | ਹੈਰਾਨ ਅਤੇ ਉਲਝਿਆ ਹੋਇਆ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
-		<annotation cp="😖" type="tts">ਹੈਰਾਨ ਅਤੇ ਉਲਝਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="😞">ਚਿਹਰਾ | ਨਿਰਾਸ਼ | ਨਿਰਾਸ਼ਾ</annotation>
-		<annotation cp="😞" type="tts">ਨਿਰਾਸ਼ ਚਿਹਰਾ</annotation>
-		<annotation cp="😟">ਚਿਹਰਾ | ਚਿੰਤਤ | ਫਿਕਰਮੰਦ ਚਿਹਰਾ</annotation>
-		<annotation cp="😟" type="tts">ਫਿਕਰਮੰਦ ਚਿਹਰਾ</annotation>
-		<annotation cp="😤">ਚਿਹਰਾ | ਜਿੱਤ | ਜਿੱਤ ਦਰਸਾਉਂਦਾ ਚਿਹਰਾ | ਜਿੱਤ ਲਈ | ਮੈਂ ਇਹ ਜਿੱਤ ਲਿਆ ਚਿਹਰਾ | ਮੈਂ ਜਿੱਤਿਆ</annotation>
-		<annotation cp="😤" type="tts">ਜਿੱਤ ਦਰਸਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😢">ਉਦਾਸ | ਹੰਝੂ | ਚਿਹਰਾ | ਰੋਣਾ | ਰੋਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😢" type="tts">ਰੋਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😭">ਉੱਚੀ ਉੱਚੀ ਰੋਣਾ | ਉੱਚੀ-ਉੱਚੀ ਰੋਂਦਾ ਚਿਹਰਾ | ਹੰਝੂ | ਚਿਹਰਾ | ਰੋਣਾ</annotation>
-		<annotation cp="😭" type="tts">ਉੱਚੀ-ਉੱਚੀ ਰੋਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😦">ਖੁੱਲਿਆ ਮੂੰਹ | ਖੁੱਲੇ ਮੂੰਹ ਨਾਲ ਨਰਾਜ਼ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਨਰਾਜ਼ ਚਿਹਰਾ | ਚਿਹਰਾ | ਨਰਾਜ਼ ਹੋਣਾ | ਨਰਾਾਜ਼ ਚਿਹਰਾ</annotation>
-		<annotation cp="😦" type="tts">ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਨਰਾਜ਼ ਚਿਹਰਾ</annotation>
-		<annotation cp="😧">ਚਿਹਰਾ | ਦੁੱਖ ਹੋ ਰਿਹਾ | ਦੁੱਖੀ | ਦੁਖੀ ਚਿਹਰਾ</annotation>
-		<annotation cp="😧" type="tts">ਦੁਖੀ ਚਿਹਰਾ</annotation>
-		<annotation cp="😨">ਚਿਹਰਾ | ਡਰ | ਡਰਾਵਣਾ | ਡਰਿਆ | ਡਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="😨" type="tts">ਡਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="😩">ਹੰਭਿਆ ਹੋਇਆ ਚਿਹਰਾ | ਚਿਹਰਾ | ਥੱਕਿਆ</annotation>
-		<annotation cp="😩" type="tts">ਹੰਭਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤯">ਹੈਰਾਨ | ਫਟਦਾ ਹੋਇਆ ਸਿਰ</annotation>
-		<annotation cp="🤯" type="tts">ਫਟਦਾ ਹੋਇਆ ਸਿਰ</annotation>
+		<annotation cp="🙄">ਅੱਕਿਆ ਚਿਹਰਾ | ਅੱਖਾਂ | ਅੱਖਾਂ ਘੁੰਮਾਉਣਾ | ਅੱਖਾਂ ਘੁਮਾਉਂਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਮਾਣਹਾਨੀ</annotation>
+		<annotation cp="🙄" type="tts">ਅੱਖਾਂ ਘੁਮਾਉਂਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😬">ਕਚੀਚੀਆਂ ਲੈਂਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਬਦਸੂਰਤ</annotation>
 		<annotation cp="😬" type="tts">ਕਚੀਚੀਆਂ ਲੈਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😰">ਕਾਹਲਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਅਤੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਠੰਡਾ | ਠੰਡਾ ਪਸੀਨਾ | ਠੰਡੇ ਪਸੀੇਨੇ ਨਾਲ ਨੀਲਾ ਚਿਹਰਾ | ਨੀਲਾ | ਮੂੰਹ ਖੁੱਲਿਆ</annotation>
-		<annotation cp="😰" type="tts">ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਅਤੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😱">ਚਿਹਰਾ | ਚੀਕ | ਡਰ | ਡਰ ਨਾਲ ਚੀਕ ਰਿਹਾ ਚਿਹਰਾ | ਡਰ ਨਾਲ ਚੀਕਣਾ | ਡਰ ਨਾਲ ਚੀਕਦਾ ਚਿਹਰਾ | ਡਰਾਉਣਾ | ਡਰਿਆ</annotation>
-		<annotation cp="😱" type="tts">ਡਰ ਨਾਲ ਚੀਕਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥵">ਸੇਕ ਦਾ ਮਾਰਿਆ ਚਿਹਰਾ | ਗਰਮੀ ਨਾਲ ਤਪਿਆ ਚਿਹਰਾ | ਗਰਮੀ ਨਾਲ ਲਾਲ ਹੋਇਆ ਚਿਹਰਾ | ਤਪਿਆ ਹੋਇਆ ਚਿਹਰਾ | ਭਖਿਆ ਚਿਹਰਾ | ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥵" type="tts">ਤਪਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥶">ਕੱਕਰ ਖਾਧਾ ਚਿਹਰਾ | ਠੰਢ ਨਾਲ ਨੀਲਾ ਹੋਇਆ ਚਿਹਰਾ | ਠੰਢ ਨਾਲ ਭਾਵਹੀਨ ਹੋਇਆ ਚਿਹਰਾ | ਠੰਢਾ ਚਿਹਰਾ | ਬਹੁਤ ਠੰਢਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥶" type="tts">ਠੰਢਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😳">ਉਲਝਣ ਵਿੱਚ | ਚਿਹਰਾ | ਬੇਚਾਰਾ | ਭਖਿਆ</annotation>
-		<annotation cp="😳" type="tts">ਭਖਿਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤪">ਅੱਖਾਂ | ਛੋਟੀਆਂ | ਪਾਗਲ ਚਿਹਰਾ | ਵੱਡੀਆਂ</annotation>
-		<annotation cp="🤪" type="tts">ਪਾਗਲ ਚਿਹਰਾ</annotation>
-		<annotation cp="😵">ਚੱਕਰ | ਚੱਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
-		<annotation cp="😵" type="tts">ਚੱਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😡">ਗੁੱਸਾ | ਚਿਹਰਾ | ਨਰਾਜ਼ਗੀ | ਨਰਾਜ਼਼ਗੀ ਨਾਲ ਲਾਲ ਚਿਹਰਾ | ਪਾਗਲ | ਲਾਲ ਚਿਹਰਾ | ਲਾਲ ਨਰਾਜ਼ਗੀ ਚਿਹਰਾ</annotation>
-		<annotation cp="😡" type="tts">ਨਰਾਜ਼਼ਗੀ ਨਾਲ ਲਾਲ ਚਿਹਰਾ</annotation>
-		<annotation cp="😠">ਗੁੱਸਾ ਚਿਹਰਾ | ਗੁੱਸੇ | ਗੁੱਸੇ ਵਿੱਚ ਚਿਹਰਾ | ਚਿਹਰਾ | ਪਾਗਲ</annotation>
-		<annotation cp="😠" type="tts">ਗੁੱਸੇ ਵਿੱਚ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤬">ਗਾਲ੍ਹਾਂ ਕੱਢਣਾ | ਮੂੰਹ ਤੇ ਪ੍ਰਤੀਕਾਂ ਵਾਲਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤬" type="tts">ਮੂੰਹ ਤੇ ਪ੍ਰਤੀਕਾਂ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤥">ਚਿਹਰਾ | ਝੂਠ | ਝੂਠਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤥" type="tts">ਝੂਠਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😌">ਚਿਹਰਾ | ਰਾਹਤ | ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😌" type="tts">ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😔">ਚਿਹਰਾ | ਵਿਚਾਰਸ਼ੀਲ</annotation>
+		<annotation cp="😔" type="tts">ਵਿਚਾਰਸ਼ੀਲ ਚਿਹਰਾ</annotation>
+		<annotation cp="😪">ਚਿਹਰਾ | ਨੀਂਦਰਾ</annotation>
+		<annotation cp="😪" type="tts">ਨੀਂਦਰਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤤">ਚਿਹਰਾ | ਲਾਰ ਟਪਕਣਾ | ਲਾਰ ਟਪਕਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤤" type="tts">ਲਾਰ ਟਪਕਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😴">ਸੁੱਤਾ ਚਿਹਰਾ | ਸੌਣਾ | ਚਿਹਰਾ</annotation>
+		<annotation cp="😴" type="tts">ਸੁੱਤਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😷">ਚਿਹਰਾ | ਠੰਡਾ | ਨਕਾਬ ਨਾਲ ਚਿਹਰਾ | ਮੈਡੀਕਲ ਨਕਾਬ | ਮੈਡੀਕਲ ਨਕਾਬ ਵਾਲਾ ਚਿਹਰਾ | ਮੌਸਮ ਅਧੀਨ</annotation>
 		<annotation cp="😷" type="tts">ਮੈਡੀਕਲ ਨਕਾਬ ਵਾਲਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤒">ਚਿਹਰਾ | ਥਰਮਾਮੀਟਰ | ਬਿਮਾਰ | ਰੋਗੀ</annotation>
@@ -181,40 +239,98 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤮" type="tts">ਉਲਟੀ ਕਰਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤧">ਚਿਹਰਾ | ਛਿੱਕ | ਛਿੱਕਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤧" type="tts">ਛਿੱਕਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="😇">ਹਾਲੋ | ਹਾਲੋ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਕਲਪਨਾ | ਚਿਹਰਾ | ਪਰੀਆਂ ਦੀ ਕਹਾਣੀ | ਫਰਿਸ਼ਤਾ | ਮਾਸੂਮ ਚਿਹਰਾ | ਮੁਸਕਾਨ</annotation>
-		<annotation cp="😇" type="tts">ਹਾਲੋ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥵">ਸੇਕ ਦਾ ਮਾਰਿਆ ਚਿਹਰਾ | ਗਰਮੀ ਨਾਲ ਤਪਿਆ ਚਿਹਰਾ | ਗਰਮੀ ਨਾਲ ਲਾਲ ਹੋਇਆ ਚਿਹਰਾ | ਤਪਿਆ ਹੋਇਆ ਚਿਹਰਾ | ਭਖਿਆ ਚਿਹਰਾ | ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥵" type="tts">ਤਪਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥶">ਕੱਕਰ ਖਾਧਾ ਚਿਹਰਾ | ਠੰਢ ਨਾਲ ਨੀਲਾ ਹੋਇਆ ਚਿਹਰਾ | ਠੰਢ ਨਾਲ ਭਾਵਹੀਨ ਹੋਇਆ ਚਿਹਰਾ | ਠੰਢਾ ਚਿਹਰਾ | ਬਹੁਤ ਠੰਢਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥶" type="tts">ਠੰਢਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥴">ਉੱਘੜ-ਦੁੱਘੜ ਅੱਖਾਂ | ਸਰੂਰਿਆ ਚਿਹਰਾ | ਕਲੋਲਮਈ ਮੂੰਹ | ਚਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਨਸ਼ਿਆਇਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥴" type="tts">ਚਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😵">ਚੱਕਰ | ਚੱਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
+		<annotation cp="😵" type="tts">ਚੱਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤯">ਹੈਰਾਨ | ਫਟਦਾ ਹੋਇਆ ਸਿਰ</annotation>
+		<annotation cp="🤯" type="tts">ਫਟਦਾ ਹੋਇਆ ਸਿਰ</annotation>
 		<annotation cp="🤠">ਹੈਟ ਚਿਹਰਾ | ਕਾਓਗਰਲ | ਕਾਓਬੁਆਏ | ਕਾਓਬੁਆਏ ਹੈਟ ਚਿਹਰਾ | ਕਾਓਬੌਏ ਹੈਟ ਚਿਹਰਾ | ਟੋਪੀ</annotation>
 		<annotation cp="🤠" type="tts">ਕਾਓਬੌਏ ਹੈਟ ਚਿਹਰਾ</annotation>
 		<annotation cp="🥳">ਹਾਰਨ | ਹੈਟ | ਜਸ਼ਨ | ਪਾਰਟੀ | ਪਾਰਟੀ ਮਨਾਉਂਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🥳" type="tts">ਪਾਰਟੀ ਮਨਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥴">ਉੱਘੜ-ਦੁੱਘੜ ਅੱਖਾਂ | ਸਰੂਰਿਆ ਚਿਹਰਾ | ਕਲੋਲਮਈ ਮੂੰਹ | ਚਕਰਾਉਂਦਾ ਚਿਹਰਾ | ਨਸ਼ਿਆਇਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥴" type="tts">ਚਕਰਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥺">ਸਫ਼ਾਈ ਦਿੰਦਾ ਚਿਹਰਾ | ਤਰਲੇ ਕੱਢਦਾ ਚਿਹਰਾ | ਦਿਆਲਤਾ | ਮਾਸੂਮ ਚਿਹਰਾ</annotation>
-		<annotation cp="🥺" type="tts">ਸਫ਼ਾਈ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤥">ਚਿਹਰਾ | ਝੂਠ | ਝੂਠਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤥" type="tts">ਝੂਠਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤫">ਸ਼ਾਂਤ | ਚੁੱਪ | ਚੁੱਪ ਕਰਵਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤫" type="tts">ਚੁੱਪ ਕਰਵਾਉਂਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤭">ਓ ਹੋ | ਮੂੰਹ ਉੱਤੇ ਹੱਥ ਰੱਖਿਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="🤭" type="tts">ਮੂੰਹ ਉੱਤੇ ਹੱਥ ਰੱਖਿਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="🧐">ਅੱਖ ਉੱਤੇ ਇੱਕ ਸ਼ੀਸ਼ੇ ਵਾਲਾ ਚਿਹਰਾ | ਭਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
-		<annotation cp="🧐" type="tts">ਅੱਖ ਉੱਤੇ ਇੱਕ ਸ਼ੀਸ਼ੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😎">ਐਨਕਾਂ ਨਾਲ ਮੁਸਕਰਾਉਂਦਾ | ਕਾਲੀਆਂ ਐਨਕਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ | ਚਮਕਦਾਰ | ਚਿਹਰਾ | ਠੰਡਾ | ਧੁੱਪ ਦੀਆਂ ਐਨਕਾਂ | ਮੁਸਕਰਾਉਂਦਾ</annotation>
+		<annotation cp="😎" type="tts">ਕਾਲੀਆਂ ਐਨਕਾਂ ਨਾਲ ਹੱਸਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤓">ਗ਼ੈਰ-ਸਮਾਜਕ ਪਰ ਅਕਲਮੰਦ | ਚਿਹਰਾ | ਪੜ੍ਹਾਕੂ ਚਿਹਰਾ | ਬੇਵਕੂਫ | ਮੂਰਖਤਾ</annotation>
 		<annotation cp="🤓" type="tts">ਪੜ੍ਹਾਕੂ ਚਿਹਰਾ</annotation>
+		<annotation cp="🧐">ਅੱਖ ਉੱਤੇ ਇੱਕ ਸ਼ੀਸ਼ੇ ਵਾਲਾ ਚਿਹਰਾ | ਭਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="🧐" type="tts">ਅੱਖ ਉੱਤੇ ਇੱਕ ਸ਼ੀਸ਼ੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😕">ਉਲਝਣ ਵਾਲਾ ਚਿਹਰਾ | ਉਲਝਿਆ | ਉਲਝਿਆ ਚਿਹਹਾ | ਚਿਹਰਾ</annotation>
+		<annotation cp="😕" type="tts">ਉਲਝਣ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😟">ਚਿਹਰਾ | ਚਿੰਤਤ | ਫਿਕਰਮੰਦ ਚਿਹਰਾ</annotation>
+		<annotation cp="😟" type="tts">ਫਿਕਰਮੰਦ ਚਿਹਰਾ</annotation>
+		<annotation cp="🙁">ਉਦਾਸ ਹੋਣਾ | ਉਦਾਸ ਚਿਹਰਾ | ਚਿਹਰਾ | ਥੋੜ੍ਹਾ ਜਿਹਾ ਨਰਾਜ਼ ਚਿਹਰਾ | ਮੱਥੇ ਵੱਟ ਪਾਉਣਾ</annotation>
+		<annotation cp="🙁" type="tts">ਥੋੜ੍ਹਾ ਜਿਹਾ ਨਰਾਜ਼ ਚਿਹਰਾ</annotation>
+		<annotation cp="☹">ਉਦਾਸ ਹੋਣਾ | ਉਦਾਸ ਚਿਹਰਾ | ਚਿਹਰਾ | ਨਰਾਜ਼ ਚਿਹਰਾ | ਮੱਥੇ ਵੱਟ ਪਾਉਣਾ</annotation>
+		<annotation cp="☹" type="tts">ਨਰਾਜ਼ ਚਿਹਰਾ</annotation>
+		<annotation cp="😮">ਖੁੱਲਾ ਮੂੰਹ | ਖੁੱਲਿਆ ਮੂੰਹ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਮੂੰਹ</annotation>
+		<annotation cp="😮" type="tts">ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😯">ਸਾਂਤ ਚਿਹਰਾ | ਹੈਰਾਨ | ਚਿਹਰਾ</annotation>
+		<annotation cp="😯" type="tts">ਹੈਰਾਨ ਚਿਹਰਾ</annotation>
+		<annotation cp="😲">ਹੈਰਤ ਵਾਲਾ ਚਿਹਰਾ | ਹੈਰਾਨ | ਹੈਰਾਨੀ | ਚਿਹਰਾ | ਪੂਰੀ ਤਰ੍ਹਾਂ ਹੈਰਾਨ</annotation>
+		<annotation cp="😲" type="tts">ਹੈਰਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😳">ਉਲਝਣ ਵਿੱਚ | ਚਿਹਰਾ | ਬੇਚਾਰਾ | ਭਖਿਆ</annotation>
+		<annotation cp="😳" type="tts">ਭਖਿਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥺">ਸਫ਼ਾਈ ਦਿੰਦਾ ਚਿਹਰਾ | ਤਰਲੇ ਕੱਢਦਾ ਚਿਹਰਾ | ਦਿਆਲਤਾ | ਮਾਸੂਮ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥺" type="tts">ਸਫ਼ਾਈ ਦਿੰਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😦">ਖੁੱਲਿਆ ਮੂੰਹ | ਖੁੱਲੇ ਮੂੰਹ ਨਾਲ ਨਰਾਜ਼ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਨਰਾਜ਼ ਚਿਹਰਾ | ਚਿਹਰਾ | ਨਰਾਜ਼ ਹੋਣਾ | ਨਰਾਾਜ਼ ਚਿਹਰਾ</annotation>
+		<annotation cp="😦" type="tts">ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਨਰਾਜ਼ ਚਿਹਰਾ</annotation>
+		<annotation cp="😧">ਚਿਹਰਾ | ਦੁੱਖ ਹੋ ਰਿਹਾ | ਦੁੱਖੀ | ਦੁਖੀ ਚਿਹਰਾ</annotation>
+		<annotation cp="😧" type="tts">ਦੁਖੀ ਚਿਹਰਾ</annotation>
+		<annotation cp="😨">ਚਿਹਰਾ | ਡਰ | ਡਰਾਵਣਾ | ਡਰਿਆ | ਡਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="😨" type="tts">ਡਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="😰">ਕਾਹਲਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਅਤੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਠੰਡਾ | ਠੰਡਾ ਪਸੀਨਾ | ਠੰਡੇ ਪਸੀੇਨੇ ਨਾਲ ਨੀਲਾ ਚਿਹਰਾ | ਨੀਲਾ | ਮੂੰਹ ਖੁੱਲਿਆ</annotation>
+		<annotation cp="😰" type="tts">ਖੁੱਲ੍ਹੇ ਮੂੰਹ ਅਤੇ ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😥">ਉਦਾਸ | ਓ ਹੋ | ਚਿਹਰਾ | ਨਿਰਾਸ਼ ਪਰ ਰਾਹਤ | ਨਿਰਾਸ਼ ਪਰ ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ | ਰਾਹਤ</annotation>
+		<annotation cp="😥" type="tts">ਨਿਰਾਸ਼ ਪਰ ਰਾਹਤ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😢">ਉਦਾਸ | ਹੰਝੂ | ਚਿਹਰਾ | ਰੋਣਾ | ਰੋਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😢" type="tts">ਰੋਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😭">ਉੱਚੀ ਉੱਚੀ ਰੋਣਾ | ਉੱਚੀ-ਉੱਚੀ ਰੋਂਦਾ ਚਿਹਰਾ | ਹੰਝੂ | ਚਿਹਰਾ | ਰੋਣਾ</annotation>
+		<annotation cp="😭" type="tts">ਉੱਚੀ-ਉੱਚੀ ਰੋਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😱">ਚਿਹਰਾ | ਚੀਕ | ਡਰ | ਡਰ ਨਾਲ ਚੀਕ ਰਿਹਾ ਚਿਹਰਾ | ਡਰ ਨਾਲ ਚੀਕਣਾ | ਡਰ ਨਾਲ ਚੀਕਦਾ ਚਿਹਰਾ | ਡਰਾਉਣਾ | ਡਰਿਆ</annotation>
+		<annotation cp="😱" type="tts">ਡਰ ਨਾਲ ਚੀਕਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😖">ਸ਼ਰਮਸਾਰ | ਹੈਰਾਨ ਅਤੇ ਉਲਝਿਆ ਹੋਇਆ ਚਿਹਰਾ | ਚਿਹਰਾ</annotation>
+		<annotation cp="😖" type="tts">ਹੈਰਾਨ ਅਤੇ ਉਲਝਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="😣">ਉਡਾ ਦਿਓ | ਸੁਰੱਖਿਅਤ | ਸੁਰੱਖਿਅਾ ਚਿਹਰਾ | ਸੁਰੱਖਿਆ ਵਿਖਾਉਣ ਵਾਲਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਮੈਂ ਉਡਾ ਦਿੱਤਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😣" type="tts">ਸੁਰੱਖਿਆ ਵਿਖਾਉਣ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😞">ਚਿਹਰਾ | ਨਿਰਾਸ਼ | ਨਿਰਾਸ਼ਾ</annotation>
+		<annotation cp="😞" type="tts">ਨਿਰਾਸ਼ ਚਿਹਰਾ</annotation>
+		<annotation cp="😓">ਚਿਹਰਾ | ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ | ਡਰਿਆ ਹੋਇਆ | ਡਰਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="😓" type="tts">ਠੰਡੇ ਮੁੜ੍ਹਕੇ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😩">ਹੰਭਿਆ ਹੋਇਆ ਚਿਹਰਾ | ਚਿਹਰਾ | ਥੱਕਿਆ</annotation>
+		<annotation cp="😩" type="tts">ਹੰਭਿਆ ਹੋਇਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="😫">ਚਿਹਰਾ | ਥੱਕਿਆ | ਥੱੱਕਿਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="😫" type="tts">ਥੱਕਿਆ ਚਿਹਰਾ</annotation>
+		<annotation cp="🥱">ਉਬਾਸੀ ਲੈਂਦਾ ਚਿਹਰਾ | ਅੱਕਿਆ | ਥੱਕਿਆ</annotation>
+		<annotation cp="🥱" type="tts">ਉਬਾਸੀ ਲੈਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😤">ਚਿਹਰਾ | ਜਿੱਤ | ਜਿੱਤ ਦਰਸਾਉਂਦਾ ਚਿਹਰਾ | ਜਿੱਤ ਲਈ | ਮੈਂ ਇਹ ਜਿੱਤ ਲਿਆ ਚਿਹਰਾ | ਮੈਂ ਜਿੱਤਿਆ</annotation>
+		<annotation cp="😤" type="tts">ਜਿੱਤ ਦਰਸਾਉਂਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="😡">ਗੁੱਸਾ | ਚਿਹਰਾ | ਨਰਾਜ਼ਗੀ | ਨਰਾਜ਼਼ਗੀ ਨਾਲ ਲਾਲ ਚਿਹਰਾ | ਪਾਗਲ | ਲਾਲ ਚਿਹਰਾ | ਲਾਲ ਨਰਾਜ਼ਗੀ ਚਿਹਰਾ</annotation>
+		<annotation cp="😡" type="tts">ਨਰਾਜ਼਼ਗੀ ਨਾਲ ਲਾਲ ਚਿਹਰਾ</annotation>
+		<annotation cp="😠">ਗੁੱਸਾ ਚਿਹਰਾ | ਗੁੱਸੇ | ਗੁੱਸੇ ਵਿੱਚ ਚਿਹਰਾ | ਚਿਹਰਾ | ਪਾਗਲ</annotation>
+		<annotation cp="😠" type="tts">ਗੁੱਸੇ ਵਿੱਚ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤬">ਗਾਲ੍ਹਾਂ ਕੱਢਣਾ | ਮੂੰਹ ਤੇ ਪ੍ਰਤੀਕਾਂ ਵਾਲਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🤬" type="tts">ਮੂੰਹ ਤੇ ਪ੍ਰਤੀਕਾਂ ਵਾਲਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😈">ਸਿੰਗਾਂ | ਸਿੰਗਾਂ ਨਾਲ ਮੁਸਕਾਨ | ਚਿਹਰਾ | ਮੁਸਕਰਾਉਂਦਾ ਸ਼ੈਤਾਨੀ ਚਿਹਰਾ | ਮੁਸਕਾਨ</annotation>
 		<annotation cp="😈" type="tts">ਮੁਸਕਰਾਉਂਦਾ ਸ਼ੈਤਾਨੀ ਚਿਹਰਾ</annotation>
 		<annotation cp="👿">ਸ਼ਤਾਨ | ਸੋਹਣਾ ਸ਼ੈਤਾਨੀ ਚਿਹਰਾ | ਚਿਹਰਾ | ਛੋਟਾ ਸ਼ਤਾਨ</annotation>
 		<annotation cp="👿" type="tts">ਸੋਹਣਾ ਸ਼ੈਤਾਨੀ ਚਿਹਰਾ</annotation>
+		<annotation cp="💀">ਸਰੀਰ | ਖੋਪੜੀ | ਚਿਹਰਾ | ਪਰੀ ਕਹਾਣੀ</annotation>
+		<annotation cp="💀" type="tts">ਖੋਪੜੀ</annotation>
+		<annotation cp="☠">ਸਰੀਰ | ਖ਼ਤਰਾ | ਖ਼ਤਰੇ ਤੋਂ ਸਾਵਧਾਨ ਕਰਨਾ | ਖ਼ਤਰੇ ਦਾ ਨਿਸ਼ਾਨ | ਖੋਪੜੀ | ਚਿਹਰਾ | ਦੈਂਤ | ਮੌਤ</annotation>
+		<annotation cp="☠" type="tts">ਖ਼ਤਰੇ ਦਾ ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="💩">ਗੰਦਗੀ | ਗੰਦਗੀ ਦਾ ਢੇਰ | ਗੋਹਾ | ਢੇਰ</annotation>
+		<annotation cp="💩" type="tts">ਗੰਦਗੀ ਦਾ ਢੇਰ</annotation>
 		<annotation cp="🤡">ਚਿਹਰਾ | ਜੋਕਰ</annotation>
 		<annotation cp="🤡" type="tts">ਜੋਕਰ ਚਿਹਰਾ</annotation>
 		<annotation cp="👹">ਚਿਹਰਾ | ਜਾਪਾਨੀ ਰਾਖਸ਼ | ਦੈਂਤ | ਪਰੀ ਕਹਾਣੀ | ਰਾਖਸ਼</annotation>
 		<annotation cp="👹" type="tts">ਦੈਂਤ</annotation>
 		<annotation cp="👺">ਚਿਹਰਾ | ਜਾਪਾਨੀ ਭੂਤ | ਦੈਂਤ | ਪਰੀ ਕਹਾਣੀ | ਪ੍ਰੇਤ | ਭੂਤ</annotation>
 		<annotation cp="👺" type="tts">ਪ੍ਰੇਤ</annotation>
-		<annotation cp="💀">ਸਰੀਰ | ਖੋਪੜੀ | ਚਿਹਰਾ | ਪਰੀ ਕਹਾਣੀ</annotation>
-		<annotation cp="💀" type="tts">ਖੋਪੜੀ</annotation>
-		<annotation cp="☠">ਸਰੀਰ | ਖ਼ਤਰਾ | ਖ਼ਤਰੇ ਤੋਂ ਸਾਵਧਾਨ ਕਰਨਾ | ਖ਼ਤਰੇ ਦਾ ਨਿਸ਼ਾਨ | ਖੋਪੜੀ | ਚਿਹਰਾ | ਦੈਂਤ | ਮੌਤ</annotation>
-		<annotation cp="☠" type="tts">ਖ਼ਤਰੇ ਦਾ ਨਿਸ਼ਾਨ</annotation>
 		<annotation cp="👻">ਚਿਹਰਾ | ਦੈਂਤ | ਪਰੀ ਕਹਾਣੀ | ਭੂਤ</annotation>
 		<annotation cp="👻" type="tts">ਭੂਤ</annotation>
 		<annotation cp="👽">ਏਲਿਅਨ | ਏਲੀਅਨ | ਚਿਹਰਾ | ਪਰੀ ਕਹਾਣੀ | ਬਾਹਰੀ | ਬਾਹਰੀ ਦੁਨੀਆਂ ਯੂ ਏਫ ਓ</annotation>
@@ -223,8 +339,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👾" type="tts">ਏਲੀਅਨ ਰਾਖਸ਼</annotation>
 		<annotation cp="🤖">ਚਿਹਰਾ | ਦੈਂਤ | ਰਾਖਸ਼ | ਰੋਬੋਟ ਚਿਹਰਾ | ਰੋਬੋਟ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🤖" type="tts">ਰੋਬੋਟ ਦਾ ਚਿਹਰਾ</annotation>
-		<annotation cp="💩">ਗੰਦਗੀ | ਗੰਦਗੀ ਦਾ ਢੇਰ | ਗੋਹਾ | ਢੇਰ</annotation>
-		<annotation cp="💩" type="tts">ਗੰਦਗੀ ਦਾ ਢੇਰ</annotation>
 		<annotation cp="😺">ਖੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਹੱਸਦੀ ਬਿੱਲੀ ਦਾ ਚਿਹਰਾ | ਖੁੱਲ੍ਹਿਆ | ਚਿਹਰਾ | ਬਿੱਲੀ | ਮੁਸਕਰਾਉਂਦੀ ਬਿੱਲੀ ਚਿਹਰਾ ਨਾਲ ਖੁੱਲਿਆ ਮੂੰਹ | ਮੁੁਸਕਰਾਉਂਦੀ ਬਿੱਲੀ ਚਿਹਰਾ</annotation>
 		<annotation cp="😺" type="tts">ਖੱਲ੍ਹੇ ਮੂੰਹ ਨਾਲ ਹੱਸਦੀ ਬਿੱਲੀ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="😸">ਹੱਸਦੀਆਂ ਅੱਖਾਂ ਨਾਲ ਮੁਸਕਰਾਉਂਦੀ ਬਿੱਲੀ ਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਬਿੱਲੀ ਚਿਹਰਾ | ਮੁਸਕਰਾਉਣਾ | ਮੁਸਕਰਾਉਂਦੀ ਬਿੱਲੀ ਚਿਹਰਾ | ਵੱਡੀ ਮੁਸਕਾਨ ਬਿੱਲੀ ਅਤੇ ਹੱਸਦੀਆਂ ਅੱਖਾਂ</annotation>
@@ -249,6 +363,172 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🙉" type="tts">ਬੁਰਾ ਨਾ ਸੁਣੋ</annotation>
 		<annotation cp="🙊">ਬਾਂਦਰ | ਬੁਰਾ ਨਾ ਬੋਲੋ | ਬੁਰਾ ਨਾ ਬੋਲੋ ਬਾਂਦਰ | ਬੁੁਰਾ ਨਾ ਬੋਲੋ</annotation>
 		<annotation cp="🙊" type="tts">ਬੁਰਾ ਨਾ ਬੋਲੋ</annotation>
+		<annotation cp="💋">ਚੁੰਮੀ | ਚੁੰਮੀ ਦਾ ਨਿਸ਼ਾਨ | ਪਿਆਰ | ਬੁੱਲ੍ਹ</annotation>
+		<annotation cp="💋" type="tts">ਚੁੰਮੀ ਦਾ ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="💌">ਖੱਤ | ਦਿਲ | ਦਿਲ ਨਾਲ ਚਿੱਠੀ | ਪਿਆਰ | ਪਿਆਰ ਦਾ ਖੱਤ | ਪ੍ਰੇਮ ਪੱਤਰ</annotation>
+		<annotation cp="💌" type="tts">ਪ੍ਰੇਮ ਪੱਤਰ</annotation>
+		<annotation cp="💘">ਜਜ਼ਬਾਤ | ਤੀਰ | ਦਿਲ | ਦਿਲ ਅਤੇ ਤੀਰ | ਦਿਲ ਵਿੱਚ ਲੱਗਿਆ ਤੀਰ | ਪਿਆਰ</annotation>
+		<annotation cp="💘" type="tts">ਦਿਲ ਵਿੱਚ ਲੱਗਿਆ ਤੀਰ</annotation>
+		<annotation cp="💝">ਜਜ਼ਬਾਤ | ਦਿਲ | ਰਿਬਨ | ਰਿਬਨ ਨਾਲ ਦਿਲ | ਵੈਲੇਨਟਾਈਨ</annotation>
+		<annotation cp="💝" type="tts">ਰਿਬਨ ਨਾਲ ਦਿਲ</annotation>
+		<annotation cp="💖">ਉਤਸ਼ਾਹਿਤ | ਚਮਕਦਾ | ਚਮਕਦਾ ਦਿਲ | ਜਜ਼ਬਾਤ | ਪਿਆਰ</annotation>
+		<annotation cp="💖" type="tts">ਚਮਕਦਾ ਦਿਲ</annotation>
+		<annotation cp="💗">ਉਤਸ਼ਾਹਿਤ | ਜਜ਼ਬਾਤ | ਦਿਲ | ਪਿਆਰ | ਬੇਚੈਨ | ਵਧਦਾ ਦਿਲ | ਵੱਧਦਾ ਦਿਲ</annotation>
+		<annotation cp="💗" type="tts">ਵੱਧਦਾ ਦਿਲ</annotation>
+		<annotation cp="💓">ਜਜ਼ਬਾਤ | ਦਿਲ | ਧੜਕਣਾ | ਧੜਕਦਾ | ਪਿਆਰ</annotation>
+		<annotation cp="💓" type="tts">ਧੜਕਦਾ ਦਿਲ</annotation>
+		<annotation cp="💞">ਸਤਿਕਾਰਯੋਗ | ਸੋਹਣਾ | ਘੁੰਮਦਾ | ਘੁੰਮਦੇ ਦਿਲ | ਜਜ਼ਬਾਤ | ਦਿਲ | ਪਿਆਰ</annotation>
+		<annotation cp="💞" type="tts">ਘੁੰਮਦੇ ਦਿਲ</annotation>
+		<annotation cp="💕">ਜਜ਼ਬਾਤ | ਦੋ ਦਿਲ | ਪਿਆਰ | ਪ੍ਰੇਮੀ</annotation>
+		<annotation cp="💕" type="tts">ਦੋ ਦਿਲ</annotation>
+		<annotation cp="💟">ਦਿਲ | ਦਿਲ ਦੀ ਸਜਾਵਟ</annotation>
+		<annotation cp="💟" type="tts">ਦਿਲ ਦੀ ਸਜਾਵਟ</annotation>
+		<annotation cp="❣">ਸਜਾਵਟੀ ਹੈਰਾਨੀਵਾਚਕ ਚਿੰਨ੍ਹ | ਹੈਰਾਨੀਵਾਚਕ ਚਿੰਨ੍ਹ | ਚਿੰਨ੍ਹ | ਦਿਲ | ਵਿਰਾਮ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="❣" type="tts">ਸਜਾਵਟੀ ਹੈਰਾਨੀਵਾਚਕ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="💔">ਜਜ਼ਬਾਤ | ਟੁੱਟਣਾ | ਟੁੱਟਿਆ ਹੋਇਆ ਦਿਲ | ਟੁੱਟਿਆ ਦਿਲ | ਦਿਲ ਟੁਟਿਆ ਹੋਇਆ | ਦਿਲ ਤੋੜਨਾ</annotation>
+		<annotation cp="💔" type="tts">ਟੁੱਟਿਆ ਦਿਲ</annotation>
+		<annotation cp="❤">ਦਿਲ | ਪਿਆਰ | ਲਾਲ ਦਿਲ</annotation>
+		<annotation cp="❤" type="tts">ਲਾਲ ਦਿਲ</annotation>
+		<annotation cp="🧡">ਸੰਤਰੀ | ਸੰਤਰੀ ਦਿਲ</annotation>
+		<annotation cp="🧡" type="tts">ਸੰਤਰੀ ਦਿਲ</annotation>
+		<annotation cp="💛">ਜਜ਼ਬਾਤ | ਦਿਲ | ਪੀਲਾ</annotation>
+		<annotation cp="💛" type="tts">ਪੀਲਾ ਦਿਲ</annotation>
+		<annotation cp="💚">ਹਰਾ | ਜਜ਼ਬਾਤ | ਦਿਲ</annotation>
+		<annotation cp="💚" type="tts">ਹਰਾ ਦਿਲ</annotation>
+		<annotation cp="💙">ਜਜ਼ਬਾਤ | ਦਿਲ | ਨੀਲਾ</annotation>
+		<annotation cp="💙" type="tts">ਨੀਲਾ ਦਿਲ</annotation>
+		<annotation cp="💜">ਜਜ਼ਬਾਤ | ਜਾਮਨੀ | ਦਿਲ</annotation>
+		<annotation cp="💜" type="tts">ਜਾਮਨੀ ਦਿਲ</annotation>
+		<annotation cp="🤎">ਦਿਲ | ਭੂਰਾ</annotation>
+		<annotation cp="🤎" type="tts">ਭੂਰਾ ਦਿਲ</annotation>
+		<annotation cp="🖤">ਸ਼ੈਤਾਨ | ਕਾਲਾ | ਦਿਲ | ਬੁਰਾਈ</annotation>
+		<annotation cp="🖤" type="tts">ਕਾਲਾ ਦਿਲ</annotation>
+		<annotation cp="🤍">ਚਿੱਟਾ | ਦਿਲ</annotation>
+		<annotation cp="🤍" type="tts">ਚਿੱਟਾ ਦਿਲ</annotation>
+		<annotation cp="💯">100 | ਸਕੋਰ | ਸੌ ਅੰਕ | ਪੂਰੇ</annotation>
+		<annotation cp="💯" type="tts">ਸੌ ਅੰਕ</annotation>
+		<annotation cp="💢">ਕਾਮਿਕ | ਗੁੱਸਾ | ਗੁੱਸੇ | ਗੁੱਸੇ ਦਾ ਚਿੰਨ੍ਹ | ਗੁੱਸੇ ਦਾ ਨਿਸ਼ਾਨ | ਜਜ਼ਬਾਤ</annotation>
+		<annotation cp="💢" type="tts">ਗੁੱਸੇ ਦਾ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="💥">ਕਾਮਿਕ | ਜਜ਼ਬਾਤ | ਟੱਕਰ | ਟੱਕਰ ਦੀ ਨਿਸ਼ਾਨ | ਟੱਕਰਾਉਣਾ</annotation>
+		<annotation cp="💥" type="tts">ਟੱਕਰਾਉਣਾ</annotation>
+		<annotation cp="💫">ਕਾਮਿਕ | ਚੱਕਰ | ਜਜ਼ਬਾਤ | ਤਾਰੇ | ਤਾਰੇ ਦੇਖਣਾ | ਤਾਰੇ ਵਿਖਾਈ ਦੇਣਾ</annotation>
+		<annotation cp="💫" type="tts">ਤਾਰੇ ਵਿਖਾਈ ਦੇਣਾ</annotation>
+		<annotation cp="💦">ਕਾਮਿਕ | ਜਜ਼ਬਾਤ | ਪਸੀਨਾ | ਮੁੜ੍ਹਕਾ | ਮੁੜ੍ਹਕਾ ਛਿੜਕਣਾ | ਮੁੜ੍ਹਕੇ ਦੀਆਂ ਬੂੰਦਾਂ</annotation>
+		<annotation cp="💦" type="tts">ਮੁੜ੍ਹਕੇ ਦੀਆਂ ਬੂੰਦਾਂ</annotation>
+		<annotation cp="💨">ਕਾਮਿਕ | ਚੱਲਣਾ | ਚਲਦਾ ਡੈਸ਼ | ਜਜ਼ਬਾਤ | ਦੌੜਨਾ | ਭੱਜਣਾ</annotation>
+		<annotation cp="💨" type="tts">ਦੌੜਨਾ</annotation>
+		<annotation cp="🕳">ਖੁੱਡ | ਮੋਰੀ</annotation>
+		<annotation cp="🕳" type="tts">ਖੁੱਡ</annotation>
+		<annotation cp="💣">ਕਾਮਿਕ | ਜਜ਼ਬਾਤ | ਬੰਬ</annotation>
+		<annotation cp="💣" type="tts">ਬੰਬ</annotation>
+		<annotation cp="💬">ਕਾਮਿਕ | ਗੱਲ-ਬਾਤ | ਗੁਬਾਰਾ | ਬੁਲਬੁਲਾ | ਬੋਲੀ ਬਬਲ | ਭਾਸ਼ਣ ਗੁਬਾਰਾ | ਭਾਸ਼ਣ ਬੁਲਬੁਲਾ</annotation>
+		<annotation cp="💬" type="tts">ਬੋਲੀ ਬਬਲ</annotation>
+		<annotation cp="👁‍🗨">ਅੱਖ | ਸਪੀਚ ਬਬਲ | ਸਪੀਚ ਬਬਲ ਵਿੱਚ ਅੱਖ | ਗਵਾਹ</annotation>
+		<annotation cp="👁‍🗨" type="tts">ਸਪੀਚ ਬਬਲ ਵਿੱਚ ਅੱਖ</annotation>
+		<annotation cp="🗨">ਖੱਬਾ ਬੋਲੀ ਬਬਲ | ਬੋਲੀ | ਵਾਰਤਾਲਾਪ | ਵਿਚਾਰ-ਚਰਚਾ</annotation>
+		<annotation cp="🗨" type="tts">ਖੱਬਾ ਬੋਲੀ ਬਬਲ</annotation>
+		<annotation cp="🗯">ਸੱਜਾ ਨਰਾਜ਼ਗੀ ਬਬਲ | ਗੁੱਸਾ ਹੋਣਾ | ਗੁਬਾਰਾ | ਪਾਗਲ | ਬਬਲ</annotation>
+		<annotation cp="🗯" type="tts">ਸੱਜਾ ਨਰਾਜ਼ਗੀ ਬਬਲ</annotation>
+		<annotation cp="💭">ਕਾਮਿਕ | ਬੁਲਬੁਲਾ | ਵਿਚਾਰ | ਵਿਚਾਰ ਗੁਬਾਰਾ | ਵਿਚਾਰ ਬਬਲ</annotation>
+		<annotation cp="💭" type="tts">ਵਿਚਾਰ ਬਬਲ</annotation>
+		<annotation cp="💤">Zzz | ਸੁਸਤ | ਸੌਣਾ | ਕਾਮਿਕ | ਘੁਰਾੜੇ | ਜਜ਼ਬਾਤ</annotation>
+		<annotation cp="💤" type="tts">ਘੁਰਾੜੇ</annotation>
+		<annotation cp="👋">ਹੱਥ | ਹੱਥ ਹਿਲਾਉਣਾ | ਲਹਿਰਾਉਣਾ</annotation>
+		<annotation cp="👋" type="tts">ਹੱਥ ਹਿਲਾਉਣਾ</annotation>
+		<annotation cp="🤚">ਖੜ੍ਹਾ ਕੀਤਾ ਪੁੱਠਾ ਹੱਥ | ਪਿਛਲਾ ਹੱਥ | ਪੁੱਠਾ ਪੰਜਾ</annotation>
+		<annotation cp="🤚" type="tts">ਖੜ੍ਹਾ ਕੀਤਾ ਪੁੱਠਾ ਹੱਥ</annotation>
+		<annotation cp="🖐">ਉਂਗਲ | ਹੱਥ | ਹੱਥ ਵਿਖਾਉਣਾ | ਪੰਜਾ ਵਿਖਾਉਣਾ</annotation>
+		<annotation cp="🖐" type="tts">ਪੰਜਾ ਵਿਖਾਉਣਾ</annotation>
+		<annotation cp="✋">ਉੱਠਿਆ ਹੱਥ | ਕਾਗਜ਼ | ਚੁੱਕਿਆ ਹੋਇਆ ਹੱਥ</annotation>
+		<annotation cp="✋" type="tts">ਚੁੱਕਿਆ ਹੋਇਆ ਹੱਥ</annotation>
+		<annotation cp="🖖">ਉਂਗਲ | ਸੰਕੇਤ ਢੰਗ | ਸਲੂਟ ਕਰਨ ਦਾ ਇੱਕ ਢੰਗ | ਸਲੂਟ ਕਰਨ ਵਾਲਾ ਹੱਥ, ਵਲਕਨ ਸਲੂਟ | ਵਲਕਨ ਸਲੂਟ</annotation>
+		<annotation cp="🖖" type="tts">ਸਲੂਟ ਕਰਨ ਵਾਲਾ ਹੱਥ, ਵਲਕਨ ਸਲੂਟ</annotation>
+		<annotation cp="👌">OK | OK ਹੱਥ ਦਾ ਨਿਸ਼ਾਨ | OKਨਿਸ਼ਾਨ | ਹੱਥ | ਠੀਕ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="👌" type="tts">ਠੀਕ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="🤏">ਚੂੰਢੀ ਜਿੰਨਾ | ਥੋੜ੍ਹਾ ਜਿਹਾ</annotation>
+		<annotation cp="🤏" type="tts">ਚੂੰਢੀ ਜਿੰਨਾ</annotation>
+		<annotation cp="✌">ਹਾਂ | ਕੈਂਚੀ | ਜਿੱਤ | ਜਿੱਤ ਹੱਥ | ਜਿੱਤ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="✌" type="tts">ਜਿੱਤ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="🤞">ਉਂਗਲੀ | ਹੱਥ | ਕਰਾਸ | ਕਾਟਵੀਆਂ ਉਂਗਲਾਂ | ਕਿਸਮਤ</annotation>
+		<annotation cp="🤞" type="tts">ਕਾਟਵੀਆਂ ਉਂਗਲਾਂ</annotation>
+		<annotation cp="🤟">ਹੱਥ | ਤੁਹਾਨੂੰ ਪਿਆਰ ਕਰਨ ਦਾ ਇਸ਼ਾਰਾ | ਪਿਆਰ</annotation>
+		<annotation cp="🤟" type="tts">ਤੁਹਾਨੂੰ ਪਿਆਰ ਕਰਨ ਦਾ ਇਸ਼ਾਰਾ</annotation>
+		<annotation cp="🤘">ਉਂਗਲ | ਸਿੰਗ | ਖੁਸ਼ੀ ਜਾਹਰ ਕਰਨਾ | ਜਿੱਤ</annotation>
+		<annotation cp="🤘" type="tts">ਖੁਸ਼ੀ ਜਾਹਰ ਕਰਨਾ</annotation>
+		<annotation cp="🤙">ਹੱਥ | ਕਾਲ | ਟੈਲੀਫ਼ੋਨ | ਮੈਨੂੰ ਕਾਲ ਕਰੋ ਸੰਕੇਤ</annotation>
+		<annotation cp="🤙" type="tts">ਮੈਨੂੰ ਕਾਲ ਕਰੋ ਸੰਕੇਤ</annotation>
+		<annotation cp="👈">ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਹੱਥ ਪਿਛਲਾ ਪਾਸਾ | ਖੱਬੀ ਉਂਗਲ | ਖੱਬੇ ਇਸ਼ਾਰਾ ਉਂਗਲ | ਖੱਬੇ ਪਾਸੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
+		<annotation cp="👈" type="tts">ਖੱਬੇ ਪਾਸੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
+		<annotation cp="👉">ਇੰਡੈਕਸ ਉਂਗਲ | ਸੱਜੇ ਪਾਸੇੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ | ਸਰੀਰ | ਸੂਚੀ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਪਾਸਾ</annotation>
+		<annotation cp="👉" type="tts">ਸੱਜੇ ਪਾਸੇੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
+		<annotation cp="👆">ਉਂਗਲ | ਉੱਪਰ ਇਸ਼ਾਰਾ ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱੱਸਾ ਅਤੇ ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ | ਹੱਥ ਪਿਛਲਾ ਪਾਸਾ</annotation>
+		<annotation cp="👆" type="tts">ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱੱਸਾ ਅਤੇ ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ</annotation>
+		<annotation cp="🖕">ਉਂਗਲ | ਉੱਪਰ ਉਂਗਲ | ਉੱਪਰ ਇਸ਼ਾਰਾ ਉਂਗਲ | ਉੱਪਰ ਵੱਲ ਵਿਚਕਾਰਲੀ ਉਂਗਲ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਪਾਸਾ</annotation>
+		<annotation cp="🖕" type="tts">ਉੱਪਰ ਵੱਲ ਵਿਚਕਾਰਲੀ ਉਂਗਲ</annotation>
+		<annotation cp="👇">ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱਸਾ ਅਤੇ ਥੱਲੇ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ | ਹੱਥ ਪਿਛਲਾ ਪਾਸਾ | ਥੱਲੇ ਉਂਗਲ | ਥੱਲੇ ਇਸ਼ਾਰਾ ਉਂਗਲ</annotation>
+		<annotation cp="👇" type="tts">ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱਸਾ ਅਤੇ ਥੱਲੇ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ</annotation>
+		<annotation cp="☝">ਉਂਗਲ | ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਮੈਂ ਜਿੱਤਿਆ | ਮੈਂ ਪਹਿਲੇ ਨੰਬਰ ‘ਤੇ ਹਾਂ</annotation>
+		<annotation cp="☝" type="tts">ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
+		<annotation cp="👍">ਉੱਪਰ | ਅੰਗੂਠਾ | ਹੱਥ | ਥੰਮਸ ਅੱਪ | ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="👍" type="tts">ਥੰਮਸ ਅੱਪ</annotation>
+		<annotation cp="👎">ਅੰਗੂਠਾ ਥੱਲੇ | ਅੰਗੂਠੇ | ਅੰਗੂੂਠਾ ਥੱਲੇ | ਹੱਥ | ਥੱਲੇ | ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="👎" type="tts">ਅੰਗੂਠਾ ਥੱਲੇ</annotation>
+		<annotation cp="✊">ਉੱਠੀ ਮੁੱਠੀ | ਚਟਾਨ | ਚੁੱੱਕੀ ਹੋਈ ਮੁੱਠੀ</annotation>
+		<annotation cp="✊" type="tts">ਚੁੱੱਕੀ ਹੋਈ ਮੁੱਠੀ</annotation>
+		<annotation cp="👊">ਹੱਥ | ਬੰਦ ਮੁੱਠੀ | ਮੁੱਕਾ ਮਾਰਨਾ | ਮੁੱਠੀ</annotation>
+		<annotation cp="👊" type="tts">ਮੁੱਕਾ ਮਾਰਨਾ</annotation>
+		<annotation cp="🤛">ਖੱਬੇ ਪਾਸੇ | ਖੱਬੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ | ਮੁੱਠੀ</annotation>
+		<annotation cp="🤛" type="tts">ਖੱਬੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ</annotation>
+		<annotation cp="🤜">ਸੱਜੇ ਪਾਸੇ | ਸੱਜੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ | ਮੁੱਠੀ</annotation>
+		<annotation cp="🤜" type="tts">ਸੱਜੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ</annotation>
+		<annotation cp="👏">ਹੱਥ | ਤਾੜੀ | ਤਾੜੀ ਮਾਰਦੇ ਹੱਥਾਂ ਦਾ ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="👏" type="tts">ਤਾੜੀ ਮਾਰਦੇ ਹੱਥਾਂ ਦਾ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="🙌">ਖੁੁਸ਼ੀ | ਜਸ਼ਨ | ਜਸ਼ਨ ਵਿੱਚ ਦੋਵੇ ਹੱਥ ਉੱਤੇ ਚੁੱਕ ਰਿਹ | ਦੋਵੇ ਹੱਥ | ਦੋਵੇਂ ਹੱਥ ਖੜ੍ਹੇ ਕਰਨ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙌" type="tts">ਦੋਵੇਂ ਹੱਥ ਖੜ੍ਹੇ ਕਰਨ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="👐">ਹੱਥ | ਖੁੱਲ੍ਹਾ | ਖੁੱਲ੍ਹੇ ਹੱਥ | ਖੁੱਲ੍ਹੇ ਹੱਥ ਦਾ ਨਿਸ਼ਾਨ | ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="👐" type="tts">ਖੁੱਲ੍ਹੇ ਹੱਥ</annotation>
+		<annotation cp="🤲">ਉੱਪਰ ਵੱਲ ਜੁੜੀਆਂ ਹਥੇਲੀਆਂ | ਅਰਦਾਸ</annotation>
+		<annotation cp="🤲" type="tts">ਉੱਪਰ ਵੱਲ ਜੁੜੀਆਂ ਹਥੇਲੀਆਂ</annotation>
+		<annotation cp="🤝">ਸਮਝੌਤਾ | ਹੱਥ | ਹੱਥ-ਮਿਲਾਉਣਾ | ਮਿਲਾਉਣਾ | ਮੀਟਿੰਗ</annotation>
+		<annotation cp="🤝" type="tts">ਹੱਥ-ਮਿਲਾਉਣਾ</annotation>
+		<annotation cp="🙏">ਅਰਦਾਸ | ਅਰਦਾਸ ਕਰਨਾ | ਸੰਕੇਤ | ਹੱਥ | ਜੁੜੇ ਹੋਏ ਹੱਥ</annotation>
+		<annotation cp="🙏" type="tts">ਜੁੜੇ ਹੋਏ ਹੱਥ</annotation>
+		<annotation cp="✍">ਹੱਥ | ਲਿਖਣ ਵਾਲਾ ਹੱਥ | ਲਿਖਣਾ | ਲਿਖਣਾ, ਲਿਖਾਈ | ਲਿਖਾਵਟ</annotation>
+		<annotation cp="✍" type="tts">ਲਿਖਣਾ, ਲਿਖਾਈ</annotation>
+		<annotation cp="💅">ਸ਼ਿੰਗਾਰ ਸਮਾਨ | ਨਹੁੰ ਦੀ ਦੇਖਭਾਲ | ਨਹੁੰ ਪਾਲਸ਼ | ਨੇਲ ਪਾਲਿਸ਼ | ਮੈਨੀਕਿਓਰ</annotation>
+		<annotation cp="💅" type="tts">ਨੇਲ ਪਾਲਿਸ਼</annotation>
+		<annotation cp="🤳">ਸੈਲਫੀ | ਕੈਮਰਾ | ਫ਼ੋਨ</annotation>
+		<annotation cp="🤳" type="tts">ਸੈਲਫੀ</annotation>
+		<annotation cp="💪">ਕਾਮਿਕ | ਬਾਇਸੇਪਸ | ਮਜ਼ਬੂਤ | ਮਾਸਪੇਸ਼ੀ | ਲਚੀਲੀ</annotation>
+		<annotation cp="💪" type="tts">ਬਾਇਸੇਪਸ</annotation>
+		<annotation cp="🦾">ਪਹੁੰਚਯੋਗਤਾ | ਬਨਾਉਟੀ | ਮਕੈਨੀਕਲ ਬਾਂਹ</annotation>
+		<annotation cp="🦾" type="tts">ਮਕੈਨੀਕਲ ਬਾਂਹ</annotation>
+		<annotation cp="🦿">ਪਹੁੰਚਯੋਗਤਾ | ਬਨਾਉਟੀ | ਮਕੈਨੀਕਲ ਲੱਤ</annotation>
+		<annotation cp="🦿" type="tts">ਮਕੈਨੀਕਲ ਲੱਤ</annotation>
+		<annotation cp="🦵">ਅੰਗ | ਠੁੱਡਾ ਮਾਰਨਾ | ਲੱਤ</annotation>
+		<annotation cp="🦵" type="tts">ਲੱਤ</annotation>
+		<annotation cp="🦶">ਠੁੱਡਾ ਮਾਰਨਾ | ਪੈਰ | ਪੈਰ ਘੜੀਸ ਕੇ ਤੁਰਨਾ</annotation>
+		<annotation cp="🦶" type="tts">ਪੈਰ</annotation>
+		<annotation cp="👂">ਸਰੀਰ | ਕੰਨ</annotation>
+		<annotation cp="👂" type="tts">ਕੰਨ</annotation>
+		<annotation cp="🦻">ਸੁਣਨ ਵਾਲੀ ਮਸ਼ੀਨ ਲੱਗਿਆ ਕੰਨ | ਸੁਣਨ ਵਿੱਚ ਸਮੱਸਿਆ | ਪਹੁੰਚਯੋਗਤਾ</annotation>
+		<annotation cp="🦻" type="tts">ਸੁਣਨ ਵਾਲੀ ਮਸ਼ੀਨ ਲੱਗਿਆ ਕੰਨ</annotation>
+		<annotation cp="👃">ਸਰੀਰ | ਚਿਹਰਾ | ਨੱਕ</annotation>
+		<annotation cp="👃" type="tts">ਨੱਕ</annotation>
+		<annotation cp="🧠">ਸਮਝਦਾਰ | ਦਿਮਾਗ</annotation>
+		<annotation cp="🧠" type="tts">ਦਿਮਾਗ</annotation>
+		<annotation cp="🦷">ਦੰਦ | ਦੰਦਾਂ ਦਾ ਡਾਕਟਰ</annotation>
+		<annotation cp="🦷" type="tts">ਦੰਦ</annotation>
+		<annotation cp="🦴">ਹੱਡੀ | ਪਿੰਜਰ</annotation>
+		<annotation cp="🦴" type="tts">ਹੱਡੀ</annotation>
+		<annotation cp="👀">ਅੱਖ | ਅੱਖਾਂ | ਚਿਹਰਾ</annotation>
+		<annotation cp="👀" type="tts">ਅੱਖਾਂ</annotation>
+		<annotation cp="👁">ਅੱਖ | ਨਜ਼ਰ</annotation>
+		<annotation cp="👁" type="tts">ਅੱਖ</annotation>
+		<annotation cp="👅">ਸਰੀਰ | ਚਿਹਰਾ | ਜੀਭ</annotation>
+		<annotation cp="👅" type="tts">ਜੀਭ</annotation>
+		<annotation cp="👄">ਚਿਹਰਾ | ਬੁੱਲ੍ਹ | ਮੁੰਹ | ਮੂੰਹ</annotation>
+		<annotation cp="👄" type="tts">ਮੂੰਹ</annotation>
 		<annotation cp="👶">ਛੋਟਾ ਬੱਚਾ | ਬਾਲ</annotation>
 		<annotation cp="👶" type="tts">ਬਾਲ</annotation>
 		<annotation cp="🧒">ਛੋਟਾ ਬੱਚਾ | ਬੱਚਾ</annotation>
@@ -261,82 +541,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧑" type="tts">ਵਿਅਕਤੀ</annotation>
 		<annotation cp="👱">ਸੁਨਿਹਰੀ ਵਾਲ | ਸੁਨਿਹਰੀ ਵਾਲਾਂ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="👱" type="tts">ਸੁਨਿਹਰੀ ਵਾਲਾਂ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🍼">ਨਿਆਣਾ, ਦੁੱਧ ਪਿਲਾਉਂਦਾ, ਪਾਲਣਾ, ਵਿਅਕਤੀ | ਬੱਚੇ ਨੂੰ ਦੁੱਧ ਪਿਲਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🍼" type="tts">ਬੱਚੇ ਨੂੰ ਦੁੱਧ ਪਿਲਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🎄">ਐਮਐਕਸ ਕਲਾਜ਼ | ਕਲਾਜ਼, ਕ੍ਰਿਸਮਸ</annotation>
+		<annotation cp="🧑‍🎄" type="tts">ਐਮਐਕਸ ਕਲਾਜ਼</annotation>
 		<annotation cp="👨">ਆਦਮੀ | ਬੰਦਾ | ਲੋਕ</annotation>
 		<annotation cp="👨" type="tts">ਆਦਮੀ</annotation>
-		<annotation cp="👱‍♂">ਕੱਕੇ ਵਾਲਾਂ ਵਾਲਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
-		<annotation cp="👱‍♂" type="tts">ਕੱਕੇ ਵਾਲਾਂ ਵਾਲਾ ਪੁਰਸ਼</annotation>
 		<annotation cp="🧔">ਦਾੜ੍ਹੀ | ਦਾੜ੍ਹੀ ਵਾਲਾ ਬੰਦਾ</annotation>
 		<annotation cp="🧔" type="tts">ਦਾੜ੍ਹੀ ਵਾਲਾ ਬੰਦਾ</annotation>
+		<annotation cp="👱‍♂">ਕੱਕੇ ਵਾਲਾਂ ਵਾਲਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
+		<annotation cp="👱‍♂" type="tts">ਕੱਕੇ ਵਾਲਾਂ ਵਾਲਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="👨‍🍼">ਆਦਮੀ | ਦੁੱਧ ਪਿਲਾਉਂਦਾ | ਨਿਆਣਾ | ਪਾਲਣਾ | ਬੱਚੇ ਨੂੰ ਦੁੱਧ ਪਿਲਾਉਂਦਾ ਆਦਮੀ</annotation>
+		<annotation cp="👨‍🍼" type="tts">ਬੱਚੇ ਨੂੰ ਦੁੱਧ ਪਿਲਾਉਂਦਾ ਆਦਮੀ</annotation>
 		<annotation cp="👩">ਔਰਤ | ਜ਼ਨਾਨੀ | ਲੋਕ</annotation>
 		<annotation cp="👩" type="tts">ਔਰਤ</annotation>
 		<annotation cp="👱‍♀">ਔਰਤ | ਇਸਤਰੀ | ਕੱਕੇ ਵਾਲਾਂ ਵਾਲੀ ਇਸਤਰੀ</annotation>
 		<annotation cp="👱‍♀" type="tts">ਕੱਕੇ ਵਾਲਾਂ ਵਾਲੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="👩‍🍼">ਔਰਤ | ਦੁੱਧ ਚੁੰਘਾਉਣਾ | ਨਿਆਣਾ | ਪਾਲਣਾ | ਬੱਚੇ ਨੂੰ ਦੁੱਧ ਚੁੰਘਾਉਂਦੀ ਔਰਤ</annotation>
+		<annotation cp="👩‍🍼" type="tts">ਬੱਚੇ ਨੂੰ ਦੁੱਧ ਚੁੰਘਾਉਂਦੀ ਔਰਤ</annotation>
 		<annotation cp="🧓">ਬਜ਼ੁਰਗ | ਵੱਡੀ ਉਮਰ ਦਾ ਆਦਮੀ</annotation>
 		<annotation cp="🧓" type="tts">ਵੱਡੀ ਉਮਰ ਦਾ ਆਦਮੀ</annotation>
 		<annotation cp="👴">ਬਜ਼ੁਰਗ | ਬਜ਼ੁਰਗ ਆਦਮੀ | ਬੰਦਾ | ਲੋਕ | ਵੱਡਾ | ਵੱਡੀ ਉਮਰ ਦਾ ਬੰਦਾ</annotation>
 		<annotation cp="👴" type="tts">ਬਜ਼ੁਰਗ ਆਦਮੀ</annotation>
 		<annotation cp="👵">ਜ਼ਨਾਨੀ | ਬਜ਼ੁਰਗ | ਬਜ਼ੁਰਗ ਔਰਤ | ਲੋਕ | ਵੱਡੀ | ਵੱਡੀ ਉਮਰ ਦੀ ਜ਼ਨਾਨੀ</annotation>
 		<annotation cp="👵" type="tts">ਬਜ਼ੁਰਗ ਔਰਤ</annotation>
+		<annotation cp="🙍">ਸੰਕੇਤ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਵਿਅਕਤੀ | ਨਰਾਜ਼ ਵਿਅਕਤੀ | ਨਰਾਜ਼ਗੀ | ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙍" type="tts">ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙍‍♂">ਇਸ਼ਾਰਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਣਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
+		<annotation cp="🙍‍♂" type="tts">ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🙍‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਣਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🙍‍♀" type="tts">ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🙎">ਸੰਕੇਤ | ਨਰਾਜ਼਼ਗੀ | ਨਰਾਜ਼ਗੀ ਜਾਹਰ ਕਰਦਾ ਵਿਅਕਤੀ | ਵਿਅਕਤੀ | ਵਿਅਕਤੀ ਨਰਾਜ਼ ਹੋ ਰਿਹਾ</annotation>
+		<annotation cp="🙎" type="tts">ਨਰਾਜ਼ਗੀ ਜਾਹਰ ਕਰਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙎‍♂">ਇਸ਼ਾਰਾ | ਪੁਰਸ਼ | ਬੰਦਾ | ਬੁੱਲ੍ਹ ਕੱਢਣਾ | ਬੁੱਲ੍ਹ ਕੱਢਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🙎‍♂" type="tts">ਬੁੱਲ੍ਹ ਕੱਢਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🙎‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਬੁੱਲ੍ਹ ਕੱਢਣਾ | ਬੁੱਲ੍ਹ ਕੱਢਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🙎‍♀" type="tts">ਬੁੱਲ੍ਹ ਕੱਢਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🙅">ਸੰਕੇਤ | ਚੰਗਾ ਨਹੀਂ | ਚੰਗਾ ਨਹੀਂ ਸੰਕੇਤ | ਚਿਹਰਾ | ਨਹੀਂ | ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਨਾ | ਮਨ੍ਹਾਹੀ</annotation>
+		<annotation cp="🙅" type="tts">ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਨਾ</annotation>
+		<annotation cp="🙅‍♂">ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ ਨਹੀਂ | ਠੀਕ ਨਹੀਂ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼ | ਨਹੀਂ | ਪੁਰਸ਼ | ਪ੍ਰਤੀਬੰਧਿਤ | ਬੰਦਾ | ਮਨਾਹੀਆ</annotation>
+		<annotation cp="🙅‍♂" type="tts">ਠੀਕ ਨਹੀਂ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🙅‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ ਨਹੀਂ | ਨਹੀਂ | ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਦੀ ਔਰਤ | ਪ੍ਰਤੀਬੰਧਿਤ | ਮਨਾਹੀਆ</annotation>
+		<annotation cp="🙅‍♀" type="tts">ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਦੀ ਔਰਤ</annotation>
+		<annotation cp="🙆">OK ਸੰਕੇਤ | ਸੰਕੇਤ | ਸੱਭ ਵਧੀਆ | ਚਿਹਰਾ | ਠੀਕ ਦਾ ਸੰਕੇਤ ਕਰਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙆" type="tts">ਠੀਕ ਦਾ ਸੰਕੇਤ ਕਰਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙆‍♂">ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ | ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
+		<annotation cp="🙆‍♂" type="tts">ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🙆‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ | ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🙆‍♀" type="tts">ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="💁">ਹੱਥ | ਜਾਣਕਾਰੀ | ਜਾਣਕਾਰੀ ਡੈਸਕ | ਜਾਣਕਾਰੀ ਦੇਣ ਵਾਲਾ ਵਿਅਕਤੀ | ਮਦਦ | ਲੋਕ</annotation>
+		<annotation cp="💁" type="tts">ਜਾਣਕਾਰੀ ਦੇਣ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="💁‍♂">ਆਸਮਾਨ ਵੱਲ ਹਥੇਲੀ | ਸਸੀ | ਸੂਚਨਾ ਦਿੰਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
+		<annotation cp="💁‍♂" type="tts">ਸੂਚਨਾ ਦਿੰਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="💁‍♀">ਆਸਮਾਨ ਵੱਲ ਹਥੇਲੀ | ਔਰਤ | ਇਸਤਰੀ | ਸਸੀ | ਸੂਚਨਾ ਦਿੰਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="💁‍♀" type="tts">ਸੂਚਨਾ ਦਿੰਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🙋">ਸੰਕੇਤ | ਹੱਥ ਚੁੱਕ ਰਿਹਾ | ਹੱਥ ਚੁੱਕਦਾ ਖੁਸ਼ ਵਿਅਕਤੀ | ਖੁਸ਼ | ਵਿਅਕਤੀ | ਵਿਅਕਤੀ ਰੱਥ ਚੁੱਕ ਰਿਹਾ</annotation>
+		<annotation cp="🙋" type="tts">ਹੱਥ ਚੁੱਕਦਾ ਖੁਸ਼ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙋‍♂">ਇਸ਼ਾਰਾ | ਹੱਥ ਉਠਾਉਣਾ | ਹੱਥ ਉਠਾਉਂਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
+		<annotation cp="🙋‍♂" type="tts">ਹੱਥ ਉਠਾਉਂਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🙋‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਹੱਥ ਉਠਾਉਣਾ | ਹੱਥ ਉਠਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🙋‍♀" type="tts">ਹੱਥ ਉਠਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🧏">ਸਹੂਲਤ | ਸੁਣਨਾ | ਸੁਣਾਈ ਨਾ ਦੇਣਾ | ਕੰਨ | ਬੋਲ਼ਾ | ਬੋਲ਼ਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧏" type="tts">ਬੋਲ਼ਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧏‍♂">ਆਦਮੀ | ਬੋਲ਼ਾ</annotation>
+		<annotation cp="🧏‍♂" type="tts">ਬੋਲ਼ਾ ਆਦਮੀ</annotation>
+		<annotation cp="🧏‍♀">ਔਰਤ | ਬੋਲ਼ੀ</annotation>
+		<annotation cp="🧏‍♀" type="tts">ਬੋਲ਼ੀ ਔਰਤ</annotation>
+		<annotation cp="🙇">ਸੰਕੇਤ | ਝੁੱਕਣਾ | ਝੁਕਿਆ ਹੋਇਆ ਵਿਅਕਤੀ | ਬਹੁਤ ਝੁਕਾਅ | ਮੁਆਫੀ | ਮੈਨੂੰ ਮਾਫ ਕਰੋ | ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙇" type="tts">ਝੁਕਿਆ ਹੋਇਆ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🙇‍♂">ਅਹਿਸਾਨ | ਅਫਸੋਸ | ਇਸ਼ਾਰਾ | ਸਿਰ ਝੁਕਾਉਣਾ | ਸਿਰ ਝੁਕਾਉਂਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮਾਫੀ</annotation>
+		<annotation cp="🙇‍♂" type="tts">ਸਿਰ ਝੁਕਾਉਂਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🙇‍♀">ਅਹਿਸਾਨ | ਅਫਸੋਸ | ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਸਿਰ ਝੁਕਾਉਣਾ | ਸਿਰ ਝੁਕਾਉਂਦੀ ਇਸਤਰੀ | ਮਾਫੀ</annotation>
+		<annotation cp="🙇‍♀" type="tts">ਸਿਰ ਝੁਕਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🤦">ਉਫ ਹੋ | ਹਥੇਲੀ | ਚਿਹਰਾ | ਝੁੰਜਲਾਹਟ</annotation>
+		<annotation cp="🤦" type="tts">ਉਫ ਹੋ</annotation>
+		<annotation cp="🤦‍♂">ਅਵਿਸ਼ਵਾਸ | ਝੁੰਜਲਾਹਟ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਣਾ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🤦‍♂" type="tts">ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🤦‍♀">ਅਵਿਸ਼ਵਾਸ | ਔਰਤ | ਇਸਤਰੀ | ਝੁੰਜਲਾਹਟ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਣਾ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🤦‍♀" type="tts">ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🤷">ਉਚਕਾਉਣਾ | ਸ਼ੱਕ | ਪਤਾ ਨਹੀਂ | ਮੋਢੇ ਚੁੱਕਣਾ</annotation>
+		<annotation cp="🤷" type="tts">ਉਚਕਾਉਣਾ</annotation>
+		<annotation cp="🤷‍♂">ਅਗਿਆਨਤਾ | ਸ਼ੱਕ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮੈਨੂੰ ਨਹੀਂ ਪਤਾ | ਮੋਢੇ ਉਚਕਾਉਂਦਾ ਪੁਰਸ਼ | ਮੋਢੇ ਚੁੱਕਣਾ</annotation>
+		<annotation cp="🤷‍♂" type="tts">ਮੋਢੇ ਉਚਕਾਉਂਦਾ ਪੁਰਸ਼</annotation>
+		<annotation cp="🤷‍♀">ਅਗਿਆਨਤਾ | ਔਰਤ | ਇਸਤਰੀ | ਸ਼ੱਕ | ਮੈਨੂੰ ਨਹੀਂ ਪਤਾ | ਮੋਢੇ ਉਚਕਾਉਂਦੀ ਇਸਤਰੀ | ਮੋਢੇ ਚੁੱਕਣਾ</annotation>
+		<annotation cp="🤷‍♀" type="tts">ਮੋਢੇ ਉਚਕਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🧑‍⚕" draft="contributed">ਸਿਹਤਕਰਮੀ</annotation>
+		<annotation cp="🧑‍⚕" type="tts" draft="contributed">ਸਿਹਤਕਰਮੀ</annotation>
 		<annotation cp="👨‍⚕">ਸਿਹਤ-ਸੰਭਾਲ | ਚਿਕਿਤਸਕ | ਡਾਕਟਰ | ਨਰਸ | ਪੁਰਸ਼ | ਪੁਰਸ਼ ਸਿਹਤ ਵਰਕਰ | ਬੰਦਾ</annotation>
 		<annotation cp="👨‍⚕" type="tts">ਪੁਰਸ਼ ਸਿਹਤ ਵਰਕਰ</annotation>
 		<annotation cp="👩‍⚕">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਸਿਹਤ ਵਰਕਰ | ਸਿਹਤ-ਸੰਭਾਲ | ਚਿਕਿਤਸਕ | ਡਾਕਟਰ | ਨਰਸ</annotation>
 		<annotation cp="👩‍⚕" type="tts">ਇਸਤਰੀ ਸਿਹਤ ਵਰਕਰ</annotation>
+		<annotation cp="🧑‍🎓" draft="contributed">ਸਿਖਿਆਰਥੀ</annotation>
+		<annotation cp="🧑‍🎓" type="tts" draft="contributed">ਸਿਖਿਆਰਥੀ</annotation>
 		<annotation cp="👨‍🎓">ਗਰੈਜੂਏਟ | ਪੁਰਸ਼ | ਬੰਦਾ | ਵਿਦਿਆਰਥੀ</annotation>
 		<annotation cp="👨‍🎓" type="tts">ਵਿਦਿਆਰਥੀ</annotation>
 		<annotation cp="👩‍🎓">ਔਰਤ | ਇਸਤਰੀ | ਗਰੈਜੂਏਟ | ਵਿਦਿਆਰਥਣ</annotation>
 		<annotation cp="👩‍🎓" type="tts">ਵਿਦਿਆਰਥਣ</annotation>
+		<annotation cp="🧑‍🏫" draft="contributed">ਸਿੱਖਿਅਕ</annotation>
+		<annotation cp="🧑‍🏫" type="tts" draft="contributed">ਸਿੱਖਿਅਕ</annotation>
 		<annotation cp="👨‍🏫">ਅਧਿਆਪਕ | ਸਿੱਖਿਅਕ | ਪੁਰਸ਼ | ਪ੍ਰੋਫੈਸਰ | ਬੰਦਾ</annotation>
 		<annotation cp="👨‍🏫" type="tts">ਅਧਿਆਪਕ</annotation>
 		<annotation cp="👩‍🏫">ਅਧਿਆਪਕਾ | ਔਰਤ | ਇਸਤਰੀ | ਸਿੱਖਿਅਕ | ਪ੍ਰੋਫੈਸਰ</annotation>
 		<annotation cp="👩‍🏫" type="tts">ਅਧਿਆਪਕਾ</annotation>
+		<annotation cp="🧑‍⚖" draft="contributed">ਜੱਜ</annotation>
+		<annotation cp="🧑‍⚖" type="tts" draft="contributed">ਜੱਜ</annotation>
 		<annotation cp="👨‍⚖">ਜਸਟਿਸ | ਜੱਜ ਸਾਹਬ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
 		<annotation cp="👨‍⚖" type="tts">ਜੱਜ ਸਾਹਬ</annotation>
 		<annotation cp="👩‍⚖">ਔਰਤ | ਇਸਤਰੀ | ਜੱਜ ਸਾਹਿਬਾ</annotation>
 		<annotation cp="👩‍⚖" type="tts">ਜੱਜ ਸਾਹਿਬਾ</annotation>
+		<annotation cp="🧑‍🌾" draft="contributed">ਕਿਸਾਨ</annotation>
+		<annotation cp="🧑‍🌾" type="tts" draft="contributed">ਕਿਸਾਨ</annotation>
 		<annotation cp="👨‍🌾">ਕਿਸਾਨ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮਾਲੀ</annotation>
 		<annotation cp="👨‍🌾" type="tts">ਪੁਰਸ਼ ਕਿਸਾਨ</annotation>
 		<annotation cp="👩‍🌾">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਕਿਸਾਨ | ਮਾਲਣ</annotation>
 		<annotation cp="👩‍🌾" type="tts">ਇਸਤਰੀ ਕਿਸਾਨ</annotation>
+		<annotation cp="🧑‍🍳" draft="contributed">ਲਾਂਗਰੀ</annotation>
+		<annotation cp="🧑‍🍳" type="tts" draft="contributed">ਲਾਂਗਰੀ</annotation>
 		<annotation cp="👨‍🍳">ਸ਼ੈੱਫ | ਪੁਰਸ਼ | ਬੰਦਾ | ਰਸੋਈਆ</annotation>
 		<annotation cp="👨‍🍳" type="tts">ਰਸੋਈਆ</annotation>
 		<annotation cp="👩‍🍳">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਰਸੋਈਆ | ਸ਼ੈੱਫ</annotation>
 		<annotation cp="👩‍🍳" type="tts">ਇਸਤਰੀ ਰਸੋਈਆ</annotation>
+		<annotation cp="🧑‍🔧" draft="contributed">ਮਸ਼ੀਨਸਾਜ਼</annotation>
+		<annotation cp="🧑‍🔧" type="tts" draft="contributed">ਮਸ਼ੀਨਸਾਜ਼</annotation>
 		<annotation cp="👨‍🔧">ਇਲੈਕਟ੍ਰਿਸ਼ਨ | ਪਲੰਬਰ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮਕੈਨਿਕ</annotation>
 		<annotation cp="👨‍🔧" type="tts">ਮਕੈਨਿਕ</annotation>
 		<annotation cp="👩‍🔧">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਮਕੈਨਿਕ | ਇਲੈਕਟ੍ਰਿਸ਼ਨ | ਪਲੰਬਰ</annotation>
 		<annotation cp="👩‍🔧" type="tts">ਇਸਤਰੀ ਮਕੈਨਿਕ</annotation>
+		<annotation cp="🧑‍🏭" draft="contributed">ਕਾਰਖਾਨਾ ਮਜ਼ਦੂਰ</annotation>
+		<annotation cp="🧑‍🏭" type="tts" draft="contributed">ਕਾਰਖਾਨਾ ਮਜ਼ਦੂਰ</annotation>
 		<annotation cp="👨‍🏭">ਉਦਯੋਗਿਕ | ਅਸੈਂਬਲੀ | ਕਾਮਾ | ਪੁਰਸ਼ | ਪੁਰਸ਼ ਫੈਕਟਰੀ ਵਰਕਰ | ਫੈਕਟਰੀ | ਬੰਦਾ</annotation>
 		<annotation cp="👨‍🏭" type="tts">ਪੁਰਸ਼ ਫੈਕਟਰੀ ਵਰਕਰ</annotation>
 		<annotation cp="👩‍🏭">ਅਸੈਂਬਲੀ | ਔਰਤ | ਇਸਤਰੀ | ਫੈਕਟਰੀ | ਵਰਕਰ</annotation>
 		<annotation cp="👩‍🏭" type="tts">ਇਸਤਰੀ ਫੈਕਟਰੀ ਵਰਕਰ</annotation>
+		<annotation cp="🧑‍💼" draft="contributed">ਦਫ਼ਤਰ ਕਰਮਚਾਰੀ</annotation>
+		<annotation cp="🧑‍💼" type="tts" draft="contributed">ਦਫ਼ਤਰ ਕਰਮਚਾਰੀ</annotation>
 		<annotation cp="👨‍💼">ਆਰਕੀਟੈਕਟ | ਕਾਰੋਬਾਰ | ਦਫਤਰ | ਪੁਰਸ਼ | ਪੁਰਸ਼ ਆਫਿਸ ਵਰਕਰ | ਬੰਦਾ | ਮੈਨੇਜਰ</annotation>
 		<annotation cp="👨‍💼" type="tts">ਪੁਰਸ਼ ਆਫਿਸ ਵਰਕਰ</annotation>
 		<annotation cp="👩‍💼">ਆਰਕੀਟੈਕਟ | ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਆਫਿਸ ਵਰਕਰ | ਕਾਰੋਬਾਰ | ਦਫਤਰ | ਮੈਨੇਜਰ</annotation>
 		<annotation cp="👩‍💼" type="tts">ਇਸਤਰੀ ਆਫਿਸ ਵਰਕਰ</annotation>
+		<annotation cp="🧑‍🔬" draft="contributed">ਵਿਗਿਆਨੀ</annotation>
+		<annotation cp="🧑‍🔬" type="tts" draft="contributed">ਵਿਗਿਆਨੀ</annotation>
 		<annotation cp="👨‍🔬">ਇੰਜੀਨੀਅਰ | ਹਿਸਾਬਦਾਨ | ਕੈਮਿਸਟ | ਜੀਵ-ਵਿਗਿਆਨੀ | ਪੁਰਸ਼ | ਪੁਰਸ਼ ਵਿਗਿਆਨੀ | ਬੰਦਾ | ਭੌਤਿਕ ਵਿਗਿਆਨੀ</annotation>
 		<annotation cp="👨‍🔬" type="tts">ਪੁਰਸ਼ ਵਿਗਿਆਨੀ</annotation>
 		<annotation cp="👩‍🔬">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਵਿਗਿਆਨੀ | ਇੰਜੀਨੀਅਰ | ਹਿਸਾਬਦਾਨ | ਕੈਮਿਸਟ | ਜੀਵ-ਵਿਗਿਆਨੀ | ਭੌਤਿਕ ਵਿਗਿਆਨੀ</annotation>
 		<annotation cp="👩‍🔬" type="tts">ਇਸਤਰੀ ਵਿਗਿਆਨੀ</annotation>
+		<annotation cp="🧑‍💻" draft="contributed">ਟੈਕਨੋਲੋਜਿਸਟ</annotation>
+		<annotation cp="🧑‍💻" type="tts" draft="contributed">ਟੈਕਨੋਲੋਜਿਸਟ</annotation>
 		<annotation cp="👨‍💻">ਸਾਫਟਵੇਅਰ | ਕਾਢਕਾਰ | ਕੋਡਰ | ਤਕਨਾਲੋਜਿਸਟ | ਪੁਰਸ਼ | ਬੰਦਾ | ਵਿਕਾਸਕਾਰ</annotation>
 		<annotation cp="👨‍💻" type="tts">ਪੁਰਸ਼ ਤਕਨਾਲੋਜਿਸਟ</annotation>
 		<annotation cp="👩‍💻">ਔਰਤ | ਇਸਤਰੀ | ਸਾਫਟਵੇਅਰ | ਕਾਢਕਾਰ | ਕੋਡਰ | ਤਕਨਾਲੋਜਿਸਟ | ਵਿਕਾਸਕਾਰ</annotation>
 		<annotation cp="👩‍💻" type="tts">ਇਸਤਰੀ ਤਕਨਾਲੋਜਿਸਟ</annotation>
+		<annotation cp="🧑‍🎤" draft="contributed">ਗਵੱਈਆ</annotation>
+		<annotation cp="🧑‍🎤" type="tts" draft="contributed">ਗਵੱਈਆ</annotation>
 		<annotation cp="👨‍🎤">ਅਦਾਕਾਰ | ਸਟਾਰ | ਗਾਇਕ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮਸਖਰਾ</annotation>
 		<annotation cp="👨‍🎤" type="tts">ਗਾਇਕ</annotation>
 		<annotation cp="👩‍🎤">ਅਦਾਕਾਰਾ | ਔਰਤ | ਇਸਤਰੀ | ਗਾਇਕਾ</annotation>
 		<annotation cp="👩‍🎤" type="tts">ਗਾਇਕਾ</annotation>
+		<annotation cp="🧑‍🎨" draft="contributed">ਚਿੱਤਰਕਾਰ</annotation>
+		<annotation cp="🧑‍🎨" type="tts" draft="contributed">ਚਿੱਤਰਕਾਰ</annotation>
 		<annotation cp="👨‍🎨">ਕਲਾਕਾਰ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
 		<annotation cp="👨‍🎨" type="tts">ਕਲਾਕਾਰ</annotation>
 		<annotation cp="👩‍🎨">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਕਲਾਕਾਰ</annotation>
 		<annotation cp="👩‍🎨" type="tts">ਇਸਤਰੀ ਕਲਾਕਾਰ</annotation>
+		<annotation cp="🧑‍✈" draft="contributed">ਹਵਾਈ ਜਹਾਜ਼ ਚਾਲਕ</annotation>
+		<annotation cp="🧑‍✈" type="tts" draft="contributed">ਹਵਾਈ ਜਹਾਜ਼ ਚਾਲਕ</annotation>
 		<annotation cp="👨‍✈">ਹਵਾਈ ਜਹਾਜ਼ | ਪਾਇਲਟ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
 		<annotation cp="👨‍✈" type="tts">ਪਾਇਲਟ</annotation>
 		<annotation cp="👩‍✈">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਪਾਇਲਟ | ਇਸਤਰੀਪਾਇਲਟ | ਹਵਾਈ ਜਹਾਜ਼</annotation>
 		<annotation cp="👩‍✈" type="tts">ਇਸਤਰੀ ਪਾਇਲਟ</annotation>
+		<annotation cp="🧑‍🚀" draft="contributed">ਪੁਲਾੜ ਯਾਤਰੀ</annotation>
+		<annotation cp="🧑‍🚀" type="tts" draft="contributed">ਪੁਲਾੜ ਯਾਤਰੀ</annotation>
 		<annotation cp="👨‍🚀">ਪੁਰਸ਼ | ਪੁਰਸ਼ ਪੁਲਾੜ ਯਾਤਰੀ | ਪੁਲਾੜ | ਬੰਦਾ | ਰਾਕਟ</annotation>
 		<annotation cp="👨‍🚀" type="tts">ਪੁਰਸ਼ ਪੁਲਾੜ ਯਾਤਰੀ</annotation>
 		<annotation cp="👩‍🚀">ਔਰਤ | ਔਰਤ ਪੁਲਾੜ ਯਾਤਰੀ | ਇਸਤਰੀ | ਪੁਲਾੜ | ਰਾਕਟ</annotation>
 		<annotation cp="👩‍🚀" type="tts">ਔਰਤ ਪੁਲਾੜ ਯਾਤਰੀ</annotation>
+		<annotation cp="🧑‍🚒" draft="contributed">ਫ਼ਾਇਰਮੈਨ</annotation>
+		<annotation cp="🧑‍🚒" type="tts" draft="contributed">ਫ਼ਾਇਰਮੈਨ</annotation>
 		<annotation cp="👨‍🚒">ਪੁਰਸ਼ | ਫਾਇਰਟਰੱਕ | ਫਾਇਰਫਾਈਟਰ | ਬੰਦਾ</annotation>
 		<annotation cp="👨‍🚒" type="tts">ਪੁਰਸ਼ ਫਾਇਰਫਾਈਟਰ</annotation>
 		<annotation cp="👩‍🚒">ਔਰਤ | ਇਸਤਰੀ | ਇਸਤਰੀ ਫਾਇਰਫਾਈਟਰ | ਫਾਇਰਟਰੱਕ</annotation>
@@ -379,10 +759,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👲" type="tts">ਚੀਨੀ ਟੋਪੀ ਵਾਲਾ ਆਦਮੀ</annotation>
 		<annotation cp="🧕">ਸਕਾਰਫ਼ ਵਾਲੀ ਔਰਤ | ਸਿਰ ਦਾ ਸਕਾਰਫ਼ | ਹਿਜਾਬ | ਪਰਦਾ</annotation>
 		<annotation cp="🧕" type="tts">ਸਕਾਰਫ਼ ਵਾਲੀ ਔਰਤ</annotation>
-		<annotation cp="🤵">ਕੋਟ | ਬਣਿਆ-ਠਣਿਆ ਵਿਅਕਤੀ | ਮਰਦ | ਲਾੜਾ</annotation>
+		<annotation cp="🤵">ਕੋਟ | ਬਣਿਆ-ਠਣਿਆ ਵਿਅਕਤੀ | ਲਾੜਾ | ਵਿਅਕਤੀ</annotation>
 		<annotation cp="🤵" type="tts">ਬਣਿਆ-ਠਣਿਆ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="👰">ਘੁੰਡ | ਘੁੰਡ ਵਿੱਚ ਲਾੜੀ | ਲਾੜੀ | ਲੋਕ | ਵਿਆਹ</annotation>
+		<annotation cp="🤵‍♀">ਔਰਤ | ਕੋਟ | ਬਣੀ ਠਣੀ ਔਰਤ | ਬਣੀ-ਠਣੀ ਔਰਤ</annotation>
+		<annotation cp="🤵‍♀" type="tts">ਬਣੀ ਠਣੀ ਔਰਤ</annotation>
+		<annotation cp="🤵‍♂">ਆਦਮੀ | ਕੋਟ | ਬਣਿਆ-ਠਣਿਆ ਆਦਮੀ</annotation>
+		<annotation cp="🤵‍♂" type="tts">ਬਣਿਆ-ਠਣਿਆ ਆਦਮੀ</annotation>
+		<annotation cp="👰">ਘੁੰਡ | ਘੁੰਡ ਵਿੱਚ ਲਾੜੀ | ਲਾੜੀ | ਵਿਆਹ</annotation>
 		<annotation cp="👰" type="tts">ਘੁੰਡ ਵਿੱਚ ਲਾੜੀ</annotation>
+		<annotation cp="👰‍♀">ਔਰਤ | ਘੁੰਡ | ਘੁੰਡ ਵਿੱਚ ਔਰਤ</annotation>
+		<annotation cp="👰‍♀" type="tts">ਘੁੰਡ ਵਿੱਚ ਔਰਤ</annotation>
+		<annotation cp="👰‍♂">ਆਦਮੀ | ਘੁੰਡ | ਘੁੰਡ ਵਿੱਚ ਆਦਮੀ</annotation>
+		<annotation cp="👰‍♂" type="tts">ਘੁੰਡ ਵਿੱਚ ਆਦਮੀ</annotation>
 		<annotation cp="🤰">ਔਰਤ | ਗਰਭਵਤੀ</annotation>
 		<annotation cp="🤰" type="tts">ਗਰਭਵਤੀ ਔਰਤ</annotation>
 		<annotation cp="🤱">ਛਾਤੀ | ਦੁੱਧ ਚੁੰਘਾਉਣਾ | ਨਿਆਣਾ | ਪਾਲਣਾ</annotation>
@@ -395,112 +783,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤶" type="tts">ਸ਼੍ਰੀਮਤੀ ਕਲਾਜ਼</annotation>
 		<annotation cp="🦸">ਸੁਪਰ-ਹੀਰੋ | ਸੁਪਰਪਾਵਰ | ਹੀਰੋ | ਹੀਰੋਇਨ | ਵਧੀਆ</annotation>
 		<annotation cp="🦸" type="tts">ਸੁਪਰ-ਹੀਰੋ</annotation>
-		<annotation cp="🦸‍♀">ਇਸਤਰੀ | ਇਸਤਰੀ ਸੁਪਰਹੀਰੋ | ਸੁਪਰਪਾਵਰ | ਹੀਰੋ | ਹੀਰੋਇਨ | ਵਧੀਆ</annotation>
-		<annotation cp="🦸‍♀" type="tts">ਇਸਤਰੀ ਸੁਪਰਹੀਰੋ</annotation>
 		<annotation cp="🦸‍♂">ਸੁਪਰਪਾਵਰ | ਹੀਰੋ | ਪੁਰਸ਼ | ਪੁਰਸ਼ ਸੁਪਰਹੀਰੋ | ਵਧੀਆ</annotation>
 		<annotation cp="🦸‍♂" type="tts">ਪੁਰਸ਼ ਸੁਪਰਹੀਰੋ</annotation>
+		<annotation cp="🦸‍♀">ਇਸਤਰੀ | ਇਸਤਰੀ ਸੁਪਰਹੀਰੋ | ਸੁਪਰਪਾਵਰ | ਹੀਰੋ | ਹੀਰੋਇਨ | ਵਧੀਆ</annotation>
+		<annotation cp="🦸‍♀" type="tts">ਇਸਤਰੀ ਸੁਪਰਹੀਰੋ</annotation>
 		<annotation cp="🦹">ਅਪਰਾਧੀ | ਸੁਪਰਪਾਵਰ | ਖਲਨਾਇਕ | ਦੁਸ਼ਟ | ਮਹਾਂ-ਖਲਨਾਇਕ</annotation>
 		<annotation cp="🦹" type="tts">ਮਹਾਂ-ਖਲਨਾਇਕ</annotation>
-		<annotation cp="🦹‍♀">ਅਪਰਾਧੀ | ਇਸਤਰੀ | ਇਸਤਰੀ ਮਹਾਂ-ਖਲਨਾਇਕ | ਸੁਪਰਪਾਵਰ | ਖਲਨਾਇਕ | ਦੁਸ਼ਟ</annotation>
-		<annotation cp="🦹‍♀" type="tts">ਇਸਤਰੀ ਮਹਾਂ-ਖਲਨਾਇਕ</annotation>
 		<annotation cp="🦹‍♂">ਅਪਰਾਧੀ | ਸੁਪਰਪਾਵਰ | ਖਲਨਾਇਕ | ਦੁਸ਼ਟ | ਪੁਰਸ਼ | ਪੁਰਸ਼ ਮਹਾਂ-ਖਲਨਾਇਕ</annotation>
 		<annotation cp="🦹‍♂" type="tts">ਪੁਰਸ਼ ਮਹਾਂ-ਖਲਨਾਇਕ</annotation>
+		<annotation cp="🦹‍♀">ਅਪਰਾਧੀ | ਇਸਤਰੀ | ਇਸਤਰੀ ਮਹਾਂ-ਖਲਨਾਇਕ | ਸੁਪਰਪਾਵਰ | ਖਲਨਾਇਕ | ਦੁਸ਼ਟ</annotation>
+		<annotation cp="🦹‍♀" type="tts">ਇਸਤਰੀ ਮਹਾਂ-ਖਲਨਾਇਕ</annotation>
 		<annotation cp="🧙">ਸਹਾਇਕ | ਜਾਦੂਗਰ | ਜਾਦੂਗਰਨੀ | ਡੈਣ</annotation>
 		<annotation cp="🧙" type="tts">ਜਾਦੂਗਰ</annotation>
-		<annotation cp="🧙‍♀">ਚੁੜੈਲ | ਜਾਦੂਗਰਨੀ | ਡੈਣ</annotation>
-		<annotation cp="🧙‍♀" type="tts">ਜਾਦੂਗਰਨੀ</annotation>
 		<annotation cp="🧙‍♂">ਆਦਮੀ ਜਾਦੂਗਰ | ਸਹਾਇਕ | ਜਾਦੂਗਰ</annotation>
 		<annotation cp="🧙‍♂" type="tts">ਆਦਮੀ ਜਾਦੂਗਰ</annotation>
+		<annotation cp="🧙‍♀">ਚੁੜੈਲ | ਜਾਦੂਗਰਨੀ | ਡੈਣ</annotation>
+		<annotation cp="🧙‍♀" type="tts">ਜਾਦੂਗਰਨੀ</annotation>
 		<annotation cp="🧚">ਓਬੇਰਨ | ਟਿਟੈਨਿਆ | ਪੱਕ | ਪਰੀ</annotation>
 		<annotation cp="🧚" type="tts">ਪਰੀ</annotation>
-		<annotation cp="🧚‍♀">ਇਸਤਰੀ ਪਰੀ | ਟਿਟੈਨਿਆ</annotation>
-		<annotation cp="🧚‍♀" type="tts">ਇਸਤਰੀ ਪਰੀ</annotation>
 		<annotation cp="🧚‍♂">ਓਬੇਰਨ | ਆਦਮੀ ਪਰੀ | ਪੱਕ</annotation>
 		<annotation cp="🧚‍♂" type="tts">ਆਦਮੀ ਪਰੀ</annotation>
+		<annotation cp="🧚‍♀">ਇਸਤਰੀ ਪਰੀ | ਟਿਟੈਨਿਆ</annotation>
+		<annotation cp="🧚‍♀" type="tts">ਇਸਤਰੀ ਪਰੀ</annotation>
 		<annotation cp="🧛">ਜੀਉਂਦਾ | ਡਰੈਕੁਲਾ | ਪਿਸ਼ਾਚ</annotation>
 		<annotation cp="🧛" type="tts">ਪਿਸ਼ਾਚ</annotation>
-		<annotation cp="🧛‍♀">ਜੀਉਂਦਾ | ਮਾਦਾ ਪਿਸ਼ਾਚ</annotation>
-		<annotation cp="🧛‍♀" type="tts">ਮਾਦਾ ਪਿਸ਼ਾਚ</annotation>
 		<annotation cp="🧛‍♂">ਆਦਮੀ ਪਿਸ਼ਾਚ | ਜੀਉਂਦਾ | ਡਰੈਕੁਲਾ</annotation>
 		<annotation cp="🧛‍♂" type="tts">ਆਦਮੀ ਪਿਸ਼ਾਚ</annotation>
+		<annotation cp="🧛‍♀">ਜੀਉਂਦਾ | ਮਾਦਾ ਪਿਸ਼ਾਚ</annotation>
+		<annotation cp="🧛‍♀" type="tts">ਮਾਦਾ ਪਿਸ਼ਾਚ</annotation>
 		<annotation cp="🧜">ਜਲ ਔਰਤ | ਜਲ ਪੁਰਸ਼ | ਜਲ ਮਾਨਵ | ਜਲਪਰੀ</annotation>
 		<annotation cp="🧜" type="tts">ਜਲ ਮਾਨਵ</annotation>
-		<annotation cp="🧜‍♀">ਜਲ ਔਰਤ | ਜਲਪਰੀ</annotation>
-		<annotation cp="🧜‍♀" type="tts">ਜਲਪਰੀ</annotation>
 		<annotation cp="🧜‍♂">ਜਲ ਪੁਰਸ਼ | ਟ੍ਰਾਈਟਨ</annotation>
 		<annotation cp="🧜‍♂" type="tts">ਜਲ ਪੁਰਸ਼</annotation>
+		<annotation cp="🧜‍♀">ਜਲ ਔਰਤ | ਜਲਪਰੀ</annotation>
+		<annotation cp="🧜‍♀" type="tts">ਜਲਪਰੀ</annotation>
 		<annotation cp="🧝">ਜਾਦੂਈ | ਬੌਣਾ</annotation>
 		<annotation cp="🧝" type="tts">ਬੌਣਾ</annotation>
-		<annotation cp="🧝‍♀">ਜਾਦੂਈ | ਬੌਣੀ</annotation>
-		<annotation cp="🧝‍♀" type="tts">ਬੌਣੀ</annotation>
 		<annotation cp="🧝‍♂">ਜਾਦੂਈ | ਬੌਣਾ ਆਦਮੀ</annotation>
 		<annotation cp="🧝‍♂" type="tts">ਬੌਣਾ ਆਦਮੀ</annotation>
+		<annotation cp="🧝‍♀">ਜਾਦੂਈ | ਬੌਣੀ</annotation>
+		<annotation cp="🧝‍♀" type="tts">ਬੌਣੀ</annotation>
 		<annotation cp="🧞">ਜਿੰਨ | ਜਿਨੀ</annotation>
 		<annotation cp="🧞" type="tts">ਜਿੰਨ</annotation>
-		<annotation cp="🧞‍♀">ਔਰਤ ਜਿੰਨ | ਜਿਨੀ</annotation>
-		<annotation cp="🧞‍♀" type="tts">ਔਰਤ ਜਿੰਨ</annotation>
 		<annotation cp="🧞‍♂">ਜਿਨੀ | ਪੁਰਸ਼ ਜਿੰਨ</annotation>
 		<annotation cp="🧞‍♂" type="tts">ਪੁਰਸ਼ ਜਿੰਨ</annotation>
+		<annotation cp="🧞‍♀">ਔਰਤ ਜਿੰਨ | ਜਿਨੀ</annotation>
+		<annotation cp="🧞‍♀" type="tts">ਔਰਤ ਜਿੰਨ</annotation>
 		<annotation cp="🧟">ਜੀਉਂਦਾ | ਜ਼ੌਂਬੀ | ਤੁਰਦਾ ਮਰਿਆ ਆਦਮੀ</annotation>
 		<annotation cp="🧟" type="tts">ਜ਼ੌਂਬੀ</annotation>
-		<annotation cp="🧟‍♀">ਔਰਤ ਜ਼ੌਂਬੀ | ਜੀਉਂਦਾ | ਤੁਰਦਾ ਮਰਿਆ ਆਦਮੀ</annotation>
-		<annotation cp="🧟‍♀" type="tts">ਔਰਤ ਜ਼ੌਂਬੀ</annotation>
 		<annotation cp="🧟‍♂">ਜੀਉਂਦਾ | ਤੁਰਦਾ ਮਰਿਆ ਆਦਮੀ | ਪੁਰਸ਼ ਜ਼ੌਂਬੀ</annotation>
 		<annotation cp="🧟‍♂" type="tts">ਪੁਰਸ਼ ਜ਼ੌਂਬੀ</annotation>
-		<annotation cp="🙍">ਸੰਕੇਤ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਵਿਅਕਤੀ | ਨਰਾਜ਼ ਵਿਅਕਤੀ | ਨਰਾਜ਼ਗੀ | ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙍" type="tts">ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙍‍♂">ਇਸ਼ਾਰਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਣਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
-		<annotation cp="🙍‍♂" type="tts">ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🙍‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਣਾ | ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙍‍♀" type="tts">ਤਿਉੜੀ ਚੜ੍ਹਾਉਂਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙎">ਸੰਕੇਤ | ਨਰਾਜ਼਼ਗੀ | ਨਰਾਜ਼ਗੀ ਜਾਹਰ ਕਰਦਾ ਵਿਅਕਤੀ | ਵਿਅਕਤੀ | ਵਿਅਕਤੀ ਨਰਾਜ਼ ਹੋ ਰਿਹਾ</annotation>
-		<annotation cp="🙎" type="tts">ਨਰਾਜ਼ਗੀ ਜਾਹਰ ਕਰਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙎‍♂">ਇਸ਼ਾਰਾ | ਪੁਰਸ਼ | ਬੰਦਾ | ਬੁੱਲ੍ਹ ਕੱਢਣਾ | ਬੁੱਲ੍ਹ ਕੱਢਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🙎‍♂" type="tts">ਬੁੱਲ੍ਹ ਕੱਢਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🙎‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਬੁੱਲ੍ਹ ਕੱਢਣਾ | ਬੁੱਲ੍ਹ ਕੱਢਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙎‍♀" type="tts">ਬੁੱਲ੍ਹ ਕੱਢਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙅">ਸੰਕੇਤ | ਚੰਗਾ ਨਹੀਂ | ਚੰਗਾ ਨਹੀਂ ਸੰਕੇਤ | ਚਿਹਰਾ | ਨਹੀਂ | ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਨਾ | ਮਨ੍ਹਾਹੀ</annotation>
-		<annotation cp="🙅" type="tts">ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਨਾ</annotation>
-		<annotation cp="🙅‍♂">ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ ਨਹੀਂ | ਠੀਕ ਨਹੀਂ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼ | ਨਹੀਂ | ਪੁਰਸ਼ | ਪ੍ਰਤੀਬੰਧਿਤ | ਬੰਦਾ | ਮਨਾਹੀਆ</annotation>
-		<annotation cp="🙅‍♂" type="tts">ਠੀਕ ਨਹੀਂ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🙅‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ ਨਹੀਂ | ਨਹੀਂ | ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਦੀ ਔਰਤ | ਪ੍ਰਤੀਬੰਧਿਤ | ਮਨਾਹੀਆ</annotation>
-		<annotation cp="🙅‍♀" type="tts">ਨਹੀਂ ਦਾ ਸੰਕੇਤ ਕਰਦੀ ਔਰਤ</annotation>
-		<annotation cp="🙆">OK ਸੰਕੇਤ | ਸੰਕੇਤ | ਸੱਭ ਵਧੀਆ | ਚਿਹਰਾ | ਠੀਕ ਦਾ ਸੰਕੇਤ ਕਰਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙆" type="tts">ਠੀਕ ਦਾ ਸੰਕੇਤ ਕਰਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙆‍♂">ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ | ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
-		<annotation cp="🙆‍♂" type="tts">ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🙆‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਹੱਥ | ਠੀਕ | ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙆‍♀" type="tts">ਠੀਕ ਹੈ ਦਾ ਇਸ਼ਾਰਾ ਕਰਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="💁">ਹੱਥ | ਜਾਣਕਾਰੀ | ਜਾਣਕਾਰੀ ਡੈਸਕ | ਜਾਣਕਾਰੀ ਦੇਣ ਵਾਲਾ ਵਿਅਕਤੀ | ਮਦਦ | ਲੋਕ</annotation>
-		<annotation cp="💁" type="tts">ਜਾਣਕਾਰੀ ਦੇਣ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="💁‍♂">ਆਸਮਾਨ ਵੱਲ ਹਥੇਲੀ | ਸਸੀ | ਸੂਚਨਾ ਦਿੰਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
-		<annotation cp="💁‍♂" type="tts">ਸੂਚਨਾ ਦਿੰਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="💁‍♀">ਆਸਮਾਨ ਵੱਲ ਹਥੇਲੀ | ਔਰਤ | ਇਸਤਰੀ | ਸਸੀ | ਸੂਚਨਾ ਦਿੰਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="💁‍♀" type="tts">ਸੂਚਨਾ ਦਿੰਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙋">ਸੰਕੇਤ | ਹੱਥ ਚੁੱਕ ਰਿਹਾ | ਹੱਥ ਚੁੱਕਦਾ ਖੁਸ਼ ਵਿਅਕਤੀ | ਖੁਸ਼ | ਵਿਅਕਤੀ | ਵਿਅਕਤੀ ਰੱਥ ਚੁੱਕ ਰਿਹਾ</annotation>
-		<annotation cp="🙋" type="tts">ਹੱਥ ਚੁੱਕਦਾ ਖੁਸ਼ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙋‍♂">ਇਸ਼ਾਰਾ | ਹੱਥ ਉਠਾਉਣਾ | ਹੱਥ ਉਠਾਉਂਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
-		<annotation cp="🙋‍♂" type="tts">ਹੱਥ ਉਠਾਉਂਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🙋‍♀">ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਹੱਥ ਉਠਾਉਣਾ | ਹੱਥ ਉਠਾਉਂਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙋‍♀" type="tts">ਹੱਥ ਉਠਾਉਂਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🙇">ਸੰਕੇਤ | ਝੁੱਕਣਾ | ਝੁਕਿਆ ਹੋਇਆ ਵਿਅਕਤੀ | ਬਹੁਤ ਝੁਕਾਅ | ਮੁਆਫੀ | ਮੈਨੂੰ ਮਾਫ ਕਰੋ | ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙇" type="tts">ਝੁਕਿਆ ਹੋਇਆ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙇‍♂">ਅਹਿਸਾਨ | ਅਫਸੋਸ | ਇਸ਼ਾਰਾ | ਸਿਰ ਝੁਕਾਉਣਾ | ਸਿਰ ਝੁਕਾਉਂਦਾ ਪੁਰਸ਼ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮਾਫੀ</annotation>
-		<annotation cp="🙇‍♂" type="tts">ਸਿਰ ਝੁਕਾਉਂਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🙇‍♀">ਅਹਿਸਾਨ | ਅਫਸੋਸ | ਔਰਤ | ਇਸਤਰੀ | ਇਸ਼ਾਰਾ | ਸਿਰ ਝੁਕਾਉਣਾ | ਸਿਰ ਝੁਕਾਉਂਦੀ ਇਸਤਰੀ | ਮਾਫੀ</annotation>
-		<annotation cp="🙇‍♀" type="tts">ਸਿਰ ਝੁਕਾਉਂਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🤦">ਉਫ ਹੋ | ਹਥੇਲੀ | ਚਿਹਰਾ | ਝੁੰਜਲਾਹਟ</annotation>
-		<annotation cp="🤦" type="tts">ਉਫ ਹੋ</annotation>
-		<annotation cp="🤦‍♂">ਅਵਿਸ਼ਵਾਸ | ਝੁੰਜਲਾਹਟ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਣਾ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🤦‍♂" type="tts">ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🤦‍♀">ਅਵਿਸ਼ਵਾਸ | ਔਰਤ | ਇਸਤਰੀ | ਝੁੰਜਲਾਹਟ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਣਾ | ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🤦‍♀" type="tts">ਮੱਥੇ ’ਤੇ ਹੱਥ ਰੱਖਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🤷">ਉਚਕਾਉਣਾ | ਸ਼ੱਕ | ਪਤਾ ਨਹੀਂ | ਮੋਢੇ ਚੁੱਕਣਾ</annotation>
-		<annotation cp="🤷" type="tts">ਉਚਕਾਉਣਾ</annotation>
-		<annotation cp="🤷‍♂">ਅਗਿਆਨਤਾ | ਸ਼ੱਕ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮੈਨੂੰ ਨਹੀਂ ਪਤਾ | ਮੋਢੇ ਉਚਕਾਉਂਦਾ ਪੁਰਸ਼ | ਮੋਢੇ ਚੁੱਕਣਾ</annotation>
-		<annotation cp="🤷‍♂" type="tts">ਮੋਢੇ ਉਚਕਾਉਂਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🤷‍♀">ਅਗਿਆਨਤਾ | ਔਰਤ | ਇਸਤਰੀ | ਸ਼ੱਕ | ਮੈਨੂੰ ਨਹੀਂ ਪਤਾ | ਮੋਢੇ ਉਚਕਾਉਂਦੀ ਇਸਤਰੀ | ਮੋਢੇ ਚੁੱਕਣਾ</annotation>
-		<annotation cp="🤷‍♀" type="tts">ਮੋਢੇ ਉਚਕਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🧟‍♀">ਔਰਤ ਜ਼ੌਂਬੀ | ਜੀਉਂਦਾ | ਤੁਰਦਾ ਮਰਿਆ ਆਦਮੀ</annotation>
+		<annotation cp="🧟‍♀" type="tts">ਔਰਤ ਜ਼ੌਂਬੀ</annotation>
 		<annotation cp="💆">ਸੈਲੂਨ | ਚਿਹਰੇ ਦੀ ਮਾਲਸ਼ | ਮਸਾਜ | ਮਾਲਸ਼ | ਮਾਲਸ਼ ਕਰਵਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="💆" type="tts">ਮਾਲਸ਼ ਕਰਵਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="💆‍♂">ਚਿਹਰਾ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮਾਲਸ਼ | ਮਾਲਸ਼ ਕਰਵਾਉਂਦਾ ਪੁਰਸ਼</annotation>
@@ -519,6 +853,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">ਪੈਦਲ ਚਲਦਾ ਪੁਰਸ਼</annotation>
 		<annotation cp="🚶‍♀">ਔਰਤ | ਇਸਤਰੀ | ਚੱਲਣਾ | ਪੈਦਲ ਸੈਰ | ਪੈਦਲ ਚਲਦੀ ਇਸਤਰੀ</annotation>
 		<annotation cp="🚶‍♀" type="tts">ਪੈਦਲ ਚਲਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🧍">ਖੜ੍ਹਾ | ਖੜ੍ਹਾ ਹੋਣਾ | ਖੜ੍ਹਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧍" type="tts">ਖੜ੍ਹਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧍‍♂">ਖੜ੍ਹਾ | ਖੜ੍ਹਾ ਆਦਮੀ | ਖੜ੍ਹਾ ਹੋਣਾ</annotation>
+		<annotation cp="🧍‍♂" type="tts">ਖੜ੍ਹਾ ਆਦਮੀ</annotation>
+		<annotation cp="🧍‍♀">ਔਰਤ | ਖੜ੍ਹੀ</annotation>
+		<annotation cp="🧍‍♀" type="tts">ਖੜ੍ਹੀ ਔਰਤ</annotation>
+		<annotation cp="🧎">ਗੋਡਿਆਂ ਭਾਰ | ਗੋਡਿਆਂ ਭਾਰ ਬੈਠਣਾ | ਗੋਡਿਆਂ ਭਾਰ ਬੈਠਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧎" type="tts">ਗੋਡਿਆਂ ਭਾਰ ਬੈਠਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧎‍♂">ਆਦਮੀ | ਗੋਡਿਆਂ ਭਾਰ ਬੈਠਣਾ | ਗੋਡਿਆਂ ਭਾਰ ਬੈਠਾ ਆਦਮੀ</annotation>
+		<annotation cp="🧎‍♂" type="tts">ਗੋਡਿਆਂ ਭਾਰ ਬੈਠਾ ਆਦਮੀ</annotation>
+		<annotation cp="🧎‍♀">ਔਰਤ | ਗੋਡਿਆਂ ਭਾਰ ਬੈਠਣਾ | ਗੋਡਿਆਂ ਭਾਰ ਬੈਠੀ ਔਰਤ</annotation>
+		<annotation cp="🧎‍♀" type="tts">ਗੋਡਿਆਂ ਭਾਰ ਬੈਠੀ ਔਰਤ</annotation>
+		<annotation cp="🧑‍🦯" draft="contributed">ਟਟੋਲਣ ਵਾਲੀ ਸੋਟੀ ਫੜੀ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🦯" type="tts" draft="contributed">ਟਟੋਲਣ ਵਾਲੀ ਸੋਟੀ ਫੜੀ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="👨‍🦯">ਅੰਨ੍ਹਾ | ਆਦਮੀ | ਸਹੂਲਤ | ਨੇਤਰਹੀਣ | ਪ੍ਰੋਬਿੰਗ ਕੈਨ ਵਾਲਾ ਆਦਮੀ</annotation>
+		<annotation cp="👨‍🦯" type="tts">ਪ੍ਰੋਬਿੰਗ ਕੈਨ ਵਾਲਾ ਆਦਮੀ</annotation>
+		<annotation cp="👩‍🦯">ਅੰਨ੍ਹੀ | ਔਰਤ | ਸਹੂਲਤ | ਨੇਤਰਹੀਣ | ਪ੍ਰੋਬਿੰਗ ਕੈਨ ਵਾਲੀ ਔਰਤ</annotation>
+		<annotation cp="👩‍🦯" type="tts">ਪ੍ਰੋਬਿੰਗ ਕੈਨ ਵਾਲੀ ਔਰਤ</annotation>
+		<annotation cp="🧑‍🦼" draft="contributed">ਮੋਟਰ ਵ੍ਹੀਲਚੇਅਰ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🦼" type="tts" draft="contributed">ਮੋਟਰ ਵ੍ਹੀਲਚੇਅਰ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="👨‍🦼">ਆਦਮੀ | ਸਹੂਲਤ | ਮੋਟਰ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠਾ ਆਦਮੀ | ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="👨‍🦼" type="tts">ਮੋਟਰ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠਾ ਆਦਮੀ</annotation>
+		<annotation cp="👩‍🦼">ਔਰਤ | ਸਹੂਲਤ | ਮੋਟਰ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠੀ ਔਰਤ | ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="👩‍🦼" type="tts">ਮੋਟਰ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠੀ ਔਰਤ</annotation>
+		<annotation cp="🧑‍🦽" draft="contributed">ਹੱਥੀਂ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🦽" type="tts" draft="contributed">ਹੱਥੀਂ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="👨‍🦽">ਆਦਮੀ | ਸਹੂਲਤ | ਹੱਥ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠਾ ਆਦਮੀ | ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="👨‍🦽" type="tts">ਹੱਥ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠਾ ਆਦਮੀ</annotation>
+		<annotation cp="👩‍🦽">ਔਰਤ | ਸਹੂਲਤ | ਹੱਥ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠੀ ਔਰਤ | ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="👩‍🦽" type="tts">ਹੱਥ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ ‘ਤੇ ਬੈਠੀ ਔਰਤ</annotation>
 		<annotation cp="🏃">ਖੇਡ | ਦੌੜਦਾ ਵਿਅਕਤੀ | ਦੌੜਨਾ | ਦੌੜਾਕ | ਮੈਰਾਥਨ</annotation>
 		<annotation cp="🏃" type="tts">ਦੌੜਦਾ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="🏃‍♂">ਦੌੜ | ਦੌੜਦਾ ਪੁਰਸ਼ | ਦੌੜਨਾ | ਪੁਰਸ਼ | ਬੰਦਾ | ਮੈਰਾਥਨ</annotation>
@@ -529,6 +893,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💃" type="tts">ਨੱਚਦੀ ਔਰਤ</annotation>
 		<annotation cp="🕺">ਨੱਚਦਾ ਬੰਦਾ | ਨਾਚ | ਭੰਗੜਾ | ਮਰਦ</annotation>
 		<annotation cp="🕺" type="tts">ਨੱਚਦਾ ਬੰਦਾ</annotation>
+		<annotation cp="🕴">ਆਦਮੀ | ਸੂਟ | ਕਾਰੋਬਾਰ | ਕਾਰੋਬਾਰ ਵਿਅਕਤੀ, ਵਪਾਰਕ ਸੂਟ ਵਿੱਚ ਵਿਅਕਤੀ | ਕਾਰੋਬਾਰੀ | ਵਪਾਰਕ ਸੂਟ</annotation>
+		<annotation cp="🕴" type="tts">ਕਾਰੋਬਾਰ ਵਿਅਕਤੀ, ਵਪਾਰਕ ਸੂਟ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="👯">ਕੁੜੀ | ਖਰਗੋਸ਼ ਕੁੜੀ | ਖਰਗੋਸ਼ ਦੇ ਕੰਨ | ਜ਼ਨਾਨੀ | ਡਾਂਸਰ | ਪਾਰਟੀ ਕਰਦੇ ਲੋਕ | ਲੋਕ</annotation>
 		<annotation cp="👯" type="tts">ਪਾਰਟੀ ਕਰਦੇ ਲੋਕ</annotation>
 		<annotation cp="👯‍♂">ਖਰਗੋਸ਼ੀਆ ਕੰਨ | ਜਸ਼ਨ ਮਨਾਉਣਾ | ਜਸ਼ਨ ਮਨਾਉਂਦੇ ਪੁਰਸ਼ | ਡਾਂਸਰ | ਪੁਰਸ਼ | ਬੰਦਾ</annotation>
@@ -537,34 +903,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👯‍♀" type="tts">ਜਸ਼ਨ ਮਨਾਉਂਦੀਆਂ ਇਸਤਰੀਆਂ</annotation>
 		<annotation cp="🧖">ਸੌਨਾ | ਭਾਫ਼ ਵਾਲਾ ਕਮਰਾ | ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="🧖" type="tts">ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🧖‍♀">ਸੌਨਾ | ਭਾਫ਼ ਵਾਲਾ ਕਮਰਾ | ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਔਰਤ</annotation>
-		<annotation cp="🧖‍♀" type="tts">ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਔਰਤ</annotation>
 		<annotation cp="🧖‍♂">ਸੌਨਾ | ਭਾਫ਼ ਵਾਲਾ ਕਮਰਾ | ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਆਦਮੀ</annotation>
 		<annotation cp="🧖‍♂" type="tts">ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਆਦਮੀ</annotation>
+		<annotation cp="🧖‍♀">ਸੌਨਾ | ਭਾਫ਼ ਵਾਲਾ ਕਮਰਾ | ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਔਰਤ</annotation>
+		<annotation cp="🧖‍♀" type="tts">ਭਾਫ਼ ਵਾਲੇ ਕਮਰੇ ਵਿੱਚ ਔਰਤ</annotation>
 		<annotation cp="🧗">ਚੜ੍ਹਾਈ ਚੜ੍ਹਣ ਵਾਲਾ | ਚੜ੍ਹਾਈ ਚੜ੍ਹਦਾ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="🧗" type="tts">ਚੜ੍ਹਾਈ ਚੜ੍ਹਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🧗‍♀">ਚੜ੍ਹਾਈ ਚੜ੍ਹਣ ਵਾਲੀ | ਚੜ੍ਹਾਈ ਚੜ੍ਹਦੀ ਔਰਤ</annotation>
-		<annotation cp="🧗‍♀" type="tts">ਚੜ੍ਹਾਈ ਚੜ੍ਹਦੀ ਔਰਤ</annotation>
 		<annotation cp="🧗‍♂">ਚੜ੍ਹਾਈ ਚੜ੍ਹਣ ਵਾਲਾ | ਚੜ੍ਹਾਈ ਚੜ੍ਹਦਾ ਪੁਰਸ਼ | ਚੜ੍ਹਾਈ ਚੜ੍ਹਦੀ ਔਰਤ</annotation>
 		<annotation cp="🧗‍♂" type="tts">ਚੜ੍ਹਾਈ ਚੜ੍ਹਦਾ ਪੁਰਸ਼</annotation>
-		<annotation cp="🧘">ਸਿਮਰਨ | ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਵਿਅਕਤੀ | ਯੋਗਾ</annotation>
-		<annotation cp="🧘" type="tts">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🧘‍♀">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਔਰਤ | ਧਿਆਨ | ਯੋਗਾ</annotation>
-		<annotation cp="🧘‍♀" type="tts">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਔਰਤ</annotation>
-		<annotation cp="🧘‍♂">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਆਦਮੀ | ਧਿਆਨ | ਯੋਗਾ</annotation>
-		<annotation cp="🧘‍♂" type="tts">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਆਦਮੀ</annotation>
-		<annotation cp="🛀">ਨਹਾਉਣਾ | ਨਹਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🛀" type="tts">ਨਹਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🛌">ਹੋਟਲ | ਨੀਂਦ | ਬਿਸਤਰ ‘ਤੇ ਸੁੱਤਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🛌" type="tts">ਬਿਸਤਰ ‘ਤੇ ਸੁੱਤਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🕴">ਆਦਮੀ | ਸੂਟ | ਕਾਰੋਬਾਰ | ਕਾਰੋਬਾਰ ਵਿਅਕਤੀ, ਵਪਾਰਕ ਸੂਟ ਵਿੱਚ ਵਿਅਕਤੀ | ਕਾਰੋਬਾਰੀ | ਵਪਾਰਕ ਸੂਟ</annotation>
-		<annotation cp="🕴" type="tts">ਕਾਰੋਬਾਰ ਵਿਅਕਤੀ, ਵਪਾਰਕ ਸੂਟ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🗣">ਸਿਰ | ਚਿਹਰਾ | ਪਰਛਾਵਾਂ | ਬੋਲਣਾ | ਬੋਲਦਾ ਚਿਹਰਾ | ਬੋਲਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🗣" type="tts">ਬੋਲਦਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="👤">ਛਾਤੀ | ਛਾਤੀ ਤੱਕ ਬਣਤਰ | ਬਣਤਰ | ਲੋਕ</annotation>
-		<annotation cp="👤" type="tts">ਛਾਤੀ ਤੱਕ ਬਣਤਰ</annotation>
-		<annotation cp="👥">ਛਾਤੀ | ਛਾਤੀਆਂ ਤੱਕ ਬਣਤਰ | ਬਣਤਰ | ਲੋਕ</annotation>
-		<annotation cp="👥" type="tts">ਛਾਤੀਆਂ ਤੱਕ ਬਣਤਰ</annotation>
+		<annotation cp="🧗‍♀">ਚੜ੍ਹਾਈ ਚੜ੍ਹਣ ਵਾਲੀ | ਚੜ੍ਹਾਈ ਚੜ੍ਹਦੀ ਔਰਤ</annotation>
+		<annotation cp="🧗‍♀" type="tts">ਚੜ੍ਹਾਈ ਚੜ੍ਹਦੀ ਔਰਤ</annotation>
 		<annotation cp="🤺">ਖਿਡਾਰੀ | ਤਲਵਾਰ | ਤਲਵਾਰਬਾਜ਼</annotation>
 		<annotation cp="🤺" type="tts">ਤਲਵਾਰਬਾਜ਼</annotation>
 		<annotation cp="🏇">ਖੇਡ | ਘੁਰਸਵਾਰ | ਘੋੜ ਦੌੜ | ਘੋੜ-ਦੌੜ | ਘੋੜਾ | ਦੌੜ | ਦੌੜਾਕ ਘੋੜਾ</annotation>
@@ -621,10 +969,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">ਪਹਾੜਾਂ ’ਤੇ ਬਾਈਕ ਚਲਾਉਂਦਾ ਪੁਰਸ਼</annotation>
 		<annotation cp="🚵‍♀">ਔਰਤ | ਇਸਤਰੀ | ਸਾਈਕਲ ਸਵਾਰ | ਪਹਾੜ | ਪਹਾੜਾਂ ’ਤੇ ਬਾਈਕ ਚਲਾਉਂਦੀ ਇਸਤਰੀ | ਬਾਈਸਾਈਕਲ | ਬਾਈਕ</annotation>
 		<annotation cp="🚵‍♀" type="tts">ਪਹਾੜਾਂ ’ਤੇ ਬਾਈਕ ਚਲਾਉਂਦੀ ਇਸਤਰੀ</annotation>
-		<annotation cp="🏎">ਕਾਰ | ਕਾਰ ਰੇਸਿੰਗ | ਰੇਸਿੰਗ ਕਾਰ</annotation>
-		<annotation cp="🏎" type="tts">ਰੇਸਿੰਗ ਕਾਰ</annotation>
-		<annotation cp="🏍">ਬਾਈਕ ਰੇਸਿੰਗ | ਮੋਟਰਸਾਈਕਲ | ਰੇਸਿੰਗ</annotation>
-		<annotation cp="🏍" type="tts">ਮੋਟਰਸਾਈਕਲ</annotation>
 		<annotation cp="🤸">ਖੇਡ | ਗੱਡੇ ਦਾ ਪਹੀਆ | ਜਿਮਨਾਸਟਿਕ | ਟਾਪੂ ਲਾਉਂਦਾ ਵਿਅਕਤੀ | ਵਿਅਕਤੀ</annotation>
 		<annotation cp="🤸" type="tts">ਟਾਪੂ ਲਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
 		<annotation cp="🤸‍♂">ਕਲਾਬਾਜ਼ੀ | ਕਲਾਬਾਜ਼ੀਆਂ ਲਾਉਂਦਾ ਪੁਰਸ਼ | ਖੇਡ | ਜਿਮਨਾਸਟਿਕਸ | ਪੁਰਸ਼ | ਬੰਦਾ | ਵਿਅਕਤੀ</annotation>
@@ -655,110 +999,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤹‍♂" type="tts">ਕਰਤੱਬ ਦਿਖਾਉਂਦਾ ਪੁਰਸ਼</annotation>
 		<annotation cp="🤹‍♀">ਔਰਤ | ਇਸਤਰੀ | ਕਰਤੱਬ ਦਿਖਾਉਣਾ | ਕਰਤੱਬ ਦਿਖਾਉਂਦੀ ਇਸਤਰੀ | ਬਹੁ-ਕਾਰਜ</annotation>
 		<annotation cp="🤹‍♀" type="tts">ਕਰਤੱਬ ਦਿਖਾਉਂਦੀ ਇਸਤਰੀ</annotation>
+		<annotation cp="🧘">ਸਿਮਰਨ | ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਵਿਅਕਤੀ | ਯੋਗਾ</annotation>
+		<annotation cp="🧘" type="tts">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧘‍♂">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਆਦਮੀ | ਧਿਆਨ | ਯੋਗਾ</annotation>
+		<annotation cp="🧘‍♂" type="tts">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਆਦਮੀ</annotation>
+		<annotation cp="🧘‍♀">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਔਰਤ | ਧਿਆਨ | ਯੋਗਾ</annotation>
+		<annotation cp="🧘‍♀" type="tts">ਕਮਲ ਦੀ ਸਥਿਤੀ ਵਿੱਚ ਔਰਤ</annotation>
+		<annotation cp="🛀">ਨਹਾਉਣਾ | ਨਹਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🛀" type="tts">ਨਹਾਉਂਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🛌">ਹੋਟਲ | ਨੀਂਦ | ਬਿਸਤਰ ‘ਤੇ ਸੁੱਤਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🛌" type="tts">ਬਿਸਤਰ ‘ਤੇ ਸੁੱਤਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🤝‍🧑">ਹੱਥ | ਹੱਥ ਫੜਦੇ ਹੋਏ ਲੋਕ | ਜੋੜਾ | ਫੜਣਾ | ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">ਹੱਥ ਫੜਦੇ ਹੋਏ ਲੋਕ</annotation>
+		<annotation cp="👭">ਹੱਥ ਫੜੇ ਹੋਏ | ਹੱਥ ਫੜੇ ਹੋਏ ਦੋ ਜ਼ਨਾਨੀਆਂ | ਜ਼ਨਾਨੀਆਂ | ਜੋੜਾ | ਦੋ ਔਰਤਾਂ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ | ਦੋ ਜ਼ਨਾਨੀਆਂ | ਮਰਦ | ਲੋਕ</annotation>
+		<annotation cp="👭" type="tts">ਦੋ ਔਰਤਾਂ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ</annotation>
 		<annotation cp="👫">ਆਦਮੀ ਅਤੇ ਔਰਤ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ | ਹੱਥ ਫੜੇ ਹੋਏ | ਹੱਥ ਫੜੇ ਹੋਏ ਬੰਦਾ ਅਤੇ ਜ਼ਨਾਨੀ | ਜ਼ਨਾਨੀ | ਜੋੜਾ | ਬੰਦਾ | ਬੰਦਾ ਅਤੇ ਜ਼ਨਾਨੀ | ਮਰਦ ਅਤੇ ਔਰਤ | ਲੋਕ</annotation>
 		<annotation cp="👫" type="tts">ਆਦਮੀ ਅਤੇ ਔਰਤ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ</annotation>
 		<annotation cp="👬">ਹੱਥ ਫੜੇ ਹੋਏ | ਹੱਥ ਫੜੇ ਹੋਏ ਦੋ ਬੰਦੇ | ਜੋੜਾ | ਦੋ ਆਦਮੀਆਂ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ | ਦੋ ਬੰਦੇ | ਬੰਦਾ | ਮਰਦ | ਲੋਕ</annotation>
 		<annotation cp="👬" type="tts">ਦੋ ਆਦਮੀਆਂ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ</annotation>
-		<annotation cp="👭">ਹੱਥ ਫੜੇ ਹੋਏ | ਹੱਥ ਫੜੇ ਹੋਏ ਦੋ ਜ਼ਨਾਨੀਆਂ | ਜ਼ਨਾਨੀਆਂ | ਜੋੜਾ | ਦੋ ਔਰਤਾਂ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ | ਦੋ ਜ਼ਨਾਨੀਆਂ | ਮਰਦ | ਲੋਕ</annotation>
-		<annotation cp="👭" type="tts">ਦੋ ਔਰਤਾਂ ਨੇ ਹੱਥ ਫੜਿਆ ਹੋਇਆ</annotation>
 		<annotation cp="💏">ਚੁੰਮੀ | ਚੁੰਮੀ ਲੈਣਾ | ਪਿਆਰ | ਲੋਕ</annotation>
 		<annotation cp="💏" type="tts">ਚੁੰਮੀ</annotation>
 		<annotation cp="💑">ਜੋੜਾ | ਦਿਲ | ਦਿਲ ਨਾਲ ਜੋੜਾ | ਦਿਲ ਨਾਲ ਪ੍ਰੇਮੀ ਜੋੜਾ | ਪਿਆਰ | ਲੋਕ</annotation>
 		<annotation cp="💑" type="tts">ਦਿਲ ਨਾਲ ਪ੍ਰੇਮੀ ਜੋੜਾ</annotation>
 		<annotation cp="👪">ਪਰਿਵਾਰ | ਪਿਓ | ਬੱਚਾ | ਮਾਂ | ਲੋਕ</annotation>
 		<annotation cp="👪" type="tts">ਪਰਿਵਾਰ</annotation>
-		<annotation cp="🤳">ਸੈਲਫੀ | ਕੈਮਰਾ | ਫ਼ੋਨ</annotation>
-		<annotation cp="🤳" type="tts">ਸੈਲਫੀ</annotation>
-		<annotation cp="💪">ਕਾਮਿਕ | ਬਾਇਸੇਪਸ | ਮਜ਼ਬੂਤ | ਮਾਸਪੇਸ਼ੀ | ਲਚੀਲੀ</annotation>
-		<annotation cp="💪" type="tts">ਬਾਇਸੇਪਸ</annotation>
-		<annotation cp="🦵">ਅੰਗ | ਠੁੱਡਾ ਮਾਰਨਾ | ਲੱਤ</annotation>
-		<annotation cp="🦵" type="tts">ਲੱਤ</annotation>
-		<annotation cp="🦶">ਠੁੱਡਾ ਮਾਰਨਾ | ਪੈਰ | ਪੈਰ ਘੜੀਸ ਕੇ ਤੁਰਨਾ</annotation>
-		<annotation cp="🦶" type="tts">ਪੈਰ</annotation>
-		<annotation cp="👈">ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਹੱਥ ਪਿਛਲਾ ਪਾਸਾ | ਖੱਬੀ ਉਂਗਲ | ਖੱਬੇ ਇਸ਼ਾਰਾ ਉਂਗਲ | ਖੱਬੇ ਪਾਸੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
-		<annotation cp="👈" type="tts">ਖੱਬੇ ਪਾਸੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
-		<annotation cp="👉">ਇੰਡੈਕਸ ਉਂਗਲ | ਸੱਜੇ ਪਾਸੇੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ | ਸਰੀਰ | ਸੂਚੀ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਪਾਸਾ</annotation>
-		<annotation cp="👉" type="tts">ਸੱਜੇ ਪਾਸੇੇ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
-		<annotation cp="☝">ਉਂਗਲ | ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਮੈਂ ਜਿੱਤਿਆ | ਮੈਂ ਪਹਿਲੇ ਨੰਬਰ ‘ਤੇ ਹਾਂ</annotation>
-		<annotation cp="☝" type="tts">ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲ</annotation>
-		<annotation cp="👆">ਉਂਗਲ | ਉੱਪਰ ਇਸ਼ਾਰਾ ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱੱਸਾ ਅਤੇ ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ | ਹੱਥ ਪਿਛਲਾ ਪਾਸਾ</annotation>
-		<annotation cp="👆" type="tts">ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱੱਸਾ ਅਤੇ ਉੱਪਰ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ</annotation>
-		<annotation cp="🖕">ਉਂਗਲ | ਉੱਪਰ ਉਂਗਲ | ਉੱਪਰ ਇਸ਼ਾਰਾ ਉਂਗਲ | ਉੱਪਰ ਵੱਲ ਵਿਚਕਾਰਲੀ ਉਂਗਲ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਪਾਸਾ</annotation>
-		<annotation cp="🖕" type="tts">ਉੱਪਰ ਵੱਲ ਵਿਚਕਾਰਲੀ ਉਂਗਲ</annotation>
-		<annotation cp="👇">ਉਂਗਲ | ਇੰਡੈਕਸ ਉਂਗਲ | ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱਸਾ ਅਤੇ ਥੱਲੇ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ | ਹੱਥ ਪਿਛਲਾ ਪਾਸਾ | ਥੱਲੇ ਉਂਗਲ | ਥੱਲੇ ਇਸ਼ਾਰਾ ਉਂਗਲ</annotation>
-		<annotation cp="👇" type="tts">ਹੱਥ ਦਾ ਪਿਛਲਾ ਹਿੱਸਾ ਅਤੇ ਥੱਲੇ ਵੱਲ ਇਸ਼ਾਰਾ ਕਰਦੀ ਉਂਗਲੀ</annotation>
-		<annotation cp="✌">ਹਾਂ | ਕੈਂਚੀ | ਜਿੱਤ | ਜਿੱਤ ਹੱਥ | ਜਿੱਤ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="✌" type="tts">ਜਿੱਤ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="🤞">ਉਂਗਲੀ | ਹੱਥ | ਕਰਾਸ | ਕਾਟਵੀਆਂ ਉਂਗਲਾਂ | ਕਿਸਮਤ</annotation>
-		<annotation cp="🤞" type="tts">ਕਾਟਵੀਆਂ ਉਂਗਲਾਂ</annotation>
-		<annotation cp="🖖">ਉਂਗਲ | ਸੰਕੇਤ ਢੰਗ | ਸਲੂਟ ਕਰਨ ਦਾ ਇੱਕ ਢੰਗ | ਸਲੂਟ ਕਰਨ ਵਾਲਾ ਹੱਥ, ਵਲਕਨ ਸਲੂਟ | ਵਲਕਨ ਸਲੂਟ</annotation>
-		<annotation cp="🖖" type="tts">ਸਲੂਟ ਕਰਨ ਵਾਲਾ ਹੱਥ, ਵਲਕਨ ਸਲੂਟ</annotation>
-		<annotation cp="🤘">ਉਂਗਲ | ਸਿੰਗ | ਖੁਸ਼ੀ ਜਾਹਰ ਕਰਨਾ | ਜਿੱਤ</annotation>
-		<annotation cp="🤘" type="tts">ਖੁਸ਼ੀ ਜਾਹਰ ਕਰਨਾ</annotation>
-		<annotation cp="🤙">ਹੱਥ | ਕਾਲ | ਟੈਲੀਫ਼ੋਨ | ਮੈਨੂੰ ਕਾਲ ਕਰੋ ਸੰਕੇਤ</annotation>
-		<annotation cp="🤙" type="tts">ਮੈਨੂੰ ਕਾਲ ਕਰੋ ਸੰਕੇਤ</annotation>
-		<annotation cp="🖐">ਉਂਗਲ | ਹੱਥ | ਹੱਥ ਵਿਖਾਉਣਾ | ਪੰਜਾ ਵਿਖਾਉਣਾ</annotation>
-		<annotation cp="🖐" type="tts">ਪੰਜਾ ਵਿਖਾਉਣਾ</annotation>
-		<annotation cp="✋">ਉੱਠਿਆ ਹੱਥ | ਕਾਗਜ਼ | ਚੁੱਕਿਆ ਹੋਇਆ ਹੱਥ</annotation>
-		<annotation cp="✋" type="tts">ਚੁੱਕਿਆ ਹੋਇਆ ਹੱਥ</annotation>
-		<annotation cp="👌">OK | OK ਹੱਥ ਦਾ ਨਿਸ਼ਾਨ | OKਨਿਸ਼ਾਨ | ਹੱਥ | ਠੀਕ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="👌" type="tts">ਠੀਕ ਦਾ ਹੱਥ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="👍">ਉੱਪਰ | ਅੰਗੂਠਾ | ਹੱਥ | ਥੰਮਸ ਅੱਪ | ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="👍" type="tts">ਥੰਮਸ ਅੱਪ</annotation>
-		<annotation cp="👎">ਅੰਗੂਠਾ ਥੱਲੇ | ਅੰਗੂਠੇ | ਅੰਗੂੂਠਾ ਥੱਲੇ | ਹੱਥ | ਥੱਲੇ | ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="👎" type="tts">ਅੰਗੂਠਾ ਥੱਲੇ</annotation>
-		<annotation cp="✊">ਉੱਠੀ ਮੁੱਠੀ | ਚਟਾਨ | ਚੁੱੱਕੀ ਹੋਈ ਮੁੱਠੀ</annotation>
-		<annotation cp="✊" type="tts">ਚੁੱੱਕੀ ਹੋਈ ਮੁੱਠੀ</annotation>
-		<annotation cp="👊">ਹੱਥ | ਬੰਦ ਮੁੱਠੀ | ਮੁੱਕਾ ਮਾਰਨਾ | ਮੁੱਠੀ</annotation>
-		<annotation cp="👊" type="tts">ਮੁੱਕਾ ਮਾਰਨਾ</annotation>
-		<annotation cp="🤛">ਖੱਬੇ ਪਾਸੇ | ਖੱਬੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ | ਮੁੱਠੀ</annotation>
-		<annotation cp="🤛" type="tts">ਖੱਬੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ</annotation>
-		<annotation cp="🤜">ਸੱਜੇ ਪਾਸੇ | ਸੱਜੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ | ਮੁੱਠੀ</annotation>
-		<annotation cp="🤜" type="tts">ਸੱਜੇ ਵੱਲ ਨੂੰ ਮੁੱਠੀ</annotation>
-		<annotation cp="🤚">ਖੜ੍ਹਾ ਕੀਤਾ ਪੁੱਠਾ ਹੱਥ | ਪਿਛਲਾ ਹੱਥ | ਪੁੱਠਾ ਪੰਜਾ</annotation>
-		<annotation cp="🤚" type="tts">ਖੜ੍ਹਾ ਕੀਤਾ ਪੁੱਠਾ ਹੱਥ</annotation>
-		<annotation cp="👋">ਹੱਥ | ਹੱਥ ਹਿਲਾਉਣਾ | ਲਹਿਰਾਉਣਾ</annotation>
-		<annotation cp="👋" type="tts">ਹੱਥ ਹਿਲਾਉਣਾ</annotation>
-		<annotation cp="🤟">ਹੱਥ | ਤੁਹਾਨੂੰ ਪਿਆਰ ਕਰਨ ਦਾ ਇਸ਼ਾਰਾ | ਪਿਆਰ</annotation>
-		<annotation cp="🤟" type="tts">ਤੁਹਾਨੂੰ ਪਿਆਰ ਕਰਨ ਦਾ ਇਸ਼ਾਰਾ</annotation>
-		<annotation cp="✍">ਹੱਥ | ਲਿਖਣ ਵਾਲਾ ਹੱਥ | ਲਿਖਣਾ | ਲਿਖਣਾ, ਲਿਖਾਈ | ਲਿਖਾਵਟ</annotation>
-		<annotation cp="✍" type="tts">ਲਿਖਣਾ, ਲਿਖਾਈ</annotation>
-		<annotation cp="👏">ਹੱਥ | ਤਾੜੀ | ਤਾੜੀ ਮਾਰਦੇ ਹੱਥਾਂ ਦਾ ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="👏" type="tts">ਤਾੜੀ ਮਾਰਦੇ ਹੱਥਾਂ ਦਾ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="👐">ਹੱਥ | ਖੁੱਲ੍ਹਾ | ਖੁੱਲ੍ਹੇ ਹੱਥ | ਖੁੱਲ੍ਹੇ ਹੱਥ ਦਾ ਨਿਸ਼ਾਨ | ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="👐" type="tts">ਖੁੱਲ੍ਹੇ ਹੱਥ</annotation>
-		<annotation cp="🙌">ਖੁੁਸ਼ੀ | ਜਸ਼ਨ | ਜਸ਼ਨ ਵਿੱਚ ਦੋਵੇ ਹੱਥ ਉੱਤੇ ਚੁੱਕ ਰਿਹ | ਦੋਵੇ ਹੱਥ | ਦੋਵੇਂ ਹੱਥ ਖੜ੍ਹੇ ਕਰਨ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🙌" type="tts">ਦੋਵੇਂ ਹੱਥ ਖੜ੍ਹੇ ਕਰਨ ਵਾਲਾ ਵਿਅਕਤੀ</annotation>
-		<annotation cp="🤲">ਉੱਪਰ ਵੱਲ ਜੁੜੀਆਂ ਹਥੇਲੀਆਂ | ਅਰਦਾਸ</annotation>
-		<annotation cp="🤲" type="tts">ਉੱਪਰ ਵੱਲ ਜੁੜੀਆਂ ਹਥੇਲੀਆਂ</annotation>
-		<annotation cp="🙏">ਅਰਦਾਸ | ਅਰਦਾਸ ਕਰਨਾ | ਸੰਕੇਤ | ਹੱਥ | ਜੁੜੇ ਹੋਏ ਹੱਥ</annotation>
-		<annotation cp="🙏" type="tts">ਜੁੜੇ ਹੋਏ ਹੱਥ</annotation>
-		<annotation cp="🤝">ਸਮਝੌਤਾ | ਹੱਥ | ਹੱਥ-ਮਿਲਾਉਣਾ | ਮਿਲਾਉਣਾ | ਮੀਟਿੰਗ</annotation>
-		<annotation cp="🤝" type="tts">ਹੱਥ-ਮਿਲਾਉਣਾ</annotation>
-		<annotation cp="💅">ਸ਼ਿੰਗਾਰ ਸਮਾਨ | ਨਹੁੰ ਦੀ ਦੇਖਭਾਲ | ਨਹੁੰ ਪਾਲਸ਼ | ਨੇਲ ਪਾਲਿਸ਼ | ਮੈਨੀਕਿਓਰ</annotation>
-		<annotation cp="💅" type="tts">ਨੇਲ ਪਾਲਿਸ਼</annotation>
-		<annotation cp="👂">ਸਰੀਰ | ਕੰਨ</annotation>
-		<annotation cp="👂" type="tts">ਕੰਨ</annotation>
-		<annotation cp="👃">ਸਰੀਰ | ਚਿਹਰਾ | ਨੱਕ</annotation>
-		<annotation cp="👃" type="tts">ਨੱਕ</annotation>
+		<annotation cp="🗣">ਸਿਰ | ਚਿਹਰਾ | ਪਰਛਾਵਾਂ | ਬੋਲਣਾ | ਬੋਲਦਾ ਚਿਹਰਾ | ਬੋਲਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="🗣" type="tts">ਬੋਲਦਾ ਵਿਅਕਤੀ</annotation>
+		<annotation cp="👤">ਛਾਤੀ | ਛਾਤੀ ਤੱਕ ਬਣਤਰ | ਬਣਤਰ | ਲੋਕ</annotation>
+		<annotation cp="👤" type="tts">ਛਾਤੀ ਤੱਕ ਬਣਤਰ</annotation>
+		<annotation cp="👥">ਛਾਤੀ | ਛਾਤੀਆਂ ਤੱਕ ਬਣਤਰ | ਬਣਤਰ | ਲੋਕ</annotation>
+		<annotation cp="👥" type="tts">ਛਾਤੀਆਂ ਤੱਕ ਬਣਤਰ</annotation>
 		<annotation cp="👣">ਸਰੀਰ | ਨਿਸ਼ਾਨ | ਪੈੜਾਂ | ਪੈੜਾਂ ਦੇ ਨਿਸ਼ਾਨ</annotation>
 		<annotation cp="👣" type="tts">ਪੈੜਾਂ ਦੇ ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="👀">ਅੱਖ | ਅੱਖਾਂ | ਚਿਹਰਾ</annotation>
-		<annotation cp="👀" type="tts">ਅੱਖਾਂ</annotation>
-		<annotation cp="👁">ਅੱਖ | ਨਜ਼ਰ</annotation>
-		<annotation cp="👁" type="tts">ਅੱਖ</annotation>
-		<annotation cp="👁‍🗨">ਅੱਖ | ਸਪੀਚ ਬਬਲ | ਸਪੀਚ ਬਬਲ ਵਿੱਚ ਅੱਖ | ਗਵਾਹ</annotation>
-		<annotation cp="👁‍🗨" type="tts">ਸਪੀਚ ਬਬਲ ਵਿੱਚ ਅੱਖ</annotation>
-		<annotation cp="🧠">ਸਮਝਦਾਰ | ਦਿਮਾਗ</annotation>
-		<annotation cp="🧠" type="tts">ਦਿਮਾਗ</annotation>
-		<annotation cp="🦴">ਹੱਡੀ | ਪਿੰਜਰ</annotation>
-		<annotation cp="🦴" type="tts">ਹੱਡੀ</annotation>
-		<annotation cp="🦷">ਦੰਦ | ਦੰਦਾਂ ਦਾ ਡਾਕਟਰ</annotation>
-		<annotation cp="🦷" type="tts">ਦੰਦ</annotation>
-		<annotation cp="👅">ਸਰੀਰ | ਚਿਹਰਾ | ਜੀਭ</annotation>
-		<annotation cp="👅" type="tts">ਜੀਭ</annotation>
-		<annotation cp="👄">ਚਿਹਰਾ | ਬੁੱਲ੍ਹ | ਮੁੰਹ | ਮੂੰਹ</annotation>
-		<annotation cp="👄" type="tts">ਮੂੰਹ</annotation>
 		<annotation cp="🦰">ਲਾਲ ਰੰਗ ਦੇ ਵਾਲ | ਲਾਲ ਵਾਲ | ਲਾਲੀ ਮਾਰਦਾ ਪੀਲਾ ਰੰਗ</annotation>
 		<annotation cp="🦰" type="tts">ਲਾਲ ਰੰਗ ਦੇ ਵਾਲ</annotation>
 		<annotation cp="🦱">ਐਫ੍ਰੋ | ਘੁੰਗਰਾਲੇ | ਘੁੰਗਰਾਲੇ ਵਾਲ | ਵਾਲਾਂ ਦੇ ਕੁੰਡਲ</annotation>
@@ -767,152 +1039,22 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">ਚਿੱਟੇ ਵਾਲ</annotation>
 		<annotation cp="🦲">ਕੀਮੋਥੈਰੇਪੀ | ਕੋਈ ਵਾਲ ਨਹੀਂ | ਗੰਜਾ ਸਿਰ | ਮੁੰਨਿਆ ਸਿਰ | ਵਾਲ-ਹੀਣ</annotation>
 		<annotation cp="🦲" type="tts">ਗੰਜਾ ਸਿਰ</annotation>
-		<annotation cp="💋">ਚੁੰਮੀ | ਚੁੰਮੀ ਦਾ ਨਿਸ਼ਾਨ | ਪਿਆਰ | ਬੁੱਲ੍ਹ</annotation>
-		<annotation cp="💋" type="tts">ਚੁੰਮੀ ਦਾ ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="💘">ਜਜ਼ਬਾਤ | ਤੀਰ | ਦਿਲ | ਦਿਲ ਅਤੇ ਤੀਰ | ਦਿਲ ਵਿੱਚ ਲੱਗਿਆ ਤੀਰ | ਪਿਆਰ</annotation>
-		<annotation cp="💘" type="tts">ਦਿਲ ਵਿੱਚ ਲੱਗਿਆ ਤੀਰ</annotation>
-		<annotation cp="💝">ਜਜ਼ਬਾਤ | ਦਿਲ | ਰਿਬਨ | ਰਿਬਨ ਨਾਲ ਦਿਲ | ਵੈਲੇਨਟਾਈਨ</annotation>
-		<annotation cp="💝" type="tts">ਰਿਬਨ ਨਾਲ ਦਿਲ</annotation>
-		<annotation cp="💖">ਉਤਸ਼ਾਹਿਤ | ਚਮਕਦਾ | ਚਮਕਦਾ ਦਿਲ | ਜਜ਼ਬਾਤ | ਪਿਆਰ</annotation>
-		<annotation cp="💖" type="tts">ਚਮਕਦਾ ਦਿਲ</annotation>
-		<annotation cp="💗">ਉਤਸ਼ਾਹਿਤ | ਜਜ਼ਬਾਤ | ਦਿਲ | ਪਿਆਰ | ਬੇਚੈਨ | ਵਧਦਾ ਦਿਲ | ਵੱਧਦਾ ਦਿਲ</annotation>
-		<annotation cp="💗" type="tts">ਵੱਧਦਾ ਦਿਲ</annotation>
-		<annotation cp="💓">ਜਜ਼ਬਾਤ | ਦਿਲ | ਧੜਕਣਾ | ਧੜਕਦਾ | ਪਿਆਰ</annotation>
-		<annotation cp="💓" type="tts">ਧੜਕਦਾ ਦਿਲ</annotation>
-		<annotation cp="💞">ਸਤਿਕਾਰਯੋਗ | ਸੋਹਣਾ | ਘੁੰਮਦਾ | ਘੁੰਮਦੇ ਦਿਲ | ਜਜ਼ਬਾਤ | ਦਿਲ | ਪਿਆਰ</annotation>
-		<annotation cp="💞" type="tts">ਘੁੰਮਦੇ ਦਿਲ</annotation>
-		<annotation cp="💕">ਜਜ਼ਬਾਤ | ਦੋ ਦਿਲ | ਪਿਆਰ | ਪ੍ਰੇਮੀ</annotation>
-		<annotation cp="💕" type="tts">ਦੋ ਦਿਲ</annotation>
-		<annotation cp="💌">ਖੱਤ | ਦਿਲ | ਦਿਲ ਨਾਲ ਚਿੱਠੀ | ਪਿਆਰ | ਪਿਆਰ ਦਾ ਖੱਤ | ਪ੍ਰੇਮ ਪੱਤਰ</annotation>
-		<annotation cp="💌" type="tts">ਪ੍ਰੇਮ ਪੱਤਰ</annotation>
-		<annotation cp="❣">ਸਜਾਵਟੀ ਹੈਰਾਨੀਵਾਚਕ ਚਿੰਨ੍ਹ | ਹੈਰਾਨੀਵਾਚਕ ਚਿੰਨ੍ਹ | ਚਿੰਨ੍ਹ | ਦਿਲ | ਵਿਰਾਮ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="❣" type="tts">ਸਜਾਵਟੀ ਹੈਰਾਨੀਵਾਚਕ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="💔">ਜਜ਼ਬਾਤ | ਟੁੱਟਣਾ | ਟੁੱਟਿਆ ਹੋਇਆ ਦਿਲ | ਟੁੱਟਿਆ ਦਿਲ | ਦਿਲ ਟੁਟਿਆ ਹੋਇਆ | ਦਿਲ ਤੋੜਨਾ</annotation>
-		<annotation cp="💔" type="tts">ਟੁੱਟਿਆ ਦਿਲ</annotation>
-		<annotation cp="❤">ਦਿਲ | ਪਿਆਰ | ਲਾਲ ਦਿਲ</annotation>
-		<annotation cp="❤" type="tts">ਲਾਲ ਦਿਲ</annotation>
-		<annotation cp="🧡">ਸੰਤਰੀ | ਸੰਤਰੀ ਦਿਲ</annotation>
-		<annotation cp="🧡" type="tts">ਸੰਤਰੀ ਦਿਲ</annotation>
-		<annotation cp="💛">ਜਜ਼ਬਾਤ | ਦਿਲ | ਪੀਲਾ</annotation>
-		<annotation cp="💛" type="tts">ਪੀਲਾ ਦਿਲ</annotation>
-		<annotation cp="💚">ਹਰਾ | ਜਜ਼ਬਾਤ | ਦਿਲ</annotation>
-		<annotation cp="💚" type="tts">ਹਰਾ ਦਿਲ</annotation>
-		<annotation cp="💙">ਜਜ਼ਬਾਤ | ਦਿਲ | ਨੀਲਾ</annotation>
-		<annotation cp="💙" type="tts">ਨੀਲਾ ਦਿਲ</annotation>
-		<annotation cp="💜">ਜਜ਼ਬਾਤ | ਜਾਮਨੀ | ਦਿਲ</annotation>
-		<annotation cp="💜" type="tts">ਜਾਮਨੀ ਦਿਲ</annotation>
-		<annotation cp="🖤">ਸ਼ੈਤਾਨ | ਕਾਲਾ | ਦਿਲ | ਬੁਰਾਈ</annotation>
-		<annotation cp="🖤" type="tts">ਕਾਲਾ ਦਿਲ</annotation>
-		<annotation cp="💟">ਦਿਲ | ਦਿਲ ਦੀ ਸਜਾਵਟ</annotation>
-		<annotation cp="💟" type="tts">ਦਿਲ ਦੀ ਸਜਾਵਟ</annotation>
-		<annotation cp="💤">Zzz | ਸੁਸਤ | ਸੌਣਾ | ਕਾਮਿਕ | ਘੁਰਾੜੇ | ਜਜ਼ਬਾਤ</annotation>
-		<annotation cp="💤" type="tts">ਘੁਰਾੜੇ</annotation>
-		<annotation cp="💢">ਕਾਮਿਕ | ਗੁੱਸਾ | ਗੁੱਸੇ | ਗੁੱਸੇ ਦਾ ਚਿੰਨ੍ਹ | ਗੁੱਸੇ ਦਾ ਨਿਸ਼ਾਨ | ਜਜ਼ਬਾਤ</annotation>
-		<annotation cp="💢" type="tts">ਗੁੱਸੇ ਦਾ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="💣">ਕਾਮਿਕ | ਜਜ਼ਬਾਤ | ਬੰਬ</annotation>
-		<annotation cp="💣" type="tts">ਬੰਬ</annotation>
-		<annotation cp="💥">ਕਾਮਿਕ | ਜਜ਼ਬਾਤ | ਟੱਕਰ | ਟੱਕਰ ਦੀ ਨਿਸ਼ਾਨ | ਟੱਕਰਾਉਣਾ</annotation>
-		<annotation cp="💥" type="tts">ਟੱਕਰਾਉਣਾ</annotation>
-		<annotation cp="💦">ਕਾਮਿਕ | ਜਜ਼ਬਾਤ | ਪਸੀਨਾ | ਮੁੜ੍ਹਕਾ | ਮੁੜ੍ਹਕਾ ਛਿੜਕਣਾ | ਮੁੜ੍ਹਕੇ ਦੀਆਂ ਬੂੰਦਾਂ</annotation>
-		<annotation cp="💦" type="tts">ਮੁੜ੍ਹਕੇ ਦੀਆਂ ਬੂੰਦਾਂ</annotation>
-		<annotation cp="💨">ਕਾਮਿਕ | ਚੱਲਣਾ | ਚਲਦਾ ਡੈਸ਼ | ਜਜ਼ਬਾਤ | ਦੌੜਨਾ | ਭੱਜਣਾ</annotation>
-		<annotation cp="💨" type="tts">ਦੌੜਨਾ</annotation>
-		<annotation cp="💫">ਕਾਮਿਕ | ਚੱਕਰ | ਜਜ਼ਬਾਤ | ਤਾਰੇ | ਤਾਰੇ ਦੇਖਣਾ | ਤਾਰੇ ਵਿਖਾਈ ਦੇਣਾ</annotation>
-		<annotation cp="💫" type="tts">ਤਾਰੇ ਵਿਖਾਈ ਦੇਣਾ</annotation>
-		<annotation cp="💬">ਕਾਮਿਕ | ਗੱਲ-ਬਾਤ | ਗੁਬਾਰਾ | ਬੁਲਬੁਲਾ | ਬੋਲੀ ਬਬਲ | ਭਾਸ਼ਣ ਗੁਬਾਰਾ | ਭਾਸ਼ਣ ਬੁਲਬੁਲਾ</annotation>
-		<annotation cp="💬" type="tts">ਬੋਲੀ ਬਬਲ</annotation>
-		<annotation cp="🗨">ਖੱਬਾ ਬੋਲੀ ਬਬਲ | ਬੋਲੀ | ਵਾਰਤਾਲਾਪ | ਵਿਚਾਰ-ਚਰਚਾ</annotation>
-		<annotation cp="🗨" type="tts">ਖੱਬਾ ਬੋਲੀ ਬਬਲ</annotation>
-		<annotation cp="🗯">ਸੱਜਾ ਨਰਾਜ਼ਗੀ ਬਬਲ | ਗੁੱਸਾ ਹੋਣਾ | ਗੁਬਾਰਾ | ਪਾਗਲ | ਬਬਲ</annotation>
-		<annotation cp="🗯" type="tts">ਸੱਜਾ ਨਰਾਜ਼ਗੀ ਬਬਲ</annotation>
-		<annotation cp="💭">ਕਾਮਿਕ | ਬੁਲਬੁਲਾ | ਵਿਚਾਰ | ਵਿਚਾਰ ਗੁਬਾਰਾ | ਵਿਚਾਰ ਬਬਲ</annotation>
-		<annotation cp="💭" type="tts">ਵਿਚਾਰ ਬਬਲ</annotation>
-		<annotation cp="🕳">ਖੁੱਡ | ਮੋਰੀ</annotation>
-		<annotation cp="🕳" type="tts">ਖੁੱਡ</annotation>
-		<annotation cp="👓">ਐਨਕ | ਐਨਕਾਂ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👓" type="tts">ਐਨਕਾਂ</annotation>
-		<annotation cp="🕶">ਅੱਖ | ਐਨਕਾਂ | ਕਾਲਾ | ਕਾਲੀਆਂ ਐਨਕਾਂ</annotation>
-		<annotation cp="🕶" type="tts">ਕਾਲੀਆਂ ਐਨਕਾਂ</annotation>
-		<annotation cp="🥽">ਅੱਖਾਂ ਦੀ ਸੁਰੱਖਿਆ ਲਈ ਐਨਕਾਂ | ਤੈਰਾਕੀ ਲਈ ਐਨਕਾਂ | ਧੁੱਪ ਤੋਂ ਐਨਕਾਂ | ਵੈਲਡਿੰਗ ਲਈ ਐਨਕਾਂ</annotation>
-		<annotation cp="🥽" type="tts">ਧੁੱਪ ਤੋਂ ਐਨਕਾਂ</annotation>
-		<annotation cp="🥼">ਡਾਕਟਰ | ਪ੍ਰਯੋਗ | ਲੈਬ ਵਿੱਚ ਪਹਿਨਣ ਵਾਲਾ ਕੋਟ | ਵਿਗਿਆਨੀ</annotation>
-		<annotation cp="🥼" type="tts">ਲੈਬ ਵਿੱਚ ਪਹਿਨਣ ਵਾਲਾ ਕੋਟ</annotation>
-		<annotation cp="👔">ਟਾਈ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👔" type="tts">ਟਾਈ</annotation>
-		<annotation cp="👕">ਕਮੀਜ਼ | ਟੀ-ਸ਼ਰਟ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👕" type="tts">ਟੀ-ਸ਼ਰਟ</annotation>
-		<annotation cp="👖">ਜੀਨ | ਜੀਨ ਦੀ ਪੈਂਟ | ਪਜਾਮਾ | ਪੈਂਟ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👖" type="tts">ਜੀਨ ਦੀ ਪੈਂਟ</annotation>
-		<annotation cp="🧣">ਸਕਾਫ਼ | ਗਰਦਨ</annotation>
-		<annotation cp="🧣" type="tts">ਸਕਾਫ਼</annotation>
-		<annotation cp="🧤">ਹੱਥ | ਦਸਤਾਨੇ</annotation>
-		<annotation cp="🧤" type="tts">ਦਸਤਾਨੇ</annotation>
-		<annotation cp="🧥">ਕੋਟ | ਜੈਕਟ</annotation>
-		<annotation cp="🧥" type="tts">ਕੋਟ</annotation>
-		<annotation cp="🧦">ਜ਼ੁਰਾਬਾਂ | ਵੱਡੀਆਂ ਜ਼ੁਰਾਬਾਂ</annotation>
-		<annotation cp="🧦" type="tts">ਜ਼ੁਰਾਬਾਂ</annotation>
-		<annotation cp="👗">ਇੱਕ | ਪਹਿਰਾਵਾ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👗" type="tts">ਲਿਬਾਸ</annotation>
-		<annotation cp="👘">ਕਿਮੋਨੋ | ਪਹਿਰਾਵਾ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👘" type="tts">ਕਿਮੋਨੋ</annotation>
-		<annotation cp="👙">ਬਾਥਿੰਗ ਸੂਟ | ਬਿਕਨੀ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👙" type="tts">ਬਿਕਨੀ</annotation>
-		<annotation cp="👚">ਔਰਤਾਂ ਦੇ ਕੱਪੜੇ | ਕੱਪੜੇ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👚" type="tts">ਔਰਤਾਂ ਦੇ ਕੱਪੜੇ</annotation>
-		<annotation cp="👛">ਸਿੱਕਾ | ਸਿੱਕਿਆਂ ਲਈ ਬਟੂਆ | ਪਰਸ | ਪਰਸ਼ | ਬਟੂਆ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👛" type="tts">ਬਟੂਆ</annotation>
-		<annotation cp="👜">ਹੱਥ ਬੈਗ | ਹੈਂਡਬੈਗ | ਬੈਗ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👜" type="tts">ਹੈਂਡਬੈਗ</annotation>
-		<annotation cp="👝">ਥੈਲੀ | ਪਾਉਚ ਬੈਗ | ਬੈਗ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👝" type="tts">ਪਾਉਚ ਬੈਗ</annotation>
-		<annotation cp="🛍">ਹੋਟਲ | ਖਰੀਦਦਾਰੀ | ਖਰੀਦਦਾਰੀ ਵਾਲੇ ਬੈਗ | ਬੈਗ</annotation>
-		<annotation cp="🛍" type="tts">ਖਰੀਦਦਾਰੀ ਵਾਲੇ ਬੈਗ</annotation>
-		<annotation cp="🎒">ਸਕੂਲ | ਬੈਗ</annotation>
-		<annotation cp="🎒" type="tts">ਸਕੂਲ ਬੈਗ</annotation>
-		<annotation cp="👞">ਆਦਮੀ ਦਾ ਬੂਟ | ਆਦਮੀ ਲਈ ਬੂਟ | ਬੂਟ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👞" type="tts">ਆਦਮੀ ਦਾ ਬੂਟ</annotation>
-		<annotation cp="👟">ਅਥਲੈਟਿਕ ਬੂਟ | ਸਨੀਕਰ ਬੂਟ | ਦੌੜਨ ਵਾਲੇ ਬੂਟ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👟" type="tts">ਦੌੜਨ ਵਾਲੇ ਬੂਟ</annotation>
-		<annotation cp="🥾">ਹਾਈਕਿੰਗ | ਕੈਂਪਿੰਗ | ਬੂਟ | ਬੈਕਪੈਕਿੰਗ</annotation>
-		<annotation cp="🥾" type="tts">ਹਾਈਕਿੰਗ ਬੂਟ</annotation>
-		<annotation cp="🥿">ਸਲਿੱਪ-ਆਨ | ਸਲੀਪਰ | ਫਲੈਟ ਜੁੱਤੇ | ਬੈਲੀ ਫਲੈਟ</annotation>
-		<annotation cp="🥿" type="tts">ਫਲੈਟ ਜੁੱਤੇ</annotation>
-		<annotation cp="👠">ਉੱਚ-ਅੱਡੀ | ਉੱਚੀ-ਅੱਡੀ ਵਾਲੀ ਜੁੱਤੀ | ਔਰਤ | ਬੂਟ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👠" type="tts">ਉੱਚੀ-ਅੱਡੀ ਵਾਲੀ ਜੁੱਤੀ</annotation>
-		<annotation cp="👡">ਔਰਤ | ਔਰਤ ਦਾ ਸੈਂਡਲ | ਔਰਤ ਲਈ ਸੈਂਡਲ | ਸੈਂਡਲ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👡" type="tts">ਔਰਤ ਦਾ ਸੈਂਡਲ</annotation>
-		<annotation cp="👢">ਔਰਤ | ਔਰਤਾਂ ਦਾ ਬੂਟ | ਔਰਤਾਂ ਲਈ ਬੂਟ | ਬੂਟ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👢" type="tts">ਔਰਤਾਂ ਦਾ ਬੂਟ</annotation>
-		<annotation cp="👑">ਤਾਜ | ਰਾਜ | ਰਾਣੀ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👑" type="tts">ਤਾਜ</annotation>
-		<annotation cp="👒">ਔਰਤ | ਔਰਤ ਦੀ ਟੋਪੀ | ਔਰਤਾਂ ਦੀ ਟੋਪੀ | ਟੋਪੀ | ਲਿਬਾਸ</annotation>
-		<annotation cp="👒" type="tts">ਔਰਤ ਦੀ ਟੋਪੀ</annotation>
-		<annotation cp="🎩">ਕੱਪੜੇ | ਟੋਪ | ਟੋਪਹੈਟ | ਟੋਪੀ | ਵੱਡੀ ਟੋਪੀ</annotation>
-		<annotation cp="🎩" type="tts">ਵੱਡੀ ਟੋਪੀ</annotation>
-		<annotation cp="🎓">ਕੈਪ | ਗ੍ਰੈਜੂਏਸ਼ਨ | ਜਸ਼ਨ | ਟੋਪੀ</annotation>
-		<annotation cp="🎓" type="tts">ਗ੍ਰੈਜੂਏਸ਼ਨ ਟੋਪੀ</annotation>
-		<annotation cp="🧢">ਬਿਲਡ ਟੋਪੀ | ਬੇਸਬਾਲ ਟੋਪੀ</annotation>
-		<annotation cp="🧢" type="tts">ਬਿਲਡ ਟੋਪੀ</annotation>
-		<annotation cp="⛑">ਸਹਾਇਤਾ | ਹੈਲਮੇਟ | ਕ੍ਰਾਸ | ਟੋਪ | ਟੋਪੀ | ਮੈਡੀਕਲ ਸਹਾਇਤਾ | ਮੈਡੀਕਲ ਸਹਾਇਤਾ ਵਾਲਾ ਹੈਲਮੇਟ</annotation>
-		<annotation cp="⛑" type="tts">ਮੈਡੀਕਲ ਸਹਾਇਤਾ ਵਾਲਾ ਹੈਲਮੇਟ</annotation>
-		<annotation cp="📿">ਅਰਦਾਸ | ਕੱਪੜੇ | ਧਰਮ | ਪ੍ਰਾਰਥਨਾ | ਪ੍ਰਾਰਥਨਾ ਦੀ ਮਾਲਾ | ਮਾਲਾ | ਮੋਤੀ</annotation>
-		<annotation cp="📿" type="tts">ਪ੍ਰਾਰਥਨਾ ਦੀ ਮਾਲਾ</annotation>
-		<annotation cp="💄">ਸ਼ਿੰਗਾਰ | ਸ਼ਿੰਗਾਰ ਸਮਾਨ | ਸੁਰਖੀ | ਲਿਪਸਟਿਕ</annotation>
-		<annotation cp="💄" type="tts">ਲਿਪਸਟਿਕ</annotation>
-		<annotation cp="💍">ਪਿਆਰ | ਮੁੰਦਰੀ</annotation>
-		<annotation cp="💍" type="tts">ਮੁੰਦਰੀ</annotation>
-		<annotation cp="💎">ਹੀਰ | ਹੀਰਾ | ਹੀਰਾ ਪੱਥਰ | ਨਗ | ਪਿਆਰ</annotation>
-		<annotation cp="💎" type="tts">ਨਗ</annotation>
 		<annotation cp="🐵">ਚਿਹਰਾ | ਜਾਨਵਰ | ਬਾਂਦਰ | ਬਾਂਦਰ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🐵" type="tts">ਬਾਂਦਰ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🐒">ਜਾਨਵਰ | ਬਾਂਦਰ | ਬਾਂਂਦਰ</annotation>
 		<annotation cp="🐒" type="tts">ਬਾਂਂਦਰ</annotation>
 		<annotation cp="🦍">ਗੋਰੀਲਾ | ਜਾਨਵਰ</annotation>
 		<annotation cp="🦍" type="tts">ਗੋਰੀਲਾ</annotation>
+		<annotation cp="🦧">ਬਣਮਾਣਸ</annotation>
+		<annotation cp="🦧" type="tts">ਬਣਮਾਣਸ</annotation>
 		<annotation cp="🐶">ਕੁੱਤਾ | ਕੁੱਤੇ ਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਜਾਨਵਰ</annotation>
 		<annotation cp="🐶" type="tts">ਕੁੱਤੇ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🐕">ਕੁੱਤਾ | ਜਾਨਵਰ | ਪਾਲਤੂ</annotation>
 		<annotation cp="🐕" type="tts">ਕੁੱਤਾ</annotation>
+		<annotation cp="🦮">ਅੰਨ੍ਹਾ | ਸਹੂਲਤ | ਰਾਹਬਰ | ਰਾਹਬਰ ਕੁੱਤਾ</annotation>
+		<annotation cp="🦮" type="tts">ਰਾਹਬਰ ਕੁੱਤਾ</annotation>
+		<annotation cp="🐕‍🦺">ਸਹਾਇਤਾ | ਸੇਵਾ | ਸੇਵਾਦਾਰ ਕੁੱਤਾ | ਕੁੱਤਾ | ਪਹੁੰਚਯੋਗਤਾ</annotation>
+		<annotation cp="🐕‍🦺" type="tts">ਸੇਵਾਦਾਰ ਕੁੱਤਾ</annotation>
 		<annotation cp="🐩">ਕੁੱਤਾ | ਜਾਨਵਰ | ਪੂਡਲ</annotation>
 		<annotation cp="🐩" type="tts">ਪੂਡਲ ਕੁੱਤਾ</annotation>
 		<annotation cp="🐺">ਚਿਹਰਾ | ਜਾਨਵਰ | ਬਘਿਆੜ | ਬਘਿਆੜ ਦਾ ਚਿਹਰਾ</annotation>
@@ -925,6 +1067,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐱" type="tts">ਬਿੱਲੀ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🐈">ਜਾਨਵਰ | ਬਿੱਲੀ</annotation>
 		<annotation cp="🐈" type="tts">ਬਿੱਲੀ</annotation>
+		<annotation cp="🐈‍⬛">ਅਪਸ਼ਗਨ | ਕਾਲੀ | ਬਿੱਲੀ</annotation>
+		<annotation cp="🐈‍⬛" type="tts">ਕਾਲੀ ਬਿੱਲੀ</annotation>
 		<annotation cp="🦁">ਸਿੰਗ | ਸ਼ੇਰ | ਸ਼ੇਰ ਦਾ ਚਿਹਰਾ | ਚਿਹਰਾ | ਰਾਸ਼ੀ ਚੱਕਰ</annotation>
 		<annotation cp="🦁" type="tts">ਸ਼ੇਰ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🐯">ਚੀਤਾ | ਚੀਤੇ ਦਾ ਚਿਹਰਾ | ਜਾਨਵਰ</annotation>
@@ -999,10 +1143,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦇" type="tts">ਚਮਗਿੱਦੜ</annotation>
 		<annotation cp="🐻">ਚਿਹਰਾ | ਜਾਨਵਰ | ਭਾਲੂ | ਭਾਲੂ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🐻" type="tts">ਭਾਲੂ ਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🐻‍❄" draft="contributed">ਧਰੁਵੀ ਭਾਲੂ</annotation>
+		<annotation cp="🐻‍❄" type="tts" draft="contributed">ਧਰੁਵੀ ਭਾਲੂ</annotation>
 		<annotation cp="🐨">ਕੋਆਲਾ | ਜਾਨਵਰ | ਭਾਲੂ</annotation>
 		<annotation cp="🐨" type="tts">ਕੋਆਲਾ</annotation>
 		<annotation cp="🐼">ਚਿਹਰਾ | ਜਾਨਵਰ | ਪਾਂਡਾ | ਪਾਂਡੇ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🐼" type="tts">ਪਾਂਡੇ ਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🦥">ਸਲੌਥ | ਸੁਸਤ | ਧੀਮਾ</annotation>
+		<annotation cp="🦥" type="tts">ਸਲੌਥ</annotation>
+		<annotation cp="🦦">ਊਦ ਬਿਲਾਵ | ਚੰਚਲ | ਮੱਛੀ ਫੜ੍ਹਣਾ</annotation>
+		<annotation cp="🦦" type="tts">ਊਦ ਬਿਲਾਵ</annotation>
+		<annotation cp="🦨">ਸਕੰਕ | ਦੁਰਗੰਧ</annotation>
+		<annotation cp="🦨" type="tts">ਸਕੰਕ</annotation>
 		<annotation cp="🦘">ਆਸਟ੍ਰੇਲੀਆ | ਕੰਗਾਰੂ | ਕੰਗਾਰੂ ਦਾ ਬੱਚਾ | ਜੰਪ | ਜੌਏ | ਥੈਲੀਦਾਰ ਜੀਵ | ਮਾਰਸੂਪਿਅਲ</annotation>
 		<annotation cp="🦘" type="tts">ਕੰਗਾਰੂ</annotation>
 		<annotation cp="🦡">ਹਨੀ ਬੈੱਜਰ | ਪੈਸਟਰ | ਬਿੱਜੂ</annotation>
@@ -1035,6 +1187,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">ਹੰਸ</annotation>
 		<annotation cp="🦉">ਉੱਲੂ | ਪੰਛੀ | ਬੁੱਧੀਮਾਨ</annotation>
 		<annotation cp="🦉" type="tts">ਉੱਲੂ</annotation>
+		<annotation cp="🦩">ਸ਼ੋਖ਼ | ਤਪਤ ਖੰਡੀ | ਲਮਢੀਂਗ</annotation>
+		<annotation cp="🦩" type="tts">ਲਮਢੀਂਗ</annotation>
 		<annotation cp="🦚">ਪੰਛੀ | ਮਾਣ | ਮੋਰ | ਮੋਰਨੀ | ਵਿਖਾਵੇ ਵਾਲਾ</annotation>
 		<annotation cp="🦚" type="tts">ਮੋਰ</annotation>
 		<annotation cp="🦜">ਗੱਲਬਾਤ | ਤੋਤਾ | ਪੰਛੀ</annotation>
@@ -1075,14 +1229,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐙" type="tts">ਆਕਟੋਪਸ</annotation>
 		<annotation cp="🐚">ਘੋਗਾ | ਚੂੜੀਦਾਰ ਘੋਗਾ | ਜਾਨਵਰ</annotation>
 		<annotation cp="🐚" type="tts">ਚੂੜੀਦਾਰ ਘੋਗਾ</annotation>
-		<annotation cp="🦀">ਕਰਕ | ਕੇਕੜਾ | ਰਾਸ਼ੀ ਚੱਕਰ</annotation>
-		<annotation cp="🦀" type="tts">ਕੇਕੜਾ</annotation>
-		<annotation cp="🦞">ਸਮੁੰਦਰੀ ਭੋਜਨ | ਝੀਂਗਾ ਮੱਛੀ | ਪੰਜੇ | ਬਿਸਕ</annotation>
-		<annotation cp="🦞" type="tts">ਝੀਂਗਾ ਮੱਛੀ</annotation>
-		<annotation cp="🦐">ਸੰਖ | ਛੋਟਾ | ਝੀਂਗਾ | ਭੋਜਨ</annotation>
-		<annotation cp="🦐" type="tts">ਝੀਂਗਾ</annotation>
-		<annotation cp="🦑">ਸਕਵਿੱਡ | ਸਿੱਪੀ | ਭੋਜਨ</annotation>
-		<annotation cp="🦑" type="tts">ਸਕਵਿੱਡ</annotation>
 		<annotation cp="🐌">ਘੋਗਾ | ਜਾਨਵਰ</annotation>
 		<annotation cp="🐌" type="tts">ਘੋਗਾ</annotation>
 		<annotation cp="🦋">ਸੁੰਦਰ | ਕੀੜਾ | ਤਿਤਲੀ</annotation>
@@ -1203,6 +1349,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥬" type="tts">ਹਰੀਆਂ ਪੱਤੇਦਾਰ ਸਬਜ਼ੀਆਂ</annotation>
 		<annotation cp="🥦">ਬੰਦਗੋਭੀ | ਬ੍ਰੌਕਲੀ</annotation>
 		<annotation cp="🥦" type="tts">ਬ੍ਰੌਕਲੀ</annotation>
+		<annotation cp="🧄">ਜ਼ਾਇਕੇਦਾਰ | ਲਸਣ</annotation>
+		<annotation cp="🧄" type="tts">ਲਸਣ</annotation>
+		<annotation cp="🧅">ਜ਼ਾਇਕੇਦਾਰ | ਪਿਆਜ</annotation>
+		<annotation cp="🧅" type="tts">ਪਿਆਜ</annotation>
 		<annotation cp="🍄">ਖੁੰਭ | ਬੂਟਾ</annotation>
 		<annotation cp="🍄" type="tts">ਖੁੰਭ</annotation>
 		<annotation cp="🥜">ਅਖਰੋਟ | ਸਬਜ਼ੀ | ਖਾਣਾ | ਮੂੰਗਫਲ਼ੀ</annotation>
@@ -1221,6 +1371,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥯" type="tts">ਗੋਲ ਬ੍ਰੈੱਡ</annotation>
 		<annotation cp="🥞">ਹਾੱਟਕੇਕ | ਕਰੈਪ | ਪੈਨਕੇਕ | ਭੋਜਨ</annotation>
 		<annotation cp="🥞" type="tts">ਪੈਨਕੇਕ</annotation>
+		<annotation cp="🧇">ਅਸਥਿਰ | ਲੋਹਾ | ਵਫ਼ਲ</annotation>
+		<annotation cp="🧇" type="tts">ਵਫ਼ਲ</annotation>
 		<annotation cp="🧀">ਪਨੀਰ | ਪਨੀਰ ਦਾ ਟੁਕੜਾ</annotation>
 		<annotation cp="🧀" type="tts">ਪਨੀਰ ਦਾ ਟੁਕੜਾ</annotation>
 		<annotation cp="🍖">ਹੱਡੀ ‘ਤੇ ਮੀਟ | ਹੋਟਲ | ਮੀਟ</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">ਬਰੀਟੋ</annotation>
 		<annotation cp="🥙">ਕਬਾਬ | ਜਾਇਰੋ | ਫਲਾਫਲ | ਭਰਕੇ ਬਣਾਇਆ ਫਲੈਟਬ੍ਰੈੱਡ | ਭਰਵਾਂ | ਭੋਜਨ | ਰੋਟੀ</annotation>
 		<annotation cp="🥙" type="tts">ਭਰਕੇ ਬਣਾਇਆ ਫਲੈਟਬ੍ਰੈੱਡ</annotation>
+		<annotation cp="🧆">ਛੋਲੇ | ਫਲਾਫੇਲ | ਮੀਟਬਾਲ</annotation>
+		<annotation cp="🧆" type="tts">ਫਲਾਫੇਲ</annotation>
 		<annotation cp="🥚">ਅੰਡਾ | ਆਂਡਾ | ਭੋਜਨ</annotation>
 		<annotation cp="🥚" type="tts">ਆਂਡਾ</annotation>
 		<annotation cp="🍳">ਹੋਟਲ | ਖਾਣਾ ਪਕਾਉਣਾ | ਤਲਣ ਲਈ ਬਰਤਨ | ਰਸੋਈ-ਕਲਾ</annotation>
@@ -1261,6 +1415,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">ਹਰਾ ਸਲਾਦ</annotation>
 		<annotation cp="🍿">ਖਿੱਲਾਂ | ਫੁੱਲੇ | ਮੱਕੀ ਦੇ ਦਾਣੇ</annotation>
 		<annotation cp="🍿" type="tts">ਖਿੱਲਾਂ</annotation>
+		<annotation cp="🧈">ਡੇਅਰੀ | ਮੱਖਣ</annotation>
+		<annotation cp="🧈" type="tts">ਮੱਖਣ</annotation>
 		<annotation cp="🧂">ਨਮਕ | ਨਮਕਦਾਨ | ਮਸਾਲਾ</annotation>
 		<annotation cp="🧂" type="tts">ਨਮਕ</annotation>
 		<annotation cp="🥫">ਡੱਬਾ | ਡੱਬਾਬੰਦ ਭੋਜਨ</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">ਫਾਰਚੂਨ ਕੂਕੀ</annotation>
 		<annotation cp="🥡">ਸੀਪ ਦਾ ਤੌੜਾ | ਟੇਕਆਊਟ ਬਾਕਸ</annotation>
 		<annotation cp="🥡" type="tts">ਟੇਕਆਊਟ ਬਾਕਸ</annotation>
+		<annotation cp="🦀">ਕਰਕ | ਕੇਕੜਾ | ਰਾਸ਼ੀ ਚੱਕਰ</annotation>
+		<annotation cp="🦀" type="tts">ਕੇਕੜਾ</annotation>
+		<annotation cp="🦞">ਸਮੁੰਦਰੀ ਭੋਜਨ | ਝੀਂਗਾ ਮੱਛੀ | ਪੰਜੇ | ਬਿਸਕ</annotation>
+		<annotation cp="🦞" type="tts">ਝੀਂਗਾ ਮੱਛੀ</annotation>
+		<annotation cp="🦐">ਸੰਖ | ਛੋਟਾ | ਝੀਂਗਾ | ਭੋਜਨ</annotation>
+		<annotation cp="🦐" type="tts">ਝੀਂਗਾ</annotation>
+		<annotation cp="🦑">ਸਕਵਿੱਡ | ਸਿੱਪੀ | ਭੋਜਨ</annotation>
+		<annotation cp="🦑" type="tts">ਸਕਵਿੱਡ</annotation>
+		<annotation cp="🦪">ਸਿੱਪ | ਗੋਤਾਖੋਰੀ | ਮੋਤੀ</annotation>
+		<annotation cp="🦪" type="tts">ਸਿੱਪ</annotation>
 		<annotation cp="🍦">ਆਇਸ ਕਰੀਮ | ਹੋਟਲ | ਕ੍ਰੀਮ | ਨਰਮ | ਨਰਮ ਆਇਸਕ੍ਰੀਮ | ਮਠਿਆਈ | ਮਿੱਠਾ</annotation>
 		<annotation cp="🍦" type="tts">ਨਰਮ ਆਇਸਕ੍ਰੀਮ</annotation>
 		<annotation cp="🍧">ਆਇਸ | ਡਿਜ਼ਾਈਨਦਾਰ ਆਇਸ | ਬਰਫ਼ ਦਾ ਚੂਸਾ | ਮਠਿਆਈ</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">ਟੰਬਲਰ ਗਲਾਸ</annotation>
 		<annotation cp="🥤">ਸੋਢਾ | ਜੂਸ | ਪਾਈਪ ਸਮੇਤ ਕੱਪ</annotation>
 		<annotation cp="🥤" type="tts">ਪਾਈਪ ਸਮੇਤ ਕੱਪ</annotation>
+		<annotation cp="🧃">ਜੂਸ ਵਾਲਾ ਬਾਕਸ | ਪੇਅ ਬਾਕਸ</annotation>
+		<annotation cp="🧃" type="tts">ਪੇਅ ਬਾਕਸ</annotation>
+		<annotation cp="🧉">ਪੇਅ ਪਦਾਰਥ | ਮੇਟ</annotation>
+		<annotation cp="🧉" type="tts">ਮੇਟ</annotation>
+		<annotation cp="🧊">ਆਈਸਬਰਗ | ਠੰਡਾ | ਬਰਫ਼ ਦਾ ਟੁਕੜਾ</annotation>
+		<annotation cp="🧊" type="tts">ਬਰਫ਼ ਦਾ ਟੁਕੜਾ</annotation>
 		<annotation cp="🥢">ਹਾਸ਼ੀ | ਚੌਪਸਟਿੱਕ</annotation>
 		<annotation cp="🥢" type="tts">ਚੌਪਸਟਿੱਕ</annotation>
 		<annotation cp="🍽">ਕਾਂਟਾ | ਖਾਣਾ | ਖਾਣਾ ਬਣਾਉਣਾ | ਚਾਕੂ | ਛੁਰੀ | ਡਿਨਰ | ਪਲੇਟ | ਪਲੇਟ ਨਾਲ ਕਾਂਟਾ ਅਤੇ ਛੁਰੀ</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">ਗਿਰਜਾ ਘਰ</annotation>
 		<annotation cp="🕌">ਇਸਲਾਮ | ਧਰਮ | ਮਸੀਤ | ਮੁਸਲਮਾਨ</annotation>
 		<annotation cp="🕌" type="tts">ਮਸੀਤ</annotation>
+		<annotation cp="🛕">ਹਿੰਦੂ | ਮੰਦਿਰ</annotation>
+		<annotation cp="🛕" type="tts">ਹਿੰਦੂ ਮੰਦਿਰ</annotation>
 		<annotation cp="🕍">ਪ੍ਰਾਰਥਨਾ ਸਥਾਨ | ਮੰਦਿਰ | ਯਹੂਦੀ | ਯਹੂਦੀ ਪ੍ਰਰਾਥਨਾ ਘਰ</annotation>
 		<annotation cp="🕍" type="tts">ਪ੍ਰਾਰਥਨਾ ਸਥਾਨ</annotation>
 		<annotation cp="⛩">ਸ਼ਿੰਟੋ | ਸਿੰਟੋ ਮੰਦਿਰ | ਧਰਮ | ਮੰਦਿਰ</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">ਰਾਤ ਨੂੰ ਪੁੱਲ ਦਾ ਦ੍ਰਿਸ਼</annotation>
 		<annotation cp="♨">ਗਰਮ | ਬਹੁਤ ਗਰਮ | ਭਾਫ਼</annotation>
 		<annotation cp="♨" type="tts">ਬਹੁਤ ਗਰਮ</annotation>
-		<annotation cp="🌌">ਆਕਾਸ਼ਗੰਗਾ | ਪੁਲਾੜ | ਮੌਸਮ</annotation>
-		<annotation cp="🌌" type="tts">ਆਕਾਸ਼ਗੰਗਾ</annotation>
 		<annotation cp="🎠">ਘੋੜਾ | ਘੋੜੇ ਵਾਲਾ ਝੂਲਾ | ਝੂਲਾ | ਮਨੋਰੰਜਨ</annotation>
 		<annotation cp="🎠" type="tts">ਘੋੜੇ ਵਾਲਾ ਝੂਲਾ</annotation>
 		<annotation cp="🎡">ਚੱਕਰ | ਫੇਰੀਸ | ਮਨੋਰੰਜਨ | ਮਨੋਰੰਜਨ ਪਾਰਕ</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">ਲਾਰੀ</annotation>
 		<annotation cp="🚜">ਟਰੈਕਟਰ | ਵਾਹਨ</annotation>
 		<annotation cp="🚜" type="tts">ਟਰੈਕਟਰ</annotation>
+		<annotation cp="🏎">ਕਾਰ | ਕਾਰ ਰੇਸਿੰਗ | ਰੇਸਿੰਗ ਕਾਰ</annotation>
+		<annotation cp="🏎" type="tts">ਰੇਸਿੰਗ ਕਾਰ</annotation>
+		<annotation cp="🏍">ਬਾਈਕ ਰੇਸਿੰਗ | ਮੋਟਰਸਾਈਕਲ | ਰੇਸਿੰਗ</annotation>
+		<annotation cp="🏍" type="tts">ਮੋਟਰਸਾਈਕਲ</annotation>
+		<annotation cp="🛵">ਸਕੂਟਰ | ਮੋਟਰ</annotation>
+		<annotation cp="🛵" type="tts">ਮੋਟਰ ਸਕੂਟਰ</annotation>
+		<annotation cp="🦽">ਸਹੂਲਤ | ਹੱਥਾਂ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="🦽" type="tts">ਹੱਥਾਂ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="🦼">ਸਹੂਲਤ | ਮੋਟਰ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="🦼" type="tts">ਮੋਟਰ ਨਾਲ ਚੱਲਣ ਵਾਲੀ ਵ੍ਹੀਲਚੇਅਰ</annotation>
+		<annotation cp="🛺">ਆਟੋ ਰਿਕਸ਼ਾ | ਟੁਕ ਟੁਕ</annotation>
+		<annotation cp="🛺" type="tts">ਆਟੋ ਰਿਕਸ਼ਾ</annotation>
 		<annotation cp="🚲">ਸਾਈਕਲ | ਬਾਈਕ | ਵਾਹਨ</annotation>
 		<annotation cp="🚲" type="tts">ਸਾਈਕਲ</annotation>
 		<annotation cp="🛴">ਸਕੂਟਰ | ਕਿੱਕ ਸਕੂਟਰ | ਲੱਤ</annotation>
 		<annotation cp="🛴" type="tts">ਕਿੱਕ ਸਕੂਟਰ</annotation>
 		<annotation cp="🛹">ਸਕੇਟਬੋਰਡ | ਬੋਰਡ</annotation>
 		<annotation cp="🛹" type="tts">ਸਕੇਟਬੋਰਡ</annotation>
-		<annotation cp="🛵">ਸਕੂਟਰ | ਮੋਟਰ</annotation>
-		<annotation cp="🛵" type="tts">ਮੋਟਰ ਸਕੂਟਰ</annotation>
 		<annotation cp="🚏">ਬੱਸ | ਬੱਸ ਸਟਾਪ | ਬੱੱਸ ਸਟਾਪ | ਰੁਕੋ</annotation>
 		<annotation cp="🚏" type="tts">ਬੱਸ ਸਟਾਪ</annotation>
 		<annotation cp="🛣">ਆਵਾਜਾਈ | ਸੜਕ | ਹਾਈਵੇ | ਮੋਟਰਵੇਅ | ਰੋਡ</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">ਹਵਾਈ ਜਹਾਜ਼ ਰਵਾਨਾ</annotation>
 		<annotation cp="🛬">ਆਉਣਾ | ਆਗਮਨ | ਹਵਾਈ ਜਹਾਜ਼ | ਹਵਾਈ ਜਹਾਜ਼ ਆਗਮਨ | ਲੈਂਡਿੰਗ | ਵਾਹਨ</annotation>
 		<annotation cp="🛬" type="tts">ਹਵਾਈ ਜਹਾਜ਼ ਆਗਮਨ</annotation>
+		<annotation cp="🪂">ਸਕਾਈਡਾਇਵ | ਹੈਂਗ-ਗਲਾਈਡ | ਪੈਰਾਸ਼ੂਟ | ਪੈਰਾਸੈਲ</annotation>
+		<annotation cp="🪂" type="tts">ਪੈਰਾਸ਼ੂਟ</annotation>
 		<annotation cp="💺">ਆਸਣ | ਸੀਟ | ਕੁਰਸੀ</annotation>
 		<annotation cp="💺" type="tts">ਸੀਟ</annotation>
 		<annotation cp="🚁">ਹੈਲੀਕਾਪਟਰ | ਵਾਹਨ</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">ਪੂਰੇ ਚੰਦ ਦਾ ਚਿਹਰਾ</annotation>
 		<annotation cp="🌞">ਸੂਰਜ | ਸੂਰਜ ਦਾ ਚਿਹਰਾ | ਚਮਕਣਾ | ਚਮਕਦਾ | ਚਿਹਰਾ</annotation>
 		<annotation cp="🌞" type="tts">ਸੂਰਜ ਦਾ ਚਿਹਰਾ</annotation>
+		<annotation cp="🪐">ਸ਼ਨੀ | ਸ਼ਨੀ ਗ੍ਰਹਿ | ਚੱਕਰਾਕਾਰ ਗ੍ਰਹਿ</annotation>
+		<annotation cp="🪐" type="tts">ਚੱਕਰਾਕਾਰ ਗ੍ਰਹਿ</annotation>
 		<annotation cp="⭐">ਸਫੇਦ | ਤਾਰਾ | ਮੱਧਮ ਸਫੇਦ ਤਾਰਾ</annotation>
 		<annotation cp="⭐" type="tts">ਮੱਧਮ ਸਫੇਦ ਤਾਰਾ</annotation>
 		<annotation cp="🌟">ਚਮਕਦਾ | ਜਗਮਗਉਂਦਾ ਤਾਰਾ | ਜਗਮਗਾਉਂਦਾ ਤਾਰਾ | ਝਿਲਮਿਲਾਉਂਦਾ | ਤਾਰਾ | ਦਮਕਦਾ</annotation>
 		<annotation cp="🌟" type="tts">ਜਗਮਗਾਉਂਦਾ ਤਾਰਾ</annotation>
 		<annotation cp="🌠">ਟੁੱਟਣਾ | ਟੁੱਟਦਾ ਤਾਰਾ | ਡਿੱਗਣਾ | ਤਾਰਾ</annotation>
 		<annotation cp="🌠" type="tts">ਟੁੱਟਦਾ ਤਾਰਾ</annotation>
+		<annotation cp="🌌">ਆਕਾਸ਼ਗੰਗਾ | ਪੁਲਾੜ | ਮੌਸਮ</annotation>
+		<annotation cp="🌌" type="tts">ਆਕਾਸ਼ਗੰਗਾ</annotation>
 		<annotation cp="☁">ਬੱਦਲ | ਮੌਸਮ</annotation>
 		<annotation cp="☁" type="tts">ਬੱਦਲ</annotation>
 		<annotation cp="⛅">ਸੂਰਜ | ਬੱਦਲ | ਬੱਦਲਾਂ ਨਾਲ ਸੂਰਜ | ਬੱਦਲਾਂ ਪਿੱਛੇ ਸੂਰਜ | ਬੱਦਲਾਂਂ ਪਿੱਛੇ ਸੂਰਜ</annotation>
@@ -1869,6 +2057,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">ਆਈਸ ਸਕੇਟ</annotation>
 		<annotation cp="🎣">ਡੰਡਾ | ਮੱਛੀ | ਮੱਛੀ ਫੜਨ ਵਾਲਾ ਡੰਡਾ | ਮੱਛੀਆਂ ਫੜਨਾ</annotation>
 		<annotation cp="🎣" type="tts">ਮੱਛੀ ਫੜਨ ਵਾਲਾ ਡੰਡਾ</annotation>
+		<annotation cp="🤿">ਸਕੂਬਾ | ਸਨੌਰਕਲਿੰਗ | ਡਾਈਵਿੰਗ ਮਾਸਕ</annotation>
+		<annotation cp="🤿" type="tts">ਡਾਈਵਿੰਗ ਮਾਸਕ</annotation>
 		<annotation cp="🎽">ਕਮੀਜ਼ | ਖੇਡ | ਦੌੜਨ ਲਈ ਕਮੀਜ਼ | ਦੌੜਨਾ | ਪੇਟੀ | ਪੇਟੀ ਦੇ ਨਾਲ ਦੌੜਨ ਲਈ ਕਮੀਜ਼ | ਰਨਿੰਗ ਸ਼ਰਟ</annotation>
 		<annotation cp="🎽" type="tts">ਦੌੜਨ ਲਈ ਕਮੀਜ਼</annotation>
 		<annotation cp="🎿">ਸਕੀ | ਸਕੀ ਅਤੇ ਬੂਟ | ਸਕੀਸ | ਖੇਡ | ਬੂਟ</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">ਕਰਲਿੰਗ ਸਟੋਨ</annotation>
 		<annotation cp="🎯">ਸਹੀ ਟੀਚੇ ਤੇ | ਸਿੱਧਾ ਨਿਸ਼ਾਨਾ | ਸਿੱਧਾ ਮਾਰਨਾ | ਖੇਡ | ਟੀਚਾ | ਬਲਦ ਦੀ ਅੱਖ | ਮਾਰਨਾ</annotation>
 		<annotation cp="🎯" type="tts">ਸਿੱਧਾ ਨਿਸ਼ਾਨਾ</annotation>
+		<annotation cp="🪀">ਖਿਡੌਣਾ | ਝੂਮਦਾ ਖਿਡੌਣਾ | ਯੋ-ਯੋ</annotation>
+		<annotation cp="🪀" type="tts">ਯੋ-ਯੋ</annotation>
+		<annotation cp="🪁">ਉੱਡਦਾ ਪਤੰਗ | ਪਤੰਗ</annotation>
+		<annotation cp="🪁" type="tts">ਪਤੰਗ</annotation>
 		<annotation cp="🎱">ਅੱਠ ਗੇਂਦਾਂ | ਖੇਡ | ਬਿਲਿਅਰਡ</annotation>
 		<annotation cp="🎱" type="tts">ਬਿਲਿਅਰਡ</annotation>
 		<annotation cp="🔮">ਔਜ਼ਾਰ | ਸ਼ੀਸ਼ਾ | ਕਿਸਮਤ | ਕਿਸਮਤ ਦੱਸਣਾ | ਕ੍ਰਿਸਟਲ ਬਾਲ | ਗੇਂਦ</annotation>
@@ -1923,6 +2117,92 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">ਧਾਗਾ</annotation>
 		<annotation cp="🧶">ਊਨੀ ਧਾਗਾ | ਕਰੋਸ਼ੀਆ | ਗੇਂਦ | ਬੁਣਨਾ</annotation>
 		<annotation cp="🧶" type="tts">ਊਨੀ ਧਾਗਾ</annotation>
+		<annotation cp="👓">ਐਨਕ | ਐਨਕਾਂ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👓" type="tts">ਐਨਕਾਂ</annotation>
+		<annotation cp="🕶">ਅੱਖ | ਐਨਕਾਂ | ਕਾਲਾ | ਕਾਲੀਆਂ ਐਨਕਾਂ</annotation>
+		<annotation cp="🕶" type="tts">ਕਾਲੀਆਂ ਐਨਕਾਂ</annotation>
+		<annotation cp="🥽">ਅੱਖਾਂ ਦੀ ਸੁਰੱਖਿਆ ਲਈ ਐਨਕਾਂ | ਤੈਰਾਕੀ ਲਈ ਐਨਕਾਂ | ਧੁੱਪ ਤੋਂ ਐਨਕਾਂ | ਵੈਲਡਿੰਗ ਲਈ ਐਨਕਾਂ</annotation>
+		<annotation cp="🥽" type="tts">ਧੁੱਪ ਤੋਂ ਐਨਕਾਂ</annotation>
+		<annotation cp="🥼">ਡਾਕਟਰ | ਪ੍ਰਯੋਗ | ਲੈਬ ਵਿੱਚ ਪਹਿਨਣ ਵਾਲਾ ਕੋਟ | ਵਿਗਿਆਨੀ</annotation>
+		<annotation cp="🥼" type="tts">ਲੈਬ ਵਿੱਚ ਪਹਿਨਣ ਵਾਲਾ ਕੋਟ</annotation>
+		<annotation cp="🦺">ਅਪਾਤਕਾਲੀ | ਸੁਰੱਖਿਆ | ਸੁਰੱਖਿਆ ਪੁਸ਼ਾਕ | ਪੋਸ਼ਾਕ</annotation>
+		<annotation cp="🦺" type="tts">ਸੁਰੱਖਿਆ ਪੁਸ਼ਾਕ</annotation>
+		<annotation cp="👔">ਟਾਈ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👔" type="tts">ਟਾਈ</annotation>
+		<annotation cp="👕">ਕਮੀਜ਼ | ਟੀ-ਸ਼ਰਟ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👕" type="tts">ਟੀ-ਸ਼ਰਟ</annotation>
+		<annotation cp="👖">ਜੀਨ | ਜੀਨ ਦੀ ਪੈਂਟ | ਪਜਾਮਾ | ਪੈਂਟ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👖" type="tts">ਜੀਨ ਦੀ ਪੈਂਟ</annotation>
+		<annotation cp="🧣">ਸਕਾਫ਼ | ਗਰਦਨ</annotation>
+		<annotation cp="🧣" type="tts">ਸਕਾਫ਼</annotation>
+		<annotation cp="🧤">ਹੱਥ | ਦਸਤਾਨੇ</annotation>
+		<annotation cp="🧤" type="tts">ਦਸਤਾਨੇ</annotation>
+		<annotation cp="🧥">ਕੋਟ | ਜੈਕਟ</annotation>
+		<annotation cp="🧥" type="tts">ਕੋਟ</annotation>
+		<annotation cp="🧦">ਜ਼ੁਰਾਬਾਂ | ਵੱਡੀਆਂ ਜ਼ੁਰਾਬਾਂ</annotation>
+		<annotation cp="🧦" type="tts">ਜ਼ੁਰਾਬਾਂ</annotation>
+		<annotation cp="👗">ਇੱਕ | ਪਹਿਰਾਵਾ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👗" type="tts">ਲਿਬਾਸ</annotation>
+		<annotation cp="👘">ਕਿਮੋਨੋ | ਪਹਿਰਾਵਾ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👘" type="tts">ਕਿਮੋਨੋ</annotation>
+		<annotation cp="🥻">ਸਾੜੀ | ਕੱਪੜੇ</annotation>
+		<annotation cp="🥻" type="tts">ਸਾੜੀ</annotation>
+		<annotation cp="🩱">ਇੱਕ-ਪੀਸ ਵਾਲਾ ਸਵਿਮ ਸੂਟ | ਨਹਾਉਣ ਲਈ ਸੂਟ</annotation>
+		<annotation cp="🩱" type="tts">ਇੱਕ-ਪੀਸ ਵਾਲਾ ਸਵਿਮ ਸੂਟ</annotation>
+		<annotation cp="🩲">ਅੰਡਰਵੀਅਰ | ਕੱਛੇ | ਤੈਰਾਕੀ ਲਈ ਸੂਟ | ਨਹਾਉਣ ਲਈ ਸੂਟ | ਵਨ-ਪੀਸ</annotation>
+		<annotation cp="🩲" type="tts">ਕੱਛੇ</annotation>
+		<annotation cp="🩳">ਅੰਡਰਵੀਅਰ | ਨਹਾਉਣ ਲਈ ਸੂਟ | ਨਿੱਕਰਾਂ | ਪੈਂਟਾਂ</annotation>
+		<annotation cp="🩳" type="tts">ਨਿੱਕਰਾਂ</annotation>
+		<annotation cp="👙">ਬਾਥਿੰਗ ਸੂਟ | ਬਿਕਨੀ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👙" type="tts">ਬਿਕਨੀ</annotation>
+		<annotation cp="👚">ਔਰਤਾਂ ਦੇ ਕੱਪੜੇ | ਕੱਪੜੇ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👚" type="tts">ਔਰਤਾਂ ਦੇ ਕੱਪੜੇ</annotation>
+		<annotation cp="👛">ਸਿੱਕਾ | ਸਿੱਕਿਆਂ ਲਈ ਬਟੂਆ | ਪਰਸ | ਪਰਸ਼ | ਬਟੂਆ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👛" type="tts">ਬਟੂਆ</annotation>
+		<annotation cp="👜">ਹੱਥ ਬੈਗ | ਹੈਂਡਬੈਗ | ਬੈਗ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👜" type="tts">ਹੈਂਡਬੈਗ</annotation>
+		<annotation cp="👝">ਥੈਲੀ | ਪਾਉਚ ਬੈਗ | ਬੈਗ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👝" type="tts">ਪਾਉਚ ਬੈਗ</annotation>
+		<annotation cp="🛍">ਹੋਟਲ | ਖਰੀਦਦਾਰੀ | ਖਰੀਦਦਾਰੀ ਵਾਲੇ ਬੈਗ | ਬੈਗ</annotation>
+		<annotation cp="🛍" type="tts">ਖਰੀਦਦਾਰੀ ਵਾਲੇ ਬੈਗ</annotation>
+		<annotation cp="🎒">ਸਕੂਲ | ਬੈਗ</annotation>
+		<annotation cp="🎒" type="tts">ਸਕੂਲ ਬੈਗ</annotation>
+		<annotation cp="👞">ਆਦਮੀ ਦਾ ਬੂਟ | ਆਦਮੀ ਲਈ ਬੂਟ | ਬੂਟ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👞" type="tts">ਆਦਮੀ ਦਾ ਬੂਟ</annotation>
+		<annotation cp="👟">ਅਥਲੈਟਿਕ ਬੂਟ | ਸਨੀਕਰ ਬੂਟ | ਦੌੜਨ ਵਾਲੇ ਬੂਟ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👟" type="tts">ਦੌੜਨ ਵਾਲੇ ਬੂਟ</annotation>
+		<annotation cp="🥾">ਹਾਈਕਿੰਗ | ਕੈਂਪਿੰਗ | ਬੂਟ | ਬੈਕਪੈਕਿੰਗ</annotation>
+		<annotation cp="🥾" type="tts">ਹਾਈਕਿੰਗ ਬੂਟ</annotation>
+		<annotation cp="🥿">ਸਲਿੱਪ-ਆਨ | ਸਲੀਪਰ | ਫਲੈਟ ਜੁੱਤੇ | ਬੈਲੀ ਫਲੈਟ</annotation>
+		<annotation cp="🥿" type="tts">ਫਲੈਟ ਜੁੱਤੇ</annotation>
+		<annotation cp="👠">ਉੱਚ-ਅੱਡੀ | ਉੱਚੀ-ਅੱਡੀ ਵਾਲੀ ਜੁੱਤੀ | ਔਰਤ | ਬੂਟ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👠" type="tts">ਉੱਚੀ-ਅੱਡੀ ਵਾਲੀ ਜੁੱਤੀ</annotation>
+		<annotation cp="👡">ਔਰਤ | ਔਰਤ ਦਾ ਸੈਂਡਲ | ਔਰਤ ਲਈ ਸੈਂਡਲ | ਸੈਂਡਲ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👡" type="tts">ਔਰਤ ਦਾ ਸੈਂਡਲ</annotation>
+		<annotation cp="🩰">ਨਾਚ | ਬੈਲੇ | ਬੈਲੇ ਲਈ ਜੁੱਤੇ</annotation>
+		<annotation cp="🩰" type="tts">ਬੈਲੇ ਲਈ ਜੁੱਤੇ</annotation>
+		<annotation cp="👢">ਔਰਤ | ਔਰਤਾਂ ਦਾ ਬੂਟ | ਔਰਤਾਂ ਲਈ ਬੂਟ | ਬੂਟ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👢" type="tts">ਔਰਤਾਂ ਦਾ ਬੂਟ</annotation>
+		<annotation cp="👑">ਤਾਜ | ਰਾਜ | ਰਾਣੀ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👑" type="tts">ਤਾਜ</annotation>
+		<annotation cp="👒">ਔਰਤ | ਔਰਤ ਦੀ ਟੋਪੀ | ਔਰਤਾਂ ਦੀ ਟੋਪੀ | ਟੋਪੀ | ਲਿਬਾਸ</annotation>
+		<annotation cp="👒" type="tts">ਔਰਤ ਦੀ ਟੋਪੀ</annotation>
+		<annotation cp="🎩">ਕੱਪੜੇ | ਟੋਪ | ਟੋਪਹੈਟ | ਟੋਪੀ | ਵੱਡੀ ਟੋਪੀ</annotation>
+		<annotation cp="🎩" type="tts">ਵੱਡੀ ਟੋਪੀ</annotation>
+		<annotation cp="🎓">ਕੈਪ | ਗ੍ਰੈਜੂਏਸ਼ਨ | ਜਸ਼ਨ | ਟੋਪੀ</annotation>
+		<annotation cp="🎓" type="tts">ਗ੍ਰੈਜੂਏਸ਼ਨ ਟੋਪੀ</annotation>
+		<annotation cp="🧢">ਬਿਲਡ ਟੋਪੀ | ਬੇਸਬਾਲ ਟੋਪੀ</annotation>
+		<annotation cp="🧢" type="tts">ਬਿਲਡ ਟੋਪੀ</annotation>
+		<annotation cp="⛑">ਸਹਾਇਤਾ | ਹੈਲਮੇਟ | ਕ੍ਰਾਸ | ਟੋਪ | ਟੋਪੀ | ਮੈਡੀਕਲ ਸਹਾਇਤਾ | ਮੈਡੀਕਲ ਸਹਾਇਤਾ ਵਾਲਾ ਹੈਲਮੇਟ</annotation>
+		<annotation cp="⛑" type="tts">ਮੈਡੀਕਲ ਸਹਾਇਤਾ ਵਾਲਾ ਹੈਲਮੇਟ</annotation>
+		<annotation cp="📿">ਅਰਦਾਸ | ਕੱਪੜੇ | ਧਰਮ | ਪ੍ਰਾਰਥਨਾ | ਪ੍ਰਾਰਥਨਾ ਦੀ ਮਾਲਾ | ਮਾਲਾ | ਮੋਤੀ</annotation>
+		<annotation cp="📿" type="tts">ਪ੍ਰਾਰਥਨਾ ਦੀ ਮਾਲਾ</annotation>
+		<annotation cp="💄">ਸ਼ਿੰਗਾਰ | ਸ਼ਿੰਗਾਰ ਸਮਾਨ | ਸੁਰਖੀ | ਲਿਪਸਟਿਕ</annotation>
+		<annotation cp="💄" type="tts">ਲਿਪਸਟਿਕ</annotation>
+		<annotation cp="💍">ਪਿਆਰ | ਮੁੰਦਰੀ</annotation>
+		<annotation cp="💍" type="tts">ਮੁੰਦਰੀ</annotation>
+		<annotation cp="💎">ਹੀਰ | ਹੀਰਾ | ਹੀਰਾ ਪੱਥਰ | ਨਗ | ਪਿਆਰ</annotation>
+		<annotation cp="💎" type="tts">ਨਗ</annotation>
 		<annotation cp="🔇">ਸ਼ਾਂਤ | ਕਿਰਪਾ ਸ਼ਾਂਤ | ਬੰਦ ਸਪੀਕਰ | ਬੋਲੋ ਨਾ | ਰੱਦ ਕਰਨ ਦੇ ਨਿਸ਼ਾਨ ਨਾਲ ਸਪੀਕਰ</annotation>
 		<annotation cp="🔇" type="tts">ਬੰਦ ਸਪੀਕਰ</annotation>
 		<annotation cp="🔈">ਸਪੀਕਰ | ਸਪੀਕਰ ਘੱਟ ਵੌਲਿਊਮ | ਸਪੀਕਰ ਘੱਟ ਵੌਲਿਅਮ | ਹਲਕੀ ਆਵਾਜ਼</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">ਬਿਗਲ</annotation>
 		<annotation cp="🎻">ਸੰਗੀਤ | ਸਾਜ਼ | ਵਾਇਲਨ</annotation>
 		<annotation cp="🎻" type="tts">ਵਾਇਲਨ</annotation>
+		<annotation cp="🪕">ਸੰਗੀਤ | ਬੈਂਜੋ</annotation>
+		<annotation cp="🪕" type="tts">ਬੈਂਜੋ</annotation>
 		<annotation cp="🥁">ਸੰਗੀਤ | ਡਰੰਮ | ਡਰੰਮਸਟਿੱਕ</annotation>
 		<annotation cp="🥁" type="tts">ਡਰੰਮ</annotation>
 		<annotation cp="📱">ਸੈੱਲਫੋਨ | ਟੈਲੀਫੋਨ | ਫੋਨ | ਮੋਬਾਇਲ | ਮੋਬਾਇਲ ਫ਼ੋਨ</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">ਫਲੈਸ਼ਲਾਈਟ</annotation>
 		<annotation cp="🏮">ਹੋਟਲ | ਜਾਪਾਨੀ | ਬਾਰ | ਲਾਲ ਕਾਗਜ਼ ਵਾਲੀ ਲਾਲਟੇਨ | ਲਾਲ ਬੱਤੀ | ਲਾਲਟੇਨ</annotation>
 		<annotation cp="🏮" type="tts">ਲਾਲ ਕਾਗਜ਼ ਵਾਲੀ ਲਾਲਟੇਨ</annotation>
+		<annotation cp="🪔">ਤੇਲ ਦਾ ਦੀਵਾ | ਦੀਵਾ | ਲੈਂਪ</annotation>
+		<annotation cp="🪔" type="tts">ਦੀਵਾ</annotation>
 		<annotation cp="📔">ਸਜਾਇਆ ਨੋਟਬੁੱਕ | ਸਜਾਵਟ ਨਾਲ ਨੋਟਬੁੱਕ | ਸਜਾਵਟੀ ਕਵਰ ਨਾਲ ਨੋਟਬੁੱਕ | ਕਵਰ | ਨੋਟਬੁੱਕ</annotation>
 		<annotation cp="📔" type="tts">ਸਜਾਵਟੀ ਕਵਰ ਨਾਲ ਨੋਟਬੁੱਕ</annotation>
 		<annotation cp="📕">ਕਿਤਾਬ | ਬੰਦ ਕਿਤਾਬ</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">ਪੁਰਾਣੀ ਕੁੰਜੀ</annotation>
 		<annotation cp="🔨">ਔਜ਼ਾਰ | ਹਥੌੜਾ</annotation>
 		<annotation cp="🔨" type="tts">ਹਥੌੜਾ</annotation>
+		<annotation cp="🪓">ਕੁਹਾੜੀ | ਲੱਕੜ ਕੱਟਣ ਵਾਲਾ ਕੁਹਾੜਾ</annotation>
+		<annotation cp="🪓" type="tts">ਕੁਹਾੜੀ</annotation>
 		<annotation cp="⛏">ਔਜ਼ਾਰ | ਕਹਾੜੀ | ਖਨਨ ਔਜ਼ਾਰ | ਗੈਂਤੀ</annotation>
 		<annotation cp="⛏" type="tts">ਗੈਂਤੀ</annotation>
 		<annotation cp="⚒">ਔਜ਼ਾਰ | ਹਥੌੜਾ ਅਤੇ ਕੁਹਾੜੀ | ਹਥੌੌੜਾ ਅਤੇ ਕਹਾੜੀ | ਚੁੱਕਣਾ</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">ਦਬਾਉਣਾ</annotation>
 		<annotation cp="⚖">ਔਜ਼ਾਰ | ਇਨਸਾਫ | ਸਕੇਲ | ਤੱਕੜੀ | ਤੁਲਾ | ਭਾਰ | ਰਾਸ਼ੀ ਚੱਕਰ</annotation>
 		<annotation cp="⚖" type="tts">ਤੱਕੜੀ</annotation>
+		<annotation cp="🦯">ਟਟੋਲਣ ਲਈ ਸੋਟੀ | ਨੇਤਰਹੀਣ | ਪਹੁੰਚਯੋਗਤਾ</annotation>
+		<annotation cp="🦯" type="tts">ਟਟੋਲਣ ਲਈ ਸੋਟੀ</annotation>
 		<annotation cp="🔗">ਦੋ ਕੜੇ | ਲਿੰਕ | ਲਿੰਕ ਨਿਸ਼ਾਨ</annotation>
 		<annotation cp="🔗" type="tts">ਲਿੰਕ</annotation>
 		<annotation cp="⛓">ਚੇਨ | ਜ਼ੰਜੀਰ</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">ਸੈਟੇਲਾਈਟ ਅੰਟੀਨਾ</annotation>
 		<annotation cp="💉">ਸਰਿੰਜ | ਸੂਈ | ਟੀਕਾ | ਦਵਾਈ | ਬਿਮਾਰ</annotation>
 		<annotation cp="💉" type="tts">ਸਰਿੰਜ</annotation>
+		<annotation cp="🩸">ਖੂਨਦਾਨ | ਦਵਾਈ | ਮਾਹਵਾਰੀ</annotation>
+		<annotation cp="🩸" type="tts">ਖੂਨਦਾਨ</annotation>
 		<annotation cp="💊">ਗੋਲੀ | ਡਾਕਟਰ | ਦਵਾਈ | ਦਵਾਈ ਦੀ ਗੋਲੀ | ਬੀਮਾਰ</annotation>
 		<annotation cp="💊" type="tts">ਦਵਾਈ ਦੀ ਗੋਲੀ</annotation>
+		<annotation cp="🩹">ਚਿਪਕਣ ਵਾਲੀ ਪੱਟੀ | ਪੱਟੀ</annotation>
+		<annotation cp="🩹" type="tts">ਚਿਪਕਣ ਵਾਲੀ ਪੱਟੀ</annotation>
+		<annotation cp="🩺">ਸਟੇਥੋਸਕੋਪ | ਡਾਕਟਰ | ਦਵਾਈ | ਦਿਲ</annotation>
+		<annotation cp="🩺" type="tts">ਸਟੇਥੋਸਕੋਪ</annotation>
 		<annotation cp="🚪">ਦਰਵਾਜਾ | ਦਰਵਾਜ਼ਾ</annotation>
 		<annotation cp="🚪" type="tts">ਦਰਵਾਜ਼ਾ</annotation>
 		<annotation cp="🛏">ਹੋਟਲ | ਬਿਸਤਰ | ਵਿਅਕਤੀ</annotation>
 		<annotation cp="🛏" type="tts">ਬਿਸਤਰ</annotation>
 		<annotation cp="🛋">ਸੋਫਾ | ਸੋਫਾ ਅਤੇ ਲੈਂਪ | ਹੋਟਲ | ਜੀਵਨ-ਸ਼ੈਲੀ | ਫਰਨੀਚਰ | ਲੈਂਪ</annotation>
 		<annotation cp="🛋" type="tts">ਸੋਫਾ ਅਤੇ ਲੈਂਪ</annotation>
+		<annotation cp="🪑">ਸੀਟ | ਕੁਰਸੀ | ਬੈਠਣਾ</annotation>
+		<annotation cp="🪑" type="tts">ਕੁਰਸੀ</annotation>
 		<annotation cp="🚽">ਗੁਸਲਖ਼ਾਨਾ | ਟੋਆਇਲਟ</annotation>
 		<annotation cp="🚽" type="tts">ਗੁਸਲਖ਼ਾਨਾ</annotation>
 		<annotation cp="🚿">ਸ਼ਾਵਰ | ਫੁਹਾਰਾ</annotation>
 		<annotation cp="🚿" type="tts">ਸ਼ਾਵਰ</annotation>
 		<annotation cp="🛁">ਨਹਾਉਣ ਵਾਲਾ ਟੱਬ | ਬਾਥ</annotation>
 		<annotation cp="🛁" type="tts">ਨਹਾਉਣ ਵਾਲਾ ਟੱਬ</annotation>
+		<annotation cp="🪒">ਉਸਤਰਾ | ਹਜਾਮਤ | ਤਿੱਖਾ</annotation>
+		<annotation cp="🪒" type="tts">ਉਸਤਰਾ</annotation>
 		<annotation cp="🧴">ਸਨਸਕ੍ਰੀਨ | ਸ਼ੈਂਪੂ | ਮੋਆਇਚਰਾਈਜ਼ਰ | ਲੋਸ਼ਣ ਵਾਲੀ ਬੋਤਲ | ਲੋਸ਼ਨ</annotation>
 		<annotation cp="🧴" type="tts">ਲੋਸ਼ਣ ਵਾਲੀ ਬੋਤਲ</annotation>
 		<annotation cp="🧷">ਸੇਫ਼ਟੀ ਪਿੰਨ | ਡਾਇਪਰ | ਪੰਕ ਰੌਕ</annotation>
@@ -2503,18 +2801,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☑" type="tts">ਨਿਸ਼ਾਨ ਵਾਲੀ ਮਤਦਾਨ ਪੇਟੀ</annotation>
 		<annotation cp="✔">ਗੂੜ੍ਹਾ ਸਹੀ ਦਾ ਨਿਸ਼ਾਨ | ਚੈੱਕ ਕਰਨਾ | ਚੈੱਕ ਚਿੰਨ੍ਹ</annotation>
 		<annotation cp="✔" type="tts">ਗੂੜ੍ਹਾ ਸਹੀ ਦਾ ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="✖">ਗੁਣਾ | ਗੁਣਾ ਕਰਨਾ | ਗੁਣਾ ਚਿੰਨ੍ਹ | ਗੂ੍ੜ੍ਹਾ ਗੁਣਾ ਦਾ ਨਿਸ਼ਾਨ | ਰੱਦ ਕਰਨਾ</annotation>
-		<annotation cp="✖" type="tts">ਗੂ੍ੜ੍ਹਾ ਗੁਣਾ ਦਾ ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="✖">× | x | ਗੁਣਾ | ਗੁਣਾ ਕਰਨਾ | ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ | ਰੱਦ ਕਰਨਾ</annotation>
+		<annotation cp="✖" type="tts">ਗੁਣਾ</annotation>
 		<annotation cp="❌">“X” | ਕਰਾਸ ਚਿੰਨ੍ਹ | ਕ੍ਰਾਸ ਮਾਰਕ</annotation>
 		<annotation cp="❌" type="tts">ਕ੍ਰਾਸ ਮਾਰਕ</annotation>
 		<annotation cp="❎">ਕਰਾਸ ਚਿੰਨ੍ਹ | ਕ੍ਰਾਸ ਮਾਰਕ ਬਟਨ | ਖ਼ਾਨੇ ਵਿੱਚ “X”</annotation>
 		<annotation cp="❎" type="tts">ਕ੍ਰਾਸ ਮਾਰਕ ਬਟਨ</annotation>
-		<annotation cp="➕">ਚਿੰਨ੍ਹ | ਜਮ੍ਹਾਂ | ਜਮ੍ਹਾਂ ਦਾ ਵੱਡਾ ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ | ਭਾਰੀ ਜਮ੍ਹਾਂ ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="➕" type="tts">ਜਮ੍ਹਾਂ ਦਾ ਵੱਡਾ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="➖">ਘਟਾਓ | ਘਟਾਓ ਦਾ ਵੱਡਾ ਚਿੰਨ੍ਹ | ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ | ਭਾਰੀ ਘਟਾਓ ਨਿਸ਼ਾਨ</annotation>
-		<annotation cp="➖" type="tts">ਘਟਾਓ ਦਾ ਵੱਡਾ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="➗">ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ | ਭਾਰੀ ਵੰਡ ਨਿਸ਼ਾਨ | ਵੰਡ | ਵੰਡ ਦਾ ਵੱਡਾ ਚਿੰਨ੍ਹ</annotation>
-		<annotation cp="➗" type="tts">ਵੰਡ ਦਾ ਵੱਡਾ ਚਿੰਨ੍ਹ</annotation>
+		<annotation cp="➕">+ | ਹਿਸਾਬ | ਗਣਿਤ | ਚਿੰਨ੍ਹ | ਜਮ੍ਹਾਂ | ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="➕" type="tts">ਜਮ੍ਹਾਂ</annotation>
+		<annotation cp="➖">- | − | ਹਿਸਾਬ | ਗਣਿਤ | ਘਟਾਓ | ਚਿੰਨ੍ਹ | ਨਿਸ਼ਾਨ</annotation>
+		<annotation cp="➖" type="tts">ਘਟਾਓ</annotation>
+		<annotation cp="➗">÷ | ਹਿਸਾਬ | ਗਣਿਤ | ਚਿੰਨ੍ਹ | ਤਕਸੀਮ | ਨਿਸ਼ਾਨ | ਭਾਗ | ਵੰਡ</annotation>
+		<annotation cp="➗" type="tts">ਤਕਸੀਮ</annotation>
 		<annotation cp="➰">ਕਰਲੀ ਲੂਪ | ਮੋੜ | ਲੂਪ</annotation>
 		<annotation cp="➰" type="tts">ਕਰਲੀ ਲੂਪ</annotation>
 		<annotation cp="➿">ਕਰਲੀ ਲੂਪ | ਜਾਪਾਨ | ਡਬਲ ਕਰਲੀ ਲੂਪ | ਫ੍ਰੀ ਡਾਇਲ</annotation>
@@ -2547,8 +2845,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="®" type="tts">ਰਜਿਸਟਰਡ ਚਿੰਨ੍ਹ</annotation>
 		<annotation cp="™">ਚਿੰਨ੍ਹ | ਟ੍ਰੇਡਮਾਰਕ | ਨਿਸ਼ਾਨ</annotation>
 		<annotation cp="™" type="tts">ਟ੍ਰੇਡਮਾਰਕ</annotation>
-		<annotation cp="💯">100 | ਸਕੋਰ | ਸੌ ਅੰਕ | ਪੂਰੇ</annotation>
-		<annotation cp="💯" type="tts">ਸੌ ਅੰਕ</annotation>
 		<annotation cp="🔠">ਲੇਟਿਨ | ਵੱਡੇ | ਵੱਡੇ ਅੱਖਰ | ਵੱਡੇ ਲੇਟਿਨ ਇਨਪੁੱਟ</annotation>
 		<annotation cp="🔠" type="tts">ਵੱਡੇ ਲੇਟਿਨ ਇਨਪੁੱਟ</annotation>
 		<annotation cp="🔡">abcd | ਛੋਟੇ | ਛੋਟੇ ਅੱਖਰ | ਛੋਟੇ ਲੇਟਿਨ ਇਨਪੁੱਟ | ਲੇਟਿਨ</annotation>
@@ -2629,28 +2925,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🈵" type="tts">&quot;ਕੋਈ ਨੌਕਰੀ ਨਹੀਂ&quot; ਬਟਨ</annotation>
 		<annotation cp="🔴">ਗੋਲਾ | ਘੇਰਾ | ਜਯਾਮਿਤੀ | ਲਾਲ</annotation>
 		<annotation cp="🔴" type="tts">ਲਾਲ ਗੋਲਾ</annotation>
+		<annotation cp="🟠">ਸੰਤਰੀ | ਗੋਲਾ</annotation>
+		<annotation cp="🟠" type="tts">ਸੰਤਰੀ ਗੋਲਾ</annotation>
+		<annotation cp="🟡">ਗੋਲਾ | ਪੀਲਾ</annotation>
+		<annotation cp="🟡" type="tts">ਪੀਲਾ ਗੋਲਾ</annotation>
+		<annotation cp="🟢">ਹਰਾ | ਗੋਲਾ</annotation>
+		<annotation cp="🟢" type="tts">ਹਰਾ ਗੋਲਾ</annotation>
 		<annotation cp="🔵">ਗੋਲਾ | ਘੇਰਾ | ਜਯਾਮਿਤੀ | ਨੀਲਾ</annotation>
 		<annotation cp="🔵" type="tts">ਨੀਲਾ ਗੋਲਾ</annotation>
-		<annotation cp="⚪">ਗੋਲਾ | ਚੱਕਰ | ਚਿੱਟਾ ਗੋਲਾ | ਜਯਾਮਿਤੀ</annotation>
-		<annotation cp="⚪" type="tts">ਚਿੱਟਾ ਗੋਲਾ</annotation>
+		<annotation cp="🟣">ਗੋਲਾ | ਜਾਮਣੀ</annotation>
+		<annotation cp="🟣" type="tts">ਜਾਮਣੀ ਗੋਲਾ</annotation>
+		<annotation cp="🟤">ਗੋਲਾ | ਭੂਰਾ</annotation>
+		<annotation cp="🟤" type="tts">ਭੂਰਾ ਗੋਲਾ</annotation>
 		<annotation cp="⚫">ਕਾਲਾ ਗੋਲਾ | ਗੋਲਾ | ਚੱਕਰ | ਜਯਾਮਿਤੀ</annotation>
 		<annotation cp="⚫" type="tts">ਕਾਲਾ ਗੋਲਾ</annotation>
-		<annotation cp="⬜">ਜਯਾਮਿਤੀ | ਵੱਡਾ ਚਿੱਟਾ ਵਰਗ | ਵਰਗ</annotation>
-		<annotation cp="⬜" type="tts">ਵੱਡਾ ਚਿੱਟਾ ਵਰਗ</annotation>
+		<annotation cp="⚪">ਗੋਲਾ | ਚੱਕਰ | ਚਿੱਟਾ ਗੋਲਾ | ਜਯਾਮਿਤੀ</annotation>
+		<annotation cp="⚪" type="tts">ਚਿੱਟਾ ਗੋਲਾ</annotation>
+		<annotation cp="🟥">ਲਾਲ | ਵਰਗ</annotation>
+		<annotation cp="🟥" type="tts">ਲਾਲ ਵਰਗ</annotation>
+		<annotation cp="🟧">ਸੰਤਰੀ | ਵਰਗ</annotation>
+		<annotation cp="🟧" type="tts">ਸੰਤਰੀ ਵਰਗ</annotation>
+		<annotation cp="🟨">ਪੀਲਾ | ਵਰਗ</annotation>
+		<annotation cp="🟨" type="tts">ਪੀਲਾ ਵਰਗ</annotation>
+		<annotation cp="🟩">ਹਰਾ | ਵਰਗ</annotation>
+		<annotation cp="🟩" type="tts">ਹਰਾ ਵਰਗ</annotation>
+		<annotation cp="🟦">ਨੀਲਾ | ਵਰਗ</annotation>
+		<annotation cp="🟦" type="tts">ਨੀਲਾ ਵਰਗ</annotation>
+		<annotation cp="🟪">ਜਾਮਣੀ | ਵਰਗ</annotation>
+		<annotation cp="🟪" type="tts">ਜਾਮਣੀ ਵਰਗ</annotation>
+		<annotation cp="🟫">ਭੂਰਾ | ਭੂਰੇ ਰੰਗ ਦਾ ਵਰਗ | ਵਰਗ</annotation>
+		<annotation cp="🟫" type="tts">ਭੂਰੇ ਰੰਗ ਦਾ ਵਰਗ</annotation>
 		<annotation cp="⬛">ਜਯਾਮਿਤੀ | ਵੱਡਾ ਕਾਲਾ ਵਰਗ | ਵਰਗ</annotation>
 		<annotation cp="⬛" type="tts">ਵੱਡਾ ਕਾਲਾ ਵਰਗ</annotation>
+		<annotation cp="⬜">ਜਯਾਮਿਤੀ | ਵੱਡਾ ਚਿੱਟਾ ਵਰਗ | ਵਰਗ</annotation>
+		<annotation cp="⬜" type="tts">ਵੱਡਾ ਚਿੱਟਾ ਵਰਗ</annotation>
 		<annotation cp="◼">ਜਯਾਮਿਤੀ | ਦਰਮਿਆਨਾ ਕਾਲਾ ਵਰਗ | ਵਰਗ</annotation>
 		<annotation cp="◼" type="tts">ਦਰਮਿਆਨਾ ਕਾਲਾ ਵਰਗ</annotation>
 		<annotation cp="◻">ਜਯਾਮਿਤੀ | ਦਰਮਿਆਨਾ ਚਿੱਟਾ ਵਰਗ | ਵਰਗ</annotation>
 		<annotation cp="◻" type="tts">ਦਰਮਿਆਨਾ ਚਿੱਟਾ ਵਰਗ</annotation>
-		<annotation cp="◽">ਜਯਾਮਿਤੀ | ਦਰਮਿਆਨਾ-ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ | ਵਰਗ</annotation>
-		<annotation cp="◽" type="tts">ਦਰਮਿਆਨਾ-ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ</annotation>
 		<annotation cp="◾">ਜਯਾਮਿਤੀ | ਦਰਮਿਆਨਾ-ਛੋਟਾ ਕਾਲਾ ਵਰਗ | ਵਰਗ</annotation>
 		<annotation cp="◾" type="tts">ਦਰਮਿਆਨਾ-ਛੋਟਾ ਕਾਲਾ ਵਰਗ</annotation>
-		<annotation cp="▫">ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ | ਜਯਾਮਿਤੀ | ਵਰਗ</annotation>
-		<annotation cp="▫" type="tts">ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ</annotation>
+		<annotation cp="◽">ਜਯਾਮਿਤੀ | ਦਰਮਿਆਨਾ-ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ | ਵਰਗ</annotation>
+		<annotation cp="◽" type="tts">ਦਰਮਿਆਨਾ-ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ</annotation>
 		<annotation cp="▪">ਛੋਟਾ ਕਾਲਾ ਵਰਗ | ਜਯਾਮਿਤੀ | ਵਰਗ</annotation>
 		<annotation cp="▪" type="tts">ਛੋਟਾ ਕਾਲਾ ਵਰਗ</annotation>
+		<annotation cp="▫">ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ | ਜਯਾਮਿਤੀ | ਵਰਗ</annotation>
+		<annotation cp="▫" type="tts">ਛੋਟਾ ਚਿੱਟਾ ਵਰਗ</annotation>
 		<annotation cp="🔶">ਸੰਤਰੀ | ਹੀਰਾ | ਜਯਾਮਿਤੀ | ਵੱਡਾ ਸੰਤਰੀ ਹੀਰਾ | ਵੱਡਾ ਹੀਰਾ</annotation>
 		<annotation cp="🔶" type="tts">ਵੱਡਾ ਸੰਤਰੀ ਹੀਰਾ</annotation>
 		<annotation cp="🔷">ਹੀਰਾ | ਜਯਾਮਿਤੀ | ਨੀਲਾ | ਵੱਡਾ ਹੀਰਾ | ਵੱਡਾ ਨੀਲਾ ਹੀਰਾ</annotation>
@@ -2667,10 +2987,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">ਬਿੰਦੂ ਨਾਲ ਹੀਰਾ</annotation>
 		<annotation cp="🔘">ਜਯਾਮਿਤੀ | ਬਟਨ | ਰੇਡੀਓ</annotation>
 		<annotation cp="🔘" type="tts">ਰੇਡੀਓ ਬਟਨ</annotation>
-		<annotation cp="🔲">ਜਯਾਮਿਤੀ | ਬਟਨ | ਵਰਗ | ਵਰਗਾਕਾਰ ਕਾਲਾ ਬਟਨ</annotation>
-		<annotation cp="🔲" type="tts">ਵਰਗਾਕਾਰ ਕਾਲਾ ਬਟਨ</annotation>
 		<annotation cp="🔳">ਜਯਾਮਿਤੀ | ਬਟਨ | ਰੇਖਾਂਕਿਤ | ਵਰਗ | ਵਰਗਾਕਾਰ ਸਫੇਦ ਬਟਨ</annotation>
 		<annotation cp="🔳" type="tts">ਵਰਗਾਕਾਰ ਸਫੇਦ ਬਟਨ</annotation>
+		<annotation cp="🔲">ਜਯਾਮਿਤੀ | ਬਟਨ | ਵਰਗ | ਵਰਗਾਕਾਰ ਕਾਲਾ ਬਟਨ</annotation>
+		<annotation cp="🔲" type="tts">ਵਰਗਾਕਾਰ ਕਾਲਾ ਬਟਨ</annotation>
 		<annotation cp="🏁">ਖੇਡ | ਝੰਡਾ | ਡੱਬੀਦਾਰ | ਰੇਸਿੰਗ</annotation>
 		<annotation cp="🏁" type="tts">ਡੱਬੀਦਾਰ ਝੰਡਾ</annotation>
 		<annotation cp="🚩">ਸਥਿਤੀ | ਸਥਿਤੀ ਜਾਣਕਾਰੀ ਝੰਡਾ | ਝੰਡਾ | ਤਿਕੋਨਾ ਝੰਡਾ | ਤਿਕੋਨੀ ਸਥਿਤੀ ਝੰਡਾ | ਤਿਕੋੋਣਾ ਝੰਡਾ</annotation>
@@ -2681,6 +3001,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏴" type="tts">ਲਹਿਰਾਉਂਦਾ ਕਾਲਾ ਝੰਡਾ</annotation>
 		<annotation cp="🏳">ਸਫੇਦ ਝੰਡਾ | ਝੰਡਾ ਲਹਿਰਾਉਣਾ | ਲਹਿਰਾਉਂਦਾ ਸਫੇਦ ਝੰਡਾ</annotation>
 		<annotation cp="🏳" type="tts">ਲਹਿਰਾਉਂਦਾ ਸਫੇਦ ਝੰਡਾ</annotation>
+		<annotation cp="🏳‍⚧">ਸਫ਼ੈਦ | ਹਲਕਾ ਨੀਲਾ | ਗੁਲਾਬੀ | ਝੰਡਾ | ਟਰਾਂਸਜੈਂਡਰ</annotation>
+		<annotation cp="🏳‍⚧" type="tts">ਟਰਾਂਸਜੈਂਡਰ ਝੰਡਾ</annotation>
 		<annotation cp="🏳‍🌈">ਸਤਰੰਗੀ ਪੀਂਘ | ਸਤਰੰਗੀ ਪੀਂਘ ਝੰਡਾ | ਝੰਡਾ</annotation>
 		<annotation cp="🏳‍🌈" type="tts">ਸਤਰੰਗੀ ਪੀਂਘ ਝੰਡਾ</annotation>
 		<annotation cp="🏴‍☠">ਸਮੁੰਦਰੀ ਡਾਕੂ | ਖਜਾਨਾ | ਜੋਲੀ ਰੋਜ਼ਰ | ਲੁੱਟ | ਲੁਟੇਰਿਆਂ ਦਾ ਝੰਡਾ</annotation>

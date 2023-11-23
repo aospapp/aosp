@@ -89,7 +89,7 @@ public class ASN1Integer
      *
      * @param value the BigInteger representing the value desired.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public ASN1Integer(
         BigInteger value)

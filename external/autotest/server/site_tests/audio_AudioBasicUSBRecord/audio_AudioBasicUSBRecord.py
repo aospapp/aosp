@@ -76,8 +76,11 @@ class audio_AudioBasicUSBRecord(audio_test.AudioTest):
                 audio_test_utils.dump_cros_audio_logs(
                         host, audio_facade, self.resultsdir, 'after_suspend')
 
-                audio_test_utils.check_and_set_chrome_active_node_types(
-                        audio_facade, None, 'USB')
+                # Directly select the node through cras
+                # Should switch to check_and_set_chrome_active_node_types
+                # to set the active node through chrome.audio API when
+                # the telemetry bug is fixed (crbug.com/965704)
+                audio_facade.set_selected_node_types(None, ['USB'])
 
                 audio_test_utils.dump_cros_audio_logs(
                         host, audio_facade, self.resultsdir,

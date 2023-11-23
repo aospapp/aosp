@@ -41,10 +41,12 @@
 #endif
 
 #include "gmock/gmock-matchers.h"
-#include "gmock/gmock-more-matchers.h"
 
 #include <string.h>
 #include <time.h>
+
+#include <array>
+#include <cstdint>
 #include <deque>
 #include <forward_list>
 #include <functional>
@@ -60,9 +62,11 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include "gmock/gmock-more-matchers.h"
 #include "gmock/gmock.h"
-#include "gtest/gtest.h"
 #include "gtest/gtest-spi.h"
+#include "gtest/gtest.h"
 
 namespace testing {
 namespace gmock_matchers_test {
@@ -91,7 +95,6 @@ using testing::internal::MatchMatrix;
 using testing::internal::PredicateFormatterFromMatcher;
 using testing::internal::RE;
 using testing::internal::StreamMatchResultListener;
-using testing::internal::string;
 using testing::internal::Strings;
 
 // Helper for testing container-valued matchers in mock method context. It is
@@ -348,58 +351,6 @@ TEST(StringMatcherTest, CanBeImplicitlyConstructedFromString) {
   EXPECT_FALSE(m2.Matches("hello"));
 }
 
-#if GTEST_HAS_GLOBAL_STRING
-// Tests that a ::string object can be implicitly converted to a
-// Matcher<std::string> or Matcher<const std::string&>.
-TEST(StringMatcherTest, CanBeImplicitlyConstructedFromGlobalString) {
-  Matcher<std::string> m1 = ::string("hi");
-  EXPECT_TRUE(m1.Matches("hi"));
-  EXPECT_FALSE(m1.Matches("hello"));
-
-  Matcher<const std::string&> m2 = ::string("hi");
-  EXPECT_TRUE(m2.Matches("hi"));
-  EXPECT_FALSE(m2.Matches("hello"));
-}
-#endif  // GTEST_HAS_GLOBAL_STRING
-
-#if GTEST_HAS_GLOBAL_STRING
-// Tests that a C-string literal can be implicitly converted to a
-// Matcher<::string> or Matcher<const ::string&>.
-TEST(GlobalStringMatcherTest, CanBeImplicitlyConstructedFromCStringLiteral) {
-  Matcher< ::string> m1 = "hi";
-  EXPECT_TRUE(m1.Matches("hi"));
-  EXPECT_FALSE(m1.Matches("hello"));
-
-  Matcher<const ::string&> m2 = "hi";
-  EXPECT_TRUE(m2.Matches("hi"));
-  EXPECT_FALSE(m2.Matches("hello"));
-}
-
-// Tests that a std::string object can be implicitly converted to a
-// Matcher<::string> or Matcher<const ::string&>.
-TEST(GlobalStringMatcherTest, CanBeImplicitlyConstructedFromString) {
-  Matcher< ::string> m1 = std::string("hi");
-  EXPECT_TRUE(m1.Matches("hi"));
-  EXPECT_FALSE(m1.Matches("hello"));
-
-  Matcher<const ::string&> m2 = std::string("hi");
-  EXPECT_TRUE(m2.Matches("hi"));
-  EXPECT_FALSE(m2.Matches("hello"));
-}
-
-// Tests that a ::string object can be implicitly converted to a
-// Matcher<::string> or Matcher<const ::string&>.
-TEST(GlobalStringMatcherTest, CanBeImplicitlyConstructedFromGlobalString) {
-  Matcher< ::string> m1 = ::string("hi");
-  EXPECT_TRUE(m1.Matches("hi"));
-  EXPECT_FALSE(m1.Matches("hello"));
-
-  Matcher<const ::string&> m2 = ::string("hi");
-  EXPECT_TRUE(m2.Matches("hi"));
-  EXPECT_FALSE(m2.Matches("hello"));
-}
-#endif  // GTEST_HAS_GLOBAL_STRING
-
 #if GTEST_HAS_ABSL
 // Tests that a C-string literal can be implicitly converted to a
 // Matcher<absl::string_view> or Matcher<const absl::string_view&>.
@@ -424,20 +375,6 @@ TEST(StringViewMatcherTest, CanBeImplicitlyConstructedFromString) {
   EXPECT_TRUE(m2.Matches("cats"));
   EXPECT_FALSE(m2.Matches("dogs"));
 }
-
-#if GTEST_HAS_GLOBAL_STRING
-// Tests that a ::string object can be implicitly converted to a
-// Matcher<absl::string_view> or Matcher<const absl::string_view&>.
-TEST(StringViewMatcherTest, CanBeImplicitlyConstructedFromGlobalString) {
-  Matcher<absl::string_view> m1 = ::string("cats");
-  EXPECT_TRUE(m1.Matches("cats"));
-  EXPECT_FALSE(m1.Matches("dogs"));
-
-  Matcher<const absl::string_view&> m2 = ::string("cats");
-  EXPECT_TRUE(m2.Matches("cats"));
-  EXPECT_FALSE(m2.Matches("dogs"));
-}
-#endif  // GTEST_HAS_GLOBAL_STRING
 
 // Tests that a absl::string_view object can be implicitly converted to a
 // Matcher<absl::string_view> or Matcher<const absl::string_view&>.
@@ -1023,10 +960,9 @@ TEST(TypedEqTest, CanDescribeSelf) {
 
 // Tests that TypedEq<T>(v) has type Matcher<T>.
 
-// Type<T>::IsTypeOf(v) compiles iff the type of value v is T, where T
-// is a "bare" type (i.e. not in the form of const U or U&).  If v's
-// type is not T, the compiler will generate a message about
-// "undefined reference".
+// Type<T>::IsTypeOf(v) compiles if and only if the type of value v is T, where
+// T is a "bare" type (i.e. not in the form of const U or U&).  If v's type is
+// not T, the compiler will generate a message about "undefined reference".
 template <typename T>
 struct Type {
   static bool IsTypeOf(const T& /* v */) { return true; }
@@ -1515,12 +1451,12 @@ struct Tag {};
 
 struct PairWithGet {
   int member_1;
-  string member_2;
+  std::string member_2;
   using first_type = int;
-  using second_type = string;
+  using second_type = std::string;
 
   const int& GetImpl(Tag<0>) const { return member_1; }
-  const string& GetImpl(Tag<1>) const { return member_2; }
+  const std::string& GetImpl(Tag<1>) const { return member_2; }
 };
 template <size_t I>
 auto get(const PairWithGet& value) -> decltype(value.GetImpl(Tag<I>())) {
@@ -1693,7 +1629,8 @@ TEST(PairTest, UseGetInsteadOfMembers) {
   EXPECT_THAT(pair, Not(Pair(Lt(7), "ABC")));
 
   std::vector<PairWithGet> v = {{11, "Foo"}, {29, "gMockIsBestMock"}};
-  EXPECT_THAT(v, ElementsAre(Pair(11, string("Foo")), Pair(Ge(10), Not(""))));
+  EXPECT_THAT(v,
+              ElementsAre(Pair(11, std::string("Foo")), Pair(Ge(10), Not(""))));
 }
 
 // Tests StartsWith(s).
@@ -1738,15 +1675,6 @@ TEST(EndsWithTest, MatchesStringWithGivenSuffix) {
   EXPECT_TRUE(m2.Matches("Super Hi"));
   EXPECT_FALSE(m2.Matches("i"));
   EXPECT_FALSE(m2.Matches("Hi "));
-
-#if GTEST_HAS_GLOBAL_STRING
-  const Matcher<const ::string&> m3 = EndsWith(::string("Hi"));
-  EXPECT_TRUE(m3.Matches("Hi"));
-  EXPECT_TRUE(m3.Matches("Wow Hi Hi"));
-  EXPECT_TRUE(m3.Matches("Super Hi"));
-  EXPECT_FALSE(m3.Matches("i"));
-  EXPECT_FALSE(m3.Matches("Hi "));
-#endif  // GTEST_HAS_GLOBAL_STRING
 
 #if GTEST_HAS_ABSL
   const Matcher<const absl::string_view&> m4 = EndsWith("");
@@ -2030,197 +1958,6 @@ TEST(StdWideEndsWithTest, CanDescribeSelf) {
 
 #endif  // GTEST_HAS_STD_WSTRING
 
-#if GTEST_HAS_GLOBAL_WSTRING
-TEST(GlobalWideStrEqTest, MatchesEqual) {
-  Matcher<const wchar_t*> m = StrEq(::wstring(L"Hello"));
-  EXPECT_TRUE(m.Matches(L"Hello"));
-  EXPECT_FALSE(m.Matches(L"hello"));
-  EXPECT_FALSE(m.Matches(nullptr));
-
-  Matcher<const ::wstring&> m2 = StrEq(L"Hello");
-  EXPECT_TRUE(m2.Matches(L"Hello"));
-  EXPECT_FALSE(m2.Matches(L"Hi"));
-
-  Matcher<const ::wstring&> m3 = StrEq(L"\xD3\x576\x8D3\xC74D");
-  EXPECT_TRUE(m3.Matches(L"\xD3\x576\x8D3\xC74D"));
-  EXPECT_FALSE(m3.Matches(L"\xD3\x576\x8D3\xC74E"));
-
-  ::wstring str(L"01204500800");
-  str[3] = L'\0';
-  Matcher<const ::wstring&> m4 = StrEq(str);
-  EXPECT_TRUE(m4.Matches(str));
-  str[0] = str[6] = str[7] = str[9] = str[10] = L'\0';
-  Matcher<const ::wstring&> m5 = StrEq(str);
-  EXPECT_TRUE(m5.Matches(str));
-}
-
-TEST(GlobalWideStrEqTest, CanDescribeSelf) {
-  Matcher< ::wstring> m = StrEq(L"Hi-\'\"?\\\a\b\f\n\r\t\v");
-  EXPECT_EQ("is equal to L\"Hi-\'\\\"?\\\\\\a\\b\\f\\n\\r\\t\\v\"",
-    Describe(m));
-
-  Matcher< ::wstring> m2 = StrEq(L"\xD3\x576\x8D3\xC74D");
-  EXPECT_EQ("is equal to L\"\\xD3\\x576\\x8D3\\xC74D\"",
-    Describe(m2));
-
-  ::wstring str(L"01204500800");
-  str[3] = L'\0';
-  Matcher<const ::wstring&> m4 = StrEq(str);
-  EXPECT_EQ("is equal to L\"012\\04500800\"", Describe(m4));
-  str[0] = str[6] = str[7] = str[9] = str[10] = L'\0';
-  Matcher<const ::wstring&> m5 = StrEq(str);
-  EXPECT_EQ("is equal to L\"\\012\\045\\0\\08\\0\\0\"", Describe(m5));
-}
-
-TEST(GlobalWideStrNeTest, MatchesUnequalString) {
-  Matcher<const wchar_t*> m = StrNe(L"Hello");
-  EXPECT_TRUE(m.Matches(L""));
-  EXPECT_TRUE(m.Matches(nullptr));
-  EXPECT_FALSE(m.Matches(L"Hello"));
-
-  Matcher< ::wstring> m2 = StrNe(::wstring(L"Hello"));
-  EXPECT_TRUE(m2.Matches(L"hello"));
-  EXPECT_FALSE(m2.Matches(L"Hello"));
-}
-
-TEST(GlobalWideStrNeTest, CanDescribeSelf) {
-  Matcher<const wchar_t*> m = StrNe(L"Hi");
-  EXPECT_EQ("isn't equal to L\"Hi\"", Describe(m));
-}
-
-TEST(GlobalWideStrCaseEqTest, MatchesEqualStringIgnoringCase) {
-  Matcher<const wchar_t*> m = StrCaseEq(::wstring(L"Hello"));
-  EXPECT_TRUE(m.Matches(L"Hello"));
-  EXPECT_TRUE(m.Matches(L"hello"));
-  EXPECT_FALSE(m.Matches(L"Hi"));
-  EXPECT_FALSE(m.Matches(nullptr));
-
-  Matcher<const ::wstring&> m2 = StrCaseEq(L"Hello");
-  EXPECT_TRUE(m2.Matches(L"hello"));
-  EXPECT_FALSE(m2.Matches(L"Hi"));
-}
-
-TEST(GlobalWideStrCaseEqTest, MatchesEqualStringWith0IgnoringCase) {
-  ::wstring str1(L"oabocdooeoo");
-  ::wstring str2(L"OABOCDOOEOO");
-  Matcher<const ::wstring&> m0 = StrCaseEq(str1);
-  EXPECT_FALSE(m0.Matches(str2 + ::wstring(1, L'\0')));
-
-  str1[3] = str2[3] = L'\0';
-  Matcher<const ::wstring&> m1 = StrCaseEq(str1);
-  EXPECT_TRUE(m1.Matches(str2));
-
-  str1[0] = str1[6] = str1[7] = str1[10] = L'\0';
-  str2[0] = str2[6] = str2[7] = str2[10] = L'\0';
-  Matcher<const ::wstring&> m2 = StrCaseEq(str1);
-  str1[9] = str2[9] = L'\0';
-  EXPECT_FALSE(m2.Matches(str2));
-
-  Matcher<const ::wstring&> m3 = StrCaseEq(str1);
-  EXPECT_TRUE(m3.Matches(str2));
-
-  EXPECT_FALSE(m3.Matches(str2 + L"x"));
-  str2.append(1, L'\0');
-  EXPECT_FALSE(m3.Matches(str2));
-  EXPECT_FALSE(m3.Matches(::wstring(str2, 0, 9)));
-}
-
-TEST(GlobalWideStrCaseEqTest, CanDescribeSelf) {
-  Matcher< ::wstring> m = StrCaseEq(L"Hi");
-  EXPECT_EQ("is equal to (ignoring case) L\"Hi\"", Describe(m));
-}
-
-TEST(GlobalWideStrCaseNeTest, MatchesUnequalStringIgnoringCase) {
-  Matcher<const wchar_t*> m = StrCaseNe(L"Hello");
-  EXPECT_TRUE(m.Matches(L"Hi"));
-  EXPECT_TRUE(m.Matches(nullptr));
-  EXPECT_FALSE(m.Matches(L"Hello"));
-  EXPECT_FALSE(m.Matches(L"hello"));
-
-  Matcher< ::wstring> m2 = StrCaseNe(::wstring(L"Hello"));
-  EXPECT_TRUE(m2.Matches(L""));
-  EXPECT_FALSE(m2.Matches(L"Hello"));
-}
-
-TEST(GlobalWideStrCaseNeTest, CanDescribeSelf) {
-  Matcher<const wchar_t*> m = StrCaseNe(L"Hi");
-  EXPECT_EQ("isn't equal to (ignoring case) L\"Hi\"", Describe(m));
-}
-
-// Tests that HasSubstr() works for matching wstring-typed values.
-TEST(GlobalWideHasSubstrTest, WorksForStringClasses) {
-  const Matcher< ::wstring> m1 = HasSubstr(L"foo");
-  EXPECT_TRUE(m1.Matches(::wstring(L"I love food.")));
-  EXPECT_FALSE(m1.Matches(::wstring(L"tofo")));
-
-  const Matcher<const ::wstring&> m2 = HasSubstr(L"foo");
-  EXPECT_TRUE(m2.Matches(::wstring(L"I love food.")));
-  EXPECT_FALSE(m2.Matches(::wstring(L"tofo")));
-}
-
-// Tests that HasSubstr() works for matching C-wide-string-typed values.
-TEST(GlobalWideHasSubstrTest, WorksForCStrings) {
-  const Matcher<wchar_t*> m1 = HasSubstr(L"foo");
-  EXPECT_TRUE(m1.Matches(const_cast<wchar_t*>(L"I love food.")));
-  EXPECT_FALSE(m1.Matches(const_cast<wchar_t*>(L"tofo")));
-  EXPECT_FALSE(m1.Matches(nullptr));
-
-  const Matcher<const wchar_t*> m2 = HasSubstr(L"foo");
-  EXPECT_TRUE(m2.Matches(L"I love food."));
-  EXPECT_FALSE(m2.Matches(L"tofo"));
-  EXPECT_FALSE(m2.Matches(nullptr));
-}
-
-// Tests that HasSubstr(s) describes itself properly.
-TEST(GlobalWideHasSubstrTest, CanDescribeSelf) {
-  Matcher< ::wstring> m = HasSubstr(L"foo\n\"");
-  EXPECT_EQ("has substring L\"foo\\n\\\"\"", Describe(m));
-}
-
-// Tests StartsWith(s).
-
-TEST(GlobalWideStartsWithTest, MatchesStringWithGivenPrefix) {
-  const Matcher<const wchar_t*> m1 = StartsWith(::wstring(L""));
-  EXPECT_TRUE(m1.Matches(L"Hi"));
-  EXPECT_TRUE(m1.Matches(L""));
-  EXPECT_FALSE(m1.Matches(nullptr));
-
-  const Matcher<const ::wstring&> m2 = StartsWith(L"Hi");
-  EXPECT_TRUE(m2.Matches(L"Hi"));
-  EXPECT_TRUE(m2.Matches(L"Hi Hi!"));
-  EXPECT_TRUE(m2.Matches(L"High"));
-  EXPECT_FALSE(m2.Matches(L"H"));
-  EXPECT_FALSE(m2.Matches(L" Hi"));
-}
-
-TEST(GlobalWideStartsWithTest, CanDescribeSelf) {
-  Matcher<const ::wstring> m = StartsWith(L"Hi");
-  EXPECT_EQ("starts with L\"Hi\"", Describe(m));
-}
-
-// Tests EndsWith(s).
-
-TEST(GlobalWideEndsWithTest, MatchesStringWithGivenSuffix) {
-  const Matcher<const wchar_t*> m1 = EndsWith(L"");
-  EXPECT_TRUE(m1.Matches(L"Hi"));
-  EXPECT_TRUE(m1.Matches(L""));
-  EXPECT_FALSE(m1.Matches(nullptr));
-
-  const Matcher<const ::wstring&> m2 = EndsWith(::wstring(L"Hi"));
-  EXPECT_TRUE(m2.Matches(L"Hi"));
-  EXPECT_TRUE(m2.Matches(L"Wow Hi Hi"));
-  EXPECT_TRUE(m2.Matches(L"Super Hi"));
-  EXPECT_FALSE(m2.Matches(L"i"));
-  EXPECT_FALSE(m2.Matches(L"Hi "));
-}
-
-TEST(GlobalWideEndsWithTest, CanDescribeSelf) {
-  Matcher<const ::wstring> m = EndsWith(L"Hi");
-  EXPECT_EQ("ends with L\"Hi\"", Describe(m));
-}
-
-#endif  // GTEST_HAS_GLOBAL_WSTRING
-
 typedef ::std::tuple<long, int> Tuple2;  // NOLINT
 
 // Tests that Eq() matches a 2-tuple where the first field == the
@@ -2319,6 +2056,114 @@ TEST(PairMatchBaseTest, WorksWithMoveOnly) {
   // Tested values don't matter; the point is that matcher does not copy the
   // matched values.
   EXPECT_TRUE(matcher.Matches(pointers));
+}
+
+// Tests that IsNan() matches a NaN, with float.
+TEST(IsNan, FloatMatchesNan) {
+  float quiet_nan = std::numeric_limits<float>::quiet_NaN();
+  float other_nan = std::nanf("1");
+  float real_value = 1.0f;
+
+  Matcher<float> m = IsNan();
+  EXPECT_TRUE(m.Matches(quiet_nan));
+  EXPECT_TRUE(m.Matches(other_nan));
+  EXPECT_FALSE(m.Matches(real_value));
+
+  Matcher<float&> m_ref = IsNan();
+  EXPECT_TRUE(m_ref.Matches(quiet_nan));
+  EXPECT_TRUE(m_ref.Matches(other_nan));
+  EXPECT_FALSE(m_ref.Matches(real_value));
+
+  Matcher<const float&> m_cref = IsNan();
+  EXPECT_TRUE(m_cref.Matches(quiet_nan));
+  EXPECT_TRUE(m_cref.Matches(other_nan));
+  EXPECT_FALSE(m_cref.Matches(real_value));
+}
+
+// Tests that IsNan() matches a NaN, with double.
+TEST(IsNan, DoubleMatchesNan) {
+  double quiet_nan = std::numeric_limits<double>::quiet_NaN();
+  double other_nan = std::nan("1");
+  double real_value = 1.0;
+
+  Matcher<double> m = IsNan();
+  EXPECT_TRUE(m.Matches(quiet_nan));
+  EXPECT_TRUE(m.Matches(other_nan));
+  EXPECT_FALSE(m.Matches(real_value));
+
+  Matcher<double&> m_ref = IsNan();
+  EXPECT_TRUE(m_ref.Matches(quiet_nan));
+  EXPECT_TRUE(m_ref.Matches(other_nan));
+  EXPECT_FALSE(m_ref.Matches(real_value));
+
+  Matcher<const double&> m_cref = IsNan();
+  EXPECT_TRUE(m_cref.Matches(quiet_nan));
+  EXPECT_TRUE(m_cref.Matches(other_nan));
+  EXPECT_FALSE(m_cref.Matches(real_value));
+}
+
+// Tests that IsNan() matches a NaN, with long double.
+TEST(IsNan, LongDoubleMatchesNan) {
+  long double quiet_nan = std::numeric_limits<long double>::quiet_NaN();
+  long double other_nan = std::nan("1");
+  long double real_value = 1.0;
+
+  Matcher<long double> m = IsNan();
+  EXPECT_TRUE(m.Matches(quiet_nan));
+  EXPECT_TRUE(m.Matches(other_nan));
+  EXPECT_FALSE(m.Matches(real_value));
+
+  Matcher<long double&> m_ref = IsNan();
+  EXPECT_TRUE(m_ref.Matches(quiet_nan));
+  EXPECT_TRUE(m_ref.Matches(other_nan));
+  EXPECT_FALSE(m_ref.Matches(real_value));
+
+  Matcher<const long double&> m_cref = IsNan();
+  EXPECT_TRUE(m_cref.Matches(quiet_nan));
+  EXPECT_TRUE(m_cref.Matches(other_nan));
+  EXPECT_FALSE(m_cref.Matches(real_value));
+}
+
+// Tests that IsNan() works with Not.
+TEST(IsNan, NotMatchesNan) {
+  Matcher<float> mf = Not(IsNan());
+  EXPECT_FALSE(mf.Matches(std::numeric_limits<float>::quiet_NaN()));
+  EXPECT_FALSE(mf.Matches(std::nanf("1")));
+  EXPECT_TRUE(mf.Matches(1.0));
+
+  Matcher<double> md = Not(IsNan());
+  EXPECT_FALSE(md.Matches(std::numeric_limits<double>::quiet_NaN()));
+  EXPECT_FALSE(md.Matches(std::nan("1")));
+  EXPECT_TRUE(md.Matches(1.0));
+
+  Matcher<long double> mld = Not(IsNan());
+  EXPECT_FALSE(mld.Matches(std::numeric_limits<long double>::quiet_NaN()));
+  EXPECT_FALSE(mld.Matches(std::nanl("1")));
+  EXPECT_TRUE(mld.Matches(1.0));
+}
+
+// Tests that IsNan() can describe itself.
+TEST(IsNan, CanDescribeSelf) {
+  Matcher<float> mf = IsNan();
+  EXPECT_EQ("is NaN", Describe(mf));
+
+  Matcher<double> md = IsNan();
+  EXPECT_EQ("is NaN", Describe(md));
+
+  Matcher<long double> mld = IsNan();
+  EXPECT_EQ("is NaN", Describe(mld));
+}
+
+// Tests that IsNan() can describe itself with Not.
+TEST(IsNan, CanDescribeSelfWithNot) {
+  Matcher<float> mf = Not(IsNan());
+  EXPECT_EQ("isn't NaN", Describe(mf));
+
+  Matcher<double> md = Not(IsNan());
+  EXPECT_EQ("isn't NaN", Describe(md));
+
+  Matcher<long double> mld = Not(IsNan());
+  EXPECT_EQ("isn't NaN", Describe(mld));
 }
 
 // Tests that FloatEq() matches a 2-tuple where
@@ -2759,7 +2604,7 @@ TEST(ElementsAreTest, HugeMatcher) {
 
 // Tests the variadic version of the UnorderedElementsAreMatcher
 TEST(ElementsAreTest, HugeMatcherStr) {
-  vector<string> test_vector{
+  vector<std::string> test_vector{
       "literal_string", "", "", "", "", "", "", "", "", "", "", ""};
 
   EXPECT_THAT(test_vector, UnorderedElementsAre("literal_string", _, _, _, _, _,
@@ -2906,8 +2751,8 @@ class IsGreaterThan {
 // For testing Truly().
 const int foo = 0;
 
-// This predicate returns true iff the argument references foo and has
-// a zero value.
+// This predicate returns true if and only if the argument references foo and
+// has a zero value.
 bool ReferencesFooAndIsZero(const int& n) {
   return (&n == &foo) && (n == 0);
 }
@@ -3143,18 +2988,13 @@ TEST(MatcherAssertionTest, WorksWhenMatcherIsNotSatisfied) {
   static unsigned short n;  // NOLINT
   n = 5;
 
-  // VC++ prior to version 8.0 SP1 has a bug where it will not see any
-  // functions declared in the namespace scope from within nested classes.
-  // EXPECT/ASSERT_(NON)FATAL_FAILURE macros use nested classes so that all
-  // namespace-level functions invoked inside them need to be explicitly
-  // resolved.
-  EXPECT_FATAL_FAILURE(ASSERT_THAT(n, ::testing::Gt(10)),
+  EXPECT_FATAL_FAILURE(ASSERT_THAT(n, Gt(10)),
                        "Value of: n\n"
                        "Expected: is > 10\n"
                        "  Actual: 5" + OfType("unsigned short"));
   n = 0;
   EXPECT_NONFATAL_FAILURE(
-      EXPECT_THAT(n, ::testing::AllOf(::testing::Le(7), ::testing::Ge(5))),
+      EXPECT_THAT(n, AllOf(Le(7), Ge(5))),
       "Value of: n\n"
       "Expected: (is <= 7) and (is >= 5)\n"
       "  Actual: 0" + OfType("unsigned short"));
@@ -3168,11 +3008,11 @@ TEST(MatcherAssertionTest, WorksForByRefArguments) {
   static int n;
   n = 0;
   EXPECT_THAT(n, AllOf(Le(7), Ref(n)));
-  EXPECT_FATAL_FAILURE(ASSERT_THAT(n, ::testing::Not(::testing::Ref(n))),
+  EXPECT_FATAL_FAILURE(ASSERT_THAT(n, Not(Ref(n))),
                        "Value of: n\n"
                        "Expected: does not reference the variable @");
   // Tests the "Actual" part.
-  EXPECT_FATAL_FAILURE(ASSERT_THAT(n, ::testing::Not(::testing::Ref(n))),
+  EXPECT_FATAL_FAILURE(ASSERT_THAT(n, Not(Ref(n))),
                        "Actual: 0" + OfType("int") + ", which is located @");
 }
 
@@ -3860,7 +3700,7 @@ class Uncopyable {
   GTEST_DISALLOW_COPY_AND_ASSIGN_(Uncopyable);
 };
 
-// Returns true iff x.value() is positive.
+// Returns true if and only if x.value() is positive.
 bool ValueIsPositive(const Uncopyable& x) { return x.value() > 0; }
 
 MATCHER_P(UncopyableIs, inner_matcher, "") {
@@ -4532,8 +4372,8 @@ TEST(ResultOfTest, WorksForFunctionReferences) {
 
 // Tests that ResultOf(f, ...) compiles and works as expected when f is a
 // function object.
-struct Functor : public ::std::unary_function<int, std::string> {
-  result_type operator()(argument_type input) const {
+struct Functor {
+  std::string operator()(int input) const {
     return IntToStringFunction(input);
   }
 };
@@ -4576,10 +4416,23 @@ TEST(ResultOfTest, WorksForPolymorphicFunctorsIgnoringResultType) {
 }
 
 TEST(ResultOfTest, WorksForLambdas) {
-  Matcher<int> matcher =
-      ResultOf([](int str_len) { return std::string(str_len, 'x'); }, "xxx");
+  Matcher<int> matcher = ResultOf(
+      [](int str_len) {
+        return std::string(static_cast<size_t>(str_len), 'x');
+      },
+      "xxx");
   EXPECT_TRUE(matcher.Matches(3));
   EXPECT_FALSE(matcher.Matches(1));
+}
+
+TEST(ResultOfTest, WorksForNonCopyableArguments) {
+  Matcher<std::unique_ptr<int>> matcher = ResultOf(
+      [](const std::unique_ptr<int>& str_len) {
+        return std::string(static_cast<size_t>(*str_len), 'x');
+      },
+      "xxx");
+  EXPECT_TRUE(matcher.Matches(std::unique_ptr<int>(new int(3))));
+  EXPECT_FALSE(matcher.Matches(std::unique_ptr<int>(new int(1))));
 }
 
 const int* ReferencingFunction(const int& n) { return &n; }
@@ -5347,14 +5200,14 @@ TEST(WhenSortedTest, WorksForStreamlike) {
   // Streamlike 'container' provides only minimal iterator support.
   // Its iterators are tagged with input_iterator_tag.
   const int a[5] = {2, 1, 4, 5, 3};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
   EXPECT_THAT(s, WhenSorted(ElementsAre(1, 2, 3, 4, 5)));
   EXPECT_THAT(s, Not(WhenSorted(ElementsAre(2, 1, 4, 5, 3))));
 }
 
 TEST(WhenSortedTest, WorksForVectorConstRefMatcherOnStreamlike) {
   const int a[] = {2, 1, 4, 5, 3};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
   Matcher<const std::vector<int>&> vector_match = ElementsAre(1, 2, 3, 4, 5);
   EXPECT_THAT(s, WhenSorted(vector_match));
   EXPECT_THAT(s, Not(WhenSorted(ElementsAre(2, 1, 4, 5, 3))));
@@ -5399,7 +5252,7 @@ TEST(IsSupersetOfTest, WorksForEmpty) {
 
 TEST(IsSupersetOfTest, WorksForStreamlike) {
   const int a[5] = {1, 2, 3, 4, 5};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
 
   vector<int> expected;
   expected.push_back(1);
@@ -5527,7 +5380,7 @@ TEST(IsSubsetOfTest, WorksForEmpty) {
 
 TEST(IsSubsetOfTest, WorksForStreamlike) {
   const int a[5] = {1, 2};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
 
   vector<int> expected;
   expected.push_back(1);
@@ -5621,14 +5474,14 @@ TEST(IsSubsetOfTest, WorksWithMoveOnly) {
 
 TEST(ElemensAreStreamTest, WorksForStreamlike) {
   const int a[5] = {1, 2, 3, 4, 5};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
   EXPECT_THAT(s, ElementsAre(1, 2, 3, 4, 5));
   EXPECT_THAT(s, Not(ElementsAre(2, 1, 4, 5, 3)));
 }
 
 TEST(ElemensAreArrayStreamTest, WorksForStreamlike) {
   const int a[5] = {1, 2, 3, 4, 5};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
 
   vector<int> expected;
   expected.push_back(1);
@@ -5675,7 +5528,7 @@ TEST(ElementsAreTest, TakesStlContainer) {
 
 TEST(UnorderedElementsAreArrayTest, SucceedsWhenExpected) {
   const int a[] = {0, 1, 2, 3, 4};
-  std::vector<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  std::vector<int> s(std::begin(a), std::end(a));
   do {
     StringMatchResultListener listener;
     EXPECT_TRUE(ExplainMatchResult(UnorderedElementsAreArray(a),
@@ -5686,8 +5539,8 @@ TEST(UnorderedElementsAreArrayTest, SucceedsWhenExpected) {
 TEST(UnorderedElementsAreArrayTest, VectorBool) {
   const bool a[] = {0, 1, 0, 1, 1};
   const bool b[] = {1, 0, 1, 1, 0};
-  std::vector<bool> expected(a, a + GTEST_ARRAY_SIZE_(a));
-  std::vector<bool> actual(b, b + GTEST_ARRAY_SIZE_(b));
+  std::vector<bool> expected(std::begin(a), std::end(a));
+  std::vector<bool> actual(std::begin(b), std::end(b));
   StringMatchResultListener listener;
   EXPECT_TRUE(ExplainMatchResult(UnorderedElementsAreArray(expected),
                                  actual, &listener)) << listener.str();
@@ -5698,7 +5551,7 @@ TEST(UnorderedElementsAreArrayTest, WorksForStreamlike) {
   // Its iterators are tagged with input_iterator_tag, and it has no
   // size() or empty() methods.
   const int a[5] = {2, 1, 4, 5, 3};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
 
   ::std::vector<int> expected;
   expected.push_back(1);
@@ -5781,7 +5634,7 @@ TEST_F(UnorderedElementsAreTest, WorksWithUncopyable) {
 
 TEST_F(UnorderedElementsAreTest, SucceedsWhenExpected) {
   const int a[] = {1, 2, 3};
-  std::vector<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  std::vector<int> s(std::begin(a), std::end(a));
   do {
     StringMatchResultListener listener;
     EXPECT_TRUE(ExplainMatchResult(UnorderedElementsAre(1, 2, 3),
@@ -5791,7 +5644,7 @@ TEST_F(UnorderedElementsAreTest, SucceedsWhenExpected) {
 
 TEST_F(UnorderedElementsAreTest, FailsWhenAnElementMatchesNoMatcher) {
   const int a[] = {1, 2, 3};
-  std::vector<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  std::vector<int> s(std::begin(a), std::end(a));
   std::vector<Matcher<int> > mv;
   mv.push_back(1);
   mv.push_back(2);
@@ -5807,7 +5660,7 @@ TEST_F(UnorderedElementsAreTest, WorksForStreamlike) {
   // Its iterators are tagged with input_iterator_tag, and it has no
   // size() or empty() methods.
   const int a[5] = {2, 1, 4, 5, 3};
-  Streamlike<int> s(a, a + GTEST_ARRAY_SIZE_(a));
+  Streamlike<int> s(std::begin(a), std::end(a));
 
   EXPECT_THAT(s, UnorderedElementsAre(1, 2, 3, 4, 5));
   EXPECT_THAT(s, Not(UnorderedElementsAre(2, 2, 3, 4, 5)));
@@ -6078,11 +5931,11 @@ class BacktrackingBPMTest : public ::testing::Test { };
 
 // Tests the MaxBipartiteMatching algorithm with square matrices.
 // The single int param is the # of nodes on each of the left and right sides.
-class BipartiteTest : public ::testing::TestWithParam<int> { };
+class BipartiteTest : public ::testing::TestWithParam<size_t> {};
 
 // Verify all match graphs up to some moderate number of edges.
 TEST_P(BipartiteTest, Exhaustive) {
-  int nodes = GetParam();
+  size_t nodes = GetParam();
   MatchMatrix graph(nodes, nodes);
   do {
     ElementMatcherPairs matches =
@@ -6107,7 +5960,7 @@ TEST_P(BipartiteTest, Exhaustive) {
 }
 
 INSTANTIATE_TEST_SUITE_P(AllGraphs, BipartiteTest,
-                        ::testing::Range(0, 5));
+                         ::testing::Range(size_t{0}, size_t{5}));
 
 // Parameterized by a pair interpreted as (LhsSize, RhsSize).
 class BipartiteNonSquareTest
@@ -6123,8 +5976,9 @@ TEST_F(BipartiteNonSquareTest, SimpleBacktracking) {
   //  :.......:
   //    0 1 2
   MatchMatrix g(4, 3);
-  static const int kEdges[][2] = {{0, 2}, {1, 1}, {2, 1}, {3, 0}};
-  for (size_t i = 0; i < GTEST_ARRAY_SIZE_(kEdges); ++i) {
+  constexpr std::array<std::array<size_t, 2>, 4> kEdges = {
+      {{{0, 2}}, {{1, 1}}, {{2, 1}}, {{3, 0}}}};
+  for (size_t i = 0; i < kEdges.size(); ++i) {
     g.SetEdge(kEdges[i][0], kEdges[i][1], true);
   }
   EXPECT_THAT(FindBacktrackingMaxBPM(g),
@@ -6168,15 +6022,15 @@ class BipartiteRandomTest
 TEST_P(BipartiteRandomTest, LargerNets) {
   int nodes = GetParam().first;
   int iters = GetParam().second;
-  MatchMatrix graph(nodes, nodes);
+  MatchMatrix graph(static_cast<size_t>(nodes), static_cast<size_t>(nodes));
 
-  testing::internal::Int32 seed = GTEST_FLAG(random_seed);
+  auto seed = static_cast<uint32_t>(GTEST_FLAG(random_seed));
   if (seed == 0) {
-    seed = static_cast<testing::internal::Int32>(time(nullptr));
+    seed = static_cast<uint32_t>(time(nullptr));
   }
 
   for (; iters > 0; --iters, ++seed) {
-    srand(static_cast<int>(seed));
+    srand(static_cast<unsigned int>(seed));
     graph.Randomize();
     EXPECT_EQ(FindBacktrackingMaxBPM(graph).size(),
               internal::FindMaxBipartiteMatching(graph).size())
@@ -6697,7 +6551,7 @@ class SampleVariantIntString {
 
   template <typename T>
   friend bool holds_alternative(const SampleVariantIntString& value) {
-    return value.has_int_ == internal::IsSame<T, int>::value;
+    return value.has_int_ == std::is_same<T, int>::value;
   }
 
   template <typename T>

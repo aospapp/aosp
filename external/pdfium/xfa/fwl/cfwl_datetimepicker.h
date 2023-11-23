@@ -16,22 +16,20 @@
 #include "xfa/fwl/cfwl_widget.h"
 #include "xfa/fwl/cfwl_widgetproperties.h"
 
-#define FWL_STYLEEXT_DTP_LongDateFormat 0
 #define FWL_STYLEEXT_DTP_ShortDateFormat (1L << 1)
-#define FWL_STYLEEXT_DTP_EditHNear 0
+#define FWL_STYLEEXT_DTP_EditHAlignMask (3L << 4)
+#define FWL_STYLEEXT_DTP_EditHNear (0L << 4)
 #define FWL_STYLEEXT_DTP_EditHCenter (1L << 4)
 #define FWL_STYLEEXT_DTP_EditHFar (2L << 4)
-#define FWL_STYLEEXT_DTP_EditVNear 0
+#define FWL_STYLEEXT_DTP_EditVAlignMask (3L << 6)
+#define FWL_STYLEEXT_DTP_EditVNear (0L << 6)
 #define FWL_STYLEEXT_DTP_EditVCenter (1L << 6)
 #define FWL_STYLEEXT_DTP_EditVFar (2L << 6)
 #define FWL_STYLEEXT_DTP_EditJustified (1L << 8)
-#define FWL_STYLEEXT_DTP_EditHAlignMask (3L << 4)
-#define FWL_STYLEEXT_DTP_EditVAlignMask (3L << 6)
 
 class CFWL_DateTimeEdit;
-class CFWL_FormProxy;
 
-class CFWL_DateTimePicker : public CFWL_Widget {
+class CFWL_DateTimePicker final : public CFWL_Widget {
  public:
   explicit CFWL_DateTimePicker(const CFWL_App* pApp);
   ~CFWL_DateTimePicker() override;
@@ -50,13 +48,24 @@ class CFWL_DateTimePicker : public CFWL_Widget {
   void SetCurSel(int32_t iYear, int32_t iMonth, int32_t iDay);
 
   void SetEditText(const WideString& wsText);
+  int32_t GetEditTextLength() const;
   WideString GetEditText() const;
+  void ClearText();
 
+  void SelectAll();
+  void ClearSelection();
   bool HasSelection() const { return m_pEdit->HasSelection(); }
   // Returns <start, count> of the selection.
   std::pair<size_t, size_t> GetSelection() const {
     return m_pEdit->GetSelection();
   }
+  Optional<WideString> Copy();
+  Optional<WideString> Cut();
+  bool Paste(const WideString& wsPaste);
+  bool Undo();
+  bool Redo();
+  bool CanUndo();
+  bool CanRedo();
 
   CFX_RectF GetBBox() const;
   void SetEditLimit(int32_t nLimit) { m_pEdit->SetLimit(nLimit); }
@@ -66,41 +75,34 @@ class CFWL_DateTimePicker : public CFWL_Widget {
   void ShowMonthCalendar(bool bActivate);
   void ProcessSelChanged(int32_t iYear, int32_t iMonth, int32_t iDay);
 
-  CFWL_FormProxy* GetFormProxy() const { return m_pForm.get(); }
-
  private:
   void DrawDropDownButton(CXFA_Graphics* pGraphics,
                           IFWL_ThemeProvider* pTheme,
                           const CFX_Matrix* pMatrix);
   WideString FormatDateString(int32_t iYear, int32_t iMonth, int32_t iDay);
   void ResetEditAlignment();
-  void InitProxyForm();
+  void GetPopupPos(float fMinHeight,
+                   float fMaxHeight,
+                   const CFX_RectF& rtAnchor,
+                   CFX_RectF* pPopupRect);
   void OnFocusChanged(CFWL_Message* pMsg, bool bSet);
   void OnLButtonDown(CFWL_MessageMouse* pMsg);
   void OnLButtonUp(CFWL_MessageMouse* pMsg);
   void OnMouseMove(CFWL_MessageMouse* pMsg);
   void OnMouseLeave(CFWL_MessageMouse* pMsg);
 
-  bool DisForm_IsMonthCalendarVisible() const;
-  void DisForm_ShowMonthCalendar(bool bActivate);
-  FWL_WidgetHit DisForm_HitTest(const CFX_PointF& point) const;
-  bool DisForm_IsNeedShowButton() const;
-  void DisForm_Update();
-  CFX_RectF DisForm_GetBBox() const;
-  void DisForm_DrawWidget(CXFA_Graphics* pGraphics, const CFX_Matrix* pMatrix);
-  void DisForm_OnFocusChanged(CFWL_Message* pMsg, bool bSet);
+  bool NeedsToShowButton() const;
 
+  bool m_bLBtnDown = false;
+  int32_t m_iBtnState = 1;
+  int32_t m_iYear = -1;
+  int32_t m_iMonth = -1;
+  int32_t m_iDay = -1;
+  float m_fBtn = 0.0f;
   CFX_RectF m_rtBtn;
   CFX_RectF m_rtClient;
-  int32_t m_iBtnState;
-  int32_t m_iYear;
-  int32_t m_iMonth;
-  int32_t m_iDay;
-  bool m_bLBtnDown;
   std::unique_ptr<CFWL_DateTimeEdit> m_pEdit;
   std::unique_ptr<CFWL_MonthCalendar> m_pMonthCal;
-  std::unique_ptr<CFWL_FormProxy> m_pForm;
-  float m_fBtn;
 };
 
 #endif  // XFA_FWL_CFWL_DATETIMEPICKER_H_

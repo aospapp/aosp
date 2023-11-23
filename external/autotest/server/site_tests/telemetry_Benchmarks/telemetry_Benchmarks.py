@@ -29,5 +29,9 @@ class telemetry_Benchmarks(test.test):
         if repeat is not None:
             extra_args.append('--pageset-repeat=%s' % repeat)
 
+        # TODO(chinglinyu): crbug/1041328: Use legacy JSON trace temporarily.
+        # Remove after perfetto trace_processor_shell is enabled.
+        extra_args.append('--legacy-json-trace-format')
+
         telemetry.run_telemetry_benchmark(benchmark, perf_value_writer,
                                           *extra_args)

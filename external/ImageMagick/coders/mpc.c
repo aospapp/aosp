@@ -17,7 +17,7 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -109,7 +109,7 @@ static MagickBooleanType IsMPC(const unsigned char *magick,const size_t length)
 {
   if (length < 14)
     return(MagickFalse);
-  if (LocaleNCompare((const char *) magick,"id=MagickCache",14) == 0)
+  if (LocaleNCompare((const char *) magick,"id=MagickPixelCache",14) == 0)
     return(MagickTrue);
   return(MagickFalse);
 }
@@ -292,7 +292,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
             } while (c != EOF);
             *p='\0';
             p=options;
-            while (isspace((int) ((unsigned char) c)) != 0)
+            while (isspace(c) != 0)
               c=ReadBlobByte(image);
             if (c == (int) '=')
               {
@@ -324,7 +324,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
                         }
                     }
                   if (*options != '{')
-                    if (isspace((int) ((unsigned char) c)) != 0)
+                    if (isspace(c) != 0)
                       break;
                 }
                 if (options == (char *) NULL)
@@ -775,7 +775,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
           }
         else
           c=ReadBlobByte(image);
-      while (isspace((int) ((unsigned char) c)) != 0)
+      while (isspace(c) != 0)
         c=ReadBlobByte(image);
     }
     options=DestroyString(options);
@@ -783,7 +783,7 @@ static Image *ReadMPCImage(const ImageInfo *image_info,ExceptionInfo *exception)
     /*
       Verify that required image information is defined.
     */
-    if ((LocaleCompare(id,"MagickCache") != 0) ||
+    if ((LocaleCompare(id,"MagickPixelCache") != 0) ||
         (image->storage_class == UndefinedClass) ||
         (image->compression == UndefinedCompression) ||
         (image->columns == 0) || (image->rows == 0) ||
@@ -1177,7 +1177,7 @@ static MagickBooleanType WriteMPCImage(const ImageInfo *image_info,Image *image,
     if ((image->storage_class == PseudoClass) &&
         (image->colors > (size_t) (GetQuantumRange(image->depth)+1)))
       (void) SetImageStorageClass(image,DirectClass,exception);
-    (void) WriteBlobString(image,"id=MagickCache\n");
+    (void) WriteBlobString(image,"id=MagickPixelCache\n");
     (void) FormatLocaleString(buffer,MagickPathExtent,"magick-signature=%u\n",
       GetMagickSignature((const StringInfo *) NULL));
     (void) WriteBlobString(image,buffer);

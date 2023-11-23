@@ -109,44 +109,6 @@ DrawTest::DrawTest (Context &context, TestSpec testSpec)
 	DE_ASSERT(!isMultiDraw()     || isIndirect());
 	DE_ASSERT(!isFirstInstance() || (isIndirect() && isInstanced()));
 
-	// Requirements
-	{
-		if (!vk::isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_shader_draw_parameters"))
-			TCU_THROW(NotSupportedError, "Missing extension: VK_KHR_shader_draw_parameters");
-
-		// Shader draw parameters is part of Vulkan 1.1 but is optional
-		if ( context.contextSupports(vk::ApiVersion(1, 1, 0)) )
-		{
-			// Check if shader draw parameters is supported on the physical device.
-			vk::VkPhysicalDeviceShaderDrawParameterFeatures	drawParameters =
-			{
-				vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETER_FEATURES,	// sType
-				DE_NULL,																// pNext
-				VK_FALSE																// shaderDrawParameters
-			};
-			vk::VkPhysicalDeviceFeatures					features;
-			deMemset(&features, 0, sizeof(vk::VkPhysicalDeviceFeatures));
-
-			vk::VkPhysicalDeviceFeatures2					featuresExt		=
-			{
-				vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,					// sType
-				&drawParameters,													// pNext
-				features
-			};
-
-			context.getInstanceInterface().getPhysicalDeviceFeatures2(context.getPhysicalDevice(), &featuresExt);
-
-			if (drawParameters.shaderDrawParameters == VK_FALSE)
-				TCU_THROW(NotSupportedError, "shaderDrawParameters feature not supported by the device");
-		}
-
-		if (isMultiDraw() && !m_context.getDeviceFeatures().multiDrawIndirect)
-			TCU_THROW(NotSupportedError, "Missing feature: multiDrawIndirect");
-
-		if (isFirstInstance() && !m_context.getDeviceFeatures().drawIndirectFirstInstance)
-			TCU_THROW(NotSupportedError, "Missing feature: drawIndirectFirstInstance");
-	}
-
 	// Vertex data
 	{
 		int refIndex = NDX_FIRST_VERTEX - OFFSET_FIRST_INDEX;
@@ -237,8 +199,8 @@ void DrawTest::drawReferenceImage (const tcu::PixelBufferAccess& refImage) const
 	const Vec4	allColors[]			= { Vec4(1.0f), Vec4(0.0f, 0.0f, 1.0f, 1.0f), Vec4(0.0f, 1.0f, 0.0f, 1.0f) };
 	const int	numInstances		= isInstanced() ? MAX_INSTANCE_COUNT		: 1;
 	const int	numIndirectDraws	= isMultiDraw() ? MAX_INDIRECT_DRAW_COUNT	: 1;
-	const int	rectWidth			= static_cast<int>(WIDTH  * 0.6f / 2.0f);
-	const int	rectHeight			= static_cast<int>(HEIGHT * 0.6f / 2.0f);
+	const int	rectWidth			= static_cast<int>(static_cast<float>(WIDTH)  * 0.6f / 2.0f);
+	const int	rectHeight			= static_cast<int>(static_cast<float>(HEIGHT) * 0.6f / 2.0f);
 
 	DE_ASSERT(DE_LENGTH_OF_ARRAY(perInstanceOffset) >= numInstances);
 	DE_ASSERT(DE_LENGTH_OF_ARRAY(allColors) >= numInstances && DE_LENGTH_OF_ARRAY(allColors) >= numIndirectDraws);
@@ -251,8 +213,8 @@ void DrawTest::drawReferenceImage (const tcu::PixelBufferAccess& refImage) const
 	{
 		const Vec2	offset	= perInstanceOffset[instanceNdx] + perDrawOffset[drawNdx];
 		const Vec4&	color	= allColors[isMultiDraw() ? drawNdx : instanceNdx];
-		int			x		= static_cast<int>(WIDTH  * (1.0f - 0.3f + offset.x()) / 2.0f);
-		int			y		= static_cast<int>(HEIGHT * (1.0f - 0.3f + offset.y()) / 2.0f);
+		int			x		= static_cast<int>(static_cast<float>(WIDTH)  * (1.0f - 0.3f + offset.x()) / 2.0f);
+		int			y		= static_cast<int>(static_cast<float>(HEIGHT) * (1.0f - 0.3f + offset.y()) / 2.0f);
 
 		tcu::clear(tcu::getSubregion(refImage, x, y, rectWidth, rectHeight), color);
 	}
@@ -334,7 +296,7 @@ tcu::TestStatus DrawTest::iterate (void)
 
 	// Validate
 	{
-		tcu::TextureLevel referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), static_cast<int>(0.5f + WIDTH), static_cast<int>(0.5f + HEIGHT));
+		tcu::TextureLevel referenceFrame(vk::mapVkFormat(m_colorAttachmentFormat), static_cast<int>(0.5f + static_cast<float>(WIDTH)), static_cast<int>(0.5f + static_cast<float>(HEIGHT)));
 
 		drawReferenceImage(referenceFrame.getAccess());
 
@@ -349,6 +311,44 @@ tcu::TestStatus DrawTest::iterate (void)
 	}
 }
 
+void checkSupport (Context& context, TestFlags flags)
+{
+	context.requireDeviceFunctionality("VK_KHR_shader_draw_parameters");
+
+	// Shader draw parameters is part of Vulkan 1.1 but is optional
+	if (context.contextSupports(vk::ApiVersion(1, 1, 0)) )
+	{
+		// Check if shader draw parameters is supported on the physical device.
+		vk::VkPhysicalDeviceShaderDrawParametersFeatures	drawParameters	=
+		{
+			vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES,	// sType
+			DE_NULL,																// pNext
+			VK_FALSE																// shaderDrawParameters
+		};
+
+		vk::VkPhysicalDeviceFeatures						features;
+		deMemset(&features, 0, sizeof(vk::VkPhysicalDeviceFeatures));
+
+		vk::VkPhysicalDeviceFeatures2						featuresExt		=
+		{
+			vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,					// sType
+			&drawParameters,													// pNext
+			features
+		};
+
+		context.getInstanceInterface().getPhysicalDeviceFeatures2(context.getPhysicalDevice(), &featuresExt);
+
+		if (drawParameters.shaderDrawParameters == VK_FALSE)
+			TCU_THROW(NotSupportedError, "shaderDrawParameters feature not supported by the device");
+	}
+
+	if (flags & TEST_FLAG_MULTIDRAW)
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_MULTI_DRAW_INDIRECT);
+
+	if (flags & TEST_FLAG_FIRST_INSTANCE)
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_DRAW_INDIRECT_FIRST_INSTANCE);
+}
+
 void addDrawCase (tcu::TestCaseGroup* group, const DrawTest::TestSpec testSpec, const TestFlags flags)
 {
 	std::ostringstream name;
@@ -359,7 +359,7 @@ void addDrawCase (tcu::TestCaseGroup* group, const DrawTest::TestSpec testSpec, 
 	if (flags & TEST_FLAG_INSTANCED)		name << "_instanced";
 	if (flags & TEST_FLAG_FIRST_INSTANCE)	name << "_first_instance";
 
-	group->addChild(new InstanceFactory<DrawTest>(group->getTestContext(), name.str(), "", addFlags(testSpec, flags)));
+	group->addChild(new InstanceFactory<DrawTest, FunctionSupport1<TestFlags>>(group->getTestContext(), name.str(), "", addFlags(testSpec, flags), FunctionSupport1<TestFlags>::Args(checkSupport, testSpec.flags | flags)));
 }
 
 }	// anonymous

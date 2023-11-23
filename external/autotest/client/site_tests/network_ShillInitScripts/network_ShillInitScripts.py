@@ -8,6 +8,7 @@ import utils
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros.power import sys_power
 
 class network_ShillInitScripts(test.test):
     """ Test that shill init scripts perform as expected.  Use the
@@ -89,9 +90,8 @@ class network_ShillInitScripts(test.test):
 
     def start_test(self):
         """ Setup the start of the test.  Stop shill and create test harness."""
-        # Stop a system process on test duts for keeping connectivity up.
-        ret = utils.stop_service('recover_duts', ignore_status=True)
-        self.recover_duts_stopped = (ret == 0);
+        # Prevent recover_duts service from thinking we're losing connectivity.
+        sys_power.pause_check_network_hook()
 
         self.stop_shill()
 
@@ -99,9 +99,6 @@ class network_ShillInitScripts(test.test):
         self.root_cryptohome_dir = utils.system_output(
             '%s system %s' % (self.cryptohome_path_command, self.fake_user))
 
-        # Deduce the user cryptohome directory name for our fake user.
-        self.user_cryptohome_dir = utils.system_output(
-            '%s user %s' % (self.cryptohome_path_command, self.fake_user))
 
         # Deduce the directory for memory log storage.
         self.user_cryptohome_log_dir = ('%s/shill_logs' %
@@ -113,7 +110,6 @@ class network_ShillInitScripts(test.test):
         # Just in case this hash actually exists, add these to the list of
         # saved directories.
         self.save_directories.append(self.root_cryptohome_dir)
-        self.save_directories.append(self.user_cryptohome_dir)
 
         # Archive the system state we will be modifying, then remove them.
         utils.system('tar zcvf %s --directory / --ignore-failed-read %s'
@@ -124,17 +120,10 @@ class network_ShillInitScripts(test.test):
 
         # Create the fake user's system cryptohome directory.
         os.mkdir(self.root_cryptohome_dir)
-        self.new_shill_user_profile_dir = ('%s/shill' %
+        self.shill_user_profile_dir = ('%s/shill' %
                                            self.root_cryptohome_dir)
-        self.new_shill_user_profile = ('%s/shill.profile' %
-                                       self.new_shill_user_profile_dir)
-
-        # Create the fake user's user cryptohome directory.
-        os.mkdir(self.user_cryptohome_dir)
-        self.old_shill_user_profile_dir = ('%s/shill' %
-                                           self.user_cryptohome_dir)
-        self.old_shill_user_profile = ('%s/shill.profile' %
-                                       self.old_shill_user_profile_dir)
+        self.shill_user_profile = ('%s/shill.profile' %
+                                       self.shill_user_profile_dir)
         self.mock_flimflam = None
 
 
@@ -148,7 +137,6 @@ class network_ShillInitScripts(test.test):
         """ Remove all the test harness files. """
         utils.system('rm -rf %s' % ' '.join(self.save_directories))
         os.mkdir(self.root_cryptohome_dir)
-        os.mkdir(self.user_cryptohome_dir)
 
 
     def end_test(self):
@@ -165,8 +153,6 @@ class network_ShillInitScripts(test.test):
     def restart_system_processes(self):
         """ Restart vital system services at the end of the test. """
         utils.start_service('shill', ignore_status=True)
-        if self.recover_duts_stopped:
-            utils.start_service('recover_duts', ignore_status=True)
 
 
     def assure(self, must_be_true, assertion_name):
@@ -292,24 +278,14 @@ class network_ShillInitScripts(test.test):
         self.create_file_with_contents(filename, '')
 
 
-    def create_new_shill_user_profile(self, contents):
-        """ Create a fake new user profile with |contents|.
+    def create_shill_user_profile(self, contents):
+        """ Create a fake user profile with |contents|.
 
-        @param contents string contents of the new user profile.
-
-        """
-        os.mkdir(self.new_shill_user_profile_dir)
-        self.create_file_with_contents(self.new_shill_user_profile, contents)
-
-
-    def create_old_shill_user_profile(self, contents):
-        """ Create a fake old-style user profile with |contents|.
-
-        @param contents string contents of the old user profile.
+        @param contents string contents of the user profile.
 
         """
-        os.mkdir(self.old_shill_user_profile_dir)
-        self.create_file_with_contents(self.old_shill_user_profile, contents)
+        os.mkdir(self.shill_user_profile_dir)
+        self.create_file_with_contents(self.shill_user_profile, contents)
 
 
     def file_contents(self, filename):
@@ -360,9 +336,6 @@ class network_ShillInitScripts(test.test):
                 self.test_login,
                 self.test_login_guest,
                 self.test_login_profile_exists,
-                self.test_login_old_shill_profile,
-                self.test_login_invalid_old_shill_profile,
-                self.test_login_ignore_old_shill_profile,
                 self.test_login_multi_profile,
                 self.test_logout])
         finally:
@@ -385,11 +358,7 @@ class network_ShillInitScripts(test.test):
 
 
     def test_start_shill(self):
-        """ Test all created pathnames during shill startup.
-
-        Also ensure the push argument is not provided by default.
-
-        """
+        """ Test all created pathnames during shill startup. """
         self.start_shill()
         self.assure_is_dir('/run/shill', 'Shill run directory')
         self.assure_is_dir('/var/lib/dhcpcd', 'dhcpcd lib directory')
@@ -398,26 +367,17 @@ class network_ShillInitScripts(test.test):
         self.assure_is_dir('/run/dhcpcd', 'dhcpcd run directory')
         self.assure_path_owner('/run/dhcpcd', 'dhcp')
         self.assure_path_group('/run/dhcpcd', 'dhcp')
-        self.assure('--push=~chronos/shill' not in self.get_commandline(),
-                    'Shill command line does not contain push argument')
 
 
     def test_start_logged_in(self):
-        """ Tests starting up shill while a user is already logged in.
-
-        The "--push" argument should not be added even though shill is started
-        while a user is logged in.
-
-        """
+        """ Tests starting up shill while a user is already logged in. """
         os.mkdir('/run/shill')
         os.mkdir('/run/shill/user_profiles')
-        self.create_new_shill_user_profile('')
-        os.symlink(self.new_shill_user_profile_dir,
+        self.create_shill_user_profile('')
+        os.symlink(self.shill_user_profile_dir,
                    '/run/shill/user_profiles/chronos')
         self.touch('/run/state/logged-in')
         self.start_shill()
-        self.assure('--push=~chronos/shill' not in self.get_commandline(),
-                    'Shill command line does not contain push argument')
         os.unlink('/run/state/logged-in')
 
 
@@ -430,22 +390,20 @@ class network_ShillInitScripts(test.test):
         """
         os.mkdir('/run/shill')
         self.login()
-        self.assure(not os.path.exists(self.old_shill_user_profile),
-                    'Old shill user profile does not exist')
-        self.assure(not os.path.exists(self.new_shill_user_profile),
-                    'New shill user profile does not exist')
+        self.assure(not os.path.exists(self.shill_user_profile),
+                    'Shill user profile does not exist')
         # The DBus "CreateProfile" method should have been handled
         # by our mock_flimflam instance, so the profile directory
         # should not have actually been created.
-        self.assure_is_dir(self.new_shill_user_profile_dir,
-                           'New shill user profile directory')
+        self.assure_is_dir(self.shill_user_profile_dir,
+                           'Shill user profile directory')
         self.assure_is_dir('/run/shill/user_profiles',
                            'Shill profile root')
         self.assure_is_link_to('/run/shill/user_profiles/chronos',
-                               self.new_shill_user_profile_dir,
+                               self.shill_user_profile_dir,
                                'Shill profile link')
         self.assure_is_dir(self.user_cryptohome_log_dir,
-                           'shill user log directory')
+                           'Shill user log directory')
         self.assure_is_link_to('/run/shill/log',
                                self.user_cryptohome_log_dir,
                                'Shill logs link')
@@ -465,21 +423,19 @@ class network_ShillInitScripts(test.test):
         """
         os.mkdir('/run/shill')
         self.login_guest()
-        self.assure(not os.path.exists(self.old_shill_user_profile),
-                    'Old shill user profile does not exist')
-        self.assure(not os.path.exists(self.new_shill_user_profile),
-                    'New shill user profile does not exist')
-        self.assure(not os.path.exists(self.new_shill_user_profile_dir),
-                    'New shill user profile directory')
+        self.assure(not os.path.exists(self.shill_user_profile),
+                    'Shill user profile does not exist')
+        self.assure(not os.path.exists(self.shill_user_profile_dir),
+                    'Shill user profile directory')
         self.assure_is_dir(self.guest_shill_user_profile_dir,
-                           'shill guest user profile directory')
+                           'Shill guest user profile directory')
         self.assure_is_dir('/run/shill/user_profiles',
                            'Shill profile root')
         self.assure_is_link_to('/run/shill/user_profiles/chronos',
                                self.guest_shill_user_profile_dir,
                                'Shill profile link')
         self.assure_is_dir(self.guest_shill_user_log_dir,
-                           'shill guest user log directory')
+                           'Shill guest user log directory')
         self.assure_is_link_to('/run/shill/log',
                                self.guest_shill_user_log_dir,
                                'Shill logs link')
@@ -497,32 +453,9 @@ class network_ShillInitScripts(test.test):
         if a user profile already exists.
         """
         os.mkdir('/run/shill')
-        os.mkdir(self.new_shill_user_profile_dir)
-        self.touch(self.new_shill_user_profile)
+        os.mkdir(self.shill_user_profile_dir)
+        self.touch(self.shill_user_profile)
         self.login()
-        self.assure_method_calls([[ 'InsertUserProfile',
-                                    ('~chronos/shill', self.fake_user_hash) ]],
-                                 'Only InsertUserProfile is called')
-
-
-    def test_login_old_shill_profile(self):
-        """ Test logging in a user with an old-style shill profile.
-
-        Login script should move an old shill user profile into place
-        if a new one does not exist.
-        """
-        os.mkdir('/run/shill')
-        self.create_old_shill_user_profile(self.magic_header)
-        self.login()
-        self.assure(not os.path.exists(self.old_shill_user_profile),
-                    'Old shill user profile no longer exists')
-        self.assure(not os.path.exists(self.old_shill_user_profile_dir),
-                    'Old shill user profile directory no longer exists')
-        self.assure_exists(self.new_shill_user_profile,
-                           'New shill profile')
-        self.assure(self.magic_header in
-                    self.file_contents(self.new_shill_user_profile),
-                    'Shill user profile contains our magic header')
         self.assure_method_calls([[ 'InsertUserProfile',
                                     ('~chronos/shill', self.fake_user_hash) ]],
                                  'Only InsertUserProfile is called')
@@ -556,59 +489,6 @@ class network_ShillInitScripts(test.test):
         os.lchown(path, 1000, 1000)
 
 
-    def test_login_invalid_old_shill_profile(self):
-        """ Test logging in with an invalid old-style shill profile.
-
-        Login script should ignore non-regular files or files not owned
-        by the correct user.  The original file should be removed.
-
-        """
-        os.mkdir('/run/shill')
-        for file_creation_method in (self.make_symlink,
-                                     self.make_special_file,
-                                     os.mkdir,
-                                     self.make_bad_owner):
-            os.mkdir(self.old_shill_user_profile_dir)
-            file_creation_method(self.old_shill_user_profile)
-            self.login()
-            self.assure(not os.path.exists(self.old_shill_user_profile),
-                        'Old shill user profile no longer exists')
-            self.assure(not os.path.exists(self.old_shill_user_profile_dir),
-                        'Old shill user profile directory no longer exists')
-            self.assure(not os.path.exists(self.new_shill_user_profile),
-                        'New shill profile was not created')
-            self.assure_method_calls([[ 'CreateProfile', '~chronos/shill' ],
-                                      [ 'InsertUserProfile',
-                                        ('~chronos/shill',
-                                         self.fake_user_hash) ]],
-                                     'CreateProfile and InsertUserProfile '
-                                     'are called')
-            os.unlink('/run/shill/user_profiles/chronos')
-
-
-    def test_login_ignore_old_shill_profile(self):
-        """ Test logging in with both an old and new profile present.
-
-        Login script should ignore an old shill user profile if a new one
-        exists.
-
-        """
-        os.mkdir('/run/shill')
-        self.create_new_shill_user_profile('')
-        self.create_old_shill_user_profile(self.magic_header)
-        self.login()
-        self.assure(os.path.exists(self.old_shill_user_profile),
-                    'Old shill user profile still exists')
-        self.assure_exists(self.new_shill_user_profile,
-                           'New shill profile')
-        self.assure(self.magic_header not in
-                    self.file_contents(self.new_shill_user_profile),
-                    'Shill user profile does not contain our magic header')
-        self.assure_method_calls([[ 'InsertUserProfile',
-                                    ('~chronos/shill', self.fake_user_hash) ]],
-                                 'Only InsertUserProfile is called')
-
-
     def test_login_multi_profile(self):
         """ Test signalling shill about multiple logged-in users.
 
@@ -618,7 +498,7 @@ class network_ShillInitScripts(test.test):
 
         """
         os.mkdir('/run/shill')
-        self.create_new_shill_user_profile('')
+        self.create_shill_user_profile('')
 
         # First logged-in user should create a profile (tested above).
         self.login()

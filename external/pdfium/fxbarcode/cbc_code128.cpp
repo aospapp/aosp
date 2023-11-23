@@ -23,6 +23,7 @@
 
 #include <memory>
 
+#include "core/fxcrt/fx_memory_wrappers.h"
 #include "fxbarcode/oned/BC_OnedCode128Writer.h"
 #include "third_party/base/ptr_util.h"
 
@@ -31,12 +32,8 @@ CBC_Code128::CBC_Code128(BC_TYPE type)
 
 CBC_Code128::~CBC_Code128() {}
 
-bool CBC_Code128::SetTextLocation(BC_TEXT_LOC location) {
-  return GetOnedCode128Writer()->SetTextLocation(location);
-}
-
-bool CBC_Code128::Encode(const WideStringView& contents) {
-  if (contents.IsEmpty())
+bool CBC_Code128::Encode(WideStringView contents) {
+  if (contents.IsEmpty() || contents.GetLength() > kMaxInputLengthBytes)
     return false;
 
   BCFORMAT format = BCFORMAT_CODE_128;
@@ -47,15 +44,12 @@ bool CBC_Code128::Encode(const WideStringView& contents) {
   if (contents.GetLength() % 2 && pWriter->GetType() == BC_CODE128_C)
     content += '0';
 
-  WideString encodeContents = pWriter->FilterContents(content.AsStringView());
-  m_renderContents = encodeContents;
-  ByteString byteString = encodeContents.UTF8Encode();
+  m_renderContents = pWriter->FilterContents(content.AsStringView());
+  ByteString byteString = m_renderContents.ToUTF8();
   std::unique_ptr<uint8_t, FxFreeDeleter> data(
       pWriter->Encode(byteString, format, outWidth, outHeight));
-  if (!data)
-    return false;
-  return pWriter->RenderResult(encodeContents.AsStringView(), data.get(),
-                               outWidth);
+  return data && pWriter->RenderResult(m_renderContents.AsStringView(),
+                                       data.get(), outWidth);
 }
 
 bool CBC_Code128::RenderDevice(CFX_RenderDevice* device,

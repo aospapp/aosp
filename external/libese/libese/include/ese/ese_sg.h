@@ -17,7 +17,7 @@
 #ifndef ESE_SG_H_
 #define ESE_SG_H_ 1
 
-#include "../../../libese-sysdeps/include/ese/sysdeps.h"
+#include <ese/sysdeps.h>
 
 #ifdef __cplusplus
 extern "C" {

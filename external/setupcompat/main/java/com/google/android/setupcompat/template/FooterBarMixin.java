@@ -303,6 +303,8 @@ public class FooterBarMixin implements Mixin {
                     /* buttonBackgroundColorConfig= */ PartnerConfig
                         .CONFIG_FOOTER_PRIMARY_BUTTON_BG_COLOR))
             .setButtonBackgroundConfig(PartnerConfig.CONFIG_FOOTER_PRIMARY_BUTTON_BG_COLOR)
+            .setButtonDisableAlphaConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_DISABLED_ALPHA)
+            .setButtonDisableBackgroundConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_DISABLED_BG_COLOR)
             .setButtonIconConfig(getDrawablePartnerConfig(footerButton.getButtonType()))
             .setButtonRadiusConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_RADIUS)
             .setButtonRippleColorAlphaConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_RIPPLE_COLOR_ALPHA)
@@ -357,6 +359,8 @@ public class FooterBarMixin implements Mixin {
                     /* buttonBackgroundColorConfig= */ PartnerConfig
                         .CONFIG_FOOTER_SECONDARY_BUTTON_BG_COLOR))
             .setButtonBackgroundConfig(PartnerConfig.CONFIG_FOOTER_SECONDARY_BUTTON_BG_COLOR)
+            .setButtonDisableAlphaConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_DISABLED_ALPHA)
+            .setButtonDisableBackgroundConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_DISABLED_BG_COLOR)
             .setButtonIconConfig(getDrawablePartnerConfig(footerButton.getButtonType()))
             .setButtonRadiusConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_RADIUS)
             .setButtonRippleColorAlphaConfig(PartnerConfig.CONFIG_FOOTER_BUTTON_RIPPLE_COLOR_ALPHA)
@@ -428,14 +432,16 @@ public class FooterBarMixin implements Mixin {
     // TODO: Make sure customize attributes in theme can be applied during setup flow.
     // If sets background color to full transparent, the button changes to colored borderless ink
     // button style.
-    int color = PartnerConfigHelper.get(context).getColor(context, buttonBackgroundColorConfig);
-    if (applyPartnerResources && color == Color.TRANSPARENT) {
-      overrideTheme = R.style.SucPartnerCustomizationButton_Secondary;
-    } else if (applyPartnerResources && (color != Color.TRANSPARENT)) {
-      // TODO: remove the constrain (color != Color.WHITE), need to check all pages go
-      // well without customization. It should be fine since the default value of secondary bg color
-      // is set as transparent.
-      overrideTheme = R.style.SucPartnerCustomizationButton_Primary;
+    if (applyPartnerResources) {
+      int color = PartnerConfigHelper.get(context).getColor(context, buttonBackgroundColorConfig);
+      if (color == Color.TRANSPARENT) {
+        overrideTheme = R.style.SucPartnerCustomizationButton_Secondary;
+      } else if (color != Color.TRANSPARENT) {
+        // TODO: remove the constrain (color != Color.WHITE), need to check all pages
+        // go well without customization. It should be fine since the default value of secondary bg
+        // color is set as transparent.
+        overrideTheme = R.style.SucPartnerCustomizationButton_Primary;
+      }
     }
     return overrideTheme;
   }
@@ -545,7 +551,10 @@ public class FooterBarMixin implements Mixin {
     updateButtonTypeFaceWithPartnerConfig(
         button, footerButtonPartnerConfig.getButtonTextTypeFaceConfig());
     updateButtonBackgroundWithPartnerConfig(
-        button, footerButtonPartnerConfig.getButtonBackgroundConfig());
+        button,
+        footerButtonPartnerConfig.getButtonBackgroundConfig(),
+        footerButtonPartnerConfig.getButtonDisableAlphaConfig(),
+        footerButtonPartnerConfig.getButtonDisableBackgroundConfig());
     updateButtonRadiusWithPartnerConfig(button, footerButtonPartnerConfig.getButtonRadiusConfig());
     updateButtonIconWithPartnerConfig(button, footerButtonPartnerConfig.getButtonIconConfig());
     updateButtonRippleColorWithPartnerConfig(button, footerButtonPartnerConfig);
@@ -586,25 +595,43 @@ public class FooterBarMixin implements Mixin {
 
   @TargetApi(VERSION_CODES.Q)
   private void updateButtonBackgroundWithPartnerConfig(
-      Button button, PartnerConfig buttonBackgroundConfig) {
+      Button button,
+      PartnerConfig buttonBackgroundConfig,
+      PartnerConfig buttonDisableAlphaConfig,
+      PartnerConfig buttonDisableBackgroundConfig) {
     Preconditions.checkArgument(
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
         "Update button background only support on sdk Q or higher");
     @ColorInt int color;
+    @ColorInt int disabledColor;
+    float disabledAlpha;
     int[] DISABLED_STATE_SET = {-android.R.attr.state_enabled};
     int[] ENABLED_STATE_SET = {};
     color = PartnerConfigHelper.get(context).getColor(context, buttonBackgroundConfig);
+    disabledAlpha =
+        PartnerConfigHelper.get(context).getFraction(context, buttonDisableAlphaConfig, 0f);
+    disabledColor =
+        PartnerConfigHelper.get(context).getColor(context, buttonDisableBackgroundConfig);
 
     if (color != Color.TRANSPARENT) {
-      TypedArray a = context.obtainStyledAttributes(new int[] {android.R.attr.disabledAlpha});
-      float alpha = a.getFloat(0, DEFAULT_DISABLED_ALPHA);
-      a.recycle();
+      if (disabledAlpha <= 0f) {
+        // if no partner resource, fallback to theme disable alpha
+        float alpha;
+        TypedArray a = context.obtainStyledAttributes(new int[] {android.R.attr.disabledAlpha});
+        alpha = a.getFloat(0, DEFAULT_DISABLED_ALPHA);
+        a.recycle();
+        disabledAlpha = alpha;
+      }
+      if (disabledColor == Color.TRANSPARENT) {
+        // if no partner resource, fallback to button background color
+        disabledColor = color;
+      }
 
       // Set text color for ripple.
       ColorStateList colorStateList =
           new ColorStateList(
               new int[][] {DISABLED_STATE_SET, ENABLED_STATE_SET},
-              new int[] {convertRgbToArgb(color, alpha), color});
+              new int[] {convertRgbToArgb(disabledColor, disabledAlpha), color});
 
       // b/129482013: When a LayerDrawable is mutated, a new clone of its children drawables are
       // created, but without copying the state from the parent drawable. So even though the

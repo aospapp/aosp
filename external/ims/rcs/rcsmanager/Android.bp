@@ -33,6 +33,17 @@ java_library {
         "src/java/com/android/ims/internal/IRcsService.aidl",
         "src/java/com/android/ims/internal/IRcsPresence.aidl",
         "src/java/com/android/ims/IRcsPresenceListener.aidl",
+        ":rcsmanager-utils"
+    ]
+}
+
+filegroup {
+    name: "rcsmanager-utils",
+    srcs: [
+        "src/java/com/android/ims/internal/ContactNumberUtils.java",
+        "src/java/com/android/ims/internal/Logger.java",
+        "src/java/com/android/ims/RcsPresenceInfo.java",
+        "src/java/com/android/ims/ResultCode.java",
     ],
-    libs: ["ims-common"],
+    path: "src/java",
 }

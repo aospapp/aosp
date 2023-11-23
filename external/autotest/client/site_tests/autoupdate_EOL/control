@@ -13,7 +13,10 @@ TIME = "SHORT"
 
 DOC = """
 This test will check that the DUT behaves correctly in an end of life scenario.
+The EOL date is the number of days since Unix Epoch.
+Value for the EOL date should always indicate a prior date as opposed to the
+current date.
 
 """
 
-job.run_test('autoupdate_EOL')
+job.run_test('autoupdate_EOL', eol_date=1)

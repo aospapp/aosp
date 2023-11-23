@@ -52,22 +52,25 @@ public class CheckNew extends FactoryCheckCLDR {
                 }
             }
             if (!skip) {
-                String rootValue = annotationsRoot.getStringValue(path);
+                String rootValue = annotationsRoot.getStringValueWithBailey(path);
                 if (value.equals(rootValue)) {
                     result.add(new CheckStatus().setCause(this)
                         .setMainType(CheckStatus.errorType)
                         .setSubtype(Subtype.valueMustBeOverridden)
                         .setMessage("This value must be a real translation, NOT the name/keyword placeholder."));
                 }
-                return this;
             }
         }
 
         Date modified = cldrFileToCheck.getLastModifiedDate(path);
         if (modified != null) return this;
 
-        boolean isOutdated = outdatedPaths.isOutdated(cldrFileToCheck.getLocaleID(), path);
-        if (!isOutdated) return this;
+        boolean isOutdated = outdatedPaths.isOutdated(cldrFileToCheck.getLocaleID(), path)
+            || SubmissionLocales.pathAllowedInLimitedSubmission(path);
+
+        if (!isOutdated) {
+            return this;
+        }
 
         // we skip if certain other errors are present
         if (hasCoverageError(result)) return this;

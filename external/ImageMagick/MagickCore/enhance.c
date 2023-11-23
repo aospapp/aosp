@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -493,7 +493,7 @@ static MagickBooleanType CLAHE(const RectangleInfo *clahe_info,
     y;
 
   unsigned short
-    lut[NumberCLAHEGrays];
+    *lut;
 
   /*
     Constrast limited adapted histogram equalization.
@@ -504,6 +504,12 @@ static MagickBooleanType CLAHE(const RectangleInfo *clahe_info,
     number_bins*sizeof(*tiles));
   if (tile_cache == (MemoryInfo *) NULL)
     return(MagickFalse);
+  lut=AcquireQuantumMemory(NumberCLAHEGrays,sizeof(*lut));
+  if (lut == (unsigned short *) NULL)
+    {
+      tile_cache=RelinquishVirtualMemory(tile_cache);
+      return(MagickFalse);
+    }
   tiles=(size_t *) GetVirtualMemoryBlob(tile_cache);
   limit=(size_t) (clip_limit*(tile_info->width*tile_info->height)/number_bins);
   if (limit < 1UL)
@@ -603,6 +609,7 @@ static MagickBooleanType CLAHE(const RectangleInfo *clahe_info,
     }
     p+=clahe_info->width*(tile.height-1);
   }
+  lut=RelinquishMagickMemory(lut);
   tile_cache=RelinquishVirtualMemory(tile_cache);
   return(MagickTrue);
 }
@@ -715,9 +722,6 @@ MagickExport MagickBooleanType CLAHEImage(Image *image,const size_t width,
         MagickBooleanType
           proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp atomic
-#endif
         progress++;
         proceed=SetImageProgress(image,CLAHEImageTag,progress,2*
           GetPixelChannels(image));
@@ -766,9 +770,6 @@ MagickExport MagickBooleanType CLAHEImage(Image *image,const size_t width,
         MagickBooleanType
           proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp atomic
-#endif
         progress++;
         proceed=SetImageProgress(image,CLAHEImageTag,progress,2*
           GetPixelChannels(image));
@@ -1108,9 +1109,9 @@ MagickExport MagickBooleanType ColorDecisionListImage(Image *image,
           p=(const char *) content;
           for (i=0; (*p != '\0') && (i < 3); i++)
           {
-            GetNextToken(p,&p,MagickPathExtent,token);
+            (void) GetNextToken(p,&p,MagickPathExtent,token);
             if (*token == ',')
-              GetNextToken(p,&p,MagickPathExtent,token);
+              (void) GetNextToken(p,&p,MagickPathExtent,token);
             switch (i)
             {
               case 0:
@@ -1140,9 +1141,9 @@ MagickExport MagickBooleanType ColorDecisionListImage(Image *image,
           p=(const char *) content;
           for (i=0; (*p != '\0') && (i < 3); i++)
           {
-            GetNextToken(p,&p,MagickPathExtent,token);
+            (void) GetNextToken(p,&p,MagickPathExtent,token);
             if (*token == ',')
-              GetNextToken(p,&p,MagickPathExtent,token);
+              (void) GetNextToken(p,&p,MagickPathExtent,token);
             switch (i)
             {
               case 0:
@@ -1173,9 +1174,9 @@ MagickExport MagickBooleanType ColorDecisionListImage(Image *image,
           p=(const char *) content;
           for (i=0; (*p != '\0') && (i < 3); i++)
           {
-            GetNextToken(p,&p,MagickPathExtent,token);
+            (void) GetNextToken(p,&p,MagickPathExtent,token);
             if (*token == ',')
-              GetNextToken(p,&p,MagickPathExtent,token);
+              (void) GetNextToken(p,&p,MagickPathExtent,token);
             switch (i)
             {
               case 0:
@@ -1210,7 +1211,7 @@ MagickExport MagickBooleanType ColorDecisionListImage(Image *image,
         {
           content=GetXMLTreeContent(saturation);
           p=(const char *) content;
-          GetNextToken(p,&p,MagickPathExtent,token);
+          (void) GetNextToken(p,&p,MagickPathExtent,token);
           color_correction.saturation=StringToDouble(token,(char **) NULL);
         }
     }
@@ -1973,7 +1974,7 @@ MagickExport Image *EnhanceImage(const Image *image,ExceptionInfo *exception)
           pixel.black=((aggregate.black+total_weight/2.0)/total_weight);
           pixel.alpha=((aggregate.alpha+total_weight/2.0)/total_weight);
         }
-      SetPixelViaPixelInfo(image,&pixel,q);
+      SetPixelViaPixelInfo(enhance_image,&pixel,q);
       p+=GetPixelChannels(image);
       q+=GetPixelChannels(enhance_image);
     }
@@ -2309,7 +2310,7 @@ static inline double gamma_pow(const double value,const double gamma)
 MagickExport MagickBooleanType GammaImage(Image *image,const double gamma,
   ExceptionInfo *exception)
 {
-#define GammaCorrectImageTag  "GammaCorrect/Image"
+#define GammaImageTag  "Gamma/Image"
 
   CacheView
     *image_view;
@@ -2346,7 +2347,7 @@ MagickExport MagickBooleanType GammaImage(Image *image,const double gamma,
   if (gamma != 0.0)
     for (i=0; i <= (ssize_t) MaxMap; i++)
       gamma_map[i]=ScaleMapToQuantum((double) (MaxMap*pow((double) i/
-        MaxMap,1.0/gamma)));
+        MaxMap,PerceptibleReciprocal(gamma))));
   if (image->storage_class == PseudoClass)
     for (i=0; i < (ssize_t) image->colors; i++)
     {
@@ -2419,7 +2420,7 @@ MagickExport MagickBooleanType GammaImage(Image *image,const double gamma,
         #pragma omp atomic
 #endif
         progress++;
-        proceed=SetImageProgress(image,GammaCorrectImageTag,progress, image->rows);
+        proceed=SetImageProgress(image,GammaImageTag,progress,image->rows);
         if (proceed == MagickFalse)
           status=MagickFalse;
       }
@@ -2754,6 +2755,7 @@ MagickExport MagickBooleanType HaldClutImage(Image *image,
     for (x=0; x < (ssize_t) image->columns; x++)
     {
       double
+        area,
         offset;
 
       HaldInfo
@@ -2784,8 +2786,11 @@ MagickExport MagickBooleanType HaldClutImage(Image *image,
       if (status == MagickFalse)
         break;
       pixel3=zero;
+      area=point.y;
+      if (hald_image->interpolate == NearestInterpolatePixel)
+        area=(point.y < 0.5) ? 0.0 : 1.0;
       CompositePixelInfoAreaBlend(&pixel1,pixel1.alpha,&pixel2,pixel2.alpha,
-        point.y,&pixel3);
+        area,&pixel3);
       offset+=cube_size;
       status=InterpolatePixelInfo(hald_image,hald_view,hald_image->interpolate,
         fmod(offset,width),floor(offset/width),&pixel1,exception);
@@ -2797,10 +2802,13 @@ MagickExport MagickBooleanType HaldClutImage(Image *image,
         break;
       pixel4=zero;
       CompositePixelInfoAreaBlend(&pixel1,pixel1.alpha,&pixel2,pixel2.alpha,
-        point.y,&pixel4);
+        area,&pixel4);
       pixel=zero;
+      area=point.z;
+      if (hald_image->interpolate == NearestInterpolatePixel)
+        area=(point.z < 0.5)? 0.0 : 1.0;
       CompositePixelInfoAreaBlend(&pixel3,pixel3.alpha,&pixel4,pixel4.alpha,
-        point.z,&pixel);
+        area,&pixel);
       if ((GetPixelRedTraits(image) & UpdatePixelTrait) != 0)
         SetPixelRed(image,ClampToQuantum(pixel.red),q);
       if ((GetPixelGreenTraits(image) & UpdatePixelTrait) != 0)
@@ -2889,7 +2897,7 @@ static inline double LevelPixel(const double black_point,
 
   scale=PerceptibleReciprocal(white_point-black_point);
   level_pixel=QuantumRange*gamma_pow(scale*((double) pixel-black_point),
-    1.0/gamma);
+    PerceptibleReciprocal(gamma));
   return(level_pixel);
 }
 
@@ -3924,7 +3932,7 @@ MagickExport MagickBooleanType NegateImage(Image *image,
       /*
         Negate colormap.
       */
-      if( grayscale != MagickFalse )
+      if (grayscale != MagickFalse)
         if ((image->colormap[i].red != image->colormap[i].green) ||
             (image->colormap[i].green != image->colormap[i].blue))
           continue;
@@ -3968,7 +3976,7 @@ MagickExport MagickBooleanType NegateImage(Image *image,
           register ssize_t
             j;
 
-          if (IsPixelGray(image,q) != MagickFalse)
+          if (IsPixelGray(image,q) == MagickFalse)
             {
               q+=GetPixelChannels(image);
               continue;
@@ -3991,9 +3999,6 @@ MagickExport MagickBooleanType NegateImage(Image *image,
             MagickBooleanType
               proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-            #pragma omp atomic
-#endif
             progress++;
             proceed=SetImageProgress(image,NegateImageTag,progress,image->rows);
             if (proceed == MagickFalse)

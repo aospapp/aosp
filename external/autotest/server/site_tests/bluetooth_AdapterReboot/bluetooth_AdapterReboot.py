@@ -12,7 +12,6 @@ is still powered off.
 
 import logging
 
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
 from autotest_lib.server.cros.multimedia import bluetooth_le_facade_adapter
@@ -60,6 +59,9 @@ class bluetooth_AdapterReboot(
         @param num_iterations: number of times to perform reboot tests.
 
         """
+
+        raise error.TestNAError("This is an invalid test. crbug/877298")
+
         self.host = host
         self.ble_adapter = bluetooth_le_facade_adapter.BluetoothLEFacadeRemoteAdapter
         self.bluetooth_facade = self.ble_adapter(self.host)

@@ -61,13 +61,21 @@ class logging_GenerateCrashFiles(test.test):
         file_list = self.host.run('ls %s' % self.CRASH_DIR, ignore_status=True)
         existing_files = file_list.stdout.strip().split('\n')
 
+        # To store the boot id of the DUT before the crash
+        boot_id = host.get_boot_id()
+
         # Execute crash command.
         self.host.run(crash_cmd, ignore_status=True,
                       timeout=30, ignore_timeout=True)
         logging.debug('Crash invoked!')
 
-        # In case of kernel crash the reboot will take some time.
-        host.ping_wait_up(self.REBOOT_TIMEOUT)
+        # To check If the device has rebooted after kernel crash
+        if(prefix == 'kernel'):
+            host.ping_wait_down(self.SHORT_WAIT)
+            # In case of kernel crash the reboot will take some time.
+            host.ping_wait_up(self.REBOOT_TIMEOUT)
+            if(boot_id == host.get_boot_id()):
+                raise error.TestFail('Device not rebooted')
 
         # Sync the file system.
         self.host.run('sync', ignore_status=True)

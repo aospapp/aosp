@@ -6,19 +6,17 @@
 
 #include "xfa/fxfa/parser/cxfa_user.h"
 
-#include "fxjs/xfa/cjx_user.h"
+#include "fxjs/xfa/cjx_textnode.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kUserAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"user";
+};
 
 }  // namespace
 
@@ -28,9 +26,8 @@ CXFA_User::CXFA_User(CXFA_Document* doc, XFA_PacketType packet)
                 XFA_XDPPACKET_SourceSet,
                 XFA_ObjectType::TextNode,
                 XFA_Element::User,
-                nullptr,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_User>(this)) {}
+                {},
+                kUserAttributeData,
+                pdfium::MakeUnique<CJX_TextNode>(this)) {}
 
-CXFA_User::~CXFA_User() {}
+CXFA_User::~CXFA_User() = default;

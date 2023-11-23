@@ -27,6 +27,26 @@ public abstract class UFormat extends Format {
     private static final long serialVersionUID = -4964390515840164416L;
 
     /**
+     * A field that represents a span of text that may be composed with other fields.
+     * SpanField classes usually have an associated value.
+     *
+     * @hide Only a subset of ICU is exposed in Android
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static abstract class SpanField extends Format.Field {
+        private static final long serialVersionUID = -4732719509273350606L;
+
+        /**
+         * Construct a new instance.
+         *
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        protected SpanField(String name) {
+            super(name);
+        }
+    }
+
+    /**
      * Default constructor.
      */
     public UFormat() {}
@@ -56,7 +76,7 @@ public abstract class UFormat extends Format {
      * @see android.icu.util.ULocale#ACTUAL_LOCALE
      * @hide draft / provisional / internal are hidden on Android
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public final ULocale getLocale(ULocale.Type type) {
         return type == ULocale.ACTUAL_LOCALE ?
             this.actualLocale : this.validLocale;

@@ -6,7 +6,6 @@ import logging
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros.network import interface
 from autotest_lib.client.cros import shill_temporary_profile
 from autotest_lib.client.cros.networking import wifi_proxy
 
@@ -60,9 +59,7 @@ class network_BasicProfileProperties(test.test):
             entries = shill.dbus2primitive(self.get_field_from_properties(
                     profile_properties, self.PROFILE_PROPERTY_ENTRIES))
             logging.info('Found entries: %r', entries)
-            ethernet_if = interface.Interface.get_connected_ethernet_interface()
-            mac = ethernet_if.mac_address.replace(':', '').lower()
-            ethernet_entry_key = 'ethernet_%s' % mac
+            ethernet_entry_key = 'ethernet_any'
             if not ethernet_entry_key in entries:
                 raise error.TestFail('Missing ethernet entry %s from profile.' %
                                      ethernet_entry_key)

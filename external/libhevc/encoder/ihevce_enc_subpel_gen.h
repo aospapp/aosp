@@ -86,6 +86,13 @@ void ihevce_pad_interp_recon_ctb(
     WORD32 i4_bitrate_instance,
     func_selector_t *ps_func_selector);
 
+void ihevce_recon_padding(
+    pad_interp_recon_frm_t *ps_pad_interp_recon,
+    WORD32 ctb_ctr,
+    WORD32 vert_ctr,
+    frm_ctb_ctxt_t *ps_frm_ctb_prms,
+    func_selector_t *ps_func_selector);
+
 void ihevce_pad_interp_recon_src_ctb(
     pad_interp_recon_frm_t *ps_pad_interp_recon,
     WORD32 ctb_ctr,

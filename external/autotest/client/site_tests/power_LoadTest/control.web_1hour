@@ -56,7 +56,7 @@ tasks='[{' + \
 '    tabs: [' + \
 '     \'http://www.google.com\',' + \
 '     \'http://news.google.com\',' + \
-'     \'http://finance.yahoo.com\',' + \
+'     \'http://www.reddit.com\',' + \
 '     \'http://clothing.shop.ebay.com/Womens-Shoes-/63889/i.html\',' + \
 '     \'http://www.facebook.com\'' + \
 '    ]}, {' + \

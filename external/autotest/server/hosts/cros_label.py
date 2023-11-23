@@ -24,6 +24,14 @@ from autotest_lib.site_utils import hwid_lib
 # pylint: disable=missing-docstring
 LsbOutput = collections.namedtuple('LsbOutput', ['unibuild', 'board'])
 
+# fallback values if we can't contact the HWID server
+HWID_LABELS_FALLBACK = ['sku', 'phase', 'touchscreen', 'touchpad', 'variant', 'stylus']
+
+# Repair and Deploy taskName
+REPAIR_TASK_NAME = 'repair'
+DEPLOY_TASK_NAME = 'deploy'
+
+
 def _parse_lsb_output(host):
     """Parses the LSB output and returns key data points for labeling.
 
@@ -95,29 +103,45 @@ class ModelLabel(base_label.StringPrefixLabel):
         return [model or lsb_output.board]
 
 
-class LightSensorLabel(base_label.BaseLabel):
-    """Label indicating if a light sensor is detected."""
+class DeviceSkuLabel(base_label.StringPrefixLabel):
+    """Determine the correct device_sku label for the device."""
 
-    _NAME = 'lightsensor'
-    _LIGHTSENSOR_SEARCH_DIR = '/sys/bus/iio/devices'
-    _LIGHTSENSOR_FILES = [
-        "in_illuminance0_input",
-        "in_illuminance_input",
-        "in_illuminance0_raw",
-        "in_illuminance_raw",
-        "illuminance0_input",
-    ]
+    _NAME =  ds_constants.DEVICE_SKU_LABEL
 
-    def exists(self, host):
-        search_cmd = "find -L %s -maxdepth 4 | egrep '%s'" % (
-            self._LIGHTSENSOR_SEARCH_DIR, '|'.join(self._LIGHTSENSOR_FILES))
-        # Run the search cmd following the symlinks. Stderr_tee is set to
-        # None as there can be a symlink loop, but the command will still
-        # execute correctly with a few messages printed to stderr.
-        result = host.run(search_cmd, stdout_tee=None, stderr_tee=None,
-                          ignore_status=True)
+    def generate_labels(self, host):
+        device_sku = host.host_info_store.get().device_sku
+        if device_sku:
+            return [device_sku]
 
-        return result.exit_status == 0
+        mosys_cmd = 'mosys platform sku'
+        result = host.run(command=mosys_cmd, ignore_status=True)
+        if result.exit_status == 0:
+            return [result.stdout.strip()]
+
+        return []
+
+    def update_for_task(self, task_name):
+        # This label is stored in the lab config, so only deploy tasks update it
+        # or when no task name is mentioned.
+        return task_name in (DEPLOY_TASK_NAME, '')
+
+
+class BrandCodeLabel(base_label.StringPrefixLabel):
+    """Determine the correct brand_code (aka RLZ-code) for the device."""
+
+    _NAME =  ds_constants.BRAND_CODE_LABEL
+
+    def generate_labels(self, host):
+        brand_code = host.host_info_store.get().brand_code
+        if brand_code:
+            return [brand_code]
+
+        cros_config_cmd = 'cros_config / brand-code'
+        result = host.run(command=cros_config_cmd, ignore_status=True)
+        if result.exit_status == 0:
+            return [result.stdout.strip()]
+
+        return []
 
 
 class BluetoothLabel(base_label.BaseLabel):
@@ -126,6 +150,14 @@ class BluetoothLabel(base_label.BaseLabel):
     _NAME = 'bluetooth'
 
     def exists(self, host):
+        # Based on crbug.com/966219, the label is flipping sometimes.
+        # Potentially this is caused by testing itself.
+        # Making this label permanently sticky.
+        info = host.host_info_store.get()
+        for label in info.labels:
+            if label.startswith(self._NAME):
+                return True
+
         result = host.run('test -d /sys/class/bluetooth/hci0',
                           ignore_status=True)
 
@@ -166,26 +198,67 @@ class ECLabel(base_label.BaseLabel):
 
 
 class Cr50Label(base_label.StringPrefixLabel):
-    """Label indicating the cr50 version."""
+    """Label indicating the cr50 image type."""
 
     _NAME = 'cr50'
 
     def __init__(self):
         self.ver = None
 
-
     def exists(self, host):
         # Make sure the gsctool version command runs ok
         self.ver = host.run('gsctool -a -f', ignore_status=True)
         return self.ver.exit_status == 0
 
+    def _get_version(self, region):
+        """Get the version number of the given region"""
+        return re.search(region + ' (\d+\.\d+\.\d+)', self.ver.stdout).group(1)
 
     def generate_labels(self, host):
         # Check the major version to determine prePVT vs PVT
-        major_ver = int(re.search('RW \d+\.(\d+)\.\d+[\r\n]',
-                self.ver.stdout).group(1))
+        version = self._get_version('RW')
+        major_version = int(version.split('.')[1])
         # PVT images have a odd major version prePVT have even
-        return ['pvt' if (major_ver % 2) else 'prepvt']
+        return ['pvt' if (major_version % 2) else 'prepvt']
+
+
+class Cr50RWKeyidLabel(Cr50Label):
+    """Label indicating the cr50 RW version."""
+    _REGION = 'RW'
+    _NAME = 'cr50-rw-keyid'
+
+    def _get_keyid_info(self, region):
+        """Get the keyid of the given region."""
+        match = re.search('keyids:.*%s (\S+)' % region, self.ver.stdout)
+        keyid = match.group(1).rstrip(',')
+        is_prod = int(keyid, 16) & (1 << 2)
+        return [keyid, 'prod' if is_prod else 'dev']
+
+    def generate_labels(self, host):
+        """Get the key type."""
+        return self._get_keyid_info(self._REGION)
+
+
+class Cr50ROKeyidLabel(Cr50RWKeyidLabel):
+    """Label indicating the RO key type."""
+    _REGION = 'RO'
+    _NAME = 'cr50-ro-keyid'
+
+
+class Cr50RWVersionLabel(Cr50Label):
+    """Label indicating the cr50 RW version."""
+    _REGION = 'RW'
+    _NAME = 'cr50-rw-version'
+
+    def generate_labels(self, host):
+        """Get the version and key type"""
+        return [self._get_version(self._REGION)]
+
+
+class Cr50ROVersionLabel(Cr50RWVersionLabel):
+    """Label indicating the RO version."""
+    _REGION = 'RO'
+    _NAME = 'cr50-ro-version'
 
 
 class AccelsLabel(base_label.BaseLabel):
@@ -223,7 +296,28 @@ class ChameleonLabel(base_label.BaseLabel):
     _NAME = 'chameleon'
 
     def exists(self, host):
-        return host._chameleon_host is not None
+        # See crbug.com/1004500#2 for details.
+        # https://chromium.googlesource.com/chromiumos/third_party/autotest/+
+        # /refs/heads/master/server/hosts/cros_host.py#335 shows that
+        # _chameleon_host_list is not reliable.
+        has_chameleon = len(host.chameleon_list) > 0
+        # TODO(crbug.com/995900) -- debug why chameleon label is flipping
+        try:
+            logging.info("has_chameleon %s", has_chameleon)
+            logging.info("chameleon_host_list %s",
+                         getattr(host, "_chameleon_host_list", "NO_ATTRIBUTE"))
+            logging.info("chameleon_list %s",
+                         getattr(host, "chameleon_list", "NO_ATTRIBUTE"))
+            logging.info("multi_chameleon %s",
+                         getattr(host, "multi_chameleon", "NO_ATTRIBUTE"))
+        except:
+            pass
+        return has_chameleon
+
+    def update_for_task(self, task_name):
+        # This label is stored in the state config, so only repair tasks update
+        # it or when no task name is mentioned.
+        return task_name in (REPAIR_TASK_NAME, '')
 
 
 class ChameleonConnectionLabel(base_label.StringPrefixLabel):
@@ -232,11 +326,16 @@ class ChameleonConnectionLabel(base_label.StringPrefixLabel):
     _NAME = 'chameleon'
 
     def exists(self, host):
-        return host._chameleon_host is not None
+        return len(host._chameleon_host_list) > 0
 
 
     def generate_labels(self, host):
-        return [host.chameleon.get_label()]
+        return [chameleon.get_label() for chameleon in host.chameleon_list]
+
+    def update_for_task(self, task_name):
+        # This label is stored in the lab config, so only deploy tasks update it
+        # or when no task name is mentioned.
+        return task_name in (DEPLOY_TASK_NAME, '')
 
 
 class ChameleonPeripheralsLabel(base_label.StringPrefixLabel):
@@ -252,12 +351,63 @@ class ChameleonPeripheralsLabel(base_label.StringPrefixLabel):
     _NAME = 'chameleon'
 
     def exists(self, host):
-        return host._chameleon_host is not None
+        return len(host._chameleon_host_list) > 0
 
 
     def generate_labels(self, host):
-        bt_hid_device = host.chameleon.get_bluetooth_hid_mouse()
-        return ['bt_hid'] if bt_hid_device.CheckSerialConnection() else []
+        labels_list = []
+
+        for chameleon, chameleon_host in \
+                        zip(host.chameleon_list, host._chameleon_host_list):
+            labels = []
+            try:
+                bt_hid_device = chameleon.get_bluetooth_hid_mouse()
+                if bt_hid_device.CheckSerialConnection():
+                    labels.append('bt_hid')
+            except:
+                logging.error('Error with initializing bt_hid_mouse on '
+                              'chameleon %s', chameleon_host.hostname)
+
+            try:
+                ble_hid_device = chameleon.get_ble_mouse()
+                if ble_hid_device.CheckSerialConnection():
+                    labels.append('bt_ble_hid')
+            except:
+                logging.error('Error with initializing ble_hid_mouse on '
+                              'chameleon %s', chameleon_host.hostname)
+
+            try:
+                bt_a2dp_sink = chameleon.get_bluetooth_a2dp_sink()
+                if bt_a2dp_sink.CheckSerialConnection():
+                    labels.append('bt_a2dp_sink')
+            except:
+                logging.error('Error with initializing bt_a2dp_sink on '
+                              'chameleon %s', chameleon_host.hostname)
+
+            try:
+                bt_base_device = chameleon.get_bluetooth_base()
+                if bt_base_device.IsDetected():
+                    labels.append('bt_base')
+            except:
+                logging.error('Error in detecting bt_base on '
+                              'chameleon %s', chameleon_host.hostname)
+
+            if labels != []:
+                labels.append('bt_peer')
+
+            if host.multi_chameleon:
+                labels_list.append(labels)
+            else:
+                labels_list.extend(labels)
+
+
+        logging.info('Bluetooth labels are %s', labels_list)
+        return labels_list
+
+    def update_for_task(self, task_name):
+        # This label is stored in the lab config, so only deploy tasks update it
+        # or when no task name is mentioned.
+        return task_name in (DEPLOY_TASK_NAME, '')
 
 
 class AudioLoopbackDongleLabel(base_label.BaseLabel):
@@ -266,12 +416,40 @@ class AudioLoopbackDongleLabel(base_label.BaseLabel):
     _NAME = 'audio_loopback_dongle'
 
     def exists(self, host):
+        # Based on crbug.com/991285, AudioLoopbackDongle sometimes flips.
+        # Ensure that AudioLoopbackDongle.exists returns True
+        # forever, after it returns True *once*.
+        if self._cached_exists(host):
+            # If the current state is True, return it, don't run the command on
+            # the DUT and potentially flip the state.
+            return True
+        # If the current state is not True, run the command on
+        # the DUT. The new state will be set to whatever the command
+        # produces.
+        return self._host_run_exists(host)
+
+    def _cached_exists(self, host):
+        """Get the state of AudioLoopbackDongle in the data store"""
+        info = host.host_info_store.get()
+        for label in info.labels:
+            if label.startswith(self._NAME):
+                return True
+        return False
+
+    def _host_run_exists(self, host):
+        """Detect presence of audio_loopback_dongle by physically
+        running a command on the DUT."""
         nodes_info = host.run(command=cras_utils.get_cras_nodes_cmd(),
                               ignore_status=True).stdout
         if (cras_utils.node_type_is_plugged('HEADPHONE', nodes_info) and
             cras_utils.node_type_is_plugged('MIC', nodes_info)):
-                return True
+            return True
         return False
+
+    def update_for_task(self, task_name):
+        # This label is stored in the state config, so only repair tasks update
+        # it or when no task name is mentioned.
+        return task_name in (REPAIR_TASK_NAME, '')
 
 
 class PowerSupplyLabel(base_label.StringPrefixLabel):
@@ -399,17 +577,54 @@ class StorageLabel(base_label.StringPrefixLabel):
         # All other internal device / error case will always fall here
         return False
 
-
     def generate_labels(self, host):
         return [self.type_str]
 
 
 class ServoLabel(base_label.BaseLabel):
-    """Label to apply if a servo is present."""
+    """
+    Label servo is applying if a servo is present.
+    Label servo_state present always.
+    """
 
-    _NAME = 'servo'
+    _NAME_OLD = 'servo'
+    _NAME = 'servo_state'
+    _NAME_WORKING = 'servo_state:WORKING'
+    _NAME_BROKEN = 'servo_state:BROKEN'
+
+    def get(self, host):
+        if self.exists(host):
+            return [self._NAME_OLD, self._NAME_WORKING]
+        return [self._NAME_BROKEN]
+
+    def get_all_labels(self):
+        return set([self._NAME]), set([self._NAME_OLD])
 
     def exists(self, host):
+        # Based on crbug.com/995900, Servo sometimes flips.
+        # Ensure that ServoLabel.exists returns True
+        # forever, after it returns True *once*.
+        if self._cached_exists(host):
+            # If the current state is True, return it, don't run the command on
+            # the DUT and potentially flip the state.
+            return True
+        # If the current state is not True, run the command on
+        # the DUT. The new state will be set to whatever the command
+        # produces.
+        return self._host_run_exists(host)
+
+    def _cached_exists(self, host):
+        """Get the state of Servo in the data store"""
+        info = host.host_info_store.get()
+        for label in info.labels:
+            if label.startswith(self._NAME):
+                if label.startswith(self._NAME_WORKING):
+                    return True
+            elif label.startswith(self._NAME_OLD):
+                return True
+        return False
+
+    def _host_run_exists(self, host):
         """
         Check if the servo label should apply to the host or not.
 
@@ -421,6 +636,11 @@ class ServoLabel(base_label.BaseLabel):
             servo_host_hostname = servo_args.get(servo_host.SERVO_HOST_ATTR)
         return (servo_host_hostname is not None
                 and servo_host.servo_host_is_up(servo_host_hostname))
+
+    def update_for_task(self, task_name):
+        # This label is stored in the state config, so only repair tasks update
+        # it or when no task name is mentioned.
+        return task_name in (REPAIR_TASK_NAME, '')
 
 
 class ArcLabel(base_label.BaseLabel):
@@ -519,6 +739,34 @@ class LucidSleepLabel(base_label.BaseLabel):
         return board in self.LUCID_SLEEP_BOARDS
 
 
+def _parse_hwid_labels(hwid_info_list):
+    if len(hwid_info_list) == 0:
+        return hwid_info_list
+
+    res = []
+    # See crbug.com/997816#c7 for details of two potential formats of returns
+    # from HWID server.
+    if isinstance(hwid_info_list[0], dict):
+        # Format of hwid_info:
+        # [{u'name': u'sku', u'value': u'xxx'}, ..., ]
+        for hwid_info in hwid_info_list:
+            value = hwid_info.get('value', '')
+            name = hwid_info.get('name', '')
+            # There should always be a name but just in case there is not.
+            if name:
+                new_label = name if not value else '%s:%s' % (name, value)
+                res.append(new_label)
+    else:
+        # Format of hwid_info:
+        # [<DUTLabel name: 'sku' value: u'xxx'>, ..., ]
+        for hwid_info in hwid_info_list:
+            new_label = str(hwid_info)
+            logging.info('processing hwid label: %s', new_label)
+            res.append(new_label)
+
+    return res
+
+
 class HWIDLabel(base_label.StringLabel):
     """Return all the labels generated from the hwid."""
 
@@ -530,24 +778,81 @@ class HWIDLabel(base_label.StringLabel):
                 'CROS', 'HWID_KEY', type=str)
 
 
-    def generate_labels(self, host):
-        hwid_labels = []
-        hwid = host.run_output('crossystem hwid').strip()
-        hwid_info_list = hwid_lib.get_hwid_info(hwid, hwid_lib.HWID_INFO_LABEL,
-                                                self.key_file).get('labels', [])
+    @staticmethod
+    def _merge_hwid_label_lists(new, old):
+        """merge a list of old and new values for hwid_labels.
+        preferring new values if available
 
-        for hwid_info in hwid_info_list:
-            # If it's a prefix, we'll have:
-            # {'name': prefix_label, 'value': postfix_label} and create
-            # 'prefix_label:postfix_label'; otherwise it'll just be
-            # {'name': label} which should just be 'label'.
-            value = hwid_info.get('value', '')
-            name = hwid_info.get('name', '')
-            # There should always be a name but just in case there is not.
-            if name:
-                hwid_labels.append(name if not value else
-                                   '%s:%s' % (name, value))
-        return hwid_labels
+        @returns: list of labels"""
+        # TODO(gregorynisbet): what is the appropriate way to merge
+        # old and new information?
+        retained = set(x for x in old)
+        for label in new:
+            key, sep, value = label.partition(':')
+            # If we have a key-value key such as variant:aaa,
+            # then we remove all the old labels with the same key.
+            if sep:
+                retained = set(x for x in retained if (not x.startswith(key + ':')))
+        return list(sorted(retained.union(new)))
+
+
+    def _hwid_label_names(self):
+        """get the labels that hwid_lib controls.
+
+        @returns: hwid_labels
+        """
+        all_hwid_labels, _ = self.get_all_labels()
+        # If and only if get_all_labels was unsuccessful,
+        # it will return a falsey value.
+        out = all_hwid_labels or HWID_LABELS_FALLBACK
+
+        # TODO(gregorynisbet): remove this
+        # TODO(crbug.com/999785)
+        if "sku" not in out:
+            logging.info("sku-less label names %s", out)
+
+        return out
+
+
+    def _old_label_values(self, host):
+        """get the hwid_lib labels on previous run
+
+        @returns: hwid_labels"""
+        out = []
+        info = host.host_info_store.get()
+        for hwid_label in self._hwid_label_names():
+            for label in info.labels:
+                # NOTE: we want *all* the labels starting
+                # with this prefix.
+                if label.startswith(hwid_label):
+                    out.append(label)
+        return out
+
+
+    def generate_labels(self, host):
+        # use previous values as default
+        old_hwid_labels = self._old_label_values(host)
+        logging.info("old_hwid_labels: %r", old_hwid_labels)
+        hwid = host.run_output('crossystem hwid').strip()
+        hwid_info_list = []
+        try:
+            hwid_info_response = hwid_lib.get_hwid_info(
+                hwid=hwid,
+                info_type=hwid_lib.HWID_INFO_LABEL,
+                key_file=self.key_file,
+            )
+            logging.info("hwid_info_response: %r", hwid_info_response)
+            hwid_info_list = hwid_info_response.get('labels', [])
+        except hwid_lib.HwIdException as e:
+            logging.info("HwIdException: %s", e)
+
+        new_hwid_labels = _parse_hwid_labels(hwid_info_list)
+        logging.info("new HWID labels: %r", new_hwid_labels)
+
+        return HWIDLabel._merge_hwid_label_lists(
+            old=old_hwid_labels,
+            new=new_hwid_labels,
+        )
 
 
     def get_all_labels(self):
@@ -604,28 +909,16 @@ class ReferenceDesignLabel(base_label.StringPrefixLabel):
 
 
 CROS_LABELS = [
-    AccelsLabel(),
-    ArcLabel(),
-    AudioLoopbackDongleLabel(),
-    BluetoothLabel(),
-    BoardLabel(),
-    ModelLabel(),
-    ChameleonConnectionLabel(),
-    ChameleonLabel(),
-    ChameleonPeripheralsLabel(),
+    AudioLoopbackDongleLabel(), #STATECONFIG
+    ChameleonConnectionLabel(), #LABCONFIG
+    ChameleonLabel(), #STATECONFIG
+    ChameleonPeripheralsLabel(), #LABCONFIG
     common_label.OSLabel(),
-    Cr50Label(),
-    CtsArchLabel(),
-    DetachableBaseLabel(),
-    ECLabel(),
-    FingerprintLabel(),
+    DeviceSkuLabel(), #LABCONFIG
     HWIDLabel(),
-    InternalDisplayLabel(),
-    LightSensorLabel(),
-    LucidSleepLabel(),
-    PowerSupplyLabel(),
-    ReferenceDesignLabel(),
-    ServoLabel(),
-    StorageLabel(),
-    VideoGlitchLabel(),
+    ServoLabel(), #STATECONFIG
+]
+
+LABSTATION_LABELS = [
+    common_label.OSLabel(),
 ]

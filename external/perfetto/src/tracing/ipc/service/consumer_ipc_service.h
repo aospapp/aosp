@@ -22,12 +22,12 @@
 #include <memory>
 #include <string>
 
-#include "perfetto/base/weak_ptr.h"
-#include "perfetto/ipc/basic_types.h"
-#include "perfetto/tracing/core/consumer.h"
-#include "perfetto/tracing/core/tracing_service.h"
-
-#include "perfetto/ipc/consumer_port.ipc.h"
+#include "perfetto/ext/base/weak_ptr.h"
+#include "perfetto/ext/ipc/basic_types.h"
+#include "perfetto/ext/tracing/core/consumer.h"
+#include "perfetto/ext/tracing/core/tracing_service.h"
+#include "perfetto/tracing/core/forward_decls.h"
+#include "protos/perfetto/ipc/consumer_port.ipc.h"
 
 namespace perfetto {
 
@@ -38,31 +38,37 @@ class Host;
 // Implements the Consumer port of the IPC service. This class proxies requests
 // and responses between the core service logic (|svc_|) and remote Consumer(s)
 // on the IPC socket, through the methods overriddden from ConsumerPort.
-class ConsumerIPCService : public protos::ConsumerPort {
+class ConsumerIPCService : public protos::gen::ConsumerPort {
  public:
   explicit ConsumerIPCService(TracingService* core_service);
   ~ConsumerIPCService() override;
 
   // ConsumerPort implementation (from .proto IPC definition).
-  void EnableTracing(const protos::EnableTracingRequest&,
+  void EnableTracing(const protos::gen::EnableTracingRequest&,
                      DeferredEnableTracingResponse) override;
-  void StartTracing(const protos::StartTracingRequest&,
+  void StartTracing(const protos::gen::StartTracingRequest&,
                     DeferredStartTracingResponse) override;
-  void ChangeTraceConfig(const protos::ChangeTraceConfigRequest&,
+  void ChangeTraceConfig(const protos::gen::ChangeTraceConfigRequest&,
                          DeferredChangeTraceConfigResponse) override;
-  void DisableTracing(const protos::DisableTracingRequest&,
+  void DisableTracing(const protos::gen::DisableTracingRequest&,
                       DeferredDisableTracingResponse) override;
-  void ReadBuffers(const protos::ReadBuffersRequest&,
+  void ReadBuffers(const protos::gen::ReadBuffersRequest&,
                    DeferredReadBuffersResponse) override;
-  void FreeBuffers(const protos::FreeBuffersRequest&,
+  void FreeBuffers(const protos::gen::FreeBuffersRequest&,
                    DeferredFreeBuffersResponse) override;
-  void Flush(const protos::FlushRequest&, DeferredFlushResponse) override;
-  void Detach(const protos::DetachRequest&, DeferredDetachResponse) override;
-  void Attach(const protos::AttachRequest&, DeferredAttachResponse) override;
-  void GetTraceStats(const protos::GetTraceStatsRequest&,
+  void Flush(const protos::gen::FlushRequest&, DeferredFlushResponse) override;
+  void Detach(const protos::gen::DetachRequest&,
+              DeferredDetachResponse) override;
+  void Attach(const protos::gen::AttachRequest&,
+              DeferredAttachResponse) override;
+  void GetTraceStats(const protos::gen::GetTraceStatsRequest&,
                      DeferredGetTraceStatsResponse) override;
-  void ObserveEvents(const protos::ObserveEventsRequest&,
+  void ObserveEvents(const protos::gen::ObserveEventsRequest&,
                      DeferredObserveEventsResponse) override;
+  void QueryServiceState(const protos::gen::QueryServiceStateRequest&,
+                         DeferredQueryServiceStateResponse) override;
+  void QueryCapabilities(const protos::gen::QueryCapabilitiesRequest&,
+                         DeferredQueryCapabilitiesResponse) override;
   void OnClientDisconnected() override;
 
  private:
@@ -117,6 +123,9 @@ class ConsumerIPCService : public protos::ConsumerPort {
 
   // This has to be a container that doesn't invalidate iterators.
   using PendingFlushResponses = std::list<DeferredFlushResponse>;
+  using PendingQuerySvcResponses = std::list<DeferredQueryServiceStateResponse>;
+  using PendingQueryCapabilitiesResponses =
+      std::list<DeferredQueryCapabilitiesResponse>;
 
   ConsumerIPCService(const ConsumerIPCService&) = delete;
   ConsumerIPCService& operator=(const ConsumerIPCService&) = delete;
@@ -126,6 +135,11 @@ class ConsumerIPCService : public protos::ConsumerPort {
   RemoteConsumer* GetConsumerForCurrentRequest();
 
   void OnFlushCallback(bool success, PendingFlushResponses::iterator);
+  void OnQueryServiceCallback(bool success,
+                              const TracingServiceState&,
+                              PendingQuerySvcResponses::iterator);
+  void OnQueryCapabilitiesCallback(const TracingServiceCapabilities&,
+                                   PendingQueryCapabilitiesResponses::iterator);
 
   TracingService* const core_service_;
 
@@ -134,6 +148,8 @@ class ConsumerIPCService : public protos::ConsumerPort {
   std::map<ipc::ClientID, std::unique_ptr<RemoteConsumer>> consumers_;
 
   PendingFlushResponses pending_flush_responses_;
+  PendingQuerySvcResponses pending_query_service_responses_;
+  PendingQueryCapabilitiesResponses pending_query_capabilities_responses_;
 
   base::WeakPtrFactory<ConsumerIPCService> weak_ptr_factory_;  // Keep last.
 };

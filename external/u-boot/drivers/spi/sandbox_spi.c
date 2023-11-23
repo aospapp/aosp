@@ -8,6 +8,8 @@
  * Licensed under the GPL-2 or later.
  */
 
+#define LOG_CATEGORY UCLASS_SPI
+
 #include <common.h>
 #include <dm.h>
 #include <malloc.h>
@@ -56,7 +58,6 @@ static int sandbox_spi_xfer(struct udevice *slave, unsigned int bitlen,
 	struct udevice *emul;
 	uint bytes = bitlen / 8, i;
 	int ret;
-	u8 *tx = (void *)dout, *rx = din;
 	uint busnum, cs;
 
 	if (bitlen == 0)
@@ -87,37 +88,16 @@ static int sandbox_spi_xfer(struct udevice *slave, unsigned int bitlen,
 	if (ret)
 		return ret;
 
-	/* make sure rx/tx buffers are full so clients can assume */
-	if (!tx) {
-		debug("sandbox_spi: xfer: auto-allocating tx scratch buffer\n");
-		tx = malloc(bytes);
-		if (!tx) {
-			debug("sandbox_spi: Out of memory\n");
-			return -ENOMEM;
-		}
-	}
-	if (!rx) {
-		debug("sandbox_spi: xfer: auto-allocating rx scratch buffer\n");
-		rx = malloc(bytes);
-		if (!rx) {
-			debug("sandbox_spi: Out of memory\n");
-			return -ENOMEM;
-		}
-	}
-
 	ops = spi_emul_get_ops(emul);
 	ret = ops->xfer(emul, bitlen, dout, din, flags);
 
-	debug("sandbox_spi: xfer: got back %i (that's %s)\n rx:",
-	      ret, ret ? "bad" : "good");
-	for (i = 0; i < bytes; ++i)
-		debug(" %u:%02x", i, rx[i]);
-	debug("\n");
-
-	if (tx != dout)
-		free(tx);
-	if (rx != din)
-		free(rx);
+	log_content("sandbox_spi: xfer: got back %i (that's %s)\n rx:",
+		    ret, ret ? "bad" : "good");
+	if (din) {
+		for (i = 0; i < bytes; ++i)
+			log_content(" %u:%02x", i, ((u8 *)din)[i]);
+	}
+	log_content("\n");
 
 	return ret;
 }
@@ -137,7 +117,17 @@ static int sandbox_cs_info(struct udevice *bus, uint cs,
 {
 	/* Always allow activity on CS 0 */
 	if (cs >= 1)
-		return -ENODEV;
+		return -EINVAL;
+
+	return 0;
+}
+
+static int sandbox_spi_get_mmap(struct udevice *dev, ulong *map_basep,
+				uint *map_sizep, uint *offsetp)
+{
+	*map_basep = 0x1000;
+	*map_sizep = 0x2000;
+	*offsetp = 0x100;
 
 	return 0;
 }
@@ -147,6 +137,7 @@ static const struct dm_spi_ops sandbox_spi_ops = {
 	.set_speed	= sandbox_spi_set_speed,
 	.set_mode	= sandbox_spi_set_mode,
 	.cs_info	= sandbox_cs_info,
+	.get_mmap	= sandbox_spi_get_mmap,
 };
 
 static const struct udevice_id sandbox_spi_ids[] = {

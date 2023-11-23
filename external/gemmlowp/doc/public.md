@@ -14,7 +14,7 @@ The high-level overview of how this specifies a low-precision matrix
 multiplication is explained in [low-precision.md](low-precision.md). The
 rationale for a specific quantization paradigm is given in
 [quantization.md](quantization.md). That specific quantization paradigm is
-implemented at two different stages of the computation: as pre-processing ont
+implemented at two different stages of the computation: as pre-processing on
 the operands and as post-processing on the result:
 
 *   Pre-processing on the LHS, RHS operands, in the form of adding constant
@@ -56,7 +56,7 @@ being automatically deduced from function parameters:
 
 *   `InputScalar`: The scalar type of the LHS and RHS operands. At the moment,
     this must be `std::uint8_t`.
-*   `OutputScalar`: The scalar type of the LHS and RHS operands. At the moment,
+*   `OutputScalar`: The scalar type of the result. At the moment,
     this must be `std::uint8_t`.
 *   `BitDepthParams`: Defines the bit format of the input and output matrices
     and the required accuracy of the computation. At the moment, the only

@@ -48,8 +48,7 @@ static dbus_bool_t dbus_watch_add(DBusWatch *watch, void *data)
 	 */
 	if ((flags & DBUS_WATCH_READABLE) && dbus_watch_get_enabled(watch)) {
 		r = cras_system_add_select_fd(dbus_watch_get_unix_fd(watch),
-					      dbus_watch_callback,
-					      watch);
+					      dbus_watch_callback, watch);
 		if (r != 0)
 			return FALSE;
 	}
@@ -75,17 +74,14 @@ static void dbus_watch_toggled(DBusWatch *watch, void *data)
 	}
 }
 
-
 static void dbus_timeout_callback(struct cras_timer *t, void *data)
 {
 	struct cras_tm *tm = cras_system_state_get_tm();
 	struct DBusTimeout *timeout = data;
 
-
 	/* Timer is automatically removed after it fires.  Add a new one so this
 	 * fires until it is removed by dbus. */
-	t = cras_tm_create_timer(tm,
-				 dbus_timeout_get_interval(timeout),
+	t = cras_tm_create_timer(tm, dbus_timeout_get_interval(timeout),
 				 dbus_timeout_callback, timeout);
 	dbus_timeout_set_data(timeout, t, NULL);
 
@@ -104,13 +100,11 @@ static dbus_bool_t dbus_timeout_add(DBusTimeout *timeout, void *arg)
 	}
 
 	if (dbus_timeout_get_enabled(timeout)) {
-		t = cras_tm_create_timer(tm,
-					 dbus_timeout_get_interval(timeout),
+		t = cras_tm_create_timer(tm, dbus_timeout_get_interval(timeout),
 					 dbus_timeout_callback, timeout);
 		dbus_timeout_set_data(timeout, t, NULL);
 		if (t == NULL)
 			return FALSE;
-
 	}
 
 	return TRUE;
@@ -160,19 +154,13 @@ DBusConnection *cras_dbus_connect_system_bus()
 	if (rc != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
 		syslog(LOG_ERR, "Not primary owner of dbus name.");
 
-	if (!dbus_connection_set_watch_functions(conn,
-						 dbus_watch_add,
-						 dbus_watch_remove,
-						 dbus_watch_toggled,
-						 NULL,
-						 NULL))
+	if (!dbus_connection_set_watch_functions(
+		    conn, dbus_watch_add, dbus_watch_remove, dbus_watch_toggled,
+		    NULL, NULL))
 		goto error;
-	if (!dbus_connection_set_timeout_functions(conn,
-						   dbus_timeout_add,
-						   dbus_timeout_remove,
-						   dbus_timeout_toggled,
-						   NULL,
-						   NULL))
+	if (!dbus_connection_set_timeout_functions(
+		    conn, dbus_timeout_add, dbus_timeout_remove,
+		    dbus_timeout_toggled, NULL, NULL))
 		goto error;
 
 	return conn;
@@ -185,8 +173,7 @@ error:
 
 void cras_dbus_dispatch(DBusConnection *conn)
 {
-	while (dbus_connection_dispatch(conn)
-		== DBUS_DISPATCH_DATA_REMAINS)
+	while (dbus_connection_dispatch(conn) == DBUS_DISPATCH_DATA_REMAINS)
 		;
 }
 

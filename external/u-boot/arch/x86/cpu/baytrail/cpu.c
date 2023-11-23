@@ -68,9 +68,9 @@ static void set_max_freq(void)
 	msr_t msr;
 
 	/* Enable speed step */
-	msr = msr_read(MSR_IA32_MISC_ENABLES);
-	msr.lo |= (1 << 16);
-	msr_write(MSR_IA32_MISC_ENABLES, msr);
+	msr = msr_read(MSR_IA32_MISC_ENABLE);
+	msr.lo |= MISC_ENABLE_ENHANCED_SPEEDSTEP;
+	msr_write(MSR_IA32_MISC_ENABLE, msr);
 
 	/*
 	 * Set guaranteed ratio [21:16] from IACORE_RATIOS to bits [15:8] of
@@ -203,4 +203,5 @@ U_BOOT_DRIVER(cpu_x86_baytrail_drv) = {
 	.bind		= cpu_x86_bind,
 	.probe		= cpu_x86_baytrail_probe,
 	.ops		= &cpu_x86_baytrail_ops,
+	.flags		= DM_FLAG_PRE_RELOC,
 };

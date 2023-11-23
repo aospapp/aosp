@@ -20,9 +20,11 @@ import android.icu.dev.impl.number.DecimalQuantity_64BitBCD;
 import android.icu.dev.impl.number.DecimalQuantity_ByteArrayBCD;
 import android.icu.dev.impl.number.DecimalQuantity_SimpleStorage;
 import android.icu.dev.test.TestFmwk;
+import android.icu.impl.FormattedStringBuilder;
 import android.icu.impl.number.DecimalFormatProperties;
 import android.icu.impl.number.DecimalQuantity;
 import android.icu.impl.number.DecimalQuantity_DualStorageBCD;
+import android.icu.impl.number.RoundingUtils;
 import android.icu.number.LocalizedNumberFormatter;
 import android.icu.number.NumberFormatter;
 import android.icu.text.CompactDecimalFormat.CompactStyle;
@@ -39,7 +41,7 @@ public class DecimalQuantityTest extends TestFmwk {
     public void testBehavior() throws ParseException {
 
         // Make a list of several formatters to test the behavior of DecimalQuantity.
-        List<LocalizedNumberFormatter> formats = new ArrayList<LocalizedNumberFormatter>();
+        List<LocalizedNumberFormatter> formats = new ArrayList<>();
 
         DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(ULocale.ENGLISH);
 
@@ -123,7 +125,7 @@ public class DecimalQuantityTest extends TestFmwk {
             assertEquals("Double is not valid", Double.toString(Double.parseDouble(str)), str);
         }
 
-        List<DecimalQuantity> qs = new ArrayList<DecimalQuantity>();
+        List<DecimalQuantity> qs = new ArrayList<>();
         BigDecimal d = new BigDecimal(str);
         qs.add(new DecimalQuantity_SimpleStorage(d));
         if (mode == 0)
@@ -170,8 +172,8 @@ public class DecimalQuantityTest extends TestFmwk {
         DecimalQuantity q0 = rq.createCopy();
         // Force an accurate double
         q0.roundToInfinity();
-        q0.setIntegerLength(1, Integer.MAX_VALUE);
-        q0.setFractionLength(1, Integer.MAX_VALUE);
+        q0.setMinInteger(1);
+        q0.setMinFraction(1);
         String actual = q0.toPlainString();
         assertEquals("Unexpected output from simple string conversion (" + q0 + ")", expected, actual);
     }
@@ -237,8 +239,12 @@ public class DecimalQuantityTest extends TestFmwk {
         for (LocalizedNumberFormatter format : formats) {
             DecimalQuantity q0 = rq0.createCopy();
             DecimalQuantity q1 = rq1.createCopy();
-            String s1 = format.format(q0).toString();
-            String s2 = format.format(q1).toString();
+            FormattedStringBuilder nsb1 = new FormattedStringBuilder();
+            FormattedStringBuilder nsb2 = new FormattedStringBuilder();
+            format.formatImpl(q0, nsb1);
+            format.formatImpl(q1, nsb2);
+            String s1 = nsb1.toString();
+            String s2 = nsb2.toString();
             assertEquals("Different output from formatter (" + q0 + ", " + q1 + ")", s1, s2);
         }
     }
@@ -307,6 +313,15 @@ public class DecimalQuantityTest extends TestFmwk {
         assertFalse("Should not be using byte array", fq.isUsingBytes());
         assertEquals("Failed on round", "1.23412341234E+16", fq.toScientificString());
         assertNull("Failed health check", fq.checkHealth());
+        // Bytes with popFromLeft
+        fq.setToBigDecimal(new BigDecimal("999999999999999999"));
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 bytes 999999999999999999E0>");
+        fq.applyMaxInteger(17);
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 bytes 99999999999999999E0>");
+        fq.applyMaxInteger(16);
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 long 9999999999999999E0>");
+        fq.applyMaxInteger(15);
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 long 999999999999999E0>");
     }
 
     @Test
@@ -391,25 +406,26 @@ public class DecimalQuantityTest extends TestFmwk {
     @Test
     public void testDecimalQuantityBehaviorStandalone() {
         DecimalQuantity_DualStorageBCD fq = new DecimalQuantity_DualStorageBCD();
-        assertToStringAndHealth(fq, "<DecimalQuantity 999:0:0:-999 long 0E0>");
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 long 0E0>");
         fq.setToInt(51423);
-        assertToStringAndHealth(fq, "<DecimalQuantity 999:0:0:-999 long 51423E0>");
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 long 51423E0>");
         fq.adjustMagnitude(-3);
-        assertToStringAndHealth(fq, "<DecimalQuantity 999:0:0:-999 long 51423E-3>");
-        fq.setToLong(999999999999000L);
-        assertToStringAndHealth(fq, "<DecimalQuantity 999:0:0:-999 long 999999999999E3>");
-        fq.setIntegerLength(2, 5);
-        assertToStringAndHealth(fq, "<DecimalQuantity 5:2:0:-999 long 999999999999E3>");
-        fq.setFractionLength(3, 6);
-        assertToStringAndHealth(fq, "<DecimalQuantity 5:2:-3:-6 long 999999999999E3>");
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 long 51423E-3>");
+        fq.setToLong(90909090909000L);
+        assertToStringAndHealth(fq, "<DecimalQuantity 0:0 long 90909090909E3>");
+        fq.setMinInteger(2);
+        fq.applyMaxInteger(5);
+        assertToStringAndHealth(fq, "<DecimalQuantity 2:0 long 9E3>");
+        fq.setMinFraction(3);
+        assertToStringAndHealth(fq, "<DecimalQuantity 2:-3 long 9E3>");
         fq.setToDouble(987.654321);
-        assertToStringAndHealth(fq, "<DecimalQuantity 5:2:-3:-6 long 987654321E-6>");
+        assertToStringAndHealth(fq, "<DecimalQuantity 2:-3 long 987654321E-6>");
         fq.roundToInfinity();
-        assertToStringAndHealth(fq, "<DecimalQuantity 5:2:-3:-6 long 987654321E-6>");
+        assertToStringAndHealth(fq, "<DecimalQuantity 2:-3 long 987654321E-6>");
         fq.roundToIncrement(new BigDecimal("0.005"), MATH_CONTEXT_HALF_EVEN);
-        assertToStringAndHealth(fq, "<DecimalQuantity 5:2:-3:-6 long 987655E-3>");
+        assertToStringAndHealth(fq, "<DecimalQuantity 2:-3 long 987655E-3>");
         fq.roundToMagnitude(-2, MATH_CONTEXT_HALF_EVEN);
-        assertToStringAndHealth(fq, "<DecimalQuantity 5:2:-3:-6 long 98766E-2>");
+        assertToStringAndHealth(fq, "<DecimalQuantity 2:-3 long 98766E-2>");
     }
 
     @Test
@@ -484,8 +500,7 @@ public class DecimalQuantityTest extends TestFmwk {
         Object[][] cases = new Object[][] {
             { "0", 0.0 },
             { "514.23", 514.23 },
-            // NOTE: This does not currently pass in Java. See DecimalFormat_AbstractBCD#toDecimal.
-            // { "-3.142E-271", -3.142e-271 }
+            { "-3.142E-271", -3.142e-271 }
         };
 
         for (Object[] cas : cases) {
@@ -503,15 +518,91 @@ public class DecimalQuantityTest extends TestFmwk {
     public void testMaxDigits() {
         DecimalQuantity_DualStorageBCD dq = new DecimalQuantity_DualStorageBCD(876.543);
         dq.roundToInfinity();
-        dq.setIntegerLength(0, 2);
-        dq.setFractionLength(0, 2);
+        dq.setMinInteger(0);
+        dq.applyMaxInteger(2);
+        dq.setMinFraction(0);
+        dq.roundToMagnitude(-2, RoundingUtils.mathContextUnlimited(RoundingMode.FLOOR));
         assertEquals("Should trim, toPlainString", "76.54", dq.toPlainString());
         assertEquals("Should trim, toScientificString", "7.654E+1", dq.toScientificString());
         assertEquals("Should trim, toLong", 76, dq.toLong(true));
         assertEquals("Should trim, toFractionLong", 54, dq.toFractionLong(false));
-        if (!logKnownIssue("13701", "consider cleaning up")) {
-            assertEquals("Should trim, toDouble", 76.54, dq.toDouble());
-            assertEquals("Should trim, toBigDecimal", new BigDecimal("76.54"), dq.toBigDecimal());
+        assertEquals("Should trim, toDouble", 76.54, dq.toDouble());
+        assertEquals("Should trim, toBigDecimal", new BigDecimal("76.54"), dq.toBigDecimal());
+    }
+
+    @Test
+    public void testNickelRounding() {
+        Object[][] cases = new Object[][] {
+            {1.000, -2, RoundingMode.HALF_EVEN, "1."},
+            {1.001, -2, RoundingMode.HALF_EVEN, "1."},
+            {1.010, -2, RoundingMode.HALF_EVEN, "1."},
+            {1.020, -2, RoundingMode.HALF_EVEN, "1."},
+            {1.024, -2, RoundingMode.HALF_EVEN, "1."},
+            {1.025, -2, RoundingMode.HALF_EVEN, "1."},
+            {1.025, -2, RoundingMode.HALF_DOWN, "1."},
+            {1.025, -2, RoundingMode.HALF_UP,   "1.05"},
+            {1.026, -2, RoundingMode.HALF_EVEN, "1.05"},
+            {1.030, -2, RoundingMode.HALF_EVEN, "1.05"},
+            {1.040, -2, RoundingMode.HALF_EVEN, "1.05"},
+            {1.050, -2, RoundingMode.HALF_EVEN, "1.05"},
+            {1.060, -2, RoundingMode.HALF_EVEN, "1.05"},
+            {1.070, -2, RoundingMode.HALF_EVEN, "1.05"},
+            {1.074, -2, RoundingMode.HALF_EVEN, "1.05"},
+            {1.075, -2, RoundingMode.HALF_DOWN, "1.05"},
+            {1.075, -2, RoundingMode.HALF_UP,   "1.1"},
+            {1.075, -2, RoundingMode.HALF_EVEN, "1.1"},
+            {1.076, -2, RoundingMode.HALF_EVEN, "1.1"},
+            {1.080, -2, RoundingMode.HALF_EVEN, "1.1"},
+            {1.090, -2, RoundingMode.HALF_EVEN, "1.1"},
+            {1.099, -2, RoundingMode.HALF_EVEN, "1.1"},
+            {1.999, -2, RoundingMode.HALF_EVEN, "2."},
+            {2.25, -1, RoundingMode.HALF_EVEN, "2."},
+            {2.25, -1, RoundingMode.HALF_UP,   "2.5"},
+            {2.75, -1, RoundingMode.HALF_DOWN, "2.5"},
+            {2.75, -1, RoundingMode.HALF_EVEN, "3."},
+            {3.00, -1, RoundingMode.CEILING, "3."},
+            {3.25, -1, RoundingMode.CEILING, "3.5"},
+            {3.50, -1, RoundingMode.CEILING, "3.5"},
+            {3.75, -1, RoundingMode.CEILING, "4."},
+            {4.00, -1, RoundingMode.FLOOR, "4."},
+            {4.25, -1, RoundingMode.FLOOR, "4."},
+            {4.50, -1, RoundingMode.FLOOR, "4.5"},
+            {4.75, -1, RoundingMode.FLOOR, "4.5"},
+            {5.00, -1, RoundingMode.UP, "5."},
+            {5.25, -1, RoundingMode.UP, "5.5"},
+            {5.50, -1, RoundingMode.UP, "5.5"},
+            {5.75, -1, RoundingMode.UP, "6."},
+            {6.00, -1, RoundingMode.DOWN, "6."},
+            {6.25, -1, RoundingMode.DOWN, "6."},
+            {6.50, -1, RoundingMode.DOWN, "6.5"},
+            {6.75, -1, RoundingMode.DOWN, "6.5"},
+            {7.00, -1, RoundingMode.UNNECESSARY, "7."},
+            {7.50, -1, RoundingMode.UNNECESSARY, "7.5"},
+        };
+        for (Object[] cas : cases) {
+            double input = (Double) cas[0];
+            int magnitude = (Integer) cas[1];
+            RoundingMode roundingMode = (RoundingMode) cas[2];
+            String expected = (String) cas[3];
+            String message = input + " @ " + magnitude + " / " + roundingMode;
+            for (int i=0; i<2; i++) {
+                DecimalQuantity dq;
+                if (i == 0) {
+                    dq = new DecimalQuantity_DualStorageBCD(input);
+                } else {
+                    dq = new DecimalQuantity_SimpleStorage(input);
+                }
+                dq.roundToNickel(magnitude, RoundingUtils.mathContextUnlimited(roundingMode));
+                String actual = dq.toPlainString();
+                assertEquals(message, expected, actual);
+            }
+        }
+        try {
+            DecimalQuantity_DualStorageBCD dq = new DecimalQuantity_DualStorageBCD(7.1);
+            dq.roundToNickel(-1, RoundingUtils.mathContextUnlimited(RoundingMode.UNNECESSARY));
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException expected) {
+            // pass
         }
     }
 

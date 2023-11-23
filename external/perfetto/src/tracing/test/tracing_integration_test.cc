@@ -17,29 +17,30 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-#include "perfetto/base/temp_file.h"
-#include "perfetto/tracing/core/consumer.h"
+#include "perfetto/ext/base/temp_file.h"
+#include "perfetto/ext/tracing/core/consumer.h"
+#include "perfetto/ext/tracing/core/producer.h"
+#include "perfetto/ext/tracing/core/trace_packet.h"
+#include "perfetto/ext/tracing/core/trace_stats.h"
+#include "perfetto/ext/tracing/core/trace_writer.h"
+#include "perfetto/ext/tracing/ipc/consumer_ipc_client.h"
+#include "perfetto/ext/tracing/ipc/producer_ipc_client.h"
+#include "perfetto/ext/tracing/ipc/service_ipc_host.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
-#include "perfetto/tracing/core/producer.h"
 #include "perfetto/tracing/core/trace_config.h"
-#include "perfetto/tracing/core/trace_packet.h"
-#include "perfetto/tracing/core/trace_stats.h"
-#include "perfetto/tracing/core/trace_writer.h"
-#include "perfetto/tracing/ipc/consumer_ipc_client.h"
-#include "perfetto/tracing/ipc/producer_ipc_client.h"
-#include "perfetto/tracing/ipc/service_ipc_host.h"
 #include "src/base/test/test_task_runner.h"
 #include "src/ipc/test/test_socket.h"
 #include "src/tracing/core/tracing_service_impl.h"
+#include "test/gtest_and_gmock.h"
 
-#include "perfetto/config/trace_config.pb.h"
-#include "perfetto/trace/test_event.pbzero.h"
-#include "perfetto/trace/trace.pb.h"
-#include "perfetto/trace/trace_packet.pb.h"
-#include "perfetto/trace/trace_packet.pbzero.h"
+#include "protos/perfetto/config/trace_config.gen.h"
+#include "protos/perfetto/trace/clock_snapshot.gen.h"
+#include "protos/perfetto/trace/test_event.gen.h"
+#include "protos/perfetto/trace/test_event.pbzero.h"
+#include "protos/perfetto/trace/trace.gen.h"
+#include "protos/perfetto/trace/trace_packet.gen.h"
+#include "protos/perfetto/trace/trace_packet.pbzero.h"
 
 namespace perfetto {
 namespace {
@@ -92,7 +93,7 @@ class MockConsumer : public Consumer {
   }
 };
 
-void CheckTraceStats(const protos::TracePacket& packet) {
+void CheckTraceStats(const protos::gen::TracePacket& packet) {
   EXPECT_TRUE(packet.has_trace_stats());
   EXPECT_GE(packet.trace_stats().producers_seen(), 1u);
   EXPECT_EQ(1u, packet.trace_stats().producers_connected());
@@ -101,7 +102,7 @@ void CheckTraceStats(const protos::TracePacket& packet) {
   EXPECT_EQ(1u, packet.trace_stats().total_buffers());
   EXPECT_EQ(1, packet.trace_stats().buffer_stats_size());
 
-  const auto& buf_stats = packet.trace_stats().buffer_stats(0);
+  const auto& buf_stats = packet.trace_stats().buffer_stats()[0];
   EXPECT_GT(buf_stats.bytes_written(), 0u);
   EXPECT_GT(buf_stats.chunks_written(), 0u);
   EXPECT_EQ(0u, buf_stats.chunks_overwritten());
@@ -239,14 +240,13 @@ TEST_F(TracingIntegrationTest, WithIPCTransport) {
   // Store the arguments passed to SetupDataSource() and later check that they
   // match the ones passed to StartDataSource().
   DataSourceInstanceID setup_id;
-  perfetto::protos::DataSourceConfig setup_cfg_proto;
+  DataSourceConfig setup_cfg_proto;
   EXPECT_CALL(producer_, SetupDataSource(_, _))
       .WillOnce(
           Invoke([&setup_id, &setup_cfg_proto](DataSourceInstanceID id,
                                                const DataSourceConfig& cfg) {
-
             setup_id = id;
-            cfg.ToProto(&setup_cfg_proto);
+            setup_cfg_proto = cfg;
           }));
   EXPECT_CALL(producer_, StartDataSource(_, _))
       .WillOnce(
@@ -255,11 +255,7 @@ TEST_F(TracingIntegrationTest, WithIPCTransport) {
                                     const DataSourceConfig& cfg) {
             // id and config should match the ones passed to SetupDataSource.
             ASSERT_EQ(id, setup_id);
-            perfetto::protos::DataSourceConfig cfg_proto;
-            cfg.ToProto(&cfg_proto);
-            ASSERT_EQ(cfg_proto.SerializeAsString(),
-                      setup_cfg_proto.SerializeAsString());
-
+            ASSERT_EQ(setup_cfg_proto, cfg);
             ASSERT_NE(0u, id);
             ds_iid = id;
             ASSERT_EQ("perfetto.test", cfg.name());
@@ -308,8 +304,9 @@ TEST_F(TracingIntegrationTest, WithIPCTransport) {
 #endif
 
             for (auto& encoded_packet : *packets) {
-              protos::TracePacket packet;
-              ASSERT_TRUE(encoded_packet.Decode(&packet));
+              protos::gen::TracePacket packet;
+              ASSERT_TRUE(packet.ParseFromString(
+                  encoded_packet.GetRawBytesForTesting()));
               if (packet.has_for_testing()) {
                 char buf[8];
                 sprintf(buf, "evt_%zu", num_pack_rx++);
@@ -319,22 +316,7 @@ TEST_F(TracingIntegrationTest, WithIPCTransport) {
                           kExpectedMinNumberOfClocks);
                 saw_clock_snapshot = true;
               } else if (packet.has_trace_config()) {
-                protos::TraceConfig config_proto;
-                trace_config.ToProto(&config_proto);
-                Slice expected_slice = Slice::Allocate(
-                    static_cast<size_t>(config_proto.ByteSize()));
-                config_proto.SerializeWithCachedSizesToArray(
-                    expected_slice.own_data());
-                Slice actual_slice = Slice::Allocate(
-                    static_cast<size_t>(packet.trace_config().ByteSize()));
-                packet.trace_config().SerializeWithCachedSizesToArray(
-                    actual_slice.own_data());
-                EXPECT_EQ(std::string(reinterpret_cast<const char*>(
-                                          expected_slice.own_data()),
-                                      expected_slice.size),
-                          std::string(reinterpret_cast<const char*>(
-                                          actual_slice.own_data()),
-                                      actual_slice.size));
+                EXPECT_EQ(packet.trace_config(), trace_config);
                 saw_trace_config = true;
               } else if (packet.has_trace_stats()) {
                 saw_trace_stats = true;
@@ -417,14 +399,14 @@ TEST_F(TracingIntegrationTest, WriteIntoFile) {
   char tmp_buf[1024];
   ssize_t rsize = read(tmp_file.fd(), tmp_buf, sizeof(tmp_buf));
   ASSERT_GT(rsize, 0);
-  protos::Trace tmp_trace;
-  ASSERT_TRUE(tmp_trace.ParseFromArray(tmp_buf, static_cast<int>(rsize)));
+  protos::gen::Trace tmp_trace;
+  ASSERT_TRUE(tmp_trace.ParseFromArray(tmp_buf, static_cast<size_t>(rsize)));
   size_t num_test_packet = 0;
   size_t num_clock_snapshot_packet = 0;
   size_t num_system_info_packet = 0;
   bool saw_trace_stats = false;
   for (int i = 0; i < tmp_trace.packet_size(); i++) {
-    const protos::TracePacket& packet = tmp_trace.packet(i);
+    const auto& packet = tmp_trace.packet()[static_cast<size_t>(i)];
     if (packet.has_for_testing()) {
       ASSERT_EQ("evt_" + std::to_string(num_test_packet++),
                 packet.for_testing().str());
@@ -516,8 +498,9 @@ TEST_F(TracingIntegrationTestWithSMBScrapingProducer, ScrapeOnFlush) {
           Invoke([&num_test_pack_rx, all_packets_rx](
                      std::vector<TracePacket>* packets, bool has_more) {
             for (auto& encoded_packet : *packets) {
-              protos::TracePacket packet;
-              ASSERT_TRUE(encoded_packet.Decode(&packet));
+              protos::gen::TracePacket packet;
+              ASSERT_TRUE(packet.ParseFromString(
+                  encoded_packet.GetRawBytesForTesting()));
               if (packet.has_for_testing()) {
                 num_test_pack_rx++;
               }
@@ -526,7 +509,7 @@ TEST_F(TracingIntegrationTestWithSMBScrapingProducer, ScrapeOnFlush) {
               all_packets_rx();
           }));
   task_runner_->RunUntilCheckpoint("all_packets_rx");
-  ASSERT_EQ(2, num_test_pack_rx);
+  ASSERT_EQ(2u, num_test_pack_rx);
 
   // Disable tracing.
   consumer_endpoint_->DisableTracing();

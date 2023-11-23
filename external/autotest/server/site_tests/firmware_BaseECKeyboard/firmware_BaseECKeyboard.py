@@ -79,7 +79,7 @@ class firmware_BaseECKeyboard(FirmwareTest):
     def keyboard_checker(self):
         """Press 'd', Ctrl, ENTER by servo and check from DUT."""
 
-        def keypress():
+        def keypress(): # pylint:disable=missing-docstring
             self.servo.enter_key()
             self.servo.ctrl_d()
 
@@ -112,6 +112,7 @@ class firmware_BaseECKeyboard(FirmwareTest):
 
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.base_ec:
             raise error.TestError('The base not found on servo. Wrong setup?')
 

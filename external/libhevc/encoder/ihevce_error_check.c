@@ -330,7 +330,6 @@ WORD32 ihevce_hle_validate_static_params(ihevce_static_cfg_params_t *ps_static_c
             PRINTF(ps_sys_api->pv_cb_handle, i4_res_id, i4_br_id, "IHEVCE : i4_rate_control_mode %d \n", ps_static_cfg_prms->s_config_prms.i4_rate_control_mode);
             PRINTF(ps_sys_api->pv_cb_handle, i4_res_id, i4_br_id, "IHEVCE : i4_cu_level_rc %d \n", ps_static_cfg_prms->s_config_prms.i4_cu_level_rc);
             PRINTF(ps_sys_api->pv_cb_handle, i4_res_id, i4_br_id, "IHEVCE : i4_pass %d \n", ps_static_cfg_prms->s_pass_prms.i4_pass);
-            PRINTF(ps_sys_api->pv_cb_handle, i4_res_id, i4_br_id, "IHEVCE : i4_rate_factor %d \n", ps_static_cfg_prms->s_config_prms.i4_rate_factor);
             PRINTF(ps_sys_api->pv_cb_handle, i4_res_id, i4_br_id, "IHEVCE : i4_vbr_max_peak_rate_dur %d \n", ps_static_cfg_prms->s_config_prms.i4_vbr_max_peak_rate_dur);
             PRINTF(ps_sys_api->pv_cb_handle, i4_res_id, i4_br_id, "IHEVCE : i4_init_vbv_fullness %d \n", ps_static_cfg_prms->s_config_prms.i4_init_vbv_fullness);
             PRINTF(ps_sys_api->pv_cb_handle, i4_res_id, i4_br_id, "IHEVCE : i4_stuffing_enable %d \n", ps_static_cfg_prms->s_config_prms.i4_stuffing_enable);
@@ -1191,8 +1190,8 @@ WORD32 ihevce_hle_validate_static_params(ihevce_static_cfg_params_t *ps_static_c
             if(tgt_bitrate >
                    g_as_level_data[codec_level_index]
                            .i4_max_bit_rate[ps_static_cfg_prms->s_out_strm_prms.i4_codec_tier] *
-                       1000 ||
-               tgt_bitrate <= 0)
+                       CBP_VCL_FACTOR ||
+               tgt_bitrate < 4000)
             {
                 error_code = IHEVCE_BITRATE_NOT_SUPPORTED;
                 ps_sys_api->ihevce_printf(

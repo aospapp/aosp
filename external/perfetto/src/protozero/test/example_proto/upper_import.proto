@@ -15,8 +15,7 @@
  */
 
 syntax = "proto2";
-option optimize_for = LITE_RUNTIME;
 
-package foo.bar;
+package protozero.test.protos;
 
 message TrickyPublicImport {}

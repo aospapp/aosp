@@ -7,6 +7,7 @@
 #include <inttypes.h>
 
 #include <algorithm>
+#include <iterator>
 #include <set>
 #include <string>
 #include <vector>
@@ -176,16 +177,24 @@ bool LocateDeflatesInZlibBlocks(const string& file_path,
   return true;
 }
 
+namespace {
 // For more information about gzip format, refer to RFC 1952 located at:
 // https://www.ietf.org/rfc/rfc1952.txt
+bool IsValidGzipHeader(const uint8_t* header, size_t size) {
+  // Each gzip entry has the following format magic header:
+  // 0      1     0x1F
+  // 1      1     0x8B
+  // 2      1     compression method (8 denotes deflate)
+  static const uint8_t magic[] = {0x1F, 0x8B, 8};
+  return size >= 10 && std::equal(std::begin(magic), std::end(magic), header);
+}
+}  // namespace
+
 bool LocateDeflatesInGzip(const Buffer& data, vector<BitExtent>* deflates) {
+  TEST_AND_RETURN_FALSE(IsValidGzipHeader(data.data(), data.size()));
   uint64_t member_start = 0;
-  while (member_start + 10 <= data.size() && data[member_start + 0] == 0x1F &&
-         data[member_start + 1] == 0x8B && data[member_start + 2] == 8) {
-    // Each member entry has the following format
-    // 0      1     0x1F
-    // 1      1     0x8B
-    // 2      1     compression method (8 denotes deflate)
+  do {
+    // After the magic header, the gzip contains:
     // 3      1     set of flags
     // 4      4     modification time
     // 8      1     extra flags
@@ -234,9 +243,8 @@ bool LocateDeflatesInGzip(const Buffer& data, vector<BitExtent>* deflates) {
     TEST_AND_RETURN_FALSE(offset + 8 <= data.size());
     offset += 8;
     member_start = offset;
-  }
-  // Return true if we've successfully parsed at least one gzip.
-  return member_start != 0;
+  } while (IsValidGzipHeader(&data[member_start], data.size() - member_start));
+  return true;
 }
 
 // For more information about the zip format, refer to
@@ -244,7 +252,7 @@ bool LocateDeflatesInGzip(const Buffer& data, vector<BitExtent>* deflates) {
 bool LocateDeflatesInZipArchive(const Buffer& data,
                                 vector<BitExtent>* deflates) {
   uint64_t pos = 0;
-  while (pos <= data.size() - 30) {
+  while (pos + 30 <= data.size()) {
     // TODO(xunchang) add support for big endian system when searching for
     // magic numbers.
     if (get_unaligned<uint32_t>(data.data() + pos) != 0x04034b50) {

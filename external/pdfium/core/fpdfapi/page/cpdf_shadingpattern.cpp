@@ -15,12 +15,12 @@
 #include "core/fpdfapi/parser/cpdf_document.h"
 #include "core/fpdfapi/parser/cpdf_object.h"
 #include "core/fpdfapi/parser/cpdf_stream.h"
+#include "core/fxcrt/fx_safe_types.h"
 
 namespace {
 
 ShadingType ToShadingType(int type) {
-  return (type > static_cast<int>(kInvalidShading) &&
-          type < static_cast<int>(kMaxShading))
+  return (type > kInvalidShading && type < kMaxShading)
              ? static_cast<ShadingType>(type)
              : kInvalidShading;
 }
@@ -31,33 +31,13 @@ CPDF_ShadingPattern::CPDF_ShadingPattern(CPDF_Document* pDoc,
                                          CPDF_Object* pPatternObj,
                                          bool bShading,
                                          const CFX_Matrix& parentMatrix)
-    : CPDF_Pattern(pDoc, bShading ? nullptr : pPatternObj, parentMatrix),
-      m_ShadingType(kInvalidShading),
-      m_bShadingObj(bShading),
-      m_pShadingObj(pPatternObj),
-      m_pCS(nullptr),
-      m_pCountedCS(nullptr) {
-  assert(document());
-  if (!bShading) {
-    m_pShadingObj = pattern_obj()->GetDict()->GetDirectObjectFor("Shading");
+    : CPDF_Pattern(pDoc, pPatternObj, parentMatrix), m_bShading(bShading) {
+  ASSERT(document());
+  if (!bShading)
     SetPatternToFormMatrix();
-  }
 }
 
-CPDF_ShadingPattern::~CPDF_ShadingPattern() {
-  CPDF_ColorSpace* pCountedCS = m_pCountedCS ? m_pCountedCS->get() : nullptr;
-  if (pCountedCS) {
-    auto* pPageData = document()->GetPageData();
-    if (pPageData) {
-      m_pCS.Release();  // Give up unowned reference first.
-      pPageData->ReleaseColorSpace(pCountedCS->GetArray());
-    }
-  }
-}
-
-CPDF_TilingPattern* CPDF_ShadingPattern::AsTilingPattern() {
-  return nullptr;
-}
+CPDF_ShadingPattern::~CPDF_ShadingPattern() = default;
 
 CPDF_ShadingPattern* CPDF_ShadingPattern::AsShadingPattern() {
   return this;
@@ -67,27 +47,28 @@ bool CPDF_ShadingPattern::Load() {
   if (m_ShadingType != kInvalidShading)
     return true;
 
-  CPDF_Dictionary* pShadingDict =
-      m_pShadingObj ? m_pShadingObj->GetDict() : nullptr;
+  const CPDF_Object* pShadingObj = GetShadingObject();
+  const CPDF_Dictionary* pShadingDict =
+      pShadingObj ? pShadingObj->GetDict() : nullptr;
   if (!pShadingDict)
     return false;
 
   m_pFunctions.clear();
-  CPDF_Object* pFunc = pShadingDict->GetDirectObjectFor("Function");
+  const CPDF_Object* pFunc = pShadingDict->GetDirectObjectFor("Function");
   if (pFunc) {
-    if (CPDF_Array* pArray = pFunc->AsArray()) {
-      m_pFunctions.resize(std::min<size_t>(pArray->GetCount(), 4));
+    if (const CPDF_Array* pArray = pFunc->AsArray()) {
+      m_pFunctions.resize(std::min<size_t>(pArray->size(), 4));
       for (size_t i = 0; i < m_pFunctions.size(); ++i)
         m_pFunctions[i] = CPDF_Function::Load(pArray->GetDirectObjectAt(i));
     } else {
       m_pFunctions.push_back(CPDF_Function::Load(pFunc));
     }
   }
-  CPDF_Object* pCSObj = pShadingDict->GetDirectObjectFor("ColorSpace");
+  const CPDF_Object* pCSObj = pShadingDict->GetDirectObjectFor("ColorSpace");
   if (!pCSObj)
     return false;
 
-  CPDF_DocPageData* pDocPageData = document()->GetPageData();
+  auto* pDocPageData = CPDF_DocPageData::FromDocument(document());
   m_pCS = pDocPageData->GetColorSpace(pCSObj, nullptr);
 
   // The color space is required and cannot be a Pattern space, according to the
@@ -95,11 +76,13 @@ bool CPDF_ShadingPattern::Load() {
   if (!m_pCS || m_pCS->GetFamily() == PDFCS_PATTERN)
     return false;
 
-  m_pCountedCS = pDocPageData->FindColorSpacePtr(m_pCS->GetArray());
-
   m_ShadingType = ToShadingType(pShadingDict->GetIntegerFor("ShadingType"));
-
   return Validate();
+}
+
+const CPDF_Object* CPDF_ShadingPattern::GetShadingObject() const {
+  return m_bShading ? pattern_obj()
+                    : pattern_obj()->GetDict()->GetDirectObjectFor("Shading");
 }
 
 bool CPDF_ShadingPattern::Validate() const {
@@ -107,7 +90,7 @@ bool CPDF_ShadingPattern::Validate() const {
     return false;
 
   // We expect to have a stream if our shading type is a mesh.
-  if (IsMeshShading() && !ToStream(m_pShadingObj.Get()))
+  if (IsMeshShading() && !ToStream(GetShadingObject()))
     return false;
 
   // Validate color space
@@ -137,39 +120,29 @@ bool CPDF_ShadingPattern::Validate() const {
   switch (m_ShadingType) {
     case kFunctionBasedShading: {
       // Either one 2-to-N function or N 2-to-1 functions.
-      if (!ValidateFunctions(1, 2, nNumColorSpaceComponents) &&
-          !ValidateFunctions(nNumColorSpaceComponents, 2, 1)) {
-        return false;
-      }
-      break;
+      return ValidateFunctions(1, 2, nNumColorSpaceComponents) ||
+             ValidateFunctions(nNumColorSpaceComponents, 2, 1);
     }
     case kAxialShading:
     case kRadialShading: {
       // Either one 1-to-N function or N 1-to-1 functions.
-      if (!ValidateFunctions(1, 1, nNumColorSpaceComponents) &&
-          !ValidateFunctions(nNumColorSpaceComponents, 1, 1)) {
-        return false;
-      }
-      break;
+      return ValidateFunctions(1, 1, nNumColorSpaceComponents) ||
+             ValidateFunctions(nNumColorSpaceComponents, 1, 1);
     }
     case kFreeFormGouraudTriangleMeshShading:
     case kLatticeFormGouraudTriangleMeshShading:
     case kCoonsPatchMeshShading:
     case kTensorProductPatchMeshShading: {
       // Either no function, one 1-to-N function, or N 1-to-1 functions.
-      if (!m_pFunctions.empty() &&
-          !ValidateFunctions(1, 1, nNumColorSpaceComponents) &&
-          !ValidateFunctions(nNumColorSpaceComponents, 1, 1)) {
-        return false;
-      }
+      return m_pFunctions.empty() ||
+             ValidateFunctions(1, 1, nNumColorSpaceComponents) ||
+             ValidateFunctions(nNumColorSpaceComponents, 1, 1);
+    }
+    default:
       break;
-    }
-    default: {
-      NOTREACHED();
-      return false;
-    }
   }
-  return true;
+  NOTREACHED();
+  return false;
 }
 
 bool CPDF_ShadingPattern::ValidateFunctions(
@@ -179,7 +152,7 @@ bool CPDF_ShadingPattern::ValidateFunctions(
   if (m_pFunctions.size() != nExpectedNumFunctions)
     return false;
 
-  pdfium::base::CheckedNumeric<uint32_t> nTotalOutputs = 0;
+  FX_SAFE_UINT32 nTotalOutputs = 0;
   for (const auto& function : m_pFunctions) {
     if (!function)
       return false;

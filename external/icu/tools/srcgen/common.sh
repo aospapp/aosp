@@ -74,7 +74,8 @@ TEST_INPUT_DIRS="\
     ${TEST_INPUT_DIR}/framework/src \
     ${TEST_INPUT_DIR}/translit/src \
     ${TEST_INPUT_DIR}/core/src \
-    ${TEST_INPUT_DIR}/packaging/src"
+    ${TEST_INPUT_DIR}/packaging/src \
+    ${ICU4J_DIR}/tools/misc/src/com/ibm/icu/dev/tool/locale"
 
 # Allow override of the java runtime to avoid http://b/27775477
 SRCGEN_JAVA_BINARY=${SRCGEN_JAVA_BINARY:-java}

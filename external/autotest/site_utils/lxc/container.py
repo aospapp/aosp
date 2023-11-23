@@ -22,7 +22,7 @@ try:
 except ImportError:
     metrics = utils.metrics_mock
 
-from chromite.lib import constants as chromite_constants
+ISOLATESERVER = 'https://isolateserver.appspot.com'
 
 # Naming convention of test container, e.g., test_300_1422862512_2424, where:
 # 300:        The test job ID.
@@ -171,13 +171,8 @@ class Container(object):
                 # container quite frequently, and emitting exceptions here would
                 # cause any invalid containers on a server to block all
                 # ContainerBucket.get_all calls (see crbug/783865).
-                # TODO(kenobi): Containers with invalid ID files are probably
-                # the result of an aborted or failed operation.  There is a
-                # non-zero chance that such containers would contain leftover
-                # state, or themselves be corrupted or invalid.  Should we
-                # provide APIs for checking if a container is in this state?
-                logging.exception('Error loading ID for container %s:',
-                                  self.name)
+                logging.warning('Unable to determine ID for container %s:',
+                                self.name)
                 self._id = None
 
         if not Container._LXC_VERSION:
@@ -369,7 +364,8 @@ class Container(object):
             utils.poll_for_condition(
                 condition=self.is_network_up,
                 timeout=constants.NETWORK_INIT_TIMEOUT,
-                sleep_interval=constants.NETWORK_INIT_CHECK_INTERVAL)
+                sleep_interval=constants.NETWORK_INIT_CHECK_INTERVAL,
+                desc='network is up')
             logging.debug('Network is up after %.2f seconds.',
                           time.time() - start_time)
 
@@ -406,11 +402,7 @@ class Container(object):
         logging.debug('Destroying container %s/%s',
                       self.container_path,
                       self.name)
-        cmd = 'sudo lxc-destroy -P %s -n %s' % (self.container_path,
-                                                self.name)
-        if force:
-            cmd += ' -f'
-        utils.run(cmd)
+        lxc_utils.destroy(self.container_path, self.name, force=force)
 
 
     def mount_dir(self, source, destination, readonly=False):
@@ -553,7 +545,7 @@ class Container(object):
 
         return utils.run(_command.format(
             sha=isolate_hash, dest_dir=dest_path,
-            log_file=log_file, server=chromite_constants.ISOLATESERVER))
+            log_file=log_file, server=ISOLATESERVER))
 
 
     def install_control_file(self, control_file):

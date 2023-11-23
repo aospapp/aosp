@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*-coding:utf-8 -*
 
 # Copyright (c) 2011-2014, Intel Corporation
@@ -33,7 +33,7 @@
 
 import re
 import sys
-import copy
+
 # For Python 2.x/3.x compatibility
 try:
     from itertools import izip as zip
@@ -45,68 +45,68 @@ except:
 """ Context classes, used during propagation and the "to PFW script" step """
 # =====================================================================
 
-class PropagationContextItem(list) :
+class PropagationContextItem(list):
     """Handle an item during the propagation step"""
     def __copy__(self):
         """C.__copy__() -> a shallow copy of C"""
         return self.__class__(self)
 
-class PropagationContextElement(PropagationContextItem) :
+class PropagationContextElement(PropagationContextItem):
     """Handle an Element during the propagation step"""
     def getElementsFromName(self, name):
         matchingElements = []
-        for element in self :
-            if element.getName() == name :
+        for element in self:
+            if element.getName() == name:
                 matchingElements.append(element)
         return matchingElements
 
 
-class PropagationContextOption(PropagationContextItem) :
+class PropagationContextOption(PropagationContextItem):
     """Handle an Option during the propagation step"""
-    def getOptionItems (self, itemName):
+    def getOptionItems(self, itemName):
         items = []
-        for options in self :
+        for options in self:
             items.append(options.getOption(itemName))
         return items
 
 
-class PropagationContext() :
+class PropagationContext():
     """Handle the context during the propagation step"""
-    def __init__(self, propagationContext=None) :
+    def __init__(self, propagationContext=None):
 
-        if propagationContext == None :
+        if propagationContext == None:
             self._context = {
-                "DomainOptions" : PropagationContextOption() ,
-                "Configurations" : PropagationContextElement() ,
-                "ConfigurationOptions" : PropagationContextOption() ,
-                "Rules" : PropagationContextElement() ,
-                "PathOptions" : PropagationContextOption() ,
-        }
-        else :
+                "DomainOptions" : PropagationContextOption(),
+                "Configurations" : PropagationContextElement(),
+                "ConfigurationOptions" : PropagationContextOption(),
+                "Rules" : PropagationContextElement(),
+                "PathOptions" : PropagationContextOption(),
+            }
+        else:
             self._context = propagationContext
 
     def copy(self):
         """return a copy of the context"""
         contextCopy = self._context.copy()
 
-        for key in iter(self._context) :
+        for key in iter(self._context):
             contextCopy[key] = contextCopy[key].__copy__()
 
         return self.__class__(contextCopy)
 
-    def getDomainOptions (self):
+    def getDomainOptions(self):
         return self._context["DomainOptions"]
 
-    def getConfigurations (self):
+    def getConfigurations(self):
         return self._context["Configurations"]
 
-    def getConfigurationOptions (self):
+    def getConfigurationOptions(self):
         return self._context["ConfigurationOptions"]
 
-    def getRules (self):
+    def getRules(self):
         return self._context["Rules"]
 
-    def getPathOptions (self):
+    def getPathOptions(self):
         return self._context["PathOptions"]
 
 
@@ -114,16 +114,16 @@ class PropagationContext() :
 """Element option container"""
 # =====================================================
 
-class Options () :
+class Options():
     """handle element options"""
-    def __init__(self, options=[], optionNames=[]) :
+    def __init__(self, options=[], optionNames=[]):
         self.options = dict(zip(optionNames, options))
         # print(options,optionNames,self.options)
 
 
-    def __str__(self) :
+    def __str__(self):
         ops2str = []
-        for name, argument in list(self.options.items()) :
+        for name, argument in list(self.options.items()):
             ops2str.append(str(name) + "=\"" + str(argument) + "\"")
 
         return " ".join(ops2str)
@@ -136,7 +136,7 @@ class Options () :
         """set option by its name"""
         self.options[name] = newOption
 
-    def copy (self):
+    def copy(self):
         """D.copy() -> a shallow copy of D"""
         copy = Options()
         copy.options = self.options.copy()
@@ -155,16 +155,16 @@ class Element(object):
     childWhiteList = []
     optionDelimiter = " "
 
-    def __init__(self, line=None) :
+    def __init__(self, line=None):
 
-        if line == None :
+        if line == None:
             self.option = Options([], self.optionNames)
-        else :
+        else:
             self.option = self.optionFromLine(line)
 
         self.children = []
 
-    def optionFromLine(self, line) :
+    def optionFromLine(self, line):
         # get ride of spaces
         line = line.strip()
 
@@ -172,7 +172,7 @@ class Element(object):
 
         return Options(options, self.optionNames)
 
-    def extractOptions(self, line) :
+    def extractOptions(self, line):
         """return the line splited by the optionDelimiter atribute
 
         Option list length is less or equal to the optionNames list length
@@ -184,23 +184,23 @@ class Element(object):
 
         return optionsStrip
 
-    def addChild(self, child, append=True) :
+    def addChild(self, child, append=True):
         """ A.addChid(B) -> add B to A child list if B class name is in A white List"""
         try:
             # Will raise an exception if this child is not in the white list
             self.childWhiteList.index(child.__class__.__name__)
             # If no exception was raised, add child to child list
 
-            if append :
+            if append:
                 self.children.append(child)
-            else :
+            else:
                 self.children.insert(0, child)
 
         except ValueError:
             # the child class is not in the white list
             raise ChildNotPermitedError("", self, child)
 
-    def addChildren(self, children, append=True) :
+    def addChildren(self, children, append=True):
         """Add a list of child"""
         if append:
             # Add children at the end of the child list
@@ -212,32 +212,32 @@ class Element(object):
     def childrenToString(self, prefix=""):
         """return raw printed children """
         body = ""
-        for child in self.children :
+        for child in self.children:
             body = body + child.__str__(prefix)
 
         return body
 
-    def __str__(self, prefix="") :
+    def __str__(self, prefix=""):
         """return raw printed element"""
         selfToString = prefix + " " + self.tag + " " + str(self.option)
         return selfToString + "\n" + self.childrenToString(prefix + "\t")
 
-    def extractChildrenByClass(self, classTypeList) :
+    def extractChildrenByClass(self, classTypeList):
         """return all children whose class is in the list argument
 
         return a list of all children whose class in the list "classTypeList" (second arguments)"""
         selectedChildren = []
 
-        for child in  self.children :
-            for classtype in classTypeList :
-                if child.__class__ == classtype :
+        for child in  self.children:
+            for classtype in classTypeList:
+                if child.__class__ == classtype:
                     selectedChildren.append(child)
                     break
         return selectedChildren
 
-    def propagate (self, context=PropagationContext()):
+    def propagate(self, context=PropagationContext()):
         """call the propagate method of all children"""
-        for child in  self.children :
+        for child in  self.children:
             child.propagate(context)
 
     def getName(self):
@@ -253,9 +253,9 @@ class Element(object):
 
 # ----------------------------------------------------------
 
-class ElementWithTag (Element):
+class ElementWithTag(Element):
     """Element of this class are declared with a tag  => line == "tag: .*" """
-    def extractOptions(self, line) :
+    def extractOptions(self, line):
         lineWithoutTag = line.split(":", 1)[-1].strip()
         options = super(ElementWithTag, self).extractOptions(lineWithoutTag)
         return options
@@ -263,7 +263,7 @@ class ElementWithTag (Element):
 # ----------------------------------------------------------
 
 class ElementWithInheritance(Element):
-    def propagate (self, context=PropagationContext) :
+    def propagate(self, context=PropagationContext):
         """propagate some proprieties to children"""
 
         # copy the context so that everything that hapend next will only affect
@@ -297,15 +297,15 @@ class ElementWithRuleInheritance(ElementWithInheritance):
 
 # ----------------------------------------------------------
 
-class EmptyLine (Element) :
+class EmptyLine(Element):
     """This class represents an empty line.
 
     Will raise "EmptyLineWarning" exception at instanciation."""
 
     tag = "emptyLine"
     match = re.compile(r"[ \t]*\n?$").match
-    def __init__ (self, line):
-       raise EmptyLineWarning(line)
+    def __init__(self, line):
+        raise EmptyLineWarning(line)
 
 # ----------------------------------------------------------
 
@@ -317,12 +317,12 @@ class Commentary(Element):
     tag = "commentary"
     optionNames = ["comment"]
     match = re.compile(r"#").match
-    def __init__ (self, line):
-       raise CommentWarning(line)
+    def __init__(self, line):
+        raise CommentWarning(line)
 
 # ----------------------------------------------------------
 
-class Path (ElementWithInheritance) :
+class Path(ElementWithInheritance):
     """class implementing the "path = value" concept"""
     tag = "path"
     optionNames = ["Name", "value"]
@@ -332,34 +332,34 @@ class Path (ElementWithInheritance) :
     def translate(self, translator):
         translator.setParameter(self.getName(), self.option.getOption("value"))
 
-    def Inheritance (self, context) :
+    def Inheritance(self, context):
         """check for path name inheritance"""
         self.OptionsInheritance(context)
 
-    def OptionsInheritance (self, context) :
+    def OptionsInheritance(self, context):
         """make configuration name inheritance """
 
         context.getPathOptions().append(self.option.copy())
         self.setName("/".join(context.getPathOptions().getOptionItems("Name")))
 
 
-class GroupPath (Path, ElementWithTag) :
+class GroupPath(Path, ElementWithTag):
     tag = "component"
     match = re.compile(tag + r" *:").match
     optionNames = ["Name"]
     childWhiteList = ["Path", "GroupPath"]
 
-    def getPathNames (self) :
+    def getPathNames(self):
         """Return the list of all path child name"""
 
         pathNames = []
 
         paths = self.extractChildrenByClass([Path])
-        for path in paths :
+        for path in paths:
             pathNames.append(path.getName())
 
         groupPaths = self.extractChildrenByClass([GroupPath])
-        for groupPath in groupPaths :
+        for groupPath in groupPaths:
             pathNames += groupPath.getPathNames()
 
         return pathNames
@@ -370,7 +370,7 @@ class GroupPath (Path, ElementWithTag) :
 
 # ----------------------------------------------------------
 
-class Rule (Element) :
+class Rule(Element):
     """class implementing the rule concept
 
     A rule is composed of a criterion, a rule type and an criterion state.
@@ -382,7 +382,7 @@ class Rule (Element) :
     match = re.compile(r"[a-zA-Z0-9_.]+ +(Is|IsNot|Includes|Excludes) +[a-zA-Z0-9_.]+").match
     childWhiteList = []
 
-    def PFWSyntax (self, prefix=""):
+    def PFWSyntax(self, prefix=""):
 
         script = prefix + \
                     self.option.getOption("criterion") + " " + \
@@ -392,7 +392,7 @@ class Rule (Element) :
         return script
 
 
-class Operator (Rule) :
+class Operator(Rule):
     """class implementing the operator concept
 
     An operator contains rules and other operators
@@ -405,10 +405,11 @@ class Operator (Rule) :
     match = re.compile(r"ANY|ALL").match
     childWhiteList = ["Rule", "Operator"]
 
-    syntax = { "ANY" : "Any" , "ALL" : "All"}
+    syntax = {"ANY" : "Any", "ALL" : "All"}
 
-    def PFWSyntax (self, prefix=""):
-        """ return a pfw rule (ex : "Any{criterion1 is state1}") generated from "self" and its children options"""
+    def PFWSyntax(self, prefix=""):
+        """ return a pfw rule (ex : "Any{criterion1 is state1}") generated from "self" \
+        and its children options"""
         script = ""
 
         script += prefix + \
@@ -417,7 +418,7 @@ class Operator (Rule) :
         rules = self.extractChildrenByClass([Rule, Operator])
 
         PFWRules = []
-        for rule in rules :
+        for rule in rules:
             PFWRules.append(rule.PFWSyntax(prefix + "    "))
 
         script += (" , ").join(PFWRules)
@@ -428,13 +429,13 @@ class Operator (Rule) :
 
 # ----------------------------------------------------------
 
-class Configuration (ElementWithRuleInheritance, ElementWithTag) :
+class Configuration(ElementWithRuleInheritance, ElementWithTag):
     tag = "configuration"
     optionNames = ["Name"]
     match = re.compile(r"conf *:").match
     childWhiteList = ["Rule", "Operator", "Path", "GroupPath"]
 
-    def composition (self, context):
+    def composition(self, context):
         """make all needed composition
 
         Composition is the fact that group configuration with the same name defined
@@ -446,12 +447,12 @@ class Configuration (ElementWithRuleInheritance, ElementWithTag) :
 
         sameNameConf.reverse()
 
-        for configuration in sameNameConf :
+        for configuration in sameNameConf:
             # add same name configuration rule children to self child list
             self.addChildren(configuration.extractChildrenByClass([Operator, Rule]), append=False)
 
 
-    def propagate (self, context=PropagationContext) :
+    def propagate(self, context=PropagationContext):
         """propagate proprieties to children
 
         make needed compositions, join ancestor name to its name,
@@ -462,7 +463,7 @@ class Configuration (ElementWithRuleInheritance, ElementWithTag) :
 
         super(Configuration, self).propagate(context)
 
-    def Inheritance (self, context) :
+    def Inheritance(self, context):
         """make configuration name and rule inheritance"""
         # check for configuration name inheritance
         self.OptionsInheritance(context)
@@ -470,14 +471,14 @@ class Configuration (ElementWithRuleInheritance, ElementWithTag) :
         # check for rule inheritance
         self.ruleInheritance(context)
 
-    def OptionsInheritance (self, context) :
+    def OptionsInheritance(self, context):
         """make configuration name inheritance """
 
         context.getConfigurationOptions().append(self.option.copy())
         self.setName(".".join(context.getConfigurationOptions().getOptionItems("Name")))
 
 
-    def getRootPath (self) :
+    def getRootPath(self):
 
         paths = self.extractChildrenByClass([Path, GroupPath])
 
@@ -486,7 +487,7 @@ class Configuration (ElementWithRuleInheritance, ElementWithTag) :
 
         return rootPath
 
-    def getConfigurableElements (self) :
+    def getConfigurableElements(self):
         """return all path name defined in this configuration"""
 
         return self.getRootPath().getPathNames()
@@ -498,10 +499,10 @@ class Configuration (ElementWithRuleInheritance, ElementWithTag) :
         ruleChildren = self.extractChildrenByClass([Rule, Operator])
 
         # Do not create a root rule if there is only one fist level Operator rule
-        if len(ruleChildren) == 1 and ruleChildren[0].__class__ == Operator :
+        if len(ruleChildren) == 1 and ruleChildren[0].__class__ == Operator:
             ruleroot = ruleChildren[0]
 
-        else :
+        else:
             ruleroot = Operator()
             ruleroot.setName("ALL")
             ruleroot.addChildren(ruleChildren)
@@ -517,7 +518,7 @@ class Configuration (ElementWithRuleInheritance, ElementWithTag) :
         for path in paths:
             path.translate(translator)
 
-    def copy (self) :
+    def copy(self):
         """return a shallow copy of the configuration"""
 
         # create configuration or subclass copy
@@ -531,13 +532,13 @@ class Configuration (ElementWithRuleInheritance, ElementWithTag) :
 
         return confCopy
 
-class GroupConfiguration (Configuration) :
+class GroupConfiguration(Configuration):
     tag = "GroupConfiguration"
     optionNames = ["Name"]
     match = re.compile(r"(supConf|confGroup|confType) *:").match
     childWhiteList = ["Rule", "Operator", "GroupConfiguration", "Configuration", "GroupPath"]
 
-    def composition (self, context) :
+    def composition(self, context):
         """add itself in context for configuration composition
 
         Composition is the fact that group configuration with the same name defined
@@ -554,7 +555,7 @@ class GroupConfiguration (Configuration) :
         context.getConfigurations().append(selfCopy)
 
 
-    def getConfigurableElements (self) :
+    def getConfigurableElements(self):
         """return a list. Each elements consist of a list of configurable element of a configuration
 
         return a list consisting of all configurable elements for each configuration.
@@ -562,11 +563,11 @@ class GroupConfiguration (Configuration) :
         configurableElements = []
 
         configurations = self.extractChildrenByClass([Configuration])
-        for configuration in configurations :
+        for configuration in configurations:
             configurableElements.append(configuration.getConfigurableElements())
 
         groudeConfigurations = self.extractChildrenByClass([GroupConfiguration])
-        for groudeConfiguration in groudeConfigurations :
+        for groudeConfiguration in groudeConfigurations:
             configurableElements += groudeConfiguration.getConfigurableElements()
 
         return configurableElements
@@ -577,7 +578,7 @@ class GroupConfiguration (Configuration) :
 
 # ----------------------------------------------------------
 
-class Domain (ElementWithRuleInheritance, ElementWithTag) :
+class Domain(ElementWithRuleInheritance, ElementWithTag):
     tag = "domain"
     sequenceAwareKeyword = "sequenceAware"
 
@@ -585,7 +586,7 @@ class Domain (ElementWithRuleInheritance, ElementWithTag) :
     optionNames = ["Name", sequenceAwareKeyword]
     childWhiteList = ["Configuration", "GroupConfiguration", "Rule", "Operator"]
 
-    def propagate (self, context=PropagationContext) :
+    def propagate(self, context=PropagationContext):
         """ propagate name, sequenceAwareness and rule to children"""
 
         # call the propagate method of all children
@@ -593,7 +594,7 @@ class Domain (ElementWithRuleInheritance, ElementWithTag) :
 
         self.checkConfigurableElementUnicity()
 
-    def Inheritance (self, context) :
+    def Inheritance(self, context):
         """check for domain name, sequence awarness and rules inheritance"""
         # check for domain name and sequence awarness inheritance
         self.OptionsInheritance(context)
@@ -601,7 +602,7 @@ class Domain (ElementWithRuleInheritance, ElementWithTag) :
         # check for rule inheritance
         self.ruleInheritance(context)
 
-    def OptionsInheritance(self, context) :
+    def OptionsInheritance(self, context):
         """ make domain name and sequence awareness inheritance
 
         join to the domain name all domain names defined in context and
@@ -617,13 +618,13 @@ class Domain (ElementWithRuleInheritance, ElementWithTag) :
         sequenceAwareList = context.getDomainOptions().getOptionItems(self.sequenceAwareKeyword)
         # or operation on all booleans in sequenceAwareList
         sequenceAwareness = False
-        for sequenceAware in sequenceAwareList :
+        for sequenceAware in sequenceAwareList:
             sequenceAwareness = sequenceAwareness or sequenceAware
         # current domain sequenceAwareness = sequenceAwareness
         self.option.setOption(self.sequenceAwareKeyword, sequenceAwareness)
 
 
-    def extractOptions(self, line) :
+    def extractOptions(self, line):
         """Extract options from the definition line"""
         options = super(Domain, self).extractOptions(line)
 
@@ -631,16 +632,16 @@ class Domain (ElementWithRuleInheritance, ElementWithTag) :
 
         # translate the keyword self.sequenceAwareKeyword if specified to boolean True,
         # to False otherwise
-        try :
-            if options[sequenceAwareIndex] == self.sequenceAwareKeyword :
-               options[sequenceAwareIndex] = True
+        try:
+            if options[sequenceAwareIndex] == self.sequenceAwareKeyword:
+                options[sequenceAwareIndex] = True
             else:
-               options[sequenceAwareIndex] = False
-        except IndexError :
+                options[sequenceAwareIndex] = False
+        except IndexError:
             options = options + [None] * (sequenceAwareIndex - len(options)) + [False]
         return options
 
-    def getRootConfiguration (self) :
+    def getRootConfiguration(self):
         """return the root configuration group"""
         configurations = self.extractChildrenByClass([Configuration, GroupConfiguration])
 
@@ -651,27 +652,28 @@ class Domain (ElementWithRuleInheritance, ElementWithTag) :
         return configurationRoot
 
     # TODO: don't do that in the parser, let the PFW tell you that
-    def checkConfigurableElementUnicity (self):
+    def checkConfigurableElementUnicity(self):
         """ check that all configurable elements defined in child configuration are the sames"""
 
         # get a list. Each elements of is the configurable element list of a configuration
         configurableElementsList = self.getRootConfiguration().getConfigurableElements()
 
         # if at least two configurations in the domain
-        if len(configurableElementsList) > 1 :
+        if len(configurableElementsList) > 1:
 
             # get first configuration configurable element list sort
             configurableElementsList0 = list(configurableElementsList[0])
             configurableElementsList0.sort()
 
-            for configurableElements in configurableElementsList :
+            for configurableElements in configurableElementsList:
                 # sort current configurable element list
                 auxConfigurableElements = list(configurableElements)
                 auxConfigurableElements.sort()
 
-                if auxConfigurableElements != configurableElementsList0 :
-                    # if different, 2 configurations those not have the same configurable element list
-                    # => one or more configurable element is missing in one of the 2 configuration
+                if auxConfigurableElements != configurableElementsList0:
+                    # if different, 2 configurations those not have the same configurable element
+                    # list => one or more configurable element is missing in one of the 2
+                    # configuration
                     raise UndefinedParameter(self.getName())
 
 
@@ -683,13 +685,13 @@ class Domain (ElementWithRuleInheritance, ElementWithTag) :
         configurableElementsList = configurations.getConfigurableElements()
 
         # add configurable elements
-        if len(configurableElementsList) != 0 :
-            for configurableElement in configurableElementsList[0] :
+        if len(configurableElementsList) != 0:
+            for configurableElement in configurableElementsList[0]:
                 translator.addElement(configurableElement)
 
         configurations.translate(translator)
 
-class GroupDomain (Domain) :
+class GroupDomain(Domain):
     tag = "groupDomain"
     match = re.compile(r"(supDomain|domainGroup) *:").match
     childWhiteList = ["GroupDomain", "Domain", "GroupConfiguration", "Rule", "Operator"]
@@ -709,7 +711,7 @@ class Root(Element):
 """ Syntax error Exceptions"""
 # ===========================================
 
-class MySyntaxProblems(SyntaxError) :
+class MySyntaxProblems(SyntaxError):
     comment = "syntax error in %(line)s "
 
     def __init__(self, line=None, num=None):
@@ -717,43 +719,43 @@ class MySyntaxProblems(SyntaxError) :
 
     def __str__(self):
 
-        if self.line :
+        if self.line:
             self.comment = self.comment % {"line" : repr(self.line)}
-        if self.num :
+        if self.num:
             self.comment = "Line " + str(self.num) + ", " + self.comment
         return self.comment
 
-    def setLine (self, line, num):
+    def setLine(self, line, num):
         self.line = str(line)
         self.num = num
 
 
 # ---------------------------------------------------------
 
-class MyPropagationError(MySyntaxProblems) :
+class MyPropagationError(MySyntaxProblems):
     """ Syntax error Exceptions used in the propagation step"""
     pass
 
-class UndefinedParameter(MyPropagationError) :
+class UndefinedParameter(MyPropagationError):
     comment = "Configurations in domain '%(domainName)s' do not all set the same parameters "
-    def __init__ (self, domainName):
+    def __init__(self, domainName):
         self.domainName = domainName
-    def __str__ (self):
-        return self.comment % { "domainName" : self.domainName }
+    def __str__(self):
+        return self.comment % {"domainName" : self.domainName}
 
 
 # -----------------------------------------------------
 """ Syntax error Exceptions used by parser"""
 
-class MySyntaxError(MySyntaxProblems) :
+class MySyntaxError(MySyntaxProblems):
     """ Syntax error Exceptions used by parser"""
     pass
 
-class MySyntaxWarning(MySyntaxProblems) :
+class MySyntaxWarning(MySyntaxProblems):
     """ Syntax warning Exceptions used by parser"""
     pass
 
-class IndentationSyntaxError(MySyntaxError) :
+class IndentationSyntaxError(MySyntaxError):
     comment = """syntax error in %(line)s has no father element.
     You can only increment indentation by one tabutation per line")"""
 
@@ -765,7 +767,8 @@ class CommentWarning(MySyntaxWarning):
 
 class ChildNotPermitedError(MySyntaxError):
     def __init__(self, line, fatherElement, childElement):
-        self.comment = "syntax error in %(line)s, " + fatherElement.tag + " should not have a " + childElement.tag + " child."
+        self.comment = "syntax error in %(line)s, " + fatherElement.tag + " should not have a " \
+            + childElement.tag + " child."
         super(ChildNotPermitedError, self).__init__(line)
 
 
@@ -780,35 +783,35 @@ class SpaceInIndentationError(MySyntaxError):
 """Class creating the DOM elements from a stream"""
 # ============================================
 
-class ElementsFactory(object)  :
+class ElementsFactory(object):
     """Element factory, return an instance of the first matching element
 
     Test each element list in elementClass and instanciate it if it's methode match returns True
     The method match is called with input line as argument
     """
-    def __init__ (self):
+    def __init__(self):
         self.elementClass = [
-        EmptyLine ,
-        Commentary,
-        GroupDomain,
-        Domain,
-        Path,
-        GroupConfiguration,
-        Configuration,
-        Operator,
-        Rule,
-        GroupPath
+            EmptyLine,
+            Commentary,
+            GroupDomain,
+            Domain,
+            Path,
+            GroupConfiguration,
+            Configuration,
+            Operator,
+            Rule,
+            GroupPath
         ]
 
-    def createElementFromLine (self, line) :
+    def createElementFromLine(self, line):
         """return an instance of the first matching element
 
         Test each element list in elementClass and instanciate it if it's methode match returns True
         The method match is called with the argument line.
         Raise UnknownElementTypeError if no element matched.
         """
-        for element in self.elementClass :
-            if element.match(line) :
+        for element in self.elementClass:
+            if element.match(line):
                 # print (line + element.__class__.__name__)
                 return element(line)
         # if we have not find any
@@ -816,7 +819,7 @@ class ElementsFactory(object)  :
 
 #------------------------------------------------------
 
-class Parser(object) :
+class Parser(object):
     """Class implementing the parser"""
     def __init__(self):
         self.rankPattern = re.compile(r"^([\t ]*)(.*)")
@@ -841,20 +844,20 @@ the rank is the number of tabulation (\t) at the line beginning.
 the rest is the rest of the line."""
         # split line in rank and rest
         rank = self.rankPattern.match(line)
-        if rank :
+        if rank:
             rank, rest = rank.group(1, 2)
-        else :
+        else:
             raise MySyntaxError(line)
 
         # check for empty line
-        if rest == "" :
+        if rest == "":
             raise EmptyLineWarning(line)
 
         # check for space in indentation
-        if rank.find(" ") > -1 :
+        if rank.find(" ") > -1:
             raise SpaceInIndentationError(line)
 
-        rank = len (rank) + 1  # rank starts at 1
+        rank = len(rank) + 1  # rank starts at 1
 
 
         return rank, rest
@@ -862,7 +865,7 @@ the rest is the rest of the line."""
 
     def __checkIndentation__(self, rank):
         """check if indentation > previous indentation + 1. If so, raise IndentationSyntaxError"""
-        if (rank > self.previousRank + 1) :
+        if rank > self.previousRank + 1:
             raise IndentationSyntaxError()
         self.previousRank = rank
 
@@ -870,23 +873,22 @@ the rest is the rest of the line."""
         """parse a stream, usually a opened file"""
         myroot = Root("root")
         context = [myroot]  # root is element of rank 0
-        warnings = ""
 
         for num, line in enumerate(stream):
             try:
                 rank, myelement = self.__parseLine__(line)
 
-                while len(context) > rank :
+                while len(context) > rank:
                     context.pop()
                 context.append(myelement)
                 context[-2].addChild(myelement)
 
             except MySyntaxWarning as ex:
                 ex.setLine(line, num + 1)
-                if verbose :
+                if verbose:
                     sys.stderr.write("{}\n".format(ex))
 
-            except MySyntaxError as  ex :
+            except MySyntaxError as  ex:
                 ex.setLine(line, num + 1)
                 raise
 

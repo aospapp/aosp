@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2019 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14433 $"/>
+		<version number="$Revision$"/>
 		<language type="vi"/>
 	</identity>
 	<localeDisplayNames>
@@ -1297,7 +1297,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="gbeal" draft="contributed">Khu Ealing của Luân Đôn</subdivision>
 			<subdivision type="gbedh" draft="contributed">Edinburgh</subdivision>
 			<subdivision type="gbenf" draft="contributed">Khu Enfield của Luân Đôn</subdivision>
-			<subdivision type="gbeng">Anh Quốc</subdivision>
 			<subdivision type="gbery" draft="contributed">East Riding of Yorkshire</subdivision>
 			<subdivision type="gbess" draft="contributed">Essex</subdivision>
 			<subdivision type="gbesx" draft="contributed">East Sussex</subdivision>
@@ -1356,7 +1355,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="gbrdb" draft="contributed">Khu Redbridge của Luân Đôn</subdivision>
 			<subdivision type="gbrdg" draft="contributed">Reading</subdivision>
 			<subdivision type="gbrut" draft="contributed">Rutland</subdivision>
-			<subdivision type="gbsct">Scotland</subdivision>
 			<subdivision type="gbsfk" draft="contributed">Suffolk</subdivision>
 			<subdivision type="gbshf" draft="contributed">Sheffield</subdivision>
 			<subdivision type="gbshr" draft="contributed">Shropshire</subdivision>
@@ -1372,7 +1370,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="gbukm" draft="contributed">Vương quốc Liên hiệp Anh và Bắc Ireland</subdivision>
 			<subdivision type="gbwar" draft="contributed">Warwickshire</subdivision>
 			<subdivision type="gbwil" draft="contributed">Wiltshire</subdivision>
-			<subdivision type="gbwls">Xứ Wales</subdivision>
 			<subdivision type="gbwlv" draft="contributed">Wolverhampton</subdivision>
 			<subdivision type="gbwnd" draft="contributed">Khu Wandsworth của Luân Đôn</subdivision>
 			<subdivision type="gbwor" draft="contributed">Worcestershire</subdivision>
@@ -3071,22 +3068,22 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="pkpb" draft="contributed">Punjab</subdivision>
 			<subdivision type="pksd" draft="contributed">Sindh</subdivision>
 			<subdivision type="pkta" draft="contributed">Các khu vực Hành chính Bộ lạc Liên bang</subdivision>
-			<subdivision type="plds" draft="contributed">Dolnośląskie</subdivision>
-			<subdivision type="plkp" draft="contributed">Kujawsko-Pomorskie</subdivision>
-			<subdivision type="pllb" draft="contributed">Lubuskie</subdivision>
-			<subdivision type="plld" draft="contributed">Łódzkie</subdivision>
-			<subdivision type="pllu" draft="contributed">Lubelskie</subdivision>
-			<subdivision type="plma" draft="contributed">Małopolskie</subdivision>
-			<subdivision type="plmz" draft="contributed">Mazowieckie</subdivision>
-			<subdivision type="plop" draft="contributed">Opolskie</subdivision>
-			<subdivision type="plpd" draft="contributed">Podlaskie</subdivision>
-			<subdivision type="plpk" draft="contributed">Podkarpackie</subdivision>
-			<subdivision type="plpm" draft="contributed">Pomorskie</subdivision>
-			<subdivision type="plsk" draft="contributed">Świętokrzyskie</subdivision>
-			<subdivision type="plsl" draft="contributed">Śląskie</subdivision>
-			<subdivision type="plwn" draft="contributed">Warmińsko-Mazurskie</subdivision>
-			<subdivision type="plwp" draft="contributed">Wielkopolskie</subdivision>
-			<subdivision type="plzp" draft="contributed">Zachodniopomorskie</subdivision>
+			<subdivision type="pl02" draft="contributed">Dolnośląskie</subdivision>
+			<subdivision type="pl04" draft="contributed">Kujawsko-Pomorskie</subdivision>
+			<subdivision type="pl06" draft="contributed">Lubelskie</subdivision>
+			<subdivision type="pl08" draft="contributed">Lubuskie</subdivision>
+			<subdivision type="pl10" draft="contributed">Łódzkie</subdivision>
+			<subdivision type="pl12" draft="contributed">Małopolskie</subdivision>
+			<subdivision type="pl14" draft="contributed">Mazowieckie</subdivision>
+			<subdivision type="pl16" draft="contributed">Opolskie</subdivision>
+			<subdivision type="pl18" draft="contributed">Podkarpackie</subdivision>
+			<subdivision type="pl20" draft="contributed">Podlaskie</subdivision>
+			<subdivision type="pl22" draft="contributed">Pomorskie</subdivision>
+			<subdivision type="pl24" draft="contributed">Śląskie</subdivision>
+			<subdivision type="pl26" draft="contributed">Świętokrzyskie</subdivision>
+			<subdivision type="pl28" draft="contributed">Warmińsko-Mazurskie</subdivision>
+			<subdivision type="pl30" draft="contributed">Wielkopolskie</subdivision>
+			<subdivision type="pl32" draft="contributed">Zachodniopomorskie</subdivision>
 			<subdivision type="psbth" draft="contributed">Tỉnh Bethlehem</subdivision>
 			<subdivision type="psdeb" draft="contributed">Tỉnh Deir al-Balah</subdivision>
 			<subdivision type="pshbn" draft="contributed">Tỉnh Hebron</subdivision>
@@ -3374,25 +3371,25 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="sdrs" draft="contributed">Biển Đỏ</subdivision>
 			<subdivision type="sdsi" draft="contributed">Sennar</subdivision>
 			<subdivision type="seab" draft="contributed">hạt Stockholm</subdivision>
-			<subdivision type="seac" draft="contributed">Västerbotten</subdivision>
-			<subdivision type="sebd" draft="contributed">Norrbotten</subdivision>
+			<subdivision type="seac" draft="contributed">hạt Västerbotten</subdivision>
+			<subdivision type="sebd" draft="contributed">hạt Norrbotten</subdivision>
 			<subdivision type="sec" draft="contributed">hạt Uppsala</subdivision>
 			<subdivision type="sed" draft="contributed">hạt Södermanland</subdivision>
 			<subdivision type="see" draft="contributed">hạt Östergötland</subdivision>
 			<subdivision type="sef" draft="contributed">hạt Jönköping</subdivision>
-			<subdivision type="seg" draft="contributed">Kronoberg</subdivision>
+			<subdivision type="seg" draft="contributed">hạt Kronoberg</subdivision>
 			<subdivision type="seh" draft="contributed">hạt Kalmar</subdivision>
-			<subdivision type="sei" draft="contributed">Gotland</subdivision>
+			<subdivision type="sei" draft="contributed">hạt Gotland</subdivision>
 			<subdivision type="sek" draft="contributed">hạt Blekinge</subdivision>
 			<subdivision type="sem" draft="contributed">hạt Skåne</subdivision>
 			<subdivision type="sen" draft="contributed">hạt Halland</subdivision>
 			<subdivision type="seo" draft="contributed">hạt Västra Götaland</subdivision>
 			<subdivision type="ses" draft="contributed">hạt Värmland</subdivision>
-			<subdivision type="set" draft="contributed">Örebro</subdivision>
-			<subdivision type="seu" draft="contributed">Västmanland</subdivision>
-			<subdivision type="sew" draft="contributed">Dalarna</subdivision>
-			<subdivision type="sex" draft="contributed">Gävleborg</subdivision>
-			<subdivision type="sey" draft="contributed">Västernorrland</subdivision>
+			<subdivision type="set" draft="contributed">hạt Örebro</subdivision>
+			<subdivision type="seu" draft="contributed">hạt Västmanland</subdivision>
+			<subdivision type="sew" draft="contributed">hạt Dalarna</subdivision>
+			<subdivision type="sex" draft="contributed">hạt Gävleborg</subdivision>
+			<subdivision type="sey" draft="contributed">hạt Västernorrland</subdivision>
 			<subdivision type="sez" draft="contributed">hạt Jämtland</subdivision>
 			<subdivision type="shac" draft="contributed">Đảo Ascension</subdivision>
 			<subdivision type="shhl" draft="contributed">Saint Helena</subdivision>

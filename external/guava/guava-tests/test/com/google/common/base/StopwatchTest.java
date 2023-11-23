@@ -23,7 +23,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.testing.FakeTicker;
-
+import java.time.Duration;
 import junit.framework.TestCase;
 
 /**
@@ -31,7 +31,7 @@ import junit.framework.TestCase;
  *
  * @author Kevin Bourrillion
  */
-@GwtCompatible(emulated = true)
+@GwtCompatible
 public class StopwatchTest extends TestCase {
 
   private final FakeTicker ticker = new FakeTicker();
@@ -168,50 +168,15 @@ public class StopwatchTest extends TestCase {
     assertEquals(1, stopwatch.elapsed(MILLISECONDS));
   }
 
-  public void testElapsedMillis() {
+  @GwtIncompatible
+  public void testElapsed_duration() {
     stopwatch.start();
     ticker.advance(999999);
-    assertEquals(0, stopwatch.elapsed(MILLISECONDS));
+    assertEquals(Duration.ofNanos(999999), stopwatch.elapsed());
     ticker.advance(1);
-    assertEquals(1, stopwatch.elapsed(MILLISECONDS));
+    assertEquals(Duration.ofMillis(1), stopwatch.elapsed());
   }
 
-  public void testElapsedMillis_whileRunning() {
-    ticker.advance(78000000);
-    stopwatch.start();
-    assertEquals(0, stopwatch.elapsed(MILLISECONDS));
-
-    ticker.advance(345000000);
-    assertEquals(345, stopwatch.elapsed(MILLISECONDS));
-  }
-
-  public void testElapsedMillis_notRunning() {
-    ticker.advance(1000000);
-    stopwatch.start();
-    ticker.advance(4000000);
-    stopwatch.stop();
-    ticker.advance(9000000);
-    assertEquals(4, stopwatch.elapsed(MILLISECONDS));
-  }
-
-  public void testElapsedMillis_multipleSegments() {
-    stopwatch.start();
-    ticker.advance(9000000);
-    stopwatch.stop();
-
-    ticker.advance(16000000);
-
-    stopwatch.start();
-    assertEquals(9, stopwatch.elapsed(MILLISECONDS));
-    ticker.advance(25000000);
-    assertEquals(34, stopwatch.elapsed(MILLISECONDS));
-
-    stopwatch.stop();
-    ticker.advance(36000000);
-    assertEquals(34, stopwatch.elapsed(MILLISECONDS));
-  }
-
-  @GwtIncompatible("String.format()")
   public void testToString() {
     stopwatch.start();
     assertEquals("0.000 ns", stopwatch.toString());
@@ -246,5 +211,4 @@ public class StopwatchTest extends TestCase {
     ticker.advance((long) (7.25 * 24 * 60 * 60 * 1000000000L));
     assertEquals("7.250 d", stopwatch.toString());
   }
-
 }

@@ -21,34 +21,33 @@
 
 #include "fxbarcode/cbc_pdf417i.h"
 
-#include <memory>
+#include <vector>
 
 #include "fxbarcode/pdf417/BC_PDF417Writer.h"
 #include "third_party/base/ptr_util.h"
+
+namespace {
+
+// Multiple source say PDF417 can encode about 1100 bytes, 1800 ASCII characters
+// or 2710 numerical digits.
+constexpr size_t kMaxPDF417InputLengthBytes = 2710;
+
+}  // namespace
 
 CBC_PDF417I::CBC_PDF417I()
     : CBC_CodeBase(pdfium::MakeUnique<CBC_PDF417Writer>()) {}
 
 CBC_PDF417I::~CBC_PDF417I() {}
 
-bool CBC_PDF417I::SetErrorCorrectionLevel(int32_t level) {
-  GetPDF417Writer()->SetErrorCorrectionLevel(level);
-  return true;
-}
-
-void CBC_PDF417I::SetTruncated(bool truncated) {
-  GetPDF417Writer()->SetTruncated(truncated);
-}
-
-bool CBC_PDF417I::Encode(const WideStringView& contents) {
-  int32_t outWidth = 0;
-  int32_t outHeight = 0;
-  auto* pWriter = GetPDF417Writer();
-  std::unique_ptr<uint8_t, FxFreeDeleter> data(
-      pWriter->Encode(WideString(contents), outWidth, outHeight));
-  if (!data)
+bool CBC_PDF417I::Encode(WideStringView contents) {
+  if (contents.GetLength() > kMaxPDF417InputLengthBytes)
     return false;
-  return pWriter->RenderResult(data.get(), outWidth, outHeight);
+
+  int32_t width;
+  int32_t height;
+  auto* pWriter = GetPDF417Writer();
+  std::vector<uint8_t> data = pWriter->Encode(contents, &width, &height);
+  return pWriter->RenderResult(data, width, height);
 }
 
 bool CBC_PDF417I::RenderDevice(CFX_RenderDevice* device,

@@ -50,7 +50,7 @@ function execute() {
   # command is killed. This is needed so that the signal handler in the trap
   # command above to be invoked before the java command is terminated (and will
   # in fact have to terminate it itself).
-  setsid java "$@" & pid="$!"; wait "$pid"
+  setsid -w java "$@" & pid="$!"; wait "$pid"
 }
 
 # Runs java with a timeout. The first argument is either the timeout in seconds

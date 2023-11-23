@@ -19,6 +19,10 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "logging"
 TEST_TYPE = "client"
+# Reboot in the lab after the test ends. Since we lock the core_pattern
+# at the end of the test, we should reboot to restore the state of the
+# device.
+DEPENDENCIES='cleanup-reboot'
 
 DOC = """
 Test that user space crashes are detected and handled appropriately.

@@ -140,6 +140,15 @@ public class IpSecManagerFacade extends RpcReceiver {
     }
 
     /**
+     * Method to retrieve UdpEncapsulationSocket from hash key
+     * @param id : Hash key in String
+     * @return UdpEncapsulationSocket object
+     */
+    public static UdpEncapsulationSocket getUdpEncapsulationSocket(String id) {
+        return sUdpEncapHashMap.get(id);
+    }
+
+    /**
      * Apply transport mode transform to FileDescriptor
      * @param socketFd : Hash key of FileDescriptor object
      * @param direction : In or Out direction to apply transform to

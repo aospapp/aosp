@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 #include <math.h>
+
 #include "crossover.h"
 #include "crossover2.h"
 #include "drc.h"
@@ -14,17 +15,18 @@
 namespace {
 
 /* Adds amplitude * sin(pi*freq*i + offset) to the data array. */
-static void add_sine(float *data, size_t len, float freq, float offset,
-                     float amplitude)
-{
+static void add_sine(float* data,
+                     size_t len,
+                     float freq,
+                     float offset,
+                     float amplitude) {
   for (size_t i = 0; i < len; i++)
-    data[i] += amplitude * sinf((float)M_PI*freq*i + offset);
+    data[i] += amplitude * sinf((float)M_PI * freq * i + offset);
 }
 
 /* Calculates the magnitude at normalized frequency f. The output is
  * the result of DFT, multiplied by 2/len. */
-static float magnitude_at(float *data, size_t len, float f)
-{
+static float magnitude_at(float* data, size_t len, float f) {
   double re = 0, im = 0;
   f *= (float)M_PI;
   for (size_t i = 0; i < len; i++) {
@@ -41,49 +43,66 @@ TEST(InterleaveTest, All) {
   /* Repeat the same data twice, so it will exercise neon/sse
    * optimized functions. */
   int16_t input[SAMPLES] = {
-    -32768, -32767, -32766, -2, -1, 0, 1, 2, 3, 32765, 32766, 32767,
-    -32768, -32767, -32766, -2, -1, 0, 1, 2, 3, 32765, 32766, 32767
-  };
+      -32768, -32767, -32766, -2, -1, 0, 1, 2, 3, 32765, 32766, 32767,
+      -32768, -32767, -32766, -2, -1, 0, 1, 2, 3, 32765, 32766, 32767};
 
-  float answer[SAMPLES] = {
-    -1, -32766/32768.0f, -1/32768.0f, 1/32768.0f, 3/32768.0f, 32766/32768.0f,
-    -1, -32766/32768.0f, -1/32768.0f, 1/32768.0f, 3/32768.0f, 32766/32768.0f,
-    -32767/32768.0f, -2/32768.0f, 0, 2/32768.0f, 32765/32768.0f, 32767/32768.0f,
-    -32767/32768.0f, -2/32768.0f, 0, 2/32768.0f, 32765/32768.0f, 32767/32768.0f
-  };
+  float answer[SAMPLES] = {-1,
+                           -32766 / 32768.0f,
+                           -1 / 32768.0f,
+                           1 / 32768.0f,
+                           3 / 32768.0f,
+                           32766 / 32768.0f,
+                           -1,
+                           -32766 / 32768.0f,
+                           -1 / 32768.0f,
+                           1 / 32768.0f,
+                           3 / 32768.0f,
+                           32766 / 32768.0f,
+                           -32767 / 32768.0f,
+                           -2 / 32768.0f,
+                           0,
+                           2 / 32768.0f,
+                           32765 / 32768.0f,
+                           32767 / 32768.0f,
+                           -32767 / 32768.0f,
+                           -2 / 32768.0f,
+                           0,
+                           2 / 32768.0f,
+                           32765 / 32768.0f,
+                           32767 / 32768.0f};
 
   float output[SAMPLES];
-  float *out_ptr[] = {output, output + FRAMES};
+  float* out_ptr[] = {output, output + FRAMES};
 
-  dsp_util_deinterleave((uint8_t *)input, out_ptr, 2,
-			SND_PCM_FORMAT_S16_LE, FRAMES);
+  dsp_util_deinterleave((uint8_t*)input, out_ptr, 2, SND_PCM_FORMAT_S16_LE,
+                        FRAMES);
 
-  for (int i = 0 ; i < SAMPLES; i++) {
+  for (int i = 0; i < SAMPLES; i++) {
     EXPECT_EQ(answer[i], output[i]);
   }
 
   /* dsp_util_interleave() should round to nearest number. */
-  for (int i = 0 ; i < SAMPLES; i += 2) {
+  for (int i = 0; i < SAMPLES; i += 2) {
     output[i] += 0.499 / 32768.0f;
     output[i + 1] -= 0.499 / 32768.0f;
   }
 
   int16_t output2[SAMPLES];
-  dsp_util_interleave(out_ptr, (uint8_t *)output2, 2,
-		      SND_PCM_FORMAT_S16_LE, FRAMES);
-  for (int i = 0 ; i < SAMPLES; i++) {
+  dsp_util_interleave(out_ptr, (uint8_t*)output2, 2, SND_PCM_FORMAT_S16_LE,
+                      FRAMES);
+  for (int i = 0; i < SAMPLES; i++) {
     EXPECT_EQ(input[i], output2[i]);
   }
 }
 
 TEST(EqTest, All) {
-  struct eq *eq;
+  struct eq* eq;
   size_t len = 44100;
   float NQ = len / 2;
   float f_low = 10 / NQ;
   float f_mid = 100 / NQ;
   float f_high = 1000 / NQ;
-  float *data = (float *)malloc(sizeof(float) * len);
+  float* data = (float*)malloc(sizeof(float) * len);
 
   dsp_enable_flush_denormal_to_zero();
   /* low pass */
@@ -123,7 +142,8 @@ TEST(EqTest, All) {
   add_sine(data, len, f_high, 0, 1);
 
   eq = eq_new();
-  EXPECT_EQ(0, eq_append_biquad(eq, BQ_PEAKING, f_high, 5, 6)); // Q=5, 6dB gain
+  EXPECT_EQ(0,
+            eq_append_biquad(eq, BQ_PEAKING, f_high, 5, 6));  // Q=5, 6dB gain
   eq_process(eq, data, len);
   EXPECT_NEAR(1, magnitude_at(data, len, f_low), 0.01);
   EXPECT_NEAR(2, magnitude_at(data, len, f_high), 0.01);
@@ -141,23 +161,23 @@ TEST(EqTest, All) {
 }
 
 TEST(Eq2Test, All) {
-  struct eq2 *eq2;
+  struct eq2* eq2;
   size_t len = 44100;
   float NQ = len / 2;
   float f_low = 10 / NQ;
   float f_mid = 100 / NQ;
   float f_high = 1000 / NQ;
-  float *data0 = (float *)malloc(sizeof(float) * len);
-  float *data1 = (float *)malloc(sizeof(float) * len);
+  float* data0 = (float*)malloc(sizeof(float) * len);
+  float* data1 = (float*)malloc(sizeof(float) * len);
 
   dsp_enable_flush_denormal_to_zero();
 
   /* a mixture of 10Hz an 1000Hz sine */
   memset(data0, 0, sizeof(float) * len);
   memset(data1, 0, sizeof(float) * len);
-  add_sine(data0, len, f_low, 0, 1);  // 10Hz sine, magnitude = 1
+  add_sine(data0, len, f_low, 0, 1);   // 10Hz sine, magnitude = 1
   add_sine(data0, len, f_high, 0, 1);  // 1000Hz sine, magnitude = 1
-  add_sine(data1, len, f_low, 0, 1);  // 10Hz sine, magnitude = 1
+  add_sine(data1, len, f_low, 0, 1);   // 10Hz sine, magnitude = 1
   add_sine(data1, len, f_high, 0, 1);  // 1000Hz sine, magnitude = 1
 
   /* low pass at left and high pass at right */
@@ -218,9 +238,9 @@ TEST(CrossoverTest, All) {
   float f2 = 1000 / NQ;
   float f3 = 4000 / NQ;
   float f4 = 16000 / NQ;
-  float *data = (float *)malloc(sizeof(float) * len);
-  float *data1 = (float *)malloc(sizeof(float) * len);
-  float *data2 = (float *)malloc(sizeof(float) * len);
+  float* data = (float*)malloc(sizeof(float) * len);
+  float* data1 = (float*)malloc(sizeof(float) * len);
+  float* data2 = (float*)malloc(sizeof(float) * len);
 
   dsp_enable_flush_denormal_to_zero();
   crossover_init(&xo, f1, f3);
@@ -263,12 +283,12 @@ TEST(Crossover2Test, All) {
   float f2 = 1000 / NQ;
   float f3 = 4000 / NQ;
   float f4 = 16000 / NQ;
-  float *data0L = (float *)malloc(sizeof(float) * len);
-  float *data1L = (float *)malloc(sizeof(float) * len);
-  float *data2L = (float *)malloc(sizeof(float) * len);
-  float *data0R = (float *)malloc(sizeof(float) * len);
-  float *data1R = (float *)malloc(sizeof(float) * len);
-  float *data2R = (float *)malloc(sizeof(float) * len);
+  float* data0L = (float*)malloc(sizeof(float) * len);
+  float* data1L = (float*)malloc(sizeof(float) * len);
+  float* data2L = (float*)malloc(sizeof(float) * len);
+  float* data0R = (float*)malloc(sizeof(float) * len);
+  float* data1R = (float*)malloc(sizeof(float) * len);
+  float* data2R = (float*)malloc(sizeof(float) * len);
 
   dsp_enable_flush_denormal_to_zero();
   crossover2_init(&xo2, f1, f3);
@@ -334,11 +354,11 @@ TEST(DrcTest, All) {
   float f2 = 1000 / NQ;
   float f3 = 4000 / NQ;
   float f4 = 16000 / NQ;
-  float *data_left = (float *)malloc(sizeof(float) * len);
-  float *data_right = (float *)malloc(sizeof(float) * len);
-  float *data[] = {data_left, data_right};
-  float *data_empty[] = {NULL, NULL};
-  struct drc *drc;
+  float* data_left = (float*)malloc(sizeof(float) * len);
+  float* data_right = (float*)malloc(sizeof(float) * len);
+  float* data[] = {data_left, data_right};
+  float* data_empty[] = {NULL, NULL};
+  struct drc* drc;
 
   dsp_enable_flush_denormal_to_zero();
   drc = drc_new(44100);
@@ -407,7 +427,7 @@ TEST(DrcTest, All) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

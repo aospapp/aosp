@@ -31,8 +31,6 @@ import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
 
-import libcore.util.XmlObjectFactory;
-
 import org.ksoap2.*;
 import org.xmlpull.v1.*;
 
@@ -125,9 +123,9 @@ abstract public class Transport {
      */
     protected void parseResponse(SoapEnvelope envelope, InputStream is)
             throws XmlPullParserException, IOException {
-        // Android-changed: Use XmlObjectFactory instead of a specific implementation.
+        // Android-changed: Use XmlPullParserFactory instead of a specific implementation.
         // XmlPullParser xp = new KXmlParser();
-        XmlPullParser xp = XmlObjectFactory.newXmlPullParser();
+        XmlPullParser xp = XmlPullParserFactory.newInstance().newPullParser();
         xp.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true);
         xp.setInput(is, null);
         envelope.parse(xp);
@@ -141,13 +139,13 @@ abstract public class Transport {
      * Serializes the request.
      */
     protected byte[] createRequestData(SoapEnvelope envelope, String encoding)
-            throws IOException {
+            throws XmlPullParserException, IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream(bufferLength);
         byte result[] = null;
         bos.write(xmlVersionTag.getBytes());
-        // Android-changed: Use XmlObjectFactory instead of a specific implementation.
+        // Android-changed: Use XmlPullParserFactory instead of a specific implementation.
         // XmlSerializer xw = new KXmlSerializer();
-        XmlSerializer xw = XmlObjectFactory.newXmlSerializer();
+        XmlSerializer xw = XmlPullParserFactory.newInstance().newSerializer();
 
         final Iterator keysIter = prefixes.keySet().iterator();
         xw.setOutput(bos, encoding);
@@ -170,7 +168,7 @@ abstract public class Transport {
      * Serializes the request.
      */
     protected byte[] createRequestData(SoapEnvelope envelope)
-            throws IOException {
+            throws XmlPullParserException, IOException {
         return createRequestData(envelope, null);
     }
 

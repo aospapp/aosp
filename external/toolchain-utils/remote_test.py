@@ -1,6 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 #
-# Copyright 2010 Google Inc. All Rights Reserved.
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Script to wrap test_that script.
 
 This script can login to the chromeos machine using the test private key.

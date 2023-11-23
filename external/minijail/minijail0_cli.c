@@ -72,6 +72,41 @@ static void set_group(struct minijail *j, const char *arg, gid_t *out_gid)
 	}
 }
 
+/*
+ * Helper function used by --add-suppl-group (possibly more than once),
+ * to build the supplementary gids array.
+ */
+static void suppl_group_add(size_t *suppl_gids_count, gid_t **suppl_gids,
+                            char *arg) {
+	char *end = NULL;
+	int groupid = strtod(arg, &end);
+	gid_t gid;
+	if (!*end && *arg) {
+		/* A gid number has been specified, proceed. */
+		gid = groupid;
+	} else if (lookup_group(arg, &gid)) {
+		/*
+		 * A group name has been specified,
+		 * but doesn't exist: we bail out.
+		 */
+		fprintf(stderr, "Bad group: '%s'\n", arg);
+		exit(1);
+	}
+
+	/*
+	 * From here, gid is guaranteed to be set and valid,
+	 * we add it to our supplementary gids array.
+	 */
+	*suppl_gids = realloc(*suppl_gids,
+			      sizeof(gid_t) * ++(*suppl_gids_count));
+	if (!suppl_gids) {
+		fprintf(stderr, "failed to allocate memory.\n");
+		exit(1);
+	}
+
+	(*suppl_gids)[*suppl_gids_count - 1] = gid;
+}
+
 static void skip_securebits(struct minijail *j, const char *arg)
 {
 	uint64_t securebits_skip_mask;
@@ -139,9 +174,16 @@ static void add_binding(struct minijail *j, char *arg)
 	}
 	if (dest == NULL || dest[0] == '\0')
 		dest = src;
-	if (flags == NULL || flags[0] == '\0')
-		flags = "0";
-	if (minijail_bind(j, src, dest, atoi(flags))) {
+	int writable;
+	if (flags == NULL || flags[0] == '\0' || !strcmp(flags, "0"))
+		writable = 0;
+	else if (!strcmp(flags, "1"))
+		writable = 1;
+	else {
+		fprintf(stderr, "Bad value for <writable>: %s\n", flags);
+		exit(1);
+	}
+	if (minijail_bind(j, src, dest, writable)) {
 		fprintf(stderr, "minijail_bind failed.\n");
 		exit(1);
 	}
@@ -369,7 +411,8 @@ static void use_profile(struct minijail *j, const char *profile,
 {
 	/* Note: New profiles should be added in minijail0_cli_unittest.cc. */
 
-	if (!strcmp(profile, "minimalistic-mountns")) {
+	if (!strcmp(profile, "minimalistic-mountns") ||
+	    !strcmp(profile, "minimalistic-mountns-nodev")) {
 		minijail_namespace_vfs(j);
 		if (minijail_bind(j, "/", "/", 0)) {
 			fprintf(stderr, "minijail_bind(/) failed.\n");
@@ -379,11 +422,13 @@ static void use_profile(struct minijail *j, const char *profile,
 			fprintf(stderr, "minijail_bind(/proc) failed.\n");
 			exit(1);
 		}
-		if (minijail_bind(j, "/dev/log", "/dev/log", 0)) {
-			fprintf(stderr, "minijail_bind(/dev/log) failed.\n");
-			exit(1);
+		if (!strcmp(profile, "minimalistic-mountns")) {
+			if (minijail_bind(j, "/dev/log", "/dev/log", 0)) {
+				fprintf(stderr, "minijail_bind(/dev/log) failed.\n");
+				exit(1);
+			}
+			minijail_mount_dev(j);
 		}
-		minijail_mount_dev(j);
 		if (!*tmp_size) {
 			/* Avoid clobbering |tmp_size| if it was already set. */
 			*tmp_size = DEFAULT_TMP_SIZE;
@@ -486,10 +531,13 @@ static void usage(const char *progn)
 	       "  -e[file]:     Enter new network namespace, or existing one if |file| is provided.\n"
 	       "  -f <file>:    Write the pid of the jailed process to <file>.\n"
 	       "  -g <group>:   Change gid to <group>.\n"
-	       "  -G:           Inherit supplementary groups from uid.\n"
-	       "                Not compatible with -y.\n"
-	       "  -y:           Keep uid's supplementary groups.\n"
-	       "                Not compatible with -G.\n"
+	       "  -G:           Inherit supplementary groups from new uid.\n"
+	       "                Not compatible with -y or --add-suppl-group.\n"
+	       "  -y:           Keep original uid's supplementary groups.\n"
+	       "                Not compatible with -G or --add-suppl-group.\n"
+	       "  --add-suppl-group <g>:Add <g> to the proccess' supplementary groups,\n"
+	       "                can be specified multiple times to add several groups.\n"
+	       "                Not compatible with -y or -G.\n"
 	       "  -h:           Help (this message).\n"
 	       "  -H:           Seccomp filter help message.\n"
 	       "  -i:           Exit immediately after fork(2). The jailed process will run\n"
@@ -498,8 +546,9 @@ static void usage(const char *progn)
 	       "  -K:           Do not change share mode of any existing mounts.\n"
 	       "  -K<mode>:     Mark all existing mounts as <mode> instead of MS_PRIVATE.\n"
 	       "  -l:           Enter new IPC namespace.\n"
-	       "  -L:           Report blocked syscalls to syslog when using seccomp filter.\n"
-	       "                Forces the following syscalls to be allowed:\n"
+	       "  -L:           Report blocked syscalls when using seccomp filter.\n"
+	       "                If the kernel does not support SECCOMP_RET_LOG,\n"
+	       "                forces the following syscalls to be allowed:\n"
 	       "                  ", progn);
 	/* clang-format on */
 	for (i = 0; i < log_syscalls_len; i++)
@@ -539,7 +588,7 @@ static void usage(const char *progn)
 	       "  --ambient:    Raise ambient capabilities. Requires -c.\n"
 	       "  --uts[=name]: Enter a new UTS namespace (and set hostname).\n"
 	       "  --logging=<s>:Use <s> as the logging system.\n"
-	       "                <s> must be 'syslog' (default) or 'stderr'.\n"
+	       "                <s> must be 'auto' (default), 'syslog', or 'stderr'.\n"
 	       "  --profile <p>:Configure minijail0 to run with the <p> sandboxing profile,\n"
 	       "                which is a convenient way to express multiple flags\n"
 	       "                that are typically used together.\n"
@@ -574,18 +623,20 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 	int forward = 1;
 	int binding = 0;
 	int chroot = 0, pivot_root = 0;
-	int mount_ns = 0, skip_remount = 0;
+	int mount_ns = 0, change_remount = 0;
 	int inherit_suppl_gids = 0, keep_suppl_gids = 0;
 	int caps = 0, ambient_caps = 0;
 	int seccomp = -1;
 	bool use_uid = false, use_gid = false;
 	uid_t uid = 0;
 	gid_t gid = 0;
+	gid_t *suppl_gids = NULL;
+	size_t suppl_gids_count = 0;
 	char *uidmap = NULL, *gidmap = NULL;
 	int set_uidmap = 0, set_gidmap = 0;
 	size_t tmp_size = 0;
 	const char *filter_path = NULL;
-	int log_to_stderr = 0;
+	int log_to_stderr = -1;
 
 	const char *optstring =
 	    "+u:g:sS:c:C:P:b:B:V:f:m::M::k:a:e::R:T:vrGhHinNplLt::IUK::wyYzd";
@@ -599,6 +650,7 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 		{"profile", required_argument, 0, 131},
 		{"preload-library", required_argument, 0, 132},
 		{"seccomp-bpf-binary", required_argument, 0, 133},
+		{"add-suppl-group", required_argument, 0, 134},
 		{0, 0, 0, 0},
 	};
 	/* clang-format on */
@@ -673,11 +725,12 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 			add_mount(j, optarg);
 			break;
 		case 'K':
-			if (optarg)
+			if (optarg) {
 				set_remount_mode(j, optarg);
-			else
+			} else {
 				minijail_skip_remount_private(j);
-			skip_remount = 1;
+			}
+			change_remount = 1;
 			break;
 		case 'P':
 			use_pivot_root(j, optarg, &pivot_root, chroot);
@@ -821,9 +874,11 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 				minijail_namespace_set_hostname(j, optarg);
 			break;
 		case 130: /* Logging. */
-			if (!strcmp(optarg, "syslog"))
+			if (!strcmp(optarg, "auto")) {
+				log_to_stderr = -1;
+			} else if (!strcmp(optarg, "syslog")) {
 				log_to_stderr = 0;
-			else if (!strcmp(optarg, "stderr")) {
+			} else if (!strcmp(optarg, "stderr")) {
 				log_to_stderr = 1;
 			} else {
 				fprintf(stderr, "--logger must be 'syslog' or "
@@ -849,12 +904,20 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 			filter_path = optarg;
 			use_seccomp_filter_binary = 1;
 			break;
+		case 134:
+			suppl_group_add(&suppl_gids_count, &suppl_gids,
+			                optarg);
+			break;
 		default:
 			usage(argv[0]);
 			exit(opt == 'h' ? 0 : 1);
 		}
 	}
 
+	if (log_to_stderr == -1) {
+		/* Autodetect default logging output. */
+		log_to_stderr = isatty(STDIN_FILENO) ? 1 : 0;
+	}
 	if (log_to_stderr) {
 		init_logging(LOG_TO_FD, STDERR_FILENO, LOG_INFO);
 		/*
@@ -895,13 +958,25 @@ int parse_args(struct minijail *j, int argc, char *const argv[],
 	}
 
 	/*
-	 * Remounting / as MS_PRIVATE only happens when entering a new mount
-	 * namespace, so skipping it only applies in that case.
+	 * / is only remounted when entering a new mount namespace, so unless
+	 * that's set there is no need for the -K/-K<mode> flags.
 	 */
-	if (skip_remount && !mount_ns) {
-		fprintf(stderr, "Can't skip marking mounts as MS_PRIVATE"
-				" without mount namespaces.\n");
+	if (change_remount && !mount_ns) {
+		fprintf(stderr, "No need to use -K (skip remounting '/') or "
+				"-K<mode> (remount '/' as <mode>)\n"
+				"without -v (new mount namespace).\n"
+				"Do you need to add '-v' explicitly?\n");
 		exit(1);
+	}
+
+	/*
+	 * Proceed in setting the supplementary gids specified on the
+	 * cmdline options.
+	 */
+	if (suppl_gids_count) {
+		minijail_set_supplementary_gids(j, suppl_gids_count,
+		                                suppl_gids);
+		free(suppl_gids);
 	}
 
 	/*

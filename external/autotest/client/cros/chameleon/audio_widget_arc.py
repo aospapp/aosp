@@ -24,13 +24,19 @@ class CrosInputWidgetARCHandler(audio_widget.CrosInputWidgetHandler):
                           channel=1,
                           rate=8000)
 
-    def start_recording(self):
-        """Starts recording audio through ARC."""
+    def start_recording(self, **kargs):
+        """Starts recording audio through ARC.
+
+        @param kargs: Other arguments that ARC doesn't support.
+
+        """
         self._audio_facade.start_arc_recording()
 
 
-    def stop_recording(self):
+    def stop_recording(self, **kargs):
         """Stops recording audio through ARC.
+
+        @param kargs: Other arguments that ARC doesn't support.
 
         @returns:
             A tuple (remote_path, format).
@@ -117,11 +123,12 @@ class CrosOutputWidgetARCHandler(audio_widget.CrosOutputWidgetHandler):
         return self._audio_facade.set_arc_playback_file(test_data.path)
 
 
-    def start_playback(self, path, blocking=False):
+    def start_playback(self, path, blocking=False, **kargs):
         """Starts playing audio.
 
         @param path: Path to the file to play in container on Cros host.
         @param blocking: Blocks this call until playback finishes.
+        @param kargs: Other arguments that ARC doesn't support.
 
         @raises: NotImplementedError if blocking is True.
 
@@ -129,6 +136,7 @@ class CrosOutputWidgetARCHandler(audio_widget.CrosOutputWidgetHandler):
         if blocking:
             raise NotImplementedError(
                     'Blocking playback on ARC is not supported.')
+
         self._audio_facade.start_arc_playback(path)
 
 

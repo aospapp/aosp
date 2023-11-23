@@ -86,7 +86,6 @@ static struct mesh_conf * mesh_config_create(struct wpa_supplicant *wpa_s,
 			MESH_CONF_SEC_AMPE;
 	else
 		conf->security |= MESH_CONF_SEC_NONE;
-#ifdef CONFIG_IEEE80211W
 	conf->ieee80211w = ssid->ieee80211w;
 	if (conf->ieee80211w == MGMT_FRAME_PROTECTION_DEFAULT) {
 		if (wpa_s->drv_enc & WPA_DRIVER_CAPA_ENC_BIP)
@@ -94,7 +93,6 @@ static struct mesh_conf * mesh_config_create(struct wpa_supplicant *wpa_s,
 		else
 			conf->ieee80211w = NO_MGMT_FRAME_PROTECTION;
 	}
-#endif /* CONFIG_IEEE80211W */
 #ifdef CONFIG_OCV
 	conf->ocv = ssid->ocv;
 #endif /* CONFIG_OCV */
@@ -116,8 +114,14 @@ static struct mesh_conf * mesh_config_create(struct wpa_supplicant *wpa_s,
 	}
 
 	conf->group_cipher = cipher;
-	if (conf->ieee80211w != NO_MGMT_FRAME_PROTECTION)
-		conf->mgmt_group_cipher = WPA_CIPHER_AES_128_CMAC;
+	if (conf->ieee80211w != NO_MGMT_FRAME_PROTECTION) {
+		if (ssid->group_mgmt_cipher == WPA_CIPHER_BIP_GMAC_128 ||
+		    ssid->group_mgmt_cipher == WPA_CIPHER_BIP_GMAC_256 ||
+		    ssid->group_mgmt_cipher == WPA_CIPHER_BIP_CMAC_256)
+			conf->mgmt_group_cipher = ssid->group_mgmt_cipher;
+		else
+			conf->mgmt_group_cipher = WPA_CIPHER_AES_128_CMAC;
+	}
 
 	/* defaults */
 	conf->mesh_pp_id = MESH_PATH_PROTOCOL_HWMP;
@@ -208,6 +212,7 @@ static int wpas_mesh_complete(struct wpa_supplicant *wpa_s)
 		wpa_printf(MSG_ERROR,
 			   "mesh: RSN initialization failed - deinit mesh");
 		wpa_supplicant_mesh_deinit(wpa_s);
+		wpa_drv_leave_mesh(wpa_s);
 		return -1;
 	}
 
@@ -263,6 +268,7 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 		return -ENOMEM;
 
 	ifmsh->drv_flags = wpa_s->drv_flags;
+	ifmsh->drv_flags2 = wpa_s->drv_flags2;
 	ifmsh->num_bss = 1;
 	ifmsh->bss = os_calloc(wpa_s->ifmsh->num_bss,
 			       sizeof(struct hostapd_data *));
@@ -333,14 +339,14 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 		if (ssid->max_oper_chwidth != DEFAULT_MAX_OPER_CHWIDTH)
 			conf->vht_oper_chwidth = ssid->max_oper_chwidth;
 		switch (conf->vht_oper_chwidth) {
-		case VHT_CHANWIDTH_80MHZ:
-		case VHT_CHANWIDTH_80P80MHZ:
+		case CHANWIDTH_80MHZ:
+		case CHANWIDTH_80P80MHZ:
 			ieee80211_freq_to_chan(
 				frequency,
 				&conf->vht_oper_centr_freq_seg0_idx);
 			conf->vht_oper_centr_freq_seg0_idx += ssid->ht40 * 2;
 			break;
-		case VHT_CHANWIDTH_160MHZ:
+		case CHANWIDTH_160MHZ:
 			ieee80211_freq_to_chan(
 				frequency,
 				&conf->vht_oper_centr_freq_seg0_idx);
@@ -455,6 +461,7 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 	ibss_mesh_setup_freq(wpa_s, ssid, &params->freq);
 	wpa_s->mesh_ht_enabled = !!params->freq.ht_enabled;
 	wpa_s->mesh_vht_enabled = !!params->freq.vht_enabled;
+	wpa_s->mesh_he_enabled = !!params->freq.he_enabled;
 	if (params->freq.ht_enabled && params->freq.sec_channel_offset)
 		ssid->ht40 = params->freq.sec_channel_offset;
 
@@ -464,21 +471,23 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 		switch (params->freq.bandwidth) {
 		case 80:
 			if (params->freq.center_freq2) {
-				ssid->max_oper_chwidth = VHT_CHANWIDTH_80P80MHZ;
+				ssid->max_oper_chwidth = CHANWIDTH_80P80MHZ;
 				ssid->vht_center_freq2 =
 					params->freq.center_freq2;
 			} else {
-				ssid->max_oper_chwidth = VHT_CHANWIDTH_80MHZ;
+				ssid->max_oper_chwidth = CHANWIDTH_80MHZ;
 			}
 			break;
 		case 160:
-			ssid->max_oper_chwidth = VHT_CHANWIDTH_160MHZ;
+			ssid->max_oper_chwidth = CHANWIDTH_160MHZ;
 			break;
 		default:
-			ssid->max_oper_chwidth = VHT_CHANWIDTH_USE_HT;
+			ssid->max_oper_chwidth = CHANWIDTH_USE_HT;
 			break;
 		}
 	}
+	if (wpa_s->mesh_he_enabled)
+		ssid->he = 1;
 	if (ssid->beacon_int > 0)
 		params->beacon_int = ssid->beacon_int;
 	else if (wpa_s->conf->beacon_int > 0)

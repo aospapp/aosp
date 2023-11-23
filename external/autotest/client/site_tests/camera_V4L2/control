@@ -28,5 +28,5 @@ For more information on V4L2 see:
 http://www.linuxfordevices.com/c/a/Linux-For-Devices-Articles/Intro-to-V4L2/
 """
 
-capability='usb_camera'
+capability='builtin_usb_camera'
 job.run_test('camera_V4L2', capability=capability)

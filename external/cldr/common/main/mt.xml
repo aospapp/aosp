@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2019 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14394 $"/>
+		<version number="$Revision$"/>
 		<language type="mt"/>
 	</identity>
 	<localeDisplayNames>
@@ -723,8 +723,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<territory type="MF">Saint Martin</territory>
 			<territory type="MG">Madagascar</territory>
 			<territory type="MH">Gżejjer Marshall</territory>
-			<territory type="MK">l-Eks-Repubblika Jugoslava tal-Maċedonia</territory>
-			<territory type="MK" alt="variant">l-Eks Repubblika Jugoslava tal-Maċedonia</territory>
+			<territory type="MK">il-Maċedonja ta’ Fuq</territory>
 			<territory type="ML">il-Mali</territory>
 			<territory type="MM">il-Myanmar/Burma</territory>
 			<territory type="MN">il-Mongolja</territory>
@@ -838,6 +837,11 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<territory type="ZW">iż-Żimbabwe</territory>
 			<territory type="ZZ">Reġjun Mhux Magħruf</territory>
 		</territories>
+		<subdivisions>
+			<subdivision type="gbeng">l-Ingilterra</subdivision>
+			<subdivision type="gbsct">l-Iskozja</subdivision>
+			<subdivision type="gbwls">Wales</subdivision>
+		</subdivisions>
 		<variants>
 			<variant type="REVISED">Ortografija Irriveda</variant>
 		</variants>
@@ -883,8 +887,8 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<exemplarCharacters>[a à b ċ d e è f ġ g {għ} h ħ i ì j k l m n o ò p q r s t u ù v w x ż z]</exemplarCharacters>
 		<exemplarCharacters type="auxiliary">[c y]</exemplarCharacters>
 		<exemplarCharacters type="index" draft="contributed">[A B Ċ C D E F Ġ G {GĦ} H Ħ I {IE*} J K L M N O P Q R S T U V W X Y Ż Z]</exemplarCharacters>
-		<exemplarCharacters type="numbers">[\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]</exemplarCharacters>
-		<exemplarCharacters type="punctuation">[\- , ; \: ! ? . ' ‘ ’ &quot; “ ” ( ) \[ \] \{ \}]</exemplarCharacters>
+		<exemplarCharacters type="numbers">[\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]</exemplarCharacters>
+		<exemplarCharacters type="punctuation">[\- ‑ , ; \: ! ? . ' ‘ ’ &quot; “ ” ( ) \[ \] \{ \}]</exemplarCharacters>
 		<ellipsis type="final">{0}…</ellipsis>
 		<ellipsis type="initial">…{0}</ellipsis>
 		<ellipsis type="medial">{0}…{1}</ellipsis>
@@ -951,7 +955,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 						<dateFormatItem id="yyyyMMM">GGGGG MMM y</dateFormatItem>
 						<dateFormatItem id="yyyyMMMd">GGGGG dd MMM y</dateFormatItem>
 						<dateFormatItem id="yyyyMMMEd">GGGGG E, dd MMM y</dateFormatItem>
-						<dateFormatItem id="yyyyMMMM">GGGGG MMM y</dateFormatItem>
+						<dateFormatItem id="yyyyMMMM">GGGGG MMMM y</dateFormatItem>
 						<dateFormatItem id="yyyyQQQ">G y QQQ</dateFormatItem>
 						<dateFormatItem id="yyyyQQQQ">G y QQQQ</dateFormatItem>
 					</availableFormats>

@@ -50,6 +50,17 @@ Move<VkPipeline> createComputePipeline (const DeviceInterface&				vk,
 	return Move<VkPipeline>(check<VkPipeline>(object), Deleter<VkPipeline>(vk, device, pAllocator));
 }
 
+Move<VkPipeline> createRayTracingPipelineNV (const DeviceInterface&				vk,
+										VkDevice							device,
+										VkPipelineCache						pipelineCache,
+										const VkRayTracingPipelineCreateInfoNV*	pCreateInfo,
+										const VkAllocationCallbacks*		pAllocator)
+{
+	VkPipeline object = 0;
+	VK_CHECK(vk.createRayTracingPipelinesNV(device, pipelineCache, 1u, pCreateInfo, pAllocator, &object));
+	return Move<VkPipeline>(check<VkPipeline>(object), Deleter<VkPipeline>(vk, device, pAllocator));
+}
+
 Move<VkCommandBuffer> allocateCommandBuffer (const DeviceInterface& vk, VkDevice device, const VkCommandBufferAllocateInfo* pAllocateInfo)
 {
 	VkCommandBuffer object = 0;
@@ -75,6 +86,32 @@ Move<VkSemaphore> createSemaphore (const DeviceInterface&		vk,
 	{
 		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 		DE_NULL,
+
+		flags
+	};
+
+	return createSemaphore(vk, device, &createInfo, pAllocator);
+}
+
+Move<VkSemaphore> createSemaphoreType (const DeviceInterface&		vk,
+									   VkDevice						device,
+									   VkSemaphoreType				type,
+									   VkSemaphoreCreateFlags		flags,
+									   const deUint64				initialValue,
+									   const VkAllocationCallbacks*	pAllocator)
+{
+	const VkSemaphoreTypeCreateInfo	createTypeInfo =
+	{
+		VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
+		DE_NULL,
+
+		type,
+		initialValue,
+	};
+	const VkSemaphoreCreateInfo		createInfo =
+	{
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		&createTypeInfo,
 
 		flags
 	};

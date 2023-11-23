@@ -1,9 +1,11 @@
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+import logging
 import time
 
 from autotest_lib.client.bin import test
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.power import power_dashboard
 from autotest_lib.client.cros.power import power_rapl
@@ -16,11 +18,13 @@ class power_Test(test.test):
     """Optional base class power related tests."""
     version = 1
 
-    def initialize(self, seconds_period=20., pdash_note=''):
+    def initialize(self, seconds_period=20., pdash_note='',
+                   force_discharge=False):
         """Perform necessary initialization prior to power test run.
 
         @param seconds_period: float of probing interval in seconds.
         @param pdash_note: note of the current run to send to power dashboard.
+        @param force_discharge: force battery to discharge during the test.
 
         @var backlight: power_utils.Backlight object.
         @var keyvals: dictionary of result keyvals.
@@ -45,9 +49,19 @@ class power_Test(test.test):
         self.status = power_status.get_status()
 
         self._checkpoint_logger = power_status.CheckpointLogger()
+        self._seconds_period = seconds_period
 
         measurements = []
-        if not self.status.on_ac():
+
+        self._force_discharge = force_discharge
+        if force_discharge:
+            if not self.status.battery:
+                raise error.TestNAError('DUT does not have battery. '
+                                        'Could not force discharge.')
+            if not power_utils.charge_control_by_ectool(False):
+                raise error.TestError('Could not run battery force discharge.')
+
+        if force_discharge or not self.status.on_ac():
             measurements.append(
                 power_status.SystemPower(self.status.battery_path))
         if power_utils.has_powercap_support():
@@ -87,6 +101,8 @@ class power_Test(test.test):
         for log in self._meas_logs:
             log.start()
         self._start_time = time.time()
+        if self.status.battery:
+            self._start_energy = self.status.battery.energy
         power_telemetry_utils.start_measurement()
 
     def loop_sleep(self, loop, sleep_secs):
@@ -118,22 +134,27 @@ class power_Test(test.test):
         keyvals['level_backlight_current'] = self.backlight.get_level()
 
         # record battery stats if not on AC
-        if self.status.on_ac():
+        if not self._force_discharge and self.status.on_ac():
             keyvals['b_on_ac'] = 1
         else:
             keyvals['b_on_ac'] = 0
 
         if self.status.battery:
-            keyvals['ah_charge_full'] = self.status.battery[0].charge_full
+            keyvals['ah_charge_full'] = self.status.battery.charge_full
             keyvals['ah_charge_full_design'] = \
-                                self.status.battery[0].charge_full_design
-            keyvals['ah_charge_now'] = self.status.battery[0].charge_now
-            keyvals['a_current_now'] = self.status.battery[0].current_now
-            keyvals['wh_energy'] = self.status.battery[0].energy
-            keyvals['w_energy_rate'] = self.status.battery[0].energy_rate
+                                self.status.battery.charge_full_design
+            keyvals['ah_charge_now'] = self.status.battery.charge_now
+            keyvals['a_current_now'] = self.status.battery.current_now
+            keyvals['wh_energy'] = self.status.battery.energy
+            energy_used = self._start_energy - self.status.battery.energy
+            runtime_minutes = (time.time() - self._start_time) / 60.
+            keyvals['wh_energy_used'] = energy_used
+            keyvals['minutes_tested'] = runtime_minutes
+            if energy_used > 0 and runtime_minutes > 1:
+                keyvals['w_energy_rate'] = energy_used * 60 / runtime_minutes
             keyvals['v_voltage_min_design'] = \
-                                self.status.battery[0].voltage_min_design
-            keyvals['v_voltage_now'] = self.status.battery[0].voltage_now
+                                self.status.battery.voltage_min_design
+            keyvals['v_voltage_now'] = self.status.battery.voltage_now
 
         for log in self._meas_logs:
             keyvals.update(log.calc())
@@ -144,20 +165,20 @@ class power_Test(test.test):
         core_keyvals = power_utils.get_core_keyvals(self.keyvals)
         self.write_perf_keyval(core_keyvals)
 
-    def _publish_dashboard(self):
+    def publish_dashboard(self):
         """Report results to chromeperf & power dashboard."""
 
         self.publish_keyvals()
 
         # publish power values
         for key, values in self.keyvals.iteritems():
-            if key.endswith('pwr'):
+            if key.endswith('pwr_avg'):
                 self.output_perf_value(description=key, value=values, units='W',
                                    higher_is_better=False, graph='power')
 
         # publish temperature values
         for key, values in self.keyvals.iteritems():
-            if key.endswith('temp'):
+            if key.endswith('temp_avg'):
                 self.output_perf_value(description=key, value=values, units='C',
                                    higher_is_better=False, graph='temperature')
 
@@ -184,12 +205,18 @@ class power_Test(test.test):
     def postprocess_iteration(self):
         """Write keyval and send data to dashboard."""
         power_telemetry_utils.end_measurement()
+        self.status.refresh()
+        for log in self._meas_logs:
+            log.done = True
         super(power_Test, self).postprocess_iteration()
-        self._publish_dashboard()
+        self.publish_dashboard()
         self._save_results()
 
     def cleanup(self):
         """Reverse setting change in initialization."""
+        if self._force_discharge:
+            if not power_utils.charge_control_by_ectool(True):
+                logging.warn('Can not restore from force discharge.')
         if self.backlight:
             self.backlight.restore()
         self._services.restore_services()

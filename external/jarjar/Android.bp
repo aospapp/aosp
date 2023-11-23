@@ -16,7 +16,10 @@ java_library_host {
     name: "jarjar",
     manifest: "manifest.txt",
 
-    srcs: ["src/main/**/*.java"],
+    srcs: [
+        "src/android/**/*.java",
+        "src/main/**/*.java",
+    ],
     java_resource_dirs: ["res"],
 
     static_libs: [

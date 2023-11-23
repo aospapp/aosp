@@ -20,8 +20,6 @@ java_library_host {
 
     srcs: ["caliper/src/main/java/**/*.java"],
     java_resource_dirs: ["caliper/src/main/resources"],
-    // Required for use of javax.annotation.Generated per http://b/62050818
-    javacflags: ["-J--add-modules=java.xml.ws.annotation"],
 
     static_libs: [
         "apache-commons-math",
@@ -34,7 +32,7 @@ java_library_host {
     // Use Dagger2 annotation processor
     plugins: ["dagger2-compiler"],
 
-    java_version: "1.7",
+    java_version: "1.8",
 }
 
 // build caliper target api jar
@@ -54,7 +52,7 @@ java_library {
     ],
     sdk_version: "core_current",
 
-    java_version: "1.7",
+    java_version: "1.8",
 }
 
 // build caliper tests
@@ -69,8 +67,6 @@ java_test_host {
 
     srcs: ["caliper/src/test/java/**/*.java"],
     java_resource_dirs: ["caliper/src/test/resources"],
-    // Required for use of javax.annotation.Generated per http://b/62050818
-    javacflags: ["-J--add-modules=java.xml.ws.annotation"],
 
     static_libs: [
         "caliper",
@@ -81,7 +77,7 @@ java_test_host {
     // Use Dagger2 annotation processor
     plugins: ["dagger2-compiler"],
 
-    java_version: "1.7",
+    java_version: "1.8",
 }
 
 // build caliper examples
@@ -98,7 +94,7 @@ java_library_host {
         "mockito",
     ],
 
-    java_version: "1.7",
+    java_version: "1.8",
 }
 
 // Build host dependencies.

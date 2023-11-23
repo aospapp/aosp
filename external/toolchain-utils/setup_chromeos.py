@@ -1,8 +1,9 @@
-#!/usr/bin/env python2
-#
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Script to checkout the ChromeOS source.
 
 This script sets up the ChromeOS source in the given directory, matching a
@@ -85,7 +86,7 @@ def GetVersionSpecFile(version, versions_git):
 def TimeToCommonVersion(timestamp):
   """Convert timestamp to common image version."""
   tdt = datetime.fromtimestamp(float(timestamp))
-  with open(COMMON_VERSIONS, 'r') as f:
+  with open(COMMON_VERSIONS, 'r', encoding='utf-8') as f:
     common_list = pickle.load(f)
     for sv in common_list:
       sdt = datetime.strptime(sv['date'], '%Y-%m-%d %H:%M:%S.%f')
@@ -157,7 +158,7 @@ Default is 'latest_lkgm'.""")
     if version not in ('lkgm', 'common'):
       parser.print_help()
       logger.GetLogger().LogFatal('timestamp option only applies for '
-                                  "versions \"lkgm\" or \"common\"")
+                                  'versions "lkgm" or "common"')
 
   if not options.directory:
     parser.print_help()
@@ -181,8 +182,8 @@ Default is 'latest_lkgm'.""")
     manifests = manifest_versions.ManifestVersions()
     version = manifests.TimeToVersionChromeOS(time.mktime(time.gmtime()))
     version, manifest = version.split('.', 1)
-    logger.GetLogger().LogOutput('found version %s.%s for latest LKGM' %
-                                 (version, manifest))
+    logger.GetLogger().LogOutput(
+        'found version %s.%s for latest LKGM' % (version, manifest))
     init = ('repo init -u %s -m paladin/buildspecs/%s/%s.xml' %
             (versions_repo, version, manifest))
     del manifests
@@ -193,17 +194,16 @@ Default is 'latest_lkgm'.""")
     manifests = manifest_versions.ManifestVersions()
     version = manifests.TimeToVersion(timestamp)
     version, manifest = version.split('.', 1)
-    logger.GetLogger().LogOutput(
-        'found version %s.%s for LKGM at timestamp %s' % (version, manifest,
-                                                          timestamp))
+    logger.GetLogger().LogOutput('found version %s.%s for LKGM at timestamp %s'
+                                 % (version, manifest, timestamp))
     init = ('repo init -u %s -m paladin/buildspecs/%s/%s.xml' %
             (versions_repo, version, manifest))
     del manifests
   elif version == 'latest_common':
     version = TimeToCommonVersion(time.mktime(time.gmtime()))
     version, manifest = version.split('.', 1)
-    logger.GetLogger().LogOutput('found version %s.%s for latest Common image' %
-                                 (version, manifest))
+    logger.GetLogger().LogOutput(
+        'found version %s.%s for latest Common image' % (version, manifest))
     init = ('repo init -u %s -m buildspecs/%s/%s.xml' % (versions_repo, version,
                                                          manifest))
   elif version == 'common':
@@ -212,9 +212,9 @@ Default is 'latest_lkgm'.""")
       logger.GetLogger().LogFatal('No timestamp specified for version=lkgm')
     version = TimeToCommonVersion(timestamp)
     version, manifest = version.split('.', 1)
-    logger.GetLogger().LogOutput('found version %s.%s for latest common image '
-                                 'at timestamp %s' % (version, manifest,
-                                                      timestamp))
+    logger.GetLogger().LogOutput(
+        'found version %s.%s for latest common image '
+        'at timestamp %s' % (version, manifest, timestamp))
     init = ('repo init -u %s -m buildspecs/%s/%s.xml' % (versions_repo, version,
                                                          manifest))
   else:

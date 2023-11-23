@@ -3,8 +3,8 @@
  * found in the LICENSE file.
  */
 
-#include <math.h>  /* for abs() */
-#include <stdio.h>  /* for printf() */
+#include <math.h> /* for abs() */
+#include <stdio.h> /* for printf() */
 #include <string.h> /* for memset() */
 #include <stdint.h> /* for uint64 definition */
 #include <stdlib.h> /* for exit() definition */
@@ -13,24 +13,25 @@
 #include "../drc_math.h"
 #include "../dsp_util.h"
 
-
 /* Constant for converting time to milliseconds. */
 #define BILLION 1000000000LL
 /* Number of iterations for performance testing. */
 #define ITERATIONS 400000
 
 #if defined(__aarch64__)
-int16_t float_to_short(float a) {
+int16_t float_to_short(float a)
+{
 	int32_t ret;
-	asm volatile ("fcvtas %s[ret], %s[a]\n"
-		      "sqxtn %h[ret], %s[ret]\n"
-		      : [ret] "=w" (ret)
-		      : [a] "w" (a)
-		      :);
+	asm volatile("fcvtas %s[ret], %s[a]\n"
+		     "sqxtn %h[ret], %s[ret]\n"
+		     : [ret] "=w"(ret)
+		     : [a] "w"(a)
+		     :);
 	return (int16_t)(ret);
 }
 #else
-int16_t float_to_short(float a) {
+int16_t float_to_short(float a)
+{
 	a += (a >= 0) ? 0.5f : -0.5f;
 	return (int16_t)(max(-32768, min(32767, a)));
 }
@@ -78,13 +79,13 @@ void TestRounding(float in, int16_t expected, int samples)
 	int max_diff;
 	int d;
 
-	short* in_shorts = (short*) malloc(MAXSAMPLES * 2 * 2 + PAD);
-	float* out_floats_left_c = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	float* out_floats_right_c = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	float* out_floats_left_opt = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	float* out_floats_right_opt = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	short* out_shorts_c = (short*) malloc(MAXSAMPLES * 2 * 2 + PAD);
-	short* out_shorts_opt = (short*) malloc(MAXSAMPLES * 2 * 2 + PAD);
+	short *in_shorts = (short *)malloc(MAXSAMPLES * 2 * 2 + PAD);
+	float *out_floats_left_c = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	float *out_floats_right_c = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	float *out_floats_left_opt = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	float *out_floats_right_opt = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	short *out_shorts_c = (short *)malloc(MAXSAMPLES * 2 * 2 + PAD);
+	short *out_shorts_opt = (short *)malloc(MAXSAMPLES * 2 * 2 + PAD);
 
 	memset(in_shorts, 0xfb, MAXSAMPLES * 2 * 2 + PAD);
 	memset(out_floats_left_c, 0xfb, MAXSAMPLES * 4 + PAD);
@@ -125,10 +126,12 @@ void TestRounding(float in, int16_t expected, int samples)
 		}
 	}
 	printf("test interleave compare %6d, %10f %13f %6d %6d %6d %s\n",
-		max_diff, in, in * 32768.0f, out_shorts_c[0], out_shorts_opt[0],
-		expected,
-		max_diff == 0 ? "PASS" : (out_shorts_opt[0] == expected ?
-		"EXPECTED DIFFERENCE" : "UNEXPECTED DIFFERENCE"));
+	       max_diff, in, in * 32768.0f, out_shorts_c[0], out_shorts_opt[0],
+	       expected,
+	       max_diff == 0 ? "PASS" :
+			       (out_shorts_opt[0] == expected ?
+					"EXPECTED DIFFERENCE" :
+					"UNEXPECTED DIFFERENCE"));
 
 	/* measure reference C deinterleave */
 	dsp_util_deinterleave_reference(in_shorts, out_floats_ptr_c, 2,
@@ -139,11 +142,13 @@ void TestRounding(float in, int16_t expected, int samples)
 			      SND_PCM_FORMAT_S16_LE, samples);
 
 	d = memcmp(out_floats_ptr_c[0], out_floats_ptr_opt[0], samples * 4);
-	if (d) printf("left compare %d, %f %f\n", d, out_floats_ptr_c[0][0],
-		      out_floats_ptr_opt[0][0]);
+	if (d)
+		printf("left compare %d, %f %f\n", d, out_floats_ptr_c[0][0],
+		       out_floats_ptr_opt[0][0]);
 	d = memcmp(out_floats_ptr_c[1], out_floats_ptr_opt[1], samples * 4);
-	if (d) printf("right compare %d, %f %f\n", d, out_floats_ptr_c[1][0],
-		      out_floats_ptr_opt[1][0]);
+	if (d)
+		printf("right compare %d, %f %f\n", d, out_floats_ptr_c[1][0],
+		       out_floats_ptr_opt[1][0]);
 
 	free(in_shorts);
 	free(out_floats_left_c);
@@ -193,11 +198,11 @@ int main(int argc, char **argv)
 	inf.ieee.negative = 0;
 	inf.ieee.exponent = 0xfe;
 	inf.ieee.mantissa = 0x7fffff;
-	TestRounding(inf.f, EXPECTED_INF_RESULT, samples);  // expect fail
+	TestRounding(inf.f, EXPECTED_INF_RESULT, samples); // expect fail
 	inf.ieee.negative = 1;
 	inf.ieee.exponent = 0xfe;
 	inf.ieee.mantissa = 0x7fffff;
-	TestRounding(inf.f, EXPECTED_NEGINF_RESULT, samples);  // expect fail
+	TestRounding(inf.f, EXPECTED_NEGINF_RESULT, samples); // expect fail
 
 	// test rounding
 	TestRounding(0.25f, 8192, samples);
@@ -213,10 +218,10 @@ int main(int argc, char **argv)
 
 	/* Rounding on 'tie' is different for Intel. */
 #if defined(__i386__) || defined(__x86_64__)
-	TestRounding(0.5f / 32768.0f, 0, samples);  /* Expect round to even */
+	TestRounding(0.5f / 32768.0f, 0, samples); /* Expect round to even */
 	TestRounding(-0.5f / 32768.0f, 0, samples);
 #else
-	TestRounding(0.5f / 32768.0f, 1, samples);  /* Expect round away */
+	TestRounding(0.5f / 32768.0f, 1, samples); /* Expect round away */
 	TestRounding(-0.5f / 32768.0f, -1, samples);
 #endif
 
@@ -249,14 +254,14 @@ int main(int argc, char **argv)
 #else
 #define EXPECTED_NAN_RESULT 0
 #endif
-	union ieee754_float nan;  /* Quiet NaN */
+	union ieee754_float nan; /* Quiet NaN */
 	nan.ieee.negative = 0;
 	nan.ieee.exponent = 0xff;
 	nan.ieee.mantissa = 0x400001;
 	TestRounding(nan.f, EXPECTED_NAN_RESULT, samples);
 	nan.ieee.negative = 0;
 	nan.ieee.exponent = 0xff;
-	nan.ieee.mantissa = 0x000001;  /* Signalling NaN */
+	nan.ieee.mantissa = 0x000001; /* Signalling NaN */
 	TestRounding(nan.f, EXPECTED_NAN_RESULT, samples);
 
 	/* Test Performance */
@@ -265,13 +270,13 @@ int main(int argc, char **argv)
 	int i;
 	int d;
 
-	short* in_shorts = (short*) malloc(MAXSAMPLES * 2 * 2 + PAD);
-	float* out_floats_left_c = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	float* out_floats_right_c = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	float* out_floats_left_opt = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	float* out_floats_right_opt = (float*) malloc(MAXSAMPLES * 4 + PAD);
-	short* out_shorts_c = (short*) malloc(MAXSAMPLES * 2 * 2 + PAD);
-	short* out_shorts_opt = (short*) malloc(MAXSAMPLES * 2 * 2 + PAD);
+	short *in_shorts = (short *)malloc(MAXSAMPLES * 2 * 2 + PAD);
+	float *out_floats_left_c = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	float *out_floats_right_c = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	float *out_floats_left_opt = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	float *out_floats_right_opt = (float *)malloc(MAXSAMPLES * 4 + PAD);
+	short *out_shorts_c = (short *)malloc(MAXSAMPLES * 2 * 2 + PAD);
+	short *out_shorts_opt = (short *)malloc(MAXSAMPLES * 2 * 2 + PAD);
 
 	memset(in_shorts, 0x11, MAXSAMPLES * 2 * 2 + PAD);
 	memset(out_floats_left_c, 0x22, MAXSAMPLES * 4 + PAD);
@@ -291,19 +296,18 @@ int main(int argc, char **argv)
 
 	/* Benchmark dsp_util_interleave */
 	for (samples = MAXSAMPLES; samples >= MINSAMPLES; samples /= 2) {
-
 		/* measure original C interleave */
 		clock_gettime(CLOCK_MONOTONIC, &start); /* mark start time */
 		for (i = 0; i < ITERATIONS; ++i) {
 			dsp_util_interleave_reference(out_floats_ptr_c,
-						      out_shorts_c,
-						      2, samples);
+						      out_shorts_c, 2, samples);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &end); /* mark the end time */
-		diff = (BILLION * (end.tv_sec - start.tv_sec) +
-			end.tv_nsec - start.tv_nsec) / 1000000;
+		diff = (BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec -
+			start.tv_nsec) /
+		       1000000;
 		printf("interleave   ORIG size = %6d, elapsed time = %llu ms\n",
-		       samples, (long long unsigned int) diff);
+		       samples, (long long unsigned int)diff);
 
 		/* measure optimized interleave */
 		clock_gettime(CLOCK_MONOTONIC, &start); /* mark start time */
@@ -313,35 +317,36 @@ int main(int argc, char **argv)
 					    SND_PCM_FORMAT_S16_LE, samples);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &end); /* mark the end time */
-		diff = (BILLION * (end.tv_sec - start.tv_sec) +
-			end.tv_nsec - start.tv_nsec) / 1000000;
+		diff = (BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec -
+			start.tv_nsec) /
+		       1000000;
 		printf("interleave   SIMD size = %6d, elapsed time = %llu ms\n",
-		       samples, (long long unsigned int) diff);
+		       samples, (long long unsigned int)diff);
 
 		/* Test C and SIMD output match */
 		d = memcmp(out_shorts_c, out_shorts_opt,
 			   MAXSAMPLES * 2 * 2 + PAD);
-		if (d) printf("interleave compare %d, %d %d, %d %d\n", d,
-			      out_shorts_c[0], out_shorts_c[1],
-			      out_shorts_opt[0], out_shorts_opt[1]);
+		if (d)
+			printf("interleave compare %d, %d %d, %d %d\n", d,
+			       out_shorts_c[0], out_shorts_c[1],
+			       out_shorts_opt[0], out_shorts_opt[1]);
 	}
 
 	/* Benchmark dsp_util_deinterleave */
 	for (samples = MAXSAMPLES; samples >= MINSAMPLES; samples /= 2) {
-
 		/* Measure original C deinterleave */
 		clock_gettime(CLOCK_MONOTONIC, &start); /* mark start time */
 		for (i = 0; i < ITERATIONS; ++i) {
-			dsp_util_deinterleave_reference(in_shorts,
-							out_floats_ptr_c,
-							2, samples);
+			dsp_util_deinterleave_reference(
+				in_shorts, out_floats_ptr_c, 2, samples);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &end); /* mark the end time */
-		diff = (BILLION * (end.tv_sec - start.tv_sec) +
-			end.tv_nsec - start.tv_nsec) / 1000000;
-			printf("deinterleave ORIG size = %6d, "
-			       "elapsed time = %llu ms\n",
-			       samples, (long long unsigned int) diff);
+		diff = (BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec -
+			start.tv_nsec) /
+		       1000000;
+		printf("deinterleave ORIG size = %6d, "
+		       "elapsed time = %llu ms\n",
+		       samples, (long long unsigned int)diff);
 
 		/* Measure optimized deinterleave */
 		clock_gettime(CLOCK_MONOTONIC, &start); /* mark start time */
@@ -351,20 +356,25 @@ int main(int argc, char **argv)
 					      SND_PCM_FORMAT_S16_LE, samples);
 		}
 		clock_gettime(CLOCK_MONOTONIC, &end); /* mark the end time */
-		diff = (BILLION * (end.tv_sec - start.tv_sec) +
-			end.tv_nsec - start.tv_nsec) / 1000000;
+		diff = (BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec -
+			start.tv_nsec) /
+		       1000000;
 		printf("deinterleave SIMD size = %6d, elapsed time = %llu ms\n",
-			samples, (long long unsigned int) diff);
+		       samples, (long long unsigned int)diff);
 
 		/* Test C and SIMD output match */
 		d = memcmp(out_floats_ptr_c[0], out_floats_ptr_opt[0],
 			   samples * 4);
-		if (d) printf("left compare %d, %f %f\n", d,
-			      out_floats_ptr_c[0][0], out_floats_ptr_opt[0][0]);
+		if (d)
+			printf("left compare %d, %f %f\n", d,
+			       out_floats_ptr_c[0][0],
+			       out_floats_ptr_opt[0][0]);
 		d = memcmp(out_floats_ptr_c[1], out_floats_ptr_opt[1],
 			   samples * 4);
-		if (d) printf("right compare %d, %f %f\n", d,
-			      out_floats_ptr_c[1][0], out_floats_ptr_opt[1][0]);
+		if (d)
+			printf("right compare %d, %f %f\n", d,
+			       out_floats_ptr_c[1][0],
+			       out_floats_ptr_opt[1][0]);
 	}
 
 	free(in_shorts);

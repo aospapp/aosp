@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_visibility: ["//visibility:private"],
+}
+
 // Host prebuilt dependencies.
 // ============================================================
 
@@ -41,11 +45,14 @@ java_import_host {
 
 java_library_host {
     name: "currysrc",
+    visibility: [
+        "//external/icu/tools/srcgen",
+    ],
     static_libs: [
         "currysrc_org.eclipse",
         "guavalib",
         "gson-prebuilt-jar",
-	"jopt-simple-4.9",
+        "jopt-simple-4.9",
     ],
     srcs: ["src/**/*.java"],
 }

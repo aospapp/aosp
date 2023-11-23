@@ -27,6 +27,7 @@
 #include "deRandom.hpp"
 #include "tcuTestLog.hpp"
 #include "tcuVector.hpp"
+#include "tcuVectorUtil.hpp"
 
 #include "vkPrograms.hpp"
 #include "vktTestCase.hpp"
@@ -95,6 +96,10 @@ public:
 	virtual void				initPrograms				(vk::SourceCollections& programCollection) const
 								{
 									m_validator.initPrograms(programCollection);
+								}
+	virtual void				checkSupport				(Context& context) const
+								{
+									checkProtectedQueueSupport(context);
 								}
 private:
 	deUint32					m_fillValue;
@@ -386,13 +391,15 @@ tcu::TestCaseGroup*	createCopyBufferToImageTests (tcu::TestContext& testCtx, Cmd
 			deUint32	uint;
 		}					fillValue	= { rnd.getFloat(0.0, 1.0f) };
 
-		tcu::Vec4			refValue	(fillValue.flt);
+		const tcu::Vec4		refValue	(fillValue.flt);
+		const tcu::Vec4		vec0		= tcu::randomVec4(rnd);
+		const tcu::Vec4		vec1		= tcu::randomVec4(rnd);
+		const tcu::Vec4		vec2		= tcu::randomVec4(rnd);
+		const tcu::Vec4		vec3		= tcu::randomVec4(rnd);
+
 		ValidationData		data		=
 		{
-			{ tcu::Vec4(rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f)),
-			  tcu::Vec4(rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f)),
-			  tcu::Vec4(rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f)),
-			  tcu::Vec4(rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f), rnd.getFloat(0.0f, 1.0f)) },
+			{ vec0, vec1, vec2, vec3 },
 			{ refValue, refValue, refValue, refValue }
 		};
 		copyRandomTests->addChild(new CopyBufferToImageTestCase(testCtx, name.c_str(), fillValue.uint, data, cmdBufferType));

@@ -14,8 +14,8 @@ sv{
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Å Ä Ö]"}
     ExemplarCharactersNumbers{"[  , % ‰ + − 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -27,7 +27,6 @@ sv{
                 infinity{"∞"}
                 list{"؛"}
                 minusSign{"؜−"}
-                nan{"¤¤¤"}
                 perMille{"؉‏"}
                 percentSign{"٪؜"}
                 plusSign{"؜+"}
@@ -43,7 +42,6 @@ sv{
                 infinity{"∞"}
                 list{"؛"}
                 minusSign{"‎−‎"}
-                nan{"¤¤¤"}
                 perMille{"؉"}
                 percentSign{"٪"}
                 plusSign{"‎+‎"}
@@ -60,7 +58,7 @@ sv{
         latn{
             miscPatterns{
                 approximately{"~{0}"}
-                atLeast{"≥{0}"}
+                atLeast{"⩾{0}"}
                 atMost{"≤{0}"}
                 range{"{0}‒{1}"}
             }
@@ -232,7 +230,7 @@ sv{
                 infinity{"∞"}
                 list{";"}
                 minusSign{"−"}
-                nan{"¤¤¤"}
+                nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
                 plusSign{"+"}
@@ -253,7 +251,7 @@ sv{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.43.94"}
+    Version{"36.1"}
     calendar{
         buddhist{
             availableFormats{
@@ -271,14 +269,6 @@ sv{
                 }
             }
             intervalFormats{
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
-                }
                 hmv{
                     h{"h:mm–h:mm a v"}
                 }
@@ -574,6 +564,24 @@ sv{
                 yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
+                Bh{
+                    h{"h – h B"}
+                }
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y G – MMM y"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y G – d MMM d y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -727,8 +735,8 @@ sv{
                 MMMEd{"E d MMM"}
                 MMMMEd{"E d MMMM"}
                 MMMMW{
-                    one{"'vecka' W 'i' MMM"}
-                    other{"'vecka' W 'i' MMM"}
+                    one{"'vecka' W 'i' MMMM"}
+                    other{"'vecka' W 'i' MMMM"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -923,6 +931,34 @@ sv{
                 }
             }
             intervalFormats{
+                Bh{
+                    h{"h – h B"}
+                }
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
+                }
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"d MMM y G, E – d MMM y G, E"}
+                    M{"d MMM y G, E – d MMM, E"}
+                    d{"d MMM y G, E – d MMM, E"}
+                    y{"d MMM y G, E – d MMM y, E"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y G – d MMM y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1163,13 +1199,12 @@ sv{
                 }
             }
             intervalFormats{
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
+                Bh{
+                    h{"h – h B"}
                 }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
+                Bhm{
+                    h{"h:mm – h:mm B"}
+                    m{"h:mm – h:mm B"}
                 }
             }
             monthNames{
@@ -1255,15 +1290,6 @@ sv{
                     "Saka-eran",
                 }
             }
-            intervalFormats{
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
-                }
-                Hmv{
-                    m{"HH:mm–HH:mm v"}
-                }
-            }
             monthNames{
                 format{
                     abbreviated{
@@ -1337,16 +1363,6 @@ sv{
                 }
                 wide{
                     "efter Hirja",
-                }
-            }
-            intervalFormats{
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
                 }
             }
             monthNames{
@@ -1654,16 +1670,6 @@ sv{
                     "Anno Persarum",
                 }
             }
-            intervalFormats{
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
-                }
-            }
             monthNames{
                 format{
                     abbreviated{
@@ -1740,16 +1746,6 @@ sv{
                 wide{
                     "före Republiken Kina",
                     "Minguo",
-                }
-            }
-            intervalFormats{
-                Hm{
-                    H{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
                 }
             }
         }
@@ -2115,11 +2111,6 @@ sv{
             }
         }
         mon-narrow{
-            relative{
-                "-1"{"förra mån."}
-                "0"{"denna mån."}
-                "1"{"nästa mån."}
-            }
             relativeTime{
                 future{
                     one{"+{0} må."}
@@ -2764,21 +2755,10 @@ sv{
                 "[%٪﹪％]",
                 "[؉‰]",
                 "[\$﹩＄$]",
-                "[£₤]",
+                "[£₤￡]",
                 "[¥￥]",
                 "[₩￦]",
                 "[₨₹{Rp}{Rs}]",
-            }
-        }
-        number{
-            lenient{
-                "[\\-‒⁻₋−➖﹣－]",
-                "[,،٫、︐︑﹐﹑，､]",
-                "[+⁺₊➕﬩﹢＋]",
-            }
-            stricter{
-                "[,٫︐﹐，]",
-                "[.․﹒．｡]",
             }
         }
     }

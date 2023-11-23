@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 lo{
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -44,6 +44,10 @@ lo{
             acre{
                 dnam{"ເອເຄີ"}
                 other{"{0} ເອເຄີ"}
+            }
+            dunam{
+                dnam{"ດູ​ນຳ"}
+                other{"{0} ດູ​ນຳ"}
             }
             hectare{
                 dnam{"ເຮັກຕາ"}
@@ -99,6 +103,10 @@ lo{
                 dnam{"ມິລິໂມລຕໍ່ລິດ"}
                 other{"{0} ມິລິໂມລຕໍ່ລິດ"}
             }
+            mole{
+                dnam{"ໂມ​ລ"}
+                other{"{0} ໂມ​ລ"}
+            }
             part-per-million{
                 dnam{"ພາດຕໍ່ລ້ານ"}
                 other{"{0} ພາດຕໍ່ລ້ານ"}
@@ -110,6 +118,10 @@ lo{
             permille{
                 dnam{"ຕໍ່ພັນ"}
                 other{"{0} ຕໍ່ພັນ"}
+            }
+            permyriad{
+                dnam{"ເປີ​ມີ​ຣຽດ"}
+                other{"{0} ເປີ​ມີ​ຣຽດ"}
             }
         }
         consumption{
@@ -193,6 +205,10 @@ lo{
                 other{"{0} ມື້"}
                 per{"{0} ຕໍ່ມື້"}
             }
+            decade{
+                dnam{"ທົດສະວັດ"}
+                other{"{0} ທົດສະວັດ"}
+            }
             hour{
                 dnam{"ຊົ່ວໂມງ"}
                 other{"{0} ຊົ່ວໂມງ"}
@@ -250,26 +266,34 @@ lo{
                 other{"{0} Ω"}
             }
             volt{
-                dnam{"volt"}
-                other{"{0} V"}
+                dnam{"ໂວລ"}
+                other{"{0} ໂວລ"}
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"ຫົວ​ໜ່ວຍ​ວັດ​ແທກ​ປະ​ລິ​ມານ​ຄວາມ​ຮ້ອນ​ຂ​ອງ​ອັງ​ກິດ"}
+                other{"{0} ຫົວ​ໜ່ວຍ​ວັດ​ແທກ​ປະ​ລິ​ມານ​ຄວາມ​ຮ້ອນ​ຂ​ອງ​ອັງ​ກິດ"}
+            }
             calorie{
-                dnam{"cal"}
-                other{"{0} cal"}
+                dnam{"ແຄລໍລີ່"}
+                other{"{0} ແຄລໍລີ່"}
+            }
+            electronvolt{
+                dnam{"ເອ​ເລັກ​ຕ​ຣົງ​ໂວນ"}
+                other{"{0} ເອ​ເລັກ​ຕ​ຣົງ​ໂວນ"}
             }
             foodcalorie{
-                dnam{"Cal"}
-                other{"{0} Cal"}
+                dnam{"ແຄລໍລີ່"}
+                other{"{0} ແຄລໍລີ່"}
             }
             joule{
                 dnam{"joule"}
                 other{"{0} J"}
             }
             kilocalorie{
-                dnam{"kcal"}
-                other{"{0} kcal"}
+                dnam{"ກິໂລແຄລໍລີ່"}
+                other{"{0} ກິໂລແຄລໍລີ່"}
             }
             kilojoule{
                 dnam{"kJ"}
@@ -278,6 +302,16 @@ lo{
             kilowatt-hour{
                 dnam{"kWh"}
                 other{"{0} kWh"}
+            }
+        }
+        force{
+            newton{
+                dnam{"ນິວ​ເຕິນ"}
+                other{"{0} ນິວ​ເຕິນ"}
+            }
+            pound-force{
+                dnam{"ແຮງປ​ອນ"}
+                other{"{0} ແຮງປ​ອນ"}
             }
         }
         frequency{
@@ -372,6 +406,10 @@ lo{
                 dnam{"ຈຸດ"}
                 other{"{0} ຈຸດ"}
             }
+            solar-radius{
+                dnam{"ລັດ​ສະ​ໝີ​ດວງ​ຕາ​ເວັນ"}
+                other{"{0} ລັດ​ສະ​ໝີ​ດວງ​ຕາ​ເວັນ"}
+            }
             yard{
                 dnam{"ຫລາ"}
                 other{"{0} ຫລາ"}
@@ -382,11 +420,23 @@ lo{
                 dnam{"lux"}
                 other{"{0} lux"}
             }
+            solar-luminosity{
+                dnam{"ຄວາມ​ແຈ້ງດວງ​ຕາ​ເວັນ"}
+                other{"{0} ຄວາມ​ແຈ້ງດວງ​ຕາ​ເວັນ"}
+            }
         }
         mass{
             carat{
                 dnam{"CD"}
                 other{"{0} CD"}
+            }
+            dalton{
+                dnam{"ດໍ​ຕັນ"}
+                other{"{0} ດໍ​ຕັນ"}
+            }
+            earth-mass{
+                dnam{"ມວນ​ສານ​ໜ່ວຍ​ໂລກ"}
+                other{"{0} ມວນ​ສານ​ໜ່ວຍ​ໂລກ"}
             }
             gram{
                 dnam{"ກຣາມ"}
@@ -411,9 +461,9 @@ lo{
                 other{"{0} mg"}
             }
             ounce{
-                dnam{"ອອນ"}
-                other{"{0} ອອນ"}
-                per{"{0} ຕໍ່ ອອນ"}
+                dnam{"ອອນສ"}
+                other{"{0} ອອນສ"}
+                per{"{0} ຕໍ່ ອອນສ"}
             }
             ounce-troy{
                 dnam{"oz t"}
@@ -422,11 +472,15 @@ lo{
             pound{
                 dnam{"ປອນ"}
                 other{"{0} ປອນ"}
-                per{"{0}/lb"}
+                per{"{0}/ປອນ"}
+            }
+            solar-mass{
+                dnam{"ມວນ​ສານດວງ​ຕາ​ເວັນ"}
+                other{"{0} ມວນ​ສານດວງ​ຕາ​ເວັນ"}
             }
             ton{
-                dnam{"tn"}
-                other{"{0} tn"}
+                dnam{"ໂຕນ"}
+                other{"{0} ໂຕນ"}
             }
         }
         power{
@@ -468,6 +522,14 @@ lo{
                 dnam{"in Hg"}
                 other{"{0} inches of mercury"}
             }
+            kilopascal{
+                dnam{"ກິ​ໂລ​ປາ​ສ​ການ"}
+                other{"{0} ກິ​ໂລ​ປາ​ສ​ການ"}
+            }
+            megapascal{
+                dnam{"ເມ​ກາ​ປາ​ສ​ການ"}
+                other{"{0} ເມ​ກາ​ປາ​ສ​ການ"}
+            }
             millibar{
                 dnam{"ມິນລິບາ"}
                 other{"{0} ມິນລິບາ"}
@@ -487,8 +549,8 @@ lo{
                 other{"{0} ກິໂລແມັດຕໍ່ຊົ່ວໂມງ"}
             }
             knot{
-                dnam{"knot"}
-                other{"{0} knots"}
+                dnam{"ນ໋ອດ"}
+                other{"{0} ນ໋ອດ"}
             }
             meter-per-second{
                 dnam{"ແມັດຕໍ່ນາທີ"}
@@ -517,10 +579,24 @@ lo{
                 other{"{0} ອົງສາເຄວິນ"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ນິວ​ເຕິນ​ແມັດ"}
+                other{"{0} ນິວ​ເຕິນ​ແມັດ"}
+            }
+            pound-foot{
+                dnam{"ປອນ​-ຟຸດ"}
+                other{"{0} ປອນ​-ຟຸດ"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ac ft"}
                 other{"{0} ac ft"}
+            }
+            barrel{
+                dnam{"ບາ​ເຣວ"}
+                other{"{0} ບາ​ເຣວ"}
             }
             centiliter{
                 dnam{"cL"}
@@ -573,9 +649,9 @@ lo{
                 other{"{0} fl oz"}
             }
             gallon{
-                dnam{"gal"}
-                other{"{0} gal"}
-                per{"{0} per gallon"}
+                dnam{"ແກລລອນ"}
+                other{"{0} ແກລລອນ"}
+                per{"{0} ຕໍ່ແກລລອນ"}
             }
             gallon-imperial{
                 dnam{"ແກລລອນອັງກິດ"}
@@ -797,7 +873,6 @@ lo{
         speed{
             kilometer-per-hour{
                 dnam{"ກມ/ຊມ"}
-                other{"{0} km/h"}
             }
             meter-per-second{
                 other{"{0} m/s"}
@@ -866,6 +941,10 @@ lo{
             acre{
                 dnam{"ເອເຄີ"}
                 other{"{0} ເອເຄີ"}
+            }
+            dunam{
+                dnam{"ດູ​ນຳ"}
+                other{"{0} ດູ​ນຳ"}
             }
             hectare{
                 dnam{"ເຮັກຕາ"}
@@ -1015,6 +1094,10 @@ lo{
                 other{"{0} ມື້"}
                 per{"{0}/ມື້"}
             }
+            decade{
+                dnam{"ທົດສະວັດ"}
+                other{"{0} ທົດສະວັດ"}
+            }
             hour{
                 dnam{"ຊົ່ວໂມງ"}
                 other{"{0} ຊມ"}
@@ -1072,26 +1155,26 @@ lo{
                 other{"{0} Ω"}
             }
             volt{
-                dnam{"volt"}
-                other{"{0} V"}
+                dnam{"ໂວລ"}
+                other{"{0} ໂວລ"}
             }
         }
         energy{
             calorie{
-                dnam{"cal"}
-                other{"{0} cal"}
+                dnam{"ຄລ"}
+                other{"{0} ຄລ"}
             }
             foodcalorie{
-                dnam{"Cal"}
-                other{"{0} Cal"}
+                dnam{"ຄລ"}
+                other{"{0} ຄລ"}
             }
             joule{
                 dnam{"joule"}
                 other{"{0} J"}
             }
             kilocalorie{
-                dnam{"kcal"}
-                other{"{0} kcal"}
+                dnam{"ກິໂລແຄລໍລີ່"}
+                other{"{0} ກິໂລແຄລໍລີ່"}
             }
             kilojoule{
                 dnam{"kJ"}
@@ -1229,13 +1312,13 @@ lo{
                 other{"{0} µg"}
             }
             milligram{
-                dnam{"mg"}
-                other{"{0} mg"}
+                dnam{"ມກ"}
+                other{"{0} ມກ"}
             }
             ounce{
-                dnam{"ອອນ"}
+                dnam{"ອອນສ"}
                 other{"{0} ອ"}
-                per{"{0}/oz"}
+                per{"{0}/ອ"}
             }
             ounce-troy{
                 dnam{"oz t"}
@@ -1244,11 +1327,11 @@ lo{
             pound{
                 dnam{"ປອນ"}
                 other{"{0} ປ"}
-                per{"{0}/lb"}
+                per{"{0}/ປ"}
             }
             ton{
-                dnam{"tn"}
-                other{"{0} tn"}
+                dnam{"ຕ"}
+                other{"{0} ຕ"}
             }
         }
         power{
@@ -1362,8 +1445,8 @@ lo{
                 other{"{0} in³"}
             }
             cubic-kilometer{
-                dnam{"km³"}
-                other{"{0} km³"}
+                dnam{"ກມ³"}
+                other{"{0} ກມ³"}
             }
             cubic-meter{
                 dnam{"ມ³"}
@@ -1395,9 +1478,9 @@ lo{
                 other{"{0} fl oz"}
             }
             gallon{
-                dnam{"gal"}
-                other{"{0} gal"}
-                per{"{0}/gal"}
+                dnam{"ແກລລອນ"}
+                other{"{0} ແກລລອນ"}
+                per{"{0}/ແກລລອນ"}
             }
             gallon-imperial{
                 dnam{"Imp. gal"}

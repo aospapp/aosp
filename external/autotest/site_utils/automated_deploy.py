@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -17,6 +17,7 @@ Example usage of this script:
 """
 
 import argparse
+import filecmp
 import os
 import re
 import sys
@@ -26,11 +27,14 @@ import common
 from autotest_lib.client.common_lib import revision_control
 from autotest_lib.site_utils.lib import infra
 
+INFRA_DATA = 'infradata'
 AUTOTEST_DIR = common.autotest_dir
 GIT_URL = {'autotest':
            'https://chromium.googlesource.com/chromiumos/third_party/autotest',
            'chromite':
-           'https://chromium.googlesource.com/chromiumos/chromite'}
+           'https://chromium.googlesource.com/chromiumos/chromite',
+           INFRA_DATA:
+           'https://chrome-internal.googlesource.com/infradata/config'}
 PROD_BRANCH = 'prod'
 MASTER_AFE = 'cautotest'
 NOTIFY_GROUP = 'chromeos-infra-discuss@google.com'
@@ -41,6 +45,7 @@ _CIPD_PACKAGES = (
         'chromiumos/infra/skylab/linux-amd64',
         'chromiumos/infra/skylab-inventory',
         'chromiumos/infra/skylab_swarming_worker/linux-amd64',
+        'chromiumos/infra/autotest_status_parser/linux-amd64',
 )
 
 
@@ -60,6 +65,10 @@ def parse_arguments():
             help='Skip updating autotest prod branch. Default is False.')
     parser.add_argument('--skip_chromite', action='store_true', default=False,
             help='Skip updating chromite prod branch. Default is False.')
+    parser.add_argument('--skip_prod_config_check', action='store_true',
+                        default=False,
+                        help='Skip checking prod config matches dev. '
+                             'Default is False.')
     parser.add_argument('--force_update', action='store_true', default=False,
             help=('Force a deployment without updating both autotest and '
                   'chromite prod branch'))
@@ -83,6 +92,45 @@ def parse_arguments():
       results.skip_autotest = True
       results.skip_chromite = True
     return results
+
+
+def verify_dev_infradata_config_matches_prod():
+    """Checks that dev config matches prod config before push
+
+    Based on crbug.com/949696, this checks to make sure that dev
+    config changes have been cloned to prod before a prod push.
+
+    @raises subprocess.CalledProcessError on a command failure.
+    @raised revision_control.GitCloneError when git clone fails.
+    """
+
+    repo_dir = os.path.join('/tmp', INFRA_DATA)
+    git_url = GIT_URL[INFRA_DATA]
+    print 'Checking PROD matches DEV config for %s repo' % git_url
+    print 'Cloning %s master branch under %s' % (git_url, repo_dir)
+    if os.path.exists(repo_dir):
+        infra.local_runner('rm -rf %s' % repo_dir)
+    git_repo = revision_control.GitRepo(repo_dir, git_url)
+    git_repo.clone(shallow=True)
+
+    dev_to_prod_files = {
+        'configs/chromium-swarm-dev/scripts/skylab.py':
+            'configs/chromeos-swarming/scripts/skylab.py',
+    }
+
+    for dev_rel_path, prod_rel_path in dev_to_prod_files.items():
+        if filecmp.cmp(os.path.join(repo_dir, dev_rel_path),
+                       os.path.join(repo_dir, prod_rel_path),
+                       shallow=False):
+            continue
+
+        master_url = git_url + '/+/refs/heads/master/'
+        raise AutoDeployException(
+            '\n\n%s\nDOES NOT MATCH\n%s'
+            '\n\nCopy DEV config to PROD config before performing release' %
+            (master_url + prod_rel_path, master_url + dev_rel_path))
+
+    print 'Successfully verified PROD config matches DEV config'
 
 
 def clone_prod_branch(repo):
@@ -204,6 +252,9 @@ def main(args):
         repos.update({'autotest': options.autotest_hash})
     if not options.skip_chromite:
         repos.update({'chromite': options.chromite_hash})
+
+    if not options.skip_prod_config_check:
+        verify_dev_infradata_config_matches_prod()
 
     print 'Moving CIPD prod refs to prod-next'
     for pkg in _CIPD_PACKAGES:

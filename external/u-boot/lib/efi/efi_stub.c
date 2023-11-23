@@ -277,7 +277,8 @@ efi_status_t EFIAPI efi_main(efi_handle_t image,
 	struct efi_entry_memmap map;
 	struct efi_gop *gop;
 	struct efi_entry_gopmode mode;
-	efi_guid_t efi_gop_guid = EFI_GOP_GUID;
+	struct efi_entry_systable table;
+	efi_guid_t efi_gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 	efi_uintn_t key, desc_size, size;
 	efi_status_t ret;
 	u32 version;
@@ -334,6 +335,9 @@ efi_status_t EFIAPI efi_main(efi_handle_t image,
 		puts(" Can't get memory map\n");
 		return ret;
 	}
+
+	table.sys_table = (ulong)sys_table;
+	add_entry_addr(priv, EFIET_SYS_TABLE, &table, sizeof(table), NULL, 0);
 
 	ret = boot->exit_boot_services(image, key);
 	if (ret) {

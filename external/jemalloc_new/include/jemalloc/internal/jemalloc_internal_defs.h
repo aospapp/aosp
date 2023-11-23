@@ -237,7 +237,12 @@
  * common sequences of mmap()/munmap() calls will cause virtual memory map
  * holes.
  */
+#if defined(__LP64__)
+// Only use retain for 64 bit since virtual memory can be exhausted
+// very easily when running in 32 bit.
+// See b/142556796.
 #define JEMALLOC_RETAIN 
+#endif
 
 /* TLS is used to map arenas and magazine caches to threads. */
 /* #undef JEMALLOC_TLS */

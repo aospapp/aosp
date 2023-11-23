@@ -83,7 +83,7 @@ class policy_NotificationsAllowedForUrls(
         notification_permission = tab.EvaluateJavaScript(
                 'Notification.permission')
         if notification_permission not in ['granted', 'denied', 'default']:
-            error.TestFail('Unable to capture Notification Setting.')
+            raise error.TestFail('Unable to capture Notification Setting.')
         return notification_permission == 'granted'
 
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # @lint-avoid-python-3-compatibility-imports
 #
 # fileslower  Trace slow synchronous file reads and writes.
@@ -205,7 +205,7 @@ b.attach_kretprobe(event="__vfs_read", fn_name="trace_read_return")
 try:
     b.attach_kprobe(event="__vfs_write", fn_name="trace_write_entry")
     b.attach_kretprobe(event="__vfs_write", fn_name="trace_write_return")
-except:
+except Exception:
     # older kernels don't have __vfs_write so try vfs_write instead
     b.attach_kprobe(event="vfs_write", fn_name="trace_write_entry")
     b.attach_kretprobe(event="vfs_write", fn_name="trace_write_return")
@@ -250,4 +250,7 @@ def print_event(cpu, data, size):
 
 b["events"].open_perf_buffer(print_event, page_cnt=64)
 while 1:
-    b.perf_buffer_poll()
+    try:
+        b.perf_buffer_poll()
+    except KeyboardInterrupt:
+        exit()

@@ -100,8 +100,8 @@ struct DeltaSetIndexMap
 
 struct HVARVVAR
 {
-  enum { HVARTag = HB_OT_TAG_HVAR };
-  enum { VVARTag = HB_OT_TAG_VVAR };
+  static constexpr hb_tag_t HVARTag = HB_OT_TAG_HVAR;
+  static constexpr hb_tag_t VVARTag = HB_OT_TAG_VVAR;
 
   bool sanitize (hb_sanitize_context_t *c) const
   {
@@ -114,14 +114,21 @@ struct HVARVVAR
 		  rsbMap.sanitize (c, this));
   }
 
-  float get_advance_var (hb_codepoint_t glyph,
-			 const int *coords, unsigned int coord_count) const
+  float get_advance_var (hb_font_t *font, hb_codepoint_t glyph) const
   {
     unsigned int varidx = (this+advMap).map (glyph);
+    return (this+varStore).get_delta (varidx, font->coords, font->num_coords);
+  }
+
+  float get_side_bearing_var (hb_codepoint_t glyph,
+			      const int *coords, unsigned int coord_count) const
+  {
+    if (!has_side_bearing_deltas ()) return 0.f;
+    unsigned int varidx = (this+lsbMap).map (glyph);
     return (this+varStore).get_delta (varidx, coords, coord_count);
   }
 
-  bool has_sidebearing_deltas () const { return lsbMap && rsbMap; }
+  bool has_side_bearing_deltas () const { return lsbMap && rsbMap; }
 
   protected:
   FixedVersion<>version;	/* Version of the metrics variation table
@@ -140,10 +147,10 @@ struct HVARVVAR
 };
 
 struct HVAR : HVARVVAR {
-  enum { tableTag = HB_OT_TAG_HVAR };
+  static constexpr hb_tag_t tableTag = HB_OT_TAG_HVAR;
 };
 struct VVAR : HVARVVAR {
-  enum { tableTag = HB_OT_TAG_VVAR };
+  static constexpr hb_tag_t tableTag = HB_OT_TAG_VVAR;
 
   bool sanitize (hb_sanitize_context_t *c) const
   {

@@ -16,38 +16,43 @@
 #define VK_SHADER_MODULE_HPP_
 
 #include "VkObject.hpp"
+
+#include <atomic>
 #include <vector>
 
-namespace rr
-{
-	class Routine;
+namespace rr {
+class Routine;
 }
 
-namespace vk
-{
+namespace vk {
 
 class ShaderModule : public Object<ShaderModule, VkShaderModule>
 {
 public:
-	ShaderModule(const VkShaderModuleCreateInfo* pCreateInfo, void* mem);
-	~ShaderModule() = delete;
-	void destroy(const VkAllocationCallbacks* pAllocator);
+	ShaderModule(const VkShaderModuleCreateInfo *pCreateInfo, void *mem);
+	void destroy(const VkAllocationCallbacks *pAllocator);
 
-	static size_t ComputeRequiredAllocationSize(const VkShaderModuleCreateInfo* pCreateInfo);
+	static size_t ComputeRequiredAllocationSize(const VkShaderModuleCreateInfo *pCreateInfo);
 	// TODO: reconsider boundary of ShaderModule class; try to avoid 'expose the
 	// guts' operations, and this copy.
-	std::vector<uint32_t> getCode() const { return std::vector<uint32_t>{ code, code + wordCount };}
+	std::vector<uint32_t> getCode() const { return std::vector<uint32_t>{ code, code + wordCount }; }
+
+	uint32_t getSerialID() const { return serialID; }
+	static uint32_t nextSerialID() { return serialCounter++; }
 
 private:
-	uint32_t* code = nullptr;
+	const uint32_t serialID;
+	static std::atomic<uint32_t> serialCounter;
+
+	uint32_t *code = nullptr;
 	uint32_t wordCount = 0;
 };
 
-static inline ShaderModule* Cast(VkShaderModule object)
+static inline ShaderModule *Cast(VkShaderModule object)
 {
-	return reinterpret_cast<ShaderModule*>(object);
+	return ShaderModule::Cast(object);
 }
 
-} // namespace vk
+}  // namespace vk
 
-#endif // VK_SHADER_MODULE_HPP_
+#endif  // VK_SHADER_MODULE_HPP_

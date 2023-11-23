@@ -8,10 +8,9 @@
 #define CORE_FXCRT_CSS_CFX_CSSDECLARATION_H_
 
 #include <memory>
-#include <utility>
 #include <vector>
 
-#include "core/fxcrt/css/cfx_cssdatatable.h"
+#include "core/fxcrt/css/cfx_cssdata.h"
 
 class CFX_CSSPropertyHolder;
 class CFX_CSSCustomProperty;
@@ -47,8 +46,7 @@ class CFX_CSSDeclaration {
 
   bool empty() const { return properties_.empty(); }
 
-  void AddProperty(const CFX_CSSPropertyTable* pTable,
-                   const WideStringView& value);
+  void AddProperty(const CFX_CSSData::Property* property, WideStringView value);
   void AddProperty(const WideString& prop, const WideString& value);
 
   size_t PropertyCountForTesting() const;
@@ -64,7 +62,7 @@ class CFX_CSSDeclaration {
   bool ParseBorderProperty(const wchar_t* pszValue,
                            int32_t iValueLen,
                            RetainPtr<CFX_CSSValue>& pWidth) const;
-  void ParseValueListProperty(const CFX_CSSPropertyTable* pTable,
+  void ParseValueListProperty(const CFX_CSSData::Property* pProperty,
                               const wchar_t* pszValue,
                               int32_t iValueLen,
                               bool bImportant);

@@ -2,6 +2,7 @@ package org.jf.smali;
 
 import java.io.*;
 import org.antlr.runtime.*;
+import org.jf.smali.util.*;
 import org.jf.util.*;
 import static org.jf.smali.smaliParser.*;
 
@@ -408,6 +409,14 @@ Type = {PrimitiveType} | {ClassDescriptor} | {ArrayPrefix} ({ClassDescriptor} | 
     "vtable@0x" {HexDigit}+ { return newToken(VTABLE_INDEX); }
     "field@0x" {HexDigit}+ { return newToken(FIELD_OFFSET); }
 
+    "static-put" | "static-get" | "instance-put" | "instance-get" {
+        return newToken(METHOD_HANDLE_TYPE_FIELD);
+    }
+
+    "invoke-instance" | "invoke-constructor" {
+        return newToken(METHOD_HANDLE_TYPE_METHOD);
+    }
+
     # [^\r\n]* { return newToken(LINE_COMMENT, true); }
 }
 
@@ -474,6 +483,14 @@ Type = {PrimitiveType} | {ClassDescriptor} | {ArrayPrefix} ({ClassDescriptor} | 
 
     "check-cast" | "new-instance" | "const-class" {
         return newToken(INSTRUCTION_FORMAT21c_TYPE);
+    }
+
+    "const-method-handle" {
+        return newToken(INSTRUCTION_FORMAT21c_METHOD_HANDLE);
+    }
+
+    "const-method-type" {
+        return newToken(INSTRUCTION_FORMAT21c_METHOD_TYPE);
     }
 
     "const/high16" {
@@ -567,8 +584,16 @@ Type = {PrimitiveType} | {ClassDescriptor} | {ArrayPrefix} ({ClassDescriptor} | 
         return newToken(INSTRUCTION_FORMAT32x);
     }
 
-    "invoke-virtual" | "invoke-super" | "invoke-direct" | "invoke-static" | "invoke-interface" {
+    "invoke-custom" {
+        return newToken(INSTRUCTION_FORMAT35c_CALL_SITE);
+    }
+
+    "invoke-virtual" | "invoke-super" {
         return newToken(INSTRUCTION_FORMAT35c_METHOD);
+    }
+    
+    "invoke-direct" | "invoke-static" | "invoke-interface" {
+        return newToken(INSTRUCTION_FORMAT35c_METHOD_OR_METHOD_HANDLE_TYPE);
     }
 
     "invoke-direct-empty" {
@@ -585,6 +610,10 @@ Type = {PrimitiveType} | {ClassDescriptor} | {ArrayPrefix} ({ClassDescriptor} | 
 
     "invoke-virtual-quick" | "invoke-super-quick" {
         return newToken(INSTRUCTION_FORMAT35ms_METHOD);
+    }
+
+    "invoke-custom/range" {
+        return newToken(INSTRUCTION_FORMAT3rc_CALL_SITE);
     }
 
     "invoke-virtual/range" | "invoke-super/range" | "invoke-direct/range" | "invoke-static/range" |
@@ -668,6 +697,7 @@ Type = {PrimitiveType} | {ClassDescriptor} | {ArrayPrefix} ({ClassDescriptor} | 
     "}" { return newToken(CLOSE_BRACE); }
     "(" { return newToken(OPEN_PAREN); }
     ")" { return newToken(CLOSE_PAREN); }
+    "@" { return newToken(AT); }
     [\r\n\t ]+ { return newToken(WHITE_SPACE, true); }
     <<EOF>> { return newToken(EOF); }
 }

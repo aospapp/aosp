@@ -9,7 +9,6 @@ TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'
 TEST_TYPE = 'client'
-DEPENDENCIES = 'audio_loopback_dongle'
 
 DOC = '''
 This test verifies the effect of the AudioOutputAllowed user policy on

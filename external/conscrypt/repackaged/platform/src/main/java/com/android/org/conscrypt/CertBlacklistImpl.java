@@ -28,9 +28,11 @@ import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.PublicKey;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,12 +45,12 @@ public final class CertBlacklistImpl implements CertBlacklist {
     private static final Logger logger = Logger.getLogger(CertBlacklistImpl.class.getName());
 
     private final Set<BigInteger> serialBlacklist;
-    private final Set<byte[]> pubkeyBlacklist;
+    private final Set<ByteString> pubkeyBlacklist;
 
     /**
      * public for testing only.
      */
-    public CertBlacklistImpl(Set<BigInteger> serialBlacklist, Set<byte[]> pubkeyBlacklist) {
+    public CertBlacklistImpl(Set<BigInteger> serialBlacklist, Set<ByteString> pubkeyBlacklist) {
         this.serialBlacklist = serialBlacklist;
         this.pubkeyBlacklist = pubkeyBlacklist;
     }
@@ -59,7 +61,7 @@ public final class CertBlacklistImpl implements CertBlacklist {
         String defaultPubkeyBlacklistPath = blacklistRoot + "pubkey_blacklist.txt";
         String defaultSerialBlacklistPath = blacklistRoot + "serial_blacklist.txt";
 
-        Set<byte[]> pubkeyBlacklist = readPublicKeyBlackList(defaultPubkeyBlacklistPath);
+        Set<ByteString> pubkeyBlacklist = readPublicKeyBlackList(defaultPubkeyBlacklistPath);
         Set<BigInteger> serialBlacklist = readSerialBlackList(defaultSerialBlacklistPath);
         return new CertBlacklistImpl(serialBlacklist, pubkeyBlacklist);
     }
@@ -157,7 +159,7 @@ public final class CertBlacklistImpl implements CertBlacklist {
         // attempt to augment it with values taken from gservices
         String serialBlacklist = readBlacklist(path);
         if (!serialBlacklist.equals("")) {
-            for(String value : serialBlacklist.split(",")) {
+            for (String value : serialBlacklist.split(",", -1)) {
                 try {
                     bl.add(new BigInteger(value, 16));
                 } catch (NumberFormatException e) {
@@ -170,51 +172,51 @@ public final class CertBlacklistImpl implements CertBlacklist {
         return Collections.unmodifiableSet(bl);
     }
 
-    private static Set<byte[]> readPublicKeyBlackList(String path) {
-
+    private static Set<ByteString> readPublicKeyBlackList(String path) {
         // start out with a base set of known bad values
-        Set<byte[]> bl = new HashSet<byte[]>(Arrays.asList(
-            // Blacklist test cert for CTS. The cert and key can be found in
-            // src/test/resources/blacklist_test_ca.pem and
-            // src/test/resources/blacklist_test_ca_key.pem.
-            "bae78e6bed65a2bf60ddedde7fd91e825865e93d".getBytes(UTF_8),
-            // From http://src.chromium.org/viewvc/chrome/branches/782/src/net/base/x509_certificate.cc?r1=98750&r2=98749&pathrev=98750
-            // C=NL, O=DigiNotar, CN=DigiNotar Root CA/emailAddress=info@diginotar.nl
-            "410f36363258f30b347d12ce4863e433437806a8".getBytes(UTF_8),
-            // Subject: CN=DigiNotar Cyber CA
-            // Issuer: CN=GTE CyberTrust Global Root
-            "ba3e7bd38cd7e1e6b9cd4c219962e59d7a2f4e37".getBytes(UTF_8),
-            // Subject: CN=DigiNotar Services 1024 CA
-            // Issuer: CN=Entrust.net
-            "e23b8d105f87710a68d9248050ebefc627be4ca6".getBytes(UTF_8),
-            // Subject: CN=DigiNotar PKIoverheid CA Organisatie - G2
-            // Issuer: CN=Staat der Nederlanden Organisatie CA - G2
-            "7b2e16bc39bcd72b456e9f055d1de615b74945db".getBytes(UTF_8),
-            // Subject: CN=DigiNotar PKIoverheid CA Overheid en Bedrijven
-            // Issuer: CN=Staat der Nederlanden Overheid CA
-            "e8f91200c65cee16e039b9f883841661635f81c5".getBytes(UTF_8),
-            // From http://src.chromium.org/viewvc/chrome?view=rev&revision=108479
-            // Subject: O=Digicert Sdn. Bhd.
-            // Issuer: CN=GTE CyberTrust Global Root
-            "0129bcd5b448ae8d2496d1c3e19723919088e152".getBytes(UTF_8),
-            // Subject: CN=e-islem.kktcmerkezbankasi.org/emailAddress=ileti@kktcmerkezbankasi.org
-            // Issuer: CN=T\xC3\x9CRKTRUST Elektronik Sunucu Sertifikas\xC4\xB1 Hizmetleri
-            "5f3ab33d55007054bc5e3e5553cd8d8465d77c61".getBytes(UTF_8),
-            // Subject: CN=*.EGO.GOV.TR 93
-            // Issuer: CN=T\xC3\x9CRKTRUST Elektronik Sunucu Sertifikas\xC4\xB1 Hizmetleri
-            "783333c9687df63377efceddd82efa9101913e8e".getBytes(UTF_8),
-            // Subject: Subject: C=FR, O=DG Tr\xC3\xA9sor, CN=AC DG Tr\xC3\xA9sor SSL
-            // Issuer: C=FR, O=DGTPE, CN=AC DGTPE Signature Authentification
-            "3ecf4bbbe46096d514bb539bb913d77aa4ef31bf".getBytes(UTF_8)
-        ));
+        Set<ByteString> bl = new HashSet<ByteString>(toByteStrings(
+                // Blacklist test cert for CTS. The cert and key can be found in
+                // src/test/resources/blacklist_test_ca.pem and
+                // src/test/resources/blacklist_test_ca_key.pem.
+                "bae78e6bed65a2bf60ddedde7fd91e825865e93d".getBytes(UTF_8),
+                // From
+                // http://src.chromium.org/viewvc/chrome/branches/782/src/net/base/x509_certificate.cc?r1=98750&r2=98749&pathrev=98750
+                // C=NL, O=DigiNotar, CN=DigiNotar Root CA/emailAddress=info@diginotar.nl
+                "410f36363258f30b347d12ce4863e433437806a8".getBytes(UTF_8),
+                // Subject: CN=DigiNotar Cyber CA
+                // Issuer: CN=GTE CyberTrust Global Root
+                "ba3e7bd38cd7e1e6b9cd4c219962e59d7a2f4e37".getBytes(UTF_8),
+                // Subject: CN=DigiNotar Services 1024 CA
+                // Issuer: CN=Entrust.net
+                "e23b8d105f87710a68d9248050ebefc627be4ca6".getBytes(UTF_8),
+                // Subject: CN=DigiNotar PKIoverheid CA Organisatie - G2
+                // Issuer: CN=Staat der Nederlanden Organisatie CA - G2
+                "7b2e16bc39bcd72b456e9f055d1de615b74945db".getBytes(UTF_8),
+                // Subject: CN=DigiNotar PKIoverheid CA Overheid en Bedrijven
+                // Issuer: CN=Staat der Nederlanden Overheid CA
+                "e8f91200c65cee16e039b9f883841661635f81c5".getBytes(UTF_8),
+                // From http://src.chromium.org/viewvc/chrome?view=rev&revision=108479
+                // Subject: O=Digicert Sdn. Bhd.
+                // Issuer: CN=GTE CyberTrust Global Root
+                "0129bcd5b448ae8d2496d1c3e19723919088e152".getBytes(UTF_8),
+                // Subject:
+                // CN=e-islem.kktcmerkezbankasi.org/emailAddress=ileti@kktcmerkezbankasi.org Issuer:
+                // CN=T\xC3\x9CRKTRUST Elektronik Sunucu Sertifikas\xC4\xB1 Hizmetleri
+                "5f3ab33d55007054bc5e3e5553cd8d8465d77c61".getBytes(UTF_8),
+                // Subject: CN=*.EGO.GOV.TR 93
+                // Issuer: CN=T\xC3\x9CRKTRUST Elektronik Sunucu Sertifikas\xC4\xB1 Hizmetleri
+                "783333c9687df63377efceddd82efa9101913e8e".getBytes(UTF_8),
+                // Subject: Subject: C=FR, O=DG Tr\xC3\xA9sor, CN=AC DG Tr\xC3\xA9sor SSL
+                // Issuer: C=FR, O=DGTPE, CN=AC DGTPE Signature Authentification
+                "3ecf4bbbe46096d514bb539bb913d77aa4ef31bf".getBytes(UTF_8)));
 
         // attempt to augment it with values taken from gservices
         String pubkeyBlacklist = readBlacklist(path);
         if (!pubkeyBlacklist.equals("")) {
-            for (String value : pubkeyBlacklist.split(",")) {
+            for (String value : pubkeyBlacklist.split(",", -1)) {
                 value = value.trim();
                 if (isPubkeyHash(value)) {
-                    bl.add(value.getBytes(UTF_8));
+                    bl.add(new ByteString(value.getBytes(UTF_8)));
                 } else {
                     logger.log(Level.WARNING, "Tried to blacklist invalid pubkey " + value);
                 }
@@ -235,8 +237,8 @@ public final class CertBlacklistImpl implements CertBlacklist {
             return false;
         }
         byte[] out = toHex(md.digest(encoded));
-        for (byte[] blacklisted : pubkeyBlacklist) {
-            if (Arrays.equals(blacklisted, out)) {
+        for (ByteString blacklisted : pubkeyBlacklist) {
+            if (Arrays.equals(blacklisted.bytes, out)) {
                 return true;
             }
         }
@@ -263,4 +265,37 @@ public final class CertBlacklistImpl implements CertBlacklist {
         return serialBlacklist.contains(serial);
     }
 
+    private static List<ByteString> toByteStrings(byte[]... allBytes) {
+        List<ByteString> byteStrings = new ArrayList<>(allBytes.length + 1);
+        for (byte[] bytes : allBytes) {
+            byteStrings.add(new ByteString(bytes));
+        }
+        return byteStrings;
+    }
+
+    private static class ByteString {
+        final byte[] bytes;
+
+        public ByteString(byte[] bytes) {
+            this.bytes = bytes;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == this) {
+                return true;
+            }
+            if (!(o instanceof ByteString)) {
+                return false;
+            }
+
+            ByteString other = (ByteString) o;
+            return Arrays.equals(bytes, other.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(bytes);
+        }
+    }
 }

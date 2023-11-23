@@ -35,6 +35,7 @@
 #define WL_HIDE_DEPRECATED 1
 
 #include "wayland-util.h"
+#include "wayland-server-core.h"
 
 /* Invalid memory address */
 #define WL_ARRAY_POISON_PTR (void *) 4
@@ -56,9 +57,6 @@ struct wl_object {
 	uint32_t id;
 };
 
-extern struct wl_object global_zombie_object;
-#define WL_ZOMBIE_OBJECT ((void*)&global_zombie_object)
-
 int
 wl_interface_equal(const struct wl_interface *iface1,
 		   const struct wl_interface *iface2);
@@ -68,7 +66,8 @@ wl_interface_equal(const struct wl_interface *iface1,
  * flags.  If more flags are ever added, the implementation of wl_map will have
  * to change to allow for new flags */
 enum wl_map_entry_flags {
-	WL_MAP_ENTRY_LEGACY = (1 << 0)
+	WL_MAP_ENTRY_LEGACY = (1 << 0), /* Server side only */
+	WL_MAP_ENTRY_ZOMBIE = (1 << 0) /* Client side only */
 };
 
 struct wl_map {
@@ -79,7 +78,8 @@ struct wl_map {
 };
 
 typedef enum wl_iterator_result (*wl_iterator_func_t)(void *element,
-						      void *data);
+						      void *data,
+						      uint32_t flags);
 
 void
 wl_map_init(struct wl_map *map, uint32_t side);
@@ -188,6 +188,9 @@ wl_connection_demarshal(struct wl_connection *connection,
 			struct wl_map *objects,
 			const struct wl_message *message);
 
+bool
+wl_object_is_zombie(struct wl_map *map, uint32_t id);
+
 int
 wl_closure_lookup_objects(struct wl_closure *closure, struct wl_map *objects);
 
@@ -232,5 +235,28 @@ zalloc(size_t s)
 {
 	return calloc(1, s);
 }
+
+struct wl_priv_signal {
+	struct wl_list listener_list;
+	struct wl_list emit_list;
+};
+
+void
+wl_priv_signal_init(struct wl_priv_signal *signal);
+
+void
+wl_priv_signal_add(struct wl_priv_signal *signal, struct wl_listener *listener);
+
+struct wl_listener *
+wl_priv_signal_get(struct wl_priv_signal *signal, wl_notify_func_t notify);
+
+void
+wl_priv_signal_emit(struct wl_priv_signal *signal, void *data);
+
+void
+wl_priv_signal_final_emit(struct wl_priv_signal *signal, void *data);
+
+void
+wl_connection_close_fds_in(struct wl_connection *connection, int max);
 
 #endif

@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/ioctl.h>
 #include <stdbool.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -79,6 +78,8 @@ int txmsg_start;
 int txmsg_end;
 int txmsg_start_push;
 int txmsg_end_push;
+int txmsg_start_pop;
+int txmsg_pop;
 int txmsg_ingress;
 int txmsg_skb;
 int ktls;
@@ -104,6 +105,8 @@ static const struct option long_options[] = {
 	{"txmsg_end",	required_argument,	NULL, 'e'},
 	{"txmsg_start_push", required_argument,	NULL, 'p'},
 	{"txmsg_end_push",   required_argument,	NULL, 'q'},
+	{"txmsg_start_pop",  required_argument,	NULL, 'w'},
+	{"txmsg_pop",	     required_argument,	NULL, 'x'},
 	{"txmsg_ingress", no_argument,		&txmsg_ingress, 1 },
 	{"txmsg_skb", no_argument,		&txmsg_skb, 1 },
 	{"ktls", no_argument,			&ktls, 1 },
@@ -237,14 +240,14 @@ static int sockmap_init_sockets(int verbose)
 	addr.sin_port = htons(S1_PORT);
 	err = bind(s1, (struct sockaddr *)&addr, sizeof(addr));
 	if (err < 0) {
-		perror("bind s1 failed()\n");
+		perror("bind s1 failed()");
 		return errno;
 	}
 
 	addr.sin_port = htons(S2_PORT);
 	err = bind(s2, (struct sockaddr *)&addr, sizeof(addr));
 	if (err < 0) {
-		perror("bind s2 failed()\n");
+		perror("bind s2 failed()");
 		return errno;
 	}
 
@@ -252,14 +255,14 @@ static int sockmap_init_sockets(int verbose)
 	addr.sin_port = htons(S1_PORT);
 	err = listen(s1, 32);
 	if (err < 0) {
-		perror("listen s1 failed()\n");
+		perror("listen s1 failed()");
 		return errno;
 	}
 
 	addr.sin_port = htons(S2_PORT);
 	err = listen(s2, 32);
 	if (err < 0) {
-		perror("listen s1 failed()\n");
+		perror("listen s1 failed()");
 		return errno;
 	}
 
@@ -267,14 +270,14 @@ static int sockmap_init_sockets(int verbose)
 	addr.sin_port = htons(S1_PORT);
 	err = connect(c1, (struct sockaddr *)&addr, sizeof(addr));
 	if (err < 0 && errno != EINPROGRESS) {
-		perror("connect c1 failed()\n");
+		perror("connect c1 failed()");
 		return errno;
 	}
 
 	addr.sin_port = htons(S2_PORT);
 	err = connect(c2, (struct sockaddr *)&addr, sizeof(addr));
 	if (err < 0 && errno != EINPROGRESS) {
-		perror("connect c2 failed()\n");
+		perror("connect c2 failed()");
 		return errno;
 	} else if (err < 0) {
 		err = 0;
@@ -283,13 +286,13 @@ static int sockmap_init_sockets(int verbose)
 	/* Accept Connecrtions */
 	p1 = accept(s1, NULL, NULL);
 	if (p1 < 0) {
-		perror("accept s1 failed()\n");
+		perror("accept s1 failed()");
 		return errno;
 	}
 
 	p2 = accept(s2, NULL, NULL);
 	if (p2 < 0) {
-		perror("accept s1 failed()\n");
+		perror("accept s1 failed()");
 		return errno;
 	}
 
@@ -329,6 +332,10 @@ static int msg_loop_sendpage(int fd, int iov_length, int cnt,
 	int i, fp;
 
 	file = fopen(".sendpage_tst.tmp", "w+");
+	if (!file) {
+		perror("create file for sendpage");
+		return 1;
+	}
 	for (i = 0; i < iov_length * cnt; i++, k++)
 		fwrite(&k, sizeof(char), 1, file);
 	fflush(file);
@@ -336,12 +343,17 @@ static int msg_loop_sendpage(int fd, int iov_length, int cnt,
 	fclose(file);
 
 	fp = open(".sendpage_tst.tmp", O_RDONLY);
+	if (fp < 0) {
+		perror("reopen file for sendpage");
+		return 1;
+	}
+
 	clock_gettime(CLOCK_MONOTONIC, &s->start);
 	for (i = 0; i < cnt; i++) {
 		int sent = sendfile(fd, fp, NULL, iov_length);
 
 		if (!drop && sent < 0) {
-			perror("send loop error:");
+			perror("send loop error");
 			close(fp);
 			return sent;
 		} else if (drop && sent >= 0) {
@@ -460,7 +472,7 @@ static int msg_loop(int fd, int iov_count, int iov_length, int cnt,
 			int sent = sendmsg(fd, &msg, flags);
 
 			if (!drop && sent < 0) {
-				perror("send loop error:");
+				perror("send loop error");
 				goto out_errno;
 			} else if (drop && sent >= 0) {
 				printf("send loop error expected: %i\n", sent);
@@ -473,22 +485,36 @@ static int msg_loop(int fd, int iov_count, int iov_length, int cnt,
 		clock_gettime(CLOCK_MONOTONIC, &s->end);
 	} else {
 		int slct, recvp = 0, recv, max_fd = fd;
+		float total_bytes, txmsg_pop_total;
 		int fd_flags = O_NONBLOCK;
 		struct timeval timeout;
-		float total_bytes;
 		fd_set w;
 
 		fcntl(fd, fd_flags);
+		/* Account for pop bytes noting each iteration of apply will
+		 * call msg_pop_data helper so we need to account for this
+		 * by calculating the number of apply iterations. Note user
+		 * of the tool can create cases where no data is sent by
+		 * manipulating pop/push/pull/etc. For example txmsg_apply 1
+		 * with txmsg_pop 1 will try to apply 1B at a time but each
+		 * iteration will then pop 1B so no data will ever be sent.
+		 * This is really only useful for testing edge cases in code
+		 * paths.
+		 */
 		total_bytes = (float)iov_count * (float)iov_length * (float)cnt;
+		txmsg_pop_total = txmsg_pop;
+		if (txmsg_apply)
+			txmsg_pop_total *= (total_bytes / txmsg_apply);
+		total_bytes -= txmsg_pop_total;
 		err = clock_gettime(CLOCK_MONOTONIC, &s->start);
 		if (err < 0)
-			perror("recv start time: ");
+			perror("recv start time");
 		while (s->bytes_recvd < total_bytes) {
 			if (txmsg_cork) {
 				timeout.tv_sec = 0;
 				timeout.tv_usec = 300000;
 			} else {
-				timeout.tv_sec = 1;
+				timeout.tv_sec = 3;
 				timeout.tv_usec = 0;
 			}
 
@@ -503,7 +529,7 @@ static int msg_loop(int fd, int iov_count, int iov_length, int cnt,
 				goto out_errno;
 			} else if (!slct) {
 				if (opt->verbose)
-					fprintf(stderr, "unexpected timeout\n");
+					fprintf(stderr, "unexpected timeout: recved %zu/%f pop_total %f\n", s->bytes_recvd, total_bytes, txmsg_pop_total);
 				errno = -EIO;
 				clock_gettime(CLOCK_MONOTONIC, &s->end);
 				goto out_errno;
@@ -526,7 +552,7 @@ static int msg_loop(int fd, int iov_count, int iov_length, int cnt,
 			if (recv < 0) {
 				if (errno != EWOULDBLOCK) {
 					clock_gettime(CLOCK_MONOTONIC, &s->end);
-					perror("recv failed()\n");
+					perror("recv failed()");
 					goto out_errno;
 				}
 			}
@@ -540,7 +566,7 @@ static int msg_loop(int fd, int iov_count, int iov_length, int cnt,
 
 				errno = msg_verify_data(&msg, recv, chunk_sz);
 				if (errno) {
-					perror("data verify msg failed\n");
+					perror("data verify msg failed");
 					goto out_errno;
 				}
 				if (recvp) {
@@ -548,7 +574,7 @@ static int msg_loop(int fd, int iov_count, int iov_length, int cnt,
 								recvp,
 								chunk_sz);
 					if (errno) {
-						perror("data verify msg_peek failed\n");
+						perror("data verify msg_peek failed");
 						goto out_errno;
 					}
 				}
@@ -619,7 +645,7 @@ static int sendmsg_test(struct sockmap_options *opt)
 			iov_count = 1;
 		err = msg_loop(rx_fd, iov_count, iov_buf,
 			       cnt, &s, false, opt);
-		if (err && opt->verbose)
+		if (opt->verbose)
 			fprintf(stderr,
 				"msg_loop_rx: iov_count %i iov_buf %i cnt %i err %i\n",
 				iov_count, iov_buf, cnt, err);
@@ -637,7 +663,7 @@ static int sendmsg_test(struct sockmap_options *opt)
 			err = 0;
 		exit(err ? 1 : 0);
 	} else if (rxpid == -1) {
-		perror("msg_loop_rx: ");
+		perror("msg_loop_rx");
 		return errno;
 	}
 
@@ -664,7 +690,7 @@ static int sendmsg_test(struct sockmap_options *opt)
 				s.bytes_recvd, recvd_Bps, recvd_Bps/giga);
 		exit(err ? 1 : 0);
 	} else if (txpid == -1) {
-		perror("msg_loop_tx: ");
+		perror("msg_loop_tx");
 		return errno;
 	}
 
@@ -698,7 +724,7 @@ static int forever_ping_pong(int rate, struct sockmap_options *opt)
 	/* Ping/Pong data from client to server */
 	sc = send(c1, buf, sizeof(buf), 0);
 	if (sc < 0) {
-		perror("send failed()\n");
+		perror("send failed()");
 		return sc;
 	}
 
@@ -731,7 +757,7 @@ static int forever_ping_pong(int rate, struct sockmap_options *opt)
 			rc = recv(i, buf, sizeof(buf), 0);
 			if (rc < 0) {
 				if (errno != EWOULDBLOCK) {
-					perror("recv failed()\n");
+					perror("recv failed()");
 					return rc;
 				}
 			}
@@ -743,7 +769,7 @@ static int forever_ping_pong(int rate, struct sockmap_options *opt)
 
 			sc = send(i, buf, rc, 0);
 			if (sc < 0) {
-				perror("send failed()\n");
+				perror("send failed()");
 				return sc;
 			}
 		}
@@ -931,6 +957,39 @@ run:
 			}
 		}
 
+		if (txmsg_start_pop) {
+			i = 4;
+			err = bpf_map_update_elem(map_fd[5],
+						  &i, &txmsg_start_pop, BPF_ANY);
+			if (err) {
+				fprintf(stderr,
+					"ERROR: bpf_map_update_elem %i@%i (txmsg_start_pop):  %d (%s)\n",
+					txmsg_start_pop, i, err, strerror(errno));
+				goto out;
+			}
+		} else {
+			i = 4;
+			bpf_map_update_elem(map_fd[5],
+						  &i, &txmsg_start_pop, BPF_ANY);
+		}
+
+		if (txmsg_pop) {
+			i = 5;
+			err = bpf_map_update_elem(map_fd[5],
+						  &i, &txmsg_pop, BPF_ANY);
+			if (err) {
+				fprintf(stderr,
+					"ERROR: bpf_map_update_elem %i@%i (txmsg_pop):  %d (%s)\n",
+					txmsg_pop, i, err, strerror(errno));
+				goto out;
+			}
+		} else {
+			i = 5;
+			bpf_map_update_elem(map_fd[5],
+					    &i, &txmsg_pop, BPF_ANY);
+
+		}
+
 		if (txmsg_ingress) {
 			int in = BPF_F_INGRESS;
 
@@ -1080,6 +1139,11 @@ static void test_options(char *options)
 	}
 	if (txmsg_end) {
 		snprintf(tstr, OPTSTRING, "end %d,", txmsg_end);
+		strncat(options, tstr, OPTSTRING);
+	}
+	if (txmsg_start_pop) {
+		snprintf(tstr, OPTSTRING, "pop (%d,%d),",
+			 txmsg_start_pop, txmsg_start_pop + txmsg_pop);
 		strncat(options, tstr, OPTSTRING);
 	}
 	if (txmsg_ingress)
@@ -1264,6 +1328,7 @@ static int test_mixed(int cgrp)
 	txmsg_apply = txmsg_cork = 0;
 	txmsg_start = txmsg_end = 0;
 	txmsg_start_push = txmsg_end_push = 0;
+	txmsg_start_pop = txmsg_pop = 0;
 
 	/* Test small and large iov_count values with pass/redir/apply/cork */
 	txmsg_pass = 1;
@@ -1383,6 +1448,19 @@ static int test_start_end(int cgrp)
 	txmsg_end = 2;
 	txmsg_start_push = 1;
 	txmsg_end_push = 2;
+	txmsg_start_pop = 1;
+	txmsg_pop = 1;
+	err = test_txmsg(cgrp);
+	if (err)
+		goto out;
+
+	/* Cut a byte of pushed data but leave reamining in place */
+	txmsg_start = 1;
+	txmsg_end = 2;
+	txmsg_start_push = 1;
+	txmsg_end_push = 3;
+	txmsg_start_pop = 1;
+	txmsg_pop = 1;
 	err = test_txmsg(cgrp);
 	if (err)
 		goto out;
@@ -1393,6 +1471,9 @@ static int test_start_end(int cgrp)
 	opt.iov_length = 100;
 	txmsg_cork = 1600;
 
+	txmsg_start_pop = 0;
+	txmsg_pop = 0;
+
 	for (i = 99; i <= 1600; i += 500) {
 		txmsg_start = 0;
 		txmsg_end = i;
@@ -1402,6 +1483,17 @@ static int test_start_end(int cgrp)
 		if (err)
 			goto out;
 	}
+
+	/* Test pop data in middle of cork */
+	for (i = 99; i <= 1600; i += 500) {
+		txmsg_start_pop = 10;
+		txmsg_pop = i;
+		err = test_exec(cgrp, &opt);
+		if (err)
+			goto out;
+	}
+	txmsg_start_pop = 0;
+	txmsg_pop = 0;
 
 	/* Test start/end with cork but pull data in middle */
 	for (i = 199; i <= 1600; i += 500) {
@@ -1423,11 +1515,27 @@ static int test_start_end(int cgrp)
 	if (err)
 		goto out;
 
+	/* Test pop with cork pulling last sg entry */
+	txmsg_start_pop = 1500;
+	txmsg_pop = 1600;
+	err = test_exec(cgrp, &opt);
+	if (err)
+		goto out;
+	txmsg_start_pop = 0;
+	txmsg_pop = 0;
+
 	/* Test start/end pull of single byte in last page */
 	txmsg_start = 1111;
 	txmsg_end = 1112;
 	txmsg_start_push = 1111;
 	txmsg_end_push = 1112;
+	err = test_exec(cgrp, &opt);
+	if (err)
+		goto out;
+
+	/* Test pop of single byte in last page */
+	txmsg_start_pop = 1111;
+	txmsg_pop = 1112;
 	err = test_exec(cgrp, &opt);
 	if (err)
 		goto out;
@@ -1456,7 +1564,20 @@ static int test_start_end(int cgrp)
 	txmsg_start_push = 1601;
 	txmsg_end_push = 1600;
 	err = test_exec(cgrp, &opt);
+	if (err)
+		goto out;
 
+	/* Test pop with start > data */
+	txmsg_start_pop = 1601;
+	txmsg_pop = 1;
+	err = test_exec(cgrp, &opt);
+	if (err)
+		goto out;
+
+	/* Test pop with pop range > data */
+	txmsg_start_pop = 1599;
+	txmsg_pop = 10;
+	err = test_exec(cgrp, &opt);
 out:
 	txmsg_start = 0;
 	txmsg_end = 0;
@@ -1640,6 +1761,12 @@ int main(int argc, char **argv)
 			break;
 		case 'q':
 			txmsg_end_push = atoi(optarg);
+			break;
+		case 'w':
+			txmsg_start_pop = atoi(optarg);
+			break;
+		case 'x':
+			txmsg_pop = atoi(optarg);
 			break;
 		case 'a':
 			txmsg_apply = atoi(optarg);

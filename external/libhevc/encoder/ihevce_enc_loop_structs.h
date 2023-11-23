@@ -2296,6 +2296,9 @@ typedef struct
     /** Pointer to Dep Mngr for controlling Deblocking Top dependency */
     void *pv_dep_mngr_enc_loop_dblk;
 
+    /** Pointer to Dep Mngr for controlling Deblocking Top dependency */
+    void *pv_dep_mngr_enc_loop_sao;
+
     /** pointer to store the cabac states at end of second CTB in current row */
     UWORD8 *pu1_curr_row_cabac_state;
 
@@ -2793,6 +2796,11 @@ typedef struct
     * One per each bit-rate and one per each frame in parallel
     */
     void *aapv_dep_mngr_enc_loop_dblk[MAX_NUM_ENC_LOOP_PARALLEL][IHEVCE_MAX_NUM_BITRATES];
+
+    /** Dependency manager for controlling Sao Top dependency
+    * One per each bit-rate and one per each frame in parallel
+    */
+    void *aapv_dep_mngr_enc_loop_sao[MAX_NUM_ENC_LOOP_PARALLEL][IHEVCE_MAX_NUM_BITRATES];
 
     /** number of bit-rate instances running */
     WORD32 i4_num_bitrates;

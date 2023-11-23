@@ -1,10 +1,16 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Define a type that wraps a Benchmark instance."""
+
+from __future__ import division
 from __future__ import print_function
 
 import math
+# FIXME(denik): Fix the import in chroot.
+# pylint: disable=import-error
 from scipy import stats
 
 # See crbug.com/673558 for how these are estimated.
@@ -17,6 +23,7 @@ _estimated_stddev = {
     'dromaeo.domcoremodify': 0.011,
     'graphics_WebGLAquarium': 0.008,
     'page_cycler_v2.typical_25': 0.021,
+    'loading.desktop': 0.021,  # Copied from page_cycler initially
 }
 
 
@@ -56,11 +63,13 @@ class Benchmark(object):
                suite='',
                show_all_results=False,
                retries=0,
-               run_local=False):
+               run_local=False,
+               cwp_dso='',
+               weight=0):
     self.name = name
-    #For telemetry, this is the benchmark name.
+    # For telemetry, this is the benchmark name.
     self.test_name = test_name
-    #For telemetry, this is the data.
+    # For telemetry, this is the data.
     self.test_args = test_args
     self.iterations = iterations if iterations > 0 else _samples(name)
     self.perf_args = perf_args
@@ -74,3 +83,5 @@ class Benchmark(object):
     if run_local and self.suite != 'telemetry_Crosperf':
       raise RuntimeError('run_local is only supported by telemetry_Crosperf.')
     self.run_local = run_local
+    self.cwp_dso = cwp_dso
+    self.weight = weight

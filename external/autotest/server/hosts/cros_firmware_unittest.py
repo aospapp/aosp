@@ -10,86 +10,56 @@ from autotest_lib.server import utils
 from server.hosts import cros_firmware
 
 
-RW_VERSION_OUTPUT = """
-flashrom(8): ed90a62cc9129d0215b4f5e4ecee8558 */build/lumpy/usr/sbin/flashrom
-             ELF 64-bit LSB shared object, x86-64, version 1 (SYSV)...
-
-BIOS image:   366248dc6d3a3d34ad62119738df721a */build/lumpy/tmp/...
-BIOS version: Google_Lumpy.2.111.0
-BIOS (RW) version: Google_Lumpy.2.112.0
-EC image:     a5cdb921edc46a48ca64e9250b4f7a1f */build/lumpy/tmp/...
-EC version:02WQA015
-
-Package Content:
-4de2580173772216cf37fdb8921a12e0 *./bin/mosys
-"""
-
 VERSION_OUTPUT = """
-flashrom(8): ed90a62cc9129d0215b4f5e4ecee8558 */build/lumpy/usr/sbin/flashrom
-             ELF 64-bit LSB shared object, x86-64, version 1 (SYSV)...
-
-BIOS image:   366248dc6d3a3d34ad62119738df721a */build/lumpy/tmp/...
-BIOS version: Google_Lumpy.2.111.0
-EC image:     a5cdb921edc46a48ca64e9250b4f7a1f */build/lumpy/tmp/...
-EC version:02WQA015
-
-Package Content:
-4de2580173772216cf37fdb8921a12e0 *./bin/mosys
+{
+  "any-model": {
+    "host": { "versions": { "ro": "Google_Kukui.12573.13.0", "rw": "Google_Kukui.12573.13.0" },
+      "keys": { "root": "b11d74edd286c144e1135b49e7f0bc20cf041f10", "recovery": "c14bd720b70d97394257e3e826bd8f43de48d4ed" },
+      "image": "images/bios-kukui.ro-12573-13-0.rw-12573-13-0.bin" },
+    "ec": { "versions": { "ro": "kukui_v2.0.2352-5c2c3c7a0", "rw": "kukui_v2.0.2352-5c2c3c7a0" },
+      "image": "images/ec-kukui.ro-2-0-2352.rw-2-0-2352.bin" },
+    "signature_id": "kukui"
+  }
+}
 """
 
 NO_VERSION_OUTPUT = """
-flashrom(8): ed90a62cc9129d0215b4f5e4ecee8558 */build/lumpy/usr/sbin/flashrom
-             ELF 64-bit LSB shared object, x86-64, version 1 (SYSV)...
-
-BIOS image:   366248dc6d3a3d34ad62119738df721a */build/lumpy/tmp/...
-EC image:     a5cdb921edc46a48ca64e9250b4f7a1f */build/lumpy/tmp/...
-EC version:02WQA015
-
-Package Content:
-4de2580173772216cf37fdb8921a12e0 *./bin/mosys
+{
+}
 """
 
 UNIBUILD_VERSION_OUTPUT = """
-flashrom(8): 3a788e16b939f290e25771dcb1b6b542 */build/coral/usr/sbin/flashrom
-             ELF 64-bit LSB shared object, x86-64, version 1 (SYSV)...
-
-Model:        astronaut
-BIOS image:   2abe9c3470e784c457ec9ee8e9f5cddf */models/astronaut/...
-BIOS version: Google_Coral.10068.37.0
-EC image:     6f084f024aa4f9f9981aeaa4935bca96 */models/astronaut/ec.bin
-EC version:   coral_v1.1.7267-b7254f389
-
-Model:        blue
-BIOS image:   2abe9c3470e784c457ec9ee8e9f5cddf */models/blue/image-coral.bin
-BIOS version: Google_Coral.10068.37.0
-BIOS (RW) image:   e81aa62869e57cbe4a4baf7b4059778c */models/blue/...
-BIOS (RW) version: Google_Coral.10068.39.0
-EC image:     6f084f024aa4f9f9981aeaa4935bca96 */models/blue/ec.bin
-EC version:   coral_v1.1.7267-b7254f389
-EC (RW) version: coral_v1.1.7269-3fc31d6e2
-
-Package Content:
-61392084c8b80d805ad68e1b6019e188 *./updater4.sh
+{
+  "kukui": {
+    "host": { "versions": { "ro": "Google_Kukui.12573.13.0", "rw": "Google_Kukui.12573.13.0" },
+      "keys": { "root": "b11d74edd286c144e1135b49e7f0bc20cf041f10", "recovery": "c14bd720b70d97394257e3e826bd8f43de48d4ed" },
+      "image": "images/bios-kukui.ro-12573-13-0.rw-12573-13-0.bin" },
+    "ec": { "versions": { "ro": "kukui_v2.0.2352-5c2c3c7a0", "rw": "kukui_v2.0.2352-5c2c3c7a0" },
+      "image": "images/ec-kukui.ro-2-0-2352.rw-2-0-2352.bin" },
+    "signature_id": "kukui"
+  },
+  "kodama": {
+    "host": { "versions": { "ro": "Google_Kodama.12573.14.0", "rw": "Google_Kodama.12573.15.0" },
+      "keys": { "root": "b11d74edd286c144e1135b49e7f0bc20cf041f10", "recovery": "c14bd720b70d97394257e3e826bd8f43de48d4ed" },
+      "image": "images/bios-kodama.ro-12573-14-0.rw-12573-15-0.bin" },
+    "ec": { "versions": { "ro": "kodama_v2.0.2354-8c3c92f29", "rw": "kodama_v2.0.2354-8c3c92f29" },
+      "image": "images/ec-kodama.ro-2-0-2354.rw-2-0-2354.bin" },
+    "signature_id": "kodama"
+  },
+  "krane": {
+    "host": { "versions": { "ro": "Google_Krane.12573.13.0", "rw": "Google_Krane.12573.13.0" },
+      "keys": { "root": "b11d74edd286c144e1135b49e7f0bc20cf041f10", "recovery": "c14bd720b70d97394257e3e826bd8f43de48d4ed" },
+      "image": "images/bios-krane.ro-12573-13-0.rw-12573-13-0.bin" },
+    "ec": { "versions": { "ro": "krane_v2.0.2352-5c2c3c7a0", "rw": "krane_v2.0.2352-5c2c3c7a0" },
+      "image": "images/ec-krane.ro-2-0-2352.rw-2-0-2352.bin" },
+    "signature_id": "krane"
+  }
+}
 """
 
 
 class FirmwareVersionVerifierTest(unittest.TestCase):
     """Tests for FirmwareVersionVerifier."""
-
-    def test_get_firmware_version_returns_rw_version(self):
-        """Test _get_firmware_version which returns BIOS RW version."""
-        fw = cros_firmware._get_firmware_version(RW_VERSION_OUTPUT)
-        self.assertEqual(fw, 'Google_Lumpy.2.112.0')
-
-    def test_get_firmware_version_returns_version(self):
-        """Test _get_firmware_version which returns BIOS version."""
-        fw = cros_firmware._get_firmware_version(VERSION_OUTPUT)
-        self.assertEqual(fw, 'Google_Lumpy.2.111.0')
-
-    def test_get_firmware_version_returns_none(self):
-        """Test _get_firmware_version which returns None."""
-        fw = cros_firmware._get_firmware_version(NO_VERSION_OUTPUT)
-        self.assertIsNone(fw)
 
     def test_get_available_firmware_on_update_with_failure(self):
         """Test _get_available_firmware when update script exit_status=1."""
@@ -100,23 +70,14 @@ class FirmwareVersionVerifierTest(unittest.TestCase):
         fw = cros_firmware._get_available_firmware(host, 'lumpy')
         self.assertIsNone(fw)
 
-    def test_get_available_firmware_returns_rw_version(self):
-        """_get_available_firmware returns BIOS (RW) version."""
-        result = utils.CmdResult(stdout=RW_VERSION_OUTPUT, exit_status=0)
-        host = mock.Mock()
-        host.run.return_value = result
-
-        fw = cros_firmware._get_available_firmware(host, 'lumpy')
-        self.assertEqual(fw, 'Google_Lumpy.2.112.0')
-
     def test_get_available_firmware_returns_version(self):
         """_get_available_firmware returns BIOS version."""
         result = utils.CmdResult(stdout=VERSION_OUTPUT, exit_status=0)
         host = mock.Mock()
         host.run.return_value = result
 
-        fw = cros_firmware._get_available_firmware(host, 'lumpy')
-        self.assertEqual(fw, 'Google_Lumpy.2.111.0')
+        fw = cros_firmware._get_available_firmware(host, 'kukui')
+        self.assertEqual(fw, 'Google_Kukui.12573.13.0')
 
     def test_get_available_firmware_returns_none(self):
         """_get_available_firmware returns None."""
@@ -124,7 +85,7 @@ class FirmwareVersionVerifierTest(unittest.TestCase):
         host = mock.Mock()
         host.run.return_value = result
 
-        fw = cros_firmware._get_available_firmware(host, 'lumpy')
+        fw = cros_firmware._get_available_firmware(host, 'kukui')
         self.assertIsNone(fw)
 
     def test_get_available_firmware_unibuild(self):
@@ -134,13 +95,13 @@ class FirmwareVersionVerifierTest(unittest.TestCase):
         host = mock.Mock()
         host.run.return_value = result
 
-        fw = cros_firmware._get_available_firmware(host, 'astronaut')
-        self.assertEqual(fw, 'Google_Coral.10068.37.0')
+        fw = cros_firmware._get_available_firmware(host, 'kukui')
+        self.assertEqual(fw, 'Google_Kukui.12573.13.0')
 
-        fw = cros_firmware._get_available_firmware(host, 'blue')
-        self.assertEqual(fw, 'Google_Coral.10068.39.0')
+        fw = cros_firmware._get_available_firmware(host, 'kodama')
+        self.assertEqual(fw, 'Google_Kodama.12573.15.0')
 
-        fw = cros_firmware._get_available_firmware(host, 'bruce')
+        fw = cros_firmware._get_available_firmware(host, 'flapjack')
         self.assertIsNone(fw)
 
 

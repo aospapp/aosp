@@ -14,33 +14,38 @@
 
 import {dingus} from 'dingusjs';
 
+import {assertExists} from '../base/logging';
 import {TraceConfig} from '../common/protos';
 import {createEmptyRecordConfig, RecordConfig} from '../common/state';
 
 import {App} from './globals';
-import {
-  genConfigProto,
-  RecordController,
-  toPbtxt,
-  uint8ArrayToBase64
-} from './record_controller';
-
-test('uint8ArrayToBase64', () => {
-  const bytes = [...'Hello, world'].map(c => c.charCodeAt(0));
-  const buffer = new Uint8Array(bytes);
-  expect(uint8ArrayToBase64(buffer)).toEqual('SGVsbG8sIHdvcmxk');
-});
+import {genConfigProto, RecordController, toPbtxt} from './record_controller';
 
 test('encodeConfig', () => {
   const config = createEmptyRecordConfig();
   config.durationSeconds = 10;
-  const result = TraceConfig.decode(genConfigProto(config));
+  const result =
+      TraceConfig.decode(genConfigProto(config, {os: 'Q', name: 'Android Q'}));
   expect(result.durationMs).toBe(10000);
+});
+
+test('SysConfig', () => {
+  const config = createEmptyRecordConfig();
+  config.cpuSyscall = true;
+  const result =
+      TraceConfig.decode(genConfigProto(config, {os: 'Q', name: 'Android Q'}));
+  const sources = assertExists(result.dataSources);
+  const srcConfig = assertExists(sources[0].config);
+  const ftraceConfig = assertExists(srcConfig.ftraceConfig);
+  const ftraceEvents = assertExists(ftraceConfig.ftraceEvents);
+  expect(ftraceEvents.includes('raw_syscalls/sys_enter')).toBe(true);
+  expect(ftraceEvents.includes('raw_syscalls/sys_exit')).toBe(true);
 });
 
 test('toPbtxt', () => {
   const config = {
     durationMs: 1000,
+    maxFileSizeBytes: 43,
     buffers: [
       {
         sizeKb: 42,
@@ -81,13 +86,15 @@ duration_ms: 1000
 producers: {
     producer_name: "perfetto.traced_probes"
 }
+max_file_size_bytes: 43
 `);
 });
 
 test('RecordController', () => {
   const app = dingus<App>('globals');
   (app.state.recordConfig as RecordConfig) = createEmptyRecordConfig();
-  const controller = new RecordController({app});
+  const m: MessageChannel = dingus<MessageChannel>('extensionPort');
+  const controller = new RecordController({app, extensionPort: m.port1});
   controller.run();
   controller.run();
   controller.run();
@@ -96,4 +103,106 @@ test('RecordController', () => {
   expect(calls.length).toBe(1);
   // TODO(hjd): Fix up dingus to have a more sensible API.
   expect(calls[0][1][0]).toEqual('TrackData');
+});
+
+test('ChromeConfig', () => {
+  const config = createEmptyRecordConfig();
+  config.ipcFlows = true;
+  config.jsExecution = true;
+  config.mode = 'STOP_WHEN_FULL';
+  const result =
+      TraceConfig.decode(genConfigProto(config, {os: 'C', name: 'Chrome'}));
+  const sources = assertExists(result.dataSources);
+
+  const traceConfigSource = assertExists(sources[0].config);
+  expect(traceConfigSource.name).toBe('org.chromium.trace_event');
+  const chromeConfig = assertExists(traceConfigSource.chromeConfig);
+  const traceConfig = assertExists(chromeConfig.traceConfig);
+
+  const metadataConfigSource = assertExists(sources[1].config);
+  expect(metadataConfigSource.name).toBe('org.chromium.trace_metadata');
+  const chromeConfigM = assertExists(metadataConfigSource.chromeConfig);
+  const traceConfigM = assertExists(chromeConfigM.traceConfig);
+
+  const expectedTraceConfig = '{"record_mode":"record-until-full",' +
+      '"included_categories":' +
+      '["toplevel","disabled-by-default-ipc.flow","mojom","v8"]}';
+  expect(traceConfigM).toEqual(expectedTraceConfig);
+  expect(traceConfig).toEqual(expectedTraceConfig);
+});
+
+test('ChromeConfigRingBuffer', () => {
+  const config = createEmptyRecordConfig();
+  config.ipcFlows = true;
+  config.jsExecution = true;
+  config.mode = 'RING_BUFFER';
+  const result =
+      TraceConfig.decode(genConfigProto(config, {os: 'C', name: 'Chrome'}));
+  const sources = assertExists(result.dataSources);
+
+  const traceConfigSource = assertExists(sources[0].config);
+  expect(traceConfigSource.name).toBe('org.chromium.trace_event');
+  const chromeConfig = assertExists(traceConfigSource.chromeConfig);
+  const traceConfig = assertExists(chromeConfig.traceConfig);
+
+  const metadataConfigSource = assertExists(sources[1].config);
+  expect(metadataConfigSource.name).toBe('org.chromium.trace_metadata');
+  const chromeConfigM = assertExists(metadataConfigSource.chromeConfig);
+  const traceConfigM = assertExists(chromeConfigM.traceConfig);
+
+  const expectedTraceConfig = '{"record_mode":"record-continuously",' +
+      '"included_categories":' +
+      '["toplevel","disabled-by-default-ipc.flow","mojom","v8"]}';
+  expect(traceConfigM).toEqual(expectedTraceConfig);
+  expect(traceConfig).toEqual(expectedTraceConfig);
+});
+
+
+test('ChromeConfigLongTrace', () => {
+  const config = createEmptyRecordConfig();
+  config.ipcFlows = true;
+  config.jsExecution = true;
+  config.mode = 'RING_BUFFER';
+  const result =
+      TraceConfig.decode(genConfigProto(config, {os: 'C', name: 'Chrome'}));
+  const sources = assertExists(result.dataSources);
+
+  const traceConfigSource = assertExists(sources[0].config);
+  expect(traceConfigSource.name).toBe('org.chromium.trace_event');
+  const chromeConfig = assertExists(traceConfigSource.chromeConfig);
+  const traceConfig = assertExists(chromeConfig.traceConfig);
+
+  const metadataConfigSource = assertExists(sources[1].config);
+  expect(metadataConfigSource.name).toBe('org.chromium.trace_metadata');
+  const chromeConfigM = assertExists(metadataConfigSource.chromeConfig);
+  const traceConfigM = assertExists(chromeConfigM.traceConfig);
+
+  const expectedTraceConfig = '{"record_mode":"record-continuously",' +
+      '"included_categories":' +
+      '["toplevel","disabled-by-default-ipc.flow","mojom","v8"]}';
+  expect(traceConfigM).toEqual(expectedTraceConfig);
+  expect(traceConfig).toEqual(expectedTraceConfig);
+});
+
+test('ChromeConfigToPbtxt', () => {
+  const config = {
+    dataSources: [{
+      config: {
+        name: 'org.chromium.trace_event',
+        chromeConfig:
+            {traceConfig: JSON.stringify({included_categories: ['v8']})},
+      },
+    }],
+  };
+  const text = toPbtxt(TraceConfig.encode(config).finish());
+
+  expect(text).toEqual(`data_sources: {
+    config {
+        name: "org.chromium.trace_event"
+        chrome_config {
+            trace_config: "{\\"included_categories\\":[\\"v8\\"]}"
+        }
+    }
+}
+`);
 });

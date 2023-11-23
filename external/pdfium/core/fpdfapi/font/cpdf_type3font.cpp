@@ -10,12 +10,12 @@
 #include <utility>
 
 #include "core/fpdfapi/font/cpdf_type3char.h"
-#include "core/fpdfapi/page/cpdf_form.h"
 #include "core/fpdfapi/parser/cpdf_array.h"
 #include "core/fpdfapi/parser/cpdf_dictionary.h"
 #include "core/fpdfapi/parser/cpdf_stream.h"
+#include "core/fxcrt/autorestorer.h"
 #include "core/fxcrt/fx_system.h"
-#include "third_party/base/stl_util.h"
+#include "third_party/base/ptr_util.h"
 
 namespace {
 
@@ -23,11 +23,15 @@ constexpr int kMaxType3FormLevel = 4;
 
 }  // namespace
 
-CPDF_Type3Font::CPDF_Type3Font() {
+CPDF_Type3Font::CPDF_Type3Font(CPDF_Document* pDocument,
+                               CPDF_Dictionary* pFontDict,
+                               FormFactoryIface* pFormFactory)
+    : CPDF_SimpleFont(pDocument, pFontDict), m_pFormFactory(pFormFactory) {
+  ASSERT(GetDocument());
   memset(m_CharWidthL, 0, sizeof(m_CharWidthL));
 }
 
-CPDF_Type3Font::~CPDF_Type3Font() {}
+CPDF_Type3Font::~CPDF_Type3Font() = default;
 
 bool CPDF_Type3Font::IsType3Font() const {
   return true;
@@ -41,9 +45,18 @@ CPDF_Type3Font* CPDF_Type3Font::AsType3Font() {
   return this;
 }
 
+void CPDF_Type3Font::WillBeDestroyed() {
+  // Last reference to |this| may be through one of its CPDF_Type3Chars.
+  RetainPtr<CPDF_Font> protector(this);
+  for (const auto& item : m_CacheMap) {
+    if (item.second)
+      item.second->WillBeDestroyed();
+  }
+}
+
 bool CPDF_Type3Font::Load() {
-  m_pFontResources = m_pFontDict->GetDictFor("Resources");
-  CPDF_Array* pMatrix = m_pFontDict->GetArrayFor("FontMatrix");
+  m_pFontResources.Reset(m_pFontDict->GetDictFor("Resources"));
+  const CPDF_Array* pMatrix = m_pFontDict->GetArrayFor("FontMatrix");
   float xscale = 1.0f;
   float yscale = 1.0f;
   if (pMatrix) {
@@ -52,7 +65,7 @@ bool CPDF_Type3Font::Load() {
     yscale = m_FontMatrix.d;
   }
 
-  CPDF_Array* pBBox = m_pFontDict->GetArrayFor("FontBBox");
+  const CPDF_Array* pBBox = m_pFontDict->GetArrayFor("FontBBox");
   if (pBBox) {
     CFX_FloatRect box(
         pBBox->GetNumberAt(0) * xscale, pBBox->GetNumberAt(1) * yscale,
@@ -64,21 +77,20 @@ bool CPDF_Type3Font::Load() {
   static constexpr size_t kCharLimit = FX_ArraySize(m_CharWidthL);
   int StartChar = m_pFontDict->GetIntegerFor("FirstChar");
   if (StartChar >= 0 && static_cast<size_t>(StartChar) < kCharLimit) {
-    CPDF_Array* pWidthArray = m_pFontDict->GetArrayFor("Widths");
+    const CPDF_Array* pWidthArray = m_pFontDict->GetArrayFor("Widths");
     if (pWidthArray) {
-      size_t count = std::min(pWidthArray->GetCount(), kCharLimit);
+      size_t count = std::min(pWidthArray->size(), kCharLimit);
       count = std::min(count, kCharLimit - StartChar);
       for (size_t i = 0; i < count; i++) {
         m_CharWidthL[StartChar + i] =
-            FXSYS_round(CPDF_Type3Char::TextUnitToGlyphUnit(
+            FXSYS_roundf(CPDF_Type3Char::TextUnitToGlyphUnit(
                 pWidthArray->GetNumberAt(i) * xscale));
       }
     }
   }
-  m_pCharProcs = m_pFontDict->GetDictFor("CharProcs");
-  CPDF_Object* pEncoding = m_pFontDict->GetDirectObjectFor("Encoding");
-  if (pEncoding)
-    LoadPDFEncoding(pEncoding, m_BaseEncoding, &m_CharNames, false, false);
+  m_pCharProcs.Reset(m_pFontDict->GetDictFor("CharProcs"));
+  if (m_pFontDict->GetDirectObjectFor("Encoding"))
+    LoadPDFEncoding(false, false);
   return true;
 }
 
@@ -100,36 +112,42 @@ CPDF_Type3Char* CPDF_Type3Font::LoadChar(uint32_t charcode) {
   if (!name)
     return nullptr;
 
-  CPDF_Stream* pStream =
-      ToStream(m_pCharProcs ? m_pCharProcs->GetDirectObjectFor(name) : nullptr);
+  if (!m_pCharProcs)
+    return nullptr;
+
+  CPDF_Stream* pStream = ToStream(m_pCharProcs->GetDirectObjectFor(name));
   if (!pStream)
     return nullptr;
 
-  auto pNewChar =
-      pdfium::MakeUnique<CPDF_Type3Char>(pdfium::MakeUnique<CPDF_Form>(
-          m_pDocument.Get(),
-          m_pFontResources ? m_pFontResources.Get() : m_pPageResources.Get(),
-          pStream, nullptr));
+  std::unique_ptr<CPDF_Font::FormIface> pForm = m_pFormFactory->CreateForm(
+      m_pDocument.Get(),
+      m_pFontResources ? m_pFontResources.Get() : m_pPageResources.Get(),
+      pStream);
+
+  auto pNewChar = pdfium::MakeUnique<CPDF_Type3Char>();
 
   // This can trigger recursion into this method. The content of |m_CacheMap|
   // can change as a result. Thus after it returns, check the cache again for
   // a cache hit.
-  m_CharLoadingDepth++;
-  pNewChar->form()->ParseContentWithParams(nullptr, nullptr, pNewChar.get(), 0);
-  m_CharLoadingDepth--;
+  {
+    AutoRestorer<int> restorer(&m_CharLoadingDepth);
+    m_CharLoadingDepth++;
+    pForm->ParseContentForType3Char(pNewChar.get());
+  }
   it = m_CacheMap.find(charcode);
   if (it != m_CacheMap.end())
     return it->second.get();
 
-  pNewChar->Transform(m_FontMatrix);
+  pNewChar->Transform(pForm.get(), m_FontMatrix);
+  if (pForm->HasPageObjects())
+    pNewChar->SetForm(std::move(pForm));
+
+  CPDF_Type3Char* pCachedChar = pNewChar.get();
   m_CacheMap[charcode] = std::move(pNewChar);
-  CPDF_Type3Char* pCachedChar = m_CacheMap[charcode].get();
-  if (pCachedChar->form()->GetPageObjectList()->empty())
-    pCachedChar->ResetForm();
   return pCachedChar;
 }
 
-int CPDF_Type3Font::GetCharWidthF(uint32_t charcode) {
+uint32_t CPDF_Type3Font::GetCharWidthF(uint32_t charcode) {
   if (charcode >= FX_ArraySize(m_CharWidthL))
     charcode = 0;
 

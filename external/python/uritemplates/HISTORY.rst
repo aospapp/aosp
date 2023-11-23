@@ -1,6 +1,19 @@
 Changelog - uritemplate
 =======================
 
+3.0.1 - 2019-12-19
+------------------
+
+- Update to Python 3.6, 3.7, and 3.8
+- Drop support for Python 2.6, 3.2, and 3.3
+- Ignore ``None`` in list argument expansion
+- Handle a list with an empty string appropriately
+
+3.0.0 - 2016-08-29
+------------------
+
+- Match major version number of uritemplate.py
+
 2.0.0 - 2016-08-29
 ------------------
 
@@ -42,7 +55,7 @@ Changelog - uritemplate.py
 0.3.0 - 2013-10-22
 ------------------
 
-- Add ``#partial`` to partially expand templates and return new instances of 
+- Add ``#partial`` to partially expand templates and return new instances of
   ``URITemplate``.
 
 0.2.0 - 2013-07-26

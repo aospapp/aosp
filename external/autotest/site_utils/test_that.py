@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,15 +22,6 @@ from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.hosts import factory
 from autotest_lib.site_utils import test_runner_utils
 
-
-try:
-    from chromite.lib import cros_build_lib
-except ImportError:
-    print 'Unable to import chromite.'
-    print 'This script must be either:'
-    print '  - Be run in the chroot.'
-    print '  - (not yet supported) be run after running '
-    print '    ../utils/build_externals.py'
 
 _QUICKMERGE_SCRIPTNAME = '/mnt/host/source/chromite/bin/autotest_quickmerge'
 
@@ -112,11 +103,10 @@ def _parse_arguments_internal(argv):
                              'and the lab server code rather than local '
                              'changes.')
     test_runner_utils.add_common_args(parser)
-    default_board = cros_build_lib.GetDefaultBoard()
-    parser.add_argument('-b', '--board', metavar='BOARD', default=default_board,
+    parser.add_argument('-b', '--board', metavar='BOARD',
                         action='store',
-                        help='Board for which the test will run. Default: %s' %
-                             (default_board or 'Not configured'))
+                        help='Board for which the test will run. '
+                             'Default: %(default)s')
     parser.add_argument('-m', '--model', metavar='MODEL', default='',
                         help='Specific model the test will run against. '
                              'Matches the model:FAKE_MODEL label for the host.')
@@ -166,10 +156,10 @@ def parse_local_arguments(argv):
     parser.add_argument('-x', '--max_runtime_mins', type=int,
                         dest='max_runtime_mins', default=20,
                         help='Default time allowed for the tests to complete.')
-    # TODO(crbug.com/763207): This is to support calling old moblab RPC
-    # with ToT code.  This does not need to be supported after M62.
-    parser.add_argument('--oldrpc', action='store_true',
-                        help='Use old AFE RPC.')
+    parser.add_argument('--no-retries', '--no-retry',
+                        dest='retry', action='store_false', default=True,
+                        help='For local runs only, ignore any retries '
+                             'specified in the control files.')
     _, remaining_argv = parser.parse_known_args(argv)
     return parser, remaining_argv
 
@@ -240,7 +230,7 @@ def _main_for_local_run(argv, arguments):
     @param argv: Script command line arguments.
     @param arguments: Parsed command line arguments.
     """
-    if not cros_build_lib.IsInsideChroot():
+    if not os.path.exists('/etc/cros_chroot_version'):
         print >> sys.stderr, 'For local runs, script must be run inside chroot.'
         return 1
 
@@ -301,7 +291,7 @@ def _main_for_local_run(argv, arguments):
                 iterations=arguments.iterations,
                 fast_mode=arguments.fast_mode, debug=arguments.debug,
                 whitelist_chrome_crashes=arguments.whitelist_chrome_crashes,
-                pretend=arguments.pretend)
+                pretend=arguments.pretend, job_retry=arguments.retry)
 
 
 def _main_for_lab_run(argv, arguments):
@@ -325,10 +315,6 @@ def _main_for_lab_run(argv, arguments):
                '--max_runtime_mins=%s' % str(arguments.max_runtime_mins),
                '--suite_args=%s'
                % repr({'tests': _suite_arg_tests(argv)})]
-    # TODO(crbug.com/763207): This is to support calling old moblab RPC
-    # with ToT code.  This does not need to be supported after M62.
-    if arguments.oldrpc:
-        command.append('--oldrpc')
     if arguments.web:
         command.extend(['--web=%s' % (arguments.web,)])
     logging.info('About to start lab suite with command %s.', command)

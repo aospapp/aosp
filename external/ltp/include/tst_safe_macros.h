@@ -24,6 +24,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
 #include <fcntl.h>
 #include <libgen.h>
 #include <signal.h>
@@ -221,7 +222,7 @@ pid_t safe_getpgid(const char *file, const int lineno, pid_t pid);
 	({int tst_ret_ = ioctl(fd, request, ##__VA_ARGS__);  \
 	  tst_ret_ < 0 ?                                     \
 	   tst_brk(TBROK | TERRNO,                           \
-	            "ioctl(%i,%s,...) failed", fd, #request) \
+	            "ioctl(%i,%s,...) failed", fd, #request), 0 \
 	 : tst_ret_;})
 
 #define SAFE_FCNTL(fd, cmd, ...)                            \
@@ -339,6 +340,23 @@ static inline int safe_lstat(const char *file, const int lineno,
 }
 #define SAFE_LSTAT(path, buf) \
 	safe_lstat(__FILE__, __LINE__, (path), (buf))
+
+static inline int safe_statfs(const char *file, const int lineno,
+                              const char *path, struct statfs *buf)
+{
+	int rval;
+
+	rval = statfs(path, buf);
+
+	if (rval == -1) {
+		tst_brk_(file, lineno, TBROK | TERRNO,
+		         "statfs(%s,%p) failed", path, buf);
+	}
+
+	return rval;
+}
+#define SAFE_STATFS(path, buf) \
+        safe_statfs(__FILE__, __LINE__, (path), (buf))
 
 static inline off_t safe_lseek(const char *file, const int lineno,
                                int fd, off_t offset, int whence)
@@ -525,5 +543,8 @@ int safe_personality(const char *filename, unsigned int lineno,
 			name, value, overwrite);		\
 	}							\
 	} while (0)
+
+void safe_unshare(const char *file, const int lineno, int flags);
+#define SAFE_UNSHARE(flags) safe_unshare(__FILE__, __LINE__, (flags))
 
 #endif /* SAFE_MACROS_H__ */

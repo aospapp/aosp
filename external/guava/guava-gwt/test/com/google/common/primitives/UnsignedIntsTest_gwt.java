@@ -18,6 +18,11 @@ public class UnsignedIntsTest_gwt extends com.google.gwt.junit.client.GWTTestCas
 @Override public String getModuleName() {
   return "com.google.common.primitives.testModule";
 }
+public void testCheckedCast() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testCheckedCast();
+}
+
 public void testCompare() throws Exception {
   com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
   testCase.testCompare();
@@ -73,6 +78,11 @@ public void testParseInt() throws Exception {
   testCase.testParseInt();
 }
 
+public void testParseIntFail() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testParseIntFail();
+}
+
 public void testParseIntThrowsExceptionForInvalidRadix() throws Exception {
   com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
   testCase.testParseIntThrowsExceptionForInvalidRadix();
@@ -83,9 +93,39 @@ public void testParseIntWithRadix() throws Exception {
   testCase.testParseIntWithRadix();
 }
 
+public void testParseIntWithRadixLimits() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testParseIntWithRadixLimits();
+}
+
 public void testRemainder() throws Exception {
   com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
   testCase.testRemainder();
+}
+
+public void testSaturatedCast() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testSaturatedCast();
+}
+
+public void testSort() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testSort();
+}
+
+public void testSortDescending() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testSortDescending();
+}
+
+public void testSortDescendingIndexed() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testSortDescendingIndexed();
+}
+
+public void testSortIndexed() throws Exception {
+  com.google.common.primitives.UnsignedIntsTest testCase = new com.google.common.primitives.UnsignedIntsTest();
+  testCase.testSortIndexed();
 }
 
 public void testToLong() throws Exception {

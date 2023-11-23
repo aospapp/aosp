@@ -150,9 +150,6 @@ class cellular_ServiceName(test.test):
 
 
     def run_once(self):
-        tests = [self._test_3gpp_no_roaming,
-                 self._test_3gpp_roaming,
-                 self._test_cdma]
-
-        for test in tests:
-            test()
+        self._test_3gpp_no_roaming()
+        self._test_3gpp_roaming()
+        self._test_cdma()

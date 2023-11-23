@@ -24,30 +24,31 @@ import com.github.javaparser.symbolsolver.reflectionmodel.ReflectionFactory;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import com.github.javaparser.symbolsolver.utils.LeanParserConfiguration;
 import com.google.common.collect.ImmutableList;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import java.io.File;
+import java.nio.file.Path;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class MethodsResolutionLogicTest extends AbstractResolutionTest {
+class MethodsResolutionLogicTest extends AbstractResolutionTest {
 
     private TypeSolver typeSolver;
 
-    @Before
-    public void setup() {
-        File srcNewCode = adaptPath(new File("src/test/test_sourcecode/javaparser_new_src/javaparser-core"));
+    @BeforeEach
+    void setup() {
+        Path srcNewCode = adaptPath("src/test/test_sourcecode/javaparser_new_src/javaparser-core");
         CombinedTypeSolver combinedTypeSolverNewCode = new CombinedTypeSolver();
         combinedTypeSolverNewCode.add(new ReflectionTypeSolver());
-        combinedTypeSolverNewCode.add(new JavaParserTypeSolver(srcNewCode));
-        combinedTypeSolverNewCode.add(new JavaParserTypeSolver(adaptPath(new File("src/test/test_sourcecode/javaparser_new_src/javaparser-generated-sources"))));
+        combinedTypeSolverNewCode.add(new JavaParserTypeSolver(srcNewCode, new LeanParserConfiguration()));
+        combinedTypeSolverNewCode.add(new JavaParserTypeSolver(adaptPath("src/test/test_sourcecode/javaparser_new_src/javaparser-generated-sources"), new LeanParserConfiguration()));
         typeSolver = combinedTypeSolverNewCode;
     }
 
     @Test
-    public void compatibilityShouldConsiderAlsoTypeVariablesNegative() {
+    void compatibilityShouldConsiderAlsoTypeVariablesNegative() {
         JavaParserClassDeclaration constructorDeclaration = (JavaParserClassDeclaration) typeSolver.solveType("com.github.javaparser.ast.body.ConstructorDeclaration");
 
         ResolvedReferenceType stringType = (ResolvedReferenceType) ReflectionFactory.typeUsageFor(String.class, typeSolver);
@@ -60,7 +61,7 @@ public class MethodsResolutionLogicTest extends AbstractResolutionTest {
     }
 
     @Test
-    public void compatibilityShouldConsiderAlsoTypeVariablesRaw() {
+    void compatibilityShouldConsiderAlsoTypeVariablesRaw() {
         JavaParserClassDeclaration constructorDeclaration = (JavaParserClassDeclaration) typeSolver.solveType("com.github.javaparser.ast.body.ConstructorDeclaration");
 
         ResolvedReferenceType rawClassType = (ResolvedReferenceType) ReflectionFactory.typeUsageFor(Class.class, typeSolver);
@@ -70,7 +71,7 @@ public class MethodsResolutionLogicTest extends AbstractResolutionTest {
     }
 
     @Test
-    public void compatibilityShouldConsiderAlsoTypeVariablesPositive() {
+    void compatibilityShouldConsiderAlsoTypeVariablesPositive() {
         JavaParserClassDeclaration constructorDeclaration = (JavaParserClassDeclaration) typeSolver.solveType("com.github.javaparser.ast.body.ConstructorDeclaration");
 
         ResolvedReferenceType runtimeException = (ResolvedReferenceType) ReflectionFactory.typeUsageFor(RuntimeException.class, typeSolver);

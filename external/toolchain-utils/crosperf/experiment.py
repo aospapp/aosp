@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """The experiment setting module."""
 
 from __future__ import print_function
@@ -8,7 +10,6 @@ from __future__ import print_function
 import os
 import time
 
-import afe_lock_machine
 from threading import Lock
 
 from cros_utils import logger
@@ -27,7 +28,8 @@ class Experiment(object):
   def __init__(self, name, remote, working_directory, chromeos_root,
                cache_conditions, labels, benchmarks, experiment_file, email_to,
                acquire_timeout, log_dir, log_level, share_cache,
-               results_directory, locks_directory):
+               results_directory, locks_directory, cwp_dso, ignore_min_max,
+               skylab, dut_config):
     self.name = name
     self.working_directory = working_directory
     self.remote = remote
@@ -48,18 +50,20 @@ class Experiment(object):
     self.num_run_complete = 0
     self.share_cache = share_cache
     self.active_threads = []
-    # If locks_directory (self.lock_dir) not blank, we will use the file
-    # locking mechanism; if it is blank then we will use the AFE server
-    # locking mechanism.
     self.locks_dir = locks_directory
     self.locked_machines = []
+    self.lock_mgr = None
+    self.cwp_dso = cwp_dso
+    self.ignore_min_max = ignore_min_max
+    self.skylab = skylab
+    self.l = logger.GetLogger(log_dir)
 
-    if not remote:
-      raise RuntimeError('No remote hosts specified')
     if not self.benchmarks:
       raise RuntimeError('No benchmarks specified')
     if not self.labels:
       raise RuntimeError('No labels specified')
+    if not remote and not self.skylab:
+      raise RuntimeError('No remote hosts specified')
 
     # We need one chromeos_root to run the benchmarks in, but it doesn't
     # matter where it is, unless the ABIs are different.
@@ -88,22 +92,13 @@ class Experiment(object):
     if not self.remote:
       raise RuntimeError('No machine available for running experiment.')
 
-    for label in labels:
-      # We filter out label remotes that are not reachable (not in
-      # self.remote). So each label.remote is a sublist of experiment.remote.
-      label.remote = [r for r in label.remote if r in self.remote]
-      try:
-        self.machine_manager.ComputeCommonCheckSum(label)
-      except BadChecksum:
-        # Force same image on all machines, then we do checksum again. No
-        # bailout if checksums still do not match.
-        self.machine_manager.ForceSameImageToAllMachines(label)
-        self.machine_manager.ComputeCommonCheckSum(label)
-
-      self.machine_manager.ComputeCommonCheckSumString(label)
+    # Initialize checksums for all machines, ignore errors at this time.
+    # The checksum will be double checked, and image will be flashed after
+    # duts are locked/leased.
+    self.SetCheckSums()
 
     self.start_time = None
-    self.benchmark_runs = self._GenerateBenchmarkRuns()
+    self.benchmark_runs = self._GenerateBenchmarkRuns(dut_config)
 
     self._schedv2 = None
     self._internal_counter_lock = Lock()
@@ -114,12 +109,12 @@ class Experiment(object):
   def schedv2(self):
     return self._schedv2
 
-  def _GenerateBenchmarkRuns(self):
+  def _GenerateBenchmarkRuns(self, dut_config):
     """Generate benchmark runs from labels and benchmark defintions."""
     benchmark_runs = []
     for label in self.labels:
       for benchmark in self.benchmarks:
-        for iteration in xrange(1, benchmark.iterations + 1):
+        for iteration in range(1, benchmark.iterations + 1):
 
           benchmark_run_name = '%s: %s (%s)' % (label.name, benchmark.name,
                                                 iteration)
@@ -127,12 +122,30 @@ class Experiment(object):
           logger_to_use = logger.Logger(self.log_dir, 'run.%s' % (full_name),
                                         True)
           benchmark_runs.append(
-              benchmark_run.BenchmarkRun(benchmark_run_name, benchmark, label,
-                                         iteration, self.cache_conditions,
-                                         self.machine_manager, logger_to_use,
-                                         self.log_level, self.share_cache))
+              benchmark_run.BenchmarkRun(
+                  benchmark_run_name, benchmark, label, iteration,
+                  self.cache_conditions, self.machine_manager, logger_to_use,
+                  self.log_level, self.share_cache, dut_config))
 
     return benchmark_runs
+
+  def SetCheckSums(self, forceSameImage=False):
+    for label in self.labels:
+      # We filter out label remotes that are not reachable (not in
+      # self.remote). So each label.remote is a sublist of experiment.remote.
+      label.remote = [r for r in label.remote if r in self.remote]
+      try:
+        self.machine_manager.ComputeCommonCheckSum(label)
+      except BadChecksum:
+        # Force same image on all machines, then we do checksum again. No
+        # bailout if checksums still do not match.
+        # TODO (zhizhouy): Need to figure out how flashing image will influence
+        # the new checksum.
+        if forceSameImage:
+          self.machine_manager.ForceSameImageToAllMachines(label)
+          self.machine_manager.ComputeCommonCheckSum(label)
+
+      self.machine_manager.ComputeCommonCheckSumString(label)
 
   def Build(self):
     pass
@@ -196,18 +209,19 @@ class Experiment(object):
       # We are using the file locks mechanism, so call machine_manager.Cleanup
       # to unlock everything.
       self.machine_manager.Cleanup()
-    else:
-      if test_flag.GetTestMode():
-        return
 
-      all_machines = self.locked_machines
-      if not all_machines:
-        return
+    if test_flag.GetTestMode() or not self.locked_machines:
+      return
 
-      # If we locked any machines earlier, make sure we unlock them now.
-      lock_mgr = afe_lock_machine.AFELockManager(
-          all_machines, '', self.labels[0].chromeos_root, None)
-      machine_states = lock_mgr.GetMachineStates('unlock')
-      for k, state in machine_states.iteritems():
-        if state['locked']:
-          lock_mgr.UpdateLockInAFE(False, k)
+    # If we locked any machines earlier, make sure we unlock them now.
+    if self.lock_mgr:
+      machine_states = self.lock_mgr.GetMachineStates('unlock')
+      self.lock_mgr.CheckMachineLocks(machine_states, 'unlock')
+      unlocked_machines = self.lock_mgr.UpdateMachines(False)
+      failed_machines = [
+          m for m in self.locked_machines if m not in unlocked_machines
+      ]
+      if failed_machines:
+        raise RuntimeError(
+            'These machines are not unlocked correctly: %s' % failed_machines)
+      self.lock_mgr = None

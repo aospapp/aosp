@@ -21,6 +21,39 @@ int dev_read_u32_default(struct udevice *dev, const char *propname, int def)
 	return ofnode_read_u32_default(dev_ofnode(dev), propname, def);
 }
 
+int dev_read_s32(struct udevice *dev, const char *propname, s32 *outp)
+{
+	return ofnode_read_u32(dev_ofnode(dev), propname, (u32 *)outp);
+}
+
+int dev_read_s32_default(struct udevice *dev, const char *propname, int def)
+{
+	return ofnode_read_u32_default(dev_ofnode(dev), propname, def);
+}
+
+int dev_read_u32u(struct udevice *dev, const char *propname, uint *outp)
+{
+	u32 val;
+	int ret;
+
+	ret = ofnode_read_u32(dev_ofnode(dev), propname, &val);
+	if (ret)
+		return ret;
+	*outp = val;
+
+	return 0;
+}
+
+int dev_read_u64(struct udevice *dev, const char *propname, u64 *outp)
+{
+	return ofnode_read_u64(dev_ofnode(dev), propname, outp);
+}
+
+u64 dev_read_u64_default(struct udevice *dev, const char *propname, u64 def)
+{
+	return ofnode_read_u64_default(dev_ofnode(dev), propname, def);
+}
+
 const char *dev_read_string(struct udevice *dev, const char *propname)
 {
 	return ofnode_read_string(dev_ofnode(dev), propname);
@@ -59,9 +92,49 @@ fdt_addr_t dev_read_addr_index(struct udevice *dev, int index)
 		return devfdt_get_addr_index(dev, index);
 }
 
+fdt_addr_t dev_read_addr_size_index(struct udevice *dev, int index,
+				    fdt_size_t *size)
+{
+	if (ofnode_is_np(dev_ofnode(dev)))
+		return ofnode_get_addr_size_index(dev_ofnode(dev), index, size);
+	else
+		return devfdt_get_addr_size_index(dev, index, size);
+}
+
 void *dev_remap_addr_index(struct udevice *dev, int index)
 {
 	fdt_addr_t addr = dev_read_addr_index(dev, index);
+
+	if (addr == FDT_ADDR_T_NONE)
+		return NULL;
+
+	return map_physmem(addr, 0, MAP_NOCACHE);
+}
+
+fdt_addr_t dev_read_addr_name(struct udevice *dev, const char *name)
+{
+	int index = dev_read_stringlist_search(dev, "reg-names", name);
+
+	if (index < 0)
+		return FDT_ADDR_T_NONE;
+	else
+		return dev_read_addr_index(dev, index);
+}
+
+fdt_addr_t dev_read_addr_size_name(struct udevice *dev, const char *name,
+				   fdt_size_t *size)
+{
+	int index = dev_read_stringlist_search(dev, "reg-names", name);
+
+	if (index < 0)
+		return FDT_ADDR_T_NONE;
+	else
+		return dev_read_addr_size_index(dev, index, size);
+}
+
+void *dev_remap_addr_name(struct udevice *dev, const char *name)
+{
+	fdt_addr_t addr = dev_read_addr_name(dev, name);
 
 	if (addr == FDT_ADDR_T_NONE)
 		return NULL;
@@ -220,4 +293,28 @@ int dev_read_resource_byname(struct udevice *dev, const char *name,
 u64 dev_translate_address(struct udevice *dev, const fdt32_t *in_addr)
 {
 	return ofnode_translate_address(dev_ofnode(dev), in_addr);
+}
+
+u64 dev_translate_dma_address(struct udevice *dev, const fdt32_t *in_addr)
+{
+	return ofnode_translate_dma_address(dev_ofnode(dev), in_addr);
+}
+
+int dev_read_alias_highest_id(const char *stem)
+{
+	if (of_live_active())
+		return of_alias_get_highest_id(stem);
+
+	return fdtdec_get_alias_highest_id(gd->fdt_blob, stem);
+}
+
+fdt_addr_t dev_read_addr_pci(struct udevice *dev)
+{
+	ulong addr;
+
+	addr = dev_read_addr(dev);
+	if (addr == FDT_ADDR_T_NONE && !of_live_active())
+		addr = devfdt_get_addr_pci(dev);
+
+	return addr;
 }

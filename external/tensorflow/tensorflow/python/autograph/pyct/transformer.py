@@ -18,11 +18,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import collections
 
 import gast
 
 from tensorflow.python.autograph.pyct import anno
-from tensorflow.python.autograph.pyct import compiler
+from tensorflow.python.autograph.pyct import loader
 from tensorflow.python.autograph.pyct import pretty_printer
 from tensorflow.python.autograph.pyct import templates
 
@@ -44,8 +45,11 @@ class Context(object):
     self.current_origin = None
 
 
-# TODO(mdan): Use namedtuple.
-class EntityInfo(object):
+# TODO(mdan): Move to a standalone file.
+class EntityInfo(
+    collections.namedtuple(
+        'EntityInfo',
+        ('source_code', 'source_file', 'future_features', 'namespace'))):
   """Contains information about a Python entity.
 
   Immutable.
@@ -55,24 +59,17 @@ class EntityInfo(object):
   Attributes:
     source_code: The entity's source code.
     source_file: The entity's source file.
+    future_features: Tuple[Text], the future features that this entity was
+      compiled with. See
+      https://docs.python.org/2/reference/simple_stmts.html#future.
     namespace: Dict[str, ], containing symbols visible to the entity (excluding
       parameters).
-    arg_values: dict[str->*], containing parameter values, if known.
-    arg_types: dict[str->*], containing parameter types, if known.
   """
-
-  # TODO(mdan): Remove the default and update tests.
-  def __init__(self, source_code, source_file, namespace, arg_values,
-               arg_types):
-    self.source_code = source_code
-    self.source_file = source_file
-    self.namespace = namespace
-    self.arg_values = {} if arg_values is None else arg_values
-    self.arg_types = {} if arg_types is None else arg_types
+  pass
 
 
 class _StateStack(object):
-  """Typed stack abstraction.
+  """Templated context manager.
 
   This class provides syntactic sugar for a stack of objects of known
   type. It allows accessing attributes of the object at the top of the stack
@@ -96,6 +93,7 @@ class _StateStack(object):
   Attributes:
     type: Any, the type of objects that this stack holds
     level: int, the current stack depth
+    stack: List[Any], the actual stack
     value: Any, the instance of the object at the top of the stack
   """
 
@@ -107,11 +105,22 @@ class _StateStack(object):
     if not hasattr(type_, 'no_root'):
       self.enter()
 
+  def __enter__(self):
+    self.enter()
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.exit()
+
   def enter(self):
     self._stack.append(self.type())
 
   def exit(self):
-    return self._stack.pop()
+    self._stack.pop()
+
+  @property
+  def stack(self):
+    return self._stack
 
   @property
   def level(self):
@@ -132,7 +141,7 @@ class _StateStack(object):
 
 
 class _State(object):
-  """Supporting class for nested scope variable space for converter.Base.
+  """Syntactic sugar for accessing an instance of a StateStack context manager.
 
   This structure offers syntactic sugar over a dict of stacks of objects
   of known type. These structures are useful to keep state during AST walks.
@@ -185,13 +194,14 @@ class Base(gast.NodeTransformer):
   You must call enter/exit_local_scope manually, but the transformer detects
   when they are not properly paired.
 
-  The transformer allows keeping state across calls to visit_* that is local to
-  arbitrary nodes and their descendants, using the self.state attribute.
+  The transformer allows keeping state across calls to `visit_*` that is local
+  to arbitrary nodes and their descendants, using the self.state attribute.
   Multiple independent scopes are allowed and automatically constructed.
 
-  For example, to keep track of the If node that encloses any Name node, one can
-  write:
+  For example, to keep track of the `If` node that encloses any `Name` node,
+  one can write:
 
+  ```
     class FooType(object):
 
       def __init__(self):
@@ -202,9 +212,23 @@ class Base(gast.NodeTransformer):
       def visit_If(self, node):
         self.state[FooType].enter()
         self.state[FooType].foo_property = node
+        node = self.veneric_visit(node)
+        self.state[FooType].exit()
+        return node
 
       def visit_Name(self, node):
         self.state[FooType].foo_property  # will hold the innermost enclosing if
+  ```
+
+  Alternatively, the `enter()`/`exit()` calls can be managed by a `with`
+  statement:
+
+  ```
+      def visit_If(self, node):
+        with self.state[FooType] as foo:
+          foo.foo_property = node
+          return self.generic_visit(node)
+  ```
   """
 
   # TODO(mdan): Document all extra features.
@@ -299,7 +323,7 @@ class Base(gast.NodeTransformer):
   def debug_print_src(self, node):
     """Helper method useful for debugging. Prints the AST as code."""
     if __debug__:
-      print(compiler.ast_to_source(node))
+      print(loader.load_ast(node))
     return node
 
   def create_assignment(self, target, expression):
@@ -434,7 +458,7 @@ class Base(gast.NodeTransformer):
 
   def _get_source(self, node):
     try:
-      source, _ = compiler.ast_to_source(node)
+      source, _ = loader.load_ast(node)
       return source
     # pylint: disable=broad-except
     # This function is used for error reporting.  If an exception occurs here,
@@ -488,6 +512,20 @@ class Base(gast.NodeTransformer):
         if isinstance(result.value,
                       (list, tuple, gast.Assign, gast.AugAssign)):
           result = result.value
+
+    # By default, all replacements receive the origin info of the replaced node.
+    if result is not node and result is not None:
+      nodes_to_adjust = result
+      if isinstance(result, (list, tuple)):
+        nodes_to_adjust = result
+      else:
+        nodes_to_adjust = (result,)
+      for n in nodes_to_adjust:
+        if not anno.hasanno(n, anno.Basic.ORIGIN):
+          inherited_origin = anno.getanno(
+              node, anno.Basic.ORIGIN, default=parent_origin)
+          if inherited_origin is not None:
+            anno.setanno(n, anno.Basic.ORIGIN, inherited_origin)
 
     # On exception, the local scope integrity is not guaranteed.
     if did_enter_function:

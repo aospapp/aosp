@@ -55,12 +55,11 @@ void input_data_set_all_streams_read(struct input_data *data,
  *    offset - To be filled with the samples offset in |area| that |stream|
  *        should start reading.
  */
-int input_data_get_for_stream(
-		struct input_data *data,
-		struct cras_rstream *stream,
-		struct buffer_share *offsets,
-		struct cras_audio_area **area,
-		unsigned int *offset);
+int input_data_get_for_stream(struct input_data *data,
+			      struct cras_rstream *stream,
+			      struct buffer_share *offsets,
+			      struct cras_audio_area **area,
+			      unsigned int *offset);
 
 /*
  * Marks |frames| of audio data as read by |stream|.
@@ -72,8 +71,8 @@ int input_data_get_for_stream(
  *    frames - Number of frames |stream| has read.
  */
 int input_data_put_for_stream(struct input_data *data,
-			   struct cras_rstream *stream,
-			   struct buffer_share *offsets,
-			   unsigned int frames);
+			      struct cras_rstream *stream,
+			      struct buffer_share *offsets,
+			      unsigned int frames);
 
 #endif /* INPUT_DATA_H_ */

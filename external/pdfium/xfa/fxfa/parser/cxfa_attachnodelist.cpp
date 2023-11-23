@@ -11,9 +11,9 @@
 
 CXFA_AttachNodeList::CXFA_AttachNodeList(CXFA_Document* pDocument,
                                          CXFA_Node* pAttachNode)
-    : CXFA_TreeList(pDocument) {
-  m_pAttachNode = pAttachNode;
-}
+    : CXFA_TreeList(pDocument), m_pAttachNode(pAttachNode) {}
+
+CXFA_AttachNodeList::~CXFA_AttachNodeList() = default;
 
 size_t CXFA_AttachNodeList::GetLength() {
   return m_pAttachNode->CountChildren(
@@ -21,24 +21,28 @@ size_t CXFA_AttachNodeList::GetLength() {
       m_pAttachNode->GetElementType() == XFA_Element::Subform);
 }
 
-bool CXFA_AttachNodeList::Append(CXFA_Node* pNode) {
+void CXFA_AttachNodeList::Append(CXFA_Node* pNode) {
   CXFA_Node* pParent = pNode->GetParent();
   if (pParent)
-    pParent->RemoveChild(pNode, true);
+    pParent->RemoveChildAndNotify(pNode, true);
 
-  return m_pAttachNode->InsertChild(pNode, nullptr);
+  m_pAttachNode->InsertChildAndNotify(pNode, nullptr);
 }
 
 bool CXFA_AttachNodeList::Insert(CXFA_Node* pNewNode, CXFA_Node* pBeforeNode) {
+  if (pBeforeNode && pBeforeNode->GetParent() != m_pAttachNode)
+    return false;
+
   CXFA_Node* pParent = pNewNode->GetParent();
   if (pParent)
-    pParent->RemoveChild(pNewNode, true);
+    pParent->RemoveChildAndNotify(pNewNode, true);
 
-  return m_pAttachNode->InsertChild(pNewNode, pBeforeNode);
+  m_pAttachNode->InsertChildAndNotify(pNewNode, pBeforeNode);
+  return true;
 }
 
-bool CXFA_AttachNodeList::Remove(CXFA_Node* pNode) {
-  return m_pAttachNode->RemoveChild(pNode, true);
+void CXFA_AttachNodeList::Remove(CXFA_Node* pNode) {
+  m_pAttachNode->RemoveChildAndNotify(pNode, true);
 }
 
 CXFA_Node* CXFA_AttachNodeList::Item(size_t index) {

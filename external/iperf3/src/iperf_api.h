@@ -1,5 +1,5 @@
 /*
- * iperf, Copyright (c) 2014-2018, The Regents of the University of
+ * iperf, Copyright (c) 2014-2019, The Regents of the University of
  * California, through Lawrence Berkeley National Laboratory (subject
  * to receipt of any required approvals from the U.S. Dept. of
  * Energy).  All rights reserved.
@@ -27,6 +27,7 @@
 #ifndef        __IPERF_API_H
 #define        __IPERF_API_H
 
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <setjmp.h>
 #include <stdio.h>
@@ -111,6 +112,7 @@ int	iperf_get_test_socket_bufsize( struct iperf_test* ipt );
 double	iperf_get_test_reporter_interval( struct iperf_test* ipt );
 double	iperf_get_test_stats_interval( struct iperf_test* ipt );
 int	iperf_get_test_num_streams( struct iperf_test* ipt );
+int	iperf_get_test_repeating_payload( struct iperf_test* ipt );
 int	iperf_get_test_server_port( struct iperf_test* ipt );
 char*	iperf_get_test_server_hostname( struct iperf_test* ipt );
 char*	iperf_get_test_template( struct iperf_test* ipt );
@@ -125,6 +127,7 @@ int	iperf_get_test_one_off( struct iperf_test* ipt );
 int iperf_get_test_tos( struct iperf_test* ipt );
 char*	iperf_get_extra_data( struct iperf_test* ipt );
 char*	iperf_get_iperf_version(void);
+int	iperf_get_test_no_delay( struct iperf_test* ipt );
 
 /* Setter routines for some fields inside iperf_test. */
 void	iperf_set_verbose( struct iperf_test* ipt, int verbose );
@@ -135,6 +138,7 @@ void	iperf_set_test_reporter_interval( struct iperf_test* ipt, double reporter_i
 void	iperf_set_test_stats_interval( struct iperf_test* ipt, double stats_interval );
 void	iperf_set_test_state( struct iperf_test* ipt, signed char state );
 void	iperf_set_test_blksize( struct iperf_test* ipt, int blksize );
+void	iperf_set_test_logfile( struct iperf_test* ipt, char *logfile );
 void	iperf_set_test_rate( struct iperf_test* ipt, uint64_t rate );
 void    iperf_set_test_pacing_timer( struct iperf_test* ipt, int pacing_timer );
 void    iperf_set_test_bytes( struct iperf_test* ipt, uint64_t bytes );
@@ -143,6 +147,7 @@ void	iperf_set_test_burst( struct iperf_test* ipt, int burst );
 void	iperf_set_test_server_port( struct iperf_test* ipt, int server_port );
 void	iperf_set_test_socket_bufsize( struct iperf_test* ipt, int socket_bufsize );
 void	iperf_set_test_num_streams( struct iperf_test* ipt, int num_streams );
+void	iperf_set_test_repeating_payload( struct iperf_test* ipt, int repeating_payload );
 void	iperf_set_test_role( struct iperf_test* ipt, char role );
 void	iperf_set_test_server_hostname( struct iperf_test* ipt, char* server_hostname );
 void    iperf_set_test_template( struct iperf_test *ipt, char *tmp_template );
@@ -157,6 +162,7 @@ void	iperf_set_test_one_off( struct iperf_test* ipt, int one_off );
 void    iperf_set_test_tos( struct iperf_test* ipt, int tos );
 void	iperf_set_extra_data( struct iperf_test* ipt, char *dat);
 void    iperf_set_test_bidirectional( struct iperf_test* ipt, int bidirectional);
+void    iperf_set_test_no_delay( struct iperf_test* ipt, int no_delay);
 
 #if defined(HAVE_SSL)
 void    iperf_set_test_client_username(struct iperf_test *ipt, char *client_username);
@@ -262,6 +268,7 @@ int iperf_exchange_results(struct iperf_test *);
 int iperf_init_test(struct iperf_test *);
 int iperf_create_send_timers(struct iperf_test *);
 int iperf_parse_arguments(struct iperf_test *, int, char **);
+int iperf_open_logfile(struct iperf_test *);
 void iperf_reset_test(struct iperf_test *);
 void iperf_reset_stats(struct iperf_test * test);
 
@@ -335,6 +342,7 @@ enum {
     IESETSERVERAUTH = 23,   // Bad configuration of server authentication
     IEBADFORMAT = 24,	    // Bad format argument to -f
     IEREVERSEBIDIR = 25,    // Iperf cannot be both reverse and bidirectional
+    IEBADPORT = 26,	    // Bad port number
     /* Test errors */
     IENEWTEST = 100,        // Unable to create a new test (check perror)
     IEINITTEST = 101,       // Test initialization failed (check perror)

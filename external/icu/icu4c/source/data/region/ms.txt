@@ -183,7 +183,7 @@ ms{
         MF{"Saint Martin"}
         MG{"Madagaskar"}
         MH{"Kepulauan Marshall"}
-        MK{"Macedonia (FYROM)"}
+        MK{"Macedonia Utara"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
@@ -305,7 +305,8 @@ ms{
         CG{"Congo (Republik)"}
         CI{"Ivory Coast"}
         CZ{"Republik Czech"}
+        SZ{"Swaziland"}
         TL{"Timor Timur"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

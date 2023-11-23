@@ -32,7 +32,7 @@
 		reg = <0x80000000 0x40000000>;
 	};
 
-	pcie-controller@00003000 {
+	pcie@3000 {
 		status = "okay";
 		avdd-pexa-supply = <&vdd2_reg>;
 		vdd-pexa-supply = <&vdd2_reg>;
@@ -119,9 +119,6 @@
 			vccio-supply = <&sys_3v3_reg>;
 
 			regulators {
-				#address-cells = <1>;
-				#size-cells = <0>;
-
 				/* SW1: +V1.35_VDDIO_DDR */
 				vdd1_reg: vdd1 {
 					regulator-name = "vddio_ddr_1v35";

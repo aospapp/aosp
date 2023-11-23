@@ -21,13 +21,13 @@ public class DERInteger
         super(bytes, true);
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DERInteger(BigInteger value)
     {
         super(value);
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public DERInteger(long value)
     {

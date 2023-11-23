@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -38,7 +38,7 @@ public interface IReportVisitor extends IReportGroupVisitor {
 	 * @throws IOException
 	 *             in case of IO problems with the report writer
 	 */
-	public void visitInfo(List<SessionInfo> sessionInfos,
+	void visitInfo(List<SessionInfo> sessionInfos,
 			Collection<ExecutionData> executionData) throws IOException;
 
 	/**
@@ -47,6 +47,6 @@ public interface IReportVisitor extends IReportGroupVisitor {
 	 * @throws IOException
 	 *             in case of IO problems with the report writer
 	 */
-	public void visitEnd() throws IOException;
+	void visitEnd() throws IOException;
 
 }

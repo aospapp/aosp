@@ -17,9 +17,9 @@
 #ifndef ESE_HW_NXP_PN80T_COMMON_H_
 #define ESE_HW_NXP_PN80T_COMMON_H_ 1
 
-#include "../../libese-teq1/include/ese/teq1.h"
-#include "../../libese/include/ese/ese.h"
-#include "../../libese/include/ese/log.h"
+#include <ese/teq1.h>
+#include <ese/ese.h>
+#include <ese/log.h>
 #include "platform.h"
 
 /* Card state is _required_ to be at the front of eSE pad. */

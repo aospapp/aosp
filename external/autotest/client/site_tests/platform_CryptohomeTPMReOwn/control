@@ -12,7 +12,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "client"
 
 DOC = """
-This test will verify that crytpohome will re-create the user's vault directory
+This test will verify that cryptohome will re-create the user's vault directory
 when the TPM is re-owned.
 """
 

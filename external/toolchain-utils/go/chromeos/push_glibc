@@ -13,7 +13,7 @@ set -e -o pipefail
 for target in "$@"
 do
 	echo -n "pushing glibc to ${target} ... "
-	case "$(ssh ${target} uname -m)" in
+	case "$(ssh -i ${HOME}/.ssh/testing_rsa ${target} uname -m)" in
 		x86_64)
 			glibc="/usr/x86_64-cros-linux-gnu/lib64"
 			loader="ld-linux-x86-64.so.2"
@@ -23,7 +23,7 @@ do
 		aarch64)
 			glibc="/usr/aarch64-cros-linux-gnu/lib64"
 			loader="ld-linux-aarch64.so.1"
-			glibc32="/usr/armv7a-cros-linux-gnueabi/lib"
+			glibc32="/usr/armv7a-cros-linux-gnueabihf/lib"
 			loader32="ld-linux-armhf.so.3"
 			;;
 		*)

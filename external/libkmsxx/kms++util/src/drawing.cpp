@@ -1,4 +1,6 @@
 
+#include <cmath>
+
 #include <kms++/kms++.h>
 #include <kms++util/kms++util.h>
 
@@ -24,6 +26,48 @@ void draw_rgb_pixel(IFramebuffer& buf, unsigned x, unsigned y, RGB color)
 	{
 		uint32_t *p = (uint32_t*)(buf.map(0) + buf.stride(0) * y + x * 4);
 		*p = color.abgr8888();
+		break;
+	}
+	case PixelFormat::RGBX8888:
+	case PixelFormat::RGBA8888:
+	{
+		uint32_t *p = (uint32_t*)(buf.map(0) + buf.stride(0) * y + x * 4);
+		*p = color.rgba8888();
+		break;
+	}
+	case PixelFormat::BGRX8888:
+	case PixelFormat::BGRA8888:
+	{
+		uint32_t *p = (uint32_t*)(buf.map(0) + buf.stride(0) * y + x * 4);
+		*p = color.bgra8888();
+		break;
+	}
+	case PixelFormat::XRGB2101010:
+	case PixelFormat::ARGB2101010:
+	{
+		uint32_t *p = (uint32_t*)(buf.map(0) + buf.stride(0) * y + x * 4);
+		*p = color.argb2101010();
+		break;
+	}
+	case PixelFormat::XBGR2101010:
+	case PixelFormat::ABGR2101010:
+	{
+		uint32_t *p = (uint32_t*)(buf.map(0) + buf.stride(0) * y + x * 4);
+		*p = color.abgr2101010();
+		break;
+	}
+	case PixelFormat::RGBX1010102:
+	case PixelFormat::RGBA1010102:
+	{
+		uint32_t *p = (uint32_t*)(buf.map(0) + buf.stride(0) * y + x * 4);
+		*p = color.rgba1010102();
+		break;
+	}
+	case PixelFormat::BGRX1010102:
+	case PixelFormat::BGRA1010102:
+	{
+		uint32_t *p = (uint32_t*)(buf.map(0) + buf.stride(0) * y + x * 4);
+		*p = color.bgra1010102();
 		break;
 	}
 	case PixelFormat::RGB888:
@@ -52,6 +96,18 @@ void draw_rgb_pixel(IFramebuffer& buf, unsigned x, unsigned y, RGB color)
 	{
 		uint16_t *p = (uint16_t*)(buf.map(0) + buf.stride(0) * y + x * 2);
 		*p = color.bgr565();
+		break;
+	}
+	case PixelFormat::ARGB4444:
+	{
+		uint16_t *p = (uint16_t*)(buf.map(0) + buf.stride(0) * y + x * 2);
+		*p = color.argb4444();
+		break;
+	}
+	case PixelFormat::ARGB1555:
+	{
+		uint16_t *p = (uint16_t*)(buf.map(0) + buf.stride(0) * y + x * 2);
+		*p = color.argb1555();
 		break;
 	}
 	default:
@@ -166,6 +222,8 @@ void draw_rect(IFramebuffer &fb, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
 	case PixelFormat::BGR888:
 	case PixelFormat::RGB565:
 	case PixelFormat::BGR565:
+	case PixelFormat::ARGB4444:
+	case PixelFormat::ARGB1555:
 		for (j = 0; j < h; j++) {
 			for (i = 0; i < w; i++) {
 				draw_rgb_pixel(fb, x + i, y + j, color);
@@ -194,7 +252,23 @@ void draw_rect(IFramebuffer &fb, uint32_t x, uint32_t y, uint32_t w, uint32_t h,
 		}
 		break;
 	default:
-		throw std::invalid_argument("unknown pixelformat");
+		throw std::invalid_argument("draw_rect: unknown pixelformat");
+	}
+}
+
+void draw_horiz_line(IFramebuffer& fb, uint32_t x1, uint32_t x2, uint32_t y, RGB color)
+{
+	for (uint32_t x = x1; x <= x2; ++x)
+		draw_rgb_pixel(fb, x, y, color);
+}
+
+void draw_circle(IFramebuffer& fb, int32_t xCenter, int32_t yCenter, int32_t radius, RGB color)
+{
+	int32_t r2 = radius * radius;
+
+	for (int y = -radius; y <= radius; y++) {
+		int32_t x = (int)(sqrt(r2 - y * y) + 0.5);
+		draw_horiz_line(fb, xCenter - x, xCenter + x, yCenter - y, color);
 	}
 }
 
@@ -222,6 +296,8 @@ static void draw_char(IFramebuffer& buf, uint32_t xpos, uint32_t ypos, char c, R
 	case PixelFormat::BGR888:
 	case PixelFormat::RGB565:
 	case PixelFormat::BGR565:
+	case PixelFormat::ARGB4444:
+	case PixelFormat::ARGB1555:
 		for (y = 0; y < 8; y++) {
 			for (x = 0; x < 8; x++) {
 				bool b = get_char_pixel(c, x, y);
@@ -262,7 +338,7 @@ static void draw_char(IFramebuffer& buf, uint32_t xpos, uint32_t ypos, char c, R
 		}
 		break;
 	default:
-		throw std::invalid_argument("unknown pixelformat");
+		throw std::invalid_argument("draw_char: unknown pixelformat");
 	}
 }
 

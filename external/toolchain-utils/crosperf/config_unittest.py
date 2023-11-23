@@ -1,13 +1,16 @@
-#!/usr/bin/env python2
-#
-# Copyright 2014 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2014 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Unit tests for config.py"""
 
 from __future__ import print_function
 
-import config
-
 import unittest
+
+import config
 
 
 class ConfigTestCase(unittest.TestCase):
@@ -16,7 +19,7 @@ class ConfigTestCase(unittest.TestCase):
   def test_config(self):
     # Verify that config exists, that it's a dictionary, and that it's
     # empty.
-    self.assertTrue(type(config.config) is dict)
+    self.assertTrue(isinstance(config.config, dict))
     self.assertEqual(len(config.config), 0)
 
     # Verify that attempting to get a non-existant key out of the
@@ -42,7 +45,7 @@ class ConfigTestCase(unittest.TestCase):
 
     # Verify that config exists, that it's a dictionary, and that it's
     # empty.
-    self.assertTrue(type(config.config) is dict)
+    self.assertTrue(isinstance(config.config, dict))
     self.assertEqual(len(config.config), 0)
 
 

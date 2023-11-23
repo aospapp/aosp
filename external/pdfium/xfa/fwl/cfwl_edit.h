@@ -9,7 +9,6 @@
 
 #include <memory>
 #include <utility>
-#include <vector>
 
 #include "xfa/fde/cfde_texteditengine.h"
 #include "xfa/fwl/cfwl_event.h"
@@ -66,6 +65,7 @@ class CFWL_Edit : public CFWL_Widget, public CFDE_TextEditEngine::Delegate {
                     const CFX_Matrix& matrix) override;
 
   virtual void SetText(const WideString& wsText);
+  virtual void SetTextSkipNotify(const WideString& wsText);
 
   int32_t GetTextLength() const;
   WideString GetText() const;
@@ -93,7 +93,8 @@ class CFWL_Edit : public CFWL_Widget, public CFDE_TextEditEngine::Delegate {
   // CFDE_TextEditEngine::Delegate
   void NotifyTextFull() override;
   void OnCaretChanged() override;
-  void OnTextChanged(const WideString& prevText) override;
+  void OnTextWillChange(CFDE_TextEditEngine::TextChange* change) override;
+  void OnTextChanged() override;
   void OnSelChanged() override;
   bool OnValidate(const WideString& wsText) override;
   void SetScrollOffset(float fScrollOffset) override;
@@ -102,7 +103,7 @@ class CFWL_Edit : public CFWL_Widget, public CFDE_TextEditEngine::Delegate {
   void ShowCaret(CFX_RectF* pRect);
   void HideCaret(CFX_RectF* pRect);
   const CFX_RectF& GetRTClient() const { return m_rtClient; }
-  CFDE_TextEditEngine* GetTxtEdtEngine() { return &m_EdtEngine; }
+  CFDE_TextEditEngine* GetTxtEdtEngine() { return m_pEditEngine.get(); }
 
  private:
   void RenderText(CFX_RenderDevice* pRenderDev,
@@ -114,7 +115,6 @@ class CFWL_Edit : public CFWL_Widget, public CFDE_TextEditEngine::Delegate {
   void DrawContent(CXFA_Graphics* pGraphics,
                    IFWL_ThemeProvider* pTheme,
                    const CFX_Matrix* pMatrix);
-  void DrawSpellCheck(CXFA_Graphics* pGraphics, const CFX_Matrix* pMatrix);
 
   void UpdateEditEngine();
   void UpdateEditParams();
@@ -134,11 +134,6 @@ class CFWL_Edit : public CFWL_Widget, public CFDE_TextEditEngine::Delegate {
   bool ValidateNumberChar(wchar_t cNum);
   bool IsShowScrollBar(bool bVert);
   bool IsContentHeightOverflow();
-  void AddSpellCheckObj(CXFA_GEPath& PathData,
-                        int32_t nStart,
-                        int32_t nCount,
-                        float fOffSetX,
-                        float fOffSetY);
   void SetCursorPosition(size_t position);
   void UpdateCursorRect();
 
@@ -158,16 +153,16 @@ class CFWL_Edit : public CFWL_Widget, public CFDE_TextEditEngine::Delegate {
   CFX_RectF m_rtEngine;
   CFX_RectF m_rtStatic;
   CFX_RectF m_rtCaret;
-  float m_fVAlignOffset;
-  float m_fScrollOffsetX;
-  float m_fScrollOffsetY;
-  CFDE_TextEditEngine m_EdtEngine;
-  bool m_bLButtonDown;
-  size_t m_CursorPosition;
-  int32_t m_nLimit;
-  float m_fFontSize;
-  bool m_bSetRange;
-  int32_t m_iMax;
+  bool m_bLButtonDown = false;
+  bool m_bSetRange = false;
+  int32_t m_nLimit = -1;
+  int32_t m_iMax = 0xFFFFFFF;
+  float m_fVAlignOffset = 0.0f;
+  float m_fScrollOffsetX = 0.0f;
+  float m_fScrollOffsetY = 0.0f;
+  float m_fFontSize = 0.0f;
+  size_t m_CursorPosition = 0;
+  std::unique_ptr<CFDE_TextEditEngine> const m_pEditEngine;
   std::unique_ptr<CFWL_ScrollBar> m_pVertScrollBar;
   std::unique_ptr<CFWL_ScrollBar> m_pHorzScrollBar;
   std::unique_ptr<CFWL_Caret> m_pCaret;

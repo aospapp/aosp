@@ -20,10 +20,8 @@
  */
 package com.github.javaparser.ast.body;
 
-import com.github.javaparser.ast.AllFieldsConstructor;
-import com.github.javaparser.ast.Modifier;
-import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.TokenRange;
+import com.github.javaparser.ast.*;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.AssignExpr.Operator;
@@ -44,19 +42,14 @@ import com.github.javaparser.ast.visitor.VoidVisitor;
 import com.github.javaparser.metamodel.FieldDeclarationMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
 import com.github.javaparser.metamodel.NonEmptyProperty;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
+import com.github.javaparser.resolution.Resolvable;
+import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
 import java.util.Optional;
-import static com.github.javaparser.ast.Modifier.*;
+import java.util.function.Consumer;
 import static com.github.javaparser.ast.NodeList.nodeList;
 import static com.github.javaparser.utils.Utils.assertNotNull;
-import javax.annotation.Generated;
-import com.github.javaparser.TokenRange;
-import com.github.javaparser.resolution.Resolvable;
-import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
-import com.github.javaparser.resolution.declarations.ResolvedFieldDeclaration;
-import java.util.function.Consumer;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.Generated;
 
 /**
  * The declaration of a field in a class. "private static int a=15*15;" in this example: <code>class X { private static
@@ -67,27 +60,27 @@ import java.util.function.Consumer;
  *
  * @author Julio Vilmar Gesser
  */
-public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> implements NodeWithJavadoc<FieldDeclaration>, NodeWithVariables<FieldDeclaration>, NodeWithAccessModifiers<FieldDeclaration>, NodeWithStaticModifier<FieldDeclaration>, NodeWithFinalModifier<FieldDeclaration>, Resolvable<ResolvedFieldDeclaration> {
+public class FieldDeclaration extends BodyDeclaration<FieldDeclaration> implements NodeWithJavadoc<FieldDeclaration>, NodeWithVariables<FieldDeclaration>, NodeWithAccessModifiers<FieldDeclaration>, NodeWithStaticModifier<FieldDeclaration>, NodeWithFinalModifier<FieldDeclaration>, Resolvable<ResolvedFieldDeclaration> {
 
-    private EnumSet<Modifier> modifiers;
+    private NodeList<Modifier> modifiers;
 
     @NonEmptyProperty
     private NodeList<VariableDeclarator> variables;
 
     public FieldDeclaration() {
-        this(null, EnumSet.noneOf(Modifier.class), new NodeList<>(), new NodeList<>());
+        this(null, new NodeList<>(), new NodeList<>(), new NodeList<>());
     }
 
-    public FieldDeclaration(EnumSet<Modifier> modifiers, VariableDeclarator variable) {
+    public FieldDeclaration(NodeList<Modifier> modifiers, VariableDeclarator variable) {
         this(null, modifiers, new NodeList<>(), nodeList(variable));
     }
 
-    public FieldDeclaration(EnumSet<Modifier> modifiers, NodeList<VariableDeclarator> variables) {
+    public FieldDeclaration(NodeList<Modifier> modifiers, NodeList<VariableDeclarator> variables) {
         this(null, modifiers, new NodeList<>(), variables);
     }
 
     @AllFieldsConstructor
-    public FieldDeclaration(EnumSet<Modifier> modifiers, NodeList<AnnotationExpr> annotations, NodeList<VariableDeclarator> variables) {
+    public FieldDeclaration(NodeList<Modifier> modifiers, NodeList<AnnotationExpr> annotations, NodeList<VariableDeclarator> variables) {
         this(null, modifiers, annotations, variables);
     }
 
@@ -95,7 +88,7 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
      * This constructor is used by the parser and is considered private.
      */
     @Generated("com.github.javaparser.generator.core.node.MainConstructorGenerator")
-    public FieldDeclaration(TokenRange tokenRange, EnumSet<Modifier> modifiers, NodeList<AnnotationExpr> annotations, NodeList<VariableDeclarator> variables) {
+    public FieldDeclaration(TokenRange tokenRange, NodeList<Modifier> modifiers, NodeList<AnnotationExpr> annotations, NodeList<VariableDeclarator> variables) {
         super(tokenRange, annotations);
         setModifiers(modifiers);
         setVariables(variables);
@@ -109,7 +102,7 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
      * @param type type
      * @param name field name
      */
-    public FieldDeclaration(EnumSet<Modifier> modifiers, Type type, String name) {
+    public FieldDeclaration(NodeList<Modifier> modifiers, Type type, String name) {
         this(assertNotNull(modifiers), new VariableDeclarator(type, assertNotNull(name)));
     }
 
@@ -132,7 +125,7 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
      * @see Modifier
      */
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
-    public EnumSet<Modifier> getModifiers() {
+    public NodeList<Modifier> getModifiers() {
         return modifiers;
     }
 
@@ -142,13 +135,16 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
     }
 
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
-    public FieldDeclaration setModifiers(final EnumSet<Modifier> modifiers) {
+    public FieldDeclaration setModifiers(final NodeList<Modifier> modifiers) {
         assertNotNull(modifiers);
         if (modifiers == this.modifiers) {
             return (FieldDeclaration) this;
         }
         notifyPropertyChange(ObservableProperty.MODIFIERS, this.modifiers, modifiers);
+        if (this.modifiers != null)
+            this.modifiers.setParentNode(null);
         this.modifiers = modifiers;
+        setAsParentNodeOf(modifiers);
         return this;
     }
 
@@ -177,15 +173,15 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
     public MethodDeclaration createGetter() {
         if (getVariables().size() != 1)
             throw new IllegalStateException("You can use this only when the field declares only 1 variable name");
-        Optional<ClassOrInterfaceDeclaration> parentClass = getAncestorOfType(ClassOrInterfaceDeclaration.class);
-        Optional<EnumDeclaration> parentEnum = getAncestorOfType(EnumDeclaration.class);
+        Optional<ClassOrInterfaceDeclaration> parentClass = findAncestor(ClassOrInterfaceDeclaration.class);
+        Optional<EnumDeclaration> parentEnum = findAncestor(EnumDeclaration.class);
         if (!(parentClass.isPresent() || parentEnum.isPresent()) || (parentClass.isPresent() && parentClass.get().isInterface()))
             throw new IllegalStateException("You can use this only when the field is attached to a class or an enum");
         VariableDeclarator variable = getVariable(0);
         String fieldName = variable.getNameAsString();
         String fieldNameUpper = fieldName.toUpperCase().substring(0, 1) + fieldName.substring(1, fieldName.length());
         final MethodDeclaration getter;
-        getter = parentClass.map(clazz -> clazz.addMethod("get" + fieldNameUpper, PUBLIC)).orElseGet(() -> parentEnum.get().addMethod("get" + fieldNameUpper, PUBLIC));
+        getter = parentClass.map(clazz -> clazz.addMethod("get" + fieldNameUpper, Modifier.Keyword.PUBLIC)).orElseGet(() -> parentEnum.get().addMethod("get" + fieldNameUpper, Modifier.Keyword.PUBLIC));
         getter.setType(variable.getType());
         BlockStmt blockStmt = new BlockStmt();
         getter.setBody(blockStmt);
@@ -204,15 +200,15 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
     public MethodDeclaration createSetter() {
         if (getVariables().size() != 1)
             throw new IllegalStateException("You can use this only when the field declares only 1 variable name");
-        Optional<ClassOrInterfaceDeclaration> parentClass = getAncestorOfType(ClassOrInterfaceDeclaration.class);
-        Optional<EnumDeclaration> parentEnum = getAncestorOfType(EnumDeclaration.class);
+        Optional<ClassOrInterfaceDeclaration> parentClass = findAncestor(ClassOrInterfaceDeclaration.class);
+        Optional<EnumDeclaration> parentEnum = findAncestor(EnumDeclaration.class);
         if (!(parentClass.isPresent() || parentEnum.isPresent()) || (parentClass.isPresent() && parentClass.get().isInterface()))
             throw new IllegalStateException("You can use this only when the field is attached to a class or an enum");
         VariableDeclarator variable = getVariable(0);
         String fieldName = variable.getNameAsString();
         String fieldNameUpper = fieldName.toUpperCase().substring(0, 1) + fieldName.substring(1, fieldName.length());
         final MethodDeclaration setter;
-        setter = parentClass.map(clazz -> clazz.addMethod("set" + fieldNameUpper, PUBLIC)).orElseGet(() -> parentEnum.get().addMethod("set" + fieldNameUpper, PUBLIC));
+        setter = parentClass.map(clazz -> clazz.addMethod("set" + fieldNameUpper, Modifier.Keyword.PUBLIC)).orElseGet(() -> parentEnum.get().addMethod("set" + fieldNameUpper, Modifier.Keyword.PUBLIC));
         setter.setType(new VoidType());
         setter.getParameters().add(new Parameter(variable.getType(), fieldName));
         BlockStmt blockStmt2 = new BlockStmt();
@@ -222,19 +218,19 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
     }
 
     public boolean isTransient() {
-        return getModifiers().contains(TRANSIENT);
+        return hasModifier(Modifier.Keyword.TRANSIENT);
     }
 
     public boolean isVolatile() {
-        return getModifiers().contains(VOLATILE);
+        return hasModifier(Modifier.Keyword.VOLATILE);
     }
 
     public FieldDeclaration setTransient(boolean set) {
-        return setModifier(TRANSIENT, set);
+        return setModifier(Modifier.Keyword.TRANSIENT, set);
     }
 
     public FieldDeclaration setVolatile(boolean set) {
-        return setModifier(VOLATILE, set);
+        return setModifier(Modifier.Keyword.VOLATILE, set);
     }
 
     @Override
@@ -242,6 +238,12 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
     public boolean remove(Node node) {
         if (node == null)
             return false;
+        for (int i = 0; i < modifiers.size(); i++) {
+            if (modifiers.get(i) == node) {
+                modifiers.remove(i);
+                return true;
+            }
+        }
         for (int i = 0; i < variables.size(); i++) {
             if (variables.get(i) == node) {
                 variables.remove(i);
@@ -268,6 +270,12 @@ public final class FieldDeclaration extends BodyDeclaration<FieldDeclaration> im
     public boolean replace(Node node, Node replacementNode) {
         if (node == null)
             return false;
+        for (int i = 0; i < modifiers.size(); i++) {
+            if (modifiers.get(i) == node) {
+                modifiers.set(i, (Modifier) replacementNode);
+                return true;
+            }
+        }
         for (int i = 0; i < variables.size(); i++) {
             if (variables.get(i) == node) {
                 variables.set(i, (VariableDeclarator) replacementNode);

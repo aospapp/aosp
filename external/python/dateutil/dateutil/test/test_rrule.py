@@ -14,7 +14,12 @@ from dateutil.rrule import (
     MO, TU, WE, TH, FR, SA, SU
 )
 
+from freezegun import freeze_time
 
+import pytest
+
+
+@pytest.mark.rrule
 class RRuleTest(WarningTestMixin, unittest.TestCase):
     def _rrulestr_reverse_test(self, rule):
         """
@@ -2848,6 +2853,74 @@ class RRuleTest(WarningTestMixin, unittest.TestCase):
                           datetime(1997, 9, 9, 9, 0),
                           datetime(1997, 9, 16, 9, 0)])
 
+    def testStrSetExDateMultiple(self):
+        rrstr = ("DTSTART:19970902T090000\n"
+                 "RRULE:FREQ=YEARLY;COUNT=6;BYDAY=TU,TH\n"
+                 "EXDATE:19970904T090000,19970911T090000,19970918T090000\n")
+
+        rr = rrulestr(rrstr)
+        assert list(rr) == [datetime(1997, 9, 2, 9, 0),
+                            datetime(1997, 9, 9, 9, 0),
+                            datetime(1997, 9, 16, 9, 0)]
+
+    def testStrSetExDateWithTZID(self):
+        BXL = tz.gettz('Europe/Brussels')
+        rr = rrulestr("DTSTART;TZID=Europe/Brussels:19970902T090000\n"
+                      "RRULE:FREQ=YEARLY;COUNT=6;BYDAY=TU,TH\n"
+                      "EXDATE;TZID=Europe/Brussels:19970904T090000\n"
+                      "EXDATE;TZID=Europe/Brussels:19970911T090000\n"
+                      "EXDATE;TZID=Europe/Brussels:19970918T090000\n")
+
+        assert list(rr) == [datetime(1997, 9, 2, 9, 0, tzinfo=BXL),
+                            datetime(1997, 9, 9, 9, 0, tzinfo=BXL),
+                            datetime(1997, 9, 16, 9, 0, tzinfo=BXL)]
+
+    def testStrSetExDateValueDateTimeNoTZID(self):
+        rrstr = '\n'.join([
+            "DTSTART:19970902T090000",
+            "RRULE:FREQ=YEARLY;COUNT=4;BYDAY=TU,TH",
+            "EXDATE;VALUE=DATE-TIME:19970902T090000",
+            "EXDATE;VALUE=DATE-TIME:19970909T090000",
+        ])
+
+        rr = rrulestr(rrstr)
+        assert list(rr) == [datetime(1997, 9, 4, 9), datetime(1997, 9, 11, 9)]
+
+    def testStrSetExDateValueMixDateTimeNoTZID(self):
+        rrstr = '\n'.join([
+            "DTSTART:19970902T090000",
+            "RRULE:FREQ=YEARLY;COUNT=4;BYDAY=TU,TH",
+            "EXDATE;VALUE=DATE-TIME:19970902T090000",
+            "EXDATE:19970909T090000",
+        ])
+
+        rr = rrulestr(rrstr)
+        assert list(rr) == [datetime(1997, 9, 4, 9), datetime(1997, 9, 11, 9)]
+
+    def testStrSetExDateValueDateTimeWithTZID(self):
+        BXL = tz.gettz('Europe/Brussels')
+        rrstr = '\n'.join([
+            "DTSTART;VALUE=DATE-TIME;TZID=Europe/Brussels:19970902T090000",
+            "RRULE:FREQ=YEARLY;COUNT=4;BYDAY=TU,TH",
+            "EXDATE;VALUE=DATE-TIME;TZID=Europe/Brussels:19970902T090000",
+            "EXDATE;VALUE=DATE-TIME;TZID=Europe/Brussels:19970909T090000",
+        ])
+
+        rr = rrulestr(rrstr)
+        assert list(rr) == [datetime(1997, 9, 4, 9, tzinfo=BXL),
+                            datetime(1997, 9, 11, 9, tzinfo=BXL)]
+
+    def testStrSetExDateValueDate(self):
+        rrstr = '\n'.join([
+            "DTSTART;VALUE=DATE:19970902",
+            "RRULE:FREQ=YEARLY;COUNT=4;BYDAY=TU,TH",
+            "EXDATE;VALUE=DATE:19970902",
+            "EXDATE;VALUE=DATE:19970909",
+        ])
+
+        rr = rrulestr(rrstr)
+        assert list(rr) == [datetime(1997, 9, 4), datetime(1997, 9, 11)]
+
     def testStrSetDateAndExDate(self):
         self.assertEqual(list(rrulestr(
                               "DTSTART:19970902T090000\n"
@@ -2923,6 +2996,11 @@ class RRuleTest(WarningTestMixin, unittest.TestCase):
 
         self.assertEqual(list(rr), [datetime(1997, 9, 2, 0, 0, 0),
                                     datetime(1998, 9, 2, 0, 0, 0)])
+
+    def testStrMultipleDTStartComma(self):
+        with pytest.raises(ValueError):
+            rr = rrulestr("DTSTART:19970101T000000,19970202T000000\n"
+                          "RRULE:FREQ=YEARLY;COUNT=1")
 
     def testStrInvalidUntil(self):
         with self.assertRaises(ValueError):
@@ -4538,6 +4616,31 @@ class RRuleTest(WarningTestMixin, unittest.TestCase):
                              [datetime(1997, 1, 6)])
 
 
+@pytest.mark.rrule
+@freeze_time(datetime(2018, 3, 6, 5, 36, tzinfo=tz.UTC))
+def test_generated_aware_dtstart():
+    dtstart_exp = datetime(2018, 3, 6, 5, 36, tzinfo=tz.UTC)
+    UNTIL = datetime(2018, 3, 6, 8, 0, tzinfo=tz.UTC)
+
+    rule_without_dtstart = rrule(freq=HOURLY, until=UNTIL)
+    rule_with_dtstart = rrule(freq=HOURLY, dtstart=dtstart_exp, until=UNTIL)
+    assert list(rule_without_dtstart) == list(rule_with_dtstart)
+
+
+@pytest.mark.rrule
+@pytest.mark.rrulestr
+@pytest.mark.xfail(reason="rrulestr loses time zone, gh issue #637")
+@freeze_time(datetime(2018, 3, 6, 5, 36, tzinfo=tz.UTC))
+def test_generated_aware_dtstart_rrulestr():
+    rrule_without_dtstart = rrule(freq=HOURLY,
+                                  until=datetime(2018, 3, 6, 8, 0,
+                                                 tzinfo=tz.UTC))
+    rrule_r = rrulestr(str(rrule_without_dtstart))
+
+    assert list(rrule_r) == list(rrule_without_dtstart)
+
+
+@pytest.mark.rruleset
 class RRuleSetTest(unittest.TestCase):
     def testSet(self):
         rrset = rruleset()

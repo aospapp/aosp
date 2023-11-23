@@ -9,10 +9,11 @@
 #include <algorithm>
 #include <utility>
 
-CFX_BinaryBuf::CFX_BinaryBuf()
-    : m_AllocStep(0), m_AllocSize(0), m_DataSize(0) {}
+#include "core/fxcrt/fx_safe_types.h"
 
-CFX_BinaryBuf::~CFX_BinaryBuf() {}
+CFX_BinaryBuf::CFX_BinaryBuf() = default;
+
+CFX_BinaryBuf::~CFX_BinaryBuf() = default;
 
 void CFX_BinaryBuf::Delete(size_t start_index, size_t count) {
   if (!m_pBuffer || count > m_DataSize || start_index > m_DataSize - count)
@@ -21,6 +22,14 @@ void CFX_BinaryBuf::Delete(size_t start_index, size_t count) {
   memmove(m_pBuffer.get() + start_index, m_pBuffer.get() + start_index + count,
           m_DataSize - start_index - count);
   m_DataSize -= count;
+}
+
+pdfium::span<uint8_t> CFX_BinaryBuf::GetSpan() {
+  return {GetBuffer(), GetSize()};
+}
+
+pdfium::span<const uint8_t> CFX_BinaryBuf::GetSpan() const {
+  return {GetBuffer(), GetSize()};
 }
 
 size_t CFX_BinaryBuf::GetLength() const {
@@ -37,8 +46,7 @@ std::unique_ptr<uint8_t, FxFreeDeleter> CFX_BinaryBuf::DetachBuffer() {
   return std::move(m_pBuffer);
 }
 
-void CFX_BinaryBuf::EstimateSize(size_t size, size_t step) {
-  m_AllocStep = step;
+void CFX_BinaryBuf::EstimateSize(size_t size) {
   if (m_AllocSize < size)
     ExpandBuf(size - m_DataSize);
 }
@@ -58,6 +66,10 @@ void CFX_BinaryBuf::ExpandBuf(size_t add_size) {
   m_pBuffer.reset(m_pBuffer
                       ? FX_Realloc(uint8_t, m_pBuffer.release(), m_AllocSize)
                       : FX_Alloc(uint8_t, m_AllocSize));
+}
+
+void CFX_BinaryBuf::AppendSpan(pdfium::span<const uint8_t> span) {
+  return AppendBlock(span.data(), span.size());
 }
 
 void CFX_BinaryBuf::AppendBlock(const void* pBuf, size_t size) {

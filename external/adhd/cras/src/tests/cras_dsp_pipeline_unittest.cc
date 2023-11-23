@@ -2,24 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "cras_dsp_pipeline.h"
+
 #include <gtest/gtest.h>
 
 #include "cras_config.h"
 #include "cras_dsp_module.h"
-#include "cras_dsp_pipeline.h"
 
 #define MAX_MODULES 10
 #define MAX_MOCK_PORTS 30
 #define FILENAME_TEMPLATE "DspIniTest.XXXXXX"
 
-static void fill_test_data(int16_t *data, size_t size)
-{
+static void fill_test_data(int16_t* data, size_t size) {
   for (size_t i = 0; i < size; i++)
     data[i] = i;
 }
 
-static void verify_processed_data(int16_t *data, size_t size, int times)
-{
+static void verify_processed_data(int16_t* data, size_t size, int times) {
   /* Each time the audio data flow through the mock plugin, the data
    * will be multiplied by 2 in module->run() below, so if there are n
    * plugins, the data will be multiplied by (1 << n). */
@@ -32,7 +31,7 @@ static void verify_processed_data(int16_t *data, size_t size, int times)
 }
 
 struct data {
-  const char *title;
+  const char* title;
   int nr_ports;
   port_direction port_dir[MAX_MOCK_PORTS];
   int nr_in_audio;
@@ -49,7 +48,7 @@ struct data {
   int sample_rate;
 
   int connect_port_called[MAX_MOCK_PORTS];
-  float *data_location[MAX_MOCK_PORTS];
+  float* data_location[MAX_MOCK_PORTS];
 
   int run_called;
   float input[MAX_MOCK_PORTS];
@@ -63,25 +62,23 @@ struct data {
   int get_properties_called;
 };
 
-static int instantiate(struct dsp_module *module, unsigned long sample_rate)
-{
-  struct data *data = (struct data *)module->data;
+static int instantiate(struct dsp_module* module, unsigned long sample_rate) {
+  struct data* data = (struct data*)module->data;
   data->instantiate_called++;
   data->sample_rate = sample_rate;
   return 0;
 }
 
-static void connect_port(struct dsp_module *module, unsigned long port,
-                         float *data_location)
-{
-  struct data *data = (struct data *)module->data;
+static void connect_port(struct dsp_module* module,
+                         unsigned long port,
+                         float* data_location) {
+  struct data* data = (struct data*)module->data;
   data->connect_port_called[port]++;
   data->data_location[port] = data_location;
 }
 
-static int get_delay(struct dsp_module *module)
-{
-  struct data *data = (struct data *)module->data;
+static int get_delay(struct dsp_module* module) {
+  struct data* data = (struct data*)module->data;
   data->get_delay_called++;
 
   /* If the module title is "mN", then use N as the delay. */
@@ -90,9 +87,8 @@ static int get_delay(struct dsp_module *module)
   return delay;
 }
 
-static void run(struct dsp_module *module, unsigned long sample_count)
-{
-  struct data *data =  (struct data *)module->data;
+static void run(struct dsp_module* module, unsigned long sample_count) {
+  struct data* data = (struct data*)module->data;
   data->run_called++;
   data->sample_count = sample_count;
 
@@ -102,7 +98,8 @@ static void run(struct dsp_module *module, unsigned long sample_count)
   }
 
   /* copy the control port data */
-  for (int i = 0; i < std::min(data->nr_in_control, data->nr_out_control); i++) {
+  for (int i = 0; i < std::min(data->nr_in_control, data->nr_out_control);
+       i++) {
     int from = data->in_control[i];
     int to = data->out_control[i];
     data->data_location[to][0] = data->data_location[from][0];
@@ -117,43 +114,38 @@ static void run(struct dsp_module *module, unsigned long sample_count)
   }
 }
 
-static void deinstantiate(struct dsp_module *module)
-{
-  struct data *data = (struct data *)module->data;
+static void deinstantiate(struct dsp_module* module) {
+  struct data* data = (struct data*)module->data;
   data->deinstantiate_called++;
 }
 
-static void free_module(struct dsp_module *module)
-{
-  struct data *data = (struct data *)module->data;
+static void free_module(struct dsp_module* module) {
+  struct data* data = (struct data*)module->data;
   data->free_module_called++;
 }
 
-static void really_free_module(struct dsp_module *module)
-{
-    struct data *data = (struct data *)module->data;
-    free(data);
-    free(module);
+static void really_free_module(struct dsp_module* module) {
+  struct data* data = (struct data*)module->data;
+  free(data);
+  free(module);
 }
 
-static int get_properties(struct dsp_module *module)
-{
-  struct data *data = (struct data *)module->data;
+static int get_properties(struct dsp_module* module) {
+  struct data* data = (struct data*)module->data;
   data->get_properties_called++;
   return data->properties;
 }
-static void dump(struct dsp_module *module, struct dumper *d) {}
+static void dump(struct dsp_module* module, struct dumper* d) {}
 
-static struct dsp_module *create_mock_module(struct plugin *plugin)
-{
-  struct data *data;
-  struct dsp_module *module;
+static struct dsp_module* create_mock_module(struct plugin* plugin) {
+  struct data* data;
+  struct dsp_module* module;
 
-  data =  (struct data *)calloc(1, sizeof(struct data));
+  data = (struct data*)calloc(1, sizeof(struct data));
   data->title = plugin->title;
   data->nr_ports = ARRAY_COUNT(&plugin->ports);
   for (int i = 0; i < data->nr_ports; i++) {
-    struct port *port = ARRAY_ELEMENT(&plugin->ports, i);
+    struct port* port = ARRAY_ELEMENT(&plugin->ports, i);
     data->port_dir[i] = port->direction;
 
     if (port->direction == PORT_INPUT) {
@@ -187,13 +179,12 @@ static struct dsp_module *create_mock_module(struct plugin *plugin)
   return module;
 }
 
-static struct dsp_module *modules[MAX_MODULES];
-static struct dsp_module *cras_dsp_module_set_sink_ext_module_val;
+static struct dsp_module* modules[MAX_MODULES];
+static struct dsp_module* cras_dsp_module_set_sink_ext_module_val;
 static int num_modules;
-static struct dsp_module *find_module(const char *name)
-{
+static struct dsp_module* find_module(const char* name) {
   for (int i = 0; i < num_modules; i++) {
-    struct data *data = (struct data *)modules[i]->data;
+    struct data* data = (struct data*)modules[i]->data;
     if (strcmp(name, data->title) == 0)
       return modules[i];
   }
@@ -201,19 +192,16 @@ static struct dsp_module *find_module(const char *name)
 }
 
 extern "C" {
-struct dsp_module *cras_dsp_module_load_ladspa(struct plugin *plugin)
-{
+struct dsp_module* cras_dsp_module_load_ladspa(struct plugin* plugin) {
   return NULL;
 }
-struct dsp_module *cras_dsp_module_load_builtin(struct plugin *plugin)
-{
-  struct dsp_module *module = create_mock_module(plugin);
+struct dsp_module* cras_dsp_module_load_builtin(struct plugin* plugin) {
+  struct dsp_module* module = create_mock_module(plugin);
   modules[num_modules++] = module;
   return module;
 }
-void cras_dsp_module_set_sink_ext_module(struct dsp_module *module,
-					 struct ext_dsp_module *ext_module)
-{
+void cras_dsp_module_set_sink_ext_module(struct dsp_module* module,
+                                         struct ext_dsp_module* ext_module) {
   cras_dsp_module_set_sink_ext_module_val = module;
 }
 }
@@ -224,7 +212,7 @@ class DspPipelineTestSuite : public testing::Test {
  protected:
   virtual void SetUp() {
     num_modules = 0;
-    strcpy(filename,  FILENAME_TEMPLATE);
+    strcpy(filename, FILENAME_TEMPLATE);
     int fd = mkstemp(filename);
     fp = fdopen(fd, "w");
   }
@@ -242,12 +230,12 @@ class DspPipelineTestSuite : public testing::Test {
   }
 
   char filename[sizeof(FILENAME_TEMPLATE) + 1];
-  FILE *fp;
+  FILE* fp;
   struct ext_dsp_module ext_mod;
 };
 
 TEST_F(DspPipelineTestSuite, Simple) {
-  const char *content =
+  const char* content =
       "[M1]\n"
       "library=builtin\n"
       "label=source\n"
@@ -266,23 +254,23 @@ TEST_F(DspPipelineTestSuite, Simple) {
   CloseFile();
 
   struct cras_expr_env env = CRAS_EXPR_ENV_INIT;
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   ASSERT_TRUE(ini);
-  struct pipeline *p = cras_dsp_pipeline_create(ini, &env, "capture");
+  struct pipeline* p = cras_dsp_pipeline_create(ini, &env, "capture");
   ASSERT_TRUE(p);
   ASSERT_EQ(0, cras_dsp_pipeline_load(p));
 
   ASSERT_EQ(2, num_modules);
-  struct dsp_module *m1 = find_module("m1");
-  struct dsp_module *m2 = find_module("m2");
+  struct dsp_module* m1 = find_module("m1");
+  struct dsp_module* m2 = find_module("m2");
   ASSERT_TRUE(m1);
   ASSERT_TRUE(m2);
 
   ASSERT_EQ(1, cras_dsp_pipeline_get_num_input_channels(p));
   ASSERT_EQ(0, cras_dsp_pipeline_instantiate(p, 48000));
 
-  struct data *d1 = (struct data *)m1->data;
-  struct data *d2 = (struct data *)m2->data;
+  struct data* d1 = (struct data*)m1->data;
+  struct data* d2 = (struct data*)m2->data;
 
   /* check m1 */
   ASSERT_STREQ("m1", d1->title);
@@ -344,8 +332,7 @@ TEST_F(DspPipelineTestSuite, Simple) {
 
   /* Expect the sink module "m2" is set. */
   cras_dsp_pipeline_set_sink_ext_module(p, &ext_mod);
-  struct data *d = (struct data *)
-      cras_dsp_module_set_sink_ext_module_val->data;
+  struct data* d = (struct data*)cras_dsp_module_set_sink_ext_module_val->data;
   ASSERT_STREQ("m2", d->title);
 
   cras_dsp_pipeline_deinstantiate(p);
@@ -373,7 +360,7 @@ TEST_F(DspPipelineTestSuite, Complex) {
    *                     --(g)-- 6 --(h)--
    */
 
-  const char *content =
+  const char* content =
       "[M6]\n"
       "library=builtin\n"
       "label=foo\n"
@@ -426,18 +413,18 @@ TEST_F(DspPipelineTestSuite, Complex) {
   cras_expr_env_set_variable_string(&env, "output_device", "HDMI");
   cras_expr_env_set_variable_boolean(&env, "swap_lr_disabled", 1);
 
-  struct ini *ini = cras_dsp_ini_create(filename);
+  struct ini* ini = cras_dsp_ini_create(filename);
   ASSERT_TRUE(ini);
-  struct pipeline *p = cras_dsp_pipeline_create(ini, &env, "playback");
+  struct pipeline* p = cras_dsp_pipeline_create(ini, &env, "playback");
   ASSERT_TRUE(p);
   ASSERT_EQ(0, cras_dsp_pipeline_load(p));
 
-  ASSERT_EQ(5, num_modules);  /* one not connected, one disabled */
-  struct dsp_module *m0 = find_module("m0");
-  struct dsp_module *m1 = find_module("m1");
-  struct dsp_module *m2 = find_module("m2");
-  struct dsp_module *m3 = find_module("m3");
-  struct dsp_module *m5 = find_module("m5");
+  ASSERT_EQ(5, num_modules); /* one not connected, one disabled */
+  struct dsp_module* m0 = find_module("m0");
+  struct dsp_module* m1 = find_module("m1");
+  struct dsp_module* m2 = find_module("m2");
+  struct dsp_module* m3 = find_module("m3");
+  struct dsp_module* m5 = find_module("m5");
 
   ASSERT_TRUE(m0);
   ASSERT_TRUE(m1);
@@ -450,11 +437,11 @@ TEST_F(DspPipelineTestSuite, Complex) {
   ASSERT_EQ(2, cras_dsp_pipeline_get_num_input_channels(p));
   ASSERT_EQ(0, cras_dsp_pipeline_instantiate(p, 48000));
 
-  struct data *d0 = (struct data *)m0->data;
-  struct data *d1 = (struct data *)m1->data;
-  struct data *d2 = (struct data *)m2->data;
-  struct data *d3 = (struct data *)m3->data;
-  struct data *d5 = (struct data *)m5->data;
+  struct data* d0 = (struct data*)m0->data;
+  struct data* d1 = (struct data*)m1->data;
+  struct data* d2 = (struct data*)m2->data;
+  struct data* d3 = (struct data*)m3->data;
+  struct data* d5 = (struct data*)m5->data;
 
   /*
    *                   / --(b)-- 2 --(c)-- \
@@ -476,7 +463,7 @@ TEST_F(DspPipelineTestSuite, Complex) {
   /* need 3 buffers because m2 has inplace-broken flag */
   ASSERT_EQ(3, cras_dsp_pipeline_get_peak_audio_buffers(p));
 
-  int16_t *samples = new int16_t[DSP_BUFFER_SIZE];
+  int16_t* samples = new int16_t[DSP_BUFFER_SIZE];
   fill_test_data(samples, DSP_BUFFER_SIZE);
   cras_dsp_pipeline_apply(p, (uint8_t*)samples, SND_PCM_FORMAT_S16_LE, 100);
   /* the data flow through 2 plugins because m4 is disabled. */
@@ -492,8 +479,7 @@ TEST_F(DspPipelineTestSuite, Complex) {
 
   /* Expect the sink module "m5" is set. */
   cras_dsp_pipeline_set_sink_ext_module(p, &ext_mod);
-  struct data *d = (struct data *)
-      cras_dsp_module_set_sink_ext_module_val->data;
+  struct data* d = (struct data*)cras_dsp_module_set_sink_ext_module_val->data;
   ASSERT_STREQ("m5", d->title);
 
   /* re-instantiate */
@@ -526,7 +512,7 @@ TEST_F(DspPipelineTestSuite, Complex) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,8 +30,10 @@ import org.jacoco.core.internal.analysis.ClassCoverageImpl;
 import org.jacoco.core.internal.analysis.StringPool;
 import org.jacoco.core.internal.data.CRC64;
 import org.jacoco.core.internal.flow.ClassProbesAdapter;
+import org.jacoco.core.internal.instr.InstrSupport;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * An {@link Analyzer} instance processes a set of Java class files and
@@ -99,15 +101,17 @@ public class Analyzer {
 		return new ClassProbesAdapter(analyzer, false);
 	}
 
-	/**
-	 * Analyzes the class given as a ASM reader.
-	 * 
-	 * @param reader
-	 *            reader with class definitions
-	 */
-	public void analyzeClass(final ClassReader reader) {
-		final ClassVisitor visitor = createAnalyzingVisitor(
-				CRC64.classId(reader.b), reader.getClassName());
+	private void analyzeClass(final byte[] source) {
+		final long classId = CRC64.classId(source);
+		final ClassReader reader = InstrSupport.classReaderFor(source);
+		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) {
+			return;
+		}
+		if ((reader.getAccess() & Opcodes.ACC_SYNTHETIC) != 0) {
+			return;
+		}
+		final ClassVisitor visitor = createAnalyzingVisitor(classId,
+				reader.getClassName());
 		reader.accept(visitor, 0);
 	}
 
@@ -124,7 +128,7 @@ public class Analyzer {
 	public void analyzeClass(final byte[] buffer, final String location)
 			throws IOException {
 		try {
-			analyzeClass(new ClassReader(buffer));
+			analyzeClass(buffer);
 		} catch (final RuntimeException cause) {
 			throw analyzerError(location, cause);
 		}

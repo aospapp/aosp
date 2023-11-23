@@ -18,7 +18,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -60,6 +60,7 @@
 #include "MagickCore/list.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/module.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/option.h"
@@ -70,9 +71,9 @@
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
 #include "MagickCore/module.h"
+#include "MagickCore/timer-private.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
-#include "MagickCore/module.h"
 
 /*
   Define declarations.
@@ -218,19 +219,19 @@ static MagickBooleanType Huffman2DEncodeImage(const ImageInfo *image_info,
   unsigned char
     *group4;
 
+  group4_image=CloneImage(inject_image,0,0,MagickTrue,exception);
+  if (group4_image == (Image *) NULL)
+    return(MagickFalse);
   status=MagickTrue;
   write_info=CloneImageInfo(image_info);
   (void) CopyMagickString(write_info->filename,"GROUP4:",MagickPathExtent);
   (void) CopyMagickString(write_info->magick,"GROUP4",MagickPathExtent);
-  group4_image=CloneImage(inject_image,0,0,MagickTrue,exception);
-  if (group4_image == (Image *) NULL)
-    return(MagickFalse);
   group4=(unsigned char *) ImageToBlob(write_info,group4_image,&length,
     exception);
   group4_image=DestroyImage(group4_image);
+  write_info=DestroyImageInfo(write_info);
   if (group4 == (unsigned char *) NULL)
     return(MagickFalse);
-  write_info=DestroyImageInfo(write_info);
   if (WriteBlob(image,length,group4) != (ssize_t) length)
     status=MagickFalse;
   group4=(unsigned char *) RelinquishMagickMemory(group4);
@@ -623,196 +624,191 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
   ExceptionInfo *exception)
 {
   static const char
-    *const PostscriptProlog[]=
-    {
-      "/ByteStreamDecodeFilter",
-      "{",
-      "  /z exch def",
-      "  /r exch def",
-      "  /c exch def",
-      "  z " PS3_NoCompression " eq { /ASCII85Decode filter } if",
-      "  z " PS3_FaxCompression " eq",
-      "  {",
-      "    <<",
-      "      /K " CCITTParam,
-      "      /Columns c",
-      "      /Rows r",
-      "    >>",
-      "    /CCITTFaxDecode filter",
-      "  } if",
-      "  z " PS3_JPEGCompression " eq { /DCTDecode filter } if",
-      "  z " PS3_LZWCompression " eq { /LZWDecode filter } if",
-      "  z " PS3_RLECompression " eq { /RunLengthDecode filter } if",
-      "  z " PS3_ZipCompression " eq { /FlateDecode filter } if",
-      "} bind def",
-      "",
-      "/DirectClassImageDict",
-      "{",
-      "  colorspace " PS3_RGBColorspace " eq",
-      "  {",
-      "    /DeviceRGB setcolorspace",
-      "    <<",
-      "      /ImageType 1",
-      "      /Width columns",
-      "      /Height rows",
-      "      /BitsPerComponent 8",
-      "      /DataSource pixel_stream",
-      "      /MultipleDataSources false",
-      "      /ImageMatrix [columns 0 0 rows neg 0 rows]",
-      "      /Decode [0 1 0 1 0 1]",
-      "    >>",
-      "  }",
-      "  {",
-      "    /DeviceCMYK setcolorspace",
-      "    <<",
-      "      /ImageType 1",
-      "      /Width columns",
-      "      /Height rows",
-      "      /BitsPerComponent 8",
-      "      /DataSource pixel_stream",
-      "      /MultipleDataSources false",
-      "      /ImageMatrix [columns 0 0 rows neg 0 rows]",
-      "      /Decode",
-      "        compression " PS3_JPEGCompression " eq",
-      "        { [1 0 1 0 1 0 1 0] }",
-      "        { [0 1 0 1 0 1 0 1] }",
-      "        ifelse",
-      "    >>",
-      "  }",
-      "  ifelse",
-      "} bind def",
-      "",
-      "/PseudoClassImageDict",
-      "{",
-      "  % Colors in colormap image.",
-      "  currentfile buffer readline pop",
-      "  token pop /colors exch def pop",
-      "  colors 0 eq",
-      "  {",
-      "    % Depth of grayscale image.",
-      "    currentfile buffer readline pop",
-      "    token pop /bits exch def pop",
-      "    /DeviceGray setcolorspace",
-      "    <<",
-      "      /ImageType 1",
-      "      /Width columns",
-      "      /Height rows",
-      "      /BitsPerComponent bits",
-      "      /Decode [0 1]",
-      "      /ImageMatrix [columns 0 0 rows neg 0 rows]",
-      "      /DataSource pixel_stream",
-      "    >>",
-      "  }",
-      "  {",
-      "    % RGB colormap.",
-      "    /colormap colors 3 mul string def",
-      "    compression " PS3_NoCompression " eq",
-      "    { currentfile /ASCII85Decode filter colormap readstring pop pop }",
-      "    { currentfile colormap readstring pop pop }",
-      "    ifelse",
-      "    [ /Indexed /DeviceRGB colors 1 sub colormap ] setcolorspace",
-      "    <<",
-      "      /ImageType 1",
-      "      /Width columns",
-      "      /Height rows",
-      "      /BitsPerComponent 8",
-      "      /Decode [0 255]",
-      "      /ImageMatrix [columns 0 0 rows neg 0 rows]",
-      "      /DataSource pixel_stream",
-      "    >>",
-      "  }",
-      "  ifelse",
-      "} bind def",
-      "",
-      "/NonMaskedImageDict",
-      "{",
-      "  class " PS3_PseudoClass " eq",
-      "  { PseudoClassImageDict }",
-      "  { DirectClassImageDict }",
-      "  ifelse",
-      "} bind def",
-      "",
-      "/MaskedImageDict",
-      "{",
-      "  <<",
-      "    /ImageType 3",
-      "    /InterleaveType 3",
-      "    /DataDict NonMaskedImageDict",
-      "    /MaskDict",
-      "    <<",
-      "      /ImageType 1",
-      "      /Width columns",
-      "      /Height rows",
-      "      /BitsPerComponent 1",
-      "      /DataSource mask_stream",
-      "      /MultipleDataSources false",
-      "      /ImageMatrix [ columns 0 0 rows neg 0 rows]",
-      "      /Decode [ 0 1 ]",
-      "    >>",
-      "  >>",
-      "} bind def",
-      "",
-      "/ClipImage",
-      "{} def",
-      "",
-      "/DisplayImage",
-      "{",
-      "  gsave",
-      "  /buffer 512 string def",
-      "  % Translation.",
-      "  currentfile buffer readline pop",
-      "  token pop /x exch def",
-      "  token pop /y exch def pop",
-      "  x y translate",
-      "  % Image size and font size.",
-      "  currentfile buffer readline pop",
-      "  token pop /x exch def",
-      "  token pop /y exch def pop",
-      "  currentfile buffer readline pop",
-      "  token pop /pointsize exch def pop",
-      (const char *) NULL
-    },
-    *const PostscriptEpilog[]=
-    {
-      "  x y scale",
-      "  % Clipping path.",
-      "  currentfile buffer readline pop",
-      "  token pop /clipped exch def pop",
-      "  % Showpage.",
-      "  currentfile buffer readline pop",
-      "  token pop /sp exch def pop",
-      "  % Image pixel size.",
-      "  currentfile buffer readline pop",
-      "  token pop /columns exch def",
-      "  token pop /rows exch def pop",
-      "  % Colorspace (RGB/CMYK).",
-      "  currentfile buffer readline pop",
-      "  token pop /colorspace exch def pop",
-      "  % Transparency.",
-      "  currentfile buffer readline pop",
-      "  token pop /alpha exch def pop",
-      "  % Stencil mask?",
-      "  currentfile buffer readline pop",
-      "  token pop /stencil exch def pop",
-      "  % Image class (direct/pseudo).",
-      "  currentfile buffer readline pop",
-      "  token pop /class exch def pop",
-      "  % Compression type.",
-      "  currentfile buffer readline pop",
-      "  token pop /compression exch def pop",
-      "  % Clip and render.",
-      "  /pixel_stream currentfile columns rows compression ByteStreamDecodeFilter def",
-      "  clipped { ClipImage } if",
-      "  alpha stencil not and",
-      "  { MaskedImageDict mask_stream resetfile }",
-      "  { NonMaskedImageDict }",
-      "  ifelse",
-      "  stencil { 0 setgray imagemask } { image } ifelse",
-      "  grestore",
-      "  sp { showpage } if",
-      "} bind def",
-      (const char *) NULL
-    };
+    PostscriptProlog[] =
+      "/ByteStreamDecodeFilter\n"
+      "{\n"
+      "  /z exch def\n"
+      "  /r exch def\n"
+      "  /c exch def\n"
+      "  z " PS3_NoCompression " eq { /ASCII85Decode filter } if\n"
+      "  z " PS3_FaxCompression " eq\n"
+      "  {\n"
+      "    <<\n"
+      "      /K " CCITTParam "\n"
+      "      /Columns c\n"
+      "      /Rows r\n"
+      "    >>\n"
+      "    /CCITTFaxDecode filter\n"
+      "  } if\n"
+      "  z " PS3_JPEGCompression " eq { /DCTDecode filter } if\n"
+      "  z " PS3_LZWCompression " eq { /LZWDecode filter } if\n"
+      "  z " PS3_RLECompression " eq { /RunLengthDecode filter } if\n"
+      "  z " PS3_ZipCompression " eq { /FlateDecode filter } if\n"
+      "} bind def\n"
+      "\n"
+      "/DirectClassImageDict\n"
+      "{\n"
+      "  colorspace " PS3_RGBColorspace " eq\n"
+      "  {\n"
+      "    /DeviceRGB setcolorspace\n"
+      "    <<\n"
+      "      /ImageType 1\n"
+      "      /Width columns\n"
+      "      /Height rows\n"
+      "      /BitsPerComponent 8\n"
+      "      /DataSource pixel_stream\n"
+      "      /MultipleDataSources false\n"
+      "      /ImageMatrix [columns 0 0 rows neg 0 rows]\n"
+      "      /Decode [0 1 0 1 0 1]\n"
+      "    >>\n"
+      "  }\n"
+      "  {\n"
+      "    /DeviceCMYK setcolorspace\n"
+      "    <<\n"
+      "      /ImageType 1\n"
+      "      /Width columns\n"
+      "      /Height rows\n"
+      "      /BitsPerComponent 8\n"
+      "      /DataSource pixel_stream\n"
+      "      /MultipleDataSources false\n"
+      "      /ImageMatrix [columns 0 0 rows neg 0 rows]\n"
+      "      /Decode\n"
+      "        compression " PS3_JPEGCompression " eq\n"
+      "        { [1 0 1 0 1 0 1 0] }\n"
+      "        { [0 1 0 1 0 1 0 1] }\n"
+      "        ifelse\n"
+      "    >>\n"
+      "  }\n"
+      "  ifelse\n"
+      "} bind def\n"
+      "\n"
+      "/PseudoClassImageDict\n"
+      "{\n"
+      "  % Colors in colormap image.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /colors exch def pop\n"
+      "  colors 0 eq\n"
+      "  {\n"
+      "    % Depth of grayscale image.\n"
+      "    currentfile buffer readline pop\n"
+      "    token pop /bits exch def pop\n"
+      "    /DeviceGray setcolorspace\n"
+      "    <<\n"
+      "      /ImageType 1\n"
+      "      /Width columns\n"
+      "      /Height rows\n"
+      "      /BitsPerComponent bits\n"
+      "      /Decode [0 1]\n"
+      "      /ImageMatrix [columns 0 0 rows neg 0 rows]\n"
+      "      /DataSource pixel_stream\n"
+      "    >>\n"
+      "  }\n"
+      "  {\n"
+      "    % RGB colormap.\n"
+      "    /colormap colors 3 mul string def\n"
+      "    compression " PS3_NoCompression " eq\n"
+      "    { currentfile /ASCII85Decode filter colormap readstring pop pop }\n"
+      "    { currentfile colormap readstring pop pop }\n"
+      "    ifelse\n"
+      "    [ /Indexed /DeviceRGB colors 1 sub colormap ] setcolorspace\n"
+      "    <<\n"
+      "      /ImageType 1\n"
+      "      /Width columns\n"
+      "      /Height rows\n"
+      "      /BitsPerComponent 8\n"
+      "      /Decode [0 255]\n"
+      "      /ImageMatrix [columns 0 0 rows neg 0 rows]\n"
+      "      /DataSource pixel_stream\n"
+      "    >>\n"
+      "  }\n"
+      "  ifelse\n"
+      "} bind def\n"
+      "\n"
+      "/NonMaskedImageDict\n"
+      "{\n"
+      "  class " PS3_PseudoClass " eq\n"
+      "  { PseudoClassImageDict }\n"
+      "  { DirectClassImageDict }\n"
+      "  ifelse\n"
+      "} bind def\n"
+      "\n"
+      "/MaskedImageDict\n"
+      "{\n"
+      "  <<\n"
+      "    /ImageType 3\n"
+      "    /InterleaveType 3\n"
+      "    /DataDict NonMaskedImageDict\n"
+      "    /MaskDict\n"
+      "    <<\n"
+      "      /ImageType 1\n"
+      "      /Width columns\n"
+      "      /Height rows\n"
+      "      /BitsPerComponent 1\n"
+      "      /DataSource mask_stream\n"
+      "      /MultipleDataSources false\n"
+      "      /ImageMatrix [ columns 0 0 rows neg 0 rows]\n"
+      "      /Decode [ 0 1 ]\n"
+      "    >>\n"
+      "  >>\n"
+      "} bind def\n"
+      "\n"
+      "/ClipImage\n"
+      "{} def\n"
+      "\n"
+      "/DisplayImage\n"
+      "{\n"
+      "  gsave\n"
+      "  /buffer 512 string def\n"
+      "  % Translation.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /x exch def\n"
+      "  token pop /y exch def pop\n"
+      "  x y translate\n"
+      "  % Image size and font size.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /x exch def\n"
+      "  token pop /y exch def pop\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /pointsize exch def pop\n";
+  static const char
+    PostscriptEpilog[] =
+      "  x y scale\n"
+      "  % Clipping path.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /clipped exch def pop\n"
+      "  % Showpage.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /sp exch def pop\n"
+      "  % Image pixel size.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /columns exch def\n"
+      "  token pop /rows exch def pop\n"
+      "  % Colorspace (RGB/CMYK).\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /colorspace exch def pop\n"
+      "  % Transparency.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /alpha exch def pop\n"
+      "  % Stencil mask?\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /stencil exch def pop\n"
+      "  % Image class (direct/pseudo).\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /class exch def pop\n"
+      "  % Compression type.\n"
+      "  currentfile buffer readline pop\n"
+      "  token pop /compression exch def pop\n"
+      "  % Clip and render.\n"
+      "  /pixel_stream currentfile columns rows compression ByteStreamDecodeFilter def\n"
+      "  clipped { ClipImage } if\n"
+      "  alpha stencil not and\n"
+      "  { MaskedImageDict mask_stream resetfile }\n"
+      "  { NonMaskedImageDict }\n"
+      "  ifelse\n"
+      "  stencil { 0 setgray imagemask } { image } ifelse\n"
+      "  grestore\n"
+      "  sp { showpage } if\n"
+      "} bind def\n";
 
   char
     buffer[MagickPathExtent],
@@ -825,7 +821,6 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
 
   const char
     *option,
-    *const *q,
     *value;
 
   double
@@ -962,8 +957,8 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
       }
     if (image->units == PixelsPerCentimeterResolution)
       {
-        resolution.x=(size_t) ((100.0*2.54*resolution.x+0.5)/100.0);
-        resolution.y=(size_t) ((100.0*2.54*resolution.y+0.5)/100.0);
+        resolution.x=(100.0*2.54*resolution.x+0.5)/100.0;
+        resolution.y=(100.0*2.54*resolution.y+0.5)/100.0;
       }
     SetGeometry(image,&geometry);
     (void) FormatLocaleString(page_geometry,MagickPathExtent,"%.20gx%.20g",
@@ -978,13 +973,14 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
       else
         if ((image->gravity != UndefinedGravity) &&
             (LocaleCompare(image_info->magick,"PS") == 0))
-          (void) CopyMagickString(page_geometry,PSPageGeometry,MagickPathExtent);
+          (void) CopyMagickString(page_geometry,PSPageGeometry,
+            MagickPathExtent);
     (void) ConcatenateMagickString(page_geometry,">",MagickPathExtent);
     (void) ParseMetaGeometry(page_geometry,&geometry.x,&geometry.y,
       &geometry.width,&geometry.height);
-    scale.x=(double) (geometry.width*delta.x)/resolution.x;
+    scale.x=PerceptibleReciprocal(resolution.x)*geometry.width*delta.x;
     geometry.width=(size_t) floor(scale.x+0.5);
-    scale.y=(double) (geometry.height*delta.y)/resolution.y;
+    scale.y=PerceptibleReciprocal(resolution.y)*geometry.height*delta.y;
     geometry.height=(size_t) floor(scale.y+0.5);
     (void) ParseAbsoluteGeometry(page_geometry,&media_info);
     (void) ParseGravityGeometry(image,page_geometry,&page_info,exception);
@@ -1018,7 +1014,7 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
         (void) FormatLocaleString(buffer,MagickPathExtent,"%%%%Title: %s\n",
           image->filename);
         (void) WriteBlobString(image,buffer);
-        timer=time((time_t *) NULL);
+        timer=GetMagickTime();
         (void) FormatMagickTime(timer,MagickPathExtent,date);
         (void) FormatLocaleString(buffer,MagickPathExtent,
           "%%%%CreationDate: %s\n",date);
@@ -1082,19 +1078,15 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
         /*
           The static postscript procedures prolog.
         */
-        (void)WriteBlobString(image,"%%BeginProlog\n");
-        for (q=PostscriptProlog; *q; q++)
-        {
-          (void) WriteBlobString(image,*q);
-          (void) WriteBlobByte(image,'\n');
-        }
+        (void) WriteBlobString(image,"%%BeginProlog\n");
+        (void) WriteBlob(image,sizeof(PostscriptProlog)-1,PostscriptProlog);
         /*
           One label line for each line in label string.
         */
         value=GetImageProperty(image,"label",exception);
         if (value != (const char *) NULL)
           {
-              (void) WriteBlobString(image,"\n  %% Labels.\n  /Helvetica "
+            (void) WriteBlobString(image,"\n  %% Labels.\n  /Helvetica "
               " findfont pointsize scalefont setfont\n");
             for (i=(ssize_t) MultilineCensus(value)-1; i >= 0; i--)
             {
@@ -1108,12 +1100,8 @@ static MagickBooleanType WritePS3Image(const ImageInfo *image_info,Image *image,
         /*
           The static postscript procedures epilog.
         */
-        for (q=PostscriptEpilog; *q; q++)
-        {
-          (void) WriteBlobString(image,*q);
-          (void) WriteBlobByte(image,'\n');
-        }
-        (void)WriteBlobString(image,"%%EndProlog\n");
+        (void) WriteBlob(image,sizeof(PostscriptEpilog)-1,PostscriptEpilog);
+        (void) WriteBlobString(image,"%%EndProlog\n");
       }
     (void) FormatLocaleString(buffer,MagickPathExtent,"%%%%Page: 1 %.20g\n",
       (double) page);

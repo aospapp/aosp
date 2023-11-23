@@ -22,6 +22,9 @@ cras_test_client --dump_server_info
 echo '=== cras_test_client --dump_audio_thread ==='
 cras_test_client --dump_audio_thread
 
+echo '=== cras_test_client --dump_bt ==='
+cras_test_client --dump_bt
+
 echo '=== cras_test_client --dump_events ==='
 cras_test_client --dump_events
 

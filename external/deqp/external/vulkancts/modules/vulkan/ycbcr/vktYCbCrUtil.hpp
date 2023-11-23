@@ -51,6 +51,9 @@ namespace ycbcr
 #define VK_YCBCR_FORMAT_FIRST	VK_FORMAT_G8B8G8R8_422_UNORM
 #define VK_YCBCR_FORMAT_LAST	((vk::VkFormat)(VK_FORMAT_G16_B16_R16_3PLANE_444_UNORM+1))
 
+typedef de::SharedPtr<vk::Allocation>				AllocationSp;
+typedef de::SharedPtr<vk::Unique<vk::VkBuffer> >	VkBufferSp;
+
 class MultiPlaneImageData
 {
 public:
@@ -83,6 +86,7 @@ void										checkImageSupport			(Context& context, vk::VkFormat format, vk::Vk
 
 void										fillRandom					(de::Random* randomGen, MultiPlaneImageData* imageData);
 void										fillGradient				(MultiPlaneImageData* imageData, const tcu::Vec4& minVal, const tcu::Vec4& maxVal);
+void										fillZero					(MultiPlaneImageData* imageData);
 
 std::vector<de::SharedPtr<vk::Allocation> >	allocateAndBindImageMemory	(const vk::DeviceInterface&	vkd,
 																		 vk::VkDevice				device,
@@ -99,7 +103,8 @@ void										uploadImage					(const vk::DeviceInterface&	vkd,
 																		 vk::VkImage				image,
 																		 const MultiPlaneImageData&	imageData,
 																		 vk::VkAccessFlags			nextAccess,
-																		 vk::VkImageLayout			finalLayout);
+																		 vk::VkImageLayout			finalLayout,
+																		 deUint32					arrayLayer = 0u);
 
 void										fillImageMemory				(const vk::DeviceInterface&							vkd,
 																		 vk::VkDevice										device,
@@ -108,7 +113,8 @@ void										fillImageMemory				(const vk::DeviceInterface&							vkd,
 																		 const std::vector<de::SharedPtr<vk::Allocation> >&	memory,
 																		 const MultiPlaneImageData&							imageData,
 																		 vk::VkAccessFlags									nextAccess,
-																		 vk::VkImageLayout									finalLayout);
+																		 vk::VkImageLayout									finalLayout,
+																		 deUint32											arrayLayer = 0u);
 
 void										downloadImage				(const vk::DeviceInterface&	vkd,
 																		 vk::VkDevice				device,
@@ -160,48 +166,57 @@ private:
 	const deInt32					m_bitOffset;
 };
 
-ChannelAccess			getChannelAccess			(ycbcr::MultiPlaneImageData&			data,
-													 const vk::PlanarFormatDescription&		formatInfo,
-													 const tcu::UVec2&						size,
-													 int									channelNdx);
-bool					isYChromaSubsampled			(vk::VkFormat							format);
-bool					isXChromaSubsampled			(vk::VkFormat							format);
-bool					areLsb6BitsDontCare			(vk::VkFormat							srcFormat,
-													 vk::VkFormat							dstFormat);
-bool					areLsb4BitsDontCare			(vk::VkFormat							srcFormat,
-													 vk::VkFormat							dstFormat);
+ChannelAccess					getChannelAccess			(ycbcr::MultiPlaneImageData&			data,
+															 const vk::PlanarFormatDescription&		formatInfo,
+															 const tcu::UVec2&						size,
+															 int									channelNdx);
 
-tcu::UVec4				getYCbCrBitDepth			(vk::VkFormat							format);
-tcu::FloatFormat		getYCbCrFilteringPrecision	(vk::VkFormat							format);
-tcu::FloatFormat		getYCbCrConversionPrecision	(vk::VkFormat							format);
-deUint32				getYCbCrFormatChannelCount	(vk::VkFormat							format);
+bool							isYChromaSubsampled			(vk::VkFormat							format);
 
-int						wrap						(vk::VkSamplerAddressMode addressMode, int coord, int size);
-int						divFloor					(int a, int b);
+bool							isXChromaSubsampled			(vk::VkFormat							format);
 
-void					calculateBounds				(const ChannelAccess&					rPlane,
-													 const ChannelAccess&					gPlane,
-													 const ChannelAccess&					bPlane,
-													 const ChannelAccess&					aPlane,
-													 const tcu::UVec4&						bitDepth,
-													 const std::vector<tcu::Vec2>&			sts,
-													 const tcu::FloatFormat&				filteringFormat,
-													 const tcu::FloatFormat&				conversionFormat,
-													 const deUint32							subTexelPrecisionBits,
-													 vk::VkFilter							filter,
-													 vk::VkSamplerYcbcrModelConversion		colorModel,
-													 vk::VkSamplerYcbcrRange				range,
-													 vk::VkFilter							chromaFilter,
-													 vk::VkChromaLocation					xChromaOffset,
-													 vk::VkChromaLocation					yChromaOffset,
-													 const vk::VkComponentMapping&			componentMapping,
-													 bool									explicitReconstruction,
-													 vk::VkSamplerAddressMode				addressModeU,
-													 vk::VkSamplerAddressMode				addressModeV,
-													 std::vector<tcu::Vec4>&				minBounds,
-													 std::vector<tcu::Vec4>&				maxBounds,
-													 std::vector<tcu::Vec4>&				uvBounds,
-													 std::vector<tcu::IVec4>&				ijBounds);
+bool							areLsb6BitsDontCare			(vk::VkFormat							srcFormat,
+															 vk::VkFormat							dstFormat);
+
+bool							areLsb4BitsDontCare			(vk::VkFormat							srcFormat,
+															 vk::VkFormat							dstFormat);
+
+tcu::UVec4						getYCbCrBitDepth			(vk::VkFormat							format);
+
+std::vector<tcu::FloatFormat>	getPrecision				(vk::VkFormat							format);
+
+deUint32						getYCbCrFormatChannelCount	(vk::VkFormat							format);
+
+int								wrap						(vk::VkSamplerAddressMode				addressMode,
+															 int									coord,
+															 int									size);
+
+int								divFloor					(int									a,
+															 int									b);
+
+void							calculateBounds				(const ChannelAccess&					rPlane,
+															 const ChannelAccess&					gPlane,
+															 const ChannelAccess&					bPlane,
+															 const ChannelAccess&					aPlane,
+															 const tcu::UVec4&						bitDepth,
+															 const std::vector<tcu::Vec2>&			sts,
+															 const std::vector<tcu::FloatFormat>&	filteringFormat,
+															 const std::vector<tcu::FloatFormat>&	conversionFormat,
+															 const deUint32							subTexelPrecisionBits,
+															 vk::VkFilter							filter,
+															 vk::VkSamplerYcbcrModelConversion		colorModel,
+															 vk::VkSamplerYcbcrRange				range,
+															 vk::VkFilter							chromaFilter,
+															 vk::VkChromaLocation					xChromaOffset,
+															 vk::VkChromaLocation					yChromaOffset,
+															 const vk::VkComponentMapping&			componentMapping,
+															 bool									explicitReconstruction,
+															 vk::VkSamplerAddressMode				addressModeU,
+															 vk::VkSamplerAddressMode				addressModeV,
+															 std::vector<tcu::Vec4>&				minBounds,
+															 std::vector<tcu::Vec4>&				maxBounds,
+															 std::vector<tcu::Vec4>&				uvBounds,
+															 std::vector<tcu::IVec4>&				ijBounds);
 
 } // ycbcr
 } // vkt

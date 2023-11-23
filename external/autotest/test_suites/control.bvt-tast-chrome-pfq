@@ -17,10 +17,10 @@ by running all Chrome and ARC (since ARC depends on Chrome) Tast integration
 tests that must always pass against a DUT. See http://go/tast for more
 information about Tast.
 
-The only Autotest tests executed by this suite are tast.mustpass-chrome and
-tast.mustpass-android, which are server tests that execute the tast executable.
+The only Autotest tests executed by this suite are tast.critical-chrome and
+tast.critical-android, which are server tests that execute the tast executable.
 The tast executable runs individual Tast tests. If any of these Tast tests fail,
-then the corresponding tast.mustpass test (and this suite) fail.
+then the corresponding tast.critical test (and this suite) fail.
 """
 
 import common

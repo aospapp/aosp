@@ -5,8 +5,6 @@
 import collections
 import logging
 import multiprocessing
-import sys
-import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
@@ -479,7 +477,8 @@ class CliqueDUTPool(CliqueDUTBatch):
             capturer = self.find_param('capturer')
             capturer_frequency = self.find_param('capturer_frequency')
             capturer_ht_type = self.find_param('capturer_ht_type')
-            capturer.start_capture(capturer_frequency, ht_type=capturer_ht_type)
+            capturer.start_capture(capturer_frequency,
+                                   width_type=capturer_ht_type)
         except Exception as e:
             result = ControlResult(uid=self.uid,
                                    run_num=run_num,

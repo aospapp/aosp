@@ -4,8 +4,11 @@ en_IN{
     %%Parent{"en_001"}
     NumberElements{
         latn{
+            miscPatterns{
+                range{"{0}–{1}"}
+            }
             patterns{
-                currencyFormat{"¤ #,##,##0.00"}
+                currencyFormat{"¤#,##,##0.00"}
                 decimalFormat{"#,##,##0.###"}
                 percentFormat{"#,##,##0%"}
             }
@@ -23,6 +26,10 @@ en_IN{
                         one{"¤0L"}
                         other{"¤0L"}
                     }
+                    1000000{
+                        one{"¤00L"}
+                        other{"¤00L"}
+                    }
                     10000000{
                         one{"¤0Cr"}
                         other{"¤0Cr"}
@@ -30,6 +37,10 @@ en_IN{
                     100000000{
                         one{"¤00Cr"}
                         other{"¤00Cr"}
+                    }
+                    1000000000{
+                        one{"¤000Cr"}
+                        other{"¤000Cr"}
                     }
                     10000000000{
                         one{"¤0TCr"}
@@ -39,11 +50,23 @@ en_IN{
                         one{"¤00TCr"}
                         other{"¤00TCr"}
                     }
+                    1000000000000{
+                        one{"¤0LCr"}
+                        other{"¤0LCr"}
+                    }
+                    10000000000000{
+                        one{"¤00LCr"}
+                        other{"¤00LCr"}
+                    }
+                    100000000000000{
+                        one{"¤000LCr"}
+                        other{"¤000LCr"}
+                    }
                 }
             }
         }
     }
-    Version{"2.1.44.18"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -65,6 +88,7 @@ en_IN{
                 GyMMM{"MMM, y G"}
                 GyMMMEd{"E, d MMM, y G"}
                 GyMMMd{"d MMM, y G"}
+                MEd{"E, d/M"}
                 Md{"d/M"}
                 yyyyM{"M/y GGGGG"}
                 yyyyMEd{"E, d/M/y GGGGG"}
@@ -164,6 +188,7 @@ en_IN{
                 GyMMM{"MMM, y G"}
                 GyMMMEd{"E, d MMM, y G"}
                 GyMMMd{"d MMM, y G"}
+                MEd{"E, d/M"}
                 Md{"d/M"}
                 yyyyM{"M/y GGGGG"}
                 yyyyMEd{"E d/M/y G"}
@@ -179,16 +204,10 @@ en_IN{
         dayperiod{
             dn{"AM/PM"}
         }
-        wed-short{
-            relativeTime{
-                future{
-                    other{"in {0} Wed."}
-                }
-                past{
-                    one{"{0} Wed. ago"}
-                    other{"{0} Wed. ago"}
-                }
-            }
+    }
+    listPattern{
+        standard-narrow{
+            end{"{0}, and {1}"}
         }
     }
 }

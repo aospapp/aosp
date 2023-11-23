@@ -45,9 +45,10 @@ class L2TPIPSecVPNServer(VPNServer):
         'etc/strongswan.conf' :
             'charon {\n'
             '  filelog {\n'
-            '    %(charon-logfile)s {\n'
-            '      time_format = %%b %%e %%T\n'
+            '    test_vpn {\n'
+            '      path = %(charon-logfile)s\n'
             '      default = 3\n'
+            '      time_format = %%b %%e %%T\n'
             '    }\n'
             '  }\n'
             '  install_routes = no\n'
@@ -208,7 +209,7 @@ class L2TPIPSecVPNServer(VPNServer):
 class OpenVPNServer(VPNServer):
     """Implementation of an OpenVPN service."""
     PRELOAD_MODULES = ('tun',)
-    ROOT_DIRECTORIES = ('etc/openvpn', 'etc/ssl')
+    ROOT_DIRECTORIES = ('etc/openvpn',)
     CA_CERTIFICATE_FILE = 'etc/openvpn/ca.crt'
     SERVER_CERTIFICATE_FILE = 'etc/openvpn/server.crt'
     SERVER_KEY_FILE = 'etc/openvpn/server.key'
@@ -287,6 +288,10 @@ class OpenVPNServer(VPNServer):
         chroot.add_startup_command('%s --config /%s &' %
                                    (self.OPENVPN_COMMAND,
                                     self.OPENVPN_CONFIG_FILE))
+        chroot.add_environment({
+                'OPENSSL_CONF': '/etc/ssl/openssl.cnf.compat',
+                'OPENSSL_CHROMIUM_SKIP_TRUSTED_PURPOSE_CHECK': '1'
+            });
         self.preload_modules()
         chroot.startup()
 

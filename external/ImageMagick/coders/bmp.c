@@ -18,7 +18,7 @@
 %                               December 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -524,6 +524,9 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
     profile_size,
     start_position;
 
+  MagickSizeType
+    blob_size;
+
   MemoryInfo
     *pixel_info;
 
@@ -586,6 +589,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
   count=ReadBlob(image,2,magick);
   if (count != 2)
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
+  blob_size=GetBlobSize(image);
   do
   {
     PixelInfo
@@ -653,20 +657,22 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
         /*
           Microsoft Windows BMP image file.
         */
-        if (bmp_info.size < 40)
-          ThrowReaderException(CorruptImageError,"NonOS2HeaderSizeError");
         bmp_info.width=(ssize_t) ReadBlobLSBSignedLong(image);
         bmp_info.height=(ssize_t) ReadBlobLSBSignedLong(image);
         bmp_info.planes=ReadBlobLSBShort(image);
         bmp_info.bits_per_pixel=ReadBlobLSBShort(image);
         bmp_info.compression=ReadBlobLSBLong(image);
-        bmp_info.image_size=ReadBlobLSBLong(image);
-        bmp_info.x_pixels=ReadBlobLSBLong(image);
-        bmp_info.y_pixels=ReadBlobLSBLong(image);
-        bmp_info.number_colors=ReadBlobLSBLong(image);
-        if ((MagickSizeType) bmp_info.number_colors > GetBlobSize(image))
-          ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
-        bmp_info.colors_important=ReadBlobLSBLong(image);
+        if (bmp_info.size > 16)
+          {
+            bmp_info.image_size=ReadBlobLSBLong(image);
+            bmp_info.x_pixels=ReadBlobLSBLong(image);
+            bmp_info.y_pixels=ReadBlobLSBLong(image);
+            bmp_info.number_colors=ReadBlobLSBLong(image);
+            if ((MagickSizeType) bmp_info.number_colors > blob_size)
+              ThrowReaderException(CorruptImageError,
+                "InsufficientImageDataInFile");
+            bmp_info.colors_important=ReadBlobLSBLong(image);
+          }
         if (image->debug != MagickFalse)
           {
             (void) LogMagickEvent(CoderEvent,GetMagickModule(),
@@ -723,9 +729,12 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
             (void) LogMagickEvent(CoderEvent,GetMagickModule(),
               "  Number of colors: %u",bmp_info.number_colors);
           }
-        bmp_info.red_mask=ReadBlobLSBLong(image);
-        bmp_info.green_mask=ReadBlobLSBLong(image);
-        bmp_info.blue_mask=ReadBlobLSBLong(image);
+        if ((bmp_info.size > 40) || (bmp_info.compression == BI_BITFIELDS))
+          {
+            bmp_info.red_mask=ReadBlobLSBLong(image);
+            bmp_info.green_mask=ReadBlobLSBLong(image);
+            bmp_info.blue_mask=ReadBlobLSBLong(image);
+          }
         if (bmp_info.size > 40)
           {
             double
@@ -826,14 +835,17 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
             (void) ReadBlobLSBLong(image);  /* Reserved byte */
           }
       }
-    if ((MagickSizeType) bmp_info.file_size > GetBlobSize(image))
-      (void) ThrowMagickException(exception,GetMagickModule(),CorruptImageError,
-        "LengthAndFilesizeDoNotMatch","`%s'",image->filename);
-    else
-      if ((MagickSizeType) bmp_info.file_size < GetBlobSize(image))
-        (void) ThrowMagickException(exception,GetMagickModule(),
-          CorruptImageWarning,"LengthAndFilesizeDoNotMatch","`%s'",
-          image->filename);
+    if ((MagickSizeType) bmp_info.file_size != blob_size)
+      {
+        ExceptionType
+          severity;
+
+        severity=CorruptImageWarning;
+        if ((MagickSizeType) bmp_info.file_size > blob_size + 4)
+          severity=CorruptImageError;
+        (void) ThrowMagickException(exception,GetMagickModule(),severity,
+          "LengthAndFilesizeDoNotMatch","`%s'",image->filename);
+      }
     if (bmp_info.width <= 0)
       ThrowReaderException(CorruptImageError,"NegativeOrZeroImageSize");
     if (bmp_info.height == 0)
@@ -847,11 +859,11 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if (bmp_info.bits_per_pixel < 16 &&
         bmp_info.number_colors > (1U << bmp_info.bits_per_pixel))
       ThrowReaderException(CorruptImageError,"UnrecognizedNumberOfColors");
-    if ((bmp_info.compression == 1) && (bmp_info.bits_per_pixel != 8))
+    if ((bmp_info.compression == BI_RLE8) && (bmp_info.bits_per_pixel != 8))
       ThrowReaderException(CorruptImageError,"UnsupportedBitsPerPixel");
-    if ((bmp_info.compression == 2) && (bmp_info.bits_per_pixel != 4))
+    if ((bmp_info.compression == BI_RLE4) && (bmp_info.bits_per_pixel != 4))
       ThrowReaderException(CorruptImageError,"UnsupportedBitsPerPixel");
-    if ((bmp_info.compression == 3) && (bmp_info.bits_per_pixel < 16))
+    if ((bmp_info.compression == BI_BITFIELDS) && (bmp_info.bits_per_pixel < 16))
       ThrowReaderException(CorruptImageError,"UnsupportedBitsPerPixel");
     switch (bmp_info.compression)
     {
@@ -958,7 +970,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
       bmp_info.bits_per_pixel<<=1;
     bytes_per_line=4*((image->columns*bmp_info.bits_per_pixel+31)/32);
     length=(size_t) bytes_per_line*image->rows;
-    if ((MagickSizeType) (length/256) > GetBlobSize(image))
+    if ((MagickSizeType) (length/256) > blob_size)
       ThrowReaderException(CorruptImageError,"InsufficientImageDataInFile");
     if ((bmp_info.compression == BI_RGB) ||
         (bmp_info.compression == BI_BITFIELDS))
@@ -1457,7 +1469,7 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
         offset=start_position+14+profile_data;
         if ((offset < TellBlob(image)) ||
             (SeekBlob(image,offset,SEEK_SET) != offset) ||
-            (GetBlobSize(image) < (MagickSizeType) (offset+profile_size)))
+            (blob_size < (MagickSizeType) (offset+profile_size)))
           ThrowReaderException(CorruptImageError,"ImproperImageHeader");
         profile=AcquireStringInfo((size_t) profile_size);
         if (profile == (StringInfo *) NULL)
@@ -1506,11 +1518,10 @@ static Image *ReadBMPImage(const ImageInfo *image_info,ExceptionInfo *exception)
         if (GetNextImageInList(image) == (Image *) NULL)
           {
             status=MagickFalse;
-            return((Image *) NULL);
+            break;
           }
         image=SyncNextImageInList(image);
-        status=SetImageProgress(image,LoadImagesTag,TellBlob(image),
-          GetBlobSize(image));
+        status=SetImageProgress(image,LoadImagesTag,TellBlob(image),blob_size);
         if (status == MagickFalse)
           break;
       }
@@ -1694,6 +1705,9 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
   status=OpenBlob(image_info,image,WriteBinaryBlobMode,exception);
   if (status == MagickFalse)
     return(status);
+  if (((image->columns << 3) != (int) (image->columns << 3)) ||
+      ((image->rows << 3) != (int) (image->rows << 3)))
+    ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
   type=4;
   if (LocaleCompare(image_info->magick,"BMP2") == 0)
     type=2;
@@ -2299,32 +2313,32 @@ static MagickBooleanType WriteBMPImage(const ImageInfo *image_info,Image *image,
         else
           (void) WriteBlobLSBLong(image,0x73524742U);  /* sRGB */
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (image->chromaticity.red_primary.x*0x40000000));
+          ((ssize_t) image->chromaticity.red_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (image->chromaticity.red_primary.y*0x40000000));
+          ((ssize_t) image->chromaticity.red_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((1.000f-(image->chromaticity.red_primary.x+
+          ((ssize_t) (1.000f-(image->chromaticity.red_primary.x+
           image->chromaticity.red_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (image->chromaticity.green_primary.x*0x40000000));
+          ((ssize_t) image->chromaticity.green_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (image->chromaticity.green_primary.y*0x40000000));
+          ((ssize_t) image->chromaticity.green_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((1.000f-(image->chromaticity.green_primary.x+
+          ((ssize_t) (1.000f-(image->chromaticity.green_primary.x+
           image->chromaticity.green_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (image->chromaticity.blue_primary.x*0x40000000));
+          ((ssize_t) image->chromaticity.blue_primary.x*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (image->chromaticity.blue_primary.y*0x40000000));
+          ((ssize_t) image->chromaticity.blue_primary.y*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          ((1.000f-(image->chromaticity.blue_primary.x+
+          ((ssize_t) (1.000f-(image->chromaticity.blue_primary.x+
           image->chromaticity.blue_primary.y))*0x40000000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (bmp_info.gamma_scale.x*0x10000));
+          ((ssize_t) bmp_info.gamma_scale.x*0x10000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (bmp_info.gamma_scale.y*0x10000));
+          ((ssize_t) bmp_info.gamma_scale.y*0x10000));
         (void) WriteBlobLSBLong(image,(unsigned int)
-          (bmp_info.gamma_scale.z*0x10000));
+          ((ssize_t) bmp_info.gamma_scale.z*0x10000));
         if ((image->rendering_intent != UndefinedIntent) ||
             (profile != (StringInfo *) NULL))
           {

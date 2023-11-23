@@ -70,51 +70,62 @@ class firmware_FwScreenPressPower(FirmwareTest):
 
     def run_once(self):
         """Main test logic"""
-        if (self.faft_config.fw_bypasser_type != 'ctrl_d_bypasser'
-          and self.faft_config.fw_bypasser_type != 'tablet_detachable_bypasser'):
+        if self.faft_config.mode_switcher_type not in (
+                'keyboard_dev_switcher', 'tablet_detachable_switcher'):
             raise error.TestNAError("This test is only valid on devices with "
                                     "screens.")
         if not self.faft_config.has_powerbutton:
             raise error.TestNAError("This test is only valid on devices with "
                                     "power button.")
 
-        logging.info("Expected dev mode and reboot. "
-                     "When the next DEVELOPER SCREEN shown, press power button "
-                     "to make DUT shutdown.")
+        logging.info(
+                "Expected dev mode and reboot. "
+                "When the next DEVELOPER SCREEN shown, press power button "
+                "to make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '1',
-                              'mainfw_type': 'developer',
-                              }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_fw_screen_and_press_power,
-                                  post_power_action=self.switcher.bypass_dev_mode)
+        self.run_shutdown_process(
+                self.wait_fw_screen_and_press_power,
+                post_power_action=self.switcher.bypass_dev_mode)
         self.switcher.wait_for_client()
 
-        logging.info("Reboot. When the developer screen shown, press "
-                     "enter key to trigger either TO_NORM screen (new) or "
-                     "RECOVERY INSERT screen (old). Then press power button to "
-                     "make DUT shutdown.")
-        self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '1',
-                              'mainfw_type': 'developer',
-                              }))
-        self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_second_screen_and_press_power,
-                                  post_power_action=self.switcher.bypass_dev_mode,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
-        self.switcher.wait_for_client()
+        if self.faft_config.power_button_dev_switch:
+                logging.info(
+                        "Skipping TO_NORM screen test. The power button is "
+                        "used to confirm DEV mode to NORM mode.")
+        else:
+                logging.info(
+                        "Reboot. When the developer screen shown, press "
+                        "enter key to trigger either TO_NORM screen (new) or "
+                        "RECOVERY INSERT screen (old). Then press power button "
+                        "to make DUT shutdown.")
+                self.check_state((self.checkers.crossystem_checker, {
+                        'devsw_boot': '1',
+                        'mainfw_type': 'developer',
+                }))
+                self.switcher.simple_reboot()
+                self.run_shutdown_process(
+                        self.wait_second_screen_and_press_power,
+                        post_power_action=self.switcher.bypass_dev_mode,
+                        shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD
+                )
+                self.switcher.wait_for_client()
 
         logging.info("Request recovery boot. When the RECOVERY INSERT "
                      "screen shows, press power button to make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '1',
-                              'mainfw_type': 'developer',
-                              }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.faft_client.system.request_recovery_boot()
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_longer_fw_screen_and_press_power,
-                                  post_power_action=self.switcher.bypass_dev_mode,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+        self.run_shutdown_process(
+                self.wait_longer_fw_screen_and_press_power,
+                post_power_action=self.switcher.bypass_dev_mode,
+                shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
 
         logging.info("Request recovery boot again. When the recovery "
@@ -122,38 +133,40 @@ class firmware_FwScreenPressPower(FirmwareTest):
                      "a YUCK SCREEN. Then press power button to "
                      "make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '1',
-                              'mainfw_type': 'developer',
-                              }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.faft_client.system.request_recovery_boot()
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_yuck_screen_and_press_power,
-                                  post_power_action=self.switcher.bypass_dev_mode,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+        self.run_shutdown_process(
+                self.wait_yuck_screen_and_press_power,
+                post_power_action=self.switcher.bypass_dev_mode,
+                shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
 
         logging.info("Switch back to normal mode.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '1',
-                              'mainfw_type': 'developer',
-                              }))
+                'devsw_boot': '1',
+                'mainfw_type': 'developer',
+        }))
         self.switcher.reboot_to_mode(to_mode='normal')
 
         logging.info("Expected normal mode and request recovery boot. "
                      "Because an USB stick is inserted, a RECOVERY REMOVE "
                      "screen shows. Press power button to make DUT shutdown.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '0',
-                              'mainfw_type': 'normal',
-                              }))
+                'devsw_boot': '0',
+                'mainfw_type': 'normal',
+        }))
         self.faft_client.system.request_recovery_boot()
         self.switcher.simple_reboot()
-        self.run_shutdown_process(self.wait_longer_fw_screen_and_press_power,
-                                  shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+        self.run_shutdown_process(
+                self.wait_longer_fw_screen_and_press_power,
+                shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
 
         logging.info("Check and done.")
         self.check_state((self.checkers.crossystem_checker, {
-                              'devsw_boot': '0',
-                              'mainfw_type': 'normal',
-                              }))
+                'devsw_boot': '0',
+                'mainfw_type': 'normal',
+        }))

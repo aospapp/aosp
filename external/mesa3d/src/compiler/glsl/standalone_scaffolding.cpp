@@ -34,6 +34,7 @@
 #include <string.h>
 #include "util/ralloc.h"
 #include "util/strtod.h"
+#include "main/mtypes.h"
 
 void
 _mesa_warning(struct gl_context *ctx, const char *fmt, ...)
@@ -47,6 +48,24 @@ _mesa_warning(struct gl_context *ctx, const char *fmt, ...)
      * standalone compiler.
      */
     fprintf(stderr, "Mesa warning: ");
+    vfprintf(stderr, fmt, vargs);
+    fprintf(stderr, "\n");
+
+    va_end(vargs);
+}
+
+void
+_mesa_problem(struct gl_context *ctx, const char *fmt, ...)
+{
+    va_list vargs;
+    (void) ctx;
+
+    va_start(vargs, fmt);
+
+    /* This output is not thread-safe, but that's good enough for the
+     * standalone compiler.
+     */
+    fprintf(stderr, "Mesa problem: ");
     vfprintf(stderr, fmt, vargs);
     fprintf(stderr, "\n");
 
@@ -100,13 +119,13 @@ _mesa_new_shader(GLuint name, gl_shader_stage stage)
 }
 
 GLbitfield
-_mesa_program_state_flags(UNUSED const gl_state_index state[STATE_LENGTH])
+_mesa_program_state_flags(UNUSED const gl_state_index16 state[STATE_LENGTH])
 {
    return 0;
 }
 
 char *
-_mesa_program_state_string(UNUSED const gl_state_index state[STATE_LENGTH])
+_mesa_program_state_string(UNUSED const gl_state_index16 state[STATE_LENGTH])
 {
    return NULL;
 }
@@ -200,6 +219,7 @@ void initialize_context_to_defaults(struct gl_context *ctx, gl_api api)
    ctx->Extensions.OES_EGL_image_external = true;
    ctx->Extensions.OES_standard_derivatives = true;
 
+   ctx->Extensions.EXT_gpu_shader4 = true;
    ctx->Extensions.EXT_shader_integer_mix = true;
    ctx->Extensions.EXT_texture_array = true;
 

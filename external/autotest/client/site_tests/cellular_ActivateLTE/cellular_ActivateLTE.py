@@ -47,7 +47,6 @@ class ActivationTest(object):
         # Put the modem in the unknown subscription state so that the mdn value is
         # used to remove the iccid entry
         self.test.pseudomm.iface_testing.SetSubscriptionState(
-                mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNKNOWN,
                 mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNKNOWN)
         time.sleep(5)
         self.test.CheckServiceActivationState('activated')
@@ -63,11 +62,6 @@ class ActivationTest(object):
         self.Cleanup()
 
 
-    def TestModemClass(self):
-        """ Returns the name of the custom modem to use for this test. """
-        raise NotImplementedError()
-
-
     def RunTest(self):
         """
         Runs the body of the test. Should be implemented by the subclass.
@@ -81,10 +75,6 @@ class ActivationResetTest(ActivationTest):
     This test verifies that the modem resets after online payment.
 
     """
-    def TestModemClass(self):
-        return 'TestModem'
-
-
     def RunTest(self):
         # Service should appear as 'not-activated'.
         self.test.CheckServiceActivationState('not-activated')
@@ -98,35 +88,6 @@ class ActivationResetTest(ActivationTest):
         service.CompleteCellularActivation()
         time.sleep(SHORT_TIMEOUT)
         self.test.CheckResetCalled(True)
-
-
-class ActivationCompleteTest(ActivationTest):
-    """
-    This test verifies that the service eventually becomes 'activated' in the
-    case of a post-payment registration and the modem finally registers
-    to a network after a reset.
-
-    """
-    def TestModemClass(self):
-        return 'ResetRequiredForActivationModem'
-
-
-    def RunTest(self):
-        # Service should appear as 'not-activated'.
-        self.test.CheckServiceActivationState('not-activated')
-        self.test.CheckResetCalled(False)
-
-        # Call 'CompleteActivation' on the device. The service will become
-        # 'activating' and the modem should reset immediately.
-        # Not checking for the intermediate 'activating' state because it makes
-        # the test too fragile
-        service = self.test.FindCellularService()
-        service.CompleteCellularActivation()
-        time.sleep(SHORT_TIMEOUT)
-        self.test.CheckResetCalled(True)
-
-        # The service should register and be marked as 'activated'.
-        self.test.CheckServiceActivationState('activated')
 
 
 class ActivationDueToMdnTest(ActivationTest):
@@ -135,10 +96,6 @@ class ActivationDueToMdnTest(ActivationTest):
     as 'activated' when the modem is in unknown subscription state.
 
     """
-    def TestModemClass(self):
-        return 'TestModem'
-
-
     def RunTest(self):
         # Service should appear as 'not-activated'.
         self.test.CheckServiceActivationState('not-activated')
@@ -151,7 +108,6 @@ class ActivationDueToMdnTest(ActivationTest):
         # Put the modem in the unknown subscription state so that the mdn value is
         # used to determine the service activation status.
         self.test.pseudomm.iface_testing.SetSubscriptionState(
-                mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNKNOWN,
                 mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNKNOWN)
         time.sleep(SHORT_TIMEOUT)
         self.test.CheckServiceActivationState('activated')
@@ -233,23 +189,6 @@ class cellular_ActivateLTE(test.test):
             timeout=LONG_TIMEOUT)
 
 
-    def EnsureModemStateReached(self, expected_state, timeout):
-        """
-        Asserts that the underlying modem state becomes |expected_state| within
-        |timeout|.
-
-        @param expected_state: The expected modem state.
-        @param timeout: Timeout in which the condition should be met.
-
-        """
-        utils.poll_for_condition(
-                lambda: self.GetModemState() == expected_state,
-                exception=error.TestFail(
-                        'Modem failed to reach state ' +
-                        mm1_constants.ModemStateToString(expected_state)),
-                timeout=timeout)
-
-
     def CheckServiceActivationState(self, expected_state):
         """
         Asserts that the service activation state matches |expected_state|
@@ -296,43 +235,19 @@ class cellular_ActivateLTE(test.test):
         return service
 
 
-    def FindCellularDevice(self):
-        """Returns the current cellular device."""
-        device = self.test_env.shill.find_cellular_device_object()
-        if not device:
-            raise error.TestError('Could not find cellular device.')
-        return device
-
-
-    def ResetCellularDevice(self):
-        """
-        Resets all modems, guaranteeing that the operation succeeds and doesn't
-        fail due to race conditions in pseudomodem start-up and test execution.
-
-        """
-        self.EnsureModemStateReached(
-                mm1_constants.MM_MODEM_STATE_ENABLED, SHORT_TIMEOUT)
-        self.test_env.shill.reset_modem(self.FindCellularDevice())
-        self.EnsureModemStateReached(
-                mm1_constants.MM_MODEM_STATE_ENABLED, SHORT_TIMEOUT)
-
-
     def run_once(self):
         tests = [
             ActivationResetTest(self),
-            ActivationCompleteTest(self),
             ActivationDueToMdnTest(self),
         ]
 
         for test in tests:
+            logging.info("Running sub-test %s", test.__class__.__name__)
             self.test_env = test_environment.CellularPseudoMMTestEnvironment(
                     pseudomm_args = ({'family' : '3GPP',
                                       'test-module' : TEST_MODEMS_MODULE_PATH,
-                                      'test-modem-class' : test.TestModemClass(),
+                                      'test-modem-class' : 'TestModem',
                                       'test-sim-class' : 'TestSIM'},))
             with self.test_env:
                 self.pseudomm = pm_proxy.PseudoMMProxy.get_proxy()
-                # Set the reset flag to False explicitly before each test
-                # sequence starts to ignore the reset as a part of the test init
-                self.SetResetCalled(False)
                 test.Run()

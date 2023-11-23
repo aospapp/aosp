@@ -44,14 +44,8 @@ CONFIG_LIBNL32=y
 # Driver interface for no driver (e.g., RADIUS server only)
 #CONFIG_DRIVER_NONE=y
 
-# IEEE 802.11F/IAPP
-CONFIG_IAPP=y
-
 # WPA2/IEEE 802.11i RSN pre-authentication
 CONFIG_RSN_PREAUTH=y
-
-# IEEE 802.11w (management frame protection)
-CONFIG_IEEE80211W=y
 
 # Support Operating Channel Validation
 #CONFIG_OCV=y
@@ -108,10 +102,17 @@ CONFIG_EAP_TTLS=y
 #CONFIG_EAP_GPSK_SHA256=y
 
 # EAP-FAST for the integrated EAP server
-# Note: If OpenSSL is used as the TLS library, OpenSSL 1.0 or newer is needed
-# for EAP-FAST support. Older OpenSSL releases would need to be patched, e.g.,
-# with openssl-0.9.8x-tls-extensions.patch, to add the needed functions.
 #CONFIG_EAP_FAST=y
+
+# EAP-TEAP for the integrated EAP server
+# Note: The current EAP-TEAP implementation is experimental and should not be
+# enabled for production use. The IETF RFC 7170 that defines EAP-TEAP has number
+# of conflicting statements and missing details and the implementation has
+# vendor specific workarounds for those and as such, may not interoperate with
+# any other implementation. This should not be used for anything else than
+# experimentation and interoperability testing until those issues has been
+# resolved.
+#CONFIG_EAP_TEAP=y
 
 # Wi-Fi Protected Setup (WPS)
 #CONFIG_WPS=y
@@ -146,9 +147,6 @@ CONFIG_IPV6=y
 # Use the hostapd's IEEE 802.11 authentication (ACL), but without
 # the IEEE 802.11 Management capability (e.g., FreeBSD/net80211)
 #CONFIG_DRIVER_RADIUS_ACL=y
-
-# IEEE 802.11n (High Throughput) support
-#CONFIG_IEEE80211N=y
 
 # Wireless Network Management (IEEE Std 802.11v-2011)
 # Note: This is experimental and not complete implementation.
@@ -376,6 +374,29 @@ CONFIG_IPV6=y
 # Experimental implementation of draft-harkins-owe-07.txt
 #CONFIG_OWE=y
 
+# WLAN Authentication and Privacy Infrastructure (WAPI): interface only.
+# Configure the building of the interface which allows WAPI configuration.
+# Note: does not configure WAPI implementation itself.
+#CONFIG_WAPI_INTERFACE=y
+
+# Airtime policy support
+#CONFIG_AIRTIME_POLICY=y
+
 # Override default value for the wpa_disable_eapol_key_retries configuration
 # parameter. See that parameter in hostapd.conf for more details.
 #CFLAGS += -DDEFAULT_WPA_DISABLE_EAPOL_KEY_RETRIES=1
+
+# Wired equivalent privacy (WEP)
+# WEP is an obsolete cryptographic data confidentiality algorithm that is not
+# considered secure. It should not be used for anything anymore. The
+# functionality needed to use WEP is available in the current hostapd
+# release under this optional build parameter. This functionality is subject to
+# be completely removed in a future release.
+#CONFIG_WEP=y
+
+# Remove all TKIP functionality
+# TKIP is an old cryptographic data confidentiality algorithm that is not
+# considered secure. It should not be used anymore. For now, the default hostapd
+# build includes this to allow mixed mode WPA+WPA2 networks to be enabled, but
+# that functionality is subject to be removed in the future.
+#CONFIG_NO_TKIP=y

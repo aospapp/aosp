@@ -14,6 +14,7 @@ import android.icu.impl.number.Grouper;
 import android.icu.impl.number.MacroProps;
 import android.icu.impl.number.Padder;
 import android.icu.impl.number.PatternStringParser;
+import android.icu.impl.number.PatternStringUtils;
 import android.icu.impl.number.PropertiesAffixPatternProvider;
 import android.icu.impl.number.RoundingUtils;
 import android.icu.number.NumberFormatter.DecimalSeparatorDisplay;
@@ -180,7 +181,11 @@ final class NumberPropertyMapper {
         if (explicitCurrencyUsage) {
             rounding = Precision.constructCurrency(currencyUsage).withCurrency(currency);
         } else if (roundingIncrement != null) {
-            rounding = Precision.constructIncrement(roundingIncrement);
+            if (PatternStringUtils.ignoreRoundingIncrement(roundingIncrement, maxFrac)) {
+                rounding = Precision.constructFraction(minFrac, maxFrac);
+            } else {
+                rounding = Precision.constructIncrement(roundingIncrement);
+            }
         } else if (explicitMinMaxSig) {
             minSig = minSig < 1 ? 1
                     : minSig > RoundingUtils.MAX_INT_FRAC_SIG ? RoundingUtils.MAX_INT_FRAC_SIG : minSig;
@@ -215,7 +220,7 @@ final class NumberPropertyMapper {
         // PADDING //
         /////////////
 
-        if (properties.getFormatWidth() != -1) {
+        if (properties.getFormatWidth() > 0) {
             macros.padder = Padder.forProperties(properties);
         }
 

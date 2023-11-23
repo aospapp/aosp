@@ -44,6 +44,7 @@ class firmware_UserRequestRecovery(FirmwareTest):
         super(firmware_UserRequestRecovery, self).cleanup()
 
     def run_once(self, dev_mode=False):
+        """Runs a single iteration of the test."""
         logging.info("Request recovery boot.")
         self.check_state((self.checkers.crossystem_checker, {
                            'mainfw_type': 'developer' if dev_mode else 'normal',

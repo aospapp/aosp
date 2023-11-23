@@ -1,3 +1,2 @@
-flooey@google.com
-kroot@google.com
-prb@google.com
+# Bug component: 684135
+include platform/external/conscrypt:/OWNERS

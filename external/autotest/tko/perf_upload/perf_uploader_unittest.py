@@ -1,10 +1,13 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 """Unit tests for the perf_uploader.py module.
 
 """
 
-import json, unittest
+import json
+import os
+import tempfile
+import unittest
 
 import common
 from autotest_lib.tko import models as tko_models
@@ -87,6 +90,20 @@ class test_json_config_file_sanity(unittest.TestCase):
         perf_uploader._parse_config_file(
                 perf_uploader._PRESENTATION_CONFIG_FILE)
 
+    def test_proper_config(self):
+        """Verifies configs have either autotest_name or autotest_regex."""
+        json_obj = []
+        try:
+            with open(perf_uploader._PRESENTATION_CONFIG_FILE, 'r') as fp:
+                json_obj = json.load(fp)
+        except:
+            self.fail('Presentation config file could not be parsed as JSON.')
+
+        for entry in json_obj:
+            if 'autotest_name' not in entry and 'autotest_regex' not in entry:
+                self.fail('Missing autotest_name or autotest_regex field for '
+                          'test %s.' % entry)
+
 
     def test_proper_json(self):
         """Verifies the file can be parsed as proper JSON."""
@@ -95,20 +112,6 @@ class test_json_config_file_sanity(unittest.TestCase):
                 json.load(fp)
         except:
             self.fail('Presentation config file could not be parsed as JSON.')
-
-
-    def test_unique_test_names(self):
-        """Verifies that each test name appears only once in the JSON file."""
-        json_obj = []
-        try:
-            with open(perf_uploader._PRESENTATION_CONFIG_FILE, 'r') as fp:
-                json_obj = json.load(fp)
-        except:
-            self.fail('Presentation config file could not be parsed as JSON.')
-
-        name_set = set([x['autotest_name'] for x in json_obj])
-        self.assertEqual(len(name_set), len(json_obj),
-                         msg='Autotest names not unique in the JSON file.')
 
 
     def test_required_master_name(self):
@@ -124,6 +127,35 @@ class test_json_config_file_sanity(unittest.TestCase):
             if not 'master_name' in entry:
                 self.fail('Missing master field for test %s.' %
                           entry['autotest_name'])
+
+class test_get_image_board_name(unittest.TestCase):
+    """Sanity tests for retrieving the image board name."""
+    def test_normal_platform(self):
+        """Verify image board name is equal to the platform in normal image."""
+        platform = 'veyron_jerry'
+        image = 'veyron_jerry-release/R78-12428.0.0'
+        self.assertEqual(perf_uploader._get_image_board_name(platform, image),
+                         'veyron_jerry')
+
+    def test_empty_platform(self):
+        """Sanity Verify image board name is equal to the platform."""
+        platform = ''
+        image = '-release/R78-12428.0.0'
+        self.assertEqual(perf_uploader._get_image_board_name(platform, image),
+                         '')
+
+    def test_specifc_image_suffix_found(self):
+        """Verify image board name is reflecting the running image."""
+        platform = 'veyron_jerry'
+        image = 'veyron_jerry-kernelnext-release/R78-12419.0.0'
+        self.assertEqual(perf_uploader._get_image_board_name(platform, image),
+                         'veyron_jerry-kernelnext')
+        image = 'veyron_jerry-arcnext-release/R78-12419.0.0'
+        self.assertEqual(perf_uploader._get_image_board_name(platform, image),
+                         'veyron_jerry-arcnext')
+        image = 'veyron_jerry-arcvm-release/R78-12419.0.0'
+        self.assertEqual(perf_uploader._get_image_board_name(platform, image),
+                         'veyron_jerry-arcvm')
 
 
 class test_gather_presentation_info(unittest.TestCase):
@@ -148,6 +180,27 @@ class test_gather_presentation_info(unittest.TestCase):
             'dashboard_test_name': 'new_test_name',
         }
     }
+
+    _PRESENT_INFO_COLLISION = {
+        'test_name.*': {
+            'master_name': 'new_master_name',
+            'dashboard_test_name': 'new_test_name',
+        },
+        'test_name-test.*': {
+            'master_name': 'new_master_name',
+            'dashboard_test_name': 'new_test_name',
+        },
+    }
+
+    def test_test_selection_collision(self):
+        """Verifies error when multiple entry refers to the same test."""
+        try:
+            result = perf_uploader._gather_presentation_info(
+                self._PRESENT_INFO_COLLISION, 'test_name-test-23')
+            self.fail('PerfUploadingError is expected if more than one entry '
+                      'refer to the same test.')
+        except perf_uploader.PerfUploadingError:
+            return
 
     def test_test_name_regex_specified(self):
         """Verifies gathers presentation info for regex search correctly"""
@@ -196,6 +249,90 @@ class test_gather_presentation_info(unittest.TestCase):
                 perf_uploader._gather_presentation_info,
                     self._PRESENT_INFO_MISSING_MASTER, 'test_name')
 
+
+class test_parse_and_gather_presentation(unittest.TestCase):
+    """Tests for _parse_config_file and then_gather_presentation_info."""
+    _AUTOTEST_NAME_CONFIG = """[{
+        "autotest_name": "test.test.VM",
+        "master_name": "ChromeOSPerf"
+    }]"""
+
+    _AUTOTEST_REGEX_CONFIG = r"""[{
+        "autotest_regex": "test\\.test\\.VM.*",
+        "master_name": "ChromeOSPerf"
+    }]"""
+
+    def setUp(self):
+        _, self._temp_path = tempfile.mkstemp()
+
+    def tearDown(self):
+        os.remove(self._temp_path)
+
+    def test_autotest_name_is_matched(self):
+        """Verifies that autotest name is matched to the test properly."""
+        with open(self._temp_path, 'w') as f:
+            f.write(self._AUTOTEST_NAME_CONFIG)
+        config = perf_uploader._parse_config_file(self._temp_path)
+        test_name = 'test.test.VM'
+        result = perf_uploader._gather_presentation_info(config, test_name)
+        self.assertEqual(result, {
+            'test_name': test_name,
+            'master_name': 'ChromeOSPerf'
+        })
+
+    def test_autotest_name_is_exact_matched(self):
+        """Verifies that autotest name is exact matched to the test properly."""
+        with open(self._temp_path, 'w') as f:
+            f.write(self._AUTOTEST_NAME_CONFIG)
+        config = perf_uploader._parse_config_file(self._temp_path)
+        test_name = 'test.test.VM.test'
+        try:
+            perf_uploader._gather_presentation_info(config, test_name)
+            self.fail(
+                'PerfUploadingError is expected for %s. autotest_name should '
+                'be exactly matched.' % test_name)
+        except perf_uploader.PerfUploadingError:
+            return
+
+    def test_autotest_name_is_escaped(self):
+        """Verifies that autotest name is escaped properly."""
+        with open(self._temp_path, 'w') as f:
+            f.write(self._AUTOTEST_NAME_CONFIG)
+        config = perf_uploader._parse_config_file(self._temp_path)
+        try:
+            test_name = 'test.testkVM'
+            result = perf_uploader._gather_presentation_info(
+                config, test_name)
+            self.fail(
+                'PerfUploadingError is expected for %s. autotest_name should '
+                'be escaped' % test_name)
+        except perf_uploader.PerfUploadingError:
+            return
+
+    def test_autotest_regex_is_matched(self):
+        """Verifies that autotest regex is matched to the test properly."""
+        with open(self._temp_path, 'w') as f:
+            f.write(self._AUTOTEST_REGEX_CONFIG)
+        config = perf_uploader._parse_config_file(self._temp_path)
+        for test_name in ['test.test.VM1', 'test.test.VMTest']:
+            result = perf_uploader._gather_presentation_info(config, test_name)
+            self.assertEqual(result, {
+                'test_name': test_name,
+                'master_name': 'ChromeOSPerf'
+            })
+
+    def test_autotest_regex_is_not_matched(self):
+        """Verifies that autotest regex is matched to the test properly."""
+        with open(self._temp_path, 'w') as f:
+            f.write(self._AUTOTEST_REGEX_CONFIG)
+        config = perf_uploader._parse_config_file(self._temp_path)
+        for test_name in ['testktest.VM', 'test.testkVM', 'test.test\VM']:
+            try:
+                result = perf_uploader._gather_presentation_info(
+                    config, test_name)
+                self.fail('PerfUploadingError is expected for %s' % test_name)
+            except perf_uploader.PerfUploadingError:
+                return
 
 class test_get_id_from_version(unittest.TestCase):
     """Tests for the _get_id_from_version function."""
@@ -319,6 +456,7 @@ class test_format_for_upload(unittest.TestCase):
         expected = json.loads(expected_result)
 
         def ordered(obj):
+            """Return the sorted obj."""
             if isinstance(obj, dict):
                return sorted((k, ordered(v)) for k, v in obj.items())
             if isinstance(obj, list):
@@ -333,7 +471,7 @@ class test_format_for_upload(unittest.TestCase):
         """Verifies format_for_upload generates correct json data."""
         result = perf_uploader._format_for_upload(
                 'platform', '25.1200.0.0', '25.10.1000.0', 'WINKY E2A-F2K-Q35',
-                'i7', 'test_machine', self._perf_data, self._PRESENT_INFO,
+                'test_machine', self._perf_data, self._PRESENT_INFO,
                 '52926644-username/hostname')
         expected_result_string = (
           '{"versions":  {'
@@ -341,7 +479,7 @@ class test_format_for_upload(unittest.TestCase):
              '"chrome_version": "25.10.1000.0"'
           '},'
           '"point_id": 10000000120000000,'
-          '"bot": "cros-platform-i7",'
+          '"bot": "cros-platform",'
           '"chart_data": {'
              '"charts": {'
                '"metric2": {'
@@ -366,8 +504,7 @@ class test_format_for_upload(unittest.TestCase):
              '"hardware_identifier": "WINKY E2A-F2K-Q35",'
              '"jobname": "52926644-username/hostname",'
              '"hardware_hostname": "test_machine",'
-             '"default_rev": "r_cros_version",'
-             '"variant_name": "i7"}'
+             '"default_rev": "r_cros_version"}'
            '}')
         self._verify_result_string(result['data'], expected_result_string)
 

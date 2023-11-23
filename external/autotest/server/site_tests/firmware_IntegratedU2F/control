@@ -7,7 +7,9 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_IntegratedU2F"
 PURPOSE = "Verify U2F"
-ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
+# TODO(b/131060420): add to cr50 release suites once test issues have been
+# resolved.
+ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"

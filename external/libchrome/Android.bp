@@ -87,11 +87,6 @@ cc_defaults {
         "-Wno-unused-function",
         "-Wno-unused-variable",
     ],
-
-    clang_cflags: [
-        // Temporarily suppress the warnings http://b/38232827
-        "-Wno-error=unused-lambda-capture",
-    ],
 }
 
 libchromeCommonSrc = [
@@ -784,14 +779,28 @@ genrule {
     out: ["common_custom_types__type_mappings"],
 }
 
+python_binary_host {
+    name: "mojom_types_downgrader",
+    main: "mojo/public/tools/bindings/mojom_types_downgrader.py",
+    srcs: [
+        "mojo/public/tools/bindings/mojom_types_downgrader.py",
+    ],
+    defaults: ["libmojo_scripts"],
+}
+
+generate_mojom_downgraded_files {
+    name: "libmojo_mojom_downgraded_files",
+    srcs: [":libmojo_mojom_files"],
+}
+
 generate_mojom_pickles {
     name: "libmojo_mojom_pickles",
-    srcs: [":libmojo_mojom_files"],
+    srcs: [":libmojo_mojom_downgraded_files"],
 }
 
 generate_mojom_headers {
     name: "libmojo_mojom_headers",
-    srcs: [":libmojo_mojom_files"],
+    srcs: [":libmojo_mojom_downgraded_files"],
     pickles: [":libmojo_mojom_pickles"],
     templates: ":libmojo_mojom_templates",
     flags: "--disallow_native_types",
@@ -800,7 +809,7 @@ generate_mojom_headers {
 
 generate_mojom_srcs {
     name: "libmojo_mojom_srcs",
-    srcs: [":libmojo_mojom_files"],
+    srcs: [":libmojo_mojom_downgraded_files"],
     pickles: [":libmojo_mojom_pickles"],
     templates: ":libmojo_mojom_templates",
     flags: "--disallow_native_types",
@@ -937,7 +946,7 @@ cc_library_shared {
 
 generate_mojom_srcjar {
     name: "libmojo_mojom_java_srcs",
-    srcs: [":libmojo_mojom_files"],
+    srcs: [":libmojo_mojom_downgraded_files"],
     pickles: [":libmojo_mojom_pickles"],
     srcjar: "libmojo_mojom.srcjar",
     templates: ":libmojo_mojom_templates",

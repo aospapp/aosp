@@ -17,11 +17,11 @@
 #include "src/tracing/core/null_trace_writer.h"
 
 #include "perfetto/base/logging.h"
-#include "perfetto/base/utils.h"
+#include "perfetto/ext/base/utils.h"
 
 #include "perfetto/protozero/message.h"
 
-#include "perfetto/trace/trace_packet.pbzero.h"
+#include "protos/perfetto/trace/trace_packet.pbzero.h"
 
 namespace perfetto {
 

@@ -9,12 +9,12 @@
 
 #include <memory>
 
-#include "core/fxcrt/fx_memory.h"
+#include "core/fxcrt/fx_memory_wrappers.h"
 
-template <class DataType, int FixedSize>
+template <class DataType, size_t FixedSize>
 class CFX_FixedBufGrow {
  public:
-  explicit CFX_FixedBufGrow(int data_size) {
+  explicit CFX_FixedBufGrow(size_t data_size) {
     if (data_size > FixedSize) {
       m_pGrowData.reset(FX_Alloc(DataType, data_size));
       return;
@@ -24,8 +24,8 @@ class CFX_FixedBufGrow {
   operator DataType*() { return m_pGrowData ? m_pGrowData.get() : m_FixedData; }
 
  private:
-  DataType m_FixedData[FixedSize];
   std::unique_ptr<DataType, FxFreeDeleter> m_pGrowData;
+  DataType m_FixedData[FixedSize];
 };
 
 #endif  // CORE_FXCRT_CFX_FIXEDBUFGROW_H_

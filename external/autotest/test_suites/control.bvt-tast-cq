@@ -17,10 +17,10 @@ Queue by running all Tast integration tests (exercising ARC, Chrome, and the OS
 itself) that must always pass against a DUT. See http://go/tast for more
 information about Tast.
 
-The only Autotest tests executed by this suite are tast.mustpass-*, which are
+The only Autotest tests executed by this suite are tast.critical-*, which are
 server tests that execute the tast executable. The tast executable runs
 individual Tast tests. If any of these Tast tests fail, then the corresponding
-tast.mustpass test (and this suite) fail.
+tast.critical test (and this suite) fail.
 """
 
 import common

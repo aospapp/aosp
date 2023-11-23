@@ -16,7 +16,7 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 'android-Q'
+    // Not specifying compileSdkVersion here so clients can specify it; must be at least Q
 
     defaultConfig {
         minSdkVersion 14

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -68,7 +68,7 @@ static inline wchar_t *create_wchar_path(const char *utf8)
     *wideChar;
 
   count=MultiByteToWideChar(CP_UTF8,0,utf8,-1,NULL,0);
-  if (count > MAX_PATH)
+  if ((count > MAX_PATH) && (NTLongPathsEnabled() == MagickFalse))
     {
       char
         buffer[MagickPathExtent];
@@ -86,7 +86,7 @@ static inline wchar_t *create_wchar_path(const char *utf8)
       if (count != 0)
         count=GetShortPathNameW(longPath,shortPath,MAX_PATH);
       longPath=(wchar_t *) RelinquishMagickMemory(longPath);
-      if (count < 5)
+      if ((count < 5) || (count >= MAX_PATH))
         return((wchar_t *) NULL);
       wideChar=(wchar_t *) AcquireQuantumMemory(count-3,sizeof(*wideChar));
       wcscpy(wideChar,shortPath+4);
@@ -127,7 +127,7 @@ static inline int access_utf8(const char *path,int mode)
 
 static inline FILE *fopen_utf8(const char *path,const char *mode)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__)
   return(fopen(path,mode));
 #else
    FILE
@@ -155,7 +155,7 @@ static inline FILE *fopen_utf8(const char *path,const char *mode)
 
 static inline void getcwd_utf8(char *path,size_t extent)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__)
   char
     *directory;
 
@@ -177,7 +177,7 @@ typedef int
 
 static inline int open_utf8(const char *path,int flags,mode_t mode)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__)
   return(open(path,flags,mode));
 #else
    int
@@ -197,7 +197,7 @@ static inline int open_utf8(const char *path,int flags,mode_t mode)
 
 static inline FILE *popen_utf8(const char *command,const char *type)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__)
   return(popen(command,type));
 #else
    FILE
@@ -225,7 +225,7 @@ static inline FILE *popen_utf8(const char *command,const char *type)
 
 static inline int remove_utf8(const char *path)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__)
   return(unlink(path));
 #else
    int
@@ -245,7 +245,7 @@ static inline int remove_utf8(const char *path)
 
 static inline int rename_utf8(const char *source,const char *destination)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__)
   return(rename(source,destination));
 #else
    int
@@ -273,7 +273,7 @@ static inline int rename_utf8(const char *source,const char *destination)
 
 static inline int stat_utf8(const char *path,struct stat *attributes)
 {
-#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__) || defined(__MINGW32__)
+#if !defined(MAGICKCORE_WINDOWS_SUPPORT) || defined(__CYGWIN__)
   return(stat(path,attributes));
 #else
    int

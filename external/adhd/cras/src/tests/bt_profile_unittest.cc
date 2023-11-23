@@ -18,24 +18,24 @@ extern "C" {
 namespace {
 
 static struct cras_bt_profile fake_profile;
-static struct cras_bt_transport *fake_transport;
+static struct cras_bt_transport* fake_transport;
 static int profile_release_called;
-static struct cras_bt_profile *profile_release_arg_value;
+static struct cras_bt_profile* profile_release_arg_value;
 static int profile_new_connection_called;
-static struct cras_bt_transport *profile_new_connection_arg_value;
+static struct cras_bt_transport* profile_new_connection_arg_value;
 static int profile_request_disconnection_called;
-static struct cras_bt_transport *profile_request_disconnection_arg_value;
+static struct cras_bt_transport* profile_request_disconnection_arg_value;
 static int profile_cancel_called;
-static struct cras_bt_profile *profile_cancel_arg_value;
+static struct cras_bt_profile* profile_cancel_arg_value;
 static int cras_bt_transport_get_called;
-static const char *cras_bt_transport_get_arg_value;
+static const char* cras_bt_transport_get_arg_value;
 
-void fake_profile_release(struct cras_bt_profile *profile);
-void fake_profile_new_connection(struct cras_bt_profile *profile,
-				 struct cras_bt_transport *transport);
-void fake_profile_request_disconnection(struct cras_bt_profile *profile,
-					struct cras_bt_transport *transport);
-void fake_profile_cancel(struct cras_bt_profile *profile);
+void fake_profile_release(struct cras_bt_profile* profile);
+void fake_profile_new_connection(struct cras_bt_profile* profile,
+                                 struct cras_bt_transport* transport);
+void fake_profile_request_disconnection(struct cras_bt_profile* profile,
+                                        struct cras_bt_transport* transport);
+void fake_profile_cancel(struct cras_bt_profile* profile);
 
 class BtProfileTestSuite : public DBusTest {
   virtual void SetUp() {
@@ -63,7 +63,7 @@ class BtProfileTestSuite : public DBusTest {
 };
 
 TEST_F(BtProfileTestSuite, RegisterProfile) {
-  struct cras_bt_profile *profile;
+  struct cras_bt_profile* profile;
 
   ExpectMethodCall(PROFILE_MANAGER_OBJ_PATH, BLUEZ_PROFILE_MGMT_INTERFACE,
                    "RegisterProfile")
@@ -88,7 +88,7 @@ TEST_F(BtProfileTestSuite, ResetProfile) {
 
 TEST_F(BtProfileTestSuite, HandleMessage) {
   ExpectMethodCall(PROFILE_MANAGER_OBJ_PATH, BLUEZ_PROFILE_MGMT_INTERFACE,
-		   "RegisterProfile")
+                   "RegisterProfile")
       .WithObjectPath("/fake")
       .SendReply();
 
@@ -117,75 +117,66 @@ TEST_F(BtProfileTestSuite, HandleMessage) {
   ASSERT_EQ(1, profile_request_disconnection_called);
   ASSERT_EQ(fake_transport, profile_request_disconnection_arg_value);
 
-  CreateMessageCall("/fake", "org.bluez.Profile1", "Release")
-      .Send();
+  CreateMessageCall("/fake", "org.bluez.Profile1", "Release").Send();
   WaitForMatches();
   ASSERT_EQ(1, profile_release_called);
   ASSERT_EQ(&fake_profile, profile_release_arg_value);
 
-  CreateMessageCall("/fake", "org.bluez.Profile1", "Cancel")
-      .Send();
+  CreateMessageCall("/fake", "org.bluez.Profile1", "Cancel").Send();
   WaitForMatches();
   ASSERT_EQ(1, profile_cancel_called);
   ASSERT_EQ(&fake_profile, profile_cancel_arg_value);
 }
 
-void fake_profile_release(struct cras_bt_profile *profile)
-{
+void fake_profile_release(struct cras_bt_profile* profile) {
   profile_release_arg_value = profile;
   profile_release_called++;
 }
 
-void fake_profile_new_connection(struct cras_bt_profile *profile,
-				 struct cras_bt_transport *transport)
-{
+void fake_profile_new_connection(struct cras_bt_profile* profile,
+                                 struct cras_bt_transport* transport) {
   profile_new_connection_arg_value = transport;
   profile_new_connection_called++;
 }
 
-void fake_profile_request_disconnection(struct cras_bt_profile *profile,
-					struct cras_bt_transport *transport)
-{
+void fake_profile_request_disconnection(struct cras_bt_profile* profile,
+                                        struct cras_bt_transport* transport) {
   profile_request_disconnection_arg_value = transport;
   profile_request_disconnection_called++;
 }
 
-void fake_profile_cancel(struct cras_bt_profile *profile)
-{
+void fake_profile_cancel(struct cras_bt_profile* profile) {
   profile_cancel_arg_value = profile;
   profile_cancel_called++;
 }
 
-} // namespace
+}  // namespace
 
 extern "C" {
-dbus_bool_t append_key_value(DBusMessageIter *iter, const char *key,
-                             int type, const char *type_string,
-                             void *value)
-{
+dbus_bool_t append_key_value(DBusMessageIter* iter,
+                             const char* key,
+                             int type,
+                             const char* type_string,
+                             void* value) {
   return TRUE;
 }
 
-struct cras_bt_transport *cras_bt_transport_get(const char *object_path)
-{
+struct cras_bt_transport* cras_bt_transport_get(const char* object_path) {
   cras_bt_transport_get_called++;
   cras_bt_transport_get_arg_value = object_path;
   return fake_transport;
 }
 
-void cras_bt_transport_destroy(struct cras_bt_transport *transport)
-{
-}
+void cras_bt_transport_destroy(struct cras_bt_transport* transport) {}
 
-struct cras_bt_transport *cras_bt_transport_create(DBusConnection *conn,
-						   const char *object_path)
-{
+struct cras_bt_transport* cras_bt_transport_create(DBusConnection* conn,
+                                                   const char* object_path) {
   return fake_transport;
 }
 
-} // extern "C"
+}  // extern "C"
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

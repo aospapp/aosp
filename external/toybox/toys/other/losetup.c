@@ -4,7 +4,7 @@
  *
  * No standard. (Sigh.)
 
-USE_LOSETUP(NEWTOY(losetup, ">2S(sizelimit)#s(show)ro#j:fdca[!afj]", TOYFLAG_SBIN))
+USE_LOSETUP(NEWTOY(losetup, ">2S(sizelimit)#s(show)ro#j:fdcaD[!afj]", TOYFLAG_SBIN))
 
 config LOSETUP
   bool "losetup"
@@ -18,17 +18,18 @@ config LOSETUP
     Instead of a device:
     -a	Iterate through all loopback devices
     -f	Find first unused loop device (may create one)
-    -j	Iterate through all loopback devices associated with FILE
+    -j FILE	Iterate through all loopback devices associated with FILE
 
     existing:
     -c	Check capacity (file size changed)
-    -d	Detach loopback device
+    -d DEV	Detach loopback device
+    -D	Detach all loopback devices
 
     new:
     -s	Show device name (alias --show)
-    -o	Start association at OFFSET into FILE
+    -o OFF	Start association at offset OFF into FILE
     -r	Read only
-    -S	Limit SIZE of loopback association (alias --sizelimit)
+    -S SIZE	Limit SIZE of loopback association (alias --sizelimit)
 */
 
 #define FOR_losetup
@@ -42,16 +43,17 @@ GLOBALS(
   int openflags;
   dev_t jdev;
   ino_t jino;
+  char *dir;
 )
 
 // -f: *device is NULL
 
 // Perform requested operation on one device. Returns 1 if handled, 0 if error
-static void loopback_setup(char *device, char *file)
+static int loopback_setup(char *device, char *file)
 {
   struct loop_info64 *loop = (void *)(toybuf+32);
   int lfd = -1, ffd = ffd;
-  unsigned flags = toys.optflags;
+  int racy = !device;
 
   // Open file (ffd) and loop device (lfd)
 
@@ -64,10 +66,8 @@ static void loopback_setup(char *device, char *file)
 
     // mount -o loop depends on found device being at the start of toybuf.
     if (cfd != -1) {
-      if (0 <= (i = ioctl(cfd, 0x4C82))) { // LOOP_CTL_GET_FREE
-        sprintf(device = toybuf, "/dev/loop%d", i);
-        // Fallback for Android
-        if (access(toybuf, F_OK)) sprintf(toybuf, "/dev/block/loop%d", i);
+      if (0 <= (i = ioctl(cfd, LOOP_CTL_GET_FREE))) {
+        sprintf(device = toybuf, "%s/loop%d", TT.dir, i);
       }
       close(cfd);
     }
@@ -78,7 +78,12 @@ static void loopback_setup(char *device, char *file)
   // Stat the loop device to see if there's a current association.
   memset(loop, 0, sizeof(struct loop_info64));
   if (-1 == lfd || ioctl(lfd, LOOP_GET_STATUS64, loop)) {
-    if (errno == ENXIO && (flags & (FLAG_a|FLAG_j))) goto done;
+    if (errno == ENXIO && (FLAG(a) || FLAG(j))) goto done;
+    // ENXIO expected if we're just trying to print the first unused device.
+    if (errno == ENXIO && FLAG(f) && !file) {
+      puts(device);
+      goto done;
+    }
     if (errno != ENXIO || !file) {
       perror_msg_raw(device ? device : "-f");
       goto done;
@@ -90,28 +95,31 @@ static void loopback_setup(char *device, char *file)
     goto done;
 
   // Check size of file or delete existing association
-  if (flags & (FLAG_c|FLAG_d)) {
+  if (FLAG(c) || FLAG(d)) {
     // The constant is LOOP_SET_CAPACITY
-    if (ioctl(lfd, (flags & FLAG_c) ? 0x4C07 : LOOP_CLR_FD, 0)) {
+    if (ioctl(lfd, FLAG(c) ? 0x4C07 : LOOP_CLR_FD, 0)) {
       perror_msg_raw(device);
       goto done;
     }
   // Associate file with this device?
   } else if (file) {
-    char *s = xabspath(file, 1);
+    char *f_path = xabspath(file, 1);
 
-    if (!s) perror_exit("file"); // already opened, but if deleted since...
-    if (ioctl(lfd, LOOP_SET_FD, ffd)) perror_exit("%s=%s", device, file);
+    if (!f_path) perror_exit("file"); // already opened, but if deleted since...
+    if (ioctl(lfd, LOOP_SET_FD, ffd)) {
+      free(f_path);
+      if (racy && errno == EBUSY) return 1;
+      perror_exit("%s=%s", device, file);
+    }
+    xstrncpy((char *)loop->lo_file_name, f_path, LO_NAME_SIZE);
+    free(f_path);
     loop->lo_offset = TT.o;
     loop->lo_sizelimit = TT.S;
-    xstrncpy((char *)loop->lo_file_name, s, LO_NAME_SIZE);
-    s[LO_NAME_SIZE-1] = 0;
     if (ioctl(lfd, LOOP_SET_STATUS64, loop)) perror_exit("%s=%s", device, file);
-    if (flags & FLAG_s) printf("%s", device);
-    free(s);
-  } else if (flags & FLAG_f) printf("%s", device);
+    if (FLAG(s)) puts(device);
+  }
   else {
-    xprintf("%s: [%04llx]:%llu (%s)", device, (long long)loop->lo_device,
+    xprintf("%s: [%lld]:%llu (%s)", device, (long long)loop->lo_device,
       (long long)loop->lo_inode, loop->lo_file_name);
     if (loop->lo_offset) xprintf(", offset %llu",
       (unsigned long long)loop->lo_offset);
@@ -123,6 +131,7 @@ static void loopback_setup(char *device, char *file)
 done:
   if (file) close(ffd);
   if (lfd != -1) close(lfd);
+  return 0;
 }
 
 // Perform an action on all currently existing loop devices
@@ -145,7 +154,8 @@ void losetup_main(void)
 {
   char **s;
 
-  TT.openflags = (toys.optflags & FLAG_r) ? O_RDONLY : O_RDWR;
+  TT.dir = CFG_TOYBOX_ON_ANDROID ? "/dev/block" : "/dev";
+  TT.openflags = FLAG(r) ? O_RDONLY : O_RDWR;
 
   if (TT.j) {
     struct stat st;
@@ -164,17 +174,19 @@ void losetup_main(void)
 
   // -f(dc FILE)
 
-  if (toys.optflags & FLAG_f) {
+  if (FLAG(D)) toys.optflags |= FLAG_a | FLAG_d;
+
+  if (FLAG(f)) {
     if (toys.optc > 1) perror_exit("max 1 arg");
-    loopback_setup(NULL, *toys.optargs);
-  } else if (toys.optflags & (FLAG_a|FLAG_j)) {
+    while (loopback_setup(NULL, *toys.optargs));
+  } else if (FLAG(a) || FLAG(j)) {
     if (toys.optc) error_exit("bad args");
-    dirtree_read("/dev", dash_a);
+    dirtree_read(TT.dir, dash_a);
   // Do we need one DEVICE argument?
   } else {
-    char *file = (toys.optflags & (FLAG_d|FLAG_c)) ? NULL : toys.optargs[1];
+    char *file = (FLAG(c) || FLAG(d)) ? NULL : toys.optargs[1];
 
-    if (!toys.optc || (file && toys.optc != 2)) 
+    if (!toys.optc || (file && toys.optc != 2))
       help_exit("needs %d arg%s", 1+!!file, file ? "s" : "");
     for (s = toys.optargs; *s; s++) {
       loopback_setup(*s, file);

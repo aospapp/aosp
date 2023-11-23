@@ -13,17 +13,15 @@
 #include "xfa/fwl/cfwl_widget.h"
 #include "xfa/fwl/cfwl_widgetproperties.h"
 
-class CFWL_DateTimeEdit : public CFWL_Edit {
+class CFWL_DateTimeEdit final : public CFWL_Edit {
  public:
   CFWL_DateTimeEdit(const CFWL_App* app,
                     std::unique_ptr<CFWL_WidgetProperties> properties,
                     CFWL_Widget* pOuter);
+  ~CFWL_DateTimeEdit() override;
 
   // CFWL_Edit.
   void OnProcessMessage(CFWL_Message* pMessage) override;
-
- private:
-  void DisForm_OnProcessMessage(CFWL_Message* pMessage);
 };
 
 #endif  // XFA_FWL_CFWL_DATETIMEEDIT_H_

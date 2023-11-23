@@ -40,19 +40,16 @@ class CodeBuffer {
 
   explicit CodeBuffer(size_t capacity = kDefaultCapacity);
   CodeBuffer(byte* buffer, size_t capacity);
-  ~CodeBuffer();
+  ~CodeBuffer() VIXL_NEGATIVE_TESTING_ALLOW_EXCEPTION;
 
   void Reset();
 
-#ifdef VIXL_CODE_BUFFER_MMAP
+  // Make the buffer executable or writable. These states are mutually
+  // exclusive.
+  // Note that these require page-aligned memory blocks, which we can only
+  // guarantee with VIXL_CODE_BUFFER_MMAP.
   void SetExecutable();
   void SetWritable();
-#else
-  // These require page-aligned memory blocks, which we can only guarantee with
-  // mmap.
-  VIXL_NO_RETURN_IN_DEBUG_MODE void SetExecutable() { VIXL_UNIMPLEMENTED(); }
-  VIXL_NO_RETURN_IN_DEBUG_MODE void SetWritable() { VIXL_UNIMPLEMENTED(); }
-#endif
 
   ptrdiff_t GetOffsetFrom(ptrdiff_t offset) const {
     ptrdiff_t cursor_offset = cursor_ - buffer_;

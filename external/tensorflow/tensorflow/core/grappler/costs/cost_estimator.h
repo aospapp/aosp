@@ -17,6 +17,8 @@ limitations under the License.
 #define TENSORFLOW_CORE_GRAPPLER_COSTS_COST_ESTIMATOR_H_
 
 #include <cmath>
+#include <unordered_map>
+
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/protobuf/config.pb.h"
 
@@ -40,7 +42,7 @@ struct DeviceInfo {
   // Read bandwidth to intermediate memory in GB per second.
   double intermediate_read_gb_per_sec;
 
-  // Read bandwidth to intermediate memory in GB per second.
+  // Write bandwidth to intermediate memory in GB per second.
   double intermediate_write_gb_per_sec;
 
   DeviceInfo()
@@ -72,7 +74,7 @@ struct Costs {
   inline Costs();
 
   // Builds a Costs structure with all zero values, rather than unknowns.
-  static inline Costs ZeroCosts();
+  static inline Costs ZeroCosts(bool inaccurate = false);
 
   struct MilliSeconds : std::chrono::milliseconds {
     MilliSeconds() : std::chrono::milliseconds(0) {}
@@ -188,7 +190,7 @@ Costs::Costs() {
   max_per_op_streaming = kMemoryUnknown;
 }
 
-Costs Costs::ZeroCosts() {
+Costs Costs::ZeroCosts(bool inaccurate) {
   Costs costs;
   costs.execution_time = Duration::zero();
   costs.compute_time = Duration::zero();
@@ -199,6 +201,7 @@ Costs Costs::ZeroCosts() {
   costs.temporary_memory = kZeroMemory;
   costs.max_per_op_buffers = kZeroMemory;
   costs.max_per_op_streaming = kZeroMemory;
+  costs.inaccurate = inaccurate;
   return costs;
 }
 

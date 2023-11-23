@@ -597,13 +597,15 @@ public class ICUService extends ICUNotifier {
                         Factory f = lIter.previous();
                         f.updateVisibleIDs(mutableMap);
                     }
-                    this.idcache = Collections.unmodifiableMap(mutableMap);
+                    Map<String, Factory> result = Collections.unmodifiableMap(mutableMap);
+                    this.idcache = result;
+                    return result;
                 } finally {
                     factoryLock.releaseRead();
                 }
             }
+            return idcache;
         }
-        return idcache;
     }
     private Map<String, Factory> idcache;
 

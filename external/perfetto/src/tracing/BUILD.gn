@@ -13,209 +13,154 @@
 # limitations under the License.
 
 import("//build_overrides/build.gni")
+import("../../gn/fuzzer.gni")
 import("../../gn/perfetto.gni")
+import("../../gn/test.gni")
 
-# Core tracing library, platform independent, no transport layer.
-source_set("tracing") {
+# Full version of the client API. Supports both the in-process backend and the
+# system backend (on posix systems and if enabled by the enable_perfetto_ipc).
+# The backends are designed to be dead-code-eliminated via linker's gc-section
+# when not use. See comments in Tracing::Initialize() in tracing.h.
+group("client_api") {
   public_deps = [
+    ":client_api_without_backends",
+    ":in_process_backend",
+    "../../gn:default_deps",
+    "../../include/perfetto/tracing",
     "../../include/perfetto/tracing/core",
-    "../../protos/perfetto/common:lite",
-    "../../protos/perfetto/trace:minimal_lite",
-    "../../protos/perfetto/trace:trusted_lite",
-    "../../protos/perfetto/trace:zero",
   ]
+  if (enable_perfetto_ipc) {
+    public_deps += [ ":system_backend" ]
+  }
+}
+
+# This target checks that the client API builds without backends. This is to
+# check that no references to the backends are leaked from the implementation
+# internals. In turn, this allows to dead-code-eliminate unused backends when
+# using linker's gc-sections (or similar mechanism).
+if (perfetto_build_standalone) {
+  shared_library("client_api_no_backends_compile_test") {
+    deps = [
+      ":client_api_without_backends",
+      ":platform_fake",
+      "../../gn:default_deps",
+    ]
+  }
+}
+
+# Separate target because the embedder might not want this (e.g. on Windows).
+if (is_linux || is_mac || is_android) {
+  source_set("platform_posix") {
+    deps = [
+      "../../gn:default_deps",
+      "../../include/perfetto/tracing",
+      "../base",
+    ]
+    sources = [ "platform_posix.cc" ]
+  }
+}
+
+# Fake platform that allows buiding the client lib on all OSes. You can only use
+# those parts of the client lib that do not use the platform.
+source_set("platform_fake") {
   deps = [
     "../../gn:default_deps",
-    "../../gn:gtest_prod_config",
-    "../../protos/perfetto/config:lite",
-    "../base",
-    "../protozero",
+    "../../include/perfetto/tracing",
   ]
-  sources = [
-    "core/android_log_config.cc",
-    "core/android_power_config.cc",
-    "core/chrome_config.cc",
-    "core/commit_data_request.cc",
-    "core/data_source_config.cc",
-    "core/data_source_descriptor.cc",
-    "core/ftrace_config.cc",
-    "core/heapprofd_config.cc",
-    "core/id_allocator.cc",
-    "core/id_allocator.h",
-    "core/inode_file_config.cc",
-    "core/null_trace_writer.cc",
-    "core/null_trace_writer.h",
-    "core/observable_events.cc",
-    "core/packages_list_config.cc",
-    "core/packet_stream_validator.cc",
-    "core/packet_stream_validator.h",
-    "core/patch_list.h",
-    "core/process_stats_config.cc",
-    "core/shared_memory_abi.cc",
-    "core/shared_memory_arbiter_impl.cc",
-    "core/shared_memory_arbiter_impl.h",
-    "core/sliced_protobuf_input_stream.cc",
-    "core/sliced_protobuf_input_stream.h",
-    "core/startup_trace_writer.cc",
-    "core/startup_trace_writer_registry.cc",
-    "core/sys_stats_config.cc",
-    "core/test_config.cc",
-    "core/trace_buffer.cc",
-    "core/trace_buffer.h",
-    "core/trace_config.cc",
-    "core/trace_packet.cc",
-    "core/trace_stats.cc",
-    "core/trace_writer_impl.cc",
-    "core/trace_writer_impl.h",
-    "core/tracing_service_impl.cc",
-    "core/tracing_service_impl.h",
-    "core/virtual_destructors.cc",
-  ]
+  sources = [ "platform_fake.cc" ]
 }
 
-if (perfetto_build_standalone || perfetto_build_with_android ||
-    build_with_chromium) {
-  source_set("unittests") {
-    testonly = true
-    deps = [
-      ":test_support",
-      ":tracing",
-      "../../gn:default_deps",
-      "../../gn:gtest_deps",
-      "../../protos/perfetto/config:lite",
-      "../../protos/perfetto/trace:lite",
-      "../../protos/perfetto/trace:zero",
-      "../base",
-      "../base:test_support",
-    ]
-    sources = [
-      "core/id_allocator_unittest.cc",
-      "core/null_trace_writer_unittest.cc",
-      "core/packet_stream_validator_unittest.cc",
-      "core/patch_list_unittest.cc",
-      "core/shared_memory_abi_unittest.cc",
-      "core/sliced_protobuf_input_stream_unittest.cc",
-      "core/trace_buffer_unittest.cc",
-      "core/trace_packet_unittest.cc",
-      "test/aligned_buffer_test.cc",
-      "test/aligned_buffer_test.h",
-      "test/fake_packet.cc",
-      "test/fake_packet.h",
-      "test/test_shared_memory.cc",
-      "test/test_shared_memory.h",
-    ]
-
-    if (perfetto_build_with_ipc_layer) {
-      deps += [ ":ipc" ]
-      sources += [
-        "ipc/posix_shared_memory_unittest.cc",
-        "test/tracing_integration_test.cc",
-      ]
-    }
-
-    # These tests rely on test_task_runner.h which
-    # has no Windows implementation.
-    if (!is_win) {
-      sources += [
-        "core/shared_memory_arbiter_impl_unittest.cc",
-        "core/startup_trace_writer_unittest.cc",
-        "core/trace_writer_impl_unittest.cc",
-        "core/tracing_service_impl_unittest.cc",
-        "test/fake_producer_endpoint.h",
-        "test/mock_consumer.cc",
-        "test/mock_consumer.h",
-        "test/mock_producer.cc",
-        "test/mock_producer.h",
-      ]
-    }
-  }
+# Code that both public headers and other non-public sources (e.g.
+# src/tracing/core) need to depend on. It cannot be in the root :tracing target
+# otherwise there would be a cyclic dependency because public itself needs to
+# depend on tracing.
+source_set("common") {
+  deps = [
+    "../../gn:default_deps",
+    "../../include/perfetto/tracing",
+  ]
+  sources = [ "trace_writer_base.cc" ]
 }
 
-source_set("test_support") {
-  testonly = true
-  public_deps = [
+# Base target for the client API. On its own doesn't provide any backend.
+source_set("client_api_without_backends") {
+  deps = [
     "../../include/perfetto/tracing/core",
-    "../../protos/perfetto/trace:lite",
-    "../../protos/perfetto/trace:zero",
-    "../protozero",
+    "../../protos/perfetto/common:zero",
+    "../../protos/perfetto/config:cpp",
+    "../../protos/perfetto/config/track_event:cpp",
+    "../base",
+    "core",
+  ]
+  public_deps = [
+    "../../gn:default_deps",
+    "../../include/perfetto/tracing",
   ]
   sources = [
-    "core/trace_writer_for_testing.cc",
-    "core/trace_writer_for_testing.h",
+    "data_source.cc",
+    "debug_annotation.cc",
+    "event_context.cc",
+    "internal/tracing_muxer_impl.cc",
+    "internal/tracing_muxer_impl.h",
+    "internal/track_event_internal.cc",
+    "platform.cc",
+    "tracing.cc",
+    "track.cc",
+    "track_event_category_registry.cc",
+    "track_event_legacy.cc",
+    "virtual_destructors.cc",
   ]
-}
-
-if (perfetto_build_standalone || perfetto_build_with_android) {
-  executable("consumer_api_test") {
-    deps = [
-      ":api",
-      "../../gn:default_deps",
-      "../../protos/perfetto/config:lite",
-      "../../protos/perfetto/trace:lite",
-      "../base",
-    ]
-    sources = [
-      "api_impl/consumer_api_test.cc",
+  assert_no_deps = [ "core:service" ]
+  if (enable_perfetto_ipc) {
+    assert_no_deps += [
+      "../ipc:common",
+      "ipc/common",
     ]
   }
+}
 
-  source_set("tracing_benchmarks") {
+# System backend: connects to an external "traced" instance via a UNIX socket.
+# Requires the IPC layer and is supported only on posix systems.
+if (enable_perfetto_ipc) {
+  source_set("system_backend") {
+    public_deps = [ "../../include/perfetto/tracing" ]
+    deps = [
+      ":client_api_without_backends",
+      "../../gn:default_deps",
+      "../../include/perfetto/tracing/core",
+      "../base",
+      "ipc/consumer",
+      "ipc/producer",
+      "ipc/service",
+    ]
+    sources = [ "internal/system_tracing_backend.cc" ]
+  }
+}
+
+# In-process backend: starts the tracing service in-process on a dedicated
+# thread. It depends only on having a valid "platform" target. It has a larger
+# binary size cost because links in all the service code.
+source_set("in_process_backend") {
+  public_deps = [ "../../include/perfetto/tracing" ]
+  deps = [
+    ":client_api_without_backends",
+    "../../gn:default_deps",
+    "../../include/perfetto/tracing/core",
+    "../base",
+    "core:service",
+  ]
+  sources = [ "internal/in_process_tracing_backend.cc" ]
+}
+
+if (enable_perfetto_benchmarks) {
+  source_set("benchmarks") {
     testonly = true
     deps = [
-      "../../gn:default_deps",
-      "//buildtools:benchmark",
+      ":platform_posix",
+      "../..:libperfetto_client_experimental",
+      "../../../../../gn:benchmark",
+      "../../../../../gn:default_deps",
     ]
-    sources = [
-      "test/hello_world_benchmark.cc",
-    ]
-  }
-
-  # Imlementation of the public-facing consumer API in libperfetto.so (only for
-  # Android builds).
-  source_set("api") {
-    deps = [
-      ":ipc",
-      ":tracing",
-      "../../gn:default_deps",
-      "../../protos/perfetto/config:lite",
-      "../base",
-    ]
-    sources = [
-      "api_impl/consumer_api.cc",
-    ]
-  }
-}
-
-if (perfetto_build_with_ipc_layer) {
-  # Posix specialization of the tracing library for Linux / Android / Mac.
-  # Provides an IPC transport over a UNIX domain socket.
-  static_library("ipc") {
-    public_deps = [
-      "../../include/perfetto/tracing/core",
-      "../../include/perfetto/tracing/ipc",
-    ]
-    sources = [
-      "ipc/consumer/consumer_ipc_client_impl.cc",
-      "ipc/consumer/consumer_ipc_client_impl.h",
-      "ipc/default_socket.cc",
-      "ipc/default_socket.h",
-      "ipc/posix_shared_memory.cc",
-      "ipc/posix_shared_memory.h",
-      "ipc/producer/producer_ipc_client_impl.cc",
-      "ipc/producer/producer_ipc_client_impl.h",
-      "ipc/service/consumer_ipc_service.cc",
-      "ipc/service/consumer_ipc_service.h",
-      "ipc/service/producer_ipc_service.cc",
-      "ipc/service/producer_ipc_service.h",
-      "ipc/service/service_ipc_host_impl.cc",
-      "ipc/service/service_ipc_host_impl.h",
-    ]
-    deps = [
-      ":tracing",
-      "../../gn:default_deps",
-      "../../protos/perfetto/ipc",
-      "../base",
-      "../ipc",
-    ]
+    sources = [ "api_benchmark.cc" ]
   }
 }

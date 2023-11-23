@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sw{
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -52,6 +52,11 @@ sw{
                 dnam{"ekari"}
                 one{"ekari {0}"}
                 other{"ekari {0}"}
+            }
+            dunam{
+                dnam{"dunamu"}
+                one{"dunamu {0}"}
+                other{"dunamu {0}"}
             }
             hectare{
                 dnam{"hekta"}
@@ -118,6 +123,11 @@ sw{
                 one{"milimoli {0} kwa kila lita"}
                 other{"milimoli {0} kwa kila lita"}
             }
+            mole{
+                dnam{"moli"}
+                one{"moli {0}"}
+                other{"moli {0}"}
+            }
             part-per-million{
                 dnam{"ppm"}
                 one{"ppm {0}"}
@@ -132,6 +142,11 @@ sw{
                 dnam{"kwa elfu"}
                 one{"{0} kwa kila elfu"}
                 other{"{0} kwa kila elfu"}
+            }
+            permyriad{
+                dnam{"permyriadi"}
+                one{"permyriadi {0}"}
+                other{"permyriadi {0}"}
             }
         }
         consumption{
@@ -232,6 +247,11 @@ sw{
                 other{"siku {0}"}
                 per{"{0} kwa siku"}
             }
+            decade{
+                dnam{"miongo"}
+                one{"mwongo {0}"}
+                other{"miongo {0}"}
+            }
             hour{
                 dnam{"saa"}
                 one{"saa {0}"}
@@ -312,6 +332,11 @@ sw{
                 one{"kalori {0}"}
                 other{"kalori {0}"}
             }
+            electronvolt{
+                dnam{"elektrovolti"}
+                one{"elektrovolti {0}"}
+                other{"elektrovolti {0}"}
+            }
             foodcalorie{
                 dnam{"kalori"}
                 one{"kalori {0}"}
@@ -337,6 +362,23 @@ sw{
                 one{"kilowati {0} kwa saa"}
                 other{"kilowati {0} kwa saa"}
             }
+            therm-us{
+                dnam{"vipimo vya gesi, Marekani"}
+                one{"kipimo {0} cha gesi, Marekani"}
+                other{"vipimo {0} vya gesi, Marekani"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newtoni"}
+                one{"newtoni {0}"}
+                other{"newtoni {0}"}
+            }
+            pound-force{
+                dnam{"pauni za kani"}
+                one{"pauni {0} ya kani"}
+                other{"pauni {0} za kani"}
+            }
         }
         frequency{
             gigahertz{
@@ -358,6 +400,43 @@ sw{
                 dnam{"megahezi"}
                 one{"megahezi {0}"}
                 other{"megahezi {0}"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"vitone kwa kila sentimita"}
+                one{"kitone {0} kwa kila sentimita"}
+                other{"vitone {0} kwa kila sentimita"}
+            }
+            dot-per-inch{
+                dnam{"vitone kwa kila inchi"}
+                one{"kitone {0} kwa kila inchi"}
+                other{"vitone {0} kwa kila inchi"}
+            }
+            em{
+                dnam{"em ya kupiga chapa"}
+                one{"em {0}"}
+                other{"em {0}"}
+            }
+            megapixel{
+                dnam{"megapikseli"}
+                one{"megapikseli {0}"}
+                other{"megapikseli {0}"}
+            }
+            pixel{
+                dnam{"pikseli"}
+                one{"pikseli {0}"}
+                other{"pikseli {0}"}
+            }
+            pixel-per-centimeter{
+                dnam{"pikseli kwa kila sentimita"}
+                one{"pikseli {0} kwa kila sentimita"}
+                other{"pikseli {0} kwa kila sentimita"}
+            }
+            pixel-per-inch{
+                dnam{"pikseli kwa kila inchi"}
+                one{"pikseli {0} kwa kila inchi"}
+                other{"pikseli {0} kwa kila inchi"}
             }
         }
         length{
@@ -558,6 +637,11 @@ sw{
                 one{"kanieneo {0}"}
                 other{"kanieneo {0}"}
             }
+            bar{
+                dnam{"bari"}
+                one{"bari {0}"}
+                other{"bari {0}"}
+            }
             hectopascal{
                 dnam{"hektopaskali"}
                 one{"hektopaskali {0}"}
@@ -568,6 +652,16 @@ sw{
                 one{"inchi {0} ya zebaki"}
                 other{"inchi {0} za zebaki"}
             }
+            kilopascal{
+                dnam{"kilopaskali"}
+                one{"kilopaskali {0}"}
+                other{"kilopaskali {0}"}
+            }
+            megapascal{
+                dnam{"megapaskali"}
+                one{"megapaskali {0}"}
+                other{"megapaskali {0}"}
+            }
             millibar{
                 dnam{"kipimo cha milibari"}
                 one{"kipimo cha milibari {0}"}
@@ -577,6 +671,11 @@ sw{
                 dnam{"milimita za zebaki"}
                 one{"milimita {0} ya zebaki"}
                 other{"milimita {0} za zebaki"}
+            }
+            pascal{
+                dnam{"paskali"}
+                one{"paskali {0}"}
+                other{"paskali {0}"}
             }
             pound-per-square-inch{
                 dnam{"pauni kwa kila inchi mraba"}
@@ -628,11 +727,28 @@ sw{
                 other{"kelvini {0}"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"newtonimita"}
+                one{"newtonimita {0}"}
+                other{"newtonimita {0}"}
+            }
+            pound-foot{
+                dnam{"paunifuti"}
+                one{"paunifuti {0}"}
+                other{"paunifuti {0}"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ekari futi"}
                 one{"ekari futi {0}"}
                 other{"ekari futi {0}"}
+            }
+            barrel{
+                dnam{"mapipa"}
+                one{"pipa {0}"}
+                other{"mapipa {0}"}
             }
             centiliter{
                 dnam{"sentilita"}
@@ -1058,6 +1174,11 @@ sw{
                 one{"ekari {0}"}
                 other{"ekari {0}"}
             }
+            dunam{
+                dnam{"dunamu"}
+                one{"dunamu {0}"}
+                other{"dunamu {0}"}
+            }
             hectare{
                 dnam{"hekta"}
                 one{"hekta {0}"}
@@ -1123,6 +1244,11 @@ sw{
                 one{"mmol {0}/lita"}
                 other{"mmol {0}/L"}
             }
+            mole{
+                dnam{"moli"}
+                one{"moli {0}"}
+                other{"moli {0}"}
+            }
             part-per-million{
                 dnam{"ppm"}
                 one{"ppm {0}"}
@@ -1137,6 +1263,9 @@ sw{
                 dnam{"kwa elfu"}
                 one{"{0} kwa elfu"}
                 other{"{0} kwa elfu"}
+            }
+            permyriad{
+                dnam{"permyriadi"}
             }
         }
         consumption{
@@ -1237,6 +1366,11 @@ sw{
                 other{"siku {0}"}
                 per{"{0} kwa siku"}
             }
+            decade{
+                dnam{"miongo"}
+                one{"mwongo {0}"}
+                other{"miongo {0}"}
+            }
             hour{
                 dnam{"saa"}
                 one{"saa {0}"}
@@ -1317,6 +1451,9 @@ sw{
                 one{"kalori {0}"}
                 other{"kalori {0}"}
             }
+            electronvolt{
+                dnam{"elektrovolti"}
+            }
             foodcalorie{
                 dnam{"kalori"}
                 one{"kalori {0}"}
@@ -1342,6 +1479,19 @@ sw{
                 one{"{0} kWh"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"kipimo cha gesi, Marekani"}
+                one{"kipimo {0} cha gesi, US"}
+                other{"vipimo {0} vya gesi, US"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newtoni"}
+            }
+            pound-force{
+                dnam{"paunikani"}
+            }
         }
         frequency{
             gigahertz{
@@ -1363,6 +1513,37 @@ sw{
                 dnam{"megahezi"}
                 one{"megahezi {0}"}
                 other{"megahezi {0}"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                one{"dpcm {0}"}
+                other{"dpcm {0}"}
+            }
+            dot-per-inch{
+                one{"dpi {0}"}
+                other{"dpi {0}"}
+            }
+            em{
+                one{"em {0}"}
+                other{"em {0}"}
+            }
+            megapixel{
+                one{"MP {0}"}
+                other{"MP {0}"}
+            }
+            pixel{
+                dnam{"pikseli"}
+                one{"px {0}"}
+                other{"px {0}"}
+            }
+            pixel-per-centimeter{
+                one{"ppcm {0}"}
+                other{"ppcm {0}"}
+            }
+            pixel-per-inch{
+                one{"ppi {0}"}
+                other{"ppi {0}"}
             }
         }
         length{
@@ -1563,6 +1744,11 @@ sw{
                 one{"atm {0}"}
                 other{"atm {0}"}
             }
+            bar{
+                dnam{"bari"}
+                one{"bari {0}"}
+                other{"bari {0}"}
+            }
             hectopascal{
                 dnam{"hektopaskali"}
                 one{"hPa {0}"}
@@ -1573,6 +1759,14 @@ sw{
                 one{"{0} inHg"}
                 other{"{0} inHg"}
             }
+            kilopascal{
+                one{"kPa {0}"}
+                other{"kPa {0}"}
+            }
+            megapascal{
+                one{"MPa {0}"}
+                other{"MPa {0}"}
+            }
             millibar{
                 dnam{"kipimo cha milibari"}
                 one{"mbar {0}"}
@@ -1581,7 +1775,11 @@ sw{
             millimeter-of-mercury{
                 dnam{"milimita za zebaki"}
                 one{"milimita {0} ya zebaki"}
-                other{"{0} mm Hg"}
+                other{"mm Hg {0}"}
+            }
+            pascal{
+                one{"Pa {0}"}
+                other{"Pa {0}"}
             }
             pound-per-square-inch{
                 dnam{"pauni kwa kila inchi mraba"}
@@ -1638,6 +1836,11 @@ sw{
                 dnam{"ekari futi"}
                 one{"ekari futi {0}"}
                 other{"ekari futi {0}"}
+            }
+            barrel{
+                dnam{"pipa"}
+                one{"pipa {0}"}
+                other{"mapipa {0}"}
             }
             centiliter{
                 dnam{"sentilita"}

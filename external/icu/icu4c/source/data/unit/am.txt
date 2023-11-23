@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 am{
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -52,6 +52,11 @@ am{
                 dnam{"ኤክር"}
                 one{"{0} ኤክር"}
                 other{"{0} ኤክር"}
+            }
+            dunam{
+                dnam{"ጋሻ"}
+                one{"{0} ጋሻ"}
+                other{"{0} ጋሻ"}
             }
             hectare{
                 dnam{"ሄክታር"}
@@ -232,6 +237,11 @@ am{
                 other{"{0} ቀናት"}
                 per{"{0}/ቀ"}
             }
+            decade{
+                dnam{"አስር አመታት"}
+                one{"{0} አስር አመታት"}
+                other{"{0} አስር አመታት"}
+            }
             hour{
                 dnam{"ሰዓቶች"}
                 one{"{0} ሰዓት"}
@@ -312,6 +322,11 @@ am{
                 one{"{0} cal"}
                 other{"{0} cal"}
             }
+            electronvolt{
+                dnam{"ኤቮ"}
+                one{"{0} ኤቮ"}
+                other{"{0} ኤቮ"}
+            }
             foodcalorie{
                 dnam{"Cal"}
                 one{"{0} Cal"}
@@ -338,6 +353,13 @@ am{
                 other{"{0} kWh"}
             }
         }
+        force{
+            newton{
+                dnam{"ኒ"}
+                one{"{0} ኒ"}
+                other{"{0} ኒ"}
+            }
+        }
         frequency{
             gigahertz{
                 dnam{"GHz"}
@@ -358,6 +380,38 @@ am{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"ነበሴሜ"}
+                one{"{0} ነበሴሜ"}
+                other{"{0} ነበሴሜ"}
+            }
+            dot-per-inch{
+                dnam{"ነበኢ"}
+                one{"{0} ነበኢ"}
+                other{"{0} ነበኢ"}
+            }
+            megapixel{
+                dnam{"ሜጋ ፒክስል"}
+                one{"{0} ሜጋ ፒክስል"}
+                other{"{0} ሜጋ ፒክስል"}
+            }
+            pixel{
+                dnam{"ፒክስል"}
+                one{"{0} ፒክስል"}
+                other{"{0} ፒክስል"}
+            }
+            pixel-per-centimeter{
+                dnam{"ፒበሴሜ"}
+                one{"{0} ፒበሴሜ"}
+                other{"{0} ፒበሴሜ"}
+            }
+            pixel-per-inch{
+                dnam{"ፒበኢ"}
+                one{"{0} ፒበኢ"}
+                other{"{0} ፒበኢ"}
             }
         }
         length{
@@ -558,6 +612,11 @@ am{
                 one{"{0} ከባቢ አየር"}
                 other{"{0} ከባቢ አየር"}
             }
+            bar{
+                dnam{"አሞሌ"}
+                one{"{0} አሞሌ"}
+                other{"{0} አሞሌዎች"}
+            }
             hectopascal{
                 dnam{"ሄክቶፓስካል"}
                 one{"{0} ሄክቶፓስካል"}
@@ -568,6 +627,16 @@ am{
                 one{"{0} ኢንች ሜርኩሪ"}
                 other{"{0} ኢንች ሜርኩሪ"}
             }
+            kilopascal{
+                dnam{"ኪሎፓስካል"}
+                one{"{0} ኪሎፓስካል"}
+                other{"{0} ኪሎፓስካል"}
+            }
+            megapascal{
+                dnam{"ሜጋፓስካል"}
+                one{"{0} ሜጋፓስካል"}
+                other{"{0} ሜጋፓስካሎች"}
+            }
             millibar{
                 dnam{"ሚሊባር"}
                 one{"{0} ሚሊባር"}
@@ -577,6 +646,11 @@ am{
                 dnam{"mm Hg"}
                 one{"{0} mm Hg"}
                 other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"ፓስካል"}
+                one{"{0} ፓስካል"}
+                other{"{0} ፓስካል"}
             }
             pound-per-square-inch{
                 dnam{"psi"}
@@ -628,11 +702,23 @@ am{
                 other{"{0} K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ኒ.ሜ"}
+                one{"{0} ኒ.ሜ"}
+                other{"{0} ኒ.ሜ"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ኤከር ጫማ"}
                 one{"{0} ኤከር ጫማ"}
                 other{"{0} ኤከር ጫማ"}
+            }
+            barrel{
+                dnam{"በርሜል"}
+                one{"{0} በርሜል"}
+                other{"{0} በርሜሎች"}
             }
             centiliter{
                 dnam{"ሴንቲ ሊትር"}
@@ -1056,6 +1142,11 @@ am{
                 one{"{0} ኤክር"}
                 other{"{0} ኤክር"}
             }
+            dunam{
+                dnam{"ጋሻዎች"}
+                one{"{0} ጋሻ"}
+                other{"{0} ጋሻ"}
+            }
             hectare{
                 dnam{"ሄክታር"}
                 one{"{0} ሄክታር"}
@@ -1235,6 +1326,11 @@ am{
                 other{"{0} ቀናት"}
                 per{"{0}/ቀ"}
             }
+            decade{
+                dnam{"አስር አመታት"}
+                one{"{0} አስር አመታት"}
+                other{"{0} አስር አመታት"}
+            }
             hour{
                 dnam{"ሰዓቶች"}
                 one{"{0} ሰዓ"}
@@ -1315,6 +1411,11 @@ am{
                 one{"{0} cal"}
                 other{"{0} cal"}
             }
+            electronvolt{
+                dnam{"ኤቮ"}
+                one{"{0} ኤቮ"}
+                other{"{0} ኤቮ"}
+            }
             foodcalorie{
                 dnam{"Cal"}
                 one{"{0} Cal"}
@@ -1341,6 +1442,13 @@ am{
                 other{"{0} kWh"}
             }
         }
+        force{
+            newton{
+                dnam{"ኒ"}
+                one{"{0} ኒ"}
+                other{"{0} ኒ"}
+            }
+        }
         frequency{
             gigahertz{
                 dnam{"GHz"}
@@ -1361,6 +1469,38 @@ am{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"ነበሴሜ"}
+                one{"{0} ነበሴሜ"}
+                other{"{0} ነበሴሜ"}
+            }
+            dot-per-inch{
+                dnam{"ነበኢ"}
+                one{"{0} ነበኢ"}
+                other{"{0} ነበኢ"}
+            }
+            megapixel{
+                dnam{"ሜጋ ፒክስል"}
+                one{"{0} ሜጋ ፒክስል"}
+                other{"{0} ሜጋ ፒክስል"}
+            }
+            pixel{
+                dnam{"ፒክስል"}
+                one{"{0} ፒክስል"}
+                other{"{0} ፒክስል"}
+            }
+            pixel-per-centimeter{
+                dnam{"ፒበሴሜ"}
+                one{"{0} ፒበሴሜ"}
+                other{"{0} ፒበሴሜ"}
+            }
+            pixel-per-inch{
+                dnam{"ፒበኢ"}
+                one{"{0} ፒበኢ"}
+                other{"{0} ፒበኢ"}
             }
         }
         length{
@@ -1561,6 +1701,11 @@ am{
                 one{"{0} ከባቢ አየር"}
                 other{"{0} ከባቢ አየር"}
             }
+            bar{
+                dnam{"አሞሌ"}
+                one{"{0} አሞሌ"}
+                other{"{0} አሞሌዎች"}
+            }
             hectopascal{
                 dnam{"ሄክቶፓስካል"}
                 one{"{0} ሄክቶፓስካል"}
@@ -1571,6 +1716,16 @@ am{
                 one{"{0} ኢሜ"}
                 other{"{0} ኢንሜር"}
             }
+            kilopascal{
+                dnam{"ኪሎፓስካል"}
+                one{"{0} ኪሎፓስካል"}
+                other{"{0} ኪሎፓስካል"}
+            }
+            megapascal{
+                dnam{"ሜጋፓስካል"}
+                one{"{0} ሜጋፓስካል"}
+                other{"{0} ሜጋፓስካል"}
+            }
             millibar{
                 dnam{"ሚሊባር"}
                 one{"{0} ሚባ"}
@@ -1580,6 +1735,11 @@ am{
                 dnam{"mm Hg"}
                 one{"{0} mm Hg"}
                 other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"ፓስካል"}
+                one{"{0} ፓስካል"}
+                other{"{0} ፓስካል"}
             }
             pound-per-square-inch{
                 dnam{"psi"}
@@ -1631,11 +1791,23 @@ am{
                 other{"{0} K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ኒ.ሜ"}
+                one{"{0} ኒ.ሜ"}
+                other{"{0} ኒ.ሜ"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ኤከር ጫማ"}
                 one{"{0} ኤከር ጫማ"}
                 other{"{0} ኤከር ጫማ"}
+            }
+            barrel{
+                dnam{"በርሜል"}
+                one{"{0} በርሜል"}
+                other{"{0} በርሜል"}
             }
             centiliter{
                 dnam{"ሴሊ"}

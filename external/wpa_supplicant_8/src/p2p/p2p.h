@@ -36,7 +36,7 @@
 /**
  * P2P_MAX_REG_CLASS_CHANNELS - Maximum number of channels per regulatory class
  */
-#define P2P_MAX_REG_CLASS_CHANNELS 20
+#define P2P_MAX_REG_CLASS_CHANNELS 60
 
 /**
  * struct p2p_channels - List of supported channels
@@ -98,6 +98,8 @@ struct p2p_go_neg_results {
 	int ht40;
 
 	int vht;
+
+	int edmg;
 
 	u8 max_oper_chwidth;
 

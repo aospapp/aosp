@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import pprint
 import time
 
 from autotest_lib.client.common_lib import error
@@ -106,13 +105,11 @@ class firmware_Cr50CCDServoCap(Cr50Test):
             raise error.TestNAError('Test can only be run on devices with '
                                     'access to the Cr50 console')
 
-        if self.servo.get_servo_version() != 'servo_v4_with_servo_micro':
+        if (self.servo.get_servo_version(active=True) !=
+            'servo_v4_with_servo_micro'):
             raise error.TestNAError('Must use servo v4 with servo micro')
 
-        if not self.cr50.has_command('ccdstate'):
-            raise error.TestNAError('Cannot test on Cr50 with old CCD version')
-
-        if not self.cr50.servo_v4_supports_dts_mode():
+        if not self.cr50.servo_dts_mode_is_valid():
             raise error.TestNAError('Need working servo v4 DTS control')
 
         self.check_servo_monitor()
@@ -137,7 +134,9 @@ class firmware_Cr50CCDServoCap(Cr50Test):
     def state_matches(self, state_dict, state_name, expected_value):
         """Check the current state. Make sure it matches expected value"""
         valid_state = self.VALID_STATES[state_name][expected_value]
-        current_state = state_dict[state_name]
+        # I2C isn't a reliable flag, because the hardware often doesn't support
+        # it. Remove any I2C flags from the ccdstate output.
+        current_state = state_dict[state_name].replace(' I2C', '')
         if isinstance(valid_state, list):
             return current_state in valid_state
         return current_state == valid_state
@@ -150,29 +149,12 @@ class firmware_Cr50CCDServoCap(Cr50Test):
         servo_detect_error = error.TestNAError("Cannot run on device that does "
                 "not support servo dectection with ec_uart_en:off/on")
         self.fake_servo('off')
-        if not self.state_matches(self.get_ccdstate(), 'Servo', self.OFF):
+        if not self.state_matches(self.cr50.get_ccdstate(), 'Servo', self.OFF):
             raise servo_detect_error
         self.fake_servo('on')
-        if not self.state_matches(self.get_ccdstate(), 'Servo', self.ON):
+        if not self.state_matches(self.cr50.get_ccdstate(), 'Servo', self.ON):
             raise servo_detect_error
 
-
-    def get_ccdstate(self):
-        """Get the current Cr50 CCD states"""
-        rv = self.cr50.send_command_get_output('ccdstate',
-                                               ['ccdstate(.*)>'])[0][0]
-        # I2C isn't a reliable flag, because the hardware often doesn't support
-        # it. Remove any I2C flags from the ccdstate output.
-        rv = rv.replace(' I2C', '')
-        # Extract only the ccdstate output from rv
-        ccdstate = {}
-        for line in rv.splitlines():
-            line = line.strip()
-            if ':' in line:
-                k, v = line.split(':', 1)
-                ccdstate[k.strip()] = v.strip()
-        logging.info('Current CCD state:\n%s', pprint.pformat(ccdstate))
-        return ccdstate
 
     def state_is_on(self, ccdstate, state_name):
         """Returns true if the state is on"""
@@ -221,7 +203,7 @@ class firmware_Cr50CCDServoCap(Cr50Test):
         # Wait a short time for the ccd state to settle
         time.sleep(self.SLEEP)
 
-        ccdstate = self.get_ccdstate()
+        ccdstate = self.cr50.get_ccdstate()
         # Check the state flags. Make sure they're in line with the rest of
         # ccdstate
         mismatch = self.check_state_flags(ccdstate)
@@ -268,8 +250,7 @@ class firmware_Cr50CCDServoCap(Cr50Test):
 
         @param state: string 'attach' or 'detach'
         """
-        self.servo.set_nocheck('servo_v4_dts_mode',
-            'on' if state == 'attach' else 'off')
+        self.servo.set_dts_mode('on' if state == 'attach' else 'off')
         time.sleep(self.SLEEP)
 
 

@@ -4,6 +4,7 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <mmc.h>
 #include <asm/io.h>
 #include <asm/ioapic.h>
@@ -268,12 +269,6 @@ int print_cpuinfo(void)
 {
 	post_code(POST_CPU_INFO);
 	return default_print_cpuinfo();
-}
-
-void reset_cpu(ulong addr)
-{
-	/* cold reset */
-	x86_full_reset();
 }
 
 static void quark_pcie_init(void)

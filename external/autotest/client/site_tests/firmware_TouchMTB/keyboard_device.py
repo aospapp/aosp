@@ -6,13 +6,10 @@
 
 import fcntl
 import os
-import re
 import sys
 
 sys.path.append('../../bin/input')
 import input_device
-
-import mtb
 
 from linux_input import EV_KEY
 
@@ -25,7 +22,7 @@ class KeyboardDevice:
             self.device_node = device_node
         else:
             self.device_node = input_device.get_device_node(
-                    input_device.KEYBOARD_TYPES))
+                    input_device.KEYBOARD_TYPES)
         self.system_device = self._non_blocking_open(self.device_node)
         self._input_event = input_device.InputEvent()
 

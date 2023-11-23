@@ -113,7 +113,7 @@ class NDKEnv:
 		try:
 			with open(propFilePath) as propFile:
 				for line in propFile:
-					keyValue = map(lambda x: string.strip(x), line.split("="))
+					keyValue = list(map(lambda x: x.strip(), line.split("=")))
 					if keyValue[0] == "Pkg.Revision":
 						versionParts = keyValue[1].split(".")
 						return tuple(map(int, versionParts[0:2]))
@@ -211,11 +211,11 @@ class Configuration:
 
 def log (config, msg):
 	if config.verbose:
-		print msg
+		print(msg)
 
 def executeAndLog (config, args):
 	if config.verbose:
-		print " ".join(args)
+		print(" ".join(args))
 	execute(args)
 
 # Path components
@@ -303,13 +303,13 @@ class BuildStep:
 		expandedInputs		= BuildStep.expandPathsToFiles(inputs)
 		expandedOutputs		= BuildStep.expandPathsToFiles(outputs)
 
-		existingInputs		= filter(os.path.exists, expandedInputs)
-		existingOutputs		= filter(os.path.exists, expandedOutputs)
+		existingInputs		= list(filter(os.path.exists, expandedInputs))
+		existingOutputs		= list(filter(os.path.exists, expandedOutputs))
 
 		if len(existingInputs) != len(expandedInputs):
 			for file in expandedInputs:
 				if file not in existingInputs:
-					print "ERROR: Missing input file: %s" % file
+					print("ERROR: Missing input file: %s" % file)
 			die("Missing input files")
 
 		if len(existingOutputs) != len(expandedOutputs):
@@ -326,6 +326,13 @@ class BuildStep:
 def getNativeBuildPath (config, abiName):
 	return os.path.join(config.buildPath, "%s-%s-%d" % (abiName, config.nativeBuildType, config.nativeApi))
 
+def clearCMakeCacheVariables(args):
+	# New value, so clear the necessary cmake variables
+	args.append('-UANGLE_LIBS')
+	args.append('-UGLES1_LIBRARY')
+	args.append('-UGLES2_LIBRARY')
+	args.append('-UEGL_LIBRARY')
+
 def buildNativeLibrary (config, abiName):
 	def makeNDKVersionString (version):
 		minorVersionString = (chr(ord('a') + version[1]) if version[1] > 0 else "")
@@ -336,14 +343,30 @@ def buildNativeLibrary (config, abiName):
 				'-DDEQP_TARGET_TOOLCHAIN=ndk-modern',
 				'-DCMAKE_C_FLAGS=-Werror',
 				'-DCMAKE_CXX_FLAGS=-Werror',
-				'-DANDROID_NDK_HOST_OS=%s' % config.env.ndk.hostOsName,
 				'-DANDROID_NDK_PATH=%s' % config.env.ndk.path,
 				'-DANDROID_ABI=%s' % abiName,
 				'-DDE_ANDROID_API=%s' % config.nativeApi,
 				'-DGLCTS_GTF_TARGET=%s' % config.gtfTarget]
 
-		if config.angle is not None:
-			args.append('-DANGLE_LIBS=%s' % os.path.join(config.angle, abiName))
+		if config.angle is None:
+			# Find any previous builds that may have embedded ANGLE libs and clear the CMake cache
+			for abi in NDKEnv.getKnownAbis():
+				cMakeCachePath = os.path.join(getNativeBuildPath(config, abi), "CMakeCache.txt")
+				try:
+					if 'ANGLE_LIBS' in open(cMakeCachePath).read():
+						clearCMakeCacheVariables(args)
+				except IOError:
+					pass
+		else:
+			cMakeCachePath = os.path.join(getNativeBuildPath(config, abiName), "CMakeCache.txt")
+			angleLibsDir = os.path.join(config.angle, abiName)
+			# Check if the user changed where the ANGLE libs are being loaded from
+			try:
+				if angleLibsDir not in open(cMakeCachePath).read():
+					clearCMakeCacheVariables(args)
+			except IOError:
+				pass
+			args.append('-DANGLE_LIBS=%s' % angleLibsDir)
 
 		return args
 
@@ -726,7 +749,7 @@ class AddNativeLibsToAPK (BuildStep):
 					layerAbsPath = os.path.join(pkgPath, layerRelPath)
 					shutil.copyfile(layer, layerAbsPath)
 					libFiles.append(layerRelPath)
-					print "Adding layer binary: %s" % (layer,)
+					print("Adding layer binary: %s" % (layer,))
 
 			if config.angle:
 				angleGlob = os.path.join(config.angle, abi, "lib*_angle.so")
@@ -737,7 +760,7 @@ class AddNativeLibsToAPK (BuildStep):
 					libAbsPath = os.path.join(pkgPath, libRelPath)
 					shutil.copyfile(lib, libAbsPath)
 					libFiles.append(libRelPath)
-					print "Adding ANGLE binary: %s" % (lib,)
+					print("Adding ANGLE binary: %s" % (lib,))
 
 		shutil.copyfile(srcPath, dstPath)
 		addFilesToAPK(config, dstPath, pkgPath, libFiles)
@@ -887,7 +910,7 @@ def parseArgs ():
 	parser.add_argument('--native-api',
 		type=int,
 		dest='nativeApi',
-		default=21,
+		default=28,
 		help="Android API level to target in native code")
 	parser.add_argument('--sdk',
 		dest='sdkPath',
@@ -943,7 +966,7 @@ def parseArgs ():
 		if len(args.abis) == 0:
 			raise Exception("--abis can't be empty")
 	except Exception as e:
-		print "ERROR: %s" % str(e)
+		print("ERROR: %s" % str(e))
 		parser.print_help()
 		sys.exit(-1)
 
@@ -962,11 +985,11 @@ if __name__ == "__main__":
 	try:
 		config.check()
 	except Exception as e:
-		print "ERROR: %s" % str(e)
-		print ""
-		print "Please check your configuration:"
-		print "  --sdk=%s" % args.sdkPath
-		print "  --ndk=%s" % args.ndkPath
+		print("ERROR: %s" % str(e))
+		print("")
+		print("Please check your configuration:")
+		print("  --sdk=%s" % args.sdkPath)
+		print("  --ndk=%s" % args.ndkPath)
 		sys.exit(-1)
 
 	pkg, libs	= getPackageAndLibrariesForTarget(args.target)
@@ -974,5 +997,5 @@ if __name__ == "__main__":
 
 	executeSteps(config, steps)
 
-	print ""
-	print "Built %s" % os.path.join(buildPath, getBuildRootRelativeAPKPath(pkg))
+	print("")
+	print("Built %s" % os.path.join(buildPath, getBuildRootRelativeAPKPath(pkg)))

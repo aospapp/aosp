@@ -1,4 +1,4 @@
-#!/usr/bin/python -i
+#!/usr/bin/python2 -i
 """Inspector for parser_result.store from specified scenerio package.
 
 Load in parser_result.store as 'sto' and launch interactive interp.

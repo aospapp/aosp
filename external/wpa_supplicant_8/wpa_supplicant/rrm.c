@@ -79,7 +79,7 @@ void wpas_rrm_process_neighbor_rep(struct wpa_supplicant *wpa_s,
 			     NULL);
 
 	if (!wpa_s->rrm.notify_neighbor_rep) {
-		wpa_printf(MSG_ERROR, "RRM: Unexpected neighbor report");
+		wpa_msg(wpa_s, MSG_INFO, "RRM: Unexpected neighbor report");
 		return;
 	}
 
@@ -90,8 +90,8 @@ void wpas_rrm_process_neighbor_rep(struct wpa_supplicant *wpa_s,
 		return;
 	}
 	wpabuf_put_data(neighbor_rep, report + 1, report_len - 1);
-	wpa_printf(MSG_DEBUG, "RRM: Notifying neighbor report (token = %d)",
-		   report[0]);
+	wpa_dbg(wpa_s, MSG_DEBUG, "RRM: Notifying neighbor report (token = %d)",
+		report[0]);
 	wpa_s->rrm.notify_neighbor_rep(wpa_s->rrm.neighbor_rep_cb_ctx,
 				       neighbor_rep);
 	wpa_s->rrm.notify_neighbor_rep = NULL;
@@ -101,9 +101,15 @@ void wpas_rrm_process_neighbor_rep(struct wpa_supplicant *wpa_s,
 
 #if defined(__CYGWIN__) || defined(CONFIG_NATIVE_WINDOWS)
 /* Workaround different, undefined for Windows, error codes used here */
+#ifndef ENOTCONN
 #define ENOTCONN -1
+#endif
+#ifndef EOPNOTSUPP
 #define EOPNOTSUPP -1
+#endif
+#ifndef ECANCELED
 #define ECANCELED -1
+#endif
 #endif
 
 /* Measurement Request element + Location Subject + Maximum Age subelement */
@@ -142,12 +148,12 @@ int wpas_rrm_send_neighbor_rep_request(struct wpa_supplicant *wpa_s,
 	const u8 *rrm_ie;
 
 	if (wpa_s->wpa_state != WPA_COMPLETED || wpa_s->current_ssid == NULL) {
-		wpa_printf(MSG_DEBUG, "RRM: No connection, no RRM.");
+		wpa_dbg(wpa_s, MSG_DEBUG, "RRM: No connection, no RRM.");
 		return -ENOTCONN;
 	}
 
 	if (!wpa_s->rrm.rrm_used) {
-		wpa_printf(MSG_DEBUG, "RRM: No RRM in current connection.");
+		wpa_dbg(wpa_s, MSG_DEBUG, "RRM: No RRM in current connection.");
 		return -EOPNOTSUPP;
 	}
 
@@ -155,15 +161,15 @@ int wpas_rrm_send_neighbor_rep_request(struct wpa_supplicant *wpa_s,
 				WLAN_EID_RRM_ENABLED_CAPABILITIES);
 	if (!rrm_ie || !(wpa_s->current_bss->caps & IEEE80211_CAP_RRM) ||
 	    !(rrm_ie[2] & WLAN_RRM_CAPS_NEIGHBOR_REPORT)) {
-		wpa_printf(MSG_DEBUG,
-			   "RRM: No network support for Neighbor Report.");
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"RRM: No network support for Neighbor Report.");
 		return -EOPNOTSUPP;
 	}
 
 	/* Refuse if there's a live request */
 	if (wpa_s->rrm.notify_neighbor_rep) {
-		wpa_printf(MSG_DEBUG,
-			   "RRM: Currently handling previous Neighbor Report.");
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"RRM: Currently handling previous Neighbor Report.");
 		return -EBUSY;
 	}
 
@@ -172,14 +178,15 @@ int wpas_rrm_send_neighbor_rep_request(struct wpa_supplicant *wpa_s,
 			   (lci ? 2 + MEASURE_REQUEST_LCI_LEN : 0) +
 			   (civic ? 2 + MEASURE_REQUEST_CIVIC_LEN : 0));
 	if (buf == NULL) {
-		wpa_printf(MSG_DEBUG,
-			   "RRM: Failed to allocate Neighbor Report Request");
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"RRM: Failed to allocate Neighbor Report Request");
 		return -ENOMEM;
 	}
 
-	wpa_printf(MSG_DEBUG, "RRM: Neighbor report request (for %s), token=%d",
-		   (ssid ? wpa_ssid_txt(ssid->ssid, ssid->ssid_len) : ""),
-		   wpa_s->rrm.next_neighbor_rep_token);
+	wpa_dbg(wpa_s, MSG_DEBUG,
+		"RRM: Neighbor report request (for %s), token=%d",
+		(ssid ? wpa_ssid_txt(ssid->ssid, ssid->ssid_len) : ""),
+		wpa_s->rrm.next_neighbor_rep_token);
 
 	wpabuf_put_u8(buf, WLAN_ACTION_RADIO_MEASUREMENT);
 	wpabuf_put_u8(buf, WLAN_RRM_NEIGHBOR_REPORT_REQUEST);
@@ -261,8 +268,8 @@ int wpas_rrm_send_neighbor_rep_request(struct wpa_supplicant *wpa_s,
 	if (wpa_drv_send_action(wpa_s, wpa_s->assoc_freq, 0, wpa_s->bssid,
 				wpa_s->own_addr, wpa_s->bssid,
 				wpabuf_head(buf), wpabuf_len(buf), 0) < 0) {
-		wpa_printf(MSG_DEBUG,
-			   "RRM: Failed to send Neighbor Report Request");
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"RRM: Failed to send Neighbor Report Request");
 		wpabuf_free(buf);
 		return -ECANCELED;
 	}
@@ -522,7 +529,8 @@ static int * wpas_add_channels(const struct oper_class_map *op,
 	next_freq = freqs;
 	for  (i = 0; i < num_chans; i++) {
 		u8 chan = channels ? channels[i] : op->min_chan + i * op->inc;
-		enum chan_allowed res = verify_channel(mode, chan, op->bw);
+		enum chan_allowed res = verify_channel(mode, op->op_class, chan,
+						       op->bw);
 
 		if (res == NOT_ALLOWED || (res == NO_IR && active))
 			continue;
@@ -601,7 +609,8 @@ static int * wpas_channel_report_freqs(struct wpa_supplicant *wpa_s, int active,
 		pos++;
 		left--;
 
-		mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, op->mode);
+		mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, op->mode,
+				is_6ghz_op_class(op->op_class));
 		if (!mode)
 			continue;
 
@@ -653,7 +662,8 @@ static int * wpas_beacon_request_freqs(struct wpa_supplicant *wpa_s,
 		return NULL;
 	}
 
-	mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, op->mode);
+	mode = get_mode(wpa_s->hw.modes, wpa_s->hw.num_modes, op->mode,
+			is_6ghz_op_class(op->op_class));
 	if (!mode)
 		return NULL;
 
@@ -685,8 +695,8 @@ static int * wpas_beacon_request_freqs(struct wpa_supplicant *wpa_s,
 }
 
 
-static int wpas_get_op_chan_phy(int freq, const u8 *ies, size_t ies_len,
-				u8 *op_class, u8 *chan, u8 *phy_type)
+int wpas_get_op_chan_phy(int freq, const u8 *ies, size_t ies_len,
+			 u8 *op_class, u8 *chan, u8 *phy_type)
 {
 	const u8 *ie;
 	int sec_chan = 0, vht = 0;
@@ -717,20 +727,20 @@ static int wpas_get_op_chan_phy(int freq, const u8 *ies, size_t ies_len,
 			seg0 = vht_oper->vht_op_info_chan_center_freq_seg0_idx;
 			seg1 = vht_oper->vht_op_info_chan_center_freq_seg1_idx;
 			if (seg1 && abs(seg1 - seg0) == 8)
-				vht = VHT_CHANWIDTH_160MHZ;
+				vht = CHANWIDTH_160MHZ;
 			else if (seg1)
-				vht = VHT_CHANWIDTH_80P80MHZ;
+				vht = CHANWIDTH_80P80MHZ;
 			else
-				vht = VHT_CHANWIDTH_80MHZ;
+				vht = CHANWIDTH_80MHZ;
 			break;
 		case 2:
-			vht = VHT_CHANWIDTH_160MHZ;
+			vht = CHANWIDTH_160MHZ;
 			break;
 		case 3:
-			vht = VHT_CHANWIDTH_80P80MHZ;
+			vht = CHANWIDTH_80P80MHZ;
 			break;
 		default:
-			vht = VHT_CHANWIDTH_USE_HT;
+			vht = CHANWIDTH_USE_HT;
 			break;
 		}
 	}

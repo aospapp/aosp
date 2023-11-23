@@ -185,10 +185,9 @@ inline void USE(const T1&, const T2&, const T3&) {}
 template <typename T1, typename T2, typename T3, typename T4>
 inline void USE(const T1&, const T2&, const T3&, const T4&) {}
 
-#define VIXL_ALIGNMENT_EXCEPTION()            \
-  do {                                        \
-    fprintf(stderr, "ALIGNMENT EXCEPTION\t"); \
-    VIXL_ABORT();                             \
+#define VIXL_ALIGNMENT_EXCEPTION()                \
+  do {                                            \
+    VIXL_ABORT_WITH_MSG("ALIGNMENT EXCEPTION\t"); \
   } while (0)
 
 // The clang::fallthrough attribute is used along with the Wimplicit-fallthrough
@@ -228,13 +227,12 @@ inline void USE(const T1&, const T2&, const T3&, const T4&) {}
 #define VIXL_OVERRIDE
 #endif
 
-// Some functions might only be marked as "noreturn" for the DEBUG build. This
-// macro should be used for such cases (for more details see what
-// VIXL_UNREACHABLE expands to).
-#ifdef VIXL_DEBUG
-#define VIXL_DEBUG_NO_RETURN VIXL_NO_RETURN
+// With VIXL_NEGATIVE_TESTING on, VIXL_ASSERT and VIXL_CHECK will throw
+// exceptions but C++11 marks destructors as noexcept(true) by default.
+#if defined(VIXL_NEGATIVE_TESTING) && __cplusplus >= 201103L
+#define VIXL_NEGATIVE_TESTING_ALLOW_EXCEPTION noexcept(false)
 #else
-#define VIXL_DEBUG_NO_RETURN
+#define VIXL_NEGATIVE_TESTING_ALLOW_EXCEPTION
 #endif
 
 #ifdef VIXL_INCLUDE_SIMULATOR_AARCH64
@@ -269,15 +267,23 @@ inline void USE(const T1&, const T2&, const T3&, const T4&) {}
 
 // Target Architecture/ISA
 #ifdef VIXL_INCLUDE_TARGET_A64
+#ifndef VIXL_INCLUDE_TARGET_AARCH64
 #define VIXL_INCLUDE_TARGET_AARCH64
+#endif
 #endif
 
 #if defined(VIXL_INCLUDE_TARGET_A32) && defined(VIXL_INCLUDE_TARGET_T32)
+#ifndef VIXL_INCLUDE_TARGET_AARCH32
 #define VIXL_INCLUDE_TARGET_AARCH32
+#endif
 #elif defined(VIXL_INCLUDE_TARGET_A32)
+#ifndef VIXL_INCLUDE_TARGET_A32_ONLY
 #define VIXL_INCLUDE_TARGET_A32_ONLY
+#endif
 #else
+#ifndef VIXL_INCLUDE_TARGET_T32_ONLY
 #define VIXL_INCLUDE_TARGET_T32_ONLY
+#endif
 #endif
 
 

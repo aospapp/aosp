@@ -23,6 +23,14 @@ dEQP-GLES2.functional.implementation_limits.max_vertex_texture_image_units
 dEQP-GLES2.functional.implementation_limits.max_texture_image_units
 dEQP-GLES2.functional.implementation_limits.max_fragment_uniform_vectors
 dEQP-GLES2.functional.implementation_limits.max_renderbuffer_size
+dEQP-GLES2.functional.clip_control.initial
+dEQP-GLES2.functional.clip_control.modify_get
+dEQP-GLES2.functional.clip_control.errors
+dEQP-GLES2.functional.clip_control.origin
+dEQP-GLES2.functional.clip_control.depth_mode_zero_to_one
+dEQP-GLES2.functional.clip_control.depth_mode_one_to_one
+dEQP-GLES2.functional.clip_control.face_culling
+dEQP-GLES2.functional.clip_control.viewport_bounds
 dEQP-GLES2.functional.color_clear.single_rgb
 dEQP-GLES2.functional.color_clear.single_rgba
 dEQP-GLES2.functional.color_clear.multiple_rgb
@@ -137,8 +145,6 @@ dEQP-GLES2.functional.shaders.preprocessor.basic.empty_function_vertex
 dEQP-GLES2.functional.shaders.preprocessor.basic.empty_function_fragment
 dEQP-GLES2.functional.shaders.preprocessor.basic.empty_directive_vertex
 dEQP-GLES2.functional.shaders.preprocessor.basic.empty_directive_fragment
-dEQP-GLES2.functional.shaders.preprocessor.basic.identifier_with_double_underscore_vertex
-dEQP-GLES2.functional.shaders.preprocessor.basic.identifier_with_double_underscore_fragment
 dEQP-GLES2.functional.shaders.preprocessor.definitions.define_value_and_function_vertex
 dEQP-GLES2.functional.shaders.preprocessor.definitions.define_value_and_function_fragment
 dEQP-GLES2.functional.shaders.preprocessor.definitions.undefine_object_invalid_syntax_vertex
@@ -2256,9 +2262,6 @@ dEQP-GLES2.functional.shaders.functions.invalid.attribute_local_vertex
 dEQP-GLES2.functional.shaders.functions.invalid.attribute_local_fragment
 dEQP-GLES2.functional.shaders.functions.invalid.uniform_argument_vertex
 dEQP-GLES2.functional.shaders.functions.invalid.uniform_argument_fragment
-dEQP-GLES2.functional.shaders.functions.invalid.varying_argument_vertex
-dEQP-GLES2.functional.shaders.functions.invalid.varying_argument_fragment
-dEQP-GLES2.functional.shaders.functions.invalid.attribute_argument_vertex
 dEQP-GLES2.functional.shaders.functions.invalid.attribute_argument_fragment
 dEQP-GLES2.functional.shaders.functions.invalid.uniform_return_type_vertex
 dEQP-GLES2.functional.shaders.functions.invalid.uniform_return_type_fragment

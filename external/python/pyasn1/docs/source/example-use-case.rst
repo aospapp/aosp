@@ -45,7 +45,7 @@ tool:
 
 .. code-block:: bash
 
-    $ pyasn1gen.py pkcs-1.asn > rsakey.py
+    $ asn1ate pkcs-1.asn > rsakey.py
 
 Though it may not work out as, as it stands now, asn1ate does not support
 all ASN.1 language constructs.
@@ -97,7 +97,7 @@ set on the key file):
     from rsakey import RSAPrivateKey
 
     # Read SSH key from file (assuming no passphrase)
-    with open open('.ssh/id_rsa') as key_file:
+    with open('.ssh/id_rsa') as key_file:
         b64_serialisation = ''.join(key_file.readlines()[1:-1])
 
     # Undo BASE64 serialisation

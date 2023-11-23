@@ -81,25 +81,25 @@ public final class PhoneNumberMatch {
   }
 
   /** Returns the phone number matched by the receiver. */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public PhoneNumber number() {
     return number;
   }
 
   /** Returns the start index of the matched phone number within the searched text. */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public int start() {
     return start;
   }
 
   /** Returns the exclusive end index of the matched phone number within the searched text. */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public int end() {
     return start + rawString.length();
   }
 
   /** Returns the raw string matched as a phone number in the searched text. */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String rawString() {
     return rawString;
   }

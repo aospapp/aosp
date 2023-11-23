@@ -6,6 +6,7 @@
 
 from autotest_lib.server.cros.power import power_base_wrapper
 from autotest_lib.server.cros.power import power_telemetry_logger
+from autotest_lib.server.cros.power import servo_charger
 
 
 class power_PowerlogWrapper(power_base_wrapper.PowerBaseWrapper):
@@ -15,6 +16,28 @@ class power_PowerlogWrapper(power_base_wrapper.PowerBaseWrapper):
     with Sweetberry via powerlog tool.
     """
     version = 1
+
+    def warmup(self, host, charge_control=False):
+        """Disconnect DUT from AC power.
+
+        Many power autotests require that DUT is on battery, thus disconnect DUT
+        from AC power as preparation.
+        """
+        super(power_PowerlogWrapper, self).warmup(host)
+        if charge_control:
+            self._charge_manager = servo_charger.ServoV4ChargeManager(
+                    host, host.servo)
+            self._charge_manager.stop_charging()
+
+    def cleanup(self, charge_control=False):
+        """Connect DUT to AC power.
+
+        This allows DUT to charge between tests, and complies with moblab
+        requirement.
+        """
+        if charge_control:
+            self._charge_manager.start_charging()
+        super(power_PowerlogWrapper, self).cleanup()
 
     def _get_power_telemetry_logger(self, host, config, resultsdir):
         """Return powerlog telemetry logger.

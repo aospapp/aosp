@@ -169,6 +169,7 @@ void *ihevce_lap_init(
     memset(&ps_lap_struct->ai4_encode_order_poc[0], 0, MAX_NUM_ENC_NODES * sizeof(WORD32));
     memset(&ps_lap_struct->ref_poc_array[0], 0xFF, sizeof(ps_lap_struct->ref_poc_array));
     memset(&ps_lap_struct->ai4_pic_type_to_be_removed, 0, NUM_LAP2_LOOK_AHEAD * sizeof(WORD32));
+    memset(&ps_lap_struct->ai4_num_buffer[0], 0, sizeof(ps_lap_struct->ai4_num_buffer));
 
     ps_lap_struct->i4_curr_poc = 0;
     ps_lap_struct->i4_cra_poc = 0;
@@ -189,7 +190,6 @@ void *ihevce_lap_init(
     ps_lap_struct->i4_idr_gop_num = -1;
     ps_lap_struct->i4_curr_ref_pics = 0;
     ps_lap_struct->i4_display_num = 0;
-    ps_lap_struct->i4_num_frames_after_force_idr = 0;
     ps_lap_struct->i4_num_frm_type_decided = 0;
     ps_lap_struct->i4_next_start_ctr = 0;
     ps_lap_struct->ai1_pic_type[0] = PIC_TYPE_IDR;
@@ -295,6 +295,12 @@ void *ihevce_lap_init(
         &ps_lap_struct->api4_encode_order_array[0],
         0,
         sizeof(ihevce_lap_enc_buf_t *) * MAX_NUM_ENC_NODES);
+    ps_lap_struct->i4_sub_gop_pic_idx = 0;
+    ps_lap_struct->i4_force_idr_pos = 0;
+    ps_lap_struct->i4_num_dummy_pic = 0;
+    ps_lap_struct->i4_lap_encode_idx = 0;
+    ps_lap_struct->i4_deq_lap_buf = 0;
+    ps_lap_struct->i4_sub_gop_end = 0;
 
     {
         WORD32 node_offset, curr_layer;
@@ -537,158 +543,56 @@ void ihevce_lap_parse_sync_cmd(
     WORD32 *pi4_cmd_buf,
     ihevce_lap_enc_buf_t *ps_lap_inp_buf,
     WORD32 *pi4_flush_check,
-    WORD32 *pi4_force_idr_check,
-    WORD32 *pi4_set_res_check,
-    WORD32 *pi4_num_frames_after_force_idr)
+    WORD32 *pi4_force_idr_check)
 {
-    WORD32 *pi4_end;
-    WORD32 i4_sub_gop_size_mul_2, i4_field_pic, i4_is_first_field;
-    WORD32 *pi4_tag_parse, i4_end_flag = 0, *pi4_next_tag, i4_length, i4_buf_id, i4_next_tag;
+    WORD32 *pi4_tag_parse = pi4_cmd_buf;
+    WORD32 i4_cmd_size = ps_lap_inp_buf->s_input_buf.i4_cmd_buf_size;
+    WORD32 i4_buf_id = ps_lap_inp_buf->s_input_buf.i4_buf_id;
     UWORD32 u4_num_sei = 0;
-    i4_length = ps_lap_inp_buf->s_input_buf.i4_cmd_buf_size;
-    i4_buf_id = ps_lap_inp_buf->s_input_buf.i4_buf_id;
-    pi4_end = pi4_cmd_buf + (i4_length >> 2) - 1;
-    i4_sub_gop_size_mul_2 = (1 << ps_static_cfg_prms->s_coding_tools_prms.i4_max_temporal_layers)
-                            << 1;
-    i4_field_pic = ps_static_cfg_prms->s_src_prms.i4_field_pic;
-    pi4_tag_parse = pi4_cmd_buf;
-    i4_is_first_field = 1;
-    if(i4_field_pic)
-    {
-        i4_is_first_field =
-            (ps_lap_inp_buf->s_input_buf.i4_topfield_first ^
-             ps_lap_inp_buf->s_input_buf.i4_bottom_field);
-    }
+    WORD32 i4_end_flag = 0;
 
-    while(pi4_tag_parse != (pi4_end + 1))
+    while(i4_cmd_size >= 4)
     {
         switch((*pi4_tag_parse) & (IHEVCE_COMMANDS_TAG_MASK))
         {
         case IHEVCE_SYNCH_API_FLUSH_TAG:
-            (*pi4_flush_check) = 1;
-            if((*(pi4_tag_parse + 1)))
+            if(i4_cmd_size < 8 || pi4_tag_parse[1])
+            {
                 ps_hle_ctxt->ihevce_cmds_error_report(
                     ps_hle_ctxt->pv_cmd_err_cb_handle,
                     IHEVCE_SYNCH_ERR_LENGTH_NOT_ZERO,
                     1,
                     i4_buf_id);
+                return;
+            }
+            (*pi4_flush_check) = 1;
             pi4_tag_parse += 2;
+            i4_cmd_size -= 8;
             u4_num_sei++;
             break;
         case IHEVCE_SYNCH_API_FORCE_IDR_TAG:
-            if(0 == i4_field_pic)
+            if(i4_cmd_size < 8 || pi4_tag_parse[1])
             {
-                (*pi4_force_idr_check) = 1;
-                if((*(pi4_tag_parse + 1)))
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_LENGTH_NOT_ZERO,
-                        1,
-                        i4_buf_id);
-                if(*pi4_num_frames_after_force_idr < i4_sub_gop_size_mul_2)
-                {
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_FREQ_FORCE_IDR_RECEIVED,
-                        1,
-                        i4_buf_id);
-                }
-                *pi4_num_frames_after_force_idr = 0;
+                ps_hle_ctxt->ihevce_cmds_error_report(
+                    ps_hle_ctxt->pv_cmd_err_cb_handle,
+                    IHEVCE_SYNCH_ERR_LENGTH_NOT_ZERO,
+                    1,
+                    i4_buf_id);
+                return;
             }
-            else
-            {
-                if(i4_is_first_field)
-                {
-                    (*pi4_force_idr_check) = 1;
-                }
-                if((*(pi4_tag_parse + 1)))
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_LENGTH_NOT_ZERO,
-                        1,
-                        i4_buf_id);
-
-                if((*pi4_num_frames_after_force_idr < (i4_sub_gop_size_mul_2 << 1)))
-                {
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_FREQ_FORCE_IDR_RECEIVED,
-                        1,
-                        i4_buf_id);
-                }
-                *pi4_num_frames_after_force_idr = 0;
-            }
+            (*pi4_force_idr_check) = 1;
             pi4_tag_parse += 2;
-            u4_num_sei++;
-            break;
-        case IHEVCE_SYNCH_API_SET_RES_TAG:
-            (*pi4_set_res_check) = 0;
-            ps_hle_ctxt->ihevce_cmds_error_report(
-                ps_hle_ctxt->pv_cmd_err_cb_handle,
-                IHEVCE_SYNCH_ERR_SET_RES_NOT_SUPPORTED,
-                1,
-                i4_buf_id);
-            break;
-        case IHEVCE_SYNCH_API_REG_ALLFRAME_SEI_TAG:
-            pi4_next_tag =
-                pi4_tag_parse + 2 +
-                (((*(pi4_tag_parse + 1) - 1) >> 2) + 1);  //Logic to reach the next boundary of 4
-            i4_next_tag = (*pi4_next_tag & IHEVCE_COMMANDS_TAG_MASK);
-            if((i4_next_tag != IHEVCE_SYNCH_API_END_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_FLUSH_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_FORCE_IDR_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_REG_KEYFRAME_SEI_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_REG_ALLFRAME_SEI_TAG))
-            {
-                if(*(pi4_tag_parse + 1) % 4)
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_NO_PADDING,
-                        1,
-                        i4_buf_id);
-                else
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_WRONG_LENGTH,
-                        1,
-                        i4_buf_id);
-            }
-            pi4_tag_parse = pi4_next_tag;
-            u4_num_sei++;
-            break;
-        case IHEVCE_SYNCH_API_REG_KEYFRAME_SEI_TAG:
-            pi4_next_tag =
-                pi4_tag_parse + 2 +
-                (((*(pi4_tag_parse + 1) - 1) >> 2) + 1);  //Logic to reach the next boundary of 4
-            i4_next_tag = (*pi4_next_tag & IHEVCE_COMMANDS_TAG_MASK);
-            if((i4_next_tag != IHEVCE_SYNCH_API_END_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_FLUSH_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_FORCE_IDR_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_REG_KEYFRAME_SEI_TAG) &&
-               (i4_next_tag != IHEVCE_SYNCH_API_REG_ALLFRAME_SEI_TAG))
-            {
-                if(*(pi4_tag_parse + 1) % 4)
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_NO_PADDING,
-                        1,
-                        i4_buf_id);
-                else
-                    ps_hle_ctxt->ihevce_cmds_error_report(
-                        ps_hle_ctxt->pv_cmd_err_cb_handle,
-                        IHEVCE_SYNCH_ERR_WRONG_LENGTH,
-                        1,
-                        i4_buf_id);
-            }
-            pi4_tag_parse = pi4_next_tag;
+            i4_cmd_size -= 8;
             u4_num_sei++;
             break;
         case IHEVCE_SYNCH_API_END_TAG:
             i4_end_flag = 1;
+            i4_cmd_size -= 4;
             break;
         default:
             ps_hle_ctxt->ihevce_cmds_error_report(
                 ps_hle_ctxt->pv_cmd_err_cb_handle, IHEVCE_SYNCH_ERR_TLV_ERROR, 1, i4_buf_id);
+            i4_end_flag = 1;
         }
         if(i4_end_flag)
             break;
@@ -717,32 +621,35 @@ void ihevce_lap_parse_async_cmd(
     ihevce_dyn_config_prms_t *ps_dyn_br)
 {
     WORD32 i4_end_flag = 0;
-    WORD32 *pi4_end = pi4_cmd_buf + (i4_length >> 2) - 1;
     WORD32 *pi4_tag_parse = pi4_cmd_buf;
 
-    while(pi4_tag_parse != pi4_end)
+    while(i4_length >= 4)
     {
         switch(*pi4_tag_parse)
         {
         case IHEVCE_ASYNCH_API_SETBITRATE_TAG:
-            if((*(pi4_tag_parse + 1)) != sizeof(ihevce_dyn_config_prms_t))
+            if(i4_length < (8 + sizeof(ihevce_dyn_config_prms_t)) ||
+               pi4_tag_parse[1] != sizeof(ihevce_dyn_config_prms_t))
+            {
                 ps_hle_ctxt->ihevce_cmds_error_report(
                     ps_hle_ctxt->pv_cmd_err_cb_handle, IHEVCE_ASYNCH_ERR_BR_NOT_BYTE, 1, i4_buf_id);
-
+                return;
+            }
             memcpy(
                 (void *)ps_dyn_br, (void *)(pi4_tag_parse + 2), sizeof(ihevce_dyn_config_prms_t));
-            pi4_tag_parse += 2;
-            pi4_tag_parse += (sizeof(ihevce_dyn_config_prms_t) >> 2);
-            *pi4_num_set_bitrate_cmds = *pi4_num_set_bitrate_cmds + 1;
+            pi4_tag_parse += (2 + (sizeof(ihevce_dyn_config_prms_t) >> 2));
+            i4_length -= (8 + sizeof(ihevce_dyn_config_prms_t));
+            *pi4_num_set_bitrate_cmds += 1;
             ps_dyn_br++;
-
             break;
         case IHEVCE_ASYNCH_API_END_TAG:
             i4_end_flag = 1;
+            i4_length -= 4;
             break;
         default:
             ps_hle_ctxt->ihevce_cmds_error_report(
                 ps_hle_ctxt->pv_cmd_err_cb_handle, IHEVCE_ASYNCH_ERR_TLV_ERROR, 1, i4_buf_id);
+            i4_end_flag = 1;
         }
         if(i4_end_flag)
             break;
@@ -1043,6 +950,17 @@ void ihevce_determine_next_sub_gop_state(lap_struct_t *ps_lap_struct)
     WORD32 i4_Cd = ps_lap_struct->i4_idr_counter;
     WORD32 i4_Cc = ps_lap_struct->i4_cra_counter;
     WORD32 i4_Ci = ps_lap_struct->i4_i_counter;
+
+    if(ps_lap_struct->i4_force_idr_pos)
+    {
+        ps_lap_struct->i4_num_frm_type_decided = 1;
+        ps_lap_struct->ai1_pic_type[0] = PIC_TYPE_IDR;
+        ps_lap_struct->i4_idr_counter = 0;
+        ps_lap_struct->i4_cra_counter = 0;
+        ps_lap_struct->i4_i_counter = 0;
+        ps_lap_struct->i4_force_idr_pos = 0;
+        ps_lap_struct->i4_sub_gop_pic_idx = 0;
+    }
 
     if(i4_Midr)
         ASSERT(i4_Cd < i4_Midr);
@@ -1887,6 +1805,11 @@ void ihevce_lap_queue_input(
                 ps_lap_struct->i4_end_flag_pic_idx = i4_capture_idx;
             ps_lap_struct->ai4_capture_order_poc[i4_capture_idx] = ps_lap_struct->i4_curr_poc++;
         }
+
+        if((1 == ps_lap_struct->i4_num_dummy_pic) && (ps_lap_struct->i4_sub_gop_end == 0))
+        {
+            ps_lap_struct->i4_sub_gop_end = i4_capture_idx - 1;
+        }
         i4_capture_idx++;
 
         /* to take care of buffering 1 extra picture at start or at IDR interval*/
@@ -1936,7 +1859,9 @@ void ihevce_lap_queue_input(
         /* reset the queue idx end of every gop */
         if(i4_capture_idx == (sub_gop_size + first_gop_flag))
         {
-            if(ps_lap_struct->i4_end_flag_pic_idx)
+            ps_lap_struct->pi4_encode_poc_ptr = &ps_lap_struct->ai4_encode_order_poc[0];
+
+            if(ps_lap_struct->i4_end_flag_pic_idx && (1 != sub_gop_size))
             {
                 WORD32 i4_temp_poc = 0;
                 ihevce_lap_enc_buf_t *ps_temp_lap_enc_buf = NULL;
@@ -1962,6 +1887,44 @@ void ihevce_lap_queue_input(
                     ps_lap_struct->ai4_capture_order_poc[ps_lap_struct->i4_end_flag_pic_idx];
 
                 ps_lap_struct->ai4_capture_order_poc[i4_capture_idx - 1] = i4_temp_poc;
+            }
+
+            if(ps_lap_struct->i4_num_dummy_pic)
+            {
+                WORD32 pic_idx;
+                ihevce_lap_enc_buf_t *ps_temp_lap_enc_buf = NULL;
+                static const WORD32 subgop_temporal_layer3[8] = { 7, 3, 1, 0, 2, 5, 4, 6 };
+                static const WORD32 subgop_temporal_layer2[4] = { 3, 1, 0, 2 };
+                const WORD32 *subgop_pic_idx = (ps_lap_static_params->i4_max_temporal_layers == 2)
+                                                   ? &subgop_temporal_layer2[0]
+                                                   : &subgop_temporal_layer3[0];
+                WORD32 max_pic_count = ps_lap_struct->i4_sub_gop_end + 1;
+
+                for(pic_idx = 0; pic_idx < max_pic_count; pic_idx++)
+                {
+                    WORD32 i4_temp_idx = ps_lap_static_params->i4_max_temporal_layers > 1
+                                             ? subgop_pic_idx[pic_idx]
+                                             : 1;
+
+                    if(NULL == ps_lap_struct->api4_capture_order_array[i4_temp_idx])
+                    {
+                        ps_temp_lap_enc_buf =
+                            ps_lap_struct->api4_capture_order_array[ps_lap_struct->i4_sub_gop_end];
+                        if(pic_idx == 0)
+                        {
+                            ps_temp_lap_enc_buf->s_lap_out.i4_pic_type = IV_P_FRAME;
+                        }
+                        ps_lap_struct->api4_capture_order_array[i4_temp_idx] = ps_temp_lap_enc_buf;
+                        ps_lap_struct->api4_capture_order_array[ps_lap_struct->i4_sub_gop_end] =
+                            NULL;
+
+                        ps_lap_struct->ai4_capture_order_poc[i4_temp_idx] =
+                            ps_lap_struct->ai4_capture_order_poc[ps_lap_struct->i4_sub_gop_end];
+                        ps_lap_struct->ai4_capture_order_poc[ps_lap_struct->i4_sub_gop_end] = 0;
+                        ps_lap_struct->i4_sub_gop_end--;
+                    }
+                }
+                ps_lap_struct->i4_sub_gop_end = 0;
             }
             i4_capture_idx = 0;
 
@@ -2029,10 +1992,24 @@ void ihevce_lap_queue_input(
             /* reset the IDR flag */
             ps_lap_struct->i4_idr_flag = 0;
             ps_lap_struct->i4_dyn_sub_gop_size = ps_lap_struct->i4_sub_gop_size;
-        }
 
-        if(0 == ps_lap_struct->i4_lap_out_idx)
-            ps_lap_struct->i4_max_buf_in_enc_order = ps_lap_struct->i4_num_bufs_encode_order;
+            /*Copy encode array to lap output buf*/
+            memcpy(
+                &ps_lap_struct->api4_lap_out_buf[ps_lap_struct->i4_lap_encode_idx],
+                &ps_lap_struct->api4_encode_order_array[0],
+                sizeof(ihevce_lap_enc_buf_t *) * ps_lap_struct->i4_num_bufs_encode_order);
+
+            memset(
+                &ps_lap_struct->api4_encode_order_array[0],
+                0,
+                sizeof(ihevce_lap_enc_buf_t *) * ps_lap_struct->i4_num_bufs_encode_order);
+
+            ps_lap_struct->ai4_num_buffer[ps_lap_struct->i4_lap_encode_idx] =
+                ps_lap_struct->i4_num_bufs_encode_order - ps_lap_struct->i4_num_dummy_pic;
+
+            ps_lap_struct->i4_lap_encode_idx++;
+            ps_lap_struct->i4_lap_encode_idx &= (MAX_SUBGOP_IN_ENCODE_QUEUE - 1);
+        }
 
         /* store the capture index */
         ps_lap_struct->i4_capture_idx = i4_capture_idx;
@@ -2056,13 +2033,12 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
     ihevce_tgt_params_t *ps_tgt_params =
         &ps_lap_struct->s_static_cfg_params.s_tgt_lyr_prms.as_tgt_params[0];
     WORD32 i4_field_flag = ps_lap_struct->s_lap_static_params.i4_src_interlace_field;
-    WORD32 i4_num_frames_after_force_idr = ps_lap_struct->i4_num_frames_after_force_idr;
     WORD32 i4_flush_check = 0;
     WORD32 i4_force_idr_check = 0;
-    WORD32 i4_set_res_check = 0;
     WORD32 i4_tree_num = 0;
     iv_input_ctrl_buffs_t *ps_ctrl_buf = NULL;
     WORD32 buf_id = 0;
+    WORD32 i4_lap_window_size = 1 << ps_lap_struct->s_lap_static_params.i4_max_temporal_layers;
 
     ps_lap_interface->i4_ctrl_in_que_blocking_mode = BUFF_QUE_NON_BLOCKING_MODE;
 
@@ -2109,16 +2085,13 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
             /* check FLUSH comand and Force IDR in the complete buffer */
             i4_flush_check = 0;
             i4_force_idr_check = 0;
-            i4_set_res_check = 0;
             ihevce_lap_parse_sync_cmd(
                 ps_hle_ctxt,
                 &ps_lap_struct->s_static_cfg_params,
                 pi4_cmd_buf,
                 ps_lap_inp_buf,
                 &i4_flush_check,
-                &i4_force_idr_check,
-                &i4_set_res_check,
-                &i4_num_frames_after_force_idr);
+                &i4_force_idr_check);
 
             if(i4_flush_check)
                 ps_lap_struct->end_flag = 1;
@@ -2156,8 +2129,6 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
                 {
                     ps_lap_inp_buf->s_lap_out.i4_force_idr_flag = 1;
                 }
-                ASSERT(i4_set_res_check == 0);
-
                 /* Populate input params in lap out struct */
                 ps_lap_inp_buf->s_lap_out.s_input_buf.pv_y_buf =
                     ps_lap_inp_buf->s_input_buf.s_input_buf.pv_y_buf;
@@ -2179,8 +2150,6 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
                     ps_lap_inp_buf->s_input_buf.s_input_buf.i4_uv_strd;
 
                 ps_lap_struct->i4_display_num++;
-                i4_num_frames_after_force_idr++;
-
                 ps_lap_struct->aps_lap_inp_buf[ps_lap_struct->i4_buf_enq_idx] = ps_lap_inp_buf;
                 /* update first field flag */
                 ps_lap_inp_buf->s_lap_out.i4_first_field = 1;
@@ -2197,10 +2166,54 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
                     ps_lap_inp_buf->s_lap_out.i4_force_idr_flag = 0;
                 }
 
-                /*to be filed*/
-                if(0 ==
-                   ps_lap_struct->i4_num_frm_type_decided /*&& ps_lap_struct->i4_init_delay_over*/)
+                if((i4_lap_window_size > 1) &&
+                   (ps_lap_struct->ai1_pic_type[ps_lap_struct->i4_next_start_ctr] != PIC_TYPE_IDR))
                 {
+                    ps_lap_struct->i4_sub_gop_pic_idx++;
+                    if(ps_lap_struct->i4_sub_gop_pic_idx > i4_lap_window_size)
+                    {
+                        ps_lap_struct->i4_sub_gop_pic_idx =
+                            ps_lap_struct->i4_sub_gop_pic_idx - i4_lap_window_size;
+                    }
+                }
+                else if(1 == i4_lap_window_size)
+                {
+                    ps_lap_struct->i4_sub_gop_pic_idx = 1;
+                }
+
+                if(i4_force_idr_check &&
+                   (ps_lap_struct->ai1_pic_type[ps_lap_struct->i4_next_start_ctr] != PIC_TYPE_IDR))
+                {
+                    ps_lap_struct->i4_force_idr_pos = ps_lap_struct->i4_sub_gop_pic_idx;
+                }
+
+                /* store pictype for next subgop */
+                if((0 == ps_lap_struct->i4_num_frm_type_decided) &&
+                   (ps_lap_struct->i4_force_idr_pos == 0))
+                {
+                    ps_lap_struct->ai1_pic_type[0] =
+                        ps_lap_struct->ai1_pic_type[ps_lap_struct->i4_next_start_ctr];
+
+                    ihevce_determine_next_sub_gop_state(ps_lap_struct);
+
+                    ps_lap_struct->i4_next_start_ctr = 0;
+                }
+                else if(
+                    i4_force_idr_check &&
+                    (ps_lap_struct->i4_force_idr_pos <= ps_lap_struct->i4_sub_gop_size))
+                {
+                    /*check force idr pos is 1st pic in sub-gop then don't add dummy pics*/
+                    if(ps_lap_struct->i4_force_idr_pos != 1)
+                    {
+                        WORD32 sub_gop_pos = ps_lap_struct->i4_force_idr_pos;
+                        while(sub_gop_pos <= ps_lap_struct->i4_sub_gop_size)
+                        {
+                            ps_lap_struct->i4_num_dummy_pic++;
+                            ihevce_lap_queue_input(ps_lap_struct, NULL, &i4_tree_num);
+                            sub_gop_pos++;
+                        }
+                        ps_lap_struct->i4_num_dummy_pic = 0;
+                    }
                     ps_lap_struct->ai1_pic_type[0] =
                         ps_lap_struct->ai1_pic_type[ps_lap_struct->i4_next_start_ctr];
 
@@ -2338,7 +2351,8 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
             ps_lap_struct,
             ps_lap_struct->aps_lap_inp_buf[ps_lap_struct->i4_buf_deq_idx],
             &i4_tree_num);
-
+        ps_lap_struct->i4_max_buf_in_enc_order =
+            ps_lap_struct->ai4_num_buffer[ps_lap_struct->i4_deq_lap_buf];
         ps_lap_struct->i4_next_start_ctr++;
         ps_lap_struct->i4_buf_deq_idx++;
 
@@ -2349,7 +2363,6 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
         if(ps_lap_struct->i4_buf_enq_idx >= MAX_QUEUE_LENGTH)
             ps_lap_struct->i4_buf_enq_idx = 0;
     }
-    ps_lap_struct->i4_num_frames_after_force_idr = i4_num_frames_after_force_idr;
 
     if(1 == ps_lap_struct->i4_force_end_flag)
     {
@@ -2359,19 +2372,32 @@ ihevce_lap_enc_buf_t *ihevce_lap_process(void *pv_interface_ctxt, ihevce_lap_enc
     /*return encode order pic to pre enc*/
     ps_lap_inp_buf = NULL;
 
-    if(NULL != ps_lap_struct->api4_encode_order_array[ps_lap_struct->i4_lap_out_idx])
+    if(NULL !=
+       ps_lap_struct->api4_lap_out_buf[ps_lap_struct->i4_deq_lap_buf][ps_lap_struct->i4_lap_out_idx])
     {
-        ps_lap_inp_buf = ps_lap_struct->api4_encode_order_array[ps_lap_struct->i4_lap_out_idx];
-        ps_lap_struct->api4_encode_order_array[ps_lap_struct->i4_lap_out_idx] = NULL;
+        ps_lap_inp_buf =
+            ps_lap_struct
+                ->api4_lap_out_buf[ps_lap_struct->i4_deq_lap_buf][ps_lap_struct->i4_lap_out_idx];
+        ps_lap_struct
+            ->api4_lap_out_buf[ps_lap_struct->i4_deq_lap_buf][ps_lap_struct->i4_lap_out_idx] = NULL;
         if(!ps_lap_inp_buf->s_lap_out.i4_end_flag)
             ihevce_pre_rel_lapout_update(ps_lap_struct, ps_lap_inp_buf);
+
+        ps_lap_struct->i4_max_buf_in_enc_order =
+            ps_lap_struct->ai4_num_buffer[ps_lap_struct->i4_deq_lap_buf];
     }
 
     ps_lap_struct->i4_lap_out_idx++;
     if(ps_lap_struct->i4_lap_out_idx == ps_lap_struct->i4_max_buf_in_enc_order)
     {
+        if(ps_lap_struct->ai4_num_buffer[ps_lap_struct->i4_deq_lap_buf])
+        {
+            ps_lap_struct->ai4_num_buffer[ps_lap_struct->i4_deq_lap_buf] = 0;
+            ps_lap_struct->i4_deq_lap_buf++;
+            ps_lap_struct->i4_deq_lap_buf &= (MAX_SUBGOP_IN_ENCODE_QUEUE - 1);
+        }
+
         ps_lap_struct->i4_lap_out_idx = 0;
-        ps_lap_struct->pi4_encode_poc_ptr = &ps_lap_struct->ai4_encode_order_poc[0];
     }
 
     return (ps_lap_inp_buf);

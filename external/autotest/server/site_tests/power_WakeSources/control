@@ -12,7 +12,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo, lucidsleep"
+DEPENDENCIES = "servo"
 ATTRIBUTES = "suite:power_build"
 
 DOC = """

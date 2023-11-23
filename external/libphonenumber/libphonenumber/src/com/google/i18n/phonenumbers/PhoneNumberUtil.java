@@ -122,7 +122,6 @@ public class PhoneNumberUtil {
 
   static {
     HashMap<Integer, String> mobileTokenMap = new HashMap<Integer, String>();
-    mobileTokenMap.put(52, "1");
     mobileTokenMap.put(54, "9");
     MOBILE_TOKEN_MAPPINGS = Collections.unmodifiableMap(mobileTokenMap);
 
@@ -481,7 +480,11 @@ public class PhoneNumberUtil {
      */
     POSSIBLE {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         return util.isPossibleNumber(number);
       }
     },
@@ -493,7 +496,11 @@ public class PhoneNumberUtil {
      */
     VALID {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         if (!util.isValidNumber(number)
             || !PhoneNumberMatcher.containsOnlyValidXChars(number, candidate.toString(), util)) {
           return false;
@@ -515,7 +522,11 @@ public class PhoneNumberUtil {
      */
     STRICT_GROUPING {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         String candidateString = candidate.toString();
         if (!util.isValidNumber(number)
             || !PhoneNumberMatcher.containsOnlyValidXChars(number, candidateString, util)
@@ -523,7 +534,7 @@ public class PhoneNumberUtil {
             || !PhoneNumberMatcher.isNationalPrefixPresentIfRequired(number, util)) {
           return false;
         }
-        return PhoneNumberMatcher.checkNumberGroupingIsValid(
+        return matcher.checkNumberGroupingIsValid(
             number, candidate, util, new PhoneNumberMatcher.NumberGroupingChecker() {
               @Override
               public boolean checkGroups(PhoneNumberUtil util, PhoneNumber number,
@@ -548,7 +559,11 @@ public class PhoneNumberUtil {
      */
     EXACT_GROUPING {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         String candidateString = candidate.toString();
         if (!util.isValidNumber(number)
             || !PhoneNumberMatcher.containsOnlyValidXChars(number, candidateString, util)
@@ -556,7 +571,7 @@ public class PhoneNumberUtil {
             || !PhoneNumberMatcher.isNationalPrefixPresentIfRequired(number, util)) {
           return false;
         }
-        return PhoneNumberMatcher.checkNumberGroupingIsValid(
+        return matcher.checkNumberGroupingIsValid(
             number, candidate, util, new PhoneNumberMatcher.NumberGroupingChecker() {
               @Override
               public boolean checkGroups(PhoneNumberUtil util, PhoneNumber number,
@@ -570,7 +585,11 @@ public class PhoneNumberUtil {
     };
 
     /** Returns true if {@code number} is a verified number according to this leniency. */
-    abstract boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util);
+    abstract boolean verify(
+        PhoneNumber number,
+        CharSequence candidate,
+        PhoneNumberUtil util,
+        PhoneNumberMatcher matcher);
   }
 
   // A source of metadata for different regions.
@@ -974,7 +993,7 @@ public class PhoneNumberUtil {
     return Collections.unmodifiableSet(countryCodesForNonGeographicalRegion);
   }
 
- /**
+  /**
    * Returns all country calling codes the library has metadata for, covering both non-geographical
    * entities (global network calling codes) and those used for geographical entities. This could be
    * used to populate a drop-down box of country calling codes for a phone-number widget, for
@@ -1406,14 +1425,6 @@ public class PhoneNumberUtil {
             // called within Brazil. Without that, most of the carriers won't connect the call.
             // Because of that, we return an empty string here.
             : "";
-      } else if (isValidNumber && regionCode.equals("HU")) {
-        // The national format for HU numbers doesn't contain the national prefix, because that is
-        // how numbers are normally written down. However, the national prefix is obligatory when
-        // dialing from a mobile phone, except for short numbers. As a result, we add it back here
-        // if it is a valid regular length phone number.
-        formattedNumber =
-            getNddPrefixForRegion(regionCode, true /* strip non-digits */) + " "
-            + format(numberNoExt, PhoneNumberFormat.NATIONAL);
       } else if (countryCallingCode == NANPA_COUNTRY_CODE) {
         // For NANPA countries, we output international format for numbers that can be dialed
         // internationally, since that always works, except for numbers which might potentially be

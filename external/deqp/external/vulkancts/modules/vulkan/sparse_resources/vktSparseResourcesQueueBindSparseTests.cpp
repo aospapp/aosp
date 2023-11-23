@@ -73,24 +73,24 @@ struct QueueSubmission
 	InfoUnion				info;
 };
 
-QueueSubmission makeSubmissionRegular (const Queue*					queue,
-									   const deUint32				numWaitSemaphores,
-									   const VkSemaphore*			pWaitSemaphore,
-									   const VkPipelineStageFlags*	pWaitDstStageMask,
-									   const deUint32				numSignalSemaphores,
-									   const VkSemaphore*			pSignalSemaphore)
+QueueSubmission makeSubmissionRegular	(const Queue*					queue,
+										 const deUint32					numWaitSemaphores,
+										 const VkSemaphore*				pWaitSemaphore,
+										 const VkPipelineStageFlags*	pWaitDstStageMask,
+										 const deUint32					numSignalSemaphores,
+										 const VkSemaphore*				pSignalSemaphore)
 {
 	const VkSubmitInfo submitInfo =
 	{
-		VK_STRUCTURE_TYPE_SUBMIT_INFO,				// VkStructureType                sType;
-		DE_NULL,									// const void*                    pNext;
-		numWaitSemaphores,							// uint32_t                       waitSemaphoreCount;
-		pWaitSemaphore,								// const VkSemaphore*             pWaitSemaphores;
-		pWaitDstStageMask,							// const VkPipelineStageFlags*    pWaitDstStageMask;
-		0u,											// uint32_t                       commandBufferCount;
-		DE_NULL,									// const VkCommandBuffer*         pCommandBuffers;
-		numSignalSemaphores,						// uint32_t                       signalSemaphoreCount;
-		pSignalSemaphore,							// const VkSemaphore*             pSignalSemaphores;
+		VK_STRUCTURE_TYPE_SUBMIT_INFO,	// VkStructureType				sType;
+		DE_NULL,						// const void*					pNext;
+		numWaitSemaphores,				// uint32_t						waitSemaphoreCount;
+		pWaitSemaphore,					// const VkSemaphore*			pWaitSemaphores;
+		pWaitDstStageMask,				// const VkPipelineStageFlags*	pWaitDstStageMask;
+		0u,								// uint32_t						commandBufferCount;
+		DE_NULL,						// const VkCommandBuffer*		pCommandBuffers;
+		numSignalSemaphores,			// uint32_t						signalSemaphoreCount;
+		pSignalSemaphore,				// const VkSemaphore*			pSignalSemaphores;
 	};
 
 	QueueSubmission submission;
@@ -101,26 +101,26 @@ QueueSubmission makeSubmissionRegular (const Queue*					queue,
 	return submission;
 }
 
-QueueSubmission makeSubmissionSparse (const Queue*			queue,
-									  const deUint32		numWaitSemaphores,
-									  const VkSemaphore*	pWaitSemaphore,
-									  const deUint32		numSignalSemaphores,
-									  const VkSemaphore*	pSignalSemaphore)
+QueueSubmission makeSubmissionSparse	(const Queue*		queue,
+										 const deUint32		numWaitSemaphores,
+										 const VkSemaphore*	pWaitSemaphore,
+										 const deUint32		numSignalSemaphores,
+										 const VkSemaphore*	pSignalSemaphore)
 {
 	const VkBindSparseInfo bindInfo =
 	{
-		VK_STRUCTURE_TYPE_BIND_SPARSE_INFO,			// VkStructureType                             sType;
-		DE_NULL,									// const void*                                 pNext;
-		numWaitSemaphores,							// uint32_t                                    waitSemaphoreCount;
-		pWaitSemaphore,								// const VkSemaphore*                          pWaitSemaphores;
-		0u,											// uint32_t                                    bufferBindCount;
-		DE_NULL,									// const VkSparseBufferMemoryBindInfo*         pBufferBinds;
-		0u,											// uint32_t                                    imageOpaqueBindCount;
-		DE_NULL,									// const VkSparseImageOpaqueMemoryBindInfo*    pImageOpaqueBinds;
-		0u,											// uint32_t                                    imageBindCount;
-		DE_NULL,									// const VkSparseImageMemoryBindInfo*          pImageBinds;
-		numSignalSemaphores,						// uint32_t                                    signalSemaphoreCount;
-		pSignalSemaphore,							// const VkSemaphore*                          pSignalSemaphores;
+		VK_STRUCTURE_TYPE_BIND_SPARSE_INFO,			// VkStructureType							sType;
+		DE_NULL,									// const void*								pNext;
+		numWaitSemaphores,							// uint32_t									waitSemaphoreCount;
+		pWaitSemaphore,								// const VkSemaphore*						pWaitSemaphores;
+		0u,											// uint32_t									bufferBindCount;
+		DE_NULL,									// const VkSparseBufferMemoryBindInfo*		pBufferBinds;
+		0u,											// uint32_t									imageOpaqueBindCount;
+		DE_NULL,									// const VkSparseImageOpaqueMemoryBindInfo*	pImageOpaqueBinds;
+		0u,											// uint32_t									imageBindCount;
+		DE_NULL,									// const VkSparseImageMemoryBindInfo*		pImageBinds;
+		numSignalSemaphores,						// uint32_t									signalSemaphoreCount;
+		pSignalSemaphore,							// const VkSemaphore*						pSignalSemaphores;
 	};
 
 	QueueSubmission submission;
@@ -154,13 +154,8 @@ public:
 
 	tcu::TestStatus iterate (void)
 	{
-		const InstanceInterface&	vki				= m_context.getInstanceInterface();
-		const VkPhysicalDevice		physDevice		= m_context.getPhysicalDevice();
-		const Queue*				sparseQueue		= DE_NULL;
+		const Queue*				sparseQueue	= DE_NULL;
 		std::vector<const Queue*>	otherQueues;
-
-		if (!getPhysicalDeviceFeatures(vki, physDevice).sparseBinding)
-			TCU_THROW(NotSupportedError, "Sparse binding not supported");
 
 		// Determine required queues and create a device that supports them
 		{
@@ -313,7 +308,7 @@ private:
 class SparseQueueBindTest : public TestCase
 {
 public:
-	SparseQueueBindTest (tcu::TestContext& testCtx, const std::string& name, const std::string& description, const TestParams& params)
+					SparseQueueBindTest	(tcu::TestContext& testCtx, const std::string& name, const std::string& description, const TestParams& params)
 		: TestCase	(testCtx, name, description)
 		, m_params	(params)
 	{
@@ -321,9 +316,14 @@ public:
 		DE_ASSERT(params.numQueues == 1u || m_params.numWaitSemaphores > 0u || m_params.numSignalSemaphores > 0u);	// without any semaphores, only sparse queue will be used
 	}
 
-	TestInstance* createInstance (Context& context) const
+	TestInstance*	createInstance		(Context& context) const
 	{
 		return new SparseQueueBindTestInstance(context, m_params);
+	}
+
+	virtual void	checkSupport		(Context& context) const
+	{
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_SPARSE_BINDING);
 	}
 
 private:

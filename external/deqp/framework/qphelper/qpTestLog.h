@@ -146,6 +146,12 @@ typedef enum qpShaderType_e
 	QP_SHADER_TYPE_TESS_CONTROL,
 	QP_SHADER_TYPE_TESS_EVALUATION,
 	QP_SHADER_TYPE_COMPUTE,
+	QP_SHADER_TYPE_RAYGEN,
+	QP_SHADER_TYPE_ANY_HIT,
+	QP_SHADER_TYPE_CLOSEST_HIT,
+	QP_SHADER_TYPE_MISS,
+	QP_SHADER_TYPE_INTERSECTION,
+	QP_SHADER_TYPE_CALLABLE,
 
 	QP_SHADER_TYPE_LAST
 } qpShaderType;
@@ -188,7 +194,7 @@ typedef struct qpEglConfigInfo_s
 } qpEglConfigInfo;
 
 
-qpTestLog*		qpTestLog_createFileLog			(const char* fileName, deUint32 flags);
+qpTestLog*		qpTestLog_createFileLog			(const char* fileName, int argc, char** argv, deUint32 flags);
 void			qpTestLog_destroy				(qpTestLog* log);
 
 deBool			qpTestLog_startCase				(qpTestLog* log, const char* testCasePath, qpTestCaseType testCaseType);

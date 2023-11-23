@@ -22,6 +22,7 @@
 package com.github.javaparser;
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.comments.LineComment;
@@ -31,9 +32,9 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 import static com.github.javaparser.ast.Node.NODE_BY_BEGIN_POSITION;
+import static java.util.stream.Collectors.*;
 
 /**
  * Assigns comments to nodes of the AST.
@@ -57,8 +58,7 @@ class CommentsInserter {
             return;
 
         /* I should sort all the direct children and the comments, if a comment
-         is the first thing then it
-         a comment to the CompilationUnit */
+         is the first thing then it is a comment to the CompilationUnit */
 
         // FIXME if there is no package it could be also a comment to the following class...
         // so I could use some heuristics in these cases to distinguish the two
@@ -87,15 +87,16 @@ class CommentsInserter {
             insertComments((CompilationUnit) node, commentsToAttribute);
         }
 
-        // the comments can:
-        // 1) Inside one of the child, then it is the child that have to
-        // associate them
-        // 2) If they are not inside a child they could be preceeding nothing, a
-        // comment or a child
-        // if they preceed a child they are assigned to it, otherweise they
-        // remain "orphans"
+        /* the comment can...
+         1) be inside one of the children, then the comment should be associated to this child
+         2) be outside all children. They could be preceding nothing, a comment or a child.
+            If they preceed a child they are assigned to it, otherwise they remain "orphans"
+         */
 
-        List<Node> children = node.getChildNodes();
+        List<Node> children = node.getChildNodes().stream()
+                // Never attribute comments to modifiers.
+                .filter(n -> !(n instanceof Modifier))
+                .collect(toList());
 
         for (Node child : children) {
             TreeSet<Comment> commentsInsideChild = new TreeSet<>(NODE_BY_BEGIN_POSITION);
@@ -103,7 +104,7 @@ class CommentsInserter {
                     commentsToAttribute.stream()
                             .filter(c -> c.getRange().isPresent())
                             .filter(c -> PositionUtils.nodeContains(child, c,
-                                    configuration.isDoNotConsiderAnnotationsAsNodeStartForCodeAttribution())).collect(Collectors.toList()));
+                                    configuration.isIgnoreAnnotationsWhenAttributingComments())).collect(toList()));
             commentsToAttribute.removeAll(commentsInsideChild);
             insertComments(child, commentsInsideChild);
         }
@@ -121,7 +122,7 @@ class CommentsInserter {
 
         childrenAndComments.addAll(commentsToAttribute);
         PositionUtils.sortByBeginPosition(childrenAndComments,
-                configuration.isDoNotConsiderAnnotationsAsNodeStartForCodeAttribution());
+                configuration.isIgnoreAnnotationsWhenAttributingComments());
 
         for (Node thing : childrenAndComments) {
             if (thing instanceof Comment) {
@@ -176,7 +177,7 @@ class CommentsInserter {
         if (!node.getRange().isPresent() || !lineComment.getRange().isPresent()) {
             return false;
         }
-        
+
         // The node start and end at the same line as the comment,
         // let's give to it the comment
         if (node.getBegin().get().line == lineComment.getBegin().get().line

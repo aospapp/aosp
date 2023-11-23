@@ -1,5 +1,8 @@
-# Copyright 2012 Google Inc. All Rights Reserved.
-#
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Tools for recording and reporting timeline of benchmark_run."""
 
 from __future__ import print_function
@@ -25,8 +28,8 @@ class Timeline(object):
 
   def Record(self, event):
     for e in self.events:
-      assert e.name != event, ('The event {0} is already recorded.'
-                               .format(event))
+      assert e.name != event, (
+          'The event {0} is already recorded.'.format(event))
     cur_event = Event(name=event, cur_time=time.time())
     self.events.append(cur_event)
 
@@ -43,7 +46,7 @@ class Timeline(object):
     for e in self.events:
       if e.name == event:
         return e.timestamp
-    raise IndexError, 'The event {0} is not recorded'.format(event)
+    raise IndexError('The event {0} is not recorded'.format(event))
 
   def GetLastEventTime(self):
     return self.events[-1].timestamp

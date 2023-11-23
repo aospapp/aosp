@@ -1,6 +1,9 @@
-#!/usr/bin/env python2
-#
-# Copyright 2014 Google Inc.  All Rights Reserved
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2014 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Test translation of xbuddy names."""
 
 from __future__ import print_function
@@ -10,12 +13,12 @@ import sys
 
 import download_images
 
-#On May 1, 2014:
-#latest         : lumpy-release/R34-5500.132.0
-#latest-beta    : lumpy-release/R35-5712.43.0
-#latest-official: lumpy-release/R36-5814.0.0
-#latest-dev     : lumpy-release/R36-5814.0.0
-#latest-canary  : lumpy-release/R36-5814.0.0
+# On May 1, 2014:
+# latest         : lumpy-release/R34-5500.132.0
+# latest-beta    : lumpy-release/R35-5712.43.0
+# latest-official: lumpy-release/R36-5814.0.0
+# latest-dev     : lumpy-release/R36-5814.0.0
+# latest-canary  : lumpy-release/R36-5814.0.0
 
 
 class ImageDownloaderBuildIDTest(object):
@@ -55,7 +58,7 @@ class ImageDownloaderBuildIDTest(object):
     sys.exit(1)
 
   def assertIsNotNone(self, arg, arg_name):
-    if arg == None:
+    if arg is None:
       self.tests_failed = self.tests_failed + 1
       self.assert_failure('%s is not None' % arg_name)
 

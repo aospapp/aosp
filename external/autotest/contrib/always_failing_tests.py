@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 """
 This script prints out a csv file of `suite,test,path/to/control.file` where

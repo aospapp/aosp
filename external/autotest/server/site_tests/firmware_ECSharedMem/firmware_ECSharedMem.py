@@ -54,9 +54,6 @@ class firmware_ECSharedMem(FirmwareTest):
     def run_once(self):
         """Execute the main body of the test.
         """
-        if not self.check_ec_capability():
-            raise error.TestNAError("Nothing needs to be tested on this device")
-
         logging.info("Check shared memory in normal operation and crash EC.")
         self.check_state(self.shared_mem_checker)
         self.switcher.mode_aware_reboot(

@@ -48,7 +48,7 @@ matches the pattern.
 Each line is matched against the
 pattern portion of every pattern-action statement;
 the associated action is performed for each matched pattern.
-The file name 
+The file name
 .B \-
 means the standard input.
 Any
@@ -90,7 +90,7 @@ A pattern-action statement has the form:
 .IP
 .IB pattern " { " action " }
 .PP
-A missing 
+A missing
 .BI { " action " }
 means print the line;
 a missing pattern always matches.
@@ -209,7 +209,7 @@ or length of
 if no argument.
 .TP
 .B rand
-random number on (0,1)
+random number on [0,1).
 .TP
 .B srand
 sets seed for
@@ -217,7 +217,7 @@ sets seed for
 and returns the previous seed.
 .TP
 .B int
-truncates to an integer value
+truncates to an integer value.
 .TP
 \fBsubstr(\fIs\fB, \fIm\fR [\fB, \fIn\^\fR]\fB)\fR
 the
@@ -225,12 +225,11 @@ the
 substring of
 .I s
 that begins at position
-.I m 
+.I m
 counted from 1.
 If no
-.IR m ,
-use the rest of the string
-.I 
+.IR n ,
+use the rest of the string.
 .TP
 .BI index( s , " t" )
 the position in
@@ -308,7 +307,7 @@ executes
 and returns its exit status. This will be \-1 upon error,
 .IR cmd 's
 exit status upon a normal exit,
-256 + 
+256 +
 .I sig
 upon death-by-signal, where
 .I sig
@@ -367,7 +366,7 @@ Patterns are arbitrary Boolean combinations
 of regular expressions and
 relational expressions.
 Regular expressions are as in
-.IR egrep ; 
+.IR egrep ;
 see
 .IR grep (1).
 Isolated regular expressions
@@ -479,6 +478,11 @@ the length of a string matched by
 .TP
 .B RS
 input record separator (default newline).
+If empty, blank lines separate records.
+If more than one character long,
+.B RS
+is treated as a regular expression, and records are
+separated by text matching the expression.
 .TP
 .B RSTART
 the start position of a string matched by
@@ -498,6 +502,16 @@ functions may be called recursively.
 Parameters are local to the function; all other variables are global.
 Thus local variables may be created by providing excess parameters in
 the function definition.
+.SH ENVIRONMENT VARIABLES
+If
+.B POSIXLY_CORRECT
+is set in the environment, then
+.I awk
+follows the POSIX rules for
+.B sub
+and
+.B gsub
+with respect to consecutive backslashes and ampersands.
 .SH EXAMPLES
 .TP
 .EX
@@ -542,8 +556,8 @@ BEGIN	{	# Simulate echo(1)
 .fi
 .EE
 .SH SEE ALSO
-.IR grep (1), 
-.IR lex (1), 
+.IR grep (1),
+.IR lex (1),
 .IR sed (1)
 .br
 A. V. Aho, B. W. Kernighan, P. J. Weinberger,
@@ -557,7 +571,5 @@ to force it to be treated as a string concatenate
 .br
 The scope rules for variables in functions are a botch;
 the syntax is worse.
-.br
-POSIX-standard interval expressions in regular expressions are not supported.
 .br
 Only eight-bit characters sets are handled correctly.

@@ -31,6 +31,7 @@ class firmware_ConsecutiveBootPowerButton(FirmwareTest):
 
 
     def run_once(self, dev_mode=False):
+        """Runs a single iteration of the test."""
         for i in xrange(self.faft_iterations):
             logging.info('======== Running FAFT ITERATION %d/%s ========',
                          i+1, self.faft_iterations)

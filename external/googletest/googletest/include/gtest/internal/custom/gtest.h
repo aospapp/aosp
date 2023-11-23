@@ -34,7 +34,9 @@
 #ifndef GTEST_INCLUDE_GTEST_INTERNAL_CUSTOM_GTEST_H_
 #define GTEST_INCLUDE_GTEST_INTERNAL_CUSTOM_GTEST_H_
 
-#define GTEST_CUSTOM_TEMPDIR_FUNCTION_ GetAndroidTempDir
+#if !GTEST_OS_WINDOWS
+# define GTEST_CUSTOM_TEMPDIR_FUNCTION_ GetAndroidTempDir
+# include <unistd.h>
 static inline std::string GetAndroidTempDir() {
   // Android doesn't have /tmp, and /sdcard is no longer accessible from
   // an app context starting from Android O. On Android, /data/local/tmp
@@ -52,5 +54,6 @@ static inline std::string GetAndroidTempDir() {
   }
   return result;
 }
+#endif //GTEST_OS_WINDOWS
 
 #endif  // GTEST_INCLUDE_GTEST_INTERNAL_CUSTOM_GTEST_H_

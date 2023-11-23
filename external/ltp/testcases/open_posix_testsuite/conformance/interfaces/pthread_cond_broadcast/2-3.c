@@ -157,7 +157,7 @@ struct {
 	int nb;
 } children;
 
-static void *child(void *arg)
+static void *child(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	int ret = 0;
 	int timed;
@@ -228,7 +228,7 @@ static void *child(void *arg)
 	return NULL;
 }
 
-static void *timer(void *arg)
+static void *timer(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	unsigned int to = TIMEOUT;
 	do {
@@ -349,7 +349,7 @@ int main(void)
 		UNRESOLVED(ret, "[parent] Failed to set thread stack size");
 
 	/* Do the test for each test scenario */
-	for (scenar = 0; scenar < NSCENAR; scenar++) {
+	for (scenar = 0; scenar < (int)NSCENAR; scenar++) {
 		/* set / reset everything */
 		td->fork = 0;
 		ret = pthread_mutexattr_init(&ma);

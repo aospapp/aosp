@@ -197,10 +197,13 @@ vlVaDeriveImage(VADriverContextP ctx, VASurfaceID surface, VAImage *image)
    vlVaSurface *surf;
    vlVaBuffer *img_buf;
    VAImage *img;
+   struct pipe_screen *screen;
    struct pipe_surface **surfaces;
    int w;
    int h;
    int i;
+   unsigned stride = 0;
+   unsigned offset = 0;
 
    if (!ctx)
       return VA_STATUS_ERROR_INVALID_CONTEXT;
@@ -210,10 +213,18 @@ vlVaDeriveImage(VADriverContextP ctx, VASurfaceID surface, VAImage *image)
    if (!drv)
       return VA_STATUS_ERROR_INVALID_CONTEXT;
 
+   screen = VL_VA_PSCREEN(ctx);
+
+   if (!screen)
+      return VA_STATUS_ERROR_INVALID_CONTEXT;
+
    surf = handle_table_get(drv->htab, surface);
 
-   if (!surf || !surf->buffer || surf->buffer->interlaced)
+   if (!surf || !surf->buffer)
       return VA_STATUS_ERROR_INVALID_SURFACE;
+
+   if (surf->buffer->interlaced)
+     return VA_STATUS_ERROR_OPERATION_FAILED;
 
    surfaces = surf->buffer->get_surfaces(surf->buffer);
    if (!surfaces || !surfaces[0]->texture)
@@ -239,38 +250,48 @@ vlVaDeriveImage(VADriverContextP ctx, VASurfaceID surface, VAImage *image)
       }
    }
 
+   mtx_lock(&drv->mutex);
+   if (screen->resource_get_info) {
+      screen->resource_get_info(screen, surfaces[0]->texture, &stride,
+                                &offset);
+      if (!stride)
+         offset = 0;
+   }
+
    switch (img->format.fourcc) {
    case VA_FOURCC('U','Y','V','Y'):
    case VA_FOURCC('Y','U','Y','V'):
-      img->num_planes = 1;
-      img->pitches[0] = w * 2;
-      img->offsets[0] = 0;
-      img->data_size  = w * h * 2;
+      img->pitches[0] = stride > 0 ? stride : w * 2;
+      assert(img->pitches[0] >= (w * 2));
       break;
 
    case VA_FOURCC('B','G','R','A'):
    case VA_FOURCC('R','G','B','A'):
    case VA_FOURCC('B','G','R','X'):
    case VA_FOURCC('R','G','B','X'):
-      img->num_planes = 1;
-      img->pitches[0] = w * 4;
-      img->offsets[0] = 0;
-      img->data_size  = w * h * 4;
+      img->pitches[0] = stride > 0 ? stride : w * 4;
+      assert(img->pitches[0] >= (w * 4));
       break;
 
    default:
-      /* VaDeriveImage is designed for contiguous planes. */
+      /* VaDeriveImage only supports contiguous planes. But there is now a
+         more generic api vlVaExportSurfaceHandle. */
       FREE(img);
-      return VA_STATUS_ERROR_INVALID_IMAGE_FORMAT;
+      mtx_unlock(&drv->mutex);
+      return VA_STATUS_ERROR_OPERATION_FAILED;
    }
+
+   img->num_planes = 1;
+   img->offsets[0] = offset;
+   img->data_size  = img->pitches[0] * h;
 
    img_buf = CALLOC(1, sizeof(vlVaBuffer));
    if (!img_buf) {
       FREE(img);
+      mtx_unlock(&drv->mutex);
       return VA_STATUS_ERROR_ALLOCATION_FAILED;
    }
 
-   mtx_lock(&drv->mutex);
    img->image_id = handle_table_add(drv->htab, img);
 
    img_buf->type = VAImageBufferType;
@@ -353,6 +374,23 @@ vlVaGetImage(VADriverContextP ctx, VASurfaceID surface, int x, int y,
       return VA_STATUS_ERROR_INVALID_IMAGE;
    }
 
+   if (x < 0 || y < 0) {
+      mtx_unlock(&drv->mutex);
+      return VA_STATUS_ERROR_INVALID_PARAMETER;
+   }
+
+   if (x + width > surf->templat.width ||
+       y + height > surf->templat.height) {
+      mtx_unlock(&drv->mutex);
+      return VA_STATUS_ERROR_INVALID_PARAMETER;
+   }
+
+   if (width > vaimage->width ||
+       height > vaimage->height) {
+      mtx_unlock(&drv->mutex);
+      return VA_STATUS_ERROR_INVALID_PARAMETER;
+   }
+
    img_buf = handle_table_get(drv->htab, vaimage->buf);
    if (!img_buf) {
       mtx_unlock(&drv->mutex);
@@ -400,11 +438,19 @@ vlVaGetImage(VADriverContextP ctx, VASurfaceID surface, int x, int y,
    }
 
    for (i = 0; i < vaimage->num_planes; i++) {
-      unsigned width, height;
+      unsigned box_w = align(width, 2);
+      unsigned box_h = align(height, 2);
+      unsigned box_x = x & ~1;
+      unsigned box_y = y & ~1;
       if (!views[i]) continue;
-      vlVaVideoSurfaceSize(surf, i, &width, &height);
+      vl_video_buffer_adjust_size(&box_w, &box_h, i,
+                                  surf->templat.chroma_format,
+                                  surf->templat.interlaced);
+      vl_video_buffer_adjust_size(&box_x, &box_y, i,
+                                  surf->templat.chroma_format,
+                                  surf->templat.interlaced);
       for (j = 0; j < views[i]->texture->array_size; ++j) {
-         struct pipe_box box = {0, 0, j, width, height, 1};
+         struct pipe_box box = {box_x, box_y, j, box_w, box_h, 1};
          struct pipe_transfer *transfer;
          uint8_t *map;
          map = drv->pipe->transfer_map(drv->pipe, views[i]->texture, 0,

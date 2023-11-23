@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import("../../../../gn/test.gni")
+
 source_set("ps") {
-  public_deps = [
-    "../../../tracing",
-  ]
+  public_deps = [ "../../../tracing/core" ]
   deps = [
     "..:data_source",
     "../../../../gn:default_deps",
-    "../../../../include/perfetto/traced",
+    "../../../../include/perfetto/ext/traced",
+    "../../../../protos/perfetto/config/process_stats:zero",
+    "../../../../protos/perfetto/trace:zero",
     "../../../../protos/perfetto/trace/ps:zero",
     "../../../base",
+    "../common",
   ]
   sources = [
     "process_stats_data_source.cc",
@@ -29,17 +32,17 @@ source_set("ps") {
   ]
 }
 
-source_set("unittests") {
+perfetto_unittest_source_set("unittests") {
   testonly = true
   deps = [
     ":ps",
     "../../../../gn:default_deps",
-    "../../../../gn:gtest_deps",
-    "../../../../protos/perfetto/trace:lite",
+    "../../../../gn:gtest_and_gmock",
+    "../../../../protos/perfetto/config/process_stats:cpp",
+    "../../../../protos/perfetto/trace/ps:cpp",
     "../../../../src/base:test_support",
-    "../../../../src/tracing:test_support",
+    "../../../../src/tracing/test:test_support",
+    "../common:test_support",
   ]
-  sources = [
-    "process_stats_data_source_unittest.cc",
-  ]
+  sources = [ "process_stats_data_source_unittest.cc" ]
 }

@@ -56,10 +56,21 @@ class firmware_ConsecutiveBoot(FirmwareTest):
         are testing firmware and mainly want to focus on power on sequence.
         """
         boot_id = self.get_bootid()
-        # Call shutdown instead of long press the power key since we are
-        # testing the firmware and not the OS.
+
+        # Call shutdown instead of long press the power key, since we're
+        # testing the firmware, not the power manager and button handling.
         logging.info("Sending /sbin/shutdown -P now")
-        self.faft_client.system.run_shell_command('/sbin/shutdown -P now')
+
+        # Shut down in the background, after sleeping so the call gets a reply.
+        try:
+            self._client.run_background('sleep 0.5; /sbin/shutdown -P now')
+        except error.AutoservRunError as e:
+            # From the ssh man page, error code 255 indicates ssh errors.
+            if e.result_obj.exit_status == 255:
+                logging.warn("Ignoring error from ssh: %s", e)
+            else:
+                raise
+
         logging.info('Wait for client to go offline')
         self.switcher.wait_for_client_offline(timeout=100, orig_boot_id=boot_id)
         if self.check_ec_capability(['x86'], suppress_warning=True):
@@ -88,6 +99,7 @@ class firmware_ConsecutiveBoot(FirmwareTest):
         super(firmware_ConsecutiveBoot, self).cleanup()
 
     def run_once(self, host, dev_mode=False):
+        """Runs a single iteration of the test."""
         for i in xrange(self.faft_iterations):
             logging.info('======== Running FAFT ITERATION %d/%s ========',
                          i+1, self.faft_iterations)

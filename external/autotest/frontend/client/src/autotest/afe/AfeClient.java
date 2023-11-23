@@ -55,13 +55,6 @@ public class AfeClient implements EntryPoint {
     protected void finishLoading() {
         SiteCommonClassFactory.globalInitialize();
 
-        String wmatrixUrl = StaticDataRepository.getRepository().getData(
-            "wmatrix_url").isString().stringValue();
-        if (!wmatrixUrl.equals("")) {
-            Document.get().getElementById("wmatrix-link").setAttribute(
-                "href", wmatrixUrl);
-            Document.get().getElementById("wmatrix").removeClassName("hidden");
-        }
         String stainlessUrl = StaticDataRepository.getRepository().getData(
             "stainless_url").isString().stringValue();
         if (!stainlessUrl.equals("")) {
@@ -77,6 +70,8 @@ public class AfeClient implements EntryPoint {
             Document.get().getElementById("moblab_setup").removeClassName("hidden");
             Document.get().getElementById("mobmonitor_link").setAttribute("href",
                 "http://" + Location.getHostName() + ":9991");
+        } else {
+            Document.get().getElementById("hide_on_moblab").removeClassName("hidden");
         }
 
         jobList = new JobListView(new JobSelectListener() {

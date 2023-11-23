@@ -26,31 +26,54 @@ def is_attestation_prepared():
     """
     return cryptohome.get_tpm_more_status().get('attestation_prepared', False)
 
-def uptime_from_timestamp(name, occurence=-1):
+def get_bootstat_timestamp(name, occurrence):
+    """Gets the timestamp in ms of the given timestamp name and occurrence
+
+    bootstat_summary output contains multiple lines. The first line are headers,
+    and the rest are stats for event occurrences, one occurrence per line.
+
+    @param name: Name of the timestamp.
+    @param occurrence: Defines which occurrence of the timestamp should
+                       be returned. The occurrence number is 1-based, and -1
+                       means the latest occurrence.
+
+    @return: Timestamp in ms or -1.0 if the requested occurrence doesn't exist.
+    """
+    try:
+        output = utils.system_output('bootstat_summary %s' % name).splitlines()
+        stats = float(output[occurrence].split()[0])
+    except Exception:
+        stats = -1.0
+
+    return stats
+
+def uptime_from_timestamp(name, occurrence=-1):
     """Extract the uptime in seconds for the captured timestamp.
 
     @param name: Name of the timestamp.
-    @param use_first: Defines which occurence of the timestamp should
-                      be returned. The occurence number is 1-based.
-                      Useful if it can be recorded multiple times.
-                      Default: use the last one (-1).
+    @param occurrence: Defines which occurrence of the timestamp should
+                       be returned. The occurrence number is 1-based.
+                       Useful if it can be recorded multiple times.
+                       Default: use the last one (-1).
     @raises error.TestFail: Raised if the requested timestamp doesn't exist.
 
     @return: Uptime in seconds.
 
     """
-    output = utils.system_output('bootstat_summary %s' % name).splitlines()
-    if not output:
-        raise error.TestFail('No timestamp %s' % name)
-    if len(output) < abs(occurence) + 1:
-        raise error.TestFail('Timestamp %s occured only %d times' %
-                             (name, len(output)))
-    timestamp = output[occurence].split()[0]
-    return float(timestamp) / 1000
+    timestamp = utils.wait_for_value(
+        lambda: get_bootstat_timestamp(name, occurrence),
+        max_threshold=0.001,
+        timeout_sec=10)
+
+    if timestamp < 0:
+        raise error.TestFail('Failed to get timestamp for %s at occurrence %d.'
+                             % (name, occurrence))
+
+    return timestamp / 1000
 
 def diff_timestamp(start, end):
     """Return the time difference between the two timestamps in seconds.
-       Takes the last occurence of each timestamp if multiple are available.
+       Takes the last occurrence of each timestamp if multiple are available.
 
     @param start: The earlier timestamp.
     @param end: The later timestamp.
@@ -119,7 +142,7 @@ class platform_InitLoginPerf(test.test):
             raise error.TestFail('Timeout waiting for %r' % name)
 
     def wait_for_cryptohome_readiness(self):
-        """Wait until crptohome has started and initialized system salt."""
+        """Wait until cryptohome has started and initialized system salt."""
         self.wait_for_file('/home/.shadow/salt')
 
     def run_pre_login(self):

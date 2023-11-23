@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2018 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -9,7 +9,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 -->
 <ldml>
 	<identity>
-		<version number="$Revision: 14368 $"/>
+		<version number="$Revision$"/>
 		<language type="ar"/>
 	</identity>
 	<annotations>
@@ -23,52 +23,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏾" type="tts">بشرة بلون معتدل مائل للغامق</annotation>
 		<annotation cp="🏿">بشرة بلون غامق | تعديل | جلد | رمز | لون | نوع جلد 6</annotation>
 		<annotation cp="🏿" type="tts">بشرة بلون غامق</annotation>
+		<annotation cp="⚧">رمز المتحوّلين جنسيًا | متحوّل جنسيًا | متحوّلة جنسيًا</annotation>
+		<annotation cp="⚧" type="tts">رمز المتحوّلين جنسيًا</annotation>
+		<annotation cp="🤌">أصابع | أصابع مضمومة | إيماءة باليد | تهكّم | ضم</annotation>
+		<annotation cp="🤌" type="tts">أصابع مضمومة</annotation>
+		<annotation cp="🥲">امتنان | دمع | فخور | مبتسم | متأثر | مرتاح | وجه مبتسم مع دمعة</annotation>
+		<annotation cp="🥲" type="tts">وجه مبتسم مع دمعة</annotation>
+		<annotation cp="🥷">خفي | متخفي | محارب | نينجا</annotation>
+		<annotation cp="🥷" type="tts">نينجا</annotation>
+		<annotation cp="🥸">أنف | قناع | متخفي | نظارات | وجع مقنّع | وجه</annotation>
+		<annotation cp="🥸" type="tts">وجع مقنّع</annotation>
+		<annotation cp="🦣">أنياب | صوف | ضخم | فيل | ماموث | منقرض</annotation>
+		<annotation cp="🦣" type="tts">ماموث</annotation>
+		<annotation cp="🦤">حيوان منقرض | ضخم | طائر | طائر الدودو | منقرض | موريشيوس</annotation>
+		<annotation cp="🦤" type="tts">طائر الدودو</annotation>
+		<annotation cp="🦫">سد | سمّور | قندس</annotation>
+		<annotation cp="🦫" type="tts">سمّور</annotation>
+		<annotation cp="🦬">بايسن | ثور | ثور أمريكي | جاموس | قطيع</annotation>
+		<annotation cp="🦬" type="tts">ثور أمريكي</annotation>
+		<annotation cp="🦭">أسد البحر | عجل البحر | فقمة | كلب البحر</annotation>
+		<annotation cp="🦭" type="tts">فقمة</annotation>
+		<annotation cp="🧋">حليب | شاي | شاي الفقاعات | فقاعات</annotation>
+		<annotation cp="🧋" type="tts">شاي الفقاعات</annotation>
+		<annotation cp="🩴">بإصبع | صنادل | صنادل إصبع | صندل إصبع | صندل للشاطئ</annotation>
+		<annotation cp="🩴" type="tts">صندل إصبع</annotation>
+		<annotation cp="🪃">أستراليا | ارتداد | خذوف | كيد | مرتد</annotation>
+		<annotation cp="🪃" type="tts">خذوف مرتد</annotation>
+		<annotation cp="🪄">ساحر | ساحرة | سحر | عصا | عصا سحرية</annotation>
+		<annotation cp="🪄" type="tts">عصا سحرية</annotation>
+		<annotation cp="🪅">احتفال | بنياتا | حفلة | حلوى | معلّقة</annotation>
+		<annotation cp="🪅" type="tts">بنياتا</annotation>
+		<annotation cp="🪆">دمية | دمية روسية | روسيا | ماتريوشكا</annotation>
+		<annotation cp="🪆" type="tts">دمية روسية</annotation>
+		<annotation cp="🪖">جيش | خوذة | عسكري | عسكرية | محارب</annotation>
+		<annotation cp="🪖" type="tts">خوذة عسكرية</annotation>
+		<annotation cp="🪗">آلة موسيقية | أكورديون</annotation>
+		<annotation cp="🪗" type="tts">أكورديون</annotation>
+		<annotation cp="🪘">دق | طبل | طبل طويل | كونغا | لحن</annotation>
+		<annotation cp="🪘" type="tts">طبل طويل</annotation>
+		<annotation cp="🪙">ذهب | عملة معدنية | فضة | كنز | مال | معدن</annotation>
+		<annotation cp="🪙" type="tts">عملة معدنية</annotation>
+		<annotation cp="🪚">أداة | خشب | منشار | منشار يدوي | نجار</annotation>
+		<annotation cp="🪚" type="tts">منشار يدوي</annotation>
+		<annotation cp="🪛">أداة | مفك | مفك براغي</annotation>
+		<annotation cp="🪛" type="tts">مفك براغي</annotation>
+		<annotation cp="🪜">تسلق | درج | سلّم | صعود | عارضة</annotation>
+		<annotation cp="🪜" type="tts">سلّم</annotation>
+		<annotation cp="🪝">إبزيم | إلتقاط | خطاف | صنارة | كبشة | كلاب | مشبك | نقطة شراء</annotation>
+		<annotation cp="🪝" type="tts">خطاف</annotation>
+		<annotation cp="🪞">انعكاس | عاكس | مرآة | مرآة معدنية</annotation>
+		<annotation cp="🪞" type="tts">مرآة</annotation>
+		<annotation cp="🪟">إطار | إطلالة | شفاف | فتحة | منظر | نافذة | هواء منعش</annotation>
+		<annotation cp="🪟" type="tts">نافذة</annotation>
+		<annotation cp="🪠">امتصاص | حمام | سباك | سباكة | ضغط | مرحاض | مكبس غطاس</annotation>
+		<annotation cp="🪠" type="tts">مكبس غطاس</annotation>
+		<annotation cp="🪡">إبرة | تطريز | خياطة | غرز</annotation>
+		<annotation cp="🪡" type="tts">إبرة خياطة</annotation>
+		<annotation cp="🪢">حبل | عقدة | عُقدة | متشابك | مجدول</annotation>
+		<annotation cp="🪢" type="tts">عُقدة</annotation>
+		<annotation cp="🪣">برميل | خابية | دلو | وعاء</annotation>
+		<annotation cp="🪣" type="tts">دلو</annotation>
+		<annotation cp="🪤">طعم | فخ | كمين | مصيدة | مصيدة فئران</annotation>
+		<annotation cp="🪤" type="tts">مصيدة فئران</annotation>
+		<annotation cp="🪥">أسنان | تنظيف | حمام | فرشاة | فم | نظافة</annotation>
+		<annotation cp="🪥" type="tts">فرشاة أسنان</annotation>
+		<annotation cp="🪦">حجر مقبرة | شاهد | شاهد القبر | قبر | مقبرة</annotation>
+		<annotation cp="🪦" type="tts">حجر مقبرة</annotation>
+		<annotation cp="🪧">اعتصام | لافتة | مظاهرة | يافطة</annotation>
+		<annotation cp="🪧" type="tts">يافطة</annotation>
+		<annotation cp="🪨">ثقيل | جلمود | حجر | صخر | صخرة | صلب</annotation>
+		<annotation cp="🪨" type="tts">صخرة</annotation>
+		<annotation cp="🪰">حشرة | ذبابة | عفن | مرض | نفايات | يرقة</annotation>
+		<annotation cp="🪰" type="tts">ذبابة</annotation>
+		<annotation cp="🪱">بريمة | دودة | دودة أرض | دودة علقية | طفيليات</annotation>
+		<annotation cp="🪱" type="tts">دودة</annotation>
+		<annotation cp="🪲">حشرة | خنفساء</annotation>
+		<annotation cp="🪲" type="tts">خنفساء</annotation>
+		<annotation cp="🪳">جدجد | حشرة | صرصور</annotation>
+		<annotation cp="🪳" type="tts">صرصور</annotation>
+		<annotation cp="🪴">بدون فائدة | رعاية | زراعة | ممل | منزل | نبتة | نبتة في وعاء</annotation>
+		<annotation cp="🪴" type="tts">نبتة في وعاء</annotation>
+		<annotation cp="🪵">ألواح خشب | خشب | لوح</annotation>
+		<annotation cp="🪵" type="tts">خشب</annotation>
+		<annotation cp="🪶">تحليق | خفيف | ريشة | طائر</annotation>
+		<annotation cp="🪶" type="tts">ريشة</annotation>
+		<annotation cp="🫀">دقات القلب | طب القلب | عضو | عضو القلب | نبض | وسط</annotation>
+		<annotation cp="🫀" type="tts">عضو القلب</annotation>
+		<annotation cp="🫁">تنفّس | جهاز التنفس | رئتان | زفير | شهيق | عضو</annotation>
+		<annotation cp="🫁" type="tts">رئتان</annotation>
+		<annotation cp="🫂">ترحيب | توديع | شخصان يتعانقان | شكر | عناق</annotation>
+		<annotation cp="🫂" type="tts">شخصان يتعانقان</annotation>
+		<annotation cp="🫐">برّي | توت | عنب برّي</annotation>
+		<annotation cp="🫐" type="tts">توت برّي</annotation>
+		<annotation cp="🫑">خضار | فلفل | فلفل أحمر | فلفل حلو</annotation>
+		<annotation cp="🫑" type="tts">فلفل حلو</annotation>
+		<annotation cp="🫒">زيتون | طعام</annotation>
+		<annotation cp="🫒" type="tts">زيتون</annotation>
+		<annotation cp="🫓">آريبا | بيتا | خبز مسطح | خبز مفرود | لواش | نان</annotation>
+		<annotation cp="🫓" type="tts">خبز مفرود</annotation>
+		<annotation cp="🫔">تامال | شطيرة | مكسيك</annotation>
+		<annotation cp="🫔" type="tts">تامال</annotation>
+		<annotation cp="🫕">جبن | ذائب | سويسرا | شوكولاتة | فوندو | وعاء</annotation>
+		<annotation cp="🫕" type="tts">فوندو</annotation>
+		<annotation cp="🫖">إبريق | شاي | مشروب</annotation>
+		<annotation cp="🫖" type="tts">إبريق شاي</annotation>
+		<annotation cp="🛖">بيت | بيت دائري | كوخ | منزل | يورت</annotation>
+		<annotation cp="🛖" type="tts">كوخ</annotation>
+		<annotation cp="🛗">إمكانية الوصول | رافع | مصعد</annotation>
+		<annotation cp="🛗" type="tts">مصعد</annotation>
+		<annotation cp="🛻">بيك أب | شاحنة | شاحنة خفيفة</annotation>
+		<annotation cp="🛻" type="tts">شاحنة خفيفة</annotation>
+		<annotation cp="🛼">حذاء | حذاء مع عجلات | زلاجة | عجلات | مزلجة</annotation>
+		<annotation cp="🛼" type="tts">حذاء مع عجلات</annotation>
 		<annotation cp="😀">ابتسام | ضحك | وجه بابتسامة عريضة | وجه مبتسم</annotation>
 		<annotation cp="😀" type="tts">وجه بابتسامة عريضة</annotation>
-		<annotation cp="😁">إشراقة | ابتسامة | عين | وجه | وجه مشرق بأعين باسمة | وجه مشرق بعينين باسمتين | وجه مشرق مع عينين مبتسمتين</annotation>
-		<annotation cp="😁" type="tts">وجه مشرق بعينين باسمتين</annotation>
-		<annotation cp="😂">دموع | فرح | وجه | وجه بدموع فرح | وجه عليه دموع فرح</annotation>
-		<annotation cp="😂" type="tts">وجه بدموع فرح</annotation>
-		<annotation cp="🤣">أرض | تدحرج | ضحك | وجه ضاحك يتدحرج على الأرض</annotation>
-		<annotation cp="🤣" type="tts">وجه ضاحك يتدحرج على الأرض</annotation>
 		<annotation cp="😃">ابتسام | وجه مبتسم بعينين كبيرتين | وجه مبتسم بفم مفتوح</annotation>
 		<annotation cp="😃" type="tts">وجه مبتسم بعينين كبيرتين</annotation>
 		<annotation cp="😄">أعين مبتسمة | ابتسام | فم مفتوح | وجه مبتسم بعينين باسمتين</annotation>
 		<annotation cp="😄" type="tts">وجه مبتسم بعينين باسمتين</annotation>
-		<annotation cp="😅">ابتسامة ولكن بعرق بارد | عرق بارد | وجه مبتسم بفم مفتوح وعرق بارد</annotation>
-		<annotation cp="😅" type="tts">وجه مبتسم بفم مفتوح وعرق بارد</annotation>
+		<annotation cp="😁">إشراقة | ابتسامة | عين | وجه | وجه مشرق بأعين باسمة | وجه مشرق بعينين باسمتين | وجه مشرق مع عينين مبتسمتين</annotation>
+		<annotation cp="😁" type="tts">وجه مشرق بعينين باسمتين</annotation>
 		<annotation cp="😆">ابتسامة بأعين مغلقة | فم مفتوح | وجه مبتسم بعينين محدقتين | وجه مبتسم بعينين مغلقتين</annotation>
 		<annotation cp="😆" type="tts">وجه مبتسم بعينين مغلقتين</annotation>
+		<annotation cp="😅">ابتسامة ولكن بعرق بارد | عرق بارد | وجه مبتسم بفم مفتوح وعرق بارد</annotation>
+		<annotation cp="😅" type="tts">وجه مبتسم بفم مفتوح وعرق بارد</annotation>
+		<annotation cp="🤣">أرض | تدحرج | ضحك | وجه ضاحك يتدحرج على الأرض</annotation>
+		<annotation cp="🤣" type="tts">وجه ضاحك يتدحرج على الأرض</annotation>
+		<annotation cp="😂">دموع | فرح | وجه | وجه بدموع فرح | وجه عليه دموع فرح</annotation>
+		<annotation cp="😂" type="tts">وجه بدموع فرح</annotation>
+		<annotation cp="🙂">ابتسامة | وجه | وجه بابتسامة بسيطة</annotation>
+		<annotation cp="🙂" type="tts">وجه بابتسامة بسيطة</annotation>
+		<annotation cp="🙃">مقلوب | وجه</annotation>
+		<annotation cp="🙃" type="tts">وجه مقلوب</annotation>
 		<annotation cp="😉">غمزة | وجه يغمز</annotation>
 		<annotation cp="😉" type="tts">وجه يغمز</annotation>
 		<annotation cp="😊">أعين مبتسمة | ابتسامة وجه وأعين | وجه باسم بعينين باسمتين</annotation>
 		<annotation cp="😊" type="tts">وجه باسم بعينين باسمتين</annotation>
-		<annotation cp="😋">طعام لذيذ | لذيذ | وجه يتلذذ بالطعام | وجه يستحسن الطعم | وجه يستمتع بالطعم</annotation>
-		<annotation cp="😋" type="tts">وجه يتلذذ بالطعام</annotation>
-		<annotation cp="😎">ابتسامة | جذاب | شمس | نظارة | نظارة شمسية | ‫وجه مبتسم بنظارة شمس</annotation>
-		<annotation cp="😎" type="tts">‫وجه مبتسم بنظارة شمس</annotation>
-		<annotation cp="😍">أعين على شكل قلب | حب | قلب | وجه مبتسم بعيون قلب | وجه مبتسم مع عينين على شكل قلب</annotation>
-		<annotation cp="😍" type="tts">وجه مبتسم مع عينين على شكل قلب</annotation>
-		<annotation cp="😘">قبلة | وجه | وجه يرسل قبلة</annotation>
-		<annotation cp="😘" type="tts">وجه يرسل قبلة</annotation>
+		<annotation cp="😇">ابتسام | هالة | ‫وجه مبتسم بهالة</annotation>
+		<annotation cp="😇" type="tts">‫وجه مبتسم بهالة</annotation>
 		<annotation cp="🥰">حب | عشق | وجه مبتسم مع ثلاثة قلوب | يحب</annotation>
 		<annotation cp="🥰" type="tts">وجه مبتسم مع ثلاثة قلوب</annotation>
-		<annotation cp="😗">قبلة | وجه تقبيل | وجه يبعث قبلة | وجه يقبّل</annotation>
-		<annotation cp="😗" type="tts">وجه يقبّل</annotation>
-		<annotation cp="😙">أعين مبتسمة | وجه تقبيل وابتسامة | وجه يقبّل بعينين باسمتين</annotation>
-		<annotation cp="😙" type="tts">وجه يقبّل بعينين باسمتين</annotation>
-		<annotation cp="😚">أعين مغلقة | تقبيل بأعين مغلقة | وجه يقبّل بعينين باسمتين | وجه يقبّل بعينين مغلقتين</annotation>
-		<annotation cp="😚" type="tts">وجه يقبّل بعينين مغلقتين</annotation>
-		<annotation cp="☺">ابتسامة | وجه | وجه مبتسم | وجه مبتسم مفرغ</annotation>
-		<annotation cp="☺" type="tts">وجه مبتسم</annotation>
-		<annotation cp="🙂">ابتسامة | وجه | وجه بابتسامة بسيطة</annotation>
-		<annotation cp="🙂" type="tts">وجه بابتسامة بسيطة</annotation>
-		<annotation cp="🤗">عناق | وجه | وجه بابتسامة عناق | وجه يعانق بابتسامة</annotation>
-		<annotation cp="🤗" type="tts">وجه يعانق بابتسامة</annotation>
+		<annotation cp="😍">أعين على شكل قلب | حب | قلب | وجه مبتسم بعيون قلب | وجه مبتسم مع عينين على شكل قلب</annotation>
+		<annotation cp="😍" type="tts">وجه مبتسم مع عينين على شكل قلب</annotation>
 		<annotation cp="🤩">أعين | عينان | نجمة | وجه | وجه بعينين على شكل نجمة</annotation>
 		<annotation cp="🤩" type="tts">وجه بعينين على شكل نجمة</annotation>
+		<annotation cp="😘">قبلة | وجه | وجه يرسل قبلة</annotation>
+		<annotation cp="😘" type="tts">وجه يرسل قبلة</annotation>
+		<annotation cp="😗">قبلة | وجه تقبيل | وجه يبعث قبلة | وجه يقبّل</annotation>
+		<annotation cp="😗" type="tts">وجه يقبّل</annotation>
+		<annotation cp="☺">ابتسامة | وجه | وجه مبتسم | وجه مبتسم مفرغ</annotation>
+		<annotation cp="☺" type="tts">وجه مبتسم</annotation>
+		<annotation cp="😚">أعين مغلقة | تقبيل بأعين مغلقة | وجه يقبّل بعينين باسمتين | وجه يقبّل بعينين مغلقتين</annotation>
+		<annotation cp="😚" type="tts">وجه يقبّل بعينين مغلقتين</annotation>
+		<annotation cp="😙">أعين مبتسمة | وجه تقبيل وابتسامة | وجه يقبّل بعينين باسمتين</annotation>
+		<annotation cp="😙" type="tts">وجه يقبّل بعينين باسمتين</annotation>
+		<annotation cp="😋">طعام لذيذ | لذيذ | وجه يتلذذ بالطعام | وجه يستحسن الطعم | وجه يستمتع بالطعم</annotation>
+		<annotation cp="😋" type="tts">وجه يتلذذ بالطعام</annotation>
+		<annotation cp="😛">لسان متدلٍ | ‫وجه بلسان متدلٍ</annotation>
+		<annotation cp="😛" type="tts">‫وجه بلسان متدلٍ</annotation>
+		<annotation cp="😜">غمزة | لسان متدلي مع غمزة | مجرد تشويق | وجه بلسان بارز وعين غامزة | وجه بلسان متدلٍ وعين غامزة</annotation>
+		<annotation cp="😜" type="tts">وجه بلسان متدلٍ وعين غامزة</annotation>
+		<annotation cp="🤪">غريب الأطوار | وجه غريب | وجه غريب الشكل</annotation>
+		<annotation cp="🤪" type="tts">وجه غريب الشكل</annotation>
+		<annotation cp="😝">لسان متدلي وأعين مغلقة | مقزز | وجه بعينين محدقتين ولسان بارز | وجه بعينين مغلقتين ولسان متدلٍ</annotation>
+		<annotation cp="😝" type="tts">وجه بعينين مغلقتين ولسان متدلٍ</annotation>
+		<annotation cp="🤑">فم | مال | وجه | وجه بلسان من مال</annotation>
+		<annotation cp="🤑" type="tts">وجه بلسان من مال</annotation>
+		<annotation cp="🤗">عناق | وجه | وجه بابتسامة عناق | وجه يعانق بابتسامة</annotation>
+		<annotation cp="🤗" type="tts">وجه يعانق بابتسامة</annotation>
+		<annotation cp="🤭">وجه ضاحك مع يد تغطّي الفم</annotation>
+		<annotation cp="🤭" type="tts">وجه ضاحك مع يد تغطّي الفم</annotation>
+		<annotation cp="🤫">وجه يطلب الصمت</annotation>
+		<annotation cp="🤫" type="tts">وجه يطلب الصمت</annotation>
 		<annotation cp="🤔">تأمل | وجه | ‫وجه يفكر</annotation>
 		<annotation cp="🤔" type="tts">‫وجه يفكر</annotation>
+		<annotation cp="🤐">فم | قفل | وجه | وجه بفم مقفل</annotation>
+		<annotation cp="🤐" type="tts">وجه بفم مقفل</annotation>
 		<annotation cp="🤨">حاجب مرفوع | شاكك | وجه بحاجب مرفوع | يشك</annotation>
 		<annotation cp="🤨" type="tts">وجه بحاجب مرفوع</annotation>
 		<annotation cp="😐">جمود | حيادية | لا تعليق | وجه محايد</annotation>
@@ -77,102 +207,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="😑" type="tts">وجه بدون تعبير</annotation>
 		<annotation cp="😶">بدون فم | وجه بدون فم</annotation>
 		<annotation cp="😶" type="tts">وجه بدون فم</annotation>
-		<annotation cp="🙄">طوافة | عين | وجه | وجه بأعين دوارة | وجه بعينين تدوران</annotation>
-		<annotation cp="🙄" type="tts">وجه بعينين تدوران</annotation>
 		<annotation cp="😏">تكلف | ‫وجه بابتسامة متكلفة | وجه متكلف</annotation>
 		<annotation cp="😏" type="tts">‫وجه بابتسامة متكلفة</annotation>
-		<annotation cp="😣">جدية | وجه | وجه جاد</annotation>
-		<annotation cp="😣" type="tts">وجه جاد</annotation>
-		<annotation cp="😥">احباط | خيبة أمل | وجه خيبة أمل</annotation>
-		<annotation cp="😥" type="tts">وجه خيبة أمل</annotation>
-		<annotation cp="😮">فم مفتوح | وجه بفم مفتوح</annotation>
-		<annotation cp="😮" type="tts">وجه بفم مفتوح</annotation>
-		<annotation cp="🤐">فم | قفل | وجه | وجه بفم مقفل</annotation>
-		<annotation cp="🤐" type="tts">وجه بفم مقفل</annotation>
-		<annotation cp="😯">متفاجئ | مدهوش | مكتوم الصوت | وجه | وجه مخفوت الصوت</annotation>
-		<annotation cp="😯" type="tts">وجه مخفوت الصوت</annotation>
-		<annotation cp="😪">نعس | وجه | ‫وجه ناعس | وجه نعسان</annotation>
-		<annotation cp="😪" type="tts">‫وجه ناعس</annotation>
-		<annotation cp="😫">‫وجه متعب | وجه مجهد</annotation>
-		<annotation cp="😫" type="tts">‫وجه متعب</annotation>
-		<annotation cp="😴">نائم | نوم | ‫وجه نائم</annotation>
-		<annotation cp="😴" type="tts">‫وجه نائم</annotation>
-		<annotation cp="😌">مطمئن | وجه مرتاح</annotation>
-		<annotation cp="😌" type="tts">وجه مرتاح</annotation>
-		<annotation cp="😛">لسان متدلٍ | ‫وجه بلسان متدلٍ</annotation>
-		<annotation cp="😛" type="tts">‫وجه بلسان متدلٍ</annotation>
-		<annotation cp="😜">غمزة | لسان متدلي مع غمزة | مجرد تشويق | وجه بلسان بارز وعين غامزة | وجه بلسان متدلٍ وعين غامزة</annotation>
-		<annotation cp="😜" type="tts">وجه بلسان متدلٍ وعين غامزة</annotation>
-		<annotation cp="😝">لسان متدلي وأعين مغلقة | مقزز | وجه بعينين محدقتين ولسان بارز | وجه بعينين مغلقتين ولسان متدلٍ</annotation>
-		<annotation cp="😝" type="tts">وجه بعينين مغلقتين ولسان متدلٍ</annotation>
-		<annotation cp="🤤">لعاب | وجه | وجه بلعاب سائل</annotation>
-		<annotation cp="🤤" type="tts">وجه بلعاب سائل</annotation>
 		<annotation cp="😒">غير سعيد | ‫وجه غير مستمتع</annotation>
 		<annotation cp="😒" type="tts">‫وجه غير مستمتع</annotation>
-		<annotation cp="😓">عرق | وجه بعرق بارد | وجه حزين | وجه حزين متعرق | وجه متعرق</annotation>
-		<annotation cp="😓" type="tts">وجه بعرق بارد</annotation>
-		<annotation cp="😔">حزين | متأمل | مكتئب | وجه متأمل</annotation>
-		<annotation cp="😔" type="tts">وجه متأمل</annotation>
-		<annotation cp="😕">حيرة | وجه | وجه حائر</annotation>
-		<annotation cp="😕" type="tts">وجه حائر</annotation>
-		<annotation cp="🙃">مقلوب | وجه</annotation>
-		<annotation cp="🙃" type="tts">وجه مقلوب</annotation>
-		<annotation cp="🤑">فم | مال | وجه | وجه بلسان من مال</annotation>
-		<annotation cp="🤑" type="tts">وجه بلسان من مال</annotation>
-		<annotation cp="😲">مصدوم | مندهش | مندهش تمامًا | وجه مندهش</annotation>
-		<annotation cp="😲" type="tts">وجه مندهش</annotation>
-		<annotation cp="☹">عبوس | وجه | وجه عابس</annotation>
-		<annotation cp="☹" type="tts">وجه عابس</annotation>
-		<annotation cp="🙁">عابس | وجه | وجه عابس قليلاً</annotation>
-		<annotation cp="🙁" type="tts">وجه عابس قليلاً</annotation>
-		<annotation cp="😖">تائه | وجه مرتبك</annotation>
-		<annotation cp="😖" type="tts">وجه مرتبك</annotation>
-		<annotation cp="😞">محبط | وجه</annotation>
-		<annotation cp="😞" type="tts">وجه محبط</annotation>
-		<annotation cp="😟">وجه قلق | وجه منزعج</annotation>
-		<annotation cp="😟" type="tts">وجه قلق</annotation>
-		<annotation cp="😤">فوز | نصر | وجه | وجه بأنف يصدر بخارًا</annotation>
-		<annotation cp="😤" type="tts">وجه بأنف يصدر بخارًا</annotation>
-		<annotation cp="😢">حزين | دموع | وجه باك | وجه يبكي</annotation>
-		<annotation cp="😢" type="tts">وجه يبكي</annotation>
-		<annotation cp="😭">بكاء | دموع | صراخ | وجه يبكي بكاءً مرتفعًا</annotation>
-		<annotation cp="😭" type="tts">وجه يبكي بكاءً مرتفعًا</annotation>
-		<annotation cp="😦">عبوس | عبوس بفم مفتوح | فم مفتوح | ‫وجه عابس بفم مفتوح</annotation>
-		<annotation cp="😦" type="tts">‫وجه عابس بفم مفتوح</annotation>
-		<annotation cp="😧">تألم | وجه مكروب</annotation>
-		<annotation cp="😧" type="tts">وجه مكروب</annotation>
-		<annotation cp="😨">مرعوب | ‫وجه خائف</annotation>
-		<annotation cp="😨" type="tts">‫وجه خائف</annotation>
-		<annotation cp="😩">متعب | وجه ضجر | ‫وجه مجهد</annotation>
-		<annotation cp="😩" type="tts">‫وجه مجهد</annotation>
-		<annotation cp="🤯">وجه برأس منفجر</annotation>
-		<annotation cp="🤯" type="tts">وجه برأس منفجر</annotation>
+		<annotation cp="🙄">طوافة | عين | وجه | وجه بأعين دوارة | وجه بعينين تدوران</annotation>
+		<annotation cp="🙄" type="tts">وجه بعينين تدوران</annotation>
 		<annotation cp="😬">عبوس | وجه متجهم</annotation>
 		<annotation cp="😬" type="tts">وجه متجهم</annotation>
-		<annotation cp="😰">عرق بارد | فم مفتوح | وجه أزرق يتصبب عرقًا باردًا | ‫وجه بفم مفتوح وعرق بارد</annotation>
-		<annotation cp="😰" type="tts">‫وجه بفم مفتوح وعرق بارد</annotation>
-		<annotation cp="😱">خوف | مرعوب | ‫وجه خائف يصرخ | وجه يصرخ خوفًا | يصرخ خوفًا</annotation>
-		<annotation cp="😱" type="tts">‫وجه خائف يصرخ</annotation>
-		<annotation cp="🥵">حار | ضربة شمس | محموم | وجه بلون أحمر | وجه حار | يعرق</annotation>
-		<annotation cp="🥵" type="tts">وجه حار</annotation>
-		<annotation cp="🥶">بارد | تثليج | رقاقات الثلج | متجمد | وجه بارد | وجه باللون الأزرق</annotation>
-		<annotation cp="🥶" type="tts">وجه بارد</annotation>
-		<annotation cp="😳">متورد | مصاب بدوار | وجه متورد</annotation>
-		<annotation cp="😳" type="tts">وجه متورد</annotation>
-		<annotation cp="🤪">غريب الأطوار | وجه غريب | وجه غريب الشكل</annotation>
-		<annotation cp="🤪" type="tts">وجه غريب الشكل</annotation>
-		<annotation cp="😵">وجه دائخ | وجه مصاب بالدوار</annotation>
-		<annotation cp="😵" type="tts">وجه دائخ</annotation>
-		<annotation cp="😡">غاضب | هائج | وجه أحمر | وجه مشتاط غضبًا | وجه مقطب ومتجهم</annotation>
-		<annotation cp="😡" type="tts">وجه مشتاط غضبًا</annotation>
-		<annotation cp="😠">هائج | وجه غاضب</annotation>
-		<annotation cp="😠" type="tts">وجه غاضب</annotation>
-		<annotation cp="🤬">سباب | وجه مع رموز على الفم | وجه يسب | يشتم</annotation>
-		<annotation cp="🤬" type="tts">وجه مع رموز على الفم</annotation>
+		<annotation cp="🤥">كذب | وجه | وجه كاذب</annotation>
+		<annotation cp="🤥" type="tts">وجه كاذب</annotation>
+		<annotation cp="😌">مطمئن | وجه مرتاح</annotation>
+		<annotation cp="😌" type="tts">وجه مرتاح</annotation>
+		<annotation cp="😔">حزين | متأمل | مكتئب | وجه متأمل</annotation>
+		<annotation cp="😔" type="tts">وجه متأمل</annotation>
+		<annotation cp="😪">نعس | وجه | ‫وجه ناعس | وجه نعسان</annotation>
+		<annotation cp="😪" type="tts">‫وجه ناعس</annotation>
+		<annotation cp="🤤">لعاب | وجه | وجه بلعاب سائل</annotation>
+		<annotation cp="🤤" type="tts">وجه بلعاب سائل</annotation>
+		<annotation cp="😴">نائم | نوم | ‫وجه نائم</annotation>
+		<annotation cp="😴" type="tts">‫وجه نائم</annotation>
 		<annotation cp="😷">برد | كمامة | كمامة طبية | متوعك صحيًا | وجه بكمامة</annotation>
 		<annotation cp="😷" type="tts">وجه بكمامة</annotation>
-		<annotation cp="🤒">ترمومتر | مريض | وجه | وجه بترمومتر</annotation>
-		<annotation cp="🤒" type="tts">وجه بترمومتر</annotation>
+		<annotation cp="🤒">ترمومتر | مريض | وجه | وجه بترمومتر | وجه مع ميزان للحرارة</annotation>
+		<annotation cp="🤒" type="tts">وجه مع ميزان للحرارة</annotation>
 		<annotation cp="🤕">ألم | جرح | عصابة | وجه | وجه بعصابة رأس | وجه بعصابة على الرأس</annotation>
 		<annotation cp="🤕" type="tts">وجه بعصابة رأس</annotation>
 		<annotation cp="🤢">اشمئزاز | غثيان | وجه متقزز | وجه مشمئز</annotation>
@@ -181,40 +239,98 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤮" type="tts">وجه يتقيّأ</annotation>
 		<annotation cp="🤧">عطس | وجه يعطس | يرحمك الله | يرحمكم الله</annotation>
 		<annotation cp="🤧" type="tts">وجه يعطس</annotation>
-		<annotation cp="😇">ابتسام | هالة | ‫وجه مبتسم بهالة</annotation>
-		<annotation cp="😇" type="tts">‫وجه مبتسم بهالة</annotation>
+		<annotation cp="🥵">حار | ضربة شمس | محموم | وجه بلون أحمر | وجه حار | يعرق</annotation>
+		<annotation cp="🥵" type="tts">وجه حار</annotation>
+		<annotation cp="🥶">بارد | تثليج | رقاقات الثلج | متجمد | وجه بارد | وجه باللون الأزرق</annotation>
+		<annotation cp="🥶" type="tts">وجه بارد</annotation>
+		<annotation cp="🥴">ثمل | دائخ | عينان غير متساويتين | فم متموج | مسمم | وجه مصاب بدوار</annotation>
+		<annotation cp="🥴" type="tts">وجه مصاب بدوار</annotation>
+		<annotation cp="😵">وجه دائخ | وجه مصاب بالدوار</annotation>
+		<annotation cp="😵" type="tts">وجه دائخ</annotation>
+		<annotation cp="🤯">وجه برأس منفجر</annotation>
+		<annotation cp="🤯" type="tts">وجه برأس منفجر</annotation>
 		<annotation cp="🤠">راعي بقر | قبعة | وجه | وجه بقبعة راعي بقر</annotation>
 		<annotation cp="🤠" type="tts">وجه بقبعة راعي بقر</annotation>
 		<annotation cp="🥳">احتفال | بوق | حفلة | قبعة | وجه محتفل</annotation>
 		<annotation cp="🥳" type="tts">وجه محتفل</annotation>
-		<annotation cp="🥴">ثمل | دائخ | عينان غير متساويتين | فم متموج | مسمم | وجه مصاب بدوار</annotation>
-		<annotation cp="🥴" type="tts">وجه مصاب بدوار</annotation>
-		<annotation cp="🥺">توسل | رحمة | عيون جرو | وجه ملتمس</annotation>
-		<annotation cp="🥺" type="tts">وجه ملتمس</annotation>
-		<annotation cp="🤥">كذب | وجه | وجه كاذب</annotation>
-		<annotation cp="🤥" type="tts">وجه كاذب</annotation>
-		<annotation cp="🤫">وجه يطلب الصمت</annotation>
-		<annotation cp="🤫" type="tts">وجه يطلب الصمت</annotation>
-		<annotation cp="🤭">وجه ضاحك مع يد تغطّي الفم</annotation>
-		<annotation cp="🤭" type="tts">وجه ضاحك مع يد تغطّي الفم</annotation>
-		<annotation cp="🧐">وجه مع نظارة لعين واحدة</annotation>
-		<annotation cp="🧐" type="tts">وجه مع نظارة لعين واحدة</annotation>
+		<annotation cp="😎">ابتسامة | جذاب | شمس | نظارة | نظارة شمسية | ‫وجه مبتسم بنظارة شمس</annotation>
+		<annotation cp="😎" type="tts">‫وجه مبتسم بنظارة شمس</annotation>
 		<annotation cp="🤓">عبقري | وجه</annotation>
 		<annotation cp="🤓" type="tts">وجه عبقري</annotation>
+		<annotation cp="🧐">وجه مع نظارة لعين واحدة</annotation>
+		<annotation cp="🧐" type="tts">وجه مع نظارة لعين واحدة</annotation>
+		<annotation cp="😕">حيرة | وجه | وجه حائر</annotation>
+		<annotation cp="😕" type="tts">وجه حائر</annotation>
+		<annotation cp="😟">وجه قلق | وجه منزعج</annotation>
+		<annotation cp="😟" type="tts">وجه قلق</annotation>
+		<annotation cp="🙁">عابس | وجه | وجه عابس قليلاً</annotation>
+		<annotation cp="🙁" type="tts">وجه عابس قليلاً</annotation>
+		<annotation cp="☹">عبوس | وجه | وجه عابس</annotation>
+		<annotation cp="☹" type="tts">وجه عابس</annotation>
+		<annotation cp="😮">فم مفتوح | وجه بفم مفتوح</annotation>
+		<annotation cp="😮" type="tts">وجه بفم مفتوح</annotation>
+		<annotation cp="😯">متفاجئ | مدهوش | مكتوم الصوت | وجه | وجه مخفوت الصوت</annotation>
+		<annotation cp="😯" type="tts">وجه مخفوت الصوت</annotation>
+		<annotation cp="😲">مصدوم | مندهش | مندهش تمامًا | وجه مندهش</annotation>
+		<annotation cp="😲" type="tts">وجه مندهش</annotation>
+		<annotation cp="😳">متورد | مصاب بدوار | وجه متورد</annotation>
+		<annotation cp="😳" type="tts">وجه متورد</annotation>
+		<annotation cp="🥺">توسل | رحمة | عيون جرو | وجه ملتمس</annotation>
+		<annotation cp="🥺" type="tts">وجه ملتمس</annotation>
+		<annotation cp="😦">عبوس | عبوس بفم مفتوح | فم مفتوح | ‫وجه عابس بفم مفتوح</annotation>
+		<annotation cp="😦" type="tts">‫وجه عابس بفم مفتوح</annotation>
+		<annotation cp="😧">تألم | وجه مكروب</annotation>
+		<annotation cp="😧" type="tts">وجه مكروب</annotation>
+		<annotation cp="😨">مرعوب | ‫وجه خائف</annotation>
+		<annotation cp="😨" type="tts">‫وجه خائف</annotation>
+		<annotation cp="😰">عرق بارد | فم مفتوح | وجه أزرق يتصبب عرقًا باردًا | ‫وجه بفم مفتوح وعرق بارد</annotation>
+		<annotation cp="😰" type="tts">‫وجه بفم مفتوح وعرق بارد</annotation>
+		<annotation cp="😥">احباط | خيبة أمل | وجه خيبة أمل</annotation>
+		<annotation cp="😥" type="tts">وجه خيبة أمل</annotation>
+		<annotation cp="😢">حزين | دموع | وجه باك | وجه يبكي</annotation>
+		<annotation cp="😢" type="tts">وجه يبكي</annotation>
+		<annotation cp="😭">بكاء | دموع | صراخ | وجه يبكي بكاءً مرتفعًا</annotation>
+		<annotation cp="😭" type="tts">وجه يبكي بكاءً مرتفعًا</annotation>
+		<annotation cp="😱">خوف | مرعوب | ‫وجه خائف يصرخ | وجه يصرخ خوفًا | يصرخ خوفًا</annotation>
+		<annotation cp="😱" type="tts">‫وجه خائف يصرخ</annotation>
+		<annotation cp="😖">تائه | وجه مرتبك</annotation>
+		<annotation cp="😖" type="tts">وجه مرتبك</annotation>
+		<annotation cp="😣">جدية | وجه | وجه جاد</annotation>
+		<annotation cp="😣" type="tts">وجه جاد</annotation>
+		<annotation cp="😞">محبط | وجه</annotation>
+		<annotation cp="😞" type="tts">وجه محبط</annotation>
+		<annotation cp="😓">عرق | وجه بعرق بارد | وجه حزين | وجه حزين متعرق | وجه متعرق</annotation>
+		<annotation cp="😓" type="tts">وجه بعرق بارد</annotation>
+		<annotation cp="😩">متعب | وجه ضجر | ‫وجه مجهد</annotation>
+		<annotation cp="😩" type="tts">‫وجه مجهد</annotation>
+		<annotation cp="😫">‫وجه متعب | وجه مجهد</annotation>
+		<annotation cp="😫" type="tts">‫وجه متعب</annotation>
+		<annotation cp="🥱">تثاؤب | متعب | ملل | وجه متثائب | يتثاءب</annotation>
+		<annotation cp="🥱" type="tts">وجه متثائب</annotation>
+		<annotation cp="😤">فوز | نصر | وجه | وجه بأنف يصدر بخارًا</annotation>
+		<annotation cp="😤" type="tts">وجه بأنف يصدر بخارًا</annotation>
+		<annotation cp="😡">غاضب | هائج | وجه أحمر | وجه مشتاط غضبًا | وجه مقطب ومتجهم</annotation>
+		<annotation cp="😡" type="tts">وجه مشتاط غضبًا</annotation>
+		<annotation cp="😠">هائج | وجه غاضب</annotation>
+		<annotation cp="😠" type="tts">وجه غاضب</annotation>
+		<annotation cp="🤬">سباب | وجه مع رموز على الفم | وجه يسب | يشتم</annotation>
+		<annotation cp="🤬" type="tts">وجه مع رموز على الفم</annotation>
 		<annotation cp="😈">ابتسام | قرون | ‫وجه مبتسم بقرنين</annotation>
 		<annotation cp="😈" type="tts">‫وجه مبتسم بقرنين</annotation>
 		<annotation cp="👿">شيطان صغير | وجه | ‫وجه غاضب بقرنين</annotation>
 		<annotation cp="👿" type="tts">‫وجه غاضب بقرنين</annotation>
+		<annotation cp="💀">جسم | جمجمة | حدوتة | وجه</annotation>
+		<annotation cp="💀" type="tts">جمجمة</annotation>
+		<annotation cp="☠">جسد | جمجمة | جمجمة بعظمتين متصالبتين | شبح | كروس | وفاة</annotation>
+		<annotation cp="☠" type="tts">جمجمة بعظمتين متصالبتين</annotation>
+		<annotation cp="💩">روث | فضلات | كومة فضلات</annotation>
+		<annotation cp="💩" type="tts">فضلات</annotation>
 		<annotation cp="🤡">مهرج | وجه</annotation>
 		<annotation cp="🤡" type="tts">وجه مهرج</annotation>
 		<annotation cp="👹">جني | حدوتة | غول | غول ياباني | وجه | وحش</annotation>
 		<annotation cp="👹" type="tts">غول</annotation>
 		<annotation cp="👺">حدوتة | عفريت | عفريت ياباني | وجه | وحش</annotation>
 		<annotation cp="👺" type="tts">عفريت</annotation>
-		<annotation cp="💀">جسم | جمجمة | حدوتة | وجه</annotation>
-		<annotation cp="💀" type="tts">جمجمة</annotation>
-		<annotation cp="☠">جسد | جمجمة | جمجمة بعظمتين متصالبتين | شبح | كروس | وفاة</annotation>
-		<annotation cp="☠" type="tts">جمجمة بعظمتين متصالبتين</annotation>
 		<annotation cp="👻">حدوتة | شبح | وجه</annotation>
 		<annotation cp="👻" type="tts">شبح</annotation>
 		<annotation cp="👽">حدوتة | كائن غريب | كائن فضائي | وجه</annotation>
@@ -223,8 +339,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👾" type="tts">وحش غريب</annotation>
 		<annotation cp="🤖">إنسان آلي | روبوت | وجه</annotation>
 		<annotation cp="🤖" type="tts">وجه روبوت</annotation>
-		<annotation cp="💩">روث | فضلات | كومة فضلات</annotation>
-		<annotation cp="💩" type="tts">فضلات</annotation>
 		<annotation cp="😺">وجه قطة | وجه قطة مبتسم بفم مفتوح</annotation>
 		<annotation cp="😺" type="tts">وجه قطة مبتسم بفم مفتوح</annotation>
 		<annotation cp="😸">ابتسامة عريضة | وجه قطة | وجه قطة مبتسم بعينين باسمتين | وجه قطة مبتسم وعيون مبتسمة</annotation>
@@ -249,6 +363,172 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🙉" type="tts">قرد يحجب أذنيه</annotation>
 		<annotation cp="🙊">قرد | قرد يحجب الكلام | قرد يحجب كلامه</annotation>
 		<annotation cp="🙊" type="tts">قرد يحجب الكلام</annotation>
+		<annotation cp="💋">رومانسية | شفاه | علامة قبلة | قبلة</annotation>
+		<annotation cp="💋" type="tts">علامة قبلة</annotation>
+		<annotation cp="💌">خطاب | خطاب حب | رسالة عليها قلب | رومانسية | قلب</annotation>
+		<annotation cp="💌" type="tts">خطاب حب</annotation>
+		<annotation cp="💘">حب | سهم | قلب | قلب وسهم | مشاعر</annotation>
+		<annotation cp="💘" type="tts">قلب وسهم</annotation>
+		<annotation cp="💝">شريطة | فالنتين | قلب | ‫قلب عليه شريط | مشاعر</annotation>
+		<annotation cp="💝" type="tts">‫قلب عليه شريط</annotation>
+		<annotation cp="💖">إثارة | حب | قلب لامع | مشاعر</annotation>
+		<annotation cp="💖" type="tts">قلب لامع</annotation>
+		<annotation cp="💗">إثارة | توتر | حب | قلب | قلب ينمو | مشاعر</annotation>
+		<annotation cp="💗" type="tts">قلب ينمو</annotation>
+		<annotation cp="💓">حب | خفقان | قلب | قلب يخفق | مشاعر | نبض</annotation>
+		<annotation cp="💓" type="tts">قلب يخفق</annotation>
+		<annotation cp="💞">جذاب | حب | قلب | قلوب تدور حول بعضها | مثير | مشاعر</annotation>
+		<annotation cp="💞" type="tts">قلوب تدور حول بعضها</annotation>
+		<annotation cp="💕">أحبة | حب | قلبان | مشاعر</annotation>
+		<annotation cp="💕" type="tts">قلبان</annotation>
+		<annotation cp="💟">زخرفة قلب | قلب</annotation>
+		<annotation cp="💟" type="tts">زخرفة قلب</annotation>
+		<annotation cp="❣">تعجب | علامة تعجب | قلب | قلب على شكل علامة تعجب</annotation>
+		<annotation cp="❣" type="tts">قلب على شكل علامة تعجب</annotation>
+		<annotation cp="💔">انكسار | قلب | قلب مكسور | مشاعر</annotation>
+		<annotation cp="💔" type="tts">قلب مكسور</annotation>
+		<annotation cp="❤">قلب | قلب أحمر</annotation>
+		<annotation cp="❤" type="tts">قلب أحمر</annotation>
+		<annotation cp="🧡">برتقالة | قلب برتقالي</annotation>
+		<annotation cp="🧡" type="tts">قلب برتقالي</annotation>
+		<annotation cp="💛">أصفر | قلب | مشاعر</annotation>
+		<annotation cp="💛" type="tts">قلب أصفر</annotation>
+		<annotation cp="💚">أخضر | قلب | مشاعر</annotation>
+		<annotation cp="💚" type="tts">قلب أخضر</annotation>
+		<annotation cp="💙">أزرق | قلب | مشاعر</annotation>
+		<annotation cp="💙" type="tts">قلب أزرق</annotation>
+		<annotation cp="💜">أرجواني | قلب | مشاعر</annotation>
+		<annotation cp="💜" type="tts">قلب أرجواني</annotation>
+		<annotation cp="🤎">بني | قلب</annotation>
+		<annotation cp="🤎" type="tts">قلب بني</annotation>
+		<annotation cp="🖤">أسود | شر | قلب</annotation>
+		<annotation cp="🖤" type="tts">قلب أسود</annotation>
+		<annotation cp="🤍">أبيض | بياض | قلب</annotation>
+		<annotation cp="🤍" type="tts">قلب أبيض</annotation>
+		<annotation cp="💯">100 | 100 نقطة | درجة</annotation>
+		<annotation cp="💯" type="tts">100 درجة</annotation>
+		<annotation cp="💢">رمز الغضب | علامة غضب | مشاعر</annotation>
+		<annotation cp="💢" type="tts">رمز الغضب</annotation>
+		<annotation cp="💥">تصادم | رمز تصادم | مشاعر | هزل</annotation>
+		<annotation cp="💥" type="tts">تصادم</annotation>
+		<annotation cp="💫">تخيل حركة النجوم | دوار | مشاعر | نجوم | هزل</annotation>
+		<annotation cp="💫" type="tts">دوار</annotation>
+		<annotation cp="💦">عرق | عرق يتصبب | مبلل عرقًا | مشاعر | هزل</annotation>
+		<annotation cp="💦" type="tts">عرق يتصبب</annotation>
+		<annotation cp="💨">انطلاقة جري | جري | مشاعر | هرب | هزل</annotation>
+		<annotation cp="💨" type="tts">انطلاقة جري</annotation>
+		<annotation cp="🕳">ثقب | حفرة</annotation>
+		<annotation cp="🕳" type="tts">ثقب</annotation>
+		<annotation cp="💣">قنبلة | مشاعر</annotation>
+		<annotation cp="💣" type="tts">قنبلة</annotation>
+		<annotation cp="💬">بالونة | حوار | فقاعة كلام</annotation>
+		<annotation cp="💬" type="tts">فقاعة كلام</annotation>
+		<annotation cp="👁‍🗨">شاهد | عين | عين في فقاعة كلام | فقاعة تفسيرية</annotation>
+		<annotation cp="👁‍🗨" type="tts">عين في فقاعة كلام</annotation>
+		<annotation cp="🗨">حديث | حوار | فقاعة كلام يسرى</annotation>
+		<annotation cp="🗨" type="tts">فقاعة كلام يسرى</annotation>
+		<annotation cp="🗯">بالون | جنون | غضب | فقاعة | فقاعة غضب يمنى</annotation>
+		<annotation cp="🗯" type="tts">فقاعة غضب يمنى</annotation>
+		<annotation cp="💭">بالونة | فقاعة أفكار | فكرة | هزل</annotation>
+		<annotation cp="💭" type="tts">فقاعة أفكار</annotation>
+		<annotation cp="💤">شخير | مشاعر | نعسان</annotation>
+		<annotation cp="💤" type="tts">نعسان</annotation>
+		<annotation cp="👋">تلويح | تلويح باليد | يد</annotation>
+		<annotation cp="👋" type="tts">تلويح باليد</annotation>
+		<annotation cp="🤚">ظاهر يد | ‫ظهر يد مرفوعة | مرفوع</annotation>
+		<annotation cp="🤚" type="tts">‫ظهر يد مرفوعة</annotation>
+		<annotation cp="🖐">إصبع | تباعد | جسد | يد | يد مرفوعة بأصابع متفرقة</annotation>
+		<annotation cp="🖐" type="tts">يد مرفوعة بأصابع متفرقة</annotation>
+		<annotation cp="✋">جسد | قبضة | يد | يد مرفوعة</annotation>
+		<annotation cp="✋" type="tts">يد مرفوعة</annotation>
+		<annotation cp="🖖">إصبع | تحية فولكان | جسد | سبوك | فولكان | يد</annotation>
+		<annotation cp="🖖" type="tts">تحية فولكان</annotation>
+		<annotation cp="👌">علامة | موافقة | يد تشير للموافقة</annotation>
+		<annotation cp="👌" type="tts">يد تشير للموافقة</annotation>
+		<annotation cp="🤏">كمية صغيرة | مقدار صغير | مقدار ضئيل | يد تشير بمقدار ضئيل</annotation>
+		<annotation cp="🤏" type="tts">يد تشير بمقدار ضئيل</annotation>
+		<annotation cp="✌">انتصار | علامة النصر | مقص</annotation>
+		<annotation cp="✌" type="tts">علامة النصر</annotation>
+		<annotation cp="🤞">أصابع | أصابع مشبكة | حظ</annotation>
+		<annotation cp="🤞" type="tts">أصابع مشبكة</annotation>
+		<annotation cp="🤟">أحبك | إشارة أحبك | بحبك</annotation>
+		<annotation cp="🤟" type="tts">إشارة أحبك</annotation>
+		<annotation cp="🤘">إشارة قرون | إصبع | جسد | قرون | يد</annotation>
+		<annotation cp="🤘" type="tts">إشارة قرون</annotation>
+		<annotation cp="🤙">إشارة للاتصال | اتصال | يد</annotation>
+		<annotation cp="🤙" type="tts">إشارة للاتصال</annotation>
+		<annotation cp="👈">إصبع | إصبع لليسار | السبابة</annotation>
+		<annotation cp="👈" type="tts">إصبع لليسار</annotation>
+		<annotation cp="👉">إصبع | إصبع لليمين | السبابة</annotation>
+		<annotation cp="👉" type="tts">إصبع لليمين</annotation>
+		<annotation cp="👆">إصبع | إصبع لأعلى | السبابة</annotation>
+		<annotation cp="👆" type="tts">إصبع لأعلى</annotation>
+		<annotation cp="🖕">إصبع | إصبع الوسطى | جسد | يد</annotation>
+		<annotation cp="🖕" type="tts">إصبع الوسطى</annotation>
+		<annotation cp="👇">إصبع | إصبع لأسفل | السبابة</annotation>
+		<annotation cp="👇" type="tts">إصبع لأسفل</annotation>
+		<annotation cp="☝">أعلى | إشارة | إصبع | جسد | سبابة | سبابة يشير لأعلى | يد</annotation>
+		<annotation cp="☝" type="tts">سبابة يشير لأعلى</annotation>
+		<annotation cp="👍">أعلى | إبهام | علامة | قبول | يد</annotation>
+		<annotation cp="👍" type="tts">قبول</annotation>
+		<annotation cp="👎">أسفل | إبهام | رفض | علامة | يد</annotation>
+		<annotation cp="👎" type="tts">رفض</annotation>
+		<annotation cp="✊">جسد | قبضة | قبضة يد مرفوعة | يد</annotation>
+		<annotation cp="✊" type="tts">قبضة يد مرفوعة</annotation>
+		<annotation cp="👊">قبضة يد | كف | يد</annotation>
+		<annotation cp="👊" type="tts">قبضة يد</annotation>
+		<annotation cp="🤛">قبضة | قبضة لليسار | يسار</annotation>
+		<annotation cp="🤛" type="tts">قبضة لليسار</annotation>
+		<annotation cp="🤜">قبضة | قبضة لليمين | يمين</annotation>
+		<annotation cp="🤜" type="tts">قبضة لليمين</annotation>
+		<annotation cp="👏">أيادي | تصفيق | علامة | يدان تصفقان</annotation>
+		<annotation cp="👏" type="tts">يدان تصفقان</annotation>
+		<annotation cp="🙌">احتفال | اليدان | تشجيع | رفع اليدين احتفالاً</annotation>
+		<annotation cp="🙌" type="tts">تشجيع</annotation>
+		<annotation cp="👐">علامة | علامة فتح اليدين | مفتوحة | يد | يدان مفتوحتان</annotation>
+		<annotation cp="👐" type="tts">يدان مفتوحتان</annotation>
+		<annotation cp="🤲">راحتان مفتوحتان | صلاة</annotation>
+		<annotation cp="🤲" type="tts">راحتان مفتوحتان</annotation>
+		<annotation cp="🤝">اتفاق | اجتماع | مصافحة</annotation>
+		<annotation cp="🤝" type="tts">مصافحة</annotation>
+		<annotation cp="🙏">أداء صلاة | إشارة | صلاة | يد | يدان مضمومتان</annotation>
+		<annotation cp="🙏" type="tts">يدان مضمومتان</annotation>
+		<annotation cp="✍">كتابة | يد | يد تكتب</annotation>
+		<annotation cp="✍" type="tts">يد تكتب</annotation>
+		<annotation cp="💅">أظافر | تهذيب أظافر | طلاء أظافر | مانكير | مستحضرات تجميل</annotation>
+		<annotation cp="💅" type="tts">طلاء أظافر</annotation>
+		<annotation cp="🤳">سيلفي | صورة سيلفي | كاميرا | هاتف</annotation>
+		<annotation cp="🤳" type="tts">صورة سيلفي</annotation>
+		<annotation cp="💪">عضلات | عضلة الذراع | قوية | مرنة | هزل</annotation>
+		<annotation cp="💪" type="tts">عضلة الذراع</annotation>
+		<annotation cp="🦾">إمكانية الوصول | احتياجات خاصة | ترقيع | ذراع اصطناعية | صناعية</annotation>
+		<annotation cp="🦾" type="tts">ذراع اصطناعية</annotation>
+		<annotation cp="🦿">إمكانية الوصول | احتياجات خاصة | ترقيع | ساق اصطناعية | صناعية</annotation>
+		<annotation cp="🦿" type="tts">ساق اصطناعية</annotation>
+		<annotation cp="🦵">ركل | ساق | طرف</annotation>
+		<annotation cp="🦵" type="tts">ساق</annotation>
+		<annotation cp="🦶">تعثر | دس | رفسة | ركل | ركلة | قدم</annotation>
+		<annotation cp="🦶" type="tts">قدم</annotation>
+		<annotation cp="👂">أذن | جسم</annotation>
+		<annotation cp="👂" type="tts">أذن</annotation>
+		<annotation cp="🦻">أذن مع جهاز سمعي | إمكانية الوصول | احتياجات خاصة | جهاز سمعي | مساعدة سمعية</annotation>
+		<annotation cp="🦻" type="tts">أذن مع جهاز سمعي</annotation>
+		<annotation cp="👃">أنف | جسم | وجه</annotation>
+		<annotation cp="👃" type="tts">أنف</annotation>
+		<annotation cp="🧠">دماغ | ذكي</annotation>
+		<annotation cp="🧠" type="tts">دماغ</annotation>
+		<annotation cp="🦷">أسنان | سن | ضرس | طبيب أسنان</annotation>
+		<annotation cp="🦷" type="tts">سن</annotation>
+		<annotation cp="🦴">عظام | عظم | عظمة | هيكل عظمي</annotation>
+		<annotation cp="🦴" type="tts">عظمة</annotation>
+		<annotation cp="👀">عينان | وجه</annotation>
+		<annotation cp="👀" type="tts">عينان</annotation>
+		<annotation cp="👁">جسد | عين</annotation>
+		<annotation cp="👁" type="tts">عين</annotation>
+		<annotation cp="👅">جسم | لسان | وجه</annotation>
+		<annotation cp="👅" type="tts">لسان</annotation>
+		<annotation cp="👄">جسم | شفتان | فم | وجه</annotation>
+		<annotation cp="👄" type="tts">فم</annotation>
 		<annotation cp="👶">رضيع | طفل</annotation>
 		<annotation cp="👶" type="tts">رضيع</annotation>
 		<annotation cp="🧒">طفل</annotation>
@@ -261,82 +541,182 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧑" type="tts">بالغ</annotation>
 		<annotation cp="👱">أشقر | شخص أشقر</annotation>
 		<annotation cp="👱" type="tts">شخص أشقر</annotation>
+		<annotation cp="🧑‍🍼">رضاعة | رضيع | شخص | شخص يُرضع طفلاً | طفل</annotation>
+		<annotation cp="🧑‍🍼" type="tts">شخص يُرضع طفلاً</annotation>
+		<annotation cp="🧑‍🎄">عيد الميلاد | كلوز</annotation>
+		<annotation cp="🧑‍🎄" type="tts">كلوز</annotation>
 		<annotation cp="👨">بالغ | رجل | شخص | كبير</annotation>
 		<annotation cp="👨" type="tts">رجل</annotation>
-		<annotation cp="👱‍♂">أشقر | رجل | رجل أشقر الشعر</annotation>
-		<annotation cp="👱‍♂" type="tts">رجل أشقر</annotation>
 		<annotation cp="🧔">شخص بلحية | شخص مع لحية</annotation>
 		<annotation cp="🧔" type="tts">شخص بلحية</annotation>
+		<annotation cp="👱‍♂">أشقر | رجل | رجل أشقر الشعر</annotation>
+		<annotation cp="👱‍♂" type="tts">رجل أشقر</annotation>
+		<annotation cp="👨‍🍼">رجل | رجل يُرضع طفلاً | رضاعة | رضيع | طفل</annotation>
+		<annotation cp="👨‍🍼" type="tts">رجل يُرضع طفلاً</annotation>
 		<annotation cp="👩">أنثى | أنسة | بالغة | سيدة | شخص | كبيرة</annotation>
 		<annotation cp="👩" type="tts">سيدة</annotation>
 		<annotation cp="👱‍♀">امرأة | امرأة شقراء الشعر | شقراء</annotation>
 		<annotation cp="👱‍♀" type="tts">امرأة شقراء</annotation>
+		<annotation cp="👩‍🍼">امرأة | امرأة تُرضع طفلاً | رضاعة | رضيع | طفل</annotation>
+		<annotation cp="👩‍🍼" type="tts">امرأة تُرضع طفلاً</annotation>
 		<annotation cp="🧓">بالغ أكبر في السن | عجوز | كبير في السن</annotation>
 		<annotation cp="🧓" type="tts">بالغ أكبر في السن</annotation>
 		<annotation cp="👴">أشخاص | رجل | عجوز</annotation>
 		<annotation cp="👴" type="tts">رجل عجوز</annotation>
 		<annotation cp="👵">أشخاص | سيدة | عجوز</annotation>
 		<annotation cp="👵" type="tts">سيدة عجوز</annotation>
+		<annotation cp="🙍">إشارة | شخص | شخص عابس</annotation>
+		<annotation cp="🙍" type="tts">شخص عابس</annotation>
+		<annotation cp="🙍‍♂">عبوس | متجهم | مقطب الجبين</annotation>
+		<annotation cp="🙍‍♂" type="tts">متجهم</annotation>
+		<annotation cp="🙍‍♀">عبوسة | متجهمة | مقطبة الجبين</annotation>
+		<annotation cp="🙍‍♀" type="tts">متجهمة</annotation>
+		<annotation cp="🙎">إشارة | شخص | ‫شخص متجهم</annotation>
+		<annotation cp="🙎" type="tts">‫شخص متجهم</annotation>
+		<annotation cp="🙎‍♂">رجل عابس | عبوس | متجهم | مقطب الجبين</annotation>
+		<annotation cp="🙎‍♂" type="tts">رجل عابس</annotation>
+		<annotation cp="🙎‍♀">سيدة عابسة | عبوسة | متجهمة | مقطبة الجبين</annotation>
+		<annotation cp="🙎‍♀" type="tts">سيدة عابسة</annotation>
+		<annotation cp="🙅">أمر سيء | ‫إشارة رفض | لا | ممنوع</annotation>
+		<annotation cp="🙅" type="tts">‫إشارة رفض</annotation>
+		<annotation cp="🙅‍♂">إشارة رفض | غير موافق</annotation>
+		<annotation cp="🙅‍♂" type="tts">غير موافق</annotation>
+		<annotation cp="🙅‍♀">إشارة رفض | غير موافقة</annotation>
+		<annotation cp="🙅‍♀" type="tts">غير موافقة</annotation>
+		<annotation cp="🙆">إشارة | إشارة موافقة | مضبوط | وجه</annotation>
+		<annotation cp="🙆" type="tts">إشارة موافقة</annotation>
+		<annotation cp="🙆‍♂">إشارة موافقة | موافق</annotation>
+		<annotation cp="🙆‍♂" type="tts">موافق</annotation>
+		<annotation cp="🙆‍♀">إشارة موافقة | موافقة</annotation>
+		<annotation cp="🙆‍♀" type="tts">موافقة</annotation>
+		<annotation cp="💁">أشخاص | ‫شخص بيد مائلة | مساعدة | معلومات</annotation>
+		<annotation cp="💁" type="tts">‫شخص بيد مائلة</annotation>
+		<annotation cp="💁‍♂">رجل بيد مائلة | يد مائلة</annotation>
+		<annotation cp="💁‍♂" type="tts">رجل بيد مائلة</annotation>
+		<annotation cp="💁‍♀">سيدة بيد مائلة | يد مائلة</annotation>
+		<annotation cp="💁‍♀" type="tts">سيدة بيد مائلة</annotation>
+		<annotation cp="🙋">إشارة | رفع اليد | سعادة | شخص | ‫شخص يرفع يده</annotation>
+		<annotation cp="🙋" type="tts">‫شخص يرفع يده</annotation>
+		<annotation cp="🙋‍♂">رجل يرفع يده | يد مرفوعة</annotation>
+		<annotation cp="🙋‍♂" type="tts">رجل يرفع يده</annotation>
+		<annotation cp="🙋‍♀">سيدة ترفع يدها | يد مرفوعة</annotation>
+		<annotation cp="🙋‍♀" type="tts">سيدة ترفع يدها</annotation>
+		<annotation cp="🧏">أذن | أصم | إمكانية الوصول | احتياجات خاصة | سماع | شخص أصم | صمم</annotation>
+		<annotation cp="🧏" type="tts">شخص أصم</annotation>
+		<annotation cp="🧏‍♂">أصم | رجل | صمم</annotation>
+		<annotation cp="🧏‍♂" type="tts">رجل أصم</annotation>
+		<annotation cp="🧏‍♀">سيدة | صماء | صمم</annotation>
+		<annotation cp="🧏‍♀" type="tts">سيدة صماء</annotation>
+		<annotation cp="🙇">أسف | إشارة | انحناء | انحناء شديد | شخص | ‫شخص يتأسف | شخص ينحني اعتذارًا</annotation>
+		<annotation cp="🙇" type="tts">شخص ينحني اعتذارًا</annotation>
+		<annotation cp="🙇‍♂">امتنان | انحناء | رجل ينحني | رجل ينحني اعتذارًا | ركوع</annotation>
+		<annotation cp="🙇‍♂" type="tts">رجل ينحني اعتذارًا</annotation>
+		<annotation cp="🙇‍♀">أسف | اعتذار | امتنان | انحناء | ركوع | سيدة تنحني | سيدة تنحني اعتذارًا</annotation>
+		<annotation cp="🙇‍♀" type="tts">سيدة تنحني اعتذارًا</annotation>
+		<annotation cp="🤦">إحباط | راحة يد | سخط | ‫شخص محبط</annotation>
+		<annotation cp="🤦" type="tts">‫شخص محبط</annotation>
+		<annotation cp="🤦‍♂">إحباط | رجل يشعر بإحباط | صدمة | عدم تصديق</annotation>
+		<annotation cp="🤦‍♂" type="tts">رجل يشعر بإحباط</annotation>
+		<annotation cp="🤦‍♀">إحباط | سيدة تشعر بإحباط | صدمة | عدم تصديق</annotation>
+		<annotation cp="🤦‍♀" type="tts">سيدة تشعر بإحباط</annotation>
+		<annotation cp="🤷">جهل | شك | لا مبالاة</annotation>
+		<annotation cp="🤷" type="tts">لا مبالاة</annotation>
+		<annotation cp="🤷‍♂">استهجان | رجل لا يبالي | هز الكتف</annotation>
+		<annotation cp="🤷‍♂" type="tts">رجل لا يبالي</annotation>
+		<annotation cp="🤷‍♀">استهجان | سيدة لا تبالي | هز الكتف</annotation>
+		<annotation cp="🤷‍♀" type="tts">سيدة لا تبالي</annotation>
+		<annotation cp="🧑‍⚕">رعاية صحية | طبيب | معالج | ممرض | موظف بقطاع الصحة</annotation>
+		<annotation cp="🧑‍⚕" type="tts">موظف بقطاع الصحة</annotation>
 		<annotation cp="👨‍⚕">رعاية صحية | طبيب | عامل بقطاع الصحة | معالج | ممرض</annotation>
 		<annotation cp="👨‍⚕" type="tts">عامل بقطاع الصحة</annotation>
 		<annotation cp="👩‍⚕">رعاية صحية | طبيبة | عاملة بقطاع الصحة | معالجة | ممرضة</annotation>
 		<annotation cp="👩‍⚕" type="tts">عاملة بقطاع الصحة</annotation>
+		<annotation cp="🧑‍🎓">خريج | طالب | طالِب</annotation>
+		<annotation cp="🧑‍🎓" type="tts">طالِب</annotation>
 		<annotation cp="👨‍🎓">خريج | طالب</annotation>
 		<annotation cp="👨‍🎓" type="tts">طالب</annotation>
 		<annotation cp="👩‍🎓">خريجة | طالبة</annotation>
 		<annotation cp="👩‍🎓" type="tts">طالبة</annotation>
+		<annotation cp="🧑‍🏫">أستاذ | مدرس | معلم</annotation>
+		<annotation cp="🧑‍🏫" type="tts">أستاذ</annotation>
 		<annotation cp="👨‍🏫">أستاذ | أستاذ جامعي | مدرس | مربي | معلم</annotation>
 		<annotation cp="👨‍🏫" type="tts">معلم</annotation>
 		<annotation cp="👩‍🏫">أستاذة | أستاذة جامعية | مدرسة | مربية | معلمة</annotation>
 		<annotation cp="👩‍🏫" type="tts">معلمة</annotation>
+		<annotation cp="🧑‍⚖">عدالة | عدل | قاضي</annotation>
+		<annotation cp="🧑‍⚖" type="tts">قاضي</annotation>
 		<annotation cp="👨‍⚖">عدالة | عدل | قاضٍ</annotation>
 		<annotation cp="👨‍⚖" type="tts">قاضٍ</annotation>
 		<annotation cp="👩‍⚖">عدالة | عدل | قاضية</annotation>
 		<annotation cp="👩‍⚖" type="tts">قاضية</annotation>
+		<annotation cp="🧑‍🌾">عامل زراعي | فلاح | مزارع | مُزارع | منسق حدائق</annotation>
+		<annotation cp="🧑‍🌾" type="tts">مُزارع</annotation>
 		<annotation cp="👨‍🌾">عامل زراعي | فلاح | مزارع | منسق حدائق</annotation>
 		<annotation cp="👨‍🌾" type="tts">مزارع</annotation>
 		<annotation cp="👩‍🌾">عاملة زراعية | فلاحة | مزارعة | منسقة حدائق</annotation>
 		<annotation cp="👩‍🌾" type="tts">مزارعة</annotation>
+		<annotation cp="🧑‍🍳">شيف | طاه | طاهي | طباخ</annotation>
+		<annotation cp="🧑‍🍳" type="tts">طاهي</annotation>
 		<annotation cp="👨‍🍳">شيف | طاه | طباخ</annotation>
 		<annotation cp="👨‍🍳" type="tts">طباخ</annotation>
 		<annotation cp="👩‍🍳">شيف | طاهية | طباخة</annotation>
 		<annotation cp="👩‍🍳" type="tts">طباخة</annotation>
+		<annotation cp="🧑‍🔧">تاجر | حرفي | خبير ميكانيكي | سباك | كهربائي | ميكانيكي</annotation>
+		<annotation cp="🧑‍🔧" type="tts">خبير ميكانيكي</annotation>
 		<annotation cp="👨‍🔧">حرفي | عامل | ميكانيكي</annotation>
 		<annotation cp="👨‍🔧" type="tts">ميكانيكي</annotation>
 		<annotation cp="👩‍🔧">حرفية | عاملة | ميكانيكية</annotation>
 		<annotation cp="👩‍🔧" type="tts">ميكانيكية</annotation>
+		<annotation cp="🧑‍🏭">تجميع | صناعة | عامل | عامل في مصنع | مصنع</annotation>
+		<annotation cp="🧑‍🏭" type="tts">عامل في مصنع</annotation>
 		<annotation cp="👨‍🏭">تجميع | صناعة | عامل | مصنع</annotation>
 		<annotation cp="👨‍🏭" type="tts">عامل مصنع</annotation>
 		<annotation cp="👩‍🏭">تجميع | صناعة | عاملة | مصنع</annotation>
 		<annotation cp="👩‍🏭" type="tts">عاملة مصنع</annotation>
+		<annotation cp="🧑‍💼">شركة | مدير | مهندس | موظف | موظف مكتب</annotation>
+		<annotation cp="🧑‍💼" type="tts">موظف مكتب</annotation>
 		<annotation cp="👨‍💼">شركة | مدير | مكتب | موظف</annotation>
 		<annotation cp="👨‍💼" type="tts">موظف</annotation>
 		<annotation cp="👩‍💼">شركة | مديرة | مكتب | موظفة</annotation>
 		<annotation cp="👩‍💼" type="tts">موظفة</annotation>
+		<annotation cp="🧑‍🔬">بيولوجي | عالم | عالِم | فيزيائي | كيميائي | مهندس</annotation>
+		<annotation cp="🧑‍🔬" type="tts">عالِم</annotation>
 		<annotation cp="👨‍🔬">بيولوجي | عالم | فيزيائي | كيميائي</annotation>
 		<annotation cp="👨‍🔬" type="tts">عالم</annotation>
 		<annotation cp="👩‍🔬">بيولوجية | عالِمة | فيزيائية | كيميائية</annotation>
 		<annotation cp="👩‍🔬" type="tts">عالِمة</annotation>
+		<annotation cp="🧑‍💻">تقني | خبير تكنولوجيا | عالم تكنولوجيا | مبرمج | مصمم أكواد</annotation>
+		<annotation cp="🧑‍💻" type="tts">خبير تكنولوجيا</annotation>
 		<annotation cp="👨‍💻">تقني | خبير تكنولوجي | عالم تكنولوجيا | مبتكر | مبرمج | مصمم أكواد</annotation>
 		<annotation cp="👨‍💻" type="tts">عالم تكنولوجيا</annotation>
 		<annotation cp="👩‍💻">تقنية | خبيرة تكنولوجيا | عالِمة تكنولوجيا | مبرمجة | مصممة أكواد</annotation>
 		<annotation cp="👩‍💻" type="tts">عالِمة تكنولوجيا</annotation>
+		<annotation cp="🧑‍🎤">استعراضي | فنان | مطرب | مغني | مغنّي | نجم</annotation>
+		<annotation cp="🧑‍🎤" type="tts">مغنّي</annotation>
 		<annotation cp="👨‍🎤">مطرب | مغني | ممثل</annotation>
 		<annotation cp="👨‍🎤" type="tts">مطرب</annotation>
 		<annotation cp="👩‍🎤">مطربة | مغنية | ممثلة</annotation>
 		<annotation cp="👩‍🎤" type="tts">مطربة</annotation>
+		<annotation cp="🧑‍🎨">رسام | فنان | فنان رسم</annotation>
+		<annotation cp="🧑‍🎨" type="tts">فنان رسم</annotation>
 		<annotation cp="👨‍🎨">رسام | فنان</annotation>
 		<annotation cp="👨‍🎨" type="tts">رسام</annotation>
 		<annotation cp="👩‍🎨">رسامة | فنانة</annotation>
 		<annotation cp="👩‍🎨" type="tts">رسامة</annotation>
+		<annotation cp="🧑‍✈">ربان | طائرة | طيار</annotation>
+		<annotation cp="🧑‍✈" type="tts">ربان طائرة</annotation>
 		<annotation cp="👨‍✈">ربان طائرة | طيار | قائد طائرة</annotation>
 		<annotation cp="👨‍✈" type="tts">طيار</annotation>
 		<annotation cp="👩‍✈">ربّانة طائرة | قائدة طائرة</annotation>
 		<annotation cp="👩‍✈" type="tts">ربّانة طائرة</annotation>
+		<annotation cp="🧑‍🚀">رائد الفضاء | رائد فضاء | صاروخ</annotation>
+		<annotation cp="🧑‍🚀" type="tts">رائد الفضاء</annotation>
 		<annotation cp="👨‍🚀">رائد فضاء | عالم | فضاء | ملاح فضاء</annotation>
 		<annotation cp="👨‍🚀" type="tts">رائد فضاء</annotation>
 		<annotation cp="👩‍🚀">رائدة فضاء | ملاحة فضاء</annotation>
 		<annotation cp="👩‍🚀" type="tts">رائدة فضاء</annotation>
+		<annotation cp="🧑‍🚒">إطفائي | عربة إطفاء</annotation>
+		<annotation cp="🧑‍🚒" type="tts">إطفائي</annotation>
 		<annotation cp="👨‍🚒">حريق | رجل إطفاء | عامل إطفاء</annotation>
 		<annotation cp="👨‍🚒" type="tts">رجل إطفاء</annotation>
 		<annotation cp="👩‍🚒">حريق | سيدة إطفاء | عاملة إطفاء</annotation>
@@ -379,10 +759,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👲" type="tts">رجل بعمامة صينية</annotation>
 		<annotation cp="🧕">امرأة محجّبة</annotation>
 		<annotation cp="🧕" type="tts">امرأة محجّبة</annotation>
-		<annotation cp="🤵">رجل | رجل بملابس سهرة | رجل في بدلة رسمية | ملابس سهرة</annotation>
-		<annotation cp="🤵" type="tts">رجل في بدلة رسمية</annotation>
+		<annotation cp="🤵">شخص | شخص ببدلة رسمية | شخص بملابس سهرة | شخص في بدلة رسمية | ملابس سهرة</annotation>
+		<annotation cp="🤵" type="tts">شخص ببدلة رسمية</annotation>
+		<annotation cp="🤵‍♀">امرأة | امرأة ببدلة رسمية | امرأة ترتدي بدلة رسمية | بدلة رسمية</annotation>
+		<annotation cp="🤵‍♀" type="tts">امرأة ببدلة رسمية</annotation>
+		<annotation cp="🤵‍♂">بدلة رسمية | رجل | رجل في بدلة رسمية | رجل يرتدي بدلة رسمية</annotation>
+		<annotation cp="🤵‍♂" type="tts">رجل يرتدي بدلة رسمية</annotation>
 		<annotation cp="👰">أشخاص | حجاب | زفاف | عروس بحجاب | عروس بطرحة</annotation>
 		<annotation cp="👰" type="tts">عروس بطرحة</annotation>
+		<annotation cp="👰‍♀">امرأة | امرأة بطرحة | امرأة ترتدي طرحة | طرحة</annotation>
+		<annotation cp="👰‍♀" type="tts">امرأة بطرحة</annotation>
+		<annotation cp="👰‍♂">رجل | رجل بطرحة | رجل يرتدي طرحة | طرحة</annotation>
+		<annotation cp="👰‍♂" type="tts">رجل بطرحة</annotation>
 		<annotation cp="🤰">امرأة | حامل</annotation>
 		<annotation cp="🤰" type="tts">امرأة حامل</annotation>
 		<annotation cp="🤱">أمومة | رضاعة | رضيع</annotation>
@@ -395,112 +783,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤶" type="tts">سيدة سانتا كلوز</annotation>
 		<annotation cp="🦸">بطل | بطل خارق | بطلة | طيب | قوة خارقة</annotation>
 		<annotation cp="🦸" type="tts">بطل خارق</annotation>
-		<annotation cp="🦸‍♀">بطل | بطلة | بطلة خارقة | سيدة | طيب | قوة خارقة</annotation>
-		<annotation cp="🦸‍♀" type="tts">بطلة خارقة</annotation>
 		<annotation cp="🦸‍♂">بطل | بطل خارق رجل | رجل | طيب | قوة خارقة</annotation>
 		<annotation cp="🦸‍♂" type="tts">بطل خارق رجل</annotation>
+		<annotation cp="🦸‍♀">بطل | بطلة | بطلة خارقة | سيدة | طيب | قوة خارقة</annotation>
+		<annotation cp="🦸‍♀" type="tts">بطلة خارقة</annotation>
 		<annotation cp="🦹">جريمة | شر | شرير | شرير خارق | شريرة | قوة خارقة | مجرم</annotation>
 		<annotation cp="🦹" type="tts">شرير خارق</annotation>
-		<annotation cp="🦹‍♀">جريمة | شر | شريرة | شريرة خارقة | قوة خارقة | مجرمة</annotation>
-		<annotation cp="🦹‍♀" type="tts">شريرة خارقة</annotation>
 		<annotation cp="🦹‍♂">جريمة | رجل | شر | شرير | شرير خارق رجل | قوة خارقة | مجرم</annotation>
 		<annotation cp="🦹‍♂" type="tts">شرير خارق رجل</annotation>
+		<annotation cp="🦹‍♀">جريمة | شر | شريرة | شريرة خارقة | قوة خارقة | مجرمة</annotation>
+		<annotation cp="🦹‍♀" type="tts">شريرة خارقة</annotation>
 		<annotation cp="🧙">سحرة</annotation>
 		<annotation cp="🧙" type="tts">سحرة</annotation>
-		<annotation cp="🧙‍♀">ساحرة</annotation>
-		<annotation cp="🧙‍♀" type="tts">ساحرة</annotation>
 		<annotation cp="🧙‍♂">ساحر</annotation>
 		<annotation cp="🧙‍♂" type="tts">ساحر</annotation>
+		<annotation cp="🧙‍♀">ساحرة</annotation>
+		<annotation cp="🧙‍♀" type="tts">ساحرة</annotation>
 		<annotation cp="🧚">جنيّة | جنيّة خيالية</annotation>
 		<annotation cp="🧚" type="tts">جنيّة خيالية</annotation>
-		<annotation cp="🧚‍♀">جنّية</annotation>
-		<annotation cp="🧚‍♀" type="tts">جنّية</annotation>
 		<annotation cp="🧚‍♂">جنّي</annotation>
 		<annotation cp="🧚‍♂" type="tts">جنّي</annotation>
+		<annotation cp="🧚‍♀">جنّية</annotation>
+		<annotation cp="🧚‍♀" type="tts">جنّية</annotation>
 		<annotation cp="🧛">مصّاص دماء</annotation>
 		<annotation cp="🧛" type="tts">مصّاص دماء</annotation>
-		<annotation cp="🧛‍♀">مصّاصة دماء</annotation>
-		<annotation cp="🧛‍♀" type="tts">مصّاصة دماء</annotation>
 		<annotation cp="🧛‍♂">مصاص دماء</annotation>
 		<annotation cp="🧛‍♂" type="tts">مصاص دماء</annotation>
+		<annotation cp="🧛‍♀">مصّاصة دماء</annotation>
+		<annotation cp="🧛‍♀" type="tts">مصّاصة دماء</annotation>
 		<annotation cp="🧜">كائن بحري بجسد بشري وذيل سمكة | مخلوق بحري بجسد بشري وذيل سمكة</annotation>
 		<annotation cp="🧜" type="tts">مخلوق بحري بجسد بشري وذيل سمكة</annotation>
-		<annotation cp="🧜‍♀">حورية بحر | عروسة البحر</annotation>
-		<annotation cp="🧜‍♀" type="tts">حورية بحر</annotation>
 		<annotation cp="🧜‍♂">مخلوق له جسد رجل وذيل سمكة</annotation>
 		<annotation cp="🧜‍♂" type="tts">مخلوق له جسد رجل وذيل سمكة</annotation>
+		<annotation cp="🧜‍♀">حورية بحر | عروسة البحر</annotation>
+		<annotation cp="🧜‍♀" type="tts">حورية بحر</annotation>
 		<annotation cp="🧝">إلف | إيلف | جنّي صغير | كائن سحري | مخلوق سحري</annotation>
 		<annotation cp="🧝" type="tts">جنّي صغير</annotation>
-		<annotation cp="🧝‍♀">أنثى إلف | أنثى إيلف | جنيّة صغيرة | كائن سحري | مخلوقة سحرية</annotation>
-		<annotation cp="🧝‍♀" type="tts">جنيّة صغيرة</annotation>
 		<annotation cp="🧝‍♂">جنّي صغير ذكر | ذكر إلف | ذكر إيلف | كائن سحري | مخلوق سحري</annotation>
 		<annotation cp="🧝‍♂" type="tts">جنّي صغير ذكر</annotation>
+		<annotation cp="🧝‍♀">أنثى إلف | أنثى إيلف | جنيّة صغيرة | كائن سحري | مخلوقة سحرية</annotation>
+		<annotation cp="🧝‍♀" type="tts">جنيّة صغيرة</annotation>
 		<annotation cp="🧞">مارد سحري</annotation>
 		<annotation cp="🧞" type="tts">مارد سحري</annotation>
-		<annotation cp="🧞‍♀">ماردة</annotation>
-		<annotation cp="🧞‍♀" type="tts">ماردة</annotation>
 		<annotation cp="🧞‍♂">مارد</annotation>
 		<annotation cp="🧞‍♂" type="tts">مارد</annotation>
+		<annotation cp="🧞‍♀">ماردة</annotation>
+		<annotation cp="🧞‍♀" type="tts">ماردة</annotation>
 		<annotation cp="🧟">زومبي</annotation>
 		<annotation cp="🧟" type="tts">زومبي</annotation>
-		<annotation cp="🧟‍♀">امرأة زومبي</annotation>
-		<annotation cp="🧟‍♀" type="tts">امرأة زومبي</annotation>
 		<annotation cp="🧟‍♂">رجل زومبي</annotation>
 		<annotation cp="🧟‍♂" type="tts">رجل زومبي</annotation>
-		<annotation cp="🙍">إشارة | شخص | شخص عابس</annotation>
-		<annotation cp="🙍" type="tts">شخص عابس</annotation>
-		<annotation cp="🙍‍♂">عبوس | متجهم | مقطب الجبين</annotation>
-		<annotation cp="🙍‍♂" type="tts">متجهم</annotation>
-		<annotation cp="🙍‍♀">عبوسة | متجهمة | مقطبة الجبين</annotation>
-		<annotation cp="🙍‍♀" type="tts">متجهمة</annotation>
-		<annotation cp="🙎">إشارة | شخص | ‫شخص متجهم</annotation>
-		<annotation cp="🙎" type="tts">‫شخص متجهم</annotation>
-		<annotation cp="🙎‍♂">رجل عابس | عبوس | متجهم | مقطب الجبين</annotation>
-		<annotation cp="🙎‍♂" type="tts">رجل عابس</annotation>
-		<annotation cp="🙎‍♀">سيدة عابسة | عبوسة | متجهمة | مقطبة الجبين</annotation>
-		<annotation cp="🙎‍♀" type="tts">سيدة عابسة</annotation>
-		<annotation cp="🙅">أمر سيء | ‫إشارة رفض | لا | ممنوع</annotation>
-		<annotation cp="🙅" type="tts">‫إشارة رفض</annotation>
-		<annotation cp="🙅‍♂">إشارة رفض | غير موافق</annotation>
-		<annotation cp="🙅‍♂" type="tts">غير موافق</annotation>
-		<annotation cp="🙅‍♀">إشارة رفض | غير موافقة</annotation>
-		<annotation cp="🙅‍♀" type="tts">غير موافقة</annotation>
-		<annotation cp="🙆">إشارة | إشارة موافقة | مضبوط | وجه</annotation>
-		<annotation cp="🙆" type="tts">إشارة موافقة</annotation>
-		<annotation cp="🙆‍♂">إشارة موافقة | موافق</annotation>
-		<annotation cp="🙆‍♂" type="tts">موافق</annotation>
-		<annotation cp="🙆‍♀">إشارة موافقة | موافقة</annotation>
-		<annotation cp="🙆‍♀" type="tts">موافقة</annotation>
-		<annotation cp="💁">أشخاص | ‫شخص بيد مائلة | مساعدة | معلومات</annotation>
-		<annotation cp="💁" type="tts">‫شخص بيد مائلة</annotation>
-		<annotation cp="💁‍♂">رجل بيد مائلة | يد مائلة</annotation>
-		<annotation cp="💁‍♂" type="tts">رجل بيد مائلة</annotation>
-		<annotation cp="💁‍♀">سيدة بيد مائلة | يد مائلة</annotation>
-		<annotation cp="💁‍♀" type="tts">سيدة بيد مائلة</annotation>
-		<annotation cp="🙋">إشارة | رفع اليد | سعادة | شخص | ‫شخص يرفع يده</annotation>
-		<annotation cp="🙋" type="tts">‫شخص يرفع يده</annotation>
-		<annotation cp="🙋‍♂">رجل يرفع يده | يد مرفوعة</annotation>
-		<annotation cp="🙋‍♂" type="tts">رجل يرفع يده</annotation>
-		<annotation cp="🙋‍♀">سيدة ترفع يدها | يد مرفوعة</annotation>
-		<annotation cp="🙋‍♀" type="tts">سيدة ترفع يدها</annotation>
-		<annotation cp="🙇">أسف | إشارة | انحناء | انحناء شديد | شخص | ‫شخص يتأسف | شخص ينحني اعتذارًا</annotation>
-		<annotation cp="🙇" type="tts">شخص ينحني اعتذارًا</annotation>
-		<annotation cp="🙇‍♂">امتنان | انحناء | رجل ينحني | رجل ينحني اعتذارًا | ركوع</annotation>
-		<annotation cp="🙇‍♂" type="tts">رجل ينحني اعتذارًا</annotation>
-		<annotation cp="🙇‍♀">أسف | اعتذار | امتنان | انحناء | ركوع | سيدة تنحني | سيدة تنحني اعتذارًا</annotation>
-		<annotation cp="🙇‍♀" type="tts">سيدة تنحني اعتذارًا</annotation>
-		<annotation cp="🤦">إحباط | راحة يد | سخط | ‫شخص محبط</annotation>
-		<annotation cp="🤦" type="tts">‫شخص محبط</annotation>
-		<annotation cp="🤦‍♂">إحباط | رجل يشعر بإحباط | صدمة | عدم تصديق</annotation>
-		<annotation cp="🤦‍♂" type="tts">رجل يشعر بإحباط</annotation>
-		<annotation cp="🤦‍♀">إحباط | سيدة تشعر بإحباط | صدمة | عدم تصديق</annotation>
-		<annotation cp="🤦‍♀" type="tts">سيدة تشعر بإحباط</annotation>
-		<annotation cp="🤷">جهل | شك | لا مبالاة</annotation>
-		<annotation cp="🤷" type="tts">لا مبالاة</annotation>
-		<annotation cp="🤷‍♂">استهجان | رجل لا يبالي | هز الكتف</annotation>
-		<annotation cp="🤷‍♂" type="tts">رجل لا يبالي</annotation>
-		<annotation cp="🤷‍♀">استهجان | سيدة لا تبالي | هز الكتف</annotation>
-		<annotation cp="🤷‍♀" type="tts">سيدة لا تبالي</annotation>
+		<annotation cp="🧟‍♀">امرأة زومبي</annotation>
+		<annotation cp="🧟‍♀" type="tts">امرأة زومبي</annotation>
 		<annotation cp="💆">شخص يحصل على مساج | صالون | مساج</annotation>
 		<annotation cp="💆" type="tts">شخص يحصل على مساج</annotation>
 		<annotation cp="💆‍♂">تدليك | تدليك لرجل | مساج</annotation>
@@ -519,6 +853,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚶‍♂" type="tts">سائر</annotation>
 		<annotation cp="🚶‍♀">سائرة | ماشية | مترجلة</annotation>
 		<annotation cp="🚶‍♀" type="tts">سائرة</annotation>
+		<annotation cp="🧍">شخص واقف | واقف | وقوف | يقف</annotation>
+		<annotation cp="🧍" type="tts">شخص واقف</annotation>
+		<annotation cp="🧍‍♂">رجل | واقف | وقوف | يقف</annotation>
+		<annotation cp="🧍‍♂" type="tts">رجل واقف</annotation>
+		<annotation cp="🧍‍♀">تقف | سيدة | واقفة | وقوف</annotation>
+		<annotation cp="🧍‍♀" type="tts">سيدة واقفة</annotation>
+		<annotation cp="🧎">ركبة | ركبتان | ركبتين | ركوع | شخص جالس على ركبتيه</annotation>
+		<annotation cp="🧎" type="tts">شخص جالس على ركبتيه</annotation>
+		<annotation cp="🧎‍♂">رجل | رجل جالس على ركبتيه | ركبة | ركبتان | ركبتين | ركوع</annotation>
+		<annotation cp="🧎‍♂" type="tts">رجل جالس على ركبتيه</annotation>
+		<annotation cp="🧎‍♀">ركبة | ركبتان | ركبتين | ركوع | سيدة | سيدة جالسة على ركبتيها</annotation>
+		<annotation cp="🧎‍♀" type="tts">سيدة جالسة على ركبتيها</annotation>
+		<annotation cp="🧑‍🦯">أعمى | احتياجات خاصة | شخص مع عصا سير | ضرير | كفيف</annotation>
+		<annotation cp="🧑‍🦯" type="tts">شخص مع عصا سير</annotation>
+		<annotation cp="👨‍🦯">أعمى | إمكانية الوصول | احتياجات خاصة | رجل | رجل بعصا سير | كفيف</annotation>
+		<annotation cp="👨‍🦯" type="tts">رجل بعصا سير</annotation>
+		<annotation cp="👩‍🦯">إمكانية الوصول | احتياجات خاصة | سيدة | سيدة بعصا سير | عمياء | كفيفة</annotation>
+		<annotation cp="👩‍🦯" type="tts">سيدة بعصا سير</annotation>
+		<annotation cp="🧑‍🦼">احتياجات خاصة | شخص على كرسي متحرك كهربائي | كرسي متحرك</annotation>
+		<annotation cp="🧑‍🦼" type="tts">شخص على كرسي متحرك كهربائي</annotation>
+		<annotation cp="👨‍🦼">إمكانية الوصول | احتياجات خاصة | رجل | رجل على كرسي متحرك كهربائي | كرسي متحرك</annotation>
+		<annotation cp="👨‍🦼" type="tts">رجل على كرسي متحرك كهربائي</annotation>
+		<annotation cp="👩‍🦼">إمكانية الوصول | احتياجات خاصة | سيدة | سيدة على كرسي متحرك كهربائي | كرسي متحرك</annotation>
+		<annotation cp="👩‍🦼" type="tts">سيدة على كرسي متحرك كهربائي</annotation>
+		<annotation cp="🧑‍🦽">احتياجات خاصة | شخص على كرسي متحرك يدوي | كرسي متحرك</annotation>
+		<annotation cp="🧑‍🦽" type="tts">شخص على كرسي متحرك يدوي</annotation>
+		<annotation cp="👨‍🦽">إمكانية الوصول | احتياجات خاصة | رجل | رجل على كرسي متحرك يدوي | كرسي متحرك</annotation>
+		<annotation cp="👨‍🦽" type="tts">رجل على كرسي متحرك يدوي</annotation>
+		<annotation cp="👩‍🦽">إمكانية الوصول | احتياجات خاصة | سيدة | سيدة على كرسي متحرك يدوي | كرسي متحرك</annotation>
+		<annotation cp="👩‍🦽" type="tts">سيدة على كرسي متحرك يدوي</annotation>
 		<annotation cp="🏃">رياضة | ‫شخص يجري | ماراثون</annotation>
 		<annotation cp="🏃" type="tts">‫شخص يجري</annotation>
 		<annotation cp="🏃‍♂">راكض | يجري | يركض | يعدو</annotation>
@@ -529,6 +893,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💃" type="tts">راقصة</annotation>
 		<annotation cp="🕺">راقص | رجل | رجل يرقص</annotation>
 		<annotation cp="🕺" type="tts">رجل يرقص</annotation>
+		<annotation cp="🕴">أعمال | بدلة | رجل | رجل أعمال يرتقي</annotation>
+		<annotation cp="🕴" type="tts">رجل أعمال يرتقي</annotation>
 		<annotation cp="👯">أذن أرنبية | أشخاص | امرأة | بنات راقصة | شخصان يرقصان</annotation>
 		<annotation cp="👯" type="tts">شخصان يرقصان</annotation>
 		<annotation cp="👯‍♂">حفل | رجلان يرقصان | رقص</annotation>
@@ -537,34 +903,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="👯‍♀" type="tts">امرأتان ترقصان</annotation>
 		<annotation cp="🧖">شخص في حمّام بخار</annotation>
 		<annotation cp="🧖" type="tts">شخص في حمّام بخار</annotation>
-		<annotation cp="🧖‍♀">امرأة في حمّام بخار</annotation>
-		<annotation cp="🧖‍♀" type="tts">امرأة في حمّام بخار</annotation>
 		<annotation cp="🧖‍♂">رجل في حمّام بخار</annotation>
 		<annotation cp="🧖‍♂" type="tts">رجل في حمّام بخار</annotation>
+		<annotation cp="🧖‍♀">امرأة في حمّام بخار</annotation>
+		<annotation cp="🧖‍♀" type="tts">امرأة في حمّام بخار</annotation>
 		<annotation cp="🧗">شخص يتسلّق</annotation>
 		<annotation cp="🧗" type="tts">شخص يتسلّق</annotation>
-		<annotation cp="🧗‍♀">امرأة تتسلّق</annotation>
-		<annotation cp="🧗‍♀" type="tts">امرأة تتسلّق</annotation>
 		<annotation cp="🧗‍♂">رجل يتسلّق</annotation>
 		<annotation cp="🧗‍♂" type="tts">رجل يتسلّق</annotation>
-		<annotation cp="🧘">شخص متربّع</annotation>
-		<annotation cp="🧘" type="tts">شخص متربّع</annotation>
-		<annotation cp="🧘‍♀">امرأة متربّعة</annotation>
-		<annotation cp="🧘‍♀" type="tts">امرأة متربّعة</annotation>
-		<annotation cp="🧘‍♂">رجل متربّع</annotation>
-		<annotation cp="🧘‍♂" type="tts">رجل متربّع</annotation>
-		<annotation cp="🛀">حوض استحمام | ‫شخص يستحم</annotation>
-		<annotation cp="🛀" type="tts">‫شخص يستحم</annotation>
-		<annotation cp="🛌">شخص على سرير | فندق | نوم</annotation>
-		<annotation cp="🛌" type="tts">شخص على سرير</annotation>
-		<annotation cp="🕴">أعمال | بدلة | رجل | رجل أعمال يرتقي</annotation>
-		<annotation cp="🕴" type="tts">رجل أعمال يرتقي</annotation>
-		<annotation cp="🗣">تحدث | رأس | رأس تتحدث | نطق | وجه</annotation>
-		<annotation cp="🗣" type="tts">رأس تتحدث</annotation>
-		<annotation cp="👤">أشخاص | صورة | صورة ظلية</annotation>
-		<annotation cp="👤" type="tts">صورة ظلية</annotation>
-		<annotation cp="👥">أشخاص | صورتان | صورتان ظليتان</annotation>
-		<annotation cp="👥" type="tts">صورتان ظليتان</annotation>
+		<annotation cp="🧗‍♀">امرأة تتسلّق</annotation>
+		<annotation cp="🧗‍♀" type="tts">امرأة تتسلّق</annotation>
 		<annotation cp="🤺">رياضة | سيف | شخص | مبارز | مبارزة</annotation>
 		<annotation cp="🤺" type="tts">مبارز</annotation>
 		<annotation cp="🏇">حصان | سباق | سباق خيول</annotation>
@@ -621,10 +969,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚵‍♂" type="tts">متسلق جبال بدراجة</annotation>
 		<annotation cp="🚵‍♀">جبال | دراجة | صعود | متسلقة جبال بدراجة</annotation>
 		<annotation cp="🚵‍♀" type="tts">متسلقة جبال بدراجة</annotation>
-		<annotation cp="🏎">سباق | سيارة</annotation>
-		<annotation cp="🏎" type="tts">سيارة سباق</annotation>
-		<annotation cp="🏍">دراجة بخارية | سباق</annotation>
-		<annotation cp="🏍" type="tts">دراجة بخارية</annotation>
 		<annotation cp="🤸">جمباز | حركة العجلة | رياضة | شخص | ‫شخص يؤدي حركة العجلة</annotation>
 		<annotation cp="🤸" type="tts">‫شخص يؤدي حركة العجلة</annotation>
 		<annotation cp="🤸‍♂">جمباز | رجل يفعل حركة العجلة | رياضة | عجلة</annotation>
@@ -655,110 +999,38 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🤹‍♂" type="tts">لاعب قذف الكرات</annotation>
 		<annotation cp="🤹‍♀">خدع | لاعبة قذف كرات | مهام متعددة</annotation>
 		<annotation cp="🤹‍♀" type="tts">لاعبة قذف كرات</annotation>
+		<annotation cp="🧘">شخص متربّع</annotation>
+		<annotation cp="🧘" type="tts">شخص متربّع</annotation>
+		<annotation cp="🧘‍♂">رجل متربّع</annotation>
+		<annotation cp="🧘‍♂" type="tts">رجل متربّع</annotation>
+		<annotation cp="🧘‍♀">امرأة متربّعة</annotation>
+		<annotation cp="🧘‍♀" type="tts">امرأة متربّعة</annotation>
+		<annotation cp="🛀">حوض استحمام | ‫شخص يستحم</annotation>
+		<annotation cp="🛀" type="tts">‫شخص يستحم</annotation>
+		<annotation cp="🛌">شخص على سرير | فندق | نوم</annotation>
+		<annotation cp="🛌" type="tts">شخص على سرير</annotation>
+		<annotation cp="🧑‍🤝‍🧑">أشخاص | أشخاص يمسكون بأيدي بعضهم | أيدي | زوجان | شخص | يد | يدان</annotation>
+		<annotation cp="🧑‍🤝‍🧑" type="tts">أشخاص يمسكون بأيدي بعضهم</annotation>
+		<annotation cp="👭">أشخاص | ‫امرأتان تمسكان بيد بعضهما | زوج | يد بيد</annotation>
+		<annotation cp="👭" type="tts">‫امرأتان تمسكان بيد بعضهما</annotation>
 		<annotation cp="👫">أشخاص | رجل وامرأة يمسكان بيد بعضهما | زوج | يد بيد</annotation>
 		<annotation cp="👫" type="tts">رجل وامرأة يمسكان بيد بعضهما</annotation>
 		<annotation cp="👬">أشخاص | ‫رجلان يمسكان بيد بعضهما | زوج | يد بيد</annotation>
 		<annotation cp="👬" type="tts">‫رجلان يمسكان بيد بعضهما</annotation>
-		<annotation cp="👭">أشخاص | ‫امرأتان تمسكان بيد بعضهما | زوج | يد بيد</annotation>
-		<annotation cp="👭" type="tts">‫امرأتان تمسكان بيد بعضهما</annotation>
 		<annotation cp="💏">أشخاص | تقبيل | رومانسية | قبلة</annotation>
 		<annotation cp="💏" type="tts">قبلة</annotation>
 		<annotation cp="💑">أشخاص | رومانسية | زوج وقلب | قلب</annotation>
 		<annotation cp="💑" type="tts">زوج وقلب</annotation>
 		<annotation cp="👪">أب | أسرة | أشخاص | أم | طفل</annotation>
 		<annotation cp="👪" type="tts">أسرة</annotation>
-		<annotation cp="🤳">سيلفي | صورة سيلفي | كاميرا | هاتف</annotation>
-		<annotation cp="🤳" type="tts">صورة سيلفي</annotation>
-		<annotation cp="💪">عضلات | عضلة الذراع | قوية | مرنة | هزل</annotation>
-		<annotation cp="💪" type="tts">عضلة الذراع</annotation>
-		<annotation cp="🦵">ركل | ساق | طرف</annotation>
-		<annotation cp="🦵" type="tts">ساق</annotation>
-		<annotation cp="🦶">تعثر | دس | رفسة | ركل | ركلة | قدم</annotation>
-		<annotation cp="🦶" type="tts">قدم</annotation>
-		<annotation cp="👈">إصبع | إصبع لليسار | السبابة</annotation>
-		<annotation cp="👈" type="tts">إصبع لليسار</annotation>
-		<annotation cp="👉">إصبع | إصبع لليمين | السبابة</annotation>
-		<annotation cp="👉" type="tts">إصبع لليمين</annotation>
-		<annotation cp="☝">أعلى | إشارة | إصبع | جسد | سبابة | سبابة يشير لأعلى | يد</annotation>
-		<annotation cp="☝" type="tts">سبابة يشير لأعلى</annotation>
-		<annotation cp="👆">إصبع | إصبع لأعلى | السبابة</annotation>
-		<annotation cp="👆" type="tts">إصبع لأعلى</annotation>
-		<annotation cp="🖕">إصبع | إصبع الوسطى | جسد | يد</annotation>
-		<annotation cp="🖕" type="tts">إصبع الوسطى</annotation>
-		<annotation cp="👇">إصبع | إصبع لأسفل | السبابة</annotation>
-		<annotation cp="👇" type="tts">إصبع لأسفل</annotation>
-		<annotation cp="✌">انتصار | علامة النصر | مقص</annotation>
-		<annotation cp="✌" type="tts">علامة النصر</annotation>
-		<annotation cp="🤞">أصابع | أصابع مشبكة | حظ</annotation>
-		<annotation cp="🤞" type="tts">أصابع مشبكة</annotation>
-		<annotation cp="🖖">إصبع | تحية فولكان | جسد | سبوك | فولكان | يد</annotation>
-		<annotation cp="🖖" type="tts">تحية فولكان</annotation>
-		<annotation cp="🤘">إشارة قرون | إصبع | جسد | قرون | يد</annotation>
-		<annotation cp="🤘" type="tts">إشارة قرون</annotation>
-		<annotation cp="🤙">إشارة للاتصال | اتصال | يد</annotation>
-		<annotation cp="🤙" type="tts">إشارة للاتصال</annotation>
-		<annotation cp="🖐">إصبع | تباعد | جسد | يد | يد مرفوعة بأصابع متفرقة</annotation>
-		<annotation cp="🖐" type="tts">يد مرفوعة بأصابع متفرقة</annotation>
-		<annotation cp="✋">جسد | قبضة | يد | يد مرفوعة</annotation>
-		<annotation cp="✋" type="tts">يد مرفوعة</annotation>
-		<annotation cp="👌">علامة | موافقة | يد تشير للموافقة</annotation>
-		<annotation cp="👌" type="tts">يد تشير للموافقة</annotation>
-		<annotation cp="👍">أعلى | إبهام | علامة | قبول | يد</annotation>
-		<annotation cp="👍" type="tts">قبول</annotation>
-		<annotation cp="👎">أسفل | إبهام | رفض | علامة | يد</annotation>
-		<annotation cp="👎" type="tts">رفض</annotation>
-		<annotation cp="✊">جسد | قبضة | قبضة يد مرفوعة | يد</annotation>
-		<annotation cp="✊" type="tts">قبضة يد مرفوعة</annotation>
-		<annotation cp="👊">قبضة يد | كف | يد</annotation>
-		<annotation cp="👊" type="tts">قبضة يد</annotation>
-		<annotation cp="🤛">قبضة | قبضة لليسار | يسار</annotation>
-		<annotation cp="🤛" type="tts">قبضة لليسار</annotation>
-		<annotation cp="🤜">قبضة | قبضة لليمين | يمين</annotation>
-		<annotation cp="🤜" type="tts">قبضة لليمين</annotation>
-		<annotation cp="🤚">ظاهر يد | ‫ظهر يد مرفوعة | مرفوع</annotation>
-		<annotation cp="🤚" type="tts">‫ظهر يد مرفوعة</annotation>
-		<annotation cp="👋">تلويح | تلويح باليد | يد</annotation>
-		<annotation cp="👋" type="tts">تلويح باليد</annotation>
-		<annotation cp="🤟">أحبك | إشارة أحبك | بحبك</annotation>
-		<annotation cp="🤟" type="tts">إشارة أحبك</annotation>
-		<annotation cp="✍">كتابة | يد | يد تكتب</annotation>
-		<annotation cp="✍" type="tts">يد تكتب</annotation>
-		<annotation cp="👏">أيادي | تصفيق | علامة | يدان تصفقان</annotation>
-		<annotation cp="👏" type="tts">يدان تصفقان</annotation>
-		<annotation cp="👐">علامة | علامة فتح اليدين | مفتوحة | يد | يدان مفتوحتان</annotation>
-		<annotation cp="👐" type="tts">يدان مفتوحتان</annotation>
-		<annotation cp="🙌">احتفال | اليدان | تشجيع | رفع اليدين احتفالاً</annotation>
-		<annotation cp="🙌" type="tts">تشجيع</annotation>
-		<annotation cp="🤲">راحتان مفتوحتان | صلاة</annotation>
-		<annotation cp="🤲" type="tts">راحتان مفتوحتان</annotation>
-		<annotation cp="🙏">أداء صلاة | إشارة | صلاة | يد | يدان مضمومتان</annotation>
-		<annotation cp="🙏" type="tts">يدان مضمومتان</annotation>
-		<annotation cp="🤝">اتفاق | اجتماع | مصافحة</annotation>
-		<annotation cp="🤝" type="tts">مصافحة</annotation>
-		<annotation cp="💅">أظافر | تهذيب أظافر | طلاء أظافر | مانكير | مستحضرات تجميل</annotation>
-		<annotation cp="💅" type="tts">طلاء أظافر</annotation>
-		<annotation cp="👂">أذن | جسم</annotation>
-		<annotation cp="👂" type="tts">أذن</annotation>
-		<annotation cp="👃">أنف | جسم | وجه</annotation>
-		<annotation cp="👃" type="tts">أنف</annotation>
+		<annotation cp="🗣">تحدث | رأس | رأس تتحدث | نطق | وجه</annotation>
+		<annotation cp="🗣" type="tts">رأس تتحدث</annotation>
+		<annotation cp="👤">أشخاص | صورة | صورة ظلية</annotation>
+		<annotation cp="👤" type="tts">صورة ظلية</annotation>
+		<annotation cp="👥">أشخاص | صورتان | صورتان ظليتان</annotation>
+		<annotation cp="👥" type="tts">صورتان ظليتان</annotation>
 		<annotation cp="👣">أثر قدم | أثر قدمين | جسم | خطى | قدم</annotation>
 		<annotation cp="👣" type="tts">أثر قدمين</annotation>
-		<annotation cp="👀">عينان | وجه</annotation>
-		<annotation cp="👀" type="tts">عينان</annotation>
-		<annotation cp="👁">جسد | عين</annotation>
-		<annotation cp="👁" type="tts">عين</annotation>
-		<annotation cp="👁‍🗨">شاهد | عين | عين في فقاعة كلام | فقاعة تفسيرية</annotation>
-		<annotation cp="👁‍🗨" type="tts">عين في فقاعة كلام</annotation>
-		<annotation cp="🧠">دماغ | ذكي</annotation>
-		<annotation cp="🧠" type="tts">دماغ</annotation>
-		<annotation cp="🦴">عظام | عظم | عظمة | هيكل عظمي</annotation>
-		<annotation cp="🦴" type="tts">عظمة</annotation>
-		<annotation cp="🦷">أسنان | سن | ضرس | طبيب أسنان</annotation>
-		<annotation cp="🦷" type="tts">سن</annotation>
-		<annotation cp="👅">جسم | لسان | وجه</annotation>
-		<annotation cp="👅" type="tts">لسان</annotation>
-		<annotation cp="👄">جسم | شفتان | فم | وجه</annotation>
-		<annotation cp="👄" type="tts">فم</annotation>
 		<annotation cp="🦰">أصهب | رأس حمراء | شعر أحمر</annotation>
 		<annotation cp="🦰" type="tts">شعر أحمر</annotation>
 		<annotation cp="🦱">أفريقي | جدائل | شعر مجعد | مجعد</annotation>
@@ -767,152 +1039,22 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦳" type="tts">شعر أبيض</annotation>
 		<annotation cp="🦲">أصلع | العلاج الكيميائي | بدون شعر | بلا شعر | شعر محلوق</annotation>
 		<annotation cp="🦲" type="tts">أصلع</annotation>
-		<annotation cp="💋">رومانسية | شفاه | علامة قبلة | قبلة</annotation>
-		<annotation cp="💋" type="tts">علامة قبلة</annotation>
-		<annotation cp="💘">حب | سهم | قلب | قلب وسهم | مشاعر</annotation>
-		<annotation cp="💘" type="tts">قلب وسهم</annotation>
-		<annotation cp="💝">شريطة | فالنتين | قلب | ‫قلب عليه شريط | مشاعر</annotation>
-		<annotation cp="💝" type="tts">‫قلب عليه شريط</annotation>
-		<annotation cp="💖">إثارة | حب | قلب لامع | مشاعر</annotation>
-		<annotation cp="💖" type="tts">قلب لامع</annotation>
-		<annotation cp="💗">إثارة | توتر | حب | قلب | قلب ينمو | مشاعر</annotation>
-		<annotation cp="💗" type="tts">قلب ينمو</annotation>
-		<annotation cp="💓">حب | خفقان | قلب | قلب يخفق | مشاعر | نبض</annotation>
-		<annotation cp="💓" type="tts">قلب يخفق</annotation>
-		<annotation cp="💞">جذاب | حب | قلب | قلوب تدور حول بعضها | مثير | مشاعر</annotation>
-		<annotation cp="💞" type="tts">قلوب تدور حول بعضها</annotation>
-		<annotation cp="💕">أحبة | حب | قلبان | مشاعر</annotation>
-		<annotation cp="💕" type="tts">قلبان</annotation>
-		<annotation cp="💌">خطاب | خطاب حب | رسالة عليها قلب | رومانسية | قلب</annotation>
-		<annotation cp="💌" type="tts">خطاب حب</annotation>
-		<annotation cp="❣">تعجب | علامة تعجب | قلب | قلب على شكل علامة تعجب</annotation>
-		<annotation cp="❣" type="tts">قلب على شكل علامة تعجب</annotation>
-		<annotation cp="💔">انكسار | قلب | قلب مكسور | مشاعر</annotation>
-		<annotation cp="💔" type="tts">قلب مكسور</annotation>
-		<annotation cp="❤">قلب | قلب أحمر</annotation>
-		<annotation cp="❤" type="tts">قلب أحمر</annotation>
-		<annotation cp="🧡">برتقالة | قلب برتقالي</annotation>
-		<annotation cp="🧡" type="tts">قلب برتقالي</annotation>
-		<annotation cp="💛">أصفر | قلب | مشاعر</annotation>
-		<annotation cp="💛" type="tts">قلب أصفر</annotation>
-		<annotation cp="💚">أخضر | قلب | مشاعر</annotation>
-		<annotation cp="💚" type="tts">قلب أخضر</annotation>
-		<annotation cp="💙">أزرق | قلب | مشاعر</annotation>
-		<annotation cp="💙" type="tts">قلب أزرق</annotation>
-		<annotation cp="💜">أرجواني | قلب | مشاعر</annotation>
-		<annotation cp="💜" type="tts">قلب أرجواني</annotation>
-		<annotation cp="🖤">أسود | شر | قلب</annotation>
-		<annotation cp="🖤" type="tts">قلب أسود</annotation>
-		<annotation cp="💟">زخرفة قلب | قلب</annotation>
-		<annotation cp="💟" type="tts">زخرفة قلب</annotation>
-		<annotation cp="💤">شخير | مشاعر | نعسان</annotation>
-		<annotation cp="💤" type="tts">نعسان</annotation>
-		<annotation cp="💢">رمز الغضب | علامة غضب | مشاعر</annotation>
-		<annotation cp="💢" type="tts">رمز الغضب</annotation>
-		<annotation cp="💣">قنبلة | مشاعر</annotation>
-		<annotation cp="💣" type="tts">قنبلة</annotation>
-		<annotation cp="💥">تصادم | رمز تصادم | مشاعر | هزل</annotation>
-		<annotation cp="💥" type="tts">تصادم</annotation>
-		<annotation cp="💦">عرق | عرق يتصبب | مبلل عرقًا | مشاعر | هزل</annotation>
-		<annotation cp="💦" type="tts">عرق يتصبب</annotation>
-		<annotation cp="💨">انطلاقة جري | جري | مشاعر | هرب | هزل</annotation>
-		<annotation cp="💨" type="tts">انطلاقة جري</annotation>
-		<annotation cp="💫">تخيل حركة النجوم | دوار | مشاعر | نجوم | هزل</annotation>
-		<annotation cp="💫" type="tts">دوار</annotation>
-		<annotation cp="💬">بالونة | حوار | فقاعة كلام</annotation>
-		<annotation cp="💬" type="tts">فقاعة كلام</annotation>
-		<annotation cp="🗨">حديث | حوار | فقاعة كلام يسرى</annotation>
-		<annotation cp="🗨" type="tts">فقاعة كلام يسرى</annotation>
-		<annotation cp="🗯">بالون | جنون | غضب | فقاعة | فقاعة غضب يمنى</annotation>
-		<annotation cp="🗯" type="tts">فقاعة غضب يمنى</annotation>
-		<annotation cp="💭">بالونة | فقاعة أفكار | فكرة | هزل</annotation>
-		<annotation cp="💭" type="tts">فقاعة أفكار</annotation>
-		<annotation cp="🕳">ثقب | حفرة</annotation>
-		<annotation cp="🕳" type="tts">ثقب</annotation>
-		<annotation cp="👓">ملابس | نظارة</annotation>
-		<annotation cp="👓" type="tts">نظارة</annotation>
-		<annotation cp="🕶">عين | مظلم | نظارات | نظارة | نظارة شمس</annotation>
-		<annotation cp="🕶" type="tts">نظارة شمس</annotation>
-		<annotation cp="🥽">حماية | حماية العينين | سباحة | شرارة | عينين | لحام | مياه | نظارة واقية</annotation>
-		<annotation cp="🥽" type="tts">نظارة واقية</annotation>
-		<annotation cp="🥼">تجارب | حكيم | دكتور | طبيب | عالم | علوم | مختبرات | معطف مختبر</annotation>
-		<annotation cp="🥼" type="tts">معطف مختبر</annotation>
-		<annotation cp="👔">رابطة عنق | كرافتة | ملابس</annotation>
-		<annotation cp="👔" type="tts">رابطة عنق</annotation>
-		<annotation cp="👕">تي شيرت | قميص | ملابس</annotation>
-		<annotation cp="👕" type="tts">تي شيرت</annotation>
-		<annotation cp="👖">‫بنطلون جينز | جينز | ملابس</annotation>
-		<annotation cp="👖" type="tts">‫بنطلون جينز</annotation>
-		<annotation cp="🧣">عنق | وشاح</annotation>
-		<annotation cp="🧣" type="tts">وشاح</annotation>
-		<annotation cp="🧤">قفّازان | يد</annotation>
-		<annotation cp="🧤" type="tts">قفّازان</annotation>
-		<annotation cp="🧥">سترة | معطف</annotation>
-		<annotation cp="🧥" type="tts">معطف</annotation>
-		<annotation cp="🧦">جورب</annotation>
-		<annotation cp="🧦" type="tts">جورب</annotation>
-		<annotation cp="👗">فستان | قطعة واحدة | ملابس</annotation>
-		<annotation cp="👗" type="tts">فستان</annotation>
-		<annotation cp="👘">فستان | كيمونو ياباني | ملابس</annotation>
-		<annotation cp="👘" type="tts">كيمونو ياباني</annotation>
-		<annotation cp="👙">ملابس | ملابس استحمام | ملابس البحر</annotation>
-		<annotation cp="👙" type="tts">ملابس البحر</annotation>
-		<annotation cp="👚">ملابس | ملابس حريمي</annotation>
-		<annotation cp="👚" type="tts">ملابس حريمي</annotation>
-		<annotation cp="👛">كيس نقود | ملابس | نقود</annotation>
-		<annotation cp="👛" type="tts">كيس نقود</annotation>
-		<annotation cp="👜">حقيبة يد | شنطة | شنطة يد | ملابس</annotation>
-		<annotation cp="👜" type="tts">شنطة يد</annotation>
-		<annotation cp="👝">حقيبة يد | محفظة يد | ملابس</annotation>
-		<annotation cp="👝" type="tts">محفظة يد</annotation>
-		<annotation cp="🛍">تسوق | حقائب تسوق | حقيبة | فندق</annotation>
-		<annotation cp="🛍" type="tts">حقائب تسوق</annotation>
-		<annotation cp="🎒">حقيبة مدرسة | مدرسة</annotation>
-		<annotation cp="🎒" type="tts">حقيبة مدرسة</annotation>
-		<annotation cp="👞">حذاء | حذاء رجالي | ملابس</annotation>
-		<annotation cp="👞" type="tts">حذاء رجالي</annotation>
-		<annotation cp="👟">حذاء | حذاء رياضي | ملابس</annotation>
-		<annotation cp="👟" type="tts">حذاء رياضي</annotation>
-		<annotation cp="🥾">تخييم | جزمة | حذاء لرحلات المشي | مشي لمسافات طويلة</annotation>
-		<annotation cp="🥾" type="tts">حذاء لرحلات المشي</annotation>
-		<annotation cp="🥿">باليرينا | حذاء باليه | حذاء نسائي بدون كعب | خف | خفان</annotation>
-		<annotation cp="🥿" type="tts">حذاء نسائي بدون كعب</annotation>
-		<annotation cp="👠">حذاء | حذاء بكعب عالٍ | ملابس</annotation>
-		<annotation cp="👠" type="tts">حذاء بكعب عالٍ</annotation>
-		<annotation cp="👡">صندل | صندل حريمي | ملابس</annotation>
-		<annotation cp="👡" type="tts">صندل حريمي</annotation>
-		<annotation cp="👢">حذاء طويل الساق حريمي | حذاء عال | ملابس</annotation>
-		<annotation cp="👢" type="tts">حذاء طويل الساق حريمي</annotation>
-		<annotation cp="👑">تاج | ملابس</annotation>
-		<annotation cp="👑" type="tts">تاج</annotation>
-		<annotation cp="👒">قبعة | قبعة حريمي | ملابس</annotation>
-		<annotation cp="👒" type="tts">قبعة حريمي</annotation>
-		<annotation cp="🎩">ترفيه | ‫قبعة رسمية | قبعة عالية</annotation>
-		<annotation cp="🎩" type="tts">‫قبعة رسمية</annotation>
-		<annotation cp="🎓">احتفال | تخرج | قبعة</annotation>
-		<annotation cp="🎓" type="tts">قبعة تخرج</annotation>
-		<annotation cp="🧢">طاقية | قبعة بيسبول | قبعة رياضية | كاب</annotation>
-		<annotation cp="🧢" type="tts">قبعة رياضية</annotation>
-		<annotation cp="⛑">خوذة | خوذة رجل إنقاذ | صليب | قبعة | مساعدة | وجه</annotation>
-		<annotation cp="⛑" type="tts">خوذة رجل إنقاذ</annotation>
-		<annotation cp="📿">تسبيح | دين | صلاة | قلادة | مسبحة | ملابس</annotation>
-		<annotation cp="📿" type="tts">مسبحة صلاة</annotation>
-		<annotation cp="💄">أحمر شفاه | تجميل | مستحضرات تجميل</annotation>
-		<annotation cp="💄" type="tts">أحمر شفاه</annotation>
-		<annotation cp="💍">خاتم | رومانسية</annotation>
-		<annotation cp="💍" type="tts">خاتم</annotation>
-		<annotation cp="💎">جوهرة | رومانسية | ماسة</annotation>
-		<annotation cp="💎" type="tts">جوهرة</annotation>
 		<annotation cp="🐵">حيوان | قرد | وجه</annotation>
 		<annotation cp="🐵" type="tts">وجه قرد</annotation>
 		<annotation cp="🐒">حيوان | قرد</annotation>
 		<annotation cp="🐒" type="tts">قرد</annotation>
 		<annotation cp="🦍">حيوان | غوريلا</annotation>
 		<annotation cp="🦍" type="tts">غوريلا</annotation>
+		<annotation cp="🦧">إنسان الغاب | قرد</annotation>
+		<annotation cp="🦧" type="tts">إنسان الغاب</annotation>
 		<annotation cp="🐶">حيوان | كلب | وجه</annotation>
 		<annotation cp="🐶" type="tts">وجه كلب</annotation>
 		<annotation cp="🐕">حيوان | كلب</annotation>
 		<annotation cp="🐕" type="tts">كلب</annotation>
+		<annotation cp="🦮">أعمى | إرشاد | إمكانية الوصول | احتياجات خاصة | دليل | كفيف | كلب دليل</annotation>
+		<annotation cp="🦮" type="tts">كلب دليل</annotation>
+		<annotation cp="🐕‍🦺">أعمى | إمكانية الوصول | احتياجات خاصة | خدمة | كفيف | كلب مساعدة | مساعدة</annotation>
+		<annotation cp="🐕‍🦺" type="tts">كلب مساعدة</annotation>
 		<annotation cp="🐩">بودل | حيوان | كلب</annotation>
 		<annotation cp="🐩" type="tts">بودل</annotation>
 		<annotation cp="🐺">حيوان | ذئب | وجه</annotation>
@@ -925,6 +1067,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐱" type="tts">وجه قطة</annotation>
 		<annotation cp="🐈">حيوان | قطة</annotation>
 		<annotation cp="🐈" type="tts">قطة</annotation>
+		<annotation cp="🐈‍⬛">أسود | سوداء | سيئ الحظ | قطة | هر | هرّ أسود</annotation>
+		<annotation cp="🐈‍⬛" type="tts">هرّ أسود</annotation>
 		<annotation cp="🦁">أسد | برج | وجه</annotation>
 		<annotation cp="🦁" type="tts">وجه أسد</annotation>
 		<annotation cp="🐯">حيوان | نمر | وجه نمر</annotation>
@@ -999,10 +1143,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦇" type="tts">خفاش</annotation>
 		<annotation cp="🐻">حيوان | دب | وجه</annotation>
 		<annotation cp="🐻" type="tts">وجه دب</annotation>
+		<annotation cp="🐻‍❄">أبيض | القطب الشمالي | دب | دب قطبي</annotation>
+		<annotation cp="🐻‍❄" type="tts">دب قطبي</annotation>
 		<annotation cp="🐨">حيوان | دب كوالا</annotation>
 		<annotation cp="🐨" type="tts">دب كوالا</annotation>
 		<annotation cp="🐼">باندا | حيوان | وجه</annotation>
 		<annotation cp="🐼" type="tts">وجه باندا</annotation>
+		<annotation cp="🦥">بطيء | كسلان | كسول</annotation>
+		<annotation cp="🦥" type="tts">كسلان</annotation>
+		<annotation cp="🦦">ثعلب الماء | صيد | قندس</annotation>
+		<annotation cp="🦦" type="tts">قندس</annotation>
+		<annotation cp="🦨">ظربان | مقرف | مقزز</annotation>
+		<annotation cp="🦨" type="tts">ظربان</annotation>
 		<annotation cp="🦘">أستراليا | جراب | جيب | قفز | قنغر | كنغر | كيس</annotation>
 		<annotation cp="🦘" type="tts">كنغر</annotation>
 		<annotation cp="🦡">أبو كعب | ابن عرس | رائحة كريهة | غرير | غرير العسل | مزعج</annotation>
@@ -1035,6 +1187,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🦢" type="tts">إوزة</annotation>
 		<annotation cp="🦉">بومة | طائر</annotation>
 		<annotation cp="🦉" type="tts">بومة</annotation>
+		<annotation cp="🦩">استوائي | فلامينغو | مبهج | مبهرج</annotation>
+		<annotation cp="🦩" type="tts">فلامينغو</annotation>
 		<annotation cp="🦚">طائر | طاووس | طاووسة | فتباهي | متفاخر</annotation>
 		<annotation cp="🦚" type="tts">طاووس</annotation>
 		<annotation cp="🦜">أصوات | ببغاء | تقليد | طائر | قرصان | كلام</annotation>
@@ -1075,14 +1229,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐙" type="tts">أخطبوط</annotation>
 		<annotation cp="🐚">حيوان | ‫صدفة حلزونية</annotation>
 		<annotation cp="🐚" type="tts">‫صدفة حلزونية</annotation>
-		<annotation cp="🦀">برج | سرطان</annotation>
-		<annotation cp="🦀" type="tts">سرطان</annotation>
-		<annotation cp="🦞">بيسك | جراد البحر | حساء بيسك | كركند | مأكولات بحرية | مخالب</annotation>
-		<annotation cp="🦞" type="tts">كركند</annotation>
-		<annotation cp="🦐">جمبري | طعام | محار</annotation>
-		<annotation cp="🦐" type="tts">جمبري</annotation>
-		<annotation cp="🦑">حبار | طعام</annotation>
-		<annotation cp="🦑" type="tts">حبار</annotation>
 		<annotation cp="🐌">حلزون | حيوان | قوقع</annotation>
 		<annotation cp="🐌" type="tts">حلزون</annotation>
 		<annotation cp="🦋">جمال | حشرة | فراشة</annotation>
@@ -1093,8 +1239,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🐜" type="tts">نملة</annotation>
 		<annotation cp="🐝">حيوان | عسل نحل | نحل | نحلة</annotation>
 		<annotation cp="🐝" type="tts">نحلة</annotation>
-		<annotation cp="🐞">حشرة | خنفساء</annotation>
-		<annotation cp="🐞" type="tts">خنفساء</annotation>
+		<annotation cp="🐞">حشرة | خنفساء | دعسوقة</annotation>
+		<annotation cp="🐞" type="tts">دعسوقة</annotation>
 		<annotation cp="🦗">جدجد</annotation>
 		<annotation cp="🦗" type="tts">جدجد</annotation>
 		<annotation cp="🕷">حشرة | عنكبوت</annotation>
@@ -1203,6 +1349,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥬" type="tts">خضار ورقي</annotation>
 		<annotation cp="🥦">بروكلي | بروكولي</annotation>
 		<annotation cp="🥦" type="tts">بروكولي</annotation>
+		<annotation cp="🧄">ثوم | طعم | نكهة</annotation>
+		<annotation cp="🧄" type="tts">ثوم</annotation>
+		<annotation cp="🧅">بصل | طعم | نكهة</annotation>
+		<annotation cp="🧅" type="tts">بصل</annotation>
 		<annotation cp="🍄">عيش الغراب | عيش غراب | فطر | مشروم</annotation>
 		<annotation cp="🍄" type="tts">عيش الغراب</annotation>
 		<annotation cp="🥜">خضروات | طعام | فول سوداني | مكسرات</annotation>
@@ -1221,6 +1371,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥯" type="tts">خبز البيغل</annotation>
 		<annotation cp="🥞">طعام | فطائر | فطيرة | كريب</annotation>
 		<annotation cp="🥞" type="tts">فطائر</annotation>
+		<annotation cp="🧇">متردد | مذبذب | وافل</annotation>
+		<annotation cp="🧇" type="tts">وافل</annotation>
 		<annotation cp="🧀">جبن | قطعة جبن</annotation>
 		<annotation cp="🧀" type="tts">قطعة جبن</annotation>
 		<annotation cp="🍖">عظم | ‫لحم بعظم</annotation>
@@ -1247,6 +1399,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌯" type="tts">بوريتو</annotation>
 		<annotation cp="🥙">خبز مفرود | خبز مفرود محشو | طعام | فلافل | كباب | محشو</annotation>
 		<annotation cp="🥙" type="tts">خبز مفرود محشو</annotation>
+		<annotation cp="🧆">حمص | طعمية | فلافل | كرات لحم</annotation>
+		<annotation cp="🧆" type="tts">فلافل</annotation>
 		<annotation cp="🥚">بيض | طعام</annotation>
 		<annotation cp="🥚" type="tts">بيض</annotation>
 		<annotation cp="🍳">طهي | قلاية | مطعم | مقلاة</annotation>
@@ -1261,6 +1415,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥗" type="tts">سلطة خضراء</annotation>
 		<annotation cp="🍿">ذرة | فشار | فيشار</annotation>
 		<annotation cp="🍿" type="tts">فشار</annotation>
+		<annotation cp="🧈">ألبان | زبد | منتجات ألبان</annotation>
+		<annotation cp="🧈" type="tts">زبد</annotation>
 		<annotation cp="🧂">توابل | رشاشة ملح | ملح | مملحة</annotation>
 		<annotation cp="🧂" type="tts">ملح</annotation>
 		<annotation cp="🥫">طعام معلّب</annotation>
@@ -1299,6 +1455,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥠" type="tts">كعكة الحظ</annotation>
 		<annotation cp="🥡">علبة طعام للخارج</annotation>
 		<annotation cp="🥡" type="tts">علبة طعام للخارج</annotation>
+		<annotation cp="🦀">برج | سرطان</annotation>
+		<annotation cp="🦀" type="tts">سرطان</annotation>
+		<annotation cp="🦞">بيسك | جراد البحر | حساء بيسك | كركند | مأكولات بحرية | مخالب</annotation>
+		<annotation cp="🦞" type="tts">كركند</annotation>
+		<annotation cp="🦐">جمبري | طعام | محار</annotation>
+		<annotation cp="🦐" type="tts">جمبري</annotation>
+		<annotation cp="🦑">حبار | طعام</annotation>
+		<annotation cp="🦑" type="tts">حبار</annotation>
+		<annotation cp="🦪">صدف | غطس | لؤلؤ | محار</annotation>
+		<annotation cp="🦪" type="tts">محار</annotation>
 		<annotation cp="🍦">‫آيس كريم مخفف | مطعم</annotation>
 		<annotation cp="🍦" type="tts">‫آيس كريم مخفف</annotation>
 		<annotation cp="🍧">‫آيس كريم مجروش | مطعم</annotation>
@@ -1355,6 +1521,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥃" type="tts">كوب زجاجي</annotation>
 		<annotation cp="🥤">كأس وقشة للشرب</annotation>
 		<annotation cp="🥤" type="tts">كأس وقشة للشرب</annotation>
+		<annotation cp="🧃">عبوة عصير | عصير | علبة عصير</annotation>
+		<annotation cp="🧃" type="tts">علبة عصير</annotation>
+		<annotation cp="🧉">شراب | متة | مشروب</annotation>
+		<annotation cp="🧉" type="tts">متة</annotation>
+		<annotation cp="🧊">برد | قمة جليد | مكعب ثلج</annotation>
+		<annotation cp="🧊" type="tts">مكعب ثلج</annotation>
 		<annotation cp="🥢">عيدان للأكل</annotation>
 		<annotation cp="🥢" type="tts">عيدان للأكل</annotation>
 		<annotation cp="🍽">سكين | شوكة | طبق | طبق وشوكة وسكينة | طهي</annotation>
@@ -1451,6 +1623,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛪" type="tts">كنيسة</annotation>
 		<annotation cp="🕌">إسلام | دين | مسجد | مسلمون</annotation>
 		<annotation cp="🕌" type="tts">مسجد</annotation>
+		<annotation cp="🛕">معبد | هندوسي | هندوسية</annotation>
+		<annotation cp="🛕" type="tts">معبد هندوسي</annotation>
 		<annotation cp="🕍">دين | معبد | معبد يهودي | يهود | يهودية</annotation>
 		<annotation cp="🕍" type="tts">معبد يهودي</annotation>
 		<annotation cp="⛩">دين | شنتو | ضريح</annotation>
@@ -1479,8 +1653,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌉" type="tts">جسر في الليل</annotation>
 		<annotation cp="♨">ساخن | عيون | متبخر | ينابيع ساخنة | ينبوع ساخن</annotation>
 		<annotation cp="♨" type="tts">ينابيع ساخنة</annotation>
-		<annotation cp="🌌">درب التبانة | مجرة</annotation>
-		<annotation cp="🌌" type="tts">درب التبانة</annotation>
 		<annotation cp="🎠">ترفيه | حصان | حصان الدوامة</annotation>
 		<annotation cp="🎠" type="tts">حصان الدوامة</annotation>
 		<annotation cp="🎡">ترفيه | حديقة | دولاب ملاهي | دولاب هواء | ‫عجلة دوارة | عجلة فيريس</annotation>
@@ -1547,14 +1719,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🚛" type="tts">لوري</annotation>
 		<annotation cp="🚜">جرار | مركبة</annotation>
 		<annotation cp="🚜" type="tts">جرار</annotation>
+		<annotation cp="🏎">سباق | سيارة</annotation>
+		<annotation cp="🏎" type="tts">سيارة سباق</annotation>
+		<annotation cp="🏍">دراجة بخارية | سباق</annotation>
+		<annotation cp="🏍" type="tts">دراجة بخارية</annotation>
+		<annotation cp="🛵">سكوتر | سكوتر بمحرك | محرك</annotation>
+		<annotation cp="🛵" type="tts">سكوتر بمحرك</annotation>
+		<annotation cp="🦽">إمكانية الوصول | احتياجات خاصة | كرسي متحرك يدوي</annotation>
+		<annotation cp="🦽" type="tts">كرسي متحرك يدوي</annotation>
+		<annotation cp="🦼">إمكانية الوصول | احتياجات خاصة | كرسي متحرك كهربائي</annotation>
+		<annotation cp="🦼" type="tts">كرسي متحرك كهربائي</annotation>
+		<annotation cp="🛺">توك توك | توكتوك</annotation>
+		<annotation cp="🛺" type="tts">توكتوك</annotation>
 		<annotation cp="🚲">بسكلتة | دراجة | مركبة</annotation>
 		<annotation cp="🚲" type="tts">دراجة</annotation>
 		<annotation cp="🛴">ركل | سكوتر | سكوتر بدون محرك</annotation>
 		<annotation cp="🛴" type="tts">سكوتر بدون محرك</annotation>
 		<annotation cp="🛹">لوح | لوح التزلج</annotation>
 		<annotation cp="🛹" type="tts">لوح التزلج</annotation>
-		<annotation cp="🛵">سكوتر | سكوتر بمحرك | محرك</annotation>
-		<annotation cp="🛵" type="tts">سكوتر بمحرك</annotation>
 		<annotation cp="🚏">حافلات | موقف</annotation>
 		<annotation cp="🚏" type="tts">موقف حافلات</annotation>
 		<annotation cp="🛣">طريق | طريق سريع</annotation>
@@ -1599,6 +1781,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🛫" type="tts">مغادرة طائرة</annotation>
 		<annotation cp="🛬">طائرة | مركبة | هبوط | وصول</annotation>
 		<annotation cp="🛬" type="tts">وصول طائرة</annotation>
+		<annotation cp="🪂">إبحار بالمظلات الهوائية | باراشوت | مظلة هبوط</annotation>
+		<annotation cp="🪂" type="tts">باراشوت</annotation>
 		<annotation cp="💺">كرسي | مقعد</annotation>
 		<annotation cp="💺" type="tts">مقعد</annotation>
 		<annotation cp="🚁">مركبة | هليكوبتر</annotation>
@@ -1713,12 +1897,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🌝" type="tts">وجه البدر</annotation>
 		<annotation cp="🌞">ساطع | شمس | طقس | فضاء | وجه | وجه الشمس</annotation>
 		<annotation cp="🌞" type="tts">وجه الشمس</annotation>
+		<annotation cp="🪐">زحل | كوكب داخل حلقة | كوكب زحل</annotation>
+		<annotation cp="🪐" type="tts">كوكب داخل حلقة</annotation>
 		<annotation cp="⭐">نجم | نجم متوسط أبيض</annotation>
 		<annotation cp="⭐" type="tts">نجم متوسط أبيض</annotation>
 		<annotation cp="🌟">إشراق | زهو | سطوع | لامع | لمعان | نجم | نجم ساطع</annotation>
 		<annotation cp="🌟" type="tts">نجم ساطع</annotation>
 		<annotation cp="🌠">انطلاق | سقوط | شهاب | فضاء | قنص | نجم</annotation>
 		<annotation cp="🌠" type="tts">شهاب</annotation>
+		<annotation cp="🌌">درب التبانة | مجرة</annotation>
+		<annotation cp="🌌" type="tts">درب التبانة</annotation>
 		<annotation cp="☁">سحابة | طقس</annotation>
 		<annotation cp="☁" type="tts">سحابة</annotation>
 		<annotation cp="⛅">سحابة | شمس | شمس خلف السحب | شمس مع سحب</annotation>
@@ -1869,6 +2057,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="⛸" type="tts">حذاء تزلج</annotation>
 		<annotation cp="🎣">استجمام | ترفيه | سمك | صنارة صيد | صيد</annotation>
 		<annotation cp="🎣" type="tts">صنارة صيد</annotation>
+		<annotation cp="🤿">تحت الماء | سكوبا | غطس | غوص | غوص حر | قناع غطس</annotation>
+		<annotation cp="🤿" type="tts">قناع غطس</annotation>
 		<annotation cp="🎽">جري | شيرت للجري ووشاح | ‫قميص رياضي</annotation>
 		<annotation cp="🎽" type="tts">‫قميص رياضي</annotation>
 		<annotation cp="🎿">تزلج | رياضة</annotation>
@@ -1879,6 +2069,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🥌" type="tts">حجرة لعبة الكرلنغ</annotation>
 		<annotation cp="🎯">إصابة هدف | لعبة | مركز هدف | نشان | هدف</annotation>
 		<annotation cp="🎯" type="tts">نشان</annotation>
+		<annotation cp="🪀">تأرجح | كلات | لعبة | يويو</annotation>
+		<annotation cp="🪀" type="tts">يويو</annotation>
+		<annotation cp="🪁">تحليق | طائرة ورقية | طيارة | طيران</annotation>
+		<annotation cp="🪁" type="tts">طائرة ورقية</annotation>
 		<annotation cp="🎱">‫بلياردو | كرة رقم ثمانية | لعبة</annotation>
 		<annotation cp="🎱" type="tts">‫بلياردو</annotation>
 		<annotation cp="🔮">تنجيم | كرة | كريستال</annotation>
@@ -1923,6 +2117,92 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🧵" type="tts">بكرة خيط</annotation>
 		<annotation cp="🧶">حباكة | حياكة | خيط حياكة | صنارة | صوف | كرة</annotation>
 		<annotation cp="🧶" type="tts">خيط حياكة</annotation>
+		<annotation cp="👓">ملابس | نظارة</annotation>
+		<annotation cp="👓" type="tts">نظارة</annotation>
+		<annotation cp="🕶">عين | مظلم | نظارات | نظارة | نظارة شمس</annotation>
+		<annotation cp="🕶" type="tts">نظارة شمس</annotation>
+		<annotation cp="🥽">حماية | حماية العينين | سباحة | شرارة | عينين | لحام | مياه | نظارة واقية</annotation>
+		<annotation cp="🥽" type="tts">نظارة واقية</annotation>
+		<annotation cp="🥼">تجارب | حكيم | دكتور | طبيب | عالم | علوم | مختبرات | معطف مختبر</annotation>
+		<annotation cp="🥼" type="tts">معطف مختبر</annotation>
+		<annotation cp="🦺">أمان | سترة | سلامة | صديري | صرية | طوارئ | ملابس</annotation>
+		<annotation cp="🦺" type="tts">سترة سلامة</annotation>
+		<annotation cp="👔">رابطة عنق | كرافتة | ملابس</annotation>
+		<annotation cp="👔" type="tts">رابطة عنق</annotation>
+		<annotation cp="👕">تي شيرت | قميص | ملابس</annotation>
+		<annotation cp="👕" type="tts">تي شيرت</annotation>
+		<annotation cp="👖">‫بنطلون جينز | جينز | ملابس</annotation>
+		<annotation cp="👖" type="tts">‫بنطلون جينز</annotation>
+		<annotation cp="🧣">عنق | وشاح</annotation>
+		<annotation cp="🧣" type="tts">وشاح</annotation>
+		<annotation cp="🧤">قفّازان | يد</annotation>
+		<annotation cp="🧤" type="tts">قفّازان</annotation>
+		<annotation cp="🧥">سترة | معطف</annotation>
+		<annotation cp="🧥" type="tts">معطف</annotation>
+		<annotation cp="🧦">جورب</annotation>
+		<annotation cp="🧦" type="tts">جورب</annotation>
+		<annotation cp="👗">فستان | قطعة واحدة | ملابس</annotation>
+		<annotation cp="👗" type="tts">فستان</annotation>
+		<annotation cp="👘">فستان | كيمونو ياباني | ملابس</annotation>
+		<annotation cp="👘" type="tts">كيمونو ياباني</annotation>
+		<annotation cp="🥻">ساري | فستان | ملابس</annotation>
+		<annotation cp="🥻" type="tts">ساري</annotation>
+		<annotation cp="🩱">بدلة استحمام | بدلة سباحة | مايوه من قطعة واحدة</annotation>
+		<annotation cp="🩱" type="tts">مايوه من قطعة واحدة</annotation>
+		<annotation cp="🩲">بدلة استحمام | بدلة سباحة | قطعة واحدة | مايوه | ملابس تحتية | ملابس داخلية</annotation>
+		<annotation cp="🩲" type="tts">ملابس تحتية</annotation>
+		<annotation cp="🩳">بدلة استحمام | شورت | مايوه | ملابس تحتية | ملابس داخلية</annotation>
+		<annotation cp="🩳" type="tts">شورت</annotation>
+		<annotation cp="👙">ملابس | ملابس استحمام | ملابس البحر</annotation>
+		<annotation cp="👙" type="tts">ملابس البحر</annotation>
+		<annotation cp="👚">ملابس | ملابس حريمي</annotation>
+		<annotation cp="👚" type="tts">ملابس حريمي</annotation>
+		<annotation cp="👛">كيس نقود | ملابس | نقود</annotation>
+		<annotation cp="👛" type="tts">كيس نقود</annotation>
+		<annotation cp="👜">حقيبة يد | شنطة | شنطة يد | ملابس</annotation>
+		<annotation cp="👜" type="tts">شنطة يد</annotation>
+		<annotation cp="👝">حقيبة يد | محفظة يد | ملابس</annotation>
+		<annotation cp="👝" type="tts">محفظة يد</annotation>
+		<annotation cp="🛍">تسوق | حقائب تسوق | حقيبة | فندق</annotation>
+		<annotation cp="🛍" type="tts">حقائب تسوق</annotation>
+		<annotation cp="🎒">حقيبة مدرسة | مدرسة</annotation>
+		<annotation cp="🎒" type="tts">حقيبة مدرسة</annotation>
+		<annotation cp="👞">حذاء | حذاء رجالي | ملابس</annotation>
+		<annotation cp="👞" type="tts">حذاء رجالي</annotation>
+		<annotation cp="👟">حذاء | حذاء رياضي | ملابس</annotation>
+		<annotation cp="👟" type="tts">حذاء رياضي</annotation>
+		<annotation cp="🥾">تخييم | جزمة | حذاء لرحلات المشي | مشي لمسافات طويلة</annotation>
+		<annotation cp="🥾" type="tts">حذاء لرحلات المشي</annotation>
+		<annotation cp="🥿">باليرينا | حذاء باليه | حذاء نسائي بدون كعب | خف | خفان</annotation>
+		<annotation cp="🥿" type="tts">حذاء نسائي بدون كعب</annotation>
+		<annotation cp="👠">حذاء | حذاء بكعب عالٍ | ملابس</annotation>
+		<annotation cp="👠" type="tts">حذاء بكعب عالٍ</annotation>
+		<annotation cp="👡">صندل | صندل حريمي | ملابس</annotation>
+		<annotation cp="👡" type="tts">صندل حريمي</annotation>
+		<annotation cp="🩰">باليه | حذاء باليه | رقص</annotation>
+		<annotation cp="🩰" type="tts">حذاء باليه</annotation>
+		<annotation cp="👢">حذاء طويل الساق حريمي | حذاء عال | ملابس</annotation>
+		<annotation cp="👢" type="tts">حذاء طويل الساق حريمي</annotation>
+		<annotation cp="👑">تاج | ملابس</annotation>
+		<annotation cp="👑" type="tts">تاج</annotation>
+		<annotation cp="👒">قبعة | قبعة حريمي | ملابس</annotation>
+		<annotation cp="👒" type="tts">قبعة حريمي</annotation>
+		<annotation cp="🎩">ترفيه | ‫قبعة رسمية | قبعة عالية</annotation>
+		<annotation cp="🎩" type="tts">‫قبعة رسمية</annotation>
+		<annotation cp="🎓">احتفال | تخرج | قبعة</annotation>
+		<annotation cp="🎓" type="tts">قبعة تخرج</annotation>
+		<annotation cp="🧢">طاقية | قبعة بيسبول | قبعة رياضية | كاب</annotation>
+		<annotation cp="🧢" type="tts">قبعة رياضية</annotation>
+		<annotation cp="⛑">خوذة | خوذة رجل إنقاذ | صليب | قبعة | مساعدة | وجه</annotation>
+		<annotation cp="⛑" type="tts">خوذة رجل إنقاذ</annotation>
+		<annotation cp="📿">تسبيح | دين | صلاة | قلادة | مسبحة | ملابس</annotation>
+		<annotation cp="📿" type="tts">مسبحة صلاة</annotation>
+		<annotation cp="💄">أحمر شفاه | تجميل | مستحضرات تجميل</annotation>
+		<annotation cp="💄" type="tts">أحمر شفاه</annotation>
+		<annotation cp="💍">خاتم | رومانسية</annotation>
+		<annotation cp="💍" type="tts">خاتم</annotation>
+		<annotation cp="💎">جوهرة | رومانسية | ماسة</annotation>
+		<annotation cp="💎" type="tts">جوهرة</annotation>
 		<annotation cp="🔇">سماعة وعلامة إلغاء | ممنوع الحديث | هدوء</annotation>
 		<annotation cp="🔇" type="tts">ممنوع الحديث</annotation>
 		<annotation cp="🔈">‫صوت سماعة منخفض | صوت منخفض | مكبّر صوت</annotation>
@@ -1969,6 +2249,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🎺" type="tts">آلة نفخ</annotation>
 		<annotation cp="🎻">آلة موسيقية | عزف | كمان | موسيقى</annotation>
 		<annotation cp="🎻" type="tts">كمان</annotation>
+		<annotation cp="🪕">آلة بانجو | موسيقى | وتريات</annotation>
+		<annotation cp="🪕" type="tts">آلة بانجو</annotation>
 		<annotation cp="🥁">طبلة | عصا الطبلة | موسيقى</annotation>
 		<annotation cp="🥁" type="tts">طبلة</annotation>
 		<annotation cp="📱">خلوي | محمول | نقال | ‫هاتف جوال</annotation>
@@ -2039,6 +2321,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🔦" type="tts">ضوء فلاش</annotation>
 		<annotation cp="🏮">إزاكايا | فانوس | ‫فانوس بورق أحمر | مطعم</annotation>
 		<annotation cp="🏮" type="tts">‫فانوس بورق أحمر</annotation>
+		<annotation cp="🪔">إضاءة | زيت | مصباح | مصباح ضياء</annotation>
+		<annotation cp="🪔" type="tts">مصباح ضياء</annotation>
 		<annotation cp="📔">دفتر مزخرف | دفتر مزين | دفتر ملاحظات | غلاف</annotation>
 		<annotation cp="📔" type="tts">دفتر مزين</annotation>
 		<annotation cp="📕">كتاب | كتاب مغلق</annotation>
@@ -2195,6 +2479,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗝" type="tts">مفتاح قديم</annotation>
 		<annotation cp="🔨">عدة | ‫مطرقة</annotation>
 		<annotation cp="🔨" type="tts">‫مطرقة</annotation>
+		<annotation cp="🪓">بلطة | تقسيم | تقطيع | خشب | فأس</annotation>
+		<annotation cp="🪓" type="tts">بلطة</annotation>
 		<annotation cp="⛏">أداة | تنقيب | فأس</annotation>
 		<annotation cp="⛏" type="tts">فأس</annotation>
 		<annotation cp="⚒">أداة | ثقب | شاكوش | مطرقة | مطرقة ومثقاب</annotation>
@@ -2221,6 +2507,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🗜" type="tts">آلة ضغط</annotation>
 		<annotation cp="⚖">أداة | برج | توازن | عدالة | كفتان | ميزان | وزن</annotation>
 		<annotation cp="⚖" type="tts">ميزان</annotation>
+		<annotation cp="🦯">أعمى | إمكانية الوصول | احتياجات خاصة | عصا سير | كفيف</annotation>
+		<annotation cp="🦯" type="tts">عصا سير</annotation>
 		<annotation cp="🔗">حلقتان | روابط | علامة رابط</annotation>
 		<annotation cp="🔗" type="tts">علامة رابط</annotation>
 		<annotation cp="⛓">سلاسل | سلسلة</annotation>
@@ -2245,20 +2533,30 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="📡" type="tts">طبق قمر صناعي</annotation>
 		<annotation cp="💉">‫إبرة حقن | حقنة | سرنجة | طب | طبيب</annotation>
 		<annotation cp="💉" type="tts">‫إبرة حقن</annotation>
+		<annotation cp="🩸">تبرع بالدم | حيض | طب | طمث | قطرة دم</annotation>
+		<annotation cp="🩸" type="tts">قطرة دم</annotation>
 		<annotation cp="💊">حبوب | طب | طبيب</annotation>
 		<annotation cp="💊" type="tts">حبوب</annotation>
+		<annotation cp="🩹">ضمادة لاصقة | لاصقة جروح</annotation>
+		<annotation cp="🩹" type="tts">ضمادة لاصقة</annotation>
+		<annotation cp="🩺">دكتور | سماعة طبيب | طب | طبيب | قلب</annotation>
+		<annotation cp="🩺" type="tts">سماعة طبيب</annotation>
 		<annotation cp="🚪">باب</annotation>
 		<annotation cp="🚪" type="tts">باب</annotation>
 		<annotation cp="🛏">سرير | فندق | نوم</annotation>
 		<annotation cp="🛏" type="tts">سرير</annotation>
 		<annotation cp="🛋">فندق | كنبة | كنبة ومصباح | مصباح</annotation>
 		<annotation cp="🛋" type="tts">كنبة ومصباح</annotation>
+		<annotation cp="🪑">جلوس | قعود | كرسي | مقعد</annotation>
+		<annotation cp="🪑" type="tts">كرسي</annotation>
 		<annotation cp="🚽">حمام | مرحاض</annotation>
 		<annotation cp="🚽" type="tts">مرحاض</annotation>
 		<annotation cp="🚿">استحمام شاور | دوش</annotation>
 		<annotation cp="🚿" type="tts">دوش</annotation>
 		<annotation cp="🛁">حوض استحمام | مغطس</annotation>
 		<annotation cp="🛁" type="tts">حوض استحمام</annotation>
+		<annotation cp="🪒">حاد | حلاقة | موس حلاقة</annotation>
+		<annotation cp="🪒" type="tts">موس حلاقة</annotation>
 		<annotation cp="🧴">زجاجة غسول | شامبو | غسول | مرطب | واقي من الشمس</annotation>
 		<annotation cp="🧴" type="tts">زجاجة غسول</annotation>
 		<annotation cp="🧷">حفاضة | حقيبة بانك روك | دبوس أمان</annotation>
@@ -2503,17 +2801,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="☑" type="tts">مربع اقتراع محدد</annotation>
 		<annotation cp="✔">تحديد | علامة | علامة صح</annotation>
 		<annotation cp="✔" type="tts">علامة صح</annotation>
-		<annotation cp="✖">x | إلغاء | ضرب | علامة ضرب سميكة | مضاعفة</annotation>
-		<annotation cp="✖" type="tts">علامة ضرب سميكة</annotation>
+		<annotation cp="✖">× | x | إلغاء | ضرب | علامة ضرب | مضاعفة</annotation>
+		<annotation cp="✖" type="tts">ضرب</annotation>
 		<annotation cp="❌">إلغاء | اكس | ضرب | علامة | علامة X | مضاعفة</annotation>
 		<annotation cp="❌" type="tts">علامة X</annotation>
 		<annotation cp="❎">علامة | علامة X في مربع | مربع</annotation>
 		<annotation cp="❎" type="tts">علامة X في مربع</annotation>
-		<annotation cp="➕">علامة | ‫علامة جمع | علامة جمع عريضة</annotation>
+		<annotation cp="➕">+ | جمع | رياضيات | ‫علامة جمع</annotation>
 		<annotation cp="➕" type="tts">‫علامة جمع</annotation>
-		<annotation cp="➖">علامة | ‫علامة طرح | علامة طرح عريضة</annotation>
+		<annotation cp="➖">− | رياضيات | طرح | ‫علامة طرح</annotation>
 		<annotation cp="➖" type="tts">‫علامة طرح</annotation>
-		<annotation cp="➗">علامة | ‫علامة قسمة | علامة قسمة عريضة</annotation>
+		<annotation cp="➗">÷ | رياضيات | ‫علامة قسمة | قسمة</annotation>
 		<annotation cp="➗" type="tts">‫علامة قسمة</annotation>
 		<annotation cp="➰">أنشوطة | عقدة</annotation>
 		<annotation cp="➰" type="tts">عقدة</annotation>
@@ -2547,8 +2845,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="®" type="tts">مسجَّل</annotation>
 		<annotation cp="™">إشارة | إشارة علامة تجارية | علامة تجارية</annotation>
 		<annotation cp="™" type="tts">إشارة علامة تجارية</annotation>
-		<annotation cp="💯">100 | 100 نقطة | درجة</annotation>
-		<annotation cp="💯" type="tts">100 درجة</annotation>
 		<annotation cp="🔠">أحرف كبيرة | حرف لاتيني كبير</annotation>
 		<annotation cp="🔠" type="tts">أحرف كبيرة</annotation>
 		<annotation cp="🔡">أحرف صغيرة | حرف لاتيني صغير</annotation>
@@ -2629,28 +2925,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🈵" type="tts">الزر /غير خالٍ/ باليابانية</annotation>
 		<annotation cp="🔴">أحمر | دائرة | دائرة حمراء | دائرة حمراء كبيرة</annotation>
 		<annotation cp="🔴" type="tts">دائرة حمراء</annotation>
+		<annotation cp="🟠">برتقالي | دائرة | دائرة برتقالية</annotation>
+		<annotation cp="🟠" type="tts">دائرة برتقالية</annotation>
+		<annotation cp="🟡">أصفر | دائرة | دائرة صفراء</annotation>
+		<annotation cp="🟡" type="tts">دائرة صفراء</annotation>
+		<annotation cp="🟢">أخضر | دائرة | دائرة خضراء</annotation>
+		<annotation cp="🟢" type="tts">دائرة خضراء</annotation>
 		<annotation cp="🔵">أزرق | دائرة | دائرة زرقاء | دائرة زرقاء كبيرة</annotation>
 		<annotation cp="🔵" type="tts">دائرة زرقاء</annotation>
-		<annotation cp="⚪">دائرة | دائرة بيضاء | هندسي</annotation>
-		<annotation cp="⚪" type="tts">دائرة بيضاء</annotation>
+		<annotation cp="🟣">بنفسجي | دائرة | دائرة بنفسجية</annotation>
+		<annotation cp="🟣" type="tts">دائرة بنفسجية</annotation>
+		<annotation cp="🟤">بني | دائرة | دائرة بنية</annotation>
+		<annotation cp="🟤" type="tts">دائرة بنية</annotation>
 		<annotation cp="⚫">دائرة | دائرة سوداء | هندسية</annotation>
 		<annotation cp="⚫" type="tts">دائرة سوداء</annotation>
-		<annotation cp="⬜">مربع | مربع كبير أبيض | هندسي</annotation>
-		<annotation cp="⬜" type="tts">مربع كبير أبيض</annotation>
+		<annotation cp="⚪">دائرة | دائرة بيضاء | هندسي</annotation>
+		<annotation cp="⚪" type="tts">دائرة بيضاء</annotation>
+		<annotation cp="🟥">أحمر | مربع</annotation>
+		<annotation cp="🟥" type="tts">مربع أحمر</annotation>
+		<annotation cp="🟧">برتقالي | مربع</annotation>
+		<annotation cp="🟧" type="tts">مربع برتقالي</annotation>
+		<annotation cp="🟨">أصفر | مربع</annotation>
+		<annotation cp="🟨" type="tts">مربع أصفر</annotation>
+		<annotation cp="🟩">أخضر | مربع</annotation>
+		<annotation cp="🟩" type="tts">مربع أخضر</annotation>
+		<annotation cp="🟦">أزرق | مربع</annotation>
+		<annotation cp="🟦" type="tts">مربع أزرق</annotation>
+		<annotation cp="🟪">بنفسجي | مربع</annotation>
+		<annotation cp="🟪" type="tts">مربع بنفسجي</annotation>
+		<annotation cp="🟫">بني | مربع</annotation>
+		<annotation cp="🟫" type="tts">مربع بني</annotation>
 		<annotation cp="⬛">مربع | مربع كبير أسود | هندسي</annotation>
 		<annotation cp="⬛" type="tts">مربع كبير أسود</annotation>
+		<annotation cp="⬜">مربع | مربع كبير أبيض | هندسي</annotation>
+		<annotation cp="⬜" type="tts">مربع كبير أبيض</annotation>
 		<annotation cp="◼">مربع | مربع متوسط أسود | هندسي</annotation>
 		<annotation cp="◼" type="tts">مربع متوسط أسود</annotation>
 		<annotation cp="◻">مربع | مربع متوسط أبيض | هندسي</annotation>
 		<annotation cp="◻" type="tts">مربع متوسط أبيض</annotation>
-		<annotation cp="◽">مربع | مربع صغير متوسط أبيض | هندسي</annotation>
-		<annotation cp="◽" type="tts">مربع صغير متوسط أبيض</annotation>
 		<annotation cp="◾">مربع | مربع صغير متوسط أسود | هندسي</annotation>
 		<annotation cp="◾" type="tts">مربع صغير متوسط أسود</annotation>
-		<annotation cp="▫">مربع | مربع صغير أبيض | هندسة</annotation>
-		<annotation cp="▫" type="tts">مربع صغير أبيض</annotation>
+		<annotation cp="◽">مربع | مربع صغير متوسط أبيض | هندسي</annotation>
+		<annotation cp="◽" type="tts">مربع صغير متوسط أبيض</annotation>
 		<annotation cp="▪">مربع | مربع صغير أسود | هندسي</annotation>
 		<annotation cp="▪" type="tts">مربع صغير أسود</annotation>
+		<annotation cp="▫">مربع | مربع صغير أبيض | هندسة</annotation>
+		<annotation cp="▫" type="tts">مربع صغير أبيض</annotation>
 		<annotation cp="🔶">برتقالي | ماسة | ماسة برتقالي كبيرة | ماسة برتقالية كبيرة</annotation>
 		<annotation cp="🔶" type="tts">ماسة برتقالي كبيرة</annotation>
 		<annotation cp="🔷">أزرق | ماسة | ماسة زرقاء كبيرة</annotation>
@@ -2667,10 +2987,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="💠" type="tts">ماسة مع نقطة</annotation>
 		<annotation cp="🔘">تبادلي | زر</annotation>
 		<annotation cp="🔘" type="tts">زر تبادلي</annotation>
-		<annotation cp="🔲">زر | زر مربع أسود | مربع</annotation>
-		<annotation cp="🔲" type="tts">زر مربع أسود</annotation>
 		<annotation cp="🔳">زر | زر مربع أبيض | مربع</annotation>
 		<annotation cp="🔳" type="tts">زر مربع أبيض</annotation>
+		<annotation cp="🔲">زر | زر مربع أسود | مربع</annotation>
+		<annotation cp="🔲" type="tts">زر مربع أسود</annotation>
 		<annotation cp="🏁">رياضة | سباق | علم | علم مربعات</annotation>
 		<annotation cp="🏁" type="tts">علم مربعات</annotation>
 		<annotation cp="🚩">علم | علم مثلث | علم معلومات موقع | علم موقع مثلث | موقع</annotation>
@@ -2681,6 +3001,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<annotation cp="🏴" type="tts">علم أسود يرفرف</annotation>
 		<annotation cp="🏳">رفرفة | علم أبيض يرفرف</annotation>
 		<annotation cp="🏳" type="tts">علم أبيض يرفرف</annotation>
+		<annotation cp="🏳‍⚧">أبيض | أزرق | أزرق خفيف | المتحولون جنسيًا | المتحولين جنسيًا | زهري | علم | علم المتحولين جنسيًا | وردي</annotation>
+		<annotation cp="🏳‍⚧" type="tts">علم المتحولين جنسيًا</annotation>
 		<annotation cp="🏳‍🌈">ألوان طيف | علم | علم ألوان طيف</annotation>
 		<annotation cp="🏳‍🌈" type="tts">علم ألوان طيف</annotation>
 		<annotation cp="🏴‍☠">جولي روجر | علم قراصنة | قراصنة | قرصنة | كنز | كنوز</annotation>

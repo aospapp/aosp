@@ -4,7 +4,10 @@
 
 """Facade to access the system-related functionality."""
 
+import StringIO
 import os
+import threading
+import time
 
 from autotest_lib.client.bin import utils
 
@@ -27,6 +30,9 @@ class SystemFacadeNative(object):
             'powersave',
             'sched'
             ]
+
+    def __init__(self):
+        self._bg_worker = None
 
     def set_scaling_governor_mode(self, index, mode):
         """Set mode of CPU scaling governor on one CPU.
@@ -135,3 +141,94 @@ class SystemFacadeNative(object):
         Fetches statistics for a storage device.
         """
         return utils.get_storage_statistics(device)
+
+    def start_bg_worker(self, command):
+        """
+        Start executing the command in a background worker.
+        """
+        self._bg_worker = BackgroundWorker(command, do_process_output=True)
+        self._bg_worker.start()
+
+    def get_and_discard_bg_worker_output(self):
+        """
+        Returns the output collected so far since the last call to this method.
+        """
+        if self._bg_worker is None:
+            SystemFacadeNativeError('Background worker has not been started.')
+
+        return self._bg_worker.get_and_discard_output()
+
+    def stop_bg_worker(self):
+        """
+        Stop the worker.
+        """
+        if self._bg_worker is None:
+            SystemFacadeNativeError('Background worker has not been started.')
+
+        self._bg_worker.stop()
+        self._bg_worker = None
+
+
+class BackgroundWorker(object):
+    """
+    Worker intended for executing a command in the background and collecting its
+    output.
+    """
+
+    def __init__(self, command, do_process_output=False):
+        self._bg_job = None
+        self._command = command
+        self._do_process_output = do_process_output
+        self._output_lock = threading.Lock()
+        self._process_output_thread = None
+        self._stdout = StringIO.StringIO()
+
+    def start(self):
+        """
+        Start executing the command.
+        """
+        self._bg_job = utils.BgJob(self._command, stdout_tee=self._stdout)
+        self._bg_job.sp.poll()
+        if self._bg_job.sp.returncode is not None:
+            self._exit_bg_job()
+
+        if self._do_process_output:
+            self._process_output_thread = threading.Thread(
+                    target=self._process_output)
+            self._process_output_thread.start()
+
+    def _process_output(self, sleep_interval=0.01):
+        while self._do_process_output:
+            with self._output_lock:
+                self._bg_job.process_output()
+            time.sleep(sleep_interval)
+
+    def get_and_discard_output(self):
+        """
+        Returns the output collected so far and then clears the output buffer.
+        In other words, subsequent calls to this method will not include output
+        that has already been returned before.
+        """
+        output = ""
+        with self._output_lock:
+            self._stdout.flush()
+            output = self._stdout.getvalue()
+            self._stdout.truncate(0)
+            self._stdout.seek(0)
+        return output
+
+    def stop(self):
+        """
+        Stop executing the command.
+        """
+        if self._do_process_output:
+            self._do_process_output = False
+            self._process_output_thread.join(1)
+        self._exit_bg_job()
+
+    def _exit_bg_job(self):
+        utils.nuke_subprocess(self._bg_job.sp)
+        utils.join_bg_jobs([self._bg_job])
+        if self._bg_job.result.exit_status > 0:
+            raise SystemFacadeNativeError('Background job failed: %s' %
+                                          self._bg_job.result.command)

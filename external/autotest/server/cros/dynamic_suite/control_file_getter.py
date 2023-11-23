@@ -10,7 +10,6 @@ import re
 import common
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.client.common_lib.cros import gs_cache_client
 
 
 # Relevant CrosDynamicSuiteExceptions are defined in client/common_lib/error.py.
@@ -132,6 +131,7 @@ class CacheingAndFilteringControlFileGetter(ControlFileGetter):
             regexp = re.compile(test_name + '$')
         candidates = filter(regexp.search, self._files)
         if not candidates:
+            logging.debug('Cannot find %s in %r', regexp.pattern, self._files)
             raise error.ControlFileNotFound('No control file for ' + test_name)
         if len(candidates) > 1:
             raise error.ControlFileNotFound(test_name + ' is not unique.')
@@ -324,8 +324,11 @@ class DevServerGetter(CacheingAndFilteringControlFileGetter,
         @return A dict of paths and contents of all control files.
         @throws NoControlFileList if there is an error while listing.
         """
-        cache_client = gs_cache_client.GsCacheClient(self._dev_server)
-        return cache_client.list_suite_controls(self._build, suite_name)
+        try:
+            return self._dev_server.list_suite_controls(self._build,
+                                                        suite_name=suite_name)
+        except dev_server.DevServerException as e:
+            raise error.SuiteControlFileException(e)
 
 
     def get_suite_info(self, suite_name=''):

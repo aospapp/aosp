@@ -61,39 +61,39 @@ bool CRemoteProcessorServer::start(string &error)
         uint16_t port;
         std::string endpointName;
         bool isInet;
+        const std::string expectedForm{"Required: <hostname port|tcp://[host]:port|unix://path>"};
 
         // For backward compatibility, tcp port referred by its value only
         if (convertTo(_bindAddress, port)) {
             isInet = true;
         } else {
-            // required form is <protocol>://<host:port|port_name>
             const std::string tcpProtocol{"tcp"};
             const std::string unixProtocol{"unix"};
-            const std::vector<std::string> supportedProtocols{ tcpProtocol, unixProtocol };
+            const std::vector<std::string> supportedProtocols{tcpProtocol, unixProtocol};
             const std::string protocolDel{"://"};
 
             size_t protocolDelPos = _bindAddress.find(protocolDel);
             if (protocolDelPos == std::string::npos) {
-                error = "bindaddress " + _bindAddress + " ill formed, missing " + protocolDel;
+                error = "bindaddress " + _bindAddress + " invalid, " + expectedForm;
                 return false;
             }
             std::string protocol = _bindAddress.substr(0, protocolDelPos);
 
             if (std::find(begin(supportedProtocols), end(supportedProtocols), protocol) ==
-                    end(supportedProtocols)) {
-                error = "bindaddress " + _bindAddress + " has invalid protocol " + protocol;
+                end(supportedProtocols)) {
+                error = "bindaddress " + _bindAddress + " invalid, " + expectedForm;
                 return false;
             }
             isInet = (_bindAddress.find(tcpProtocol) != std::string::npos);
             if (isInet) {
-                size_t portDelPos = _bindAddress.find(':', protocolDelPos + protocolDel.size());
+                size_t portDelPos = _bindAddress.rfind(':');
                 if (portDelPos == std::string::npos) {
-                    error = "bindaddress " + _bindAddress + " ill formed, missing " + ":";
+                    error = "bindaddress " + _bindAddress + " invalid, " + expectedForm;
                     return false;
                 }
                 std::string portLiteral{_bindAddress.substr(portDelPos + 1)};
                 if (!convertTo(portLiteral, port)) {
-                    error = "bindaddress " + _bindAddress + " port " + portLiteral + " ill formed";
+                    error = "bindaddress " + _bindAddress + " invalid" + expectedForm;
                     return false;
                 }
             } else {

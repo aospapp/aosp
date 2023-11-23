@@ -9,19 +9,18 @@
  * Copyright (c) 2009, Intel Corporation.
  */
 
-#include <asm-generic/gpio.h>
 #include <common.h>
+#include <asm-generic/gpio.h>
 #include <clk.h>
 #include <dm.h>
 #include <errno.h>
 #include <malloc.h>
 #include <spi.h>
 #include <fdtdec.h>
+#include <reset.h>
 #include <linux/compat.h>
 #include <linux/iopoll.h>
 #include <asm/io.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 /* Register offsets */
 #define DW_SPI_CTRL0			0x00
@@ -111,6 +110,8 @@ struct dw_spi_priv {
 	void *tx_end;
 	void *rx;
 	void *rx_end;
+
+	struct reset_ctl_bulk	resets;
 };
 
 static inline u32 dw_read(struct dw_spi_priv *priv, u32 offset)
@@ -152,14 +153,12 @@ static int request_gpio_cs(struct udevice *bus)
 static int dw_spi_ofdata_to_platdata(struct udevice *bus)
 {
 	struct dw_spi_platdata *plat = bus->platdata;
-	const void *blob = gd->fdt_blob;
-	int node = dev_of_offset(bus);
 
 	plat->regs = (struct dw_spi *)devfdt_get_addr(bus);
 
 	/* Use 500KHz as a suitable default */
-	plat->frequency = fdtdec_get_int(blob, node, "spi-max-frequency",
-					500000);
+	plat->frequency = dev_read_u32_default(bus, "spi-max-frequency",
+					       500000);
 	debug("%s: regs=%p max-frequency=%d\n", __func__, plat->regs,
 	      plat->frequency);
 
@@ -231,6 +230,34 @@ err_rate:
 	return -EINVAL;
 }
 
+static int dw_spi_reset(struct udevice *bus)
+{
+	int ret;
+	struct dw_spi_priv *priv = dev_get_priv(bus);
+
+	ret = reset_get_bulk(bus, &priv->resets);
+	if (ret) {
+		/*
+		 * Return 0 if error due to !CONFIG_DM_RESET and reset
+		 * DT property is not present.
+		 */
+		if (ret == -ENOENT || ret == -ENOTSUPP)
+			return 0;
+
+		dev_warn(bus, "Can't get reset: %d\n", ret);
+		return ret;
+	}
+
+	ret = reset_deassert_bulk(&priv->resets);
+	if (ret) {
+		reset_release_bulk(&priv->resets);
+		dev_err(bus, "Failed to reset: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int dw_spi_probe(struct udevice *bus)
 {
 	struct dw_spi_platdata *plat = dev_get_platdata(bus);
@@ -241,6 +268,10 @@ static int dw_spi_probe(struct udevice *bus)
 	priv->freq = plat->frequency;
 
 	ret = dw_spi_get_clk(bus, &priv->bus_clk_rate);
+	if (ret)
+		return ret;
+
+	ret = dw_spi_reset(bus);
 	if (ret)
 		return ret;
 
@@ -334,7 +365,13 @@ static int poll_transfer(struct dw_spi_priv *priv)
 	return 0;
 }
 
-static void external_cs_manage(struct udevice *dev, bool on)
+/*
+ * We define external_cs_manage function as 'weak' as some targets
+ * (like MSCC Ocelot) don't control the external CS pin using a GPIO
+ * controller. These SoCs use specific registers to control by
+ * software the SPI pins (and especially the CS).
+ */
+__weak void external_cs_manage(struct udevice *dev, bool on)
 {
 #if defined(CONFIG_DM_GPIO) && !defined(CONFIG_SPL_BUILD)
 	struct dw_spi_priv *priv = dev_get_priv(dev->parent);
@@ -478,6 +515,27 @@ static int dw_spi_set_mode(struct udevice *bus, uint mode)
 	return 0;
 }
 
+static int dw_spi_remove(struct udevice *bus)
+{
+	struct dw_spi_priv *priv = dev_get_priv(bus);
+	int ret;
+
+	ret = reset_release_bulk(&priv->resets);
+	if (ret)
+		return ret;
+
+#if CONFIG_IS_ENABLED(CLK)
+	ret = clk_disable(&priv->clk);
+	if (ret)
+		return ret;
+
+	ret = clk_free(&priv->clk);
+	if (ret)
+		return ret;
+#endif
+	return 0;
+}
+
 static const struct dm_spi_ops dw_spi_ops = {
 	.xfer		= dw_spi_xfer,
 	.set_speed	= dw_spi_set_speed,
@@ -502,4 +560,5 @@ U_BOOT_DRIVER(dw_spi) = {
 	.platdata_auto_alloc_size = sizeof(struct dw_spi_platdata),
 	.priv_auto_alloc_size = sizeof(struct dw_spi_priv),
 	.probe = dw_spi_probe,
+	.remove = dw_spi_remove,
 };

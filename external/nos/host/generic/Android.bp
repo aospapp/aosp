@@ -82,3 +82,63 @@ cc_library_static {
         "libbase",
     ],
 }
+
+// A special target to be statically linkeed into recovery which is a system
+// (not vendor) component.
+cc_library_static {
+    name: "libnos_citadel_for_recovery",
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    srcs: [
+        ":libnos_client",
+        "libnos_datagram/citadel.c",
+    ],
+    static_libs: [
+        "libnos_for_recovery",
+    ],
+}
+
+// Language and vendor related defaults
+cc_defaults {
+    name: "nos_cc_defaults",
+    clang: true,
+    cflags: [
+        "-pedantic",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-zero-length-array",
+    ],
+    conlyflags: [
+        "-std=c11",
+    ],
+    vendor: true,
+    owner: "google",
+}
+
+// Defaults for components under the hw subdirectory
+cc_defaults {
+    name: "nos_cc_hw_defaults",
+    defaults: ["nos_cc_defaults"],
+    relative_install_path: "hw",
+}
+
+// Defaults for components shared between the host and device
+cc_defaults {
+    name: "nos_cc_host_supported_defaults",
+    defaults: ["nos_cc_defaults"],
+    host_supported: true,
+}
+
+cc_library {
+    name: "libnos_client_citadel",
+    srcs: [":libnos_client"],
+    defaults: [
+        "libnos_client_defaults",
+        "nos_cc_defaults",
+    ],
+    shared_libs: ["libnos_datagram_citadel"],
+}

@@ -6,23 +6,21 @@
 
 #include "xfa/fxfa/parser/cxfa_execute.h"
 
-#include "fxjs/xfa/cjx_execute.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::AttributeData kExecuteAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Connection, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::RunAt, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::Client},
+     (void*)XFA_AttributeValue::Client},
     {XFA_Attribute::ExecuteType, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::Import},
+     (void*)XFA_AttributeValue::Import},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"execute";
+};
 
 }  // namespace
 
@@ -32,9 +30,8 @@ CXFA_Execute::CXFA_Execute(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Execute,
-                nullptr,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Execute>(this)) {}
+                {},
+                kExecuteAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Execute::~CXFA_Execute() {}
+CXFA_Execute::~CXFA_Execute() = default;

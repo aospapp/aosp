@@ -1,31 +1,26 @@
 /*
  * Copyright (C) 2011 The Guava Authors
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
  *
  * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 
 package com.google.common.cache;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-
 import java.util.concurrent.Callable;
-
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Statistics about the performance of a {@link Cache}. Instances of this class are immutable.
@@ -33,40 +28,42 @@ import javax.annotation.Nullable;
  * <p>Cache statistics are incremented according to the following rules:
  *
  * <ul>
- * <li>When a cache lookup encounters an existing cache entry {@code hitCount} is incremented.
- * <li>When a cache lookup first encounters a missing cache entry, a new entry is loaded.
- * <ul>
- * <li>After successfully loading an entry {@code missCount} and {@code loadSuccessCount} are
- *     incremented, and the total loading time, in nanoseconds, is added to
- *     {@code totalLoadTime}.
- * <li>When an exception is thrown while loading an entry, {@code missCount} and {@code
- *     loadExceptionCount} are incremented, and the total loading time, in nanoseconds, is
- *     added to {@code totalLoadTime}.
- * <li>Cache lookups that encounter a missing cache entry that is still loading will wait
- *     for loading to complete (whether successful or not) and then increment {@code missCount}.
+ *   <li>When a cache lookup encounters an existing cache entry {@code hitCount} is incremented.
+ *   <li>When a cache lookup first encounters a missing cache entry, a new entry is loaded.
+ *       <ul>
+ *         <li>After successfully loading an entry {@code missCount} and {@code loadSuccessCount}
+ *             are incremented, and the total loading time, in nanoseconds, is added to {@code
+ *             totalLoadTime}.
+ *         <li>When an exception is thrown while loading an entry, {@code missCount} and {@code
+ *             loadExceptionCount} are incremented, and the total loading time, in nanoseconds, is
+ *             added to {@code totalLoadTime}.
+ *         <li>Cache lookups that encounter a missing cache entry that is still loading will wait
+ *             for loading to complete (whether successful or not) and then increment {@code
+ *             missCount}.
+ *       </ul>
+ *   <li>When an entry is evicted from the cache, {@code evictionCount} is incremented.
+ *   <li>No stats are modified when a cache entry is invalidated or manually removed.
+ *   <li>No stats are modified by operations invoked on the {@linkplain Cache#asMap asMap} view of
+ *       the cache.
  * </ul>
- * <li>When an entry is evicted from the cache, {@code evictionCount} is incremented.
- * <li>No stats are modified when a cache entry is invalidated or manually removed.
- * <li>No stats are modified on a query to {@link Cache#getIfPresent}.
- * <li>No stats are modified by operations invoked on the {@linkplain Cache#asMap asMap} view of
- *     the cache.
- * </ul>
- * 
- * <p>A lookup is specifically defined as an invocation of one of the methods 
- * {@link LoadingCache#get(Object)}, {@link LoadingCache#getUnchecked(Object)}, 
- * {@link Cache#get(Object, Callable)}, or {@link LoadingCache#getAll(Iterable)}.
+ *
+ * <p>A lookup is specifically defined as an invocation of one of the methods {@link
+ * LoadingCache#get(Object)}, {@link LoadingCache#getUnchecked(Object)}, {@link Cache#get(Object,
+ * Callable)}, or {@link LoadingCache#getAll(Iterable)}.
  *
  * @author Charles Fry
  * @since 10.0
  */
-@Beta
 @GwtCompatible
 public final class CacheStats {
   private final long hitCount;
   private final long missCount;
   private final long loadSuccessCount;
   private final long loadExceptionCount;
+
+  @SuppressWarnings("GoodTime") // should be a java.time.Duration
   private final long totalLoadTime;
+
   private final long evictionCount;
 
   /**
@@ -75,8 +72,14 @@ public final class CacheStats {
    * <p>Five parameters of the same type in a row is a bad thing, but this class is not constructed
    * by end users and is too fine-grained for a builder.
    */
-  public CacheStats(long hitCount, long missCount, long loadSuccessCount,
-      long loadExceptionCount, long totalLoadTime, long evictionCount) {
+  @SuppressWarnings("GoodTime") // should accept a java.time.Duration
+  public CacheStats(
+      long hitCount,
+      long missCount,
+      long loadSuccessCount,
+      long loadExceptionCount,
+      long totalLoadTime,
+      long evictionCount) {
     checkArgument(hitCount >= 0);
     checkArgument(missCount >= 0);
     checkArgument(loadSuccessCount >= 0);
@@ -100,17 +103,15 @@ public final class CacheStats {
     return hitCount + missCount;
   }
 
-  /**
-   * Returns the number of times {@link Cache} lookup methods have returned a cached value.
-   */
+  /** Returns the number of times {@link Cache} lookup methods have returned a cached value. */
   public long hitCount() {
     return hitCount;
   }
 
   /**
-   * Returns the ratio of cache requests which were hits. This is defined as
-   * {@code hitCount / requestCount}, or {@code 1.0} when {@code requestCount == 0}.
-   * Note that {@code hitRate + missRate =~ 1.0}.
+   * Returns the ratio of cache requests which were hits. This is defined as {@code hitCount /
+   * requestCount}, or {@code 1.0} when {@code requestCount == 0}. Note that {@code hitRate +
+   * missRate =~ 1.0}.
    */
   public double hitRate() {
     long requestCount = requestCount();
@@ -128,13 +129,13 @@ public final class CacheStats {
   }
 
   /**
-   * Returns the ratio of cache requests which were misses. This is defined as
-   * {@code missCount / requestCount}, or {@code 0.0} when {@code requestCount == 0}.
-   * Note that {@code hitRate + missRate =~ 1.0}. Cache misses include all requests which
-   * weren't cache hits, including requests which resulted in either successful or failed loading
-   * attempts, and requests which waited for other threads to finish loading. It is thus the case
-   * that {@code missCount &gt;= loadSuccessCount + loadExceptionCount}. Multiple
-   * concurrent misses for the same key will result in a single load operation.
+   * Returns the ratio of cache requests which were misses. This is defined as {@code missCount /
+   * requestCount}, or {@code 0.0} when {@code requestCount == 0}. Note that {@code hitRate +
+   * missRate =~ 1.0}. Cache misses include all requests which weren't cache hits, including
+   * requests which resulted in either successful or failed loading attempts, and requests which
+   * waited for other threads to finish loading. It is thus the case that {@code missCount &gt;=
+   * loadSuccessCount + loadExceptionCount}. Multiple concurrent misses for the same key will result
+   * in a single load operation.
    */
   public double missRate() {
     long requestCount = requestCount();
@@ -143,8 +144,8 @@ public final class CacheStats {
 
   /**
    * Returns the total number of times that {@link Cache} lookup methods attempted to load new
-   * values. This includes both successful load operations, as well as those that threw
-   * exceptions. This is defined as {@code loadSuccessCount + loadExceptionCount}.
+   * values. This includes both successful load operations, as well as those that threw exceptions.
+   * This is defined as {@code loadSuccessCount + loadExceptionCount}.
    */
   public long loadCount() {
     return loadSuccessCount + loadExceptionCount;
@@ -152,56 +153,59 @@ public final class CacheStats {
 
   /**
    * Returns the number of times {@link Cache} lookup methods have successfully loaded a new value.
-   * This is always incremented in conjunction with {@link #missCount}, though {@code missCount}
-   * is also incremented when an exception is encountered during cache loading (see
-   * {@link #loadExceptionCount}). Multiple concurrent misses for the same key will result in a
-   * single load operation.
+   * This is usually incremented in conjunction with {@link #missCount}, though {@code missCount} is
+   * also incremented when an exception is encountered during cache loading (see {@link
+   * #loadExceptionCount}). Multiple concurrent misses for the same key will result in a single load
+   * operation. This may be incremented not in conjunction with {@code missCount} if the load occurs
+   * as a result of a refresh or if the cache loader returned more items than was requested. {@code
+   * missCount} may also be incremented not in conjunction with this (nor {@link
+   * #loadExceptionCount}) on calls to {@code getIfPresent}.
    */
   public long loadSuccessCount() {
     return loadSuccessCount;
   }
 
   /**
-   * Returns the number of times {@link Cache} lookup methods threw an exception while loading a
-   * new value. This is always incremented in conjunction with {@code missCount}, though
-   * {@code missCount} is also incremented when cache loading completes successfully (see
-   * {@link #loadSuccessCount}). Multiple concurrent misses for the same key will result in a
-   * single load operation.
+   * Returns the number of times {@link Cache} lookup methods threw an exception while loading a new
+   * value. This is usually incremented in conjunction with {@code missCount}, though {@code
+   * missCount} is also incremented when cache loading completes successfully (see {@link
+   * #loadSuccessCount}). Multiple concurrent misses for the same key will result in a single load
+   * operation. This may be incremented not in conjunction with {@code missCount} if the load occurs
+   * as a result of a refresh or if the cache loader returned more items than was requested. {@code
+   * missCount} may also be incremented not in conjunction with this (nor {@link #loadSuccessCount})
+   * on calls to {@code getIfPresent}.
    */
   public long loadExceptionCount() {
     return loadExceptionCount;
   }
 
   /**
-   * Returns the ratio of cache loading attempts which threw exceptions. This is defined as
-   * {@code loadExceptionCount / (loadSuccessCount + loadExceptionCount)}, or
-   * {@code 0.0} when {@code loadSuccessCount + loadExceptionCount == 0}.
+   * Returns the ratio of cache loading attempts which threw exceptions. This is defined as {@code
+   * loadExceptionCount / (loadSuccessCount + loadExceptionCount)}, or {@code 0.0} when {@code
+   * loadSuccessCount + loadExceptionCount == 0}.
    */
   public double loadExceptionRate() {
     long totalLoadCount = loadSuccessCount + loadExceptionCount;
-    return (totalLoadCount == 0)
-        ? 0.0
-        : (double) loadExceptionCount / totalLoadCount;
+    return (totalLoadCount == 0) ? 0.0 : (double) loadExceptionCount / totalLoadCount;
   }
 
   /**
    * Returns the total number of nanoseconds the cache has spent loading new values. This can be
-   * used to calculate the miss penalty. This value is increased every time
-   * {@code loadSuccessCount} or {@code loadExceptionCount} is incremented.
+   * used to calculate the miss penalty. This value is increased every time {@code loadSuccessCount}
+   * or {@code loadExceptionCount} is incremented.
    */
+  @SuppressWarnings("GoodTime") // should return a java.time.Duration
   public long totalLoadTime() {
     return totalLoadTime;
   }
 
   /**
-   * Returns the average time spent loading new values. This is defined as
-   * {@code totalLoadTime / (loadSuccessCount + loadExceptionCount)}.
+   * Returns the average time spent loading new values. This is defined as {@code totalLoadTime /
+   * (loadSuccessCount + loadExceptionCount)}.
    */
   public double averageLoadPenalty() {
     long totalLoadCount = loadSuccessCount + loadExceptionCount;
-    return (totalLoadCount == 0)
-        ? 0.0
-        : (double) totalLoadTime / totalLoadCount;
+    return (totalLoadCount == 0) ? 0.0 : (double) totalLoadTime / totalLoadCount;
   }
 
   /**
@@ -228,8 +232,8 @@ public final class CacheStats {
   }
 
   /**
-   * Returns a new {@code CacheStats} representing the sum of this {@code CacheStats}
-   * and {@code other}.
+   * Returns a new {@code CacheStats} representing the sum of this {@code CacheStats} and {@code
+   * other}.
    *
    * @since 11.0
    */
@@ -245,8 +249,8 @@ public final class CacheStats {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(hitCount, missCount, loadSuccessCount, loadExceptionCount,
-        totalLoadTime, evictionCount);
+    return Objects.hashCode(
+        hitCount, missCount, loadSuccessCount, loadExceptionCount, totalLoadTime, evictionCount);
   }
 
   @Override

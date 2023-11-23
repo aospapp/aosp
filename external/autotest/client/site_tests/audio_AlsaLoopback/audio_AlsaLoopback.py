@@ -49,7 +49,7 @@ class audio_AlsaLoopback(audio_helper.alsa_rms_test):
         (output_type, input_type) = cras_utils.get_selected_node_types()
         if not any(t in input_type for t in ['MIC', 'USB']):
             raise error.TestFail("Wrong input type=%s", input_type)
-        if not any(t in output_type for t in ['HEADPHONE', 'USB']):
+        if not any(t in output_type for t in ['HEADPHONE', 'USB', 'LINEOUT']):
             raise error.TestFail("Wrong output type=%s", output_type)
 
         # Stop CRAS to make sure the audio device won't be occupied.

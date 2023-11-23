@@ -8,7 +8,7 @@ PURPOSE = 'Test that audio played to line out can be heard at mic in.'
 CRITERIA = """
 Check if the audio played to line out is heard by cras_test_client at mic in.
 """
-ATTRIBUTES = "suite:audio, suite:partners"
+ATTRIBUTES = ""
 TIME = 'SHORT'
 TEST_CATEGORY = 'PLAYBACKCAPTURE'
 TEST_CLASS = "audio"

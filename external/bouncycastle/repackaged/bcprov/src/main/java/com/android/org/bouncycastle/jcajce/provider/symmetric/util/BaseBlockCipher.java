@@ -458,7 +458,8 @@ public class BaseBlockCipher
         }
         */
         // END Android-removed: Unsupported modes
-        else if (modeName.startsWith("GCM"))
+        // Android-changed: Use equals instead of startsWith to not catch GCM-SIV
+        else if (modeName.equalsIgnoreCase("GCM"))
         {
             ivLength = baseEngine.getBlockSize();
             // BEGIN Android-removed: Unsupported algorithms

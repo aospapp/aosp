@@ -124,7 +124,6 @@ public class PhoneNumberUtil {
 
   static {
     HashMap<Integer, String> mobileTokenMap = new HashMap<Integer, String>();
-    mobileTokenMap.put(52, "1");
     mobileTokenMap.put(54, "9");
     MOBILE_TOKEN_MAPPINGS = Collections.unmodifiableMap(mobileTokenMap);
 
@@ -394,15 +393,15 @@ public class PhoneNumberUtil {
    * use the PhoneNumber class.
    * @hide This class is not part of the Android public SDK API
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/PhoneNumberUtil$PhoneNumberFormat;")
+  @android.compat.annotation.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/PhoneNumberUtil$PhoneNumberFormat;")
   public enum PhoneNumberFormat {
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     E164,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     INTERNATIONAL,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     NATIONAL,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     RFC3966
   }
 
@@ -410,42 +409,42 @@ public class PhoneNumberUtil {
    * Type of phone numbers.
    * @hide This class is not part of the Android public SDK API
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/PhoneNumberUtil$PhoneNumberType;")
+  @android.compat.annotation.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/PhoneNumberUtil$PhoneNumberType;")
   public enum PhoneNumberType {
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     FIXED_LINE,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     MOBILE,
     // In some regions (e.g. the USA), it is impossible to distinguish between fixed-line and
     // mobile numbers by looking at the phone number itself.
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     FIXED_LINE_OR_MOBILE,
     // Freephone lines
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     TOLL_FREE,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     PREMIUM_RATE,
     // The cost of this call is shared between the caller and the recipient, and is hence typically
     // less than PREMIUM_RATE calls. See // http://en.wikipedia.org/wiki/Shared_Cost_Service for
     // more information.
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     SHARED_COST,
     // Voice over IP numbers. This includes TSoIP (Telephony Service over IP).
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     VOIP,
     // A personal number is associated with a particular person, and may be routed to either a
     // MOBILE or FIXED_LINE number. Some more information can be found here:
     // http://en.wikipedia.org/wiki/Personal_Numbers
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     PERSONAL_NUMBER,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     PAGER,
     // Used for "Universal Access Numbers" or "Company Numbers". They may be further routed to
     // specific offices, but allow one number to be used for a company.
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     UAN,
     // Used for "Voice Mail Access Numbers".
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     VOICEMAIL,
     // A phone number is of type UNKNOWN when it does not fit any of the known patterns for a
     // specific region.
@@ -456,17 +455,17 @@ public class PhoneNumberUtil {
    * Types of phone number matches. See detailed description beside the isNumberMatch() method.
    * @hide This class is not part of the Android public SDK API
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/PhoneNumberUtil$MatchType;")
+  @android.compat.annotation.UnsupportedAppUsage(implicitMember = "values()[Lcom/android/i18n/phonenumbers/PhoneNumberUtil$MatchType;")
   public enum MatchType {
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     NOT_A_NUMBER,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     NO_MATCH,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     SHORT_NSN_MATCH,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     NSN_MATCH,
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     EXACT_MATCH,
   }
 
@@ -476,7 +475,7 @@ public class PhoneNumberUtil {
    */
   public enum ValidationResult {
     /** The number length matches that of valid numbers for this region. */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     IS_POSSIBLE,
     /**
      * The number length matches that of local numbers for this region only (i.e. numbers that may
@@ -497,7 +496,7 @@ public class PhoneNumberUtil {
      */
     INVALID_LENGTH,
     /** The number is longer than all valid numbers for this region. */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     TOO_LONG,
   }
 
@@ -511,10 +510,14 @@ public class PhoneNumberUtil {
      * Phone numbers accepted are {@linkplain PhoneNumberUtil#isPossibleNumber(PhoneNumber)
      * possible}, but not necessarily {@linkplain PhoneNumberUtil#isValidNumber(PhoneNumber) valid}.
      */
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     POSSIBLE {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         return util.isPossibleNumber(number);
       }
     },
@@ -526,7 +529,11 @@ public class PhoneNumberUtil {
      */
     VALID {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         if (!util.isValidNumber(number)
             || !PhoneNumberMatcher.containsOnlyValidXChars(number, candidate.toString(), util)) {
           return false;
@@ -548,7 +555,11 @@ public class PhoneNumberUtil {
      */
     STRICT_GROUPING {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         String candidateString = candidate.toString();
         if (!util.isValidNumber(number)
             || !PhoneNumberMatcher.containsOnlyValidXChars(number, candidateString, util)
@@ -556,7 +567,7 @@ public class PhoneNumberUtil {
             || !PhoneNumberMatcher.isNationalPrefixPresentIfRequired(number, util)) {
           return false;
         }
-        return PhoneNumberMatcher.checkNumberGroupingIsValid(
+        return matcher.checkNumberGroupingIsValid(
             number, candidate, util, new PhoneNumberMatcher.NumberGroupingChecker() {
               @Override
               public boolean checkGroups(PhoneNumberUtil util, PhoneNumber number,
@@ -581,7 +592,11 @@ public class PhoneNumberUtil {
      */
     EXACT_GROUPING {
       @Override
-      boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util) {
+      boolean verify(
+          PhoneNumber number,
+          CharSequence candidate,
+          PhoneNumberUtil util,
+          PhoneNumberMatcher matcher) {
         String candidateString = candidate.toString();
         if (!util.isValidNumber(number)
             || !PhoneNumberMatcher.containsOnlyValidXChars(number, candidateString, util)
@@ -589,7 +604,7 @@ public class PhoneNumberUtil {
             || !PhoneNumberMatcher.isNationalPrefixPresentIfRequired(number, util)) {
           return false;
         }
-        return PhoneNumberMatcher.checkNumberGroupingIsValid(
+        return matcher.checkNumberGroupingIsValid(
             number, candidate, util, new PhoneNumberMatcher.NumberGroupingChecker() {
               @Override
               public boolean checkGroups(PhoneNumberUtil util, PhoneNumber number,
@@ -603,7 +618,11 @@ public class PhoneNumberUtil {
     };
 
     /** Returns true if {@code number} is a verified number according to this leniency. */
-    abstract boolean verify(PhoneNumber number, CharSequence candidate, PhoneNumberUtil util);
+    abstract boolean verify(
+        PhoneNumber number,
+        CharSequence candidate,
+        PhoneNumberUtil util,
+        PhoneNumberMatcher matcher);
   }
 
   // A source of metadata for different regions.
@@ -1007,7 +1026,7 @@ public class PhoneNumberUtil {
     return Collections.unmodifiableSet(countryCodesForNonGeographicalRegion);
   }
 
- /**
+  /**
    * Returns all country calling codes the library has metadata for, covering both non-geographical
    * entities (global network calling codes) and those used for geographical entities. This could be
    * used to populate a drop-down box of country calling codes for a phone-number widget, for
@@ -1109,7 +1128,7 @@ public class PhoneNumberUtil {
    *
    * @return a PhoneNumberUtil instance
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public static synchronized PhoneNumberUtil getInstance() {
     if (instance == null) {
       setInstance(createInstance(MetadataManager.DEFAULT_METADATA_LOADER));
@@ -1213,7 +1232,7 @@ public class PhoneNumberUtil {
    * @param numberFormat  the format the phone number should be formatted into
    * @return  the formatted phone number
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String format(PhoneNumber number, PhoneNumberFormat numberFormat) {
     if (number.getNationalNumber() == 0 && number.hasRawInput()) {
       // Unparseable numbers that kept their raw input just use that.
@@ -1441,14 +1460,6 @@ public class PhoneNumberUtil {
             // called within Brazil. Without that, most of the carriers won't connect the call.
             // Because of that, we return an empty string here.
             : "";
-      } else if (isValidNumber && regionCode.equals("HU")) {
-        // The national format for HU numbers doesn't contain the national prefix, because that is
-        // how numbers are normally written down. However, the national prefix is obligatory when
-        // dialing from a mobile phone, except for short numbers. As a result, we add it back here
-        // if it is a valid regular length phone number.
-        formattedNumber =
-            getNddPrefixForRegion(regionCode, true /* strip non-digits */) + " "
-            + format(numberNoExt, PhoneNumberFormat.NATIONAL);
       } else if (countryCallingCode == NANPA_COUNTRY_CODE) {
         // For NANPA countries, we output international format for numbers that can be dialed
         // internationally, since that always works, except for numbers which might potentially be
@@ -1593,7 +1604,7 @@ public class PhoneNumberUtil {
    *     has one
    * @return  the formatted phone number in its original number format
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String formatInOriginalFormat(PhoneNumber number, String regionCallingFrom) {
     if (number.hasRawInput() && !hasFormattingPatternForNumber(number)) {
       // We check if we have the formatting pattern because without that, we might format the number
@@ -1845,7 +1856,7 @@ public class PhoneNumberUtil {
    * @param number  the phone number for which the national significant number is needed
    * @return  the national significant number of the PhoneNumber object passed in
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String getNationalSignificantNumber(PhoneNumber number) {
     // If leading zero(s) have been set, we prefix this now. Note this is not a national prefix.
     StringBuilder nationalNumber = new StringBuilder();
@@ -2189,7 +2200,7 @@ public class PhoneNumberUtil {
    * @param number  the phone number that we want to know the type
    * @return  the type of the phone number, or UNKNOWN if it is invalid
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public PhoneNumberType getNumberType(PhoneNumber number) {
     String regionCode = getRegionCodeForNumber(number);
     PhoneMetadata metadata = getMetadataForRegionOrCallingCode(number.getCountryCode(), regionCode);
@@ -2289,7 +2300,7 @@ public class PhoneNumberUtil {
    * @param number  the phone number that we want to validate
    * @return  a boolean that indicates whether the number is of a valid pattern
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public boolean isValidNumber(PhoneNumber number) {
     String regionCode = getRegionCodeForNumber(number);
     return isValidNumberForRegion(number, regionCode);
@@ -2334,7 +2345,7 @@ public class PhoneNumberUtil {
    * @return  the region where the phone number is from, or null if no region matches this calling
    *     code
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String getRegionCodeForNumber(PhoneNumber number) {
     int countryCode = number.getCountryCode();
     List<String> regions = countryCallingCodeToRegionCodeMap.get(countryCode);
@@ -2399,7 +2410,7 @@ public class PhoneNumberUtil {
    * @param regionCode  the region that we want to get the country calling code for
    * @return  the country calling code for the region denoted by regionCode
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public int getCountryCodeForRegion(String regionCode) {
     if (!isValidRegionCode(regionCode)) {
       logger.log(Level.WARNING,
@@ -2503,7 +2514,7 @@ public class PhoneNumberUtil {
    * @param number  the number that needs to be checked
    * @return  true if the number is possible
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public boolean isPossibleNumber(PhoneNumber number) {
     ValidationResult result = isPossibleNumberWithReason(number);
     return result == ValidationResult.IS_POSSIBLE
@@ -2632,7 +2643,7 @@ public class PhoneNumberUtil {
    * @param number  the number that needs to be checked
    * @return  a ValidationResult object which indicates whether the number is possible
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public ValidationResult isPossibleNumberWithReason(PhoneNumber number) {
     return isPossibleNumberForTypeWithReason(number, PhoneNumberType.UNKNOWN);
   }
@@ -2742,7 +2753,7 @@ public class PhoneNumberUtil {
    * @return  an {@link com.android.i18n.phonenumbers.AsYouTypeFormatter} object, which can be used
    *     to format phone numbers in the specific region "as you type"
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public AsYouTypeFormatter getAsYouTypeFormatter(String regionCode) {
     return new AsYouTypeFormatter(regionCode);
   }
@@ -3138,7 +3149,7 @@ public class PhoneNumberUtil {
    *     This is to cover degenerate cases where the text has a lot of false positives in it. Must
    *     be {@code >= 0}.
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public Iterable<PhoneNumberMatch> findNumbers(
       final CharSequence text, final String defaultRegion, final Leniency leniency,
       final long maxTries) {
@@ -3385,7 +3396,7 @@ public class PhoneNumberUtil {
    * @return  NO_MATCH, SHORT_NSN_MATCH, NSN_MATCH or EXACT_MATCH depending on the level of equality
    *     of the two numbers, described in the method definition.
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public MatchType isNumberMatch(PhoneNumber firstNumberIn, PhoneNumber secondNumberIn) {
     // We only care about the fields that uniquely define a number, so we copy these across
     // explicitly.

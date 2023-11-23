@@ -6,7 +6,9 @@
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <fdtdec.h>
+#include <usb.h>
 #include <asm/io.h>
 #include <asm/msr.h>
 #include <asm/mtrr.h>
@@ -54,10 +56,10 @@ static void board_final_cleanup(void)
 	if (top_type == MTRR_TYPE_WRPROT) {
 		struct mtrr_state state;
 
-		mtrr_open(&state);
+		mtrr_open(&state, true);
 		wrmsrl(MTRR_PHYS_BASE_MSR(top_mtrr), 0);
 		wrmsrl(MTRR_PHYS_MASK_MSR(top_mtrr), 0);
-		mtrr_close(&state);
+		mtrr_close(&state, true);
 	}
 
 	if (!fdtdec_get_config_bool(gd->fdt_blob, "u-boot,no-apm-finalize")) {
@@ -72,15 +74,11 @@ static void board_final_cleanup(void)
 
 int last_stage_init(void)
 {
-	if (gd->flags & GD_FLG_COLD_BOOT)
-		timestamp_add_to_bootstage();
+	/* start usb so that usb keyboard can be used as input device */
+	if (CONFIG_IS_ENABLED(USB_KEYBOARD))
+		usb_init();
 
 	board_final_cleanup();
 
-	return 0;
-}
-
-int misc_init_r(void)
-{
 	return 0;
 }

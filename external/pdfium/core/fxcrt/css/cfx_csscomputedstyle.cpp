@@ -8,18 +8,17 @@
 
 #include "core/fxcrt/css/cfx_cssstringvalue.h"
 #include "core/fxcrt/css/cfx_cssvaluelist.h"
-#include "third_party/base/stl_util.h"
 
-CFX_CSSComputedStyle::CFX_CSSComputedStyle() {}
+CFX_CSSComputedStyle::CFX_CSSComputedStyle() = default;
 
-CFX_CSSComputedStyle::~CFX_CSSComputedStyle() {}
+CFX_CSSComputedStyle::~CFX_CSSComputedStyle() = default;
 
 bool CFX_CSSComputedStyle::GetCustomStyle(const WideString& wsName,
-                                          WideString& wsValue) const {
+                                          WideString* pValue) const {
   for (auto iter = m_CustomProperties.rbegin();
-       iter != m_CustomProperties.rend(); iter++) {
+       iter != m_CustomProperties.rend(); ++iter) {
     if (wsName == iter->name()) {
-      wsValue = iter->value();
+      *pValue = iter->value();
       return true;
     }
   }
@@ -168,8 +167,8 @@ void CFX_CSSComputedStyle::AddCustomStyle(const CFX_CSSCustomProperty& prop) {
 }
 
 CFX_CSSComputedStyle::InheritedData::InheritedData()
-    : m_LetterSpacing(CFX_CSSLengthUnit::Normal),
-      m_WordSpacing(CFX_CSSLengthUnit::Normal),
+    : m_LetterSpacing(CFX_CSSLengthUnit::Normal, 0),
+      m_WordSpacing(CFX_CSSLengthUnit::Normal, 0),
       m_TextIndent(CFX_CSSLengthUnit::Point, 0),
       m_pFontFamily(nullptr),
       m_fFontSize(12.0f),

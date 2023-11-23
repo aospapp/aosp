@@ -15,235 +15,148 @@
 #ifndef sw_Context_hpp
 #define sw_Context_hpp
 
-#include "Sampler.hpp"
+#include "Config.hpp"
+#include "Memset.hpp"
 #include "Stream.hpp"
-#include "Point.hpp"
-#include "Vertex.hpp"
 #include "System/Types.hpp"
+#include "Vulkan/VkConfig.h"
+#include "Vulkan/VkDescriptorSet.hpp"
 
-namespace sw
+namespace vk {
+
+class ImageView;
+class PipelineLayout;
+
+}  // namespace vk
+
+namespace sw {
+
+class SpirvShader;
+
+struct PushConstantStorage
 {
-	class Sampler;
-	class Surface;
-	class PixelShader;
-	class VertexShader;
-	struct Triangle;
-	struct Primitive;
-	struct Vertex;
-	class Resource;
+	unsigned char data[vk::MAX_PUSH_CONSTANT_SIZE];
+};
 
-	enum In   // Default input stream semantic
-	{
-		Position = 0,
-		BlendWeight = 1,
-		BlendIndices = 2,
-		Normal = 3,
-		PointSize = 4,
-		Color0 = 5,
-		Color1 = 6,
-		TexCoord0 = 7,
-		TexCoord1 = 8,
-		TexCoord2 = 9,
-		TexCoord3 = 10,
-		TexCoord4 = 11,
-		TexCoord5 = 12,
-		TexCoord6 = 13,
-		TexCoord7 = 14,
-		PositionT = 15
-	};
+struct BlendState : Memset<BlendState>
+{
+	BlendState()
+	    : Memset(this, 0)
+	{}
 
-	enum DrawType ENUM_UNDERLYING_TYPE_UNSIGNED_INT
-	{
-		// These types must stay ordered by vertices per primitive. Also, if these basic types
-		// are modified, verify the value assigned to task->verticesPerPrimitive in Renderer.cpp
-		DRAW_POINTLIST     = 0x00,
-		DRAW_LINELIST      = 0x01,
-		DRAW_LINESTRIP     = 0x02,
-		DRAW_TRIANGLELIST  = 0x03,
-		DRAW_TRIANGLESTRIP = 0x04,
-		DRAW_TRIANGLEFAN   = 0x05,
+	BlendState(bool alphaBlendEnable,
+	           VkBlendFactor sourceBlendFactor,
+	           VkBlendFactor destBlendFactor,
+	           VkBlendOp blendOperation,
+	           VkBlendFactor sourceBlendFactorAlpha,
+	           VkBlendFactor destBlendFactorAlpha,
+	           VkBlendOp blendOperationAlpha)
+	    : Memset(this, 0)
+	    , alphaBlendEnable(alphaBlendEnable)
+	    , sourceBlendFactor(sourceBlendFactor)
+	    , destBlendFactor(destBlendFactor)
+	    , blendOperation(blendOperation)
+	    , sourceBlendFactorAlpha(sourceBlendFactorAlpha)
+	    , destBlendFactorAlpha(destBlendFactorAlpha)
+	    , blendOperationAlpha(blendOperationAlpha)
+	{}
 
-		DRAW_NONINDEXED = 0x00,
-		DRAW_INDEXED16  = 0x20,
-		DRAW_INDEXED32  = 0x30,
+	bool alphaBlendEnable;
+	VkBlendFactor sourceBlendFactor;
+	VkBlendFactor destBlendFactor;
+	VkBlendOp blendOperation;
+	VkBlendFactor sourceBlendFactorAlpha;
+	VkBlendFactor destBlendFactorAlpha;
+	VkBlendOp blendOperationAlpha;
+};
 
-		DRAW_INDEXEDPOINTLIST16 = DRAW_POINTLIST | DRAW_INDEXED16,
-		DRAW_INDEXEDLINELIST16  = DRAW_LINELIST  | DRAW_INDEXED16,
-		DRAW_INDEXEDLINESTRIP16 = DRAW_LINESTRIP | DRAW_INDEXED16,
-		DRAW_INDEXEDTRIANGLELIST16  = DRAW_TRIANGLELIST  | DRAW_INDEXED16,
-		DRAW_INDEXEDTRIANGLESTRIP16 = DRAW_TRIANGLESTRIP | DRAW_INDEXED16,
-		DRAW_INDEXEDTRIANGLEFAN16   = DRAW_TRIANGLEFAN   | DRAW_INDEXED16,
+class Context
+{
+public:
+	Context();
 
-		DRAW_INDEXEDPOINTLIST32 = DRAW_POINTLIST | DRAW_INDEXED32,
-		DRAW_INDEXEDLINELIST32  = DRAW_LINELIST  | DRAW_INDEXED32,
-		DRAW_INDEXEDLINESTRIP32 = DRAW_LINESTRIP | DRAW_INDEXED32,
-		DRAW_INDEXEDTRIANGLELIST32  = DRAW_TRIANGLELIST  | DRAW_INDEXED32,
-		DRAW_INDEXEDTRIANGLESTRIP32 = DRAW_TRIANGLESTRIP | DRAW_INDEXED32,
-		DRAW_INDEXEDTRIANGLEFAN32   = DRAW_TRIANGLEFAN   | DRAW_INDEXED32,
+	void init();
 
-		DRAW_LAST = DRAW_INDEXEDTRIANGLEFAN32
-	};
+	bool isDrawPoint(bool polygonModeAware) const;
+	bool isDrawLine(bool polygonModeAware) const;
+	bool isDrawTriangle(bool polygonModeAware) const;
 
-	enum CullMode ENUM_UNDERLYING_TYPE_UNSIGNED_INT
-	{
-		CULL_NONE,
-		CULL_CLOCKWISE,
-		CULL_COUNTERCLOCKWISE,
+	bool depthWriteActive() const;
+	bool depthBufferActive() const;
+	bool stencilActive() const;
 
-		CULL_LAST = CULL_COUNTERCLOCKWISE
-	};
+	bool allTargetsColorClamp() const;
 
-	enum TransparencyAntialiasing ENUM_UNDERLYING_TYPE_UNSIGNED_INT
-	{
-		TRANSPARENCY_NONE,
-		TRANSPARENCY_ALPHA_TO_COVERAGE,
+	void setBlendState(int index, BlendState state);
+	BlendState getBlendState(int index) const;
 
-		TRANSPARENCY_LAST = TRANSPARENCY_ALPHA_TO_COVERAGE
-	};
+	VkPrimitiveTopology topology;
+	VkProvokingVertexModeEXT provokingVertexMode;
 
-	class Context
-	{
-	public:
-		Context();
+	bool stencilEnable;
+	VkStencilOpState frontStencil;
+	VkStencilOpState backStencil;
 
-		~Context();
+	// Pixel processor states
+	VkCullModeFlags cullMode;
+	VkFrontFace frontFace;
+	VkPolygonMode polygonMode;
+	VkLineRasterizationModeEXT lineRasterizationMode;
 
-		void *operator new(size_t bytes);
-		void operator delete(void *pointer, size_t bytes);
+	float depthBias;
+	float slopeDepthBias;
 
-		void init();
+	VkFormat renderTargetInternalFormat(int index) const;
+	int colorWriteActive(int index) const;
 
-		bool isDrawPoint() const;
-		bool isDrawLine() const;
-		bool isDrawTriangle() const;
+	vk::DescriptorSet::Bindings descriptorSets = {};
+	vk::DescriptorSet::DynamicOffsets descriptorDynamicOffsets = {};
+	Stream input[MAX_INTERFACE_COMPONENTS / 4];
+	bool robustBufferAccess;
 
-		bool setDepthBufferEnable(bool depthBufferEnable);
+	vk::ImageView *renderTarget[RENDERTARGETS];
+	vk::ImageView *depthBuffer;
+	vk::ImageView *stencilBuffer;
 
-		bool setAlphaBlendEnable(bool alphaBlendEnable);
-		bool setSourceBlendFactor(VkBlendFactor sourceBlendFactor);
-		bool setDestBlendFactor(VkBlendFactor destBlendFactor);
-		bool setBlendOperation(VkBlendOp blendOperation);
+	vk::PipelineLayout const *pipelineLayout;
 
-		bool setSeparateAlphaBlendEnable(bool separateAlphaBlendEnable);
-		bool setSourceBlendFactorAlpha(VkBlendFactor sourceBlendFactorAlpha);
-		bool setDestBlendFactorAlpha(VkBlendFactor destBlendFactorAlpha);
-		bool setBlendOperationAlpha(VkBlendOp blendOperationAlpha);
+	// Shaders
+	const SpirvShader *pixelShader;
+	const SpirvShader *vertexShader;
 
-		bool setColorWriteMask(int index, int colorWriteMask);
-		bool setWriteSRGB(bool sRGB);
+	bool occlusionEnabled;
 
-		bool setColorLogicOpEnabled(bool colorLogicOpEnabled);
-		bool setLogicalOperation(VkLogicOp logicalOperation);
+	// Pixel processor states
+	bool rasterizerDiscard;
+	bool depthBoundsTestEnable;
+	bool depthBufferEnable;
+	VkCompareOp depthCompareMode;
+	bool depthWriteEnable;
 
-		bool depthWriteActive();
-		bool alphaTestActive();
-		bool depthBufferActive();
-		bool stencilActive();
+	float lineWidth;
 
-		bool perspectiveActive();
+	int colorWriteMask[RENDERTARGETS];  // RGBA
+	unsigned int sampleMask;
+	unsigned int multiSampleMask;
+	int sampleCount;
+	bool alphaToCoverage;
 
-		bool alphaBlendActive();
-		VkBlendFactor sourceBlendFactor();
-		VkBlendFactor destBlendFactor();
-		VkBlendOp blendOperation();
+private:
+	bool colorWriteActive() const;
+	bool colorUsed() const;
 
-		VkBlendFactor sourceBlendFactorAlpha();
-		VkBlendFactor destBlendFactorAlpha();
-		VkBlendOp blendOperationAlpha();
+	bool alphaBlendActive(int index) const;
+	VkBlendFactor sourceBlendFactor(int index) const;
+	VkBlendFactor destBlendFactor(int index) const;
+	VkBlendOp blendOperation(int index) const;
 
-		VkLogicOp colorLogicOp();
+	VkBlendFactor sourceBlendFactorAlpha(int index) const;
+	VkBlendFactor destBlendFactorAlpha(int index) const;
+	VkBlendOp blendOperationAlpha(int index) const;
 
-		unsigned short pixelShaderModel() const;
-		unsigned short vertexShaderModel() const;
+	BlendState blendState[RENDERTARGETS];
+};
 
-		int getMultiSampleCount() const;
+}  // namespace sw
 
-		DrawType drawType;
-
-		bool stencilEnable;
-		VkCompareOp stencilCompareMode;
-		int stencilReference;
-		int stencilMask;
-		VkStencilOp stencilFailOperation;
-		VkStencilOp stencilPassOperation;
-		VkStencilOp stencilZFailOperation;
-		int stencilWriteMask;
-
-		bool twoSidedStencil;
-		VkCompareOp stencilCompareModeCCW;
-		int stencilReferenceCCW;
-		int stencilMaskCCW;
-		VkStencilOp stencilFailOperationCCW;
-		VkStencilOp stencilPassOperationCCW;
-		VkStencilOp stencilZFailOperationCCW;
-		int stencilWriteMaskCCW;
-
-		// Pixel processor states
-		VkCompareOp alphaCompareMode;
-		bool alphaTestEnable;
-
-		CullMode cullMode;
-		bool frontFacingCCW;
-		float alphaReference;
-
-		float depthBias;
-		float slopeDepthBias;
-
-		Sampler sampler[TOTAL_IMAGE_UNITS];
-
-		VkFormat renderTargetInternalFormat(int index);
-		int colorWriteActive();
-		int colorWriteActive(int index);
-		bool colorUsed();
-
-		Resource *texture[TOTAL_IMAGE_UNITS];
-		Stream input[MAX_VERTEX_INPUTS];
-		Resource *indexBuffer;
-
-		Surface *renderTarget[RENDERTARGETS];
-		unsigned int renderTargetLayer[RENDERTARGETS];
-		Surface *depthBuffer;
-		unsigned int depthBufferLayer;
-		Surface *stencilBuffer;
-		unsigned int stencilBufferLayer;
-
-		// Shaders
-		const PixelShader *pixelShader;
-		const VertexShader *vertexShader;
-
-		// Instancing
-		int instanceID;
-
-		bool occlusionEnabled;
-		bool transformFeedbackQueryEnabled;
-		uint64_t transformFeedbackEnabled;
-
-		// Pixel processor states
-		bool rasterizerDiscard;
-		bool depthBufferEnable;
-		VkCompareOp depthCompareMode;
-		bool depthWriteEnable;
-
-		bool alphaBlendEnable;
-		VkBlendFactor sourceBlendFactorState;
-		VkBlendFactor destBlendFactorState;
-		VkBlendOp blendOperationState;
-
-		bool separateAlphaBlendEnable;
-		VkBlendFactor sourceBlendFactorStateAlpha;
-		VkBlendFactor destBlendFactorStateAlpha;
-		VkBlendOp blendOperationStateAlpha;
-
-		float lineWidth;
-
-		int colorWriteMask[RENDERTARGETS];   // RGBA
-		bool writeSRGB;
-		unsigned int sampleMask;
-		unsigned int multiSampleMask;
-
-		bool colorLogicOpEnabled;
-		VkLogicOp logicalOperation;
-	};
-}
-
-#endif   // sw_Context_hpp
+#endif  // sw_Context_hpp

@@ -60,16 +60,11 @@ class GenericTransferManager : public TransferManager {
 
   int64 GetByteSizeRequirement(const Shape& shape) const override;
 
- protected:
   Status WriteSingleTupleIndexTable(
       se::Stream* stream, absl::Span<const se::DeviceMemoryBase> elements,
       const Shape& shape, se::DeviceMemoryBase* region) override;
 
  private:
-  Status TransferLiteralFromDeviceInternal(se::StreamExecutor* executor,
-                                           const ShapedBuffer& device_buffer,
-                                           MutableBorrowingLiteral literal);
-
   // The platform this transfer manager targets.
   const se::Platform::Id platform_id_;
 

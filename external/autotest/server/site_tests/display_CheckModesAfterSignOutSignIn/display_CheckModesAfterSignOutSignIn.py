@@ -16,18 +16,19 @@ from autotest_lib.server.cros.multimedia import remote_facade_factory
 class display_CheckModesAfterSignOutSignIn(test.test):
     """ To Check the modes after sign out/sign in"""
     version = 1
-    KEY_DELAY = 1
+    KEY_DELAY = 0.3
+    LOGOUT_DELAY = 20
 
     def logout(self):
         """Log out the User"""
         logging.info("Signing out")
 
         # Pressing the keys twice to logout
-        self.input_facade.press_keys(['KEY_LEFTCTRL', 'KEY_RIGHTSHIFT',
-                                      'KEY_Q'])
+        self.input_facade.blocking_playback_of_default_file("keyboard",
+                                                            'keyboard_ctrl+shift+q')
         time.sleep(self.KEY_DELAY)
-        self.input_facade.press_keys(['KEY_LEFTCTRL', 'KEY_RIGHTSHIFT',
-                                      'KEY_Q'])
+        self.input_facade.blocking_playback_of_default_file("keyboard",
+                                                            'keyboard_ctrl+shift+q')
 
     def is_logged_out(self):
         """Will check whether user logged out"""
@@ -87,6 +88,7 @@ class display_CheckModesAfterSignOutSignIn(test.test):
         utils.poll_for_condition(
                 self.is_logged_out,
                 exception=error.TestFail('User is not logged out'),
+                timeout=self.LOGOUT_DELAY,
                 sleep_interval=1)
         logging.info("Restarting the chrome again!")
         self.browser_facade.start_default_chrome(restart=True)
@@ -109,6 +111,7 @@ class display_CheckModesAfterSignOutSignIn(test.test):
         self.display_facade = factory.create_display_facade()
         self.browser_facade = factory.create_browser_facade()
         self.input_facade = factory.create_input_facade()
+        self.input_facade.initialize_input_playback("keyboard")
         chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, self.display_facade)

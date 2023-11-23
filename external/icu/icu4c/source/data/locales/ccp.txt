@@ -12,10 +12,9 @@ ccp{
         "[𑄃 𑄄 𑄅 𑄆 𑄇 𑄈 𑄉 𑄊 𑄋 𑄌 𑄍 𑄎 𑄏 𑄐 𑄑 𑄒 𑄓 𑄔 𑄕 𑄖 𑄗 𑄘 𑄙 𑄚 𑄛 "
         "𑄜 𑄝 𑄞 𑄟 𑄠 𑄡 𑄢 𑄣 𑄤 𑄥 𑄦]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0০ 1১ 2২ 3৩ 4৪ 5৫ 6৬ 7৭ 8৮ 9৯]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? 𑅃 . … 𑅁 𑅂 𑅀 ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / "
-        "\\& # † ‡ ′ ″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? 𑅃 . … 𑅁 𑅂 𑅀 ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * "
+        "/ \\& # † ‡ ′ ″]"
     }
     NumberElements{
         cakm{
@@ -47,6 +46,19 @@ ccp{
                 percentFormat{"#,##,##0%"}
                 scientificFormat{"#E0"}
             }
+            patternsShort{
+                decimalFormat{
+                    1000000000{
+                        other{"0G"}
+                    }
+                    10000000000{
+                        other{"00G"}
+                    }
+                    100000000000{
+                        other{"000G"}
+                    }
+                }
+            }
             symbols{
                 decimal{"."}
                 exponential{"E"}
@@ -71,7 +83,7 @@ ccp{
         minimumGroupingDigits{"1"}
         native{"cakm"}
     }
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

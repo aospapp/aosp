@@ -8,10 +8,10 @@ third_party {
     value: "https://www.unicode.org/"
   }
   url {
-    type: SVN
-    value: "https://unicode.org/repos/cldr"
+    type: GIT
+    value: "https://github.com/unicode-org/cldr"
   }
-  version: ""
-  last_upgrade_date { year: 2018 month: 4 day: 20 }
+  version: "36.0"
+  last_upgrade_date { year: 2019 month: 12 day: 16 }
   license_type: NOTICE
 }

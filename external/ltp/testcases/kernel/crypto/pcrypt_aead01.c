@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2018 SUSE
  * Author: Nicolai Stange <nstange@suse.de>
@@ -5,19 +6,6 @@
  *
  * Originally found by syzkaller:
  * https://groups.google.com/forum/#!topic/syzkaller-bugs/NKn_ivoPOpk
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
  *
  * Test for CVE-2017-5754 - pcrypt mishandles freeing instances.
  *
@@ -66,6 +54,12 @@ void run(void)
 		TEST(tst_crypto_del_alg(&ses, &a));
 		if (TST_RET)
 			tst_brk(TBROK | TRERRNO, "del_alg");
+
+		if (tst_timeout_remaining() < 10) {
+			tst_res(TINFO, "Time limit reached, stopping at "
+				"%d iterations", i);
+			break;
+		}
 	}
 
 	tst_res(TPASS, "Nothing bad appears to have happened");
@@ -81,4 +75,9 @@ static struct tst_test test = {
 	.test_all = run,
 	.cleanup = cleanup,
 	.needs_root = 1,
+	.tags = (const struct tst_tag[]) {
+		{"linux-git", "d76c68109f37"},
+		{"CVE", "2017-5754"},
+		{}
+	}
 };

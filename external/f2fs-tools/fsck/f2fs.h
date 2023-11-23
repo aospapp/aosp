@@ -11,10 +11,10 @@
 #ifndef _F2FS_H_
 #define _F2FS_H_
 
-#include <f2fs_fs.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -22,19 +22,91 @@
 #ifdef HAVE_MNTENT_H
 #include <mntent.h>
 #endif
+#ifdef HAVE_MACH_TIME_H
+#include <mach/mach_time.h>
+#endif
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 #include <assert.h>
+
+#include "f2fs_fs.h"
 
 #define EXIT_ERR_CODE		(-1)
 #define ver_after(a, b) (typecheck(unsigned long long, a) &&            \
 		typecheck(unsigned long long, b) &&                     \
 		((long long)((a) - (b)) > 0))
 
+#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define container_of(ptr, type, member) ({			\
+	const typeof(((type *)0)->member) * __mptr = (ptr);	\
+	(type *)((char *)__mptr - offsetof(type, member)); })
+
 struct list_head {
 	struct list_head *next, *prev;
 };
+
+static inline void __list_add(struct list_head *new,
+				struct list_head *prev,
+				struct list_head *next)
+{
+	next->prev = new;
+	new->next = next;
+	new->prev = prev;
+	prev->next = new;
+}
+
+static inline void __list_del(struct list_head * prev, struct list_head * next)
+{
+	next->prev = prev;
+	prev->next = next;
+}
+
+static inline void list_del(struct list_head *entry)
+{
+	__list_del(entry->prev, entry->next);
+}
+
+static inline void list_add_tail(struct list_head *new, struct list_head *head)
+{
+	__list_add(new, head->prev, head);
+}
+
+#define LIST_HEAD_INIT(name) { &(name), &(name) }
+
+#define list_entry(ptr, type, member)					\
+		container_of(ptr, type, member)
+
+#define list_first_entry(ptr, type, member)				\
+		list_entry((ptr)->next, type, member)
+
+#define list_next_entry(pos, member)					\
+		list_entry((pos)->member.next, typeof(*(pos)), member)
+
+#define list_for_each_entry(pos, head, member)				\
+	for (pos = list_first_entry(head, typeof(*pos), member);	\
+		&pos->member != (head);					\
+		pos = list_next_entry(pos, member))
+
+#define list_for_each_entry_safe(pos, n, head, member)			\
+	for (pos = list_first_entry(head, typeof(*pos), member),	\
+		n = list_next_entry(pos, member);			\
+		&pos->member != (head);					\
+		pos = n, n = list_next_entry(n, member))
+
+/*
+ * indicate meta/data type
+ */
+enum {
+	META_CP,
+	META_NAT,
+	META_SIT,
+	META_SSA,
+	META_MAX,
+	META_POR,
+};
+
+#define MAX_RA_BLOCKS	64
 
 enum {
 	NAT_BITMAP,
@@ -65,9 +137,12 @@ struct f2fs_nm_info {
 
 struct seg_entry {
 	unsigned short valid_blocks;    /* # of valid blocks */
+	unsigned short ckpt_valid_blocks;	/* # of valid blocks last cp, for recovered data/node */
 	unsigned char *cur_valid_map;   /* validity bitmap of blocks */
+	unsigned char *ckpt_valid_map;	/* validity bitmap of blocks last cp, for recovered data/node */
 	unsigned char type;             /* segment type like CURSEG_XXX_TYPE */
 	unsigned char orig_type;        /* segment type like CURSEG_XXX_TYPE */
+	unsigned char ckpt_type;        /* segment type like CURSEG_XXX_TYPE , for recovered data/node */
 	unsigned long long mtime;       /* modification time of the segment */
 	int dirty;
 };
@@ -81,6 +156,7 @@ struct sit_info {
 	block_t sit_base_addr;          /* start block address of SIT area */
 	block_t sit_blocks;             /* # of blocks used by SIT area */
 	block_t written_valid_blocks;   /* # of valid blocks in main area */
+	unsigned char *bitmap;		/* all bitmaps pointer */
 	char *sit_bitmap;               /* SIT bitmap pointer */
 	unsigned int bitmap_size;       /* SIT bitmap size */
 
@@ -195,6 +271,11 @@ struct f2fs_sb_info {
 
 	unsigned int cur_victim_sec;            /* current victim section num */
 	u32 free_segments;
+
+	int cp_backuped;			/* backup valid checkpoint */
+
+	/* true if late_build_segment_manger() is called */
+	bool seg_manager_done;
 };
 
 static inline struct f2fs_super_block *F2FS_RAW_SUPER(struct f2fs_sb_info *sbi)
@@ -240,6 +321,17 @@ static inline unsigned int ofs_of_node(struct f2fs_node *node_blk)
 	return flag >> OFFSET_BIT_SHIFT;
 }
 
+static inline unsigned long long cur_cp_version(struct f2fs_checkpoint *cp)
+{
+	return le64_to_cpu(cp->checkpoint_ver);
+}
+
+static inline __u64 cur_cp_crc(struct f2fs_checkpoint *cp)
+{
+	size_t crc_offset = le32_to_cpu(cp->checksum_offset);
+	return le32_to_cpu(*((__le32 *)((unsigned char *)cp + crc_offset)));
+}
+
 static inline bool is_set_ckpt_flags(struct f2fs_checkpoint *cp, unsigned int f)
 {
 	unsigned int ckpt_flags = le32_to_cpu(cp->ckpt_flags);
@@ -270,9 +362,16 @@ static inline void *__bitmap_ptr(struct f2fs_sb_info *sbi, int flag)
 	int offset;
 
 	if (is_set_ckpt_flags(ckpt, CP_LARGE_NAT_BITMAP_FLAG)) {
+		unsigned int chksum_size = 0;
+
 		offset = (flag == SIT_BITMAP) ?
 			le32_to_cpu(ckpt->nat_ver_bitmap_bytesize) : 0;
-		return &ckpt->sit_nat_version_bitmap + offset;
+
+		if (le32_to_cpu(ckpt->checksum_offset) ==
+					CP_MIN_CHKSUM_OFFSET)
+			chksum_size = sizeof(__le32);
+
+		return &ckpt->sit_nat_version_bitmap + offset + chksum_size;
 	}
 
 	if (le32_to_cpu(F2FS_RAW_SUPER(sbi)->cp_payload) > 0) {
@@ -318,6 +417,13 @@ static inline block_t __end_block_addr(struct f2fs_sb_info *sbi)
 	((t == CURSEG_HOT_NODE) || (t == CURSEG_COLD_NODE) ||           \
 	 (t == CURSEG_WARM_NODE))
 
+#define MAIN_BLKADDR(sbi)						\
+	(SM_I(sbi) ? SM_I(sbi)->main_blkaddr :				\
+		le32_to_cpu(F2FS_RAW_SUPER(sbi)->main_blkaddr))
+#define SEG0_BLKADDR(sbi)						\
+	(SM_I(sbi) ? SM_I(sbi)->seg0_blkaddr :				\
+		le32_to_cpu(F2FS_RAW_SUPER(sbi)->segment0_blkaddr))
+
 #define GET_SUM_BLKADDR(sbi, segno)					\
 	((sbi->sm_info->ssa_blkaddr) + segno)
 
@@ -330,12 +436,27 @@ static inline block_t __end_block_addr(struct f2fs_sb_info *sbi)
 #define GET_BLKOFF_FROM_SEG0(sbi, blk_addr)				\
 	(GET_SEGOFF_FROM_SEG0(sbi, blk_addr) & (sbi->blocks_per_seg - 1))
 
+#define GET_SEC_FROM_SEG(sbi, segno)					\
+	((segno) / (sbi)->segs_per_sec)
+#define GET_SEG_FROM_SEC(sbi, secno)					\
+	((secno) * (sbi)->segs_per_sec)
+
 #define FREE_I_START_SEGNO(sbi)						\
 	GET_SEGNO_FROM_SEG0(sbi, SM_I(sbi)->main_blkaddr)
 #define GET_R2L_SEGNO(sbi, segno)	(segno + FREE_I_START_SEGNO(sbi))
 
+#define MAIN_SEGS(sbi)	(SM_I(sbi)->main_segments)
+#define TOTAL_BLKS(sbi)	(TOTAL_SEGS(sbi) << (sbi)->log_blocks_per_seg)
+#define MAX_BLKADDR(sbi)	(SEG0_BLKADDR(sbi) + TOTAL_BLKS(sbi))
+
 #define START_BLOCK(sbi, segno)	(SM_I(sbi)->main_blkaddr +		\
 	((segno) << sbi->log_blocks_per_seg))
+
+#define NEXT_FREE_BLKADDR(sbi, curseg)					\
+	(START_BLOCK(sbi, (curseg)->segno) + (curseg)->next_blkoff)
+
+#define SIT_BLK_CNT(sbi)						\
+	((MAIN_SEGS(sbi) + SIT_ENTRY_PER_BLOCK - 1) / SIT_ENTRY_PER_BLOCK)
 
 static inline struct curseg_info *CURSEG_I(struct f2fs_sb_info *sbi, int type)
 {
@@ -352,6 +473,14 @@ static inline block_t sum_blk_addr(struct f2fs_sb_info *sbi, int base, int type)
 	return __start_cp_addr(sbi) + le32_to_cpu(F2FS_CKPT(sbi)->cp_pack_total_block_count)
 		- (base + 1) + type;
 }
+
+/* for the list of fsync inodes, used only during recovery */
+struct fsync_inode_entry {
+	struct list_head list;	/* list head */
+	nid_t ino;		/* inode number */
+	block_t blkaddr;	/* block address locating the last fsync */
+	block_t last_dentry;	/* block address locating the last dentry */
+};
 
 #define nats_in_cursum(jnl)             (le16_to_cpu(jnl->n_nats))
 #define sits_in_cursum(jnl)             (le16_to_cpu(jnl->n_sits))
@@ -501,6 +630,11 @@ static inline int is_dot_dotdot(const unsigned char *name, const int len)
 	if (len == 2 && name[0] == '.' && name[1] == '.')
 		return 1;
 	return 0;
+}
+
+static inline int get_encoding(struct f2fs_sb_info *sbi)
+{
+	return le16_to_cpu(F2FS_RAW_SUPER(sbi)->s_encoding);
 }
 
 #endif /* _F2FS_H_ */

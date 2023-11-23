@@ -25,10 +25,16 @@ from __future__ import print_function
 import argparse
 import sys
 
-import arch
-import bpf
-import compiler
-import parser
+try:
+    import arch
+    import bpf
+    import compiler
+    import parser
+except ImportError:
+    from minijail import arch
+    from minijail import bpf
+    from minijail import compiler
+    from minijail import parser
 
 
 def parse_args(argv):
@@ -61,8 +67,12 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def main(argv):
+def main(argv=None):
     """Main entrypoint."""
+
+    if argv is None:
+        argv = sys.argv[1:]
+
     opts = parse_args(argv)
     parsed_arch = arch.Arch.load_from_json(opts.arch_json)
     policy_compiler = compiler.PolicyCompiler(parsed_arch)
@@ -73,10 +83,9 @@ def main(argv):
     override_default_action = None
     if opts.default_action:
         parser_state = parser.ParserState('<memory>')
-        parser_state.set_line(opts.default_action)
         override_default_action = parser.PolicyParser(
             parsed_arch, kill_action=bpf.KillProcess()).parse_action(
-                parser_state.tokenize())
+                next(parser_state.tokenize([opts.default_action])))
     with opts.output as outf:
         outf.write(
             policy_compiler.compile_file(

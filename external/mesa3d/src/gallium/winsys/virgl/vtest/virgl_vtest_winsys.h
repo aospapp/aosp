@@ -49,6 +49,8 @@ struct virgl_vtest_winsys {
    int num_delayed;
    unsigned usecs;
    mtx_t mutex;
+
+   unsigned protocol_version;
 };
 
 struct virgl_hw_res {
@@ -71,12 +73,11 @@ struct virgl_hw_res {
    uint32_t bind;
    boolean cacheable;
    int64_t start, end;
-
 };
 
 struct virgl_vtest_cmd_buf {
    struct virgl_cmd_buf base;
-   uint32_t buf[VIRGL_MAX_CMDBUF_DWORDS];
+   uint32_t *buf;
    unsigned nres;
    unsigned cres;
    struct virgl_winsys *ws;
@@ -119,20 +120,30 @@ int virgl_vtest_send_resource_create(struct virgl_vtest_winsys *vws,
                                      uint32_t depth,
                                      uint32_t array_size,
                                      uint32_t last_level,
-                                     uint32_t nr_samples);
+                                     uint32_t nr_samples,
+                                     uint32_t size,
+                                     int *out_fd);
 
 int virgl_vtest_send_resource_unref(struct virgl_vtest_winsys *vws,
                                     uint32_t handle);
 int virgl_vtest_submit_cmd(struct virgl_vtest_winsys *vtws,
                            struct virgl_vtest_cmd_buf *cbuf);
 
-int virgl_vtest_send_transfer_cmd(struct virgl_vtest_winsys *vws,
-                                  uint32_t vcmd,
+int virgl_vtest_send_transfer_get(struct virgl_vtest_winsys *vws,
                                   uint32_t handle,
                                   uint32_t level, uint32_t stride,
                                   uint32_t layer_stride,
                                   const struct pipe_box *box,
-                                  uint32_t data_size);
+                                  uint32_t data_size,
+                                  uint32_t offset);
+
+int virgl_vtest_send_transfer_put(struct virgl_vtest_winsys *vws,
+                                  uint32_t handle,
+                                  uint32_t level, uint32_t stride,
+                                  uint32_t layer_stride,
+                                  const struct pipe_box *box,
+                                  uint32_t data_size,
+                                  uint32_t offset);
 
 int virgl_vtest_send_transfer_put_data(struct virgl_vtest_winsys *vws,
                                        void *data,

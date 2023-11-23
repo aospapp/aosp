@@ -7,7 +7,8 @@ fortify-test-src := clang-fortify-tests.cpp
 #  -D_FORTIFY_SOURCE=1` (the first of which comes from our wrapper).
 fortify-cxx := $(CXX) $(fortify-test-src) $(CPPFLAGS) $(CXXFLAGS) -std=c++11 \
 	-D_GNU_SOURCE -fno-exceptions -O2 -U_FORTIFY_SOURCE
-fortify-diag-flags := -o /dev/null -Xclang -verify -DCOMPILATION_TESTS -c
+fortify-diag-flags := -o /dev/null -Xclang -verify -DCOMPILATION_TESTS -c \
+	-Wformat-nonliteral
 fortify-runtime-flags := -Wno-user-defined-warnings -Wno-unused-result
 
 all: fortify-runtime-tests

@@ -250,7 +250,7 @@ class autoserv_parser(object):
         self.options, unknown_args = self.parser.parse_known_args()
         # Filter out none-positional arguments
         removed_args = []
-        while unknown_args and unknown_args[0][0] == '-':
+        while unknown_args and unknown_args[0] and unknown_args[0][0] == '-':
             removed_args.append(unknown_args.pop(0))
             # Always assume the argument has a value.
             if unknown_args:

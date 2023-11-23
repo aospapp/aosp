@@ -11,29 +11,30 @@
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kDrawPropertyData[] = {
     {XFA_Element::Ui, 1, 0},     {XFA_Element::Margin, 1, 0},
     {XFA_Element::Para, 1, 0},   {XFA_Element::Border, 1, 0},
     {XFA_Element::Assist, 1, 0}, {XFA_Element::Traversal, 1, 0},
     {XFA_Element::Keep, 1, 0},   {XFA_Element::Caption, 1, 0},
     {XFA_Element::Desc, 1, 0},   {XFA_Element::Font, 1, 0},
     {XFA_Element::Value, 1, 0},  {XFA_Element::Extras, 1, 0},
-    {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+};
+
+const CXFA_Node::AttributeData kDrawAttributeData[] = {
     {XFA_Attribute::H, XFA_AttributeType::Measure, (void*)L"0in"},
     {XFA_Attribute::W, XFA_AttributeType::Measure, (void*)L"0in"},
     {XFA_Attribute::X, XFA_AttributeType::Measure, (void*)L"0in"},
     {XFA_Attribute::Y, XFA_AttributeType::Measure, (void*)L"0in"},
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::HAlign, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::Left},
+     (void*)XFA_AttributeValue::Left},
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Rotate, XFA_AttributeType::Integer, (void*)0},
     {XFA_Attribute::Presence, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::Visible},
+     (void*)XFA_AttributeValue::Visible},
     {XFA_Attribute::VAlign, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::Top},
+     (void*)XFA_AttributeValue::Top},
     {XFA_Attribute::MaxH, XFA_AttributeType::Measure, (void*)L"0in"},
     {XFA_Attribute::MaxW, XFA_AttributeType::Measure, (void*)L"0in"},
     {XFA_Attribute::MinH, XFA_AttributeType::Measure, (void*)L"0in"},
@@ -43,10 +44,8 @@ const CXFA_Node::AttributeData kAttributeData[] = {
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Locale, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::AnchorType, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::TopLeft},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"draw";
+     (void*)XFA_AttributeValue::TopLeft},
+};
 
 }  // namespace
 
@@ -56,9 +55,8 @@ CXFA_Draw::CXFA_Draw(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::ContainerNode,
                 XFA_Element::Draw,
-                kPropertyData,
-                kAttributeData,
-                kName,
+                kDrawPropertyData,
+                kDrawAttributeData,
                 pdfium::MakeUnique<CJX_Draw>(this)) {}
 
-CXFA_Draw::~CXFA_Draw() {}
+CXFA_Draw::~CXFA_Draw() = default;

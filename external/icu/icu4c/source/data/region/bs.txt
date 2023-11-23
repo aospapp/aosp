@@ -115,7 +115,7 @@ bs{
         FO{"Farska ostrva"}
         FR{"Francuska"}
         GA{"Gabon"}
-        GB{"Velika Britanija"}
+        GB{"Ujedinjeno Kraljevstvo"}
         GD{"Grenada"}
         GE{"Gruzija"}
         GF{"Francuska Gvajana"}
@@ -183,7 +183,7 @@ bs{
         MF{"Sveti Martin"}
         MG{"Madagaskar"}
         MH{"Maršalova ostrva"}
-        MK{"Makedonija (BJR)"}
+        MK{"Sjeverna Makedonija"}
         ML{"Mali"}
         MM{"Mjanmar"}
         MN{"Mongolija"}
@@ -253,7 +253,7 @@ bs{
         SV{"Salvador"}
         SX{"Sint Marten"}
         SY{"Sirija"}
-        SZ{"Svazilend"}
+        SZ{"Esvatini"}
         TA{"Tristan da Cunha"}
         TC{"Ostrva Turks i Kaikos"}
         TD{"Čad"}
@@ -275,7 +275,7 @@ bs{
         UG{"Uganda"}
         UM{"Američka Vanjska Ostrva"}
         UN{"Ujedinjene Nacije"}
-        US{"Sjedinjene Američke Države"}
+        US{"Sjedinjene Države"}
         UY{"Urugvaj"}
         UZ{"Uzbekistan"}
         VA{"Vatikan"}
@@ -305,7 +305,7 @@ bs{
         CG{"Republika Kongo"}
         CI{"Obala Bjelokosti"}
         CZ{"Češka Republika"}
-        TL{"TL"}
+        SZ{"Svazilend"}
     }
-    Version{"2.1.44.88"}
+    Version{"36.1"}
 }

@@ -9,9 +9,6 @@ import re
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 
-FLASHROM_ACCESS_FAILED_TOKEN = ('Could not fully verify due to access error, '
-                                'ignoring')
-
 
 class firmware_LockedME(test.test):
     # Needed by autotest
@@ -20,6 +17,8 @@ class firmware_LockedME(test.test):
     # Temporary file to read BIOS image into. We run in a tempdir anyway, so it
     # doesn't need a path.
     BIOS_FILE = 'bios.bin'
+    RANDOM_FILE = 'newdata'
+    FLASHED_FILE = 'flasheddata'
 
     def flashrom(self, ignore_status=False, args=()):
         """Run flashrom, expect it to work. Fail if it doesn't"""
@@ -38,6 +37,15 @@ class firmware_LockedME(test.test):
         else:
             return True
 
+    def md5sum(self, filename):
+        """Run md5sum on a file
+
+        @param filename: Filename to sum
+        @return: md5sum of the file as a 32-character hex string
+        """
+        r = utils.run('md5sum', ignore_status=False, args=[filename])
+        return r.stdout.split()[0]
+
     def has_ME(self):
         """See if we can detect an ME.
         FREG* is printed only when HSFS_FDV is set, which means the descriptor
@@ -53,14 +61,17 @@ class firmware_LockedME(test.test):
         """If we can modify the ME section, restore it and raise an error."""
         logging.info('Try to write section %s...', sectname)
         size = os.stat(sectname).st_size
-        utils.run('dd', args=('if=/dev/urandom', 'of=newdata',
+        utils.run('dd', args=('if=/dev/urandom', 'of=%s' % (self.RANDOM_FILE),
                               'count=1', 'bs=%d' % (size)))
-        r = self.flashrom(args=('-V', '-w', self.BIOS_FILE,
-                                '-i' , '%s:newdata' % (sectname),
-                                '--fast-verify'),
-                          ignore_status=True)
-        if (not r.exit_status and
-            FLASHROM_ACCESS_FAILED_TOKEN not in r.stdout):
+        self.flashrom(args=('-V', '-w', self.BIOS_FILE,
+                            '-i' , '%s:%s' % (sectname, self.RANDOM_FILE),
+                            '--fast-verify'),
+                      ignore_status=True)
+        self.flashrom(args=('-r',
+                            '-i', '%s:%s' % (sectname, self.FLASHED_FILE)))
+        md5sum_random = self.md5sum(filename=self.RANDOM_FILE)
+        md5sum_flashed = self.md5sum(filename=self.FLASHED_FILE)
+        if md5sum_random == md5sum_flashed:
             logging.info('Oops, it worked! Put it back...')
             self.flashrom(args=('-w', self.BIOS_FILE,
                                 '-i', '%s:%s' % (sectname, sectname),

@@ -19,7 +19,7 @@
 .\" * KIND, either express or implied.
 .\" *
 .\" **************************************************************************
-.TH libcurl-symbols 3 "mar 27, 2019" "libcurl 7.41.0" "libcurl symbols"
+.TH libcurl-symbols 3 "nov  6, 2019" "libcurl 7.41.0" "libcurl symbols"
 .SH NAME
 libcurl-symbols \- libcurl symbol version information
 .SH "libcurl symbols"
@@ -35,8 +35,6 @@ The last version that featured the specific symbol. Using the symbol in source
 code will make it no longer compile error-free after that specified version.
 
 This man page is automatically generated from the symbols-in-versions file.
-.IP CURLALTSVC_ALTUSED
-Introduced in 7.64.1
 .IP CURLALTSVC_H1
 Introduced in 7.64.1
 .IP CURLALTSVC_H2
@@ -92,6 +90,8 @@ Introduced in 7.1
 Introduced in 7.18.2
 .IP CURLE_ALREADY_COMPLETE
 Introduced in 7.7.2
+.IP CURLE_AUTH_ERROR
+Introduced in 7.66.0
 .IP CURLE_BAD_CALLING_ORDER
 Introduced in 7.1
 Deprecated since 7.17.0
@@ -596,6 +596,8 @@ Introduced in 7.18.2
 Introduced in 7.4.1
 .IP CURLINFO_RESPONSE_CODE
 Introduced in 7.10.8
+.IP CURLINFO_RETRY_AFTER
+Introduced in 7.66.0
 .IP CURLINFO_RTSP_CLIENT_CSEQ
 Introduced in 7.20.0
 .IP CURLINFO_RTSP_CSEQ_RECV
@@ -701,6 +703,8 @@ Introduced in 7.30.0
 Introduced in 7.30.0
 .IP CURLMOPT_MAX_TOTAL_CONNECTIONS
 Introduced in 7.30.0
+.IP CURLMOPT_MAX_CONCURRENT_STREAMS
+Introduced in 7.67.0
 .IP CURLMOPT_PIPELINING
 Introduced in 7.16.0
 .IP CURLMOPT_PIPELINING_SERVER_BL
@@ -755,6 +759,8 @@ Introduced in 7.1
 Introduced in 7.11.0
 .IP CURLOPTTYPE_STRINGPOINT
 Introduced in 7.46.0
+.IP CURLOPTTYPE_SLISTPOINT
+Introduced in 7.65.2
 .IP CURLOPT_ABSTRACT_UNIX_SOCKET
 Introduced in 7.53.0
 .IP CURLOPT_ACCEPTTIMEOUT_MS
@@ -1004,6 +1010,8 @@ Introduced in 7.25.0
 Introduced in 7.20.0
 .IP CURLOPT_MAIL_RCPT
 Introduced in 7.20.0
+.IP CURLOPT_MAXAGE_CONN
+Introduced in 7.65.0
 .IP CURLOPT_MAXCONNECTS
 Introduced in 7.7
 .IP CURLOPT_MAXFILESIZE
@@ -1194,6 +1202,8 @@ Introduced in 7.20.0
 Introduced in 7.20.0
 .IP CURLOPT_RTSP_TRANSPORT
 Introduced in 7.20.0
+.IP CURLOPT_SASL_AUTHZID
+Introduced in 7.66.0
 .IP CURLOPT_SASL_IR
 Introduced in 7.31.0
 .IP CURLOPT_SEEKDATA
@@ -1621,6 +1631,8 @@ Introduced in 7.62.0
 Introduced in 7.62.0
 .IP CURLUPART_USER
 Introduced in 7.62.0
+.IP CURLUPART_ZONEID
+Introduced in 7.65.0
 .IP CURLUSESSL_ALL
 Introduced in 7.17.0
 .IP CURLUSESSL_CONTROL
@@ -1643,6 +1655,8 @@ Introduced in 7.62.0
 Introduced in 7.62.0
 .IP CURLU_NO_DEFAULT_PORT
 Introduced in 7.62.0
+.IP CURLU_NO_AUTHORITY
+Introduced in 7.67.0
 .IP CURLU_PATH_AS_IS
 Introduced in 7.62.0
 .IP CURLU_URLDECODE
@@ -1661,6 +1675,8 @@ Introduced in 7.10
 Introduced in 7.11.1
 .IP CURLVERSION_THIRD
 Introduced in 7.12.0
+.IP CURLVERSION_SIXTH
+Introduced in 7.66.0
 .IP CURL_CHUNK_BGN_FUNC_FAIL
 Introduced in 7.21.0
 .IP CURL_CHUNK_BGN_FUNC_OK
@@ -1757,6 +1773,8 @@ Introduced in 7.47.0
 Introduced in 7.33.0
 .IP CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE
 Introduced in 7.49.0
+.IP CURL_HTTP_VERSION_3
+Introduced in 7.66.0
 .IP CURL_HTTP_VERSION_NONE
 Introduced in 7.9.1
 .IP CURL_IPRESOLVE_V4
@@ -1939,6 +1957,8 @@ Introduced in 7.15.4
 Introduced in 7.19.6
 .IP CURL_VERSION_DEBUG
 Introduced in 7.10.6
+.IP CURL_VERSION_ESNI
+Introduced in 7.67.0
 .IP CURL_VERSION_GSSAPI
 Introduced in 7.38.0
 .IP CURL_VERSION_GSSNEGOTIATE
@@ -1946,6 +1966,8 @@ Introduced in 7.10.6
 Deprecated since 7.38.0
 .IP CURL_VERSION_HTTP2
 Introduced in 7.33.0
+.IP CURL_VERSION_HTTP3
+Introduced in 7.66.0
 .IP CURL_VERSION_HTTPS_PROXY
 Introduced in 7.52.0
 .IP CURL_VERSION_IDN

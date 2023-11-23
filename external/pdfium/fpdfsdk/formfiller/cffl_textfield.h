@@ -7,44 +7,39 @@
 #ifndef FPDFSDK_FORMFILLER_CFFL_TEXTFIELD_H_
 #define FPDFSDK_FORMFILLER_CFFL_TEXTFIELD_H_
 
+#include <memory>
+
 #include "fpdfsdk/formfiller/cffl_textobject.h"
 
-#define BF_ALIGN_LEFT 0
-#define BF_ALIGN_MIDDLE 1
-#define BF_ALIGN_RIGHT 2
-
-class CBA_FontMap;
 class CPWL_Edit;
 
 struct FFL_TextFieldState {
-  FFL_TextFieldState() : nStart(0), nEnd(0) {}
-
-  int nStart;
-  int nEnd;
+  int nStart = 0;
+  int nEnd = 0;
   WideString sValue;
 };
 
-class CFFL_TextField : public CFFL_TextObject,
-                       public CPWL_Wnd::FocusHandlerIface {
+class CFFL_TextField final : public CFFL_TextObject,
+                             public CPWL_Wnd::FocusHandlerIface {
  public:
   CFFL_TextField(CPDFSDK_FormFillEnvironment* pApp, CPDFSDK_Widget* pWidget);
   ~CFFL_TextField() override;
 
   // CFFL_TextObject:
   CPWL_Wnd::CreateParams GetCreateParam() override;
-  CPWL_Wnd* NewPDFWindow(const CPWL_Wnd::CreateParams& cp) override;
+  std::unique_ptr<CPWL_Wnd> NewPWLWindow(
+      const CPWL_Wnd::CreateParams& cp,
+      std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData)
+      override;
   bool OnChar(CPDFSDK_Annot* pAnnot, uint32_t nChar, uint32_t nFlags) override;
   bool IsDataChanged(CPDFSDK_PageView* pPageView) override;
   void SaveData(CPDFSDK_PageView* pPageView) override;
   void GetActionData(CPDFSDK_PageView* pPageView,
                      CPDF_AAction::AActionType type,
-                     PDFSDK_FieldAction& fa) override;
+                     CPDFSDK_FieldAction& fa) override;
   void SetActionData(CPDFSDK_PageView* pPageView,
                      CPDF_AAction::AActionType type,
-                     const PDFSDK_FieldAction& fa) override;
-  bool IsActionDataChanged(CPDF_AAction::AActionType type,
-                           const PDFSDK_FieldAction& faOld,
-                           const PDFSDK_FieldAction& faNew) override;
+                     const CPDFSDK_FieldAction& fa) override;
   void SaveState(CPDFSDK_PageView* pPageView) override;
   void RestoreState(CPDFSDK_PageView* pPageView) override;
 #ifdef PDF_ENABLE_XFA

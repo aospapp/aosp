@@ -849,7 +849,7 @@ int semanage_module_set_enabled(semanage_handle_t *sh,
 
 hidden_def(semanage_module_set_enabled)
 
-/* This function exists only for ABI compatability. It has been deprecated and
+/* This function exists only for ABI compatibility. It has been deprecated and
  * should not be used. Instead, use semanage_module_set_enabled() */
 int semanage_module_enable(semanage_handle_t *sh, char *module_name)
 {
@@ -877,7 +877,7 @@ exit:
 	return rc;
 }
 
-/* This function exists only for ABI compatability. It has been deprecated and
+/* This function exists only for ABI compatibility. It has been deprecated and
  * should not be used. Instead, use semanage_module_set_enabled() */
 int semanage_module_disable(semanage_handle_t *sh, char *module_name)
 {
@@ -1130,7 +1130,7 @@ int semanage_module_install_info(semanage_handle_t *sh,
 int semanage_module_remove_key(semanage_handle_t *sh,
 			       const semanage_module_key_t *modkey)
 {
-	if (sh->funcs->remove_key== NULL) {
+	if (sh->funcs->remove_key == NULL) {
 		ERR(sh,
 		    "No remove key function defined for this connection type.");
 		return -1;

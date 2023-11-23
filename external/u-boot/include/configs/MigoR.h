@@ -11,7 +11,6 @@
 #define CONFIG_CPU_SH7722	1
 
 #define CONFIG_DISPLAY_BOARDINFO
-#undef  CONFIG_SHOW_BOOT_PROGRESS
 
 /* SMC9111 */
 #define CONFIG_SMC91111
@@ -53,8 +52,6 @@
 #define CONFIG_SYS_BOOTMAPSZ	(8 * 1024 * 1024)
 
 /* FLASH */
-#define CONFIG_SYS_FLASH_CFI
-#define CONFIG_FLASH_CFI_DRIVER
 #undef  CONFIG_SYS_FLASH_QUIET_TEST
 /* print 'E' for empty sector on flinfo */
 #define CONFIG_SYS_FLASH_EMPTY_INFO
@@ -77,22 +74,14 @@
 #define CONFIG_SYS_FLASH_UNLOCK_TOUT	(3 * 1000)
 
 /* Use hardware flash sectors protection instead of U-Boot software protection */
-#undef  CONFIG_SYS_FLASH_PROTECTION
 #undef  CONFIG_SYS_DIRECT_FLASH_TFTP
 
 /* ENV setting */
 #define CONFIG_ENV_OVERWRITE	1
-#define CONFIG_ENV_SECT_SIZE	(128 * 1024)
-#define CONFIG_ENV_SIZE		(CONFIG_ENV_SECT_SIZE)
-#define CONFIG_ENV_ADDR		(CONFIG_SYS_FLASH_BASE + CONFIG_SYS_MONITOR_LEN)
 /* Offset of env Flash sector relative to CONFIG_SYS_FLASH_BASE */
-#define CONFIG_ENV_OFFSET		(CONFIG_ENV_ADDR - CONFIG_SYS_FLASH_BASE)
-#define CONFIG_ENV_SIZE_REDUND	(CONFIG_ENV_SECT_SIZE)
 
 /* Board Clock */
 #define CONFIG_SYS_CLK_FREQ	33333333
-#define CONFIG_SH_TMU_CLK_FREQ CONFIG_SYS_CLK_FREQ
 #define CONFIG_SH_SCIF_CLK_FREQ CONFIG_SYS_CLK_FREQ
-#define CONFIG_SYS_TMU_CLK_DIV		(4)	/* 4 (default), 16, 64, 256 or 1024 */
 
 #endif	/* __MIGO_R_H */

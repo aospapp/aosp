@@ -9,6 +9,7 @@
 #include <common.h>
 #include <console.h>
 #include <dm.h>
+#include <env.h>
 #include <errno.h>
 #include <stdio_dev.h>
 #include <input.h>
@@ -652,7 +653,7 @@ int input_stdio_register(struct stdio_dev *dev)
 	int error;
 
 	error = stdio_register(dev);
-
+#if !defined(CONFIG_SPL_BUILD) || CONFIG_IS_ENABLED(ENV_SUPPORT)
 	/* check if this is the standard input device */
 	if (!error && strcmp(env_get("stdin"), dev->name) == 0) {
 		/* reassign the console */
@@ -660,6 +661,9 @@ int input_stdio_register(struct stdio_dev *dev)
 				console_assign(stdin, dev->name))
 			return -1;
 	}
+#else
+	error = error;
+#endif
 
 	return 0;
 }

@@ -1,4 +1,5 @@
-# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -7,14 +8,14 @@
 This module serves two main purposes:
   1. Programatically include the utils module in PYTHONPATH
   2. Create the argument parsing shared between binary_search_state.py and
-     bisect.py
+     run_bisect.py
 
 The argument parsing is handled by populating _ArgsDict with all arguments.
-_ArgsDict is required so that binary_search_state.py and bisect.py can share
-the argument parsing, but treat them slightly differently. For example,
-bisect.py requires that all argument defaults are suppressed so that overriding
-can occur properly (i.e. only options that are explicitly entered by the user
-end up in the resultant options dictionary).
+_ArgsDict is required so that binary_search_state.py and run_bisect.py can
+share the argument parsing, but treat them slightly differently. For example,
+run_bisect.py requires that all argument defaults are suppressed so that
+overriding can occur properly (i.e. only options that are explicitly entered
+by the user end up in the resultant options dictionary).
 
 ArgumentDict inherits OrderedDict in order to preserve the order the args are
 created so the help text is made properly.
@@ -32,8 +33,8 @@ if os.path.isabs(sys.argv[0]):
       os.path.dirname(sys.argv[0])))
 else:
   wdir = os.getcwd()
-  utils_pythonpath = os.path.abspath('{0}/{1}/..'.format(wdir, os.path.dirname(
-      sys.argv[0])))
+  utils_pythonpath = os.path.abspath('{0}/{1}/..'.format(
+      wdir, os.path.dirname(sys.argv[0])))
 sys.path.append(utils_pythonpath)
 
 
@@ -55,8 +56,10 @@ class ArgumentDict(collections.OrderedDict):
       ...
   }
   """
-  _POSSIBLE_OPTIONS = ['action', 'nargs', 'const', 'default', 'type', 'choices',
-                       'required', 'help', 'metavar', 'dest']
+  _POSSIBLE_OPTIONS = [
+      'action', 'nargs', 'const', 'default', 'type', 'choices', 'required',
+      'help', 'metavar', 'dest'
+  ]
 
   def AddArgument(self, *args, **kwargs):
     """Add argument to ArgsDict, has same signature as argparse.add_argument
@@ -77,7 +80,7 @@ class ArgumentDict(collections.OrderedDict):
       TypeError: if args is empty or if option in kwargs is not a valid
                  option for argparse.add_argument.
     """
-    if len(args) == 0:
+    if not args:
       raise TypeError('Argument needs at least one name')
 
     for key in kwargs:
@@ -106,8 +109,8 @@ def BuildArgParser(parser, override=False):
   Args:
     parser: type argparse.ArgumentParser, will call add_argument for every item
             in _ArgsDict
-    override: True if being called from bisect.py. Used to say that default and
-              required options are to be ignored
+    override: True if being called from run_bisect.py. Used to say that default
+              and required options are to be ignored
 
   Returns:
     None
@@ -115,7 +118,7 @@ def BuildArgParser(parser, override=False):
   ArgsDict = GetArgsDict()
 
   # Have no defaults when overriding
-  for arg_names, arg_options in ArgsDict.iteritems():
+  for arg_names, arg_options in ArgsDict.items():
     if override:
       arg_options = arg_options.copy()
       arg_options.pop('default', None)
@@ -147,34 +150,34 @@ def _BuildArgsDict(args):
       '--get_initial_items',
       dest='get_initial_items',
       help='Script to run to get the initial objects. '
-           'If your script requires user input '
-           'the --verbose option must be used')
+      'If your script requires user input '
+      'the --verbose option must be used')
   args.AddArgument(
       '-g',
       '--switch_to_good',
       dest='switch_to_good',
       help='Script to run to switch to good. '
-           'If your switch script requires user input '
-           'the --verbose option must be used')
+      'If your switch script requires user input '
+      'the --verbose option must be used')
   args.AddArgument(
       '-b',
       '--switch_to_bad',
       dest='switch_to_bad',
       help='Script to run to switch to bad. '
-           'If your switch script requires user input '
-           'the --verbose option must be used')
+      'If your switch script requires user input '
+      'the --verbose option must be used')
   args.AddArgument(
       '-I',
       '--test_setup_script',
       dest='test_setup_script',
       help='Optional script to perform building, flashing, '
-           'and other setup before the test script runs.')
+      'and other setup before the test script runs.')
   args.AddArgument(
       '-t',
       '--test_script',
       dest='test_script',
       help='Script to run to test the '
-           'output after packages are built.')
+      'output after packages are built.')
   # No input (evals to False),
   # --prune (evals to True),
   # --prune=False,
@@ -189,19 +192,35 @@ def _BuildArgsDict(args):
       type=StrToBool,
       metavar='bool',
       help='If True, continue until all bad items are found. '
-            'Defaults to False.')
+      'Defaults to False.')
   args.AddArgument(
       '-P',
       '--pass_bisect',
       dest='pass_bisect',
       default=None,
       help='Script to generate another script for pass level bisect, '
-           'which contains command line options to build bad item. '
-           'This will also turn on pass/transformation level bisection. '
-           'Needs support of `-opt-bisect-limit`(pass) and '
-           '`-print-debug-counter`(transformation) from LLVM. '
-           'For now it only supports one single bad item, so to use it, '
-           'prune must be set to False.')
+      'which contains command line options to build bad item. '
+      'This will also turn on pass/transformation level bisection. '
+      'Needs support of `-opt-bisect-limit`(pass) and '
+      '`-print-debug-counter`(transformation) from LLVM. '
+      'For now it only supports one single bad item, so to use it, '
+      'prune must be set to False.')
+  # No input (evals to False),
+  # --ir_diff (evals to True),
+  # --ir_diff=False,
+  # --ir_diff=True
+  args.AddArgument(
+      '-d',
+      '--ir_diff',
+      dest='ir_diff',
+      nargs='?',
+      const=True,
+      default=False,
+      type=StrToBool,
+      metavar='bool',
+      help='Whether to print IR differences before and after bad '
+      'pass/transformation to verbose output. Defaults to False, '
+      'only works when pass_bisect is enabled.')
   # No input (evals to False),
   # --noincremental (evals to True),
   # --noincremental=False,
@@ -215,8 +234,8 @@ def _BuildArgsDict(args):
       default=False,
       type=StrToBool,
       metavar='bool',
-      help='If True, don\'t propagate good/bad changes '
-           'incrementally. Defaults to False.')
+      help="If True, don't propagate good/bad changes "
+      'incrementally. Defaults to False.')
   # No input (evals to False),
   # --file_args (evals to True),
   # --file_args=False,
@@ -231,7 +250,7 @@ def _BuildArgsDict(args):
       type=StrToBool,
       metavar='bool',
       help='Whether to use a file to pass arguments to scripts. '
-           'Defaults to False.')
+      'Defaults to False.')
   # No input (evals to True),
   # --verify (evals to True),
   # --verify=False,
@@ -245,7 +264,7 @@ def _BuildArgsDict(args):
       type=StrToBool,
       metavar='bool',
       help='Whether to run verify iterations before searching. '
-           'Defaults to True.')
+      'Defaults to True.')
   args.AddArgument(
       '-N',
       '--prune_iterations',
@@ -273,5 +292,5 @@ def _BuildArgsDict(args):
       dest='resume',
       action='store_true',
       help='Resume bisection tool execution from state file.'
-           'Useful if the last bisection was terminated '
-           'before it could properly finish.')
+      'Useful if the last bisection was terminated '
+      'before it could properly finish.')

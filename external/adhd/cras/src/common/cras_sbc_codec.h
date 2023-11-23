@@ -19,9 +19,13 @@
  *    blocks: blocks for sbc encoder settings.
  *    bitpool: bitpool for sbc encoder settings.
  */
-struct cras_audio_codec *cras_sbc_codec_create(uint8_t freq,
-		   uint8_t mode, uint8_t subbands, uint8_t alloc,
-		   uint8_t blocks, uint8_t bitpool);
+struct cras_audio_codec *cras_sbc_codec_create(uint8_t freq, uint8_t mode,
+					       uint8_t subbands, uint8_t alloc,
+					       uint8_t blocks, uint8_t bitpool);
+
+/* Creates an mSBC codec, which is a version of SBC codec used for
+ * wideband speech mode of HFP. */
+struct cras_audio_codec *cras_msbc_codec_create();
 
 /* Destroys an sbc codec.
  * Args:

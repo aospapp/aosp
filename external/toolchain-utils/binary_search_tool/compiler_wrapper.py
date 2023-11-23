@@ -1,4 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Prototype compiler wrapper.
 
 Only tested with: gcc, g++, clang, clang++
@@ -21,7 +26,7 @@ import os
 import shlex
 import sys
 
-import bisect_driver
+from binary_search_tool import bisect_driver
 
 WRAPPED = '%s.real' % sys.argv[0]
 BISECT_STAGE = os.environ.get('BISECT_STAGE')

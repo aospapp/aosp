@@ -1,25 +1,21 @@
-#!/usr/bin/env python2
-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from __future__ import print_function
+"""Create llvm ebuild file.
 
-import os
-import sys
+This script takes an existing host llvm compiler ebuild and
+creates another build that should be installable in a prefixed location.
+The script patches a few lines in the llvm ebuild to make that happen.
 
-# This script takes an existing host llvm compiler ebuild and
-# creates another build that should be installable in a prefixed location.
-# The script patches a few lines in the llvm ebuild to make that happen.
-#
-# Since the script is based on the current llvm ebuild patterns,
-# it may need to be updated if those patterns change.
-#
-# This script should normally be invoked by the shell script
-# create_llvm_extra.sh .
+Since the script is based on the current llvm ebuild patterns,
+it may need to be updated if those patterns change.
 
-"""
+This script should normally be invoked by the shell script
+create_llvm_extra.sh .
+
 Below is an example of the expected diff of the newly generated ebuild with
 some explanation of the diffs.
 
@@ -40,8 +36,8 @@ diff -Nuar llvm-pre7.0_pre335547_p20180529.ebuild newly-created-file.ebuild
  # Change USE flags to match llvm ebuild installtion. To see the set of flags
  enabled in llvm compiler ebuild, run $ sudo emerge -pv llvm
 
--IUSE="debug +default-compiler-rt +default-libcxx doc libedit +libffi multitarget
-+IUSE="debug +default-compiler-rt +default-libcxx doc libedit +libffi +multitarget
+-IUSE="debug +default-compiler-rt +default-libcxx doc libedit +libffi"
++IUSE="debug +default-compiler-rt +default-libcxx doc libedit +libffi
         ncurses ocaml python llvm-next llvm-tot test xml video_cards_radeon"
 
  COMMON_DEPEND="
@@ -59,8 +55,8 @@ diff -Nuar llvm-pre7.0_pre335547_p20180529.ebuild newly-created-file.ebuild
 
         # Allow custom cmake build types (like 'Gentoo')
  # Convert use of PN to llvm in epatch commands.
--       epatch "${FILESDIR}"/cmake/${PN}-3.8-allow_custom_cmake_build_types.patch
-+       epatch "${FILESDIR}"/cmake/llvm-3.8-allow_custom_cmake_build_types.patch
+-       epatch "${FILESDIR}"/cmake/${PN}-3.8-allow_custom_cmake_build.patch
++       epatch "${FILESDIR}"/cmake/llvm-3.8-allow_custom_cmake_build.patch
 
         # crbug/591436
         epatch "${FILESDIR}"/clang-executable-detection.patch
@@ -94,6 +90,12 @@ diff -Nuar llvm-pre7.0_pre335547_p20180529.ebuild newly-created-file.ebuild
         # some users may find it useful
 """
 
+from __future__ import print_function
+
+import os
+import sys
+
+
 def process_line(line, text):
   # Process the line and append to the text we want to generate.
   # Check if line has any patterns that we want to handle.
@@ -103,7 +105,7 @@ def process_line(line, text):
     text.append(line)
   elif line.startswith('SLOT='):
     # Change SLOT to "${PV%%_p[[:digit:]]*}"
-    SLOT_STRING='SLOT="${PV%%_p[[:digit:]]*}"\n'
+    SLOT_STRING = 'SLOT="${PV%%_p[[:digit:]]*}"\n'
     text.append(SLOT_STRING)
   elif line.startswith('IUSE') and 'multitarget' in line:
     # Enable multitarget USE flag.
@@ -137,9 +139,9 @@ def process_line(line, text):
 
 def main():
   if len(sys.argv) != 3:
-     filename = os.path.basename(__file__)
-     print ('Usage: ', filename,' <input.ebuild> <output.ebuild>')
-     return 1
+    filename = os.path.basename(__file__)
+    print('Usage: ', filename, ' <input.ebuild> <output.ebuild>')
+    return 1
 
   text = []
   with open(sys.argv[1], 'r') as infile:
@@ -147,10 +149,10 @@ def main():
       process_line(line, text)
 
   with open(sys.argv[2], 'w') as outfile:
-    outfile.write("".join(text))
+    outfile.write(''.join(text))
 
   return 0
 
 
-if __name__== "__main__":
+if __name__ == '__main__':
   sys.exit(main())

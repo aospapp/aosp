@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 jv{
-    Version{"2.1.44.15"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -111,6 +111,10 @@ jv{
                 dnam{"permil"}
                 other{"{0} permil"}
             }
+            permyriad{
+                dnam{"permiriad"}
+                other{"{0} permiriad"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -189,9 +193,13 @@ jv{
                 other{"{0} abad"}
             }
             day{
-                dnam{"dino"}
-                other{"{0} dino"}
-                per{"{0} saben dino"}
+                dnam{"dina"}
+                other{"{0} dina"}
+                per{"{0} saben dina"}
+            }
+            decade{
+                dnam{"dasawarsa"}
+                other{"{0} dasawarsa"}
             }
             hour{
                 dnam{"jam"}
@@ -226,9 +234,9 @@ jv{
                 per{"{0} saben detik"}
             }
             week{
-                dnam{"pekan"}
-                other{"{0} pekan"}
-                per{"{0} saben pekan"}
+                dnam{"peken"}
+                other{"{0} peken"}
+                per{"{0} saben peken"}
             }
             year{
                 dnam{"taun"}
@@ -255,9 +263,17 @@ jv{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"takeran panas Britania"}
+                other{"{0} takeran panas Britania"}
+            }
             calorie{
                 dnam{"kalori"}
                 other{"{0} kalori"}
+            }
+            electronvolt{
+                dnam{"elektronvolt"}
+                other{"{0} elektronvolt"}
             }
             foodcalorie{
                 dnam{"Kalori"}
@@ -279,6 +295,20 @@ jv{
                 dnam{"kilowatt-jam"}
                 other{"{0} kilowatt-jam"}
             }
+            therm-us{
+                dnam{"takeran panas AS"}
+                other{"{0} takeran panas AS"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newton"}
+                other{"{0} newton"}
+            }
+            pound-force{
+                dnam{"pon gaya"}
+                other{"{0} pon gaya"}
+            }
         }
         frequency{
             gigahertz{
@@ -296,6 +326,27 @@ jv{
             megahertz{
                 dnam{"megahet"}
                 other{"{0} megahet"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"titek saben sentimeter"}
+                other{"{0} titek saben sentimeter"}
+            }
+            dot-per-inch{
+                dnam{"titek saben inci"}
+                other{"{0} titek saben inci"}
+            }
+            em{
+                dnam{"tipografi em"}
+            }
+            megapixel{
+                dnam{"megapiksel"}
+                other{"{0} megapiksel"}
+            }
+            pixel{
+                dnam{"piksel"}
+                other{"{0} piksel"}
             }
         }
         length{
@@ -372,6 +423,10 @@ jv{
                 dnam{"poin"}
                 other{"{0} poin"}
             }
+            solar-radius{
+                dnam{"radii srengenge"}
+                other{"{0} radii srengenge"}
+            }
             yard{
                 dnam{"yard"}
                 other{"{0} yard"}
@@ -382,11 +437,23 @@ jv{
                 dnam{"luk"}
                 other{"{0} luk"}
             }
+            solar-luminosity{
+                dnam{"luminositas srengenge"}
+                other{"{0} luminositas srengenge"}
+            }
         }
         mass{
             carat{
                 dnam{"karat"}
                 other{"{0} karat"}
+            }
+            dalton{
+                dnam{"dalton"}
+                other{"{0} dalton"}
+            }
+            earth-mass{
+                dnam{"massa Bumi"}
+                other{"{0} massa Bumi"}
             }
             gram{
                 dnam{"gram"}
@@ -423,6 +490,10 @@ jv{
                 dnam{"pon"}
                 other{"{0} pon"}
                 per{"{0} saben pon"}
+            }
+            solar-mass{
+                dnam{"massa srengenge"}
+                other{"{0} massa srengenge"}
             }
             ton{
                 dnam{"ton"}
@@ -468,6 +539,14 @@ jv{
                 dnam{"inci saka raksa"}
                 other{"{0} inci saka raksa"}
             }
+            kilopascal{
+                dnam{"kilopaskal"}
+                other{"{0} kilopaskal"}
+            }
+            megapascal{
+                dnam{"megapaskal"}
+                other{"{0} megapaskal"}
+            }
             millibar{
                 dnam{"milibar"}
                 other{"{0} milibar"}
@@ -475,6 +554,10 @@ jv{
             millimeter-of-mercury{
                 dnam{"milimeter saka raksa"}
                 other{"{0} milimeter saka raksa"}
+            }
+            pascal{
+                dnam{"paskal"}
+                other{"{0} paskal"}
             }
             pound-per-square-inch{
                 dnam{"pon saben inci kuadrat"}
@@ -517,10 +600,24 @@ jv{
                 other{"{0} kelvin"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"newton-meter"}
+                other{"{0} newton-meter"}
+            }
+            pound-foot{
+                dnam{"pon-kaki"}
+                other{"{0} pon-kaki"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"are-kaki"}
                 other{"{0} are-kaki"}
+            }
+            barrel{
+                dnam{"barel"}
+                other{"{0} barel"}
             }
             centiliter{
                 dnam{"sentiliter"}
@@ -571,6 +668,10 @@ jv{
             fluid-ounce{
                 dnam{"ons banyu"}
                 other{"{0} ons banyu"}
+            }
+            fluid-ounce-imperial{
+                dnam{"Imp. ons banyu"}
+                other{"{0} Imp. ons banyu"}
             }
             gallon{
                 dnam{"galon"}
@@ -646,8 +747,8 @@ jv{
         }
         duration{
             day{
-                dnam{"dino"}
-                other{"{0} dino"}
+                dnam{"dina"}
+                other{"{0}d"}
             }
             hour{
                 dnam{"jam"}
@@ -670,8 +771,8 @@ jv{
                 other{"{0} dtk"}
             }
             week{
-                dnam{"pekan"}
-                other{"{0} pekan"}
+                dnam{"peken"}
+                other{"{0} peken"}
             }
             year{
                 dnam{"taun"}
@@ -829,6 +930,9 @@ jv{
                 dnam{"permil"}
                 other{"{0}‰"}
             }
+            permyriad{
+                dnam{"permiriad"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -907,9 +1011,12 @@ jv{
                 other{"{0} abad"}
             }
             day{
-                dnam{"dino"}
-                other{"{0} dino"}
-                per{"{0}/dino"}
+                dnam{"dina"}
+                other{"{0} dina"}
+            }
+            decade{
+                dnam{"dsw"}
+                other{"{0} dsw"}
             }
             hour{
                 dnam{"jam"}
@@ -944,9 +1051,9 @@ jv{
                 per{"{0}/dtk"}
             }
             week{
-                dnam{"pekan"}
-                other{"{0} pekan"}
-                per{"{0}/pekan"}
+                dnam{"peken"}
+                other{"{0} peken"}
+                per{"{0}/peken"}
             }
             year{
                 dnam{"taun"}
@@ -973,9 +1080,15 @@ jv{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+            }
             calorie{
                 dnam{"kal"}
                 other{"{0} kal"}
+            }
+            electronvolt{
+                dnam{"elektronvolt"}
             }
             foodcalorie{
                 dnam{"Kal"}
@@ -997,6 +1110,18 @@ jv{
                 dnam{"kW-jam"}
                 other{"{0} kW-jam"}
             }
+            therm-us{
+                dnam{"takeran panas AS"}
+                other{"{0} takeran panas AS"}
+            }
+        }
+        force{
+            newton{
+                dnam{"newton"}
+            }
+            pound-force{
+                dnam{"pon gaya"}
+            }
         }
         frequency{
             gigahertz{
@@ -1014,6 +1139,16 @@ jv{
             megahertz{
                 dnam{"MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"tscm"}
+                other{"{0} tscm"}
+            }
+            dot-per-inch{
+                dnam{"tsi"}
+                other{"{0} tsi"}
             }
         }
         length{
@@ -1090,6 +1225,9 @@ jv{
                 dnam{"poin"}
                 other{"{0} p"}
             }
+            solar-radius{
+                dnam{"radii srengenge"}
+            }
             yard{
                 dnam{"yard"}
                 other{"{0} yard"}
@@ -1100,11 +1238,20 @@ jv{
                 dnam{"luk"}
                 other{"{0} luk"}
             }
+            solar-luminosity{
+                dnam{"luminositas srengenge"}
+            }
         }
         mass{
             carat{
                 dnam{"karat"}
                 other{"{0} karat"}
+            }
+            dalton{
+                dnam{"dalton"}
+            }
+            earth-mass{
+                dnam{"massa Bumi"}
             }
             gram{
                 dnam{"gram"}
@@ -1141,6 +1288,9 @@ jv{
                 dnam{"pon"}
                 other{"{0} pon"}
                 per{"{0}/pon"}
+            }
+            solar-mass{
+                dnam{"massa srengenge"}
             }
             ton{
                 dnam{"ton"}
@@ -1235,10 +1385,19 @@ jv{
                 other{"{0} K"}
             }
         }
+        torque{
+            pound-foot{
+                dnam{"pon-kaki"}
+                other{"{0} pon-kaki"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"are-kaki"}
                 other{"{0} are-kaki"}
+            }
+            barrel{
+                dnam{"barel"}
             }
             centiliter{
                 dnam{"sentiliter"}
@@ -1289,6 +1448,10 @@ jv{
             fluid-ounce{
                 dnam{"ons banyu"}
                 other{"{0} ons banyu"}
+            }
+            fluid-ounce-imperial{
+                dnam{"Imp. ons banyu"}
+                other{"{0} Imp. ons banyu"}
             }
             gallon{
                 dnam{"galon"}

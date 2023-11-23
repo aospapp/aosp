@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Module of benchmark runs."""
 from __future__ import print_function
 
@@ -30,7 +32,8 @@ class BenchmarkRun(threading.Thread):
   """The benchmarkrun class."""
 
   def __init__(self, name, benchmark, label, iteration, cache_conditions,
-               machine_manager, logger_to_use, log_level, share_cache):
+               machine_manager, logger_to_use, log_level, share_cache,
+               dut_config):
     threading.Thread.__init__(self)
     self.name = name
     self._logger = logger_to_use
@@ -43,7 +46,7 @@ class BenchmarkRun(threading.Thread):
     self.retval = None
     self.run_completed = False
     self.machine_manager = machine_manager
-    self.suite_runner = SuiteRunner(self._logger, self.log_level)
+    self.suite_runner = SuiteRunner(dut_config, self._logger, self.log_level)
     self.machine = None
     self.cache_conditions = cache_conditions
     self.runs_complete = 0
@@ -72,7 +75,7 @@ class BenchmarkRun(threading.Thread):
                     self.label.board, self.cache_conditions, self._logger,
                     self.log_level, self.label, self.share_cache,
                     self.benchmark.suite, self.benchmark.show_all_results,
-                    self.benchmark.run_local)
+                    self.benchmark.run_local, self.benchmark.cwp_dso)
 
     self.result = self.cache.ReadResult()
     self.cache_hit = (self.result is not None)
@@ -95,7 +98,8 @@ class BenchmarkRun(threading.Thread):
         err = 'No cache hit.'
         self.result = Result.CreateFromRun(
             self._logger, self.log_level, self.label, self.machine, output, err,
-            retval, self.benchmark.test_name, self.benchmark.suite)
+            retval, self.benchmark.test_name, self.benchmark.suite,
+            self.benchmark.cwp_dso)
 
       else:
         self._logger.LogOutput('%s: No cache hit.' % self.name)
@@ -127,7 +131,7 @@ class BenchmarkRun(threading.Thread):
           self.failure_reason = 'Return value of test suite was non-zero.'
           self.timeline.Record(STATUS_FAILED)
 
-    except Exception, e:
+    except Exception as e:
       self._logger.LogError("Benchmark run: '%s' failed: %s" % (self.name, e))
       traceback.print_exc()
       if self.timeline.GetLastEvent() != STATUS_FAILED:
@@ -166,20 +170,18 @@ class BenchmarkRun(threading.Thread):
       machine = self.machine_manager.AcquireMachine(self.label)
 
       if machine:
-        self._logger.LogOutput('%s: Machine %s acquired at %s' %
-                               (self.name, machine.name,
-                                datetime.datetime.now()))
+        self._logger.LogOutput(
+            '%s: Machine %s acquired at %s' % (self.name, machine.name,
+                                               datetime.datetime.now()))
         break
       time.sleep(10)
     return machine
 
   def GetExtraAutotestArgs(self):
-    if self.benchmark.perf_args and self.benchmark.suite == 'telemetry':
-      self._logger.LogError('Telemetry does not support profiler.')
-      self.benchmark.perf_args = ''
-
-    if self.benchmark.perf_args and self.benchmark.suite == 'test_that':
-      self._logger.LogError('test_that does not support profiler.')
+    if (self.benchmark.perf_args and
+        self.benchmark.suite != 'telemetry_Crosperf'):
+      self._logger.LogError(
+          'Non-telemetry benchmark does not support profiler.')
       self.benchmark.perf_args = ''
 
     if self.benchmark.perf_args:
@@ -190,7 +192,7 @@ class BenchmarkRun(threading.Thread):
         raise SyntaxError('perf_args must start with either record or stat')
       extra_test_args = [
           '--profiler=custom_perf',
-          ("--profiler_args='perf_options=\"%s\"'" % perf_args)
+          ('--profiler_args=\'perf_options="%s"\'' % perf_args)
       ]
       return ' '.join(extra_test_args)
     else:
@@ -205,13 +207,13 @@ class BenchmarkRun(threading.Thread):
     else:
       self.machine_manager.ImageMachine(machine, self.label)
     self.timeline.Record(STATUS_RUNNING)
-    retval, out, err = self.suite_runner.Run(machine.name, self.label,
-                                             self.benchmark, self.test_args,
-                                             self.profiler_args)
+    retval, out, err = self.suite_runner.Run(
+        machine, self.label, self.benchmark, self.test_args, self.profiler_args)
     self.run_completed = True
     return Result.CreateFromRun(self._logger, self.log_level, self.label,
                                 self.machine, out, err, retval,
-                                self.benchmark.test_name, self.benchmark.suite)
+                                self.benchmark.test_name, self.benchmark.suite,
+                                self.benchmark.cwp_dso)
 
   def SetCacheConditions(self, cache_conditions):
     self.cache_conditions = cache_conditions
@@ -244,7 +246,7 @@ class MockBenchmarkRun(BenchmarkRun):
                     self.label.board, self.cache_conditions, self._logger,
                     self.log_level, self.label, self.share_cache,
                     self.benchmark.suite, self.benchmark.show_all_results,
-                    self.benchmark.run_local)
+                    self.benchmark.run_local, self.benchmark.cwp_dso)
 
     self.result = self.cache.ReadResult()
     self.cache_hit = (self.result is not None)
@@ -254,9 +256,8 @@ class MockBenchmarkRun(BenchmarkRun):
     self.timeline.Record(STATUS_IMAGING)
     self.machine_manager.ImageMachine(machine, self.label)
     self.timeline.Record(STATUS_RUNNING)
-    [retval, out,
-     err] = self.suite_runner.Run(machine.name, self.label, self.benchmark,
-                                  self.test_args, self.profiler_args)
+    [retval, out, err] = self.suite_runner.Run(
+        machine, self.label, self.benchmark, self.test_args, self.profiler_args)
     self.run_completed = True
     rr = MockResult('logger', self.label, self.log_level, machine)
     rr.out = out

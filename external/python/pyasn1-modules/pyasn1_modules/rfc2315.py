@@ -1,8 +1,8 @@
 #
 # This file is part of pyasn1-modules software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 # PKCS#7 message syntax
 #
@@ -269,13 +269,13 @@ class DigestInfo(univ.Sequence):
 class SignedData(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('version', Version()),
-        namedtype.NamedType('digestAlgorithms', DigestAlgorithmIdentifiers()),
+        namedtype.OptionalNamedType('digestAlgorithms', DigestAlgorithmIdentifiers()),
         namedtype.NamedType('contentInfo', ContentInfo()),
         namedtype.OptionalNamedType('certificates', ExtendedCertificatesAndCertificates().subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))),
         namedtype.OptionalNamedType('crls', CertificateRevocationLists().subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))),
-        namedtype.NamedType('signerInfos', SignerInfos())
+        namedtype.OptionalNamedType('signerInfos', SignerInfos())
     )
 
 

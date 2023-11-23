@@ -38,7 +38,9 @@ struct cras_expr_value {
 };
 
 /* initial value for the value type is zero */
+// clang-format off
 #define CRAS_EXPR_VALUE_INIT {}
+// clang-format on
 
 /* Expression */
 
@@ -70,7 +72,9 @@ struct cras_expr_env {
 };
 
 /* initial value for the environment type is zero */
+// clang-format off
 #define CRAS_EXPR_ENV_INIT {}
+// clang-format on
 
 void cras_expr_env_install_builtins(struct cras_expr_env *env);
 void cras_expr_env_set_variable_boolean(struct cras_expr_env *env,

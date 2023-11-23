@@ -20,6 +20,9 @@ TEST_TYPE = "server"
 DEPENDENCIES = "servo, fingerprint"
 JOB_RETRIES = 0
 
+# This test uses futility and dev keys from autotest/files/server/cros/faft.
+REQUIRE_SSP = True
+
 DOC = """
 Starts with MP-signed firmware. Then successively tries to flash three versions
 to RW: dev, corrupted first byte, and corrupted last byte. Each of these should

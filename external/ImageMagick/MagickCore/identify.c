@@ -17,7 +17,7 @@
 %                            September 1994                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -1264,27 +1264,6 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
       }
       image_info=DestroyImageInfo(image_info);
     }
-  (void) GetImageProperty(image,"exif:*",exception);
-  (void) GetImageProperty(image,"icc:*",exception);
-  (void) GetImageProperty(image,"iptc:*",exception);
-  (void) GetImageProperty(image,"xmp:*",exception);
-  ResetImagePropertyIterator(image);
-  property=GetNextImageProperty(image);
-  if (property != (const char *) NULL)
-    {
-      /*
-        Display image properties.
-      */
-      (void) FormatLocaleFile(file,"  Properties:\n");
-      while (property != (const char *) NULL)
-      {
-        (void) FormatLocaleFile(file,"    %s: ",property);
-        value=GetImageProperty(image,property,exception);
-        if (value != (const char *) NULL)
-          (void) FormatLocaleFile(file,"%s\n",value);
-        property=GetNextImageProperty(image);
-      }
-    }
   (void) FormatLocaleString(key,MagickPathExtent,"8BIM:1999,2998:#1");
   value=GetImageProperty(image,key,exception);
   if (value != (const char *) NULL)
@@ -1435,6 +1414,23 @@ MagickExport MagickBooleanType IdentifyImage(Image *image,FILE *file,
         if (image->debug != MagickFalse)
           PrintStringInfo(file,name,profile);
         name=GetNextImageProfile(image);
+      }
+    }
+  ResetImagePropertyIterator(image);
+  property=GetNextImageProperty(image);
+  if (property != (const char *) NULL)
+    {
+      /*
+        Display image properties.
+      */
+      (void) FormatLocaleFile(file,"  Properties:\n");
+      while (property != (const char *) NULL)
+      {
+        (void) FormatLocaleFile(file,"    %s: ",property);
+        value=GetImageProperty(image,property,exception);
+        if (value != (const char *) NULL)
+          (void) FormatLocaleFile(file,"%s\n",value);
+        property=GetNextImageProperty(image);
       }
     }
   ResetImageArtifactIterator(image);

@@ -17,7 +17,7 @@
 %                                 July 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -70,13 +70,13 @@
 typedef struct _MagicMapInfo
 {
   const char
-    *name;
+    name[10];
 
   const MagickOffsetType
     offset;
 
   const unsigned char
-    *magic;
+    *const magic;
 
   const size_t
     length;

@@ -14,6 +14,7 @@ import re
 import shutil
 import six
 import socket
+import ssl
 import struct
 import sys
 import threading
@@ -21,6 +22,18 @@ import time
 import traceback
 import zlib
 from six.moves import http_client, queue
+
+
+DUMMY_URL = "http://127.0.0.1:1"
+DUMMY_HTTPS_URL = "https://127.0.0.1:2"
+
+tls_dir = os.path.join(os.path.dirname(__file__), "tls")
+CA_CERTS = os.path.join(tls_dir, "ca.pem")
+CA_UNUSED_CERTS = os.path.join(tls_dir, "ca_unused.pem")
+CLIENT_PEM = os.path.join(tls_dir, "client.pem")
+CLIENT_ENCRYPTED_PEM = os.path.join(tls_dir, "client_encrypted.pem")
+SERVER_PEM = os.path.join(tls_dir, "server.pem")
+SERVER_CHAIN = os.path.join(tls_dir, "server_chain.pem")
 
 
 @contextlib.contextmanager
@@ -261,21 +274,48 @@ class MockHTTPBadStatusConnection(object):
 
 
 @contextlib.contextmanager
-def server_socket(fun, request_count=1, timeout=5):
+def server_socket(fun, request_count=1, timeout=5, scheme="", tls=None):
+    """Base socket server for tests.
+    Likely you want to use server_request or other higher level helpers.
+    All arguments except fun can be passed to other server_* helpers.
+
+    :param fun: fun(client_sock, tick) called after successful accept().
+    :param request_count: test succeeds after exactly this number of requests, triggered by tick(request)
+    :param timeout: seconds.
+    :param scheme: affects yielded value
+        "" - build normal http/https URI.
+        string - build normal URI using supplied scheme.
+        None - yield (addr, port) tuple.
+    :param tls:
+        None (default) - plain HTTP.
+        True - HTTPS with reasonable defaults. Likely you want httplib2.Http(ca_certs=tests.CA_CERTS)
+        string - path to custom server cert+key PEM file.
+        callable - function(context, listener, skip_errors) -> ssl_wrapped_listener
+    """
     gresult = [None]
     gcounter = [0]
+    tls_skip_errors = [
+        "TLSV1_ALERT_UNKNOWN_CA",
+    ]
 
     def tick(request):
         gcounter[0] += 1
         keep = True
         keep &= gcounter[0] < request_count
-        keep &= request.headers.get("connection", "").lower() != "close"
+        if request is not None:
+            keep &= request.headers.get("connection", "").lower() != "close"
         return keep
 
     def server_socket_thread(srv):
         try:
             while gcounter[0] < request_count:
-                client, _ = srv.accept()
+                try:
+                    client, _ = srv.accept()
+                except ssl.SSLError as e:
+                    if e.reason in tls_skip_errors:
+                        return
+                    raise
+
                 try:
                     client.settimeout(timeout)
                     fun(client, tick)
@@ -295,21 +335,39 @@ def server_socket(fun, request_count=1, timeout=5):
                 )
         except Exception as e:
             # traceback.print_exc caused IOError: concurrent operation on sys.stderr.close() under setup.py test
-            sys.stderr.write(traceback.format_exc().encode())
+            print(traceback.format_exc(), file=sys.stderr)
             gresult[0] = e
 
+    bind_hostname = "localhost"
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(("localhost", 0))
+    server.bind((bind_hostname, 0))
     try:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     except socket.error as ex:
         print("non critical error on SO_REUSEADDR", ex)
     server.listen(10)
     server.settimeout(timeout)
+    server_port = server.getsockname()[1]
+    if tls is True:
+        tls = SERVER_CHAIN
+    if tls:
+        context = ssl_context()
+        if callable(tls):
+            context.load_cert_chain(SERVER_CHAIN)
+            server = tls(context, server, tls_skip_errors)
+        else:
+            context.load_cert_chain(tls)
+            server = context.wrap_socket(server, server_side=True)
+    if scheme == "":
+        scheme = "https" if tls else "http"
+
     t = threading.Thread(target=server_socket_thread, args=(server,))
     t.daemon = True
     t.start()
-    yield u"http://{0}:{1}/".format(*server.getsockname())
+    if scheme is None:
+        yield (bind_hostname, server_port)
+    else:
+        yield u"{scheme}://{host}:{port}/".format(scheme=scheme, host=bind_hostname, port=server_port)
     server.close()
     t.join()
     if gresult[0] is not None:
@@ -328,11 +386,12 @@ def server_yield(fun, **kwargs):
             if request is None:
                 break
             i += 1
-            request.client_addr = sock.getsockname()
+            request.client_sock = sock
             request.number = i
             q.put(request)
             response = six.next(g)
             sock.sendall(response)
+            request.client_sock = None
             if not tick(request):
                 break
 
@@ -348,10 +407,11 @@ def server_request(request_handler, **kwargs):
             if request is None:
                 break
             i += 1
-            request.client_addr = sock.getsockname()
+            request.client_sock = sock
             request.number = i
             response = request_handler(request=request)
             sock.sendall(response)
+            request.client_sock = None
             if not tick(request):
                 break
 
@@ -684,3 +744,11 @@ def deflate_compress(bs):
 
 def deflate_decompress(bs):
     return zlib.decompress(bs, -zlib.MAX_WBITS)
+
+
+def ssl_context(protocol=None):
+    """Workaround for old SSLContext() required protocol argument.
+    """
+    if sys.version_info < (3, 5, 3):
+        return ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    return ssl.SSLContext()

@@ -6,7 +6,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 For terms of use, see http://www.unicode.org/copyright.html
 -->
 <supplementalData>
-	<version number="$Revision: 14196 $"/>
+	<version number="$Revision$"/>
 
 	<metaZones>
 		<metazoneInfo>
@@ -357,7 +357,8 @@ For terms of use, see http://www.unicode.org/copyright.html
 			</timezone>
 			<timezone type="America/Dawson">
 				<usesMetazone to="1973-10-28 09:00" mzone="Yukon"/>
-				<usesMetazone from="1973-10-28 09:00" mzone="America_Pacific"/>
+				<usesMetazone to="2020-03-08 10:00" from="1973-10-28 09:00" mzone="America_Pacific"/>
+				<usesMetazone from="2020-03-08 10:00" mzone="America_Mountain"/>
 			</timezone>
 			<timezone type="America/Dawson_Creek">
 				<usesMetazone to="1972-08-30 09:00" mzone="America_Pacific"/>
@@ -746,7 +747,8 @@ For terms of use, see http://www.unicode.org/copyright.html
 				<usesMetazone mzone="America_Pacific"/>
 			</timezone>
 			<timezone type="America/Whitehorse">
-				<usesMetazone mzone="America_Pacific"/>
+				<usesMetazone to="2020-03-08 10:00" mzone="America_Pacific"/>
+				<usesMetazone from="2020-03-08 10:00" mzone="America_Mountain"/>
 			</timezone>
 			<timezone type="America/Winnipeg">
 				<usesMetazone mzone="America_Central"/>
@@ -1243,8 +1245,8 @@ For terms of use, see http://www.unicode.org/copyright.html
 				<usesMetazone mzone="GMT" from="1971-10-31 02:00"/>
 			</timezone>
 			<timezone type="Europe/Istanbul">
-				<usesMetazone to="1978-10-14 21:00" mzone="Europe_Eastern"/>
-				<usesMetazone to="1985-04-19 21:00" from="1978-10-14 21:00" mzone="Turkey"/>
+				<usesMetazone to="1978-06-28 21:00" mzone="Europe_Eastern"/>
+				<usesMetazone to="1985-04-19 21:00" from="1978-06-28 21:00" mzone="Turkey"/>
 				<usesMetazone to="2016-09-06 21:00" from="1985-04-19 21:00" mzone="Europe_Eastern"/>
 				<usesMetazone from="2016-09-06 21:00" mzone="Turkey"/>
 			</timezone>

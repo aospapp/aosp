@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,7 +31,7 @@ public interface ISourceFileLocator {
 	 * @throws IOException
 	 *             in case of problems while opening the file
 	 */
-	public Reader getSourceFile(String packageName, String fileName)
+	Reader getSourceFile(String packageName, String fileName)
 			throws IOException;
 
 	/**
@@ -39,6 +39,6 @@ public interface ISourceFileLocator {
 	 * 
 	 * @return tab width as number of blanks
 	 */
-	public int getTabWidth();
+	int getTabWidth();
 
 }

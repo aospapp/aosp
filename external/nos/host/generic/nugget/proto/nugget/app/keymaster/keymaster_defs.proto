@@ -55,6 +55,7 @@ enum Tag {
   BOOTLOADER_ONLY = 0x7012e; // (TagType:BOOL | 302)
   ROLLBACK_RESISTANCE = 0x7012f; // (TagType:BOOL | 303)
   HARDWARE_TYPE = 0x10130; // TagType:ENUM | 304,
+  EARLY_BOOT_ONLY = 0x70131;  // TagType:BOOL | 305,
   ACTIVE_DATETIME = 0x60190; // (TagType:DATE | 400)
   ORIGINATION_EXPIRE_DATETIME = 0x60191; // (TagType:DATE | 401)
   USAGE_EXPIRE_DATETIME = 0x60192; // (TagType:DATE | 402)
@@ -93,6 +94,9 @@ enum Tag {
   ATTESTATION_ID_MODEL = 0x902cd; // (TagType:BYTES | 717)
   VENDOR_PATCHLEVEL = 0x302ce; // (TagType:UINT | 718)
   BOOT_PATCHLEVEL = 0x302cf; // (TagType:UINT | 719)
+  DEVICE_UNIQUE_ATTESTATION = 0x702d0;  // (TagType:BOOL | 720)
+  IDENTITY_CREDENTIAL_KEY = 0x702d1;    // (TagType:BOOL | 721)
+  STORAGE_KEY = 0x702d2;                // (TagType:BOOL | 722)
   ASSOCIATED_DATA = 0x903e8; // (TagType:BYTES | 1000)
   NONCE = 0x903e9; // (TagType:BYTES | 1001)
   /* RESERVED: AUTH_TOKEN = 0x903ea; // (TagType:BYTES | 1002) */
@@ -249,6 +253,12 @@ enum ErrorCode {
   PRODUCTION_MODE_PROVISIONING = 73;      // Vendor specific.
   NO_USER_CONFIRMATION = 74;
   KEY_UPGRADE_NOT_REQUIRED = 75;          // Vendor specific.
+  DEVICE_LOCKED = 76;
+  EARLY_BOOT_ENDED = 77;
+  ATTESTATION_KEYS_NOT_PROVISIONED = 78;
+  ATTESTATION_IDS_NOT_PROVISIONED = 79;
+  INVALID_OPERATION = 80;
+  STORAGE_KEY_UNSUPPORTED = 81;
 };
 
 enum SecurityLevel {
@@ -295,7 +305,8 @@ enum BootColor {
 enum ChipFusing {
     FUSING_PROTO = 0;
     FUSING_DVT = 1;
-    FUSING_PVT = 2;
+    FUSING_PVT = 2;     // Strongbox gen v0 certs.
+    FUSING_PVT_1 = 3;   // Strongbox gen v1 certs.
 }
 
 enum CertificateStatus {

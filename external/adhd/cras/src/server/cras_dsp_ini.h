@@ -44,16 +44,16 @@ DECLARE_ARRAY_TYPE(struct port, port_array)
 
 struct plugin {
 	const char *title;
-	const char *library;  /* file name like "plugin.so" */
-	const char *label;    /* label like "Eq" */
-	const char *purpose;  /* like "playback" or "capture" */
-	struct cras_expr_expression *disable_expr;  /* the disable expression of
+	const char *library; /* file name like "plugin.so" */
+	const char *label; /* label like "Eq" */
+	const char *purpose; /* like "playback" or "capture" */
+	struct cras_expr_expression *disable_expr; /* the disable expression of
 					     this plugin */
 	port_array ports;
 };
 
 struct flow {
-	enum port_type type;  /* the type of the ports this flow connects to */
+	enum port_type type; /* the type of the ports this flow connects to */
 	const char *name;
 	struct plugin *from;
 	struct plugin *to;

@@ -54,7 +54,7 @@ public class PhoneNumberOfflineGeocoder {
    *
    * @return  a {@link PhoneNumberOfflineGeocoder} instance
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public static synchronized PhoneNumberOfflineGeocoder getInstance() {
     if (instance == null) {
       instance = new PhoneNumberOfflineGeocoder(MAPPING_DATA_DIRECTORY);
@@ -188,7 +188,7 @@ public class PhoneNumberOfflineGeocoder {
    * @return  a text description for the given language code for the given phone number, or empty
    *     string if the number passed in is invalid or could belong to multiple countries
    */
-  @dalvik.annotation.compat.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage
   public String getDescriptionForNumber(PhoneNumber number, Locale languageCode) {
     PhoneNumberType numberType = phoneUtil.getNumberType(number);
     if (numberType == PhoneNumberType.UNKNOWN) {

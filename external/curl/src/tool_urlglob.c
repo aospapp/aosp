@@ -488,6 +488,9 @@ void glob_cleanup(URLGlob* glob)
   size_t i;
   int elem;
 
+  if(!glob)
+    return;
+
   for(i = 0; i < glob->size; i++) {
     if((glob->pattern[i].type == UPTSet) &&
        (glob->pattern[i].content.Set.elements)) {
@@ -553,8 +556,7 @@ CURLcode glob_next_url(char **globbed, URLGlob *glob)
       }
     }
     if(carry) {         /* first pattern ptr has run into overflow, done! */
-      /* TODO: verify if this should actually return CURLE_OK. */
-      return CURLE_OK; /* CURLE_OK to match previous behavior */
+      return CURLE_OK;
     }
   }
 

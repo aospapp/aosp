@@ -65,9 +65,7 @@ class policy_ExtensionPolicy(enterprise_policy_base.EnterprisePolicyTest):
 
         if self.dms_is_fake:
             # Update the server policies with the extension policies.
-            self.fake_dm_server.setup_policy(self._make_json_blob(
-                extension_policies=extension_policies))
-            self.reload_policies()
+            self.add_policies(extension=extension_policies)
 
         # Ensure fields marked sensitive are censored in the policy tab.
         sensitive_fields = ['SensitiveStringPolicy', 'SensitiveDictPolicy']

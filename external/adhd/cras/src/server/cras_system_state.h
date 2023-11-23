@@ -13,6 +13,7 @@
 #ifndef CRAS_SYSTEM_STATE_H_
 #define CRAS_SYSTEM_STATE_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "cras_types.h"
@@ -37,12 +38,10 @@ struct cras_tm;
  *    exp_state - Shared memory region for storing state.
  *    exp_state_size - Size of |exp_state|.
  */
-void cras_system_state_init(const char *device_config_dir,
-                            const char *shm_name,
-                            int rw_shm_fd,
-                            int ro_shm_fd,
-                            struct cras_server_state *exp_state,
-                            size_t exp_state_size);
+void cras_system_state_init(const char *device_config_dir, const char *shm_name,
+			    int rw_shm_fd, int ro_shm_fd,
+			    struct cras_server_state *exp_state,
+			    size_t exp_state_size);
 void cras_system_state_deinit();
 
 /* Sets the suffix string to control which UCM config fo load. */
@@ -123,6 +122,15 @@ int cras_system_get_default_output_buffer_size();
 /* Returns if system aec is supported. */
 int cras_system_get_aec_supported();
 
+/* Returns the system aec group id is available. */
+int cras_system_get_aec_group_id();
+
+/* Sets the flag to enable or disable bluetooth wideband speech feature. */
+void cras_system_set_bt_wbs_enabled(bool enabled);
+
+/* Gets the elable flag of bluetooth wideband speech feature. */
+bool cras_system_get_bt_wbs_enabled();
+
 /* Adds a card at the given index to the system.  When a new card is found
  * (through a udev event notification) this will add the card to the system,
  * causing its devices to become available for playback/capture.
@@ -165,12 +173,10 @@ int cras_system_alsa_card_exists(unsigned alsa_card_index);
  * Returns:
  *    0 on success, or -EBUSY if there is already a registered handler.
  */
-int cras_system_set_select_handler(int (*add)(int fd,
-					      void (*callback)(void *data),
-					      void *callback_data,
-					      void *select_data),
-				  void (*rm)(int fd, void *select_data),
-				  void *select_data);
+int cras_system_set_select_handler(
+	int (*add)(int fd, void (*callback)(void *data), void *callback_data,
+		   void *select_data),
+	void (*rm)(int fd, void *select_data), void *select_data);
 
 /* Adds the fd and callback pair.  When select indicates that fd is readable,
  * the callback will be called.
@@ -181,8 +187,7 @@ int cras_system_set_select_handler(int (*add)(int fd,
  * Returns:
  *    0 on success or a negative error code on failure.
  */
-int cras_system_add_select_fd(int fd,
-			      void (*callback)(void *data),
+int cras_system_add_select_fd(int fd, void (*callback)(void *data),
 			      void *callback_data);
 
 /* Removes the fd from the list of fds that are passed to select.
@@ -318,5 +323,10 @@ void cras_system_state_add_snapshot(struct cras_audio_thread_snapshot *);
  * Dump snapshots from system state to shared memory with client
  */
 void cras_system_state_dump_snapshots();
+
+/*
+ * Returns true if in the main thread.
+ */
+int cras_system_state_in_main_thread();
 
 #endif /* CRAS_SYSTEM_STATE_H_ */

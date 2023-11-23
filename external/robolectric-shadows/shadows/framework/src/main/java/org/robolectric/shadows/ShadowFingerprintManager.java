@@ -47,7 +47,7 @@ public class ShadowFingerprintManager {
 
     AuthenticationResult result;
     if (RuntimeEnvironment.getApiLevel() >= N_MR1) {
-      result = new AuthenticationResult(pendingCryptoObject, null, 0);
+      result = new AuthenticationResult(pendingCryptoObject, null, 0, true);
     } else {
       result = ReflectionHelpers.callConstructor(AuthenticationResult.class,
           ClassParameter.from(CryptoObject.class, pendingCryptoObject),

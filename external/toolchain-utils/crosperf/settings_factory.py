@@ -1,11 +1,15 @@
+# -*- coding: utf-8 -*-
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Setting files for global, benchmark and labels."""
 
 from __future__ import print_function
 
 from field import BooleanField
+from field import EnumField
+from field import FloatField
 from field import IntegerField
 from field import ListField
 from field import TextField
@@ -36,7 +40,9 @@ class BenchmarkSettings(Settings):
             'times to get a stable result.'))
     self.AddField(
         TextField(
-            'suite', default='', description='The type of the benchmark.'))
+            'suite',
+            default='test_that',
+            description='The type of the benchmark.'))
     self.AddField(
         IntegerField(
             'retries',
@@ -51,6 +57,11 @@ class BenchmarkSettings(Settings):
             'telemetry_Crosperf.',
             required=False,
             default=True))
+    self.AddField(
+        FloatField(
+            'weight',
+            default=0.0,
+            description='Weight of the benchmark for CWP approximation'))
 
 
 class LabelSettings(Settings):
@@ -72,6 +83,12 @@ class LabelSettings(Settings):
             description='Autotest directory path relative to chroot which '
             'has autotest files for the image to run tests requiring autotest '
             'files.'))
+    self.AddField(
+        TextField(
+            'debug_path',
+            required=False,
+            description='Debug info directory relative to chroot which has '
+            'symbols and vmlinux that can be used by perf tool.'))
     self.AddField(
         TextField(
             'chromeos_root',
@@ -138,6 +155,11 @@ class GlobalSettings(Settings):
             description='The target board for running '
             'experiments on, e.g. x86-alex.'))
     self.AddField(
+        BooleanField(
+            'skylab',
+            description='Whether to run experiments via skylab.',
+            default=False))
+    self.AddField(
         ListField(
             'remote',
             description='A comma-separated list of IPs of '
@@ -182,9 +204,8 @@ class GlobalSettings(Settings):
         BooleanField(
             'use_file_locks',
             default=False,
-            description='Whether to use the file locks '
-            'mechanism (deprecated) instead of the AFE '
-            'server lock mechanism.'))
+            description='DEPRECATED: Whether to use the file locks '
+            'or AFE server lock mechanism.'))
     self.AddField(
         IntegerField(
             'iterations',
@@ -221,6 +242,14 @@ class GlobalSettings(Settings):
             'enables perf commands to record perforamance '
             'related counters. It must start with perf '
             'command record or stat followed by arguments.'))
+    self.AddField(
+        BooleanField(
+            'download_debug',
+            default=True,
+            description='Download compressed debug symbols alongwith '
+            'image. This can provide more info matching symbols for'
+            'profiles, but takes larger space. By default, download'
+            'it only when perf_args is specified.'))
     self.AddField(
         TextField(
             'cache_dir',
@@ -266,8 +295,9 @@ class GlobalSettings(Settings):
             'locks_dir',
             default='',
             description='An alternate directory to use for '
-            'storing/checking machine locks. Using this field '
-            'automatically sets use_file_locks to True.\n'
+            'storing/checking machine file locks for local machines. '
+            'By default the file locks directory is '
+            '/google/data/rw/users/mo/mobiletc-prebuild/locks.\n'
             'WARNING: If you use your own locks directory, '
             'there is no guarantee that someone else might not '
             'hold a lock on the same machine in a different '
@@ -286,6 +316,116 @@ class GlobalSettings(Settings):
             default=0,
             description='Number of times to retry a '
             'benchmark run.'))
+    self.AddField(
+        TextField(
+            'cwp_dso',
+            description='The DSO type that we want to use for '
+            'CWP approximation. This is used to run telemetry '
+            'benchmarks. Valid DSO types can be found from dso_list '
+            'in experiment_factory.py. The default value is set to '
+            'be empty.',
+            required=False,
+            default=''))
+    self.AddField(
+        BooleanField(
+            'enable_aslr',
+            description='Enable ASLR on the machine to run the '
+            'benchmarks. ASLR is disabled by default',
+            required=False,
+            default=False))
+    self.AddField(
+        BooleanField(
+            'ignore_min_max',
+            description='When doing math for the raw results, '
+            'ignore min and max values to reduce noise.',
+            required=False,
+            default=False))
+    self.AddField(
+        TextField(
+            'intel_pstate',
+            description='Intel Pstate mode.\n'
+            'Supported modes: passive, no_hwp.\n'
+            'By default kernel works in active HWP mode if HWP is supported'
+            " by CPU. This corresponds to a default intel_pstate=''",
+            required=False,
+            default=''))
+    self.AddField(
+        BooleanField(
+            'turbostat',
+            description='Run turbostat process in the background'
+            ' of a benchmark',
+            required=False,
+            default=True))
+    self.AddField(
+        FloatField(
+            'top_interval',
+            description='Run top command in the background of a benchmark with'
+            ' interval of sampling specified in seconds.\n'
+            'Recommended values 1-5. Lower number provides more accurate'
+            ' data.\n'
+            'With 0 - do not run top.\n'
+            'NOTE: Running top with interval 1-5 sec has insignificant'
+            ' performance impact (performance degradation does not exceed 0.3%,'
+            ' measured on x86_64, ARM32, and ARM64).',
+            required=False,
+            default=0))
+    self.AddField(
+        IntegerField(
+            'cooldown_temp',
+            required=False,
+            default=40,
+            description='Wait until CPU temperature goes down below'
+            ' specified temperature in Celsius'
+            ' prior starting a benchmark.'))
+    self.AddField(
+        IntegerField(
+            'cooldown_time',
+            required=False,
+            default=0,
+            description='Wait specified time in minutes allowing'
+            ' CPU to cool down. Zero value disables cooldown.'))
+    self.AddField(
+        EnumField(
+            'governor',
+            options=[
+                'performance',
+                'powersave',
+                'userspace',
+                'ondemand',
+                'conservative',
+                'schedutils',
+                'sched',
+                'interactive',
+            ],
+            default='performance',
+            required=False,
+            description='Setup CPU governor for all cores.\n'
+            'For more details refer to:\n'
+            'https://www.kernel.org/doc/Documentation/cpu-freq/governors.txt'))
+    self.AddField(
+        EnumField(
+            'cpu_usage',
+            options=[
+                'all',
+                'big_only',
+                'little_only',
+                'exclusive_cores',
+            ],
+            default='all',
+            required=False,
+            description='Restrict usage CPUs to decrease CPU interference.\n'
+            'all - no restrictions;\n'
+            'big-only, little-only - enable only big/little cores,'
+            ' applicable only on ARM;\n'
+            'exclusive-cores - (for future use)'
+            ' isolate cores for exclusive use of benchmark processes.'))
+    self.AddField(
+        IntegerField(
+            'cpu_freq_pct',
+            required=False,
+            default=100,
+            description='Setup CPU frequency to a supported value less than'
+            ' or equal to a percent of max_freq.'))
 
 
 class SettingsFactory(object):

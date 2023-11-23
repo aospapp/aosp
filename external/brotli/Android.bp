@@ -13,10 +13,25 @@
 // limitations under the License.
 //
 
-cc_library {
+cc_library_static {
     name: "libbrotli",
     host_supported: true,
+    vendor_available: true,
     recovery_available: true,
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.adbd",
+    ],
+
+    visibility: [
+        "//bootable/recovery:__subpackages__",
+        "//external/bsdiff:__subpackages__",
+        "//external/puffin:__subpackages__",
+        "//system/core/adb:__subpackages__",
+        "//system/update_engine:__subpackages__",
+    ],
+
     cflags: [
         "-Werror",
         "-O2",
@@ -29,6 +44,9 @@ cc_library {
     ],
     target: {
         linux_bionic: {
+            enabled: true,
+        },
+        windows: {
             enabled: true,
         },
     },
@@ -45,7 +63,7 @@ cc_binary {
             enabled: true,
         },
     },
-    shared_libs: ["libbrotli"],
+    static_libs: ["libbrotli"],
 }
 
 //

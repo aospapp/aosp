@@ -35,6 +35,7 @@
 #include "main/shaderapi.h"
 #include "main/shaderobj.h"
 #include "main/uniforms.h"
+#include "main/glspirv.h"
 #include "compiler/glsl/ast.h"
 #include "compiler/glsl/ir.h"
 #include "compiler/glsl/ir_expression_flattening.h"
@@ -506,6 +507,8 @@ storage_type_size(const struct glsl_type *type, bool bindless)
    switch (type->base_type) {
    case GLSL_TYPE_UINT:
    case GLSL_TYPE_INT:
+   case GLSL_TYPE_UINT8:
+   case GLSL_TYPE_INT8:
    case GLSL_TYPE_UINT16:
    case GLSL_TYPE_INT16:
    case GLSL_TYPE_FLOAT:
@@ -591,7 +594,7 @@ ir_to_mesa_visitor::get_temp(const glsl_type *type)
    src.reladdr = NULL;
    next_temp += type_size(type);
 
-   if (type->is_array() || type->is_record()) {
+   if (type->is_array() || type->is_struct()) {
       src.swizzle = SWIZZLE_NOOP;
    } else {
       src.swizzle = swizzle_for_size(type->vector_elements);
@@ -615,11 +618,6 @@ ir_to_mesa_visitor::find_variable_storage(const ir_variable *var)
 void
 ir_to_mesa_visitor::visit(ir_variable *ir)
 {
-   if (strcmp(ir->name, "gl_FragCoord") == 0) {
-      this->prog->OriginUpperLeft = ir->data.origin_upper_left;
-      this->prog->PixelCenterInteger = ir->data.pixel_center_integer;
-   }
-
    if (ir->data.mode == ir_var_uniform && strncmp(ir->name, "gl_", 3) == 0) {
       unsigned int i;
       const ir_state_slot *const slots = ir->get_state_slots();
@@ -663,7 +661,7 @@ ir_to_mesa_visitor::visit(ir_variable *ir)
 
       for (unsigned int i = 0; i < ir->get_num_state_slots(); i++) {
 	 int index = _mesa_add_state_reference(this->prog->Parameters,
-					       (gl_state_index *)slots[i].tokens);
+					       slots[i].tokens);
 
 	 if (storage->file == PROGRAM_STATE_VAR) {
 	    if (storage->index == -1) {
@@ -1681,7 +1679,7 @@ calc_sampler_offsets(struct gl_shader_program *prog, ir_dereference *deref,
       ir_dereference_record *deref_record = deref->as_dereference_record();
       unsigned field_index = deref_record->field_idx;
       *location +=
-         deref_record->record->type->record_location_offset(field_index);
+         deref_record->record->type->struct_location_offset(field_index);
       calc_sampler_offsets(prog, deref_record->record->as_dereference(),
                            offset, array_elements, location);
       break;
@@ -1881,7 +1879,7 @@ ir_to_mesa_visitor::visit(ir_constant *ir)
     * get lucky, copy propagation will eliminate the extra moves.
     */
 
-   if (ir->type->is_record()) {
+   if (ir->type->is_struct()) {
       src_reg temp_base = get_temp(ir->type);
       dst_reg temp = dst_reg(temp_base);
 
@@ -2447,10 +2445,26 @@ add_uniform_to_shader::visit_field(const glsl_type *type, const char *name,
 
    _mesa_reserve_parameter_storage(params, num_params);
    index = params->NumParameters;
-   for (unsigned i = 0; i < num_params; i++) {
-      unsigned comps = 4;
-      _mesa_add_parameter(params, PROGRAM_UNIFORM, name, comps,
-                          type->gl_type, NULL, NULL);
+
+   if (ctx->Const.PackedDriverUniformStorage) {
+      for (unsigned i = 0; i < num_params; i++) {
+         unsigned dmul = type->without_array()->is_64bit() ? 2 : 1;
+         unsigned comps = type->without_array()->vector_elements * dmul;
+         if (is_dual_slot) {
+            if (i & 0x1)
+               comps -= 4;
+            else
+               comps = 4;
+         }
+
+         _mesa_add_parameter(params, PROGRAM_UNIFORM, name, comps,
+                             type->gl_type, NULL, NULL, false);
+      }
+   } else {
+      for (unsigned i = 0; i < num_params; i++) {
+         _mesa_add_parameter(params, PROGRAM_UNIFORM, name, 4,
+                             type->gl_type, NULL, NULL, true);
+      }
    }
 
    /* The first part of the uniform that's processed determines the base
@@ -2492,8 +2506,7 @@ _mesa_generate_parameters_list_for_uniforms(struct gl_context *ctx,
 void
 _mesa_associate_uniform_storage(struct gl_context *ctx,
                                 struct gl_shader_program *shader_program,
-                                struct gl_program *prog,
-                                bool propagate_to_storage)
+                                struct gl_program *prog)
 {
    struct gl_program_parameter_list *params = prog->Parameters;
    gl_shader_stage shader_type = prog->info.stage;
@@ -2525,7 +2538,13 @@ _mesa_associate_uniform_storage(struct gl_context *ctx,
       if (location != last_location) {
          enum gl_uniform_driver_format format = uniform_native;
          unsigned columns = 0;
-         int dmul = 4 * sizeof(float);
+
+         int dmul;
+         if (ctx->Const.PackedDriverUniformStorage && !prog->is_arb_asm) {
+            dmul = storage->type->vector_elements * sizeof(float);
+         } else {
+            dmul = 4 * sizeof(float);
+         }
 
          switch (storage->type->base_type) {
          case GLSL_TYPE_UINT64:
@@ -2534,6 +2553,7 @@ _mesa_associate_uniform_storage(struct gl_context *ctx,
             /* fallthrough */
          case GLSL_TYPE_UINT:
          case GLSL_TYPE_UINT16:
+         case GLSL_TYPE_UINT8:
             assert(ctx->Const.NativeIntegers);
             format = uniform_native;
             columns = 1;
@@ -2544,6 +2564,7 @@ _mesa_associate_uniform_storage(struct gl_context *ctx,
             /* fallthrough */
          case GLSL_TYPE_INT:
          case GLSL_TYPE_INT16:
+         case GLSL_TYPE_INT8:
             format =
                (ctx->Const.NativeIntegers) ? uniform_native : uniform_int_float;
             columns = 1;
@@ -2578,9 +2599,10 @@ _mesa_associate_uniform_storage(struct gl_context *ctx,
             break;
          }
 
+         unsigned pvo = params->ParameterValueOffset[i];
          _mesa_uniform_attach_driver_storage(storage, dmul * columns, dmul,
                                              format,
-                                             &params->ParameterValues[i]);
+                                             &params->ParameterValues[pvo]);
 
          /* When a bindless sampler/image is bound to a texture/image unit, we
           * have to overwrite the constant value by the resident handle
@@ -2597,11 +2619,11 @@ _mesa_associate_uniform_storage(struct gl_context *ctx,
                if (storage->type->without_array()->is_sampler()) {
                   assert(unit >= 0 && unit < prog->sh.NumBindlessSamplers);
                   prog->sh.BindlessSamplers[unit].data =
-                     &params->ParameterValues[i] + j;
+                     &params->ParameterValues[pvo] + 4 * j;
                } else if (storage->type->without_array()->is_image()) {
                   assert(unit >= 0 && unit < prog->sh.NumBindlessImages);
                   prog->sh.BindlessImages[unit].data =
-                     &params->ParameterValues[i] + j;
+                     &params->ParameterValues[pvo] + 4 * j;
                }
             }
          }
@@ -2610,8 +2632,22 @@ _mesa_associate_uniform_storage(struct gl_context *ctx,
           * data from the linker's backing store.  This will cause values from
           * initializers in the source code to be copied over.
           */
-         if (propagate_to_storage) {
-            unsigned array_elements = MAX2(1, storage->array_elements);
+         unsigned array_elements = MAX2(1, storage->array_elements);
+         if (ctx->Const.PackedDriverUniformStorage && !prog->is_arb_asm &&
+             (storage->is_bindless || !storage->type->contains_opaque())) {
+            const int dmul = storage->type->is_64bit() ? 2 : 1;
+            const unsigned components =
+               storage->type->vector_elements *
+               storage->type->matrix_columns;
+
+            for (unsigned s = 0; s < storage->num_driver_storage; s++) {
+               gl_constant_value *uni_storage = (gl_constant_value *)
+                  storage->driver_storage[s].data;
+               memcpy(uni_storage, storage->storage,
+                      sizeof(storage->storage[0]) * components *
+                      array_elements * dmul);
+            }
+         } else {
             _mesa_propagate_uniforms_to_driver_storage(storage, 0,
                                                        array_elements);
          }
@@ -2972,7 +3008,7 @@ get_mesa_program(struct gl_context *ctx,
     * prog->ParameterValues to get reallocated (e.g., anything that adds a
     * program constant) has to happen before creating this linkage.
     */
-   _mesa_associate_uniform_storage(ctx, shader_program, prog, true);
+   _mesa_associate_uniform_storage(ctx, shader_program, prog);
    if (!shader_program->data->LinkStatus) {
       goto fail_exit;
    }
@@ -3014,6 +3050,7 @@ _mesa_ir_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
 	 do_mat_op_to_vec(ir);
 	 lower_instructions(ir, (MOD_TO_FLOOR | DIV_TO_MUL_RCP | EXP_TO_EXP2
 				 | LOG_TO_LOG2 | INT_DIV_TO_MUL_RCP
+				 | MUL64_TO_MUL_AND_MUL_HIGH
 				 | ((options->EmitNoPow) ? POW_TO_EXP2 : 0)));
 
 	 progress = do_common_optimization(ir, true, true,
@@ -3082,13 +3119,13 @@ void
 _mesa_glsl_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
 {
    unsigned int i;
-   bool spirv;
+   bool spirv = false;
 
    _mesa_clear_shader_program_data(ctx, prog);
 
    prog->data = _mesa_create_shader_program_data();
 
-   prog->data->LinkStatus = linking_success;
+   prog->data->LinkStatus = LINKING_SUCCESS;
 
    for (i = 0; i < prog->NumShaders; i++) {
       if (!prog->Shaders[i]->CompileStatus) {
@@ -3109,26 +3146,30 @@ _mesa_glsl_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
                       "SPIR_V_BINARY_ARB state");
       }
    }
+   prog->data->spirv = spirv;
 
    if (prog->data->LinkStatus) {
-      link_shaders(ctx, prog);
+      if (!spirv)
+         link_shaders(ctx, prog);
+      else
+         _mesa_spirv_link_shaders(ctx, prog);
    }
 
-   /* If LinkStatus is linking_success, then reset sampler validated to true.
+   /* If LinkStatus is LINKING_SUCCESS, then reset sampler validated to true.
     * Validation happens via the LinkShader call below. If LinkStatus is
-    * linking_skipped, then SamplersValidated will have been restored from the
+    * LINKING_SKIPPED, then SamplersValidated will have been restored from the
     * shader cache.
     */
-   if (prog->data->LinkStatus == linking_success) {
+   if (prog->data->LinkStatus == LINKING_SUCCESS) {
       prog->SamplersValidated = GL_TRUE;
    }
 
    if (prog->data->LinkStatus && !ctx->Driver.LinkShader(ctx, prog)) {
-      prog->data->LinkStatus = linking_failure;
+      prog->data->LinkStatus = LINKING_FAILURE;
    }
 
    /* Return early if we are loading the shader from on-disk cache */
-   if (prog->data->LinkStatus == linking_skipped)
+   if (prog->data->LinkStatus == LINKING_SKIPPED)
       return;
 
    if (ctx->_Shader->Flags & GLSL_DUMP) {

@@ -30,6 +30,9 @@
 #ifndef GLSL_IR_OPTIMIZATION_H
 #define GLSL_IR_OPTIMIZATION_H
 
+struct gl_linked_shader;
+struct gl_shader_program;
+
 /* Operations for lower_instructions() */
 #define SUB_TO_ADD_NEG     0x01
 #define FDIV_TO_MUL_RCP    0x02
@@ -54,6 +57,7 @@
 #define DDIV_TO_MUL_RCP           0x100000
 #define DIV_TO_MUL_RCP            (FDIV_TO_MUL_RCP | DDIV_TO_MUL_RCP)
 #define SQRT_TO_ABS_SQRT          0x200000
+#define MUL64_TO_MUL_AND_MUL_HIGH 0x400000
 
 /* Opertaions for lower_64bit_integer_instructions() */
 #define MUL64                     (1U << 0)
@@ -100,7 +104,6 @@ bool opt_conditional_discard(exec_list *instructions);
 bool do_constant_folding(exec_list *instructions);
 bool do_constant_variable(exec_list *instructions);
 bool do_constant_variable_unlinked(exec_list *instructions);
-bool do_copy_propagation(exec_list *instructions);
 bool do_copy_propagation_elements(exec_list *instructions);
 bool do_constant_propagation(exec_list *instructions);
 void do_dead_builtin_varyings(struct gl_context *ctx,
@@ -166,7 +169,7 @@ bool lower_tess_level(gl_linked_shader *shader);
 
 bool lower_vertex_id(gl_linked_shader *shader);
 bool lower_cs_derived(gl_linked_shader *shader);
-bool lower_blend_equation_advanced(gl_linked_shader *shader);
+bool lower_blend_equation_advanced(gl_linked_shader *shader, bool coherent);
 
 bool lower_subroutine(exec_list *instructions, struct _mesa_glsl_parse_state *state);
 void propagate_invariance(exec_list *instructions);

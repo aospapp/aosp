@@ -16,16 +16,15 @@ TIMEOUT=5
 SLEEP_INTERVAL=1
 
 
-# TODO(pmalani): Change this to actually talk to midis and make
-# sure basic functionality works.
 class cheets_Midis(test.test):
     """ Test to verify midis daemon starts correctly.
 
     A simple test which verifies whether:
     - midis starts up correctly on ARC container start-up.
-    - midis restarts correctly on logging-out.
+    - midis restarts correctly on logging-out and then
+      logging back in.
     """
-    version = 1
+    version = 2
 
     def _get_midis_pid(self):
         """ Get the midis daemon pid using pgrep. """
@@ -47,25 +46,36 @@ class cheets_Midis(test.test):
             logging.error('Timed out waiting for midis')
             return None
 
-    def run_once(self):
-        """ Restart Chrome with ARC and check that midis also restarts. """
+    def _start_chrome_and_get_pid(self):
+        """ Starts up a Chrome instance, logs in and trys to find a midis
+        pid, then logs out.
 
-        old_midis_pid = None
+        Returns:
+        - valid integer pid on success
+        - None on failure.
+        """
+        midis_pid = None
         session = None
         with chrome.Chrome(
             arc_mode=arc.arc_common.ARC_MODE_ENABLED,
             dont_override_profile=False) as cr:
             session = cros_ui.get_chrome_session_ident()
-            old_midis_pid = self._poll_for_midis_pid()
-
-        if old_midis_pid == None:
-            raise error.TestFail('midis not running in Chrome OS.')
-
+            midis_pid = self._poll_for_midis_pid()
+        # Wait for the login screen to appear before returning.
         cros_ui.wait_for_chrome_ready(session)
-        new_midis_pid = self._poll_for_midis_pid()
-        if new_midis_pid == None:
-            raise error.TestFail('midis not running after Chrome shut down.')
+        return midis_pid
 
+    def run_once(self):
+        """ Start up Chrome with ARC twice and check that midis also
+        starts both times, and is killed when we log out.
+        """
+
+        old_midis_pid = self._start_chrome_and_get_pid()
+        if old_midis_pid == None:
+            raise error.TestFail('midis not running after Chrome login.')
+
+        new_midis_pid = self._start_chrome_and_get_pid()
+        if new_midis_pid == None:
+            raise error.TestFail('midis didn\'t restart on Chrome OS re login')
         if new_midis_pid == old_midis_pid:
-            raise error.TestFail('midis didn\'t restart.')
-        logging.info('Restarted midis with pid %d.', new_midis_pid)
+            raise error.TestFail('midis not killed after first Chrome log-out.')

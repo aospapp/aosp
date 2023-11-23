@@ -30,7 +30,7 @@ function set_route {
     ${ip} route add "${host}" via "${gw}"
     dbus-send --system --dest=org.chromium.flimflam --print-reply / \
       org.chromium.flimflam.Manager.SetServiceOrder \
-      string:"vpn,wifi,ethernet,wimax,cellular"
+      string:"vpn,wifi,ethernet,cellular"
   fi
 }
 
@@ -77,7 +77,7 @@ if [ "${mode}" = "ethernet" ]; then
   # Switch the service order first, because the IP lookup might fail.
   dbus-send --system --dest=org.chromium.flimflam --print-reply / \
     org.chromium.flimflam.Manager.SetServiceOrder \
-    string:"vpn,ethernet,wifi,wimax,cellular"
+    string:"vpn,ethernet,wifi,cellular"
 fi
 
 # Find the first connection to our local port 22 (ssh), then use it to

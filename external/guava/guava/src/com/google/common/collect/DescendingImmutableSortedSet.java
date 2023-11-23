@@ -17,20 +17,25 @@
 package com.google.common.collect;
 
 import com.google.common.annotations.GwtIncompatible;
-
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Skeletal implementation of {@link ImmutableSortedSet#descendingSet()}.
  *
  * @author Louis Wasserman
  */
-class DescendingImmutableSortedSet<E> extends ImmutableSortedSet<E> {
+@GwtIncompatible
+final class DescendingImmutableSortedSet<E> extends ImmutableSortedSet<E> {
   private final ImmutableSortedSet<E> forward;
 
   DescendingImmutableSortedSet(ImmutableSortedSet<E> forward) {
     super(Ordering.from(forward.comparator()).reverse());
     this.forward = forward;
+  }
+
+  @Override
+  public boolean contains(@Nullable Object object) {
+    return forward.contains(object);
   }
 
   @Override

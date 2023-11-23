@@ -150,7 +150,7 @@ static inline float conv_i10_to_norm_float(const struct gl_context *ctx, int i10
     * is used in every case.  They remove equation 2.2 completely.
     */
    if (_mesa_is_gles3(ctx) ||
-       (ctx->API == API_OPENGL_CORE && ctx->Version >= 42)) {
+       (_mesa_is_desktop_gl(ctx) && ctx->Version >= 42)) {
       /* Equation 2.3 above. */
       float f = ((float) val.x) / 511.0F;
       return MAX2(f, -1.0f);
@@ -166,7 +166,7 @@ static inline float conv_i2_to_norm_float(const struct gl_context *ctx, int i2)
    val.x = i2;
 
    if (_mesa_is_gles3(ctx) ||
-       (ctx->API == API_OPENGL_CORE && ctx->Version >= 42)) {
+       (_mesa_is_desktop_gl(ctx) && ctx->Version >= 42)) {
       /* Equation 2.3 above. */
       float f = (float) val.x;
       return MAX2(f, -1.0f);
@@ -445,14 +445,14 @@ static void GLAPIENTRY
 TAG(Indexf)(GLfloat f)
 {
    GET_CURRENT_CONTEXT(ctx);
-   ATTR1F(VBO_ATTRIB_INDEX, f);
+   ATTR1F(VBO_ATTRIB_COLOR_INDEX, f);
 }
 
 static void GLAPIENTRY
 TAG(Indexfv)(const GLfloat * f)
 {
    GET_CURRENT_CONTEXT(ctx);
-   ATTR1FV(VBO_ATTRIB_INDEX, f);
+   ATTR1FV(VBO_ATTRIB_COLOR_INDEX, f);
 }
 
 
@@ -519,20 +519,6 @@ TAG(MultiTexCoord4fv)(GLenum target, const GLfloat * v)
    GET_CURRENT_CONTEXT(ctx);
    GLuint attr = (target & 0x7) + VBO_ATTRIB_TEX0;
    ATTR4FV(attr, v);
-}
-
-
-/**
- * If index=0, does glVertexAttrib*() alias glVertex() to emit a vertex?
- * It depends on a few things, including whether we're inside or outside
- * of glBegin/glEnd.
- */
-static inline bool
-is_vertex_position(const struct gl_context *ctx, GLuint index)
-{
-   return (index == 0 &&
-           _mesa_attr_zero_aliases_vertex(ctx) &&
-           _mesa_inside_begin_end(ctx));
 }
 
 

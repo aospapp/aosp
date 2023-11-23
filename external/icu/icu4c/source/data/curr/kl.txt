@@ -17,5 +17,5 @@ kl{
             other{"euro"}
         }
     }
-    Version{"2.1.45.12"}
+    Version{"36.1"}
 }

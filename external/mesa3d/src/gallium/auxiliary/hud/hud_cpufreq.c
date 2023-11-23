@@ -151,6 +151,7 @@ hud_cpufreq_graph_install(struct hud_pane *pane, int cpu_index,
       snprintf(gr->name, sizeof(gr->name), "%s-Max", cfi->name);
       break;
    default:
+      free(gr);
       return;
    }
 
@@ -207,8 +208,12 @@ hud_get_num_cpufreq(bool displayhelp)
 
    while ((dp = readdir(dir)) != NULL) {
 
-      /* Avoid 'lo' and '..' and '.' */
-      if (strlen(dp->d_name) <= 2)
+      size_t d_name_len = strlen(dp->d_name);
+
+      /* Avoid 'lo' and '..' and '.', and avoid overlong names that
+       * would  result in a buffer overflow in add_object.
+       */
+      if (d_name_len <= 2 || d_name_len > 15)
          continue;
 
       if (sscanf(dp->d_name, "cpu%d\n", &cpu_index) != 1)

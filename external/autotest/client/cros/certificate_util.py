@@ -34,7 +34,7 @@ class PEMCertificate(object):
             temp.write(self._pem_contents)
             temp.flush()
             output = utils.system_output(
-                '%s x509 -noout -%s -in %s' %
+                '%s x509 -noout -nameopt compat -%s -in %s' %
                 (self.OPENSSL_COMMAND, attribute, temp.name))
         # Output is of the form "name=value..."
         return output.split('=', 1)[1]

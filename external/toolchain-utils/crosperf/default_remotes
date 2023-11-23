@@ -1,11 +1,6 @@
-daisy         : chromeos2-row9-rack9-host7.cros
-peach_pit     : chromeos2-row9-rack10-host13.cros chromeos2-row9-rack10-host15.cros chromeos2-row9-rack10-host17.cros
-peppy         : chromeos2-row9-rack10-host19.cros chromeos2-row9-rack10-host21.cros chromeos2-row9-rack9-host1.cros
-squawks       : chromeos2-row9-rack10-host7.cros  chromeos2-row9-rack10-host9.cros  chromeos2-row9-rack10-host11.cros
 elm           : chromeos2-row9-rack8-host19.cros  chromeos2-row9-rack8-host21.cros
 bob           : chromeos2-row9-rack7-host1.cros   chromeos2-row9-rack7-host3.cros
 chell         : chromeos2-row9-rack8-host3.cros   chromeos2-row9-rack8-host5.cros
-falco         : chromeos2-row9-rack8-host13.cros  chromeos2-row9-rack8-host11.cros
 kefka         : chromeos2-row9-rack9-host21.cros  chromeos2-row9-rack8-host1.cros
 lulu          : chromeos2-row9-rack8-host9.cros   chromeos2-row9-rack8-host7.cros
 nautilus      : chromeos2-row9-rack7-host11.cros  chromeos2-row9-rack7-host9.cros

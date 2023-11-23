@@ -116,8 +116,7 @@ public class ShadowViewRootImpl {
           ClassParameter.from(boolean.class, false),
           ClassParameter.from(boolean.class, false),
           ClassParameter.from(int.class, 0));
-
-    } else if (apiLevel >= Build.VERSION_CODES.P) {
+    } else if (apiLevel <= Build.VERSION_CODES.P) {
       ReflectionHelpers.callInstanceMethod(ViewRootImpl.class, component, "dispatchResized",
           ClassParameter.from(Rect.class, frame),
           ClassParameter.from(Rect.class, zeroSizedRect),
@@ -133,7 +132,22 @@ public class ShadowViewRootImpl {
           ClassParameter.from(int.class, 0),
           ClassParameter.from(android.view.DisplayCutout.ParcelableWrapper.class,
               new android.view.DisplayCutout.ParcelableWrapper()));
-
+    } else if (apiLevel >= Build.VERSION_CODES.R) {
+      // BEGIN-INTERNAL
+      ReflectionHelpers.callInstanceMethod(ViewRootImpl.class, component, "dispatchResized",
+              ClassParameter.from(Rect.class, frame),
+              ClassParameter.from(Rect.class, zeroSizedRect),
+              ClassParameter.from(Rect.class, zeroSizedRect),
+              ClassParameter.from(Rect.class, zeroSizedRect),
+              ClassParameter.from(boolean.class, true),
+              ClassParameter.from(MergedConfiguration.class, new MergedConfiguration()),
+              ClassParameter.from(Rect.class, frame),
+              ClassParameter.from(boolean.class, false),
+              ClassParameter.from(boolean.class, false),
+              ClassParameter.from(int.class, 0),
+              ClassParameter.from(android.view.DisplayCutout.ParcelableWrapper.class,
+                      new android.view.DisplayCutout.ParcelableWrapper()));
+      // END-INTERNAL
     } else {
       throw new RuntimeException("Could not find AndroidRuntimeAdapter for API level: " + apiLevel);
     }

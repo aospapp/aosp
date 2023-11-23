@@ -1,9 +1,11 @@
-#!/usr/bin/env python2
-
-# Copyright 2018 The Chromium OS Authors. All rights reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Module of binary serch for perforce."""
+from __future__ import division
 from __future__ import print_function
 
 import math
@@ -25,7 +27,7 @@ def _GetP4ClientSpec(client_name, p4_paths):
     if ' ' not in p4_path:
       p4_string += ' -a %s' % p4_path
     else:
-      p4_string += " -a \"" + (' //' + client_name + '/').join(p4_path) + "\""
+      p4_string += ' -a "' + (' //' + client_name + '/').join(p4_path) + '"'
 
   return p4_string
 
@@ -50,8 +52,8 @@ def GetP4Command(client_name, p4_port, p4_paths, checkoutdir, p4_snapshot=''):
   command += ' && cd ' + checkoutdir
   command += ' && cp ${HOME}/.p4config .'
   command += ' && chmod u+w .p4config'
-  command += " && echo \"P4PORT=" + p4_port + "\" >> .p4config"
-  command += " && echo \"P4CLIENT=" + client_name + "\" >> .p4config"
+  command += ' && echo "P4PORT=' + p4_port + '" >> .p4config'
+  command += ' && echo "P4CLIENT=' + client_name + '" >> .p4config'
   command += (' && g4 client ' + _GetP4ClientSpec(client_name, p4_paths))
   command += ' && g4 sync '
   command += ' && cd -'
@@ -84,7 +86,7 @@ class BinarySearcherForPass(object):
     # For the first run, update self.hi with total pass/transformation count
     if self.hi == 0:
       self.hi = self.total
-    self.current = (self.hi + self.lo) / 2
+    self.current = (self.hi + self.lo) // 2
     message = ('Bisecting between: (%d, %d)' % (self.lo, self.hi))
     self.logger.LogOutput(message, print_to_console=verbose)
     message = ('Current limit number: %d' % self.current)
@@ -100,11 +102,11 @@ class BinarySearcherForPass(object):
     If status == 1, it means that runtime error still happens with current pass/
     transformation, so we need to decrease upper bound for binary search.
 
-    Return:
+    Returns:
       True if we find the bad pass/transformation, or cannot find bad one after
       decreasing to the first pass/transformation. Otherwise False.
     """
-    assert status == 0 or status == 1 or status == 125
+    assert status in (0, 1, 125), status
 
     if self.current == 0:
       message = ('Runtime error occurs before first pass/transformation. '
@@ -145,7 +147,7 @@ class BinarySearcher(object):
       self.logger = logger.GetLogger()
 
   def SetSortedList(self, sorted_list):
-    assert len(sorted_list) > 0
+    assert sorted_list
     self.sorted_list = sorted_list
     self.index_log = []
     self.hi = len(sorted_list) - 1
@@ -159,7 +161,7 @@ class BinarySearcher(object):
     message = ('Revision: %s index: %d returned: %d' %
                (self.sorted_list[self.current], self.current, status))
     self.logger.LogOutput(message, print_to_console=verbose)
-    assert status == 0 or status == 1 or status == 125
+    assert status in (0, 1, 125), status
     self.index_log.append(self.current)
     self.status_log.append(status)
     bsp = BinarySearchPoint(self.sorted_list[self.current], status, tag)
@@ -168,13 +170,13 @@ class BinarySearcher(object):
     if status == 125:
       self.skipped_indices.append(self.current)
 
-    if status == 0 or status == 1:
+    if status in (0, 1):
       if status == 0:
         self.lo = self.current + 1
       elif status == 1:
         self.hi = self.current
       self.logger.LogOutput('lo: %d hi: %d\n' % (self.lo, self.hi))
-      self.current = (self.lo + self.hi) / 2
+      self.current = (self.lo + self.hi) // 2
 
     if self.lo == self.hi:
       message = ('Search complete. First bad version: %s'
@@ -194,19 +196,19 @@ class BinarySearcher(object):
   def GetNextFlakyBinary(self):
     t = (self.lo, self.current, self.hi)
     q = [t]
-    while len(q):
+    while q:
       element = q.pop(0)
       if element[1] in self.skipped_indices:
         # Go top
-        to_add = (element[0], (element[0] + element[1]) / 2, element[1])
+        to_add = (element[0], (element[0] + element[1]) // 2, element[1])
         q.append(to_add)
         # Go bottom
-        to_add = (element[1], (element[1] + element[2]) / 2, element[2])
+        to_add = (element[1], (element[1] + element[2]) // 2, element[2])
         q.append(to_add)
       else:
         self.current = element[1]
         return
-    assert len(q), 'Queue should never be 0-size!'
+    assert q, 'Queue should never be 0-size!'
 
   def GetNextFlakyLinear(self):
     current_hi = self.current
@@ -225,7 +227,7 @@ class BinarySearcher(object):
       current_lo -= 1
 
   def GetNext(self):
-    self.current = (self.hi + self.lo) / 2
+    self.current = (self.hi + self.lo) // 2
     # Try going forward if current is skipped.
     if self.current in self.skipped_indices:
       self.GetNextFlakyBinary()
@@ -295,7 +297,7 @@ class VCSBinarySearcher(object):
   def GetNextRevision(self):
     pass
 
-  def CheckoutRevision(self, revision):
+  def CheckoutRevision(self, current_revision):
     pass
 
   def SetStatus(self, status):
@@ -362,14 +364,14 @@ class P4BinarySearcher(VCSBinarySearcher):
     if not os.path.isfile(self.checkout_dir + '/.p4config'):
       command = 'cd %s' % self.checkout_dir
       command += ' && cp ${HOME}/.p4config .'
-      command += " && echo \"P4PORT=" + self.p4_port + "\" >> .p4config"
-      command += " && echo \"P4CLIENT=" + self.client_name + "\" >> .p4config"
+      command += ' && echo "P4PORT=' + self.p4_port + '" >> .p4config'
+      command += ' && echo "P4CLIENT=' + self.client_name + '" >> .p4config'
       self.ce.RunCommand(command)
     command = 'cd %s' % self.checkout_dir
     command += '; g4 changes -c %s' % self.client_name
     _, out, _ = self.ce.RunCommandWOUTPUOT(command)
     changes = re.findall(r'Change (\d+)', out)
-    if len(changes) != 0:
+    if changes:
       command = 'cd %s' % self.checkout_dir
       for change in changes:
         command += '; g4 revert -c %s' % change
@@ -413,9 +415,8 @@ class P4GCCBinarySearcher(P4BinarySearcher):
     for pr in problematic_ranges:
       if cr in range(pr[0], pr[1]):
         patch_file = '/home/asharif/triage_tool/%d-%d.patch' % (pr[0], pr[1])
-        f = open(patch_file)
-        patch = f.read()
-        f.close()
+        with open(patch_file, encoding='utf-8') as f:
+          patch = f.read()
         files = re.findall('--- (//.*)', patch)
         command += '; cd %s' % self.checkout_dir
         for f in files:
@@ -505,7 +506,7 @@ def Main(argv):
     logger.GetLogger().LogOutput('Cleaning up...')
   finally:
     logger.GetLogger().LogOutput(str(p4gccbs.bs), print_to_console=verbose)
-    status = p4gccbs.Cleanup()
+    p4gccbs.Cleanup()
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ import json
 import logging
 
 from autotest_lib.client.bin.input import input_event_recorder
+from autotest_lib.client.cros.input_playback import input_playback
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.graphics import graphics_utils
 
@@ -25,6 +26,15 @@ class InputFacadeNative(object):
         """Initializes the input facade."""
         self.recorder = None
 
+    def initialize_input_playback(self, input_type='keyboard', property_file=None):
+        """Initialize for input events simulation.
+
+        @param input_type: the name of the input device.
+        @param property_file: Property file of device to be emulated.
+        """
+        self._player = input_playback.InputPlayback()
+        self._player.emulate(input_type=input_type, property_file=property_file)
+        self._player.find_connected_inputs()
 
     def initialize_input_recorder(self, device_name):
         """Initialize an input event recorder object.
@@ -76,3 +86,13 @@ class InputFacadeNative(object):
         @param key_list: A list of key strings, e.g. ['LEFTCTRL', 'F4']
         """
         graphics_utils.press_keys(key_list)
+
+
+    def blocking_playback_of_default_file(self, input_type, filename):
+        """Simulate events
+
+        @param input_type: input device name
+        @param filename: input events
+        """
+        self._player.blocking_playback_of_default_file(input_type=input_type,
+                                                       filename=filename)

@@ -61,7 +61,7 @@ class power_Backlight(test.test):
             for _ in range(tries):
                 time.sleep(seconds)
                 status.refresh()
-                this_rate.append(status.battery[0].energy_rate)
+                this_rate.append(status.battery.energy_rate)
             rate = min(this_rate)
             keyvals['w_bl_%d_rate' % i] = rate
             rates.append(rate)

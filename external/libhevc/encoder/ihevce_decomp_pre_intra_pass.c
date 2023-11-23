@@ -65,6 +65,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <math.h>
 #include <limits.h>
 
@@ -120,38 +121,15 @@
 #include "ihevce_global_tables.h"
 
 /*****************************************************************************/
-/* Typedefs                                                                  */
-/*****************************************************************************/
-typedef void (*pf_ed_calc_ctb)(
-    ihevce_ed_ctxt_t *ps_ed_ctxt,
-    ihevce_ed_blk_t *ps_ed_ctb,
-    ihevce_ed_ctb_l1_t *ps_ed_ctb_l1,
-    UWORD8 *pu1_src,
-    WORD32 src_stride,
-    WORD32 num_4x4_blks_x,
-    WORD32 num_4x4_blks_y,
-    WORD32 *nbr_flags,
-    WORD32 i4_layer_id,
-    WORD32 row_block_no,
-    WORD32 col_block_no,
-    ihevce_ipe_optimised_function_list_t *ps_ipe_optimised_function_list,
-    ihevce_cmn_opt_func_t *ps_cmn_utils_optimised_function_list);
-
-/*****************************************************************************/
-/* Constant Macros                                                           */
-/*****************************************************************************/
-#define SATD_NOISE_FLOOR_THRESHOLD 16
-#define MINIMUM_VARIANCE 15
-#define SCALE_FACTOR_VARIANCE 20
-#define SCALE_FACTOR_VARIANCE_8x8 60
-#define MIN_SATD_THRSHLD 0
-#define MAX_SATD_THRSHLD 64
-#define SUB_NOISE_THRSHLD 0
-#define MIN_BLKS 2
-
-/*****************************************************************************/
 /* Global variables                                                          */
 /*****************************************************************************/
+
+/**
+*****************************************************************************
+* @brief subset of intra modes to be evaluated during pre enc intra process
+*****************************************************************************
+*/
+static const UWORD8 gau1_modes_to_eval[11] = { 0, 1, 26, 2, 6, 10, 14, 18, 22, 30, 34 };
 
 /**
 *****************************************************************************
@@ -173,24 +151,12 @@ pf_intra_pred g_apf_lum_ip[NUM_IP_FUNCS];
 *
 *****************************************************************************
 */
-void ihevce_intra_populate_mode_bits_cost(
-    WORD32 top_intra_mode,
-    WORD32 left_intra_mode,
-    WORD32 available_top,
-    WORD32 available_left,
-    WORD32 cu_pos_y,
-    UWORD16 *mode_bits_cost,
-    WORD32 lambda)
+static void ihevce_intra_populate_mode_bits_cost(UWORD16 *mode_bits_cost, WORD32 lambda)
 {
     WORD32 i;
     // 5.5 * lambda
     UWORD16 five_bits_cost = COMPUTE_RATE_COST_CLIP30(11, lambda, (LAMBDA_Q_SHIFT + 1));
 
-    (void)top_intra_mode;
-    (void)left_intra_mode;
-    (void)available_top;
-    (void)available_left;
-    (void)cu_pos_y;
     for(i = 0; i < NUM_MODES; i++)
     {
         mode_bits_cost[i] = five_bits_cost;
@@ -205,8 +171,7 @@ void ihevce_intra_populate_mode_bits_cost(
 *
 *****************************************************************************
 */
-UWORD16
-    ihevce_8x8_sad_computer(UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 src_strd, WORD32 pred_strd)
+UWORD16 ihevce_8x8_sad_computer(UWORD8 *src, UWORD8 *pred, WORD32 src_strd, WORD32 pred_strd)
 {
     UWORD16 sad = 0;
     WORD32 i, j;
@@ -215,12 +180,10 @@ UWORD16
     {
         for(j = 0; j < 8; j++)
         {
-            sad += ABS(*pu1_src - *pu1_pred);
-            pu1_src++;
-            pu1_pred++;
+            sad += ABS(src[j] - pred[j]);
         }
-        pu1_src = pu1_src + (src_strd - 8);
-        pu1_pred = pu1_pred + (pred_strd - 8);
+        src += src_strd;
+        pred += pred_strd;
     }
 
     return sad;
@@ -234,8 +197,7 @@ UWORD16
 *
 *****************************************************************************
 */
-UWORD16
-    ihevce_4x4_sad_computer(UWORD8 *pu1_src, UWORD8 *pu1_pred, WORD32 src_strd, WORD32 pred_strd)
+UWORD16 ihevce_4x4_sad_computer(UWORD8 *src, UWORD8 *pred, WORD32 src_strd, WORD32 pred_strd)
 {
     UWORD16 sad = 0;
     WORD32 i, j;
@@ -244,12 +206,10 @@ UWORD16
     {
         for(j = 0; j < 4; j++)
         {
-            sad += ABS(*pu1_src - *pu1_pred);
-            pu1_src++;
-            pu1_pred++;
+            sad += ABS(src[j] - pred[j]);
         }
-        pu1_src = pu1_src + (src_strd - 4);
-        pu1_pred = pu1_pred + (pred_strd - 4);
+        src += src_strd;
+        pred += pred_strd;
     }
 
     return sad;
@@ -259,8 +219,8 @@ UWORD16
 ******************************************************************************
 * \if Function name : ihevce_ed_4x4_find_best_modes \endif
 *
-* \brief: evaluate input 4x4 block for pre-selected list of angular and normal
-*  intra modes and return best sad, cost
+* \brief: evaluate input 4x4 block for pre-selected list intra modes and
+* return best sad, cost
 *
 *****************************************************************************
 */
@@ -294,9 +254,8 @@ void ihevce_ed_4x4_find_best_modes(
     {
         mode = gau1_modes_to_eval[i];
         g_apf_lum_ip[g_i4_ip_funcs[mode]](&ref[0], 0, &pred[0], 4, 4, mode);
-        sad = pf_4x4_sad_computer(pu1_src, &pred[0], src_stride, 4);
-        sad_cost = sad;
-        sad_cost += mode_bits_cost[mode];
+        sad = pf_4x4_sad_computer(pu1_src, pred, src_stride, 4);
+        sad_cost = sad + mode_bits_cost[mode];
         if(mode < 2)
         {
             if(sad_cost < best_nsad_cost)
@@ -318,7 +277,6 @@ void ihevce_ed_4x4_find_best_modes(
     pu1_best_modes[0] = best_amode;
     pu1_best_sad_costs[0] = best_asad_cost;
 
-    /* Accumalate the best non-angular mode and cost for the l1 and l2 layers */
     if(1 == u1_low_resol)
     {
         pu1_best_modes[1] = best_nmode;
@@ -341,7 +299,6 @@ static void ihevce_ed_calc_4x4_blk(
     WORD32 src_stride,
     UWORD8 *ref,
     UWORD16 *mode_bits_cost,
-    WORD32 *sad_ptr,
     WORD32 *pi4_best_satd,
     WORD32 i4_quality_preset,
     WORD32 *pi4_best_sad_cost,
@@ -350,27 +307,16 @@ static void ihevce_ed_calc_4x4_blk(
     WORD32 i, i_end;
     UWORD8 mode, best_amode, best_nmode;
     UWORD8 pred[16];
-
     UWORD16 sad;
     WORD32 sad_cost = 0;
     WORD32 best_asad_cost = 0xFFFFF;
     WORD32 best_nsad_cost = 0xFFFFF;
-
     UWORD8 au1_best_modes[2];
     WORD32 ai4_best_sad_costs[2];
-
     /* L1/L2 resolution hence low resolution enable */
-    WORD32 u1_low_resol = 1;
-
+    const WORD32 u1_low_resol = 1;
     UWORD8 modes_to_eval[2];
 
-    /* The *pi4_best_satd will be consumed only if current
-    layer has odd number of 4x4 blocks in either x or y
-    direction. But the function hme_derive_num_layers() makes
-    sure that every layer has width and height such that each one
-    is a multiple of 16. Which makes pi4_best_satd useless. Hence
-    feel free to remove pi4_best_satd. Concluded on 29th Aug13 */
-    *pi4_best_satd = -1;
     ps_ipe_optimised_function_list->pf_ed_4x4_find_best_modes(
         pu1_src,
         src_stride,
@@ -385,10 +331,6 @@ static void ihevce_ed_calc_4x4_blk(
     best_amode = au1_best_modes[0];
     best_nsad_cost = ai4_best_sad_costs[1];
     best_asad_cost = ai4_best_sad_costs[0];
-
-    /* Updation of pi4_best_satd here needed iff the mode given by
-    ihevce_ed_4x4_find_best_modes() comes out to be
-    the best mode at the end of the function */
     *pi4_best_satd = best_asad_cost - mode_bits_cost[best_amode];
 
     /* Around best level 4 angular mode, search for best level 2 mode */
@@ -404,20 +346,17 @@ static void ihevce_ed_calc_4x4_blk(
     {
         mode = modes_to_eval[i];
         g_apf_lum_ip[g_i4_ip_funcs[mode]](&ref[0], 0, &pred[0], 4, 4, mode);
-        sad = ps_ipe_optimised_function_list->pf_4x4_sad_computer(pu1_src, &pred[0], src_stride, 4);
-        sad_cost = sad;
-        sad_cost += mode_bits_cost[mode];
+        sad = ps_ipe_optimised_function_list->pf_4x4_sad_computer(pu1_src, pred, src_stride, 4);
+        sad_cost = sad + mode_bits_cost[mode];
         if(sad_cost < best_asad_cost)
         {
             best_amode = mode;
             best_asad_cost = sad_cost;
             *pi4_best_satd = sad;
         }
-        sad_ptr[mode] = sad;
     }
 
-    /*To be done : Add a flag here instead of preset condn*/
-    if((i4_quality_preset < IHEVCE_QUALITY_P4))
+    if(i4_quality_preset < IHEVCE_QUALITY_P4)
     {
         /* Around best level 2 angular mode, search for best level 1 mode */
         modes_to_eval[0] = best_amode - 1;
@@ -432,17 +371,14 @@ static void ihevce_ed_calc_4x4_blk(
         {
             mode = modes_to_eval[i];
             g_apf_lum_ip[g_i4_ip_funcs[mode]](&ref[0], 0, &pred[0], 4, 4, mode);
-            sad = ps_ipe_optimised_function_list->pf_4x4_sad_computer(
-                pu1_src, &pred[0], src_stride, 4);
-            sad_cost = sad;
-            sad_cost += mode_bits_cost[mode];
+            sad = ps_ipe_optimised_function_list->pf_4x4_sad_computer(pu1_src, pred, src_stride, 4);
+            sad_cost = sad + mode_bits_cost[mode];
             if(sad_cost < best_asad_cost)
             {
                 best_amode = mode;
                 best_asad_cost = sad_cost;
                 *pi4_best_satd = sad;
             }
-            sad_ptr[mode] = sad;
         }
     }
 
@@ -476,903 +412,303 @@ static void ihevce_ed_calc_8x8_blk(
     UWORD8 *pu1_src,
     WORD32 src_stride,
     WORD32 *nbr_flags_ptr,
-    WORD32 *top_intra_mode_ptr,
-    WORD32 *left_intra_mode_ptr,
-    WORD32 cu_pos_y,
     WORD32 lambda,
-    WORD32 *sad_ptr_8x8,
     WORD32 *pi4_best_satd,
     WORD32 i4_layer_id,
     WORD32 i4_quality_preset,
-    WORD32 i4_slice_type,
     WORD32 *pi4_best_sad_cost_8x8_l1_ipe,
     WORD32 *pi4_best_sad_8x8_l1_ipe,
-    WORD32 *pi4_sum_4x4_satd,
-    WORD32 *pi4_min_4x4_satd,
     ihevce_ipe_optimised_function_list_t *ps_ipe_optimised_function_list,
     ihevce_cmn_opt_func_t *ps_cmn_utils_optimised_function_list)
 {
-    WORD32 i, j;
-    WORD32 nbr_flags, nbr_flags_TR;
-    UWORD8 *pu1_src_4x4;
-    WORD32 top_available;
-    WORD32 left_available;
     ihevce_ed_blk_t *ps_ed_4x4 = ps_ed_8x8;
-    WORD32 top_intra_mode;
-    WORD32 left_intra_mode;
-    WORD32 next_left_intra_mode;
-    WORD32 *sad_ptr = sad_ptr_8x8;
     UWORD8 *pu1_src_arr[4];
-    WORD32 i4_4x4_best_sad_cost[4];
+    WORD32 ai4_4x4_best_sad_cost[4];
+    WORD32 nbr_flags_c, nbr_flags_r;
+    UWORD8 *pu1_src_4x4;
+    WORD32 i, j;
     func_selector_t *ps_func_selector = ps_ed_ctxt->ps_func_selector;
     ihevc_intra_pred_luma_ref_substitution_ft *pf_intra_pred_luma_ref_substitution =
         ps_func_selector->ihevc_intra_pred_luma_ref_substitution_fptr;
 
-    (void)i4_slice_type;
-
-    /* Compute ref samples for 8x8 merge block */
-    nbr_flags = nbr_flags_ptr[0];
-    nbr_flags_TR = nbr_flags_ptr[1];
-
-    if(CHECK_TR_AVAILABLE(nbr_flags_TR))
+    /* linearize ref samples for ipe of 8x8 block */
+    nbr_flags_c = nbr_flags_ptr[0];
+    nbr_flags_r = nbr_flags_ptr[1];
+    if(CHECK_TR_AVAILABLE(nbr_flags_r))
     {
-        SET_TR_AVAILABLE(nbr_flags);
+        SET_TR_AVAILABLE(nbr_flags_c);
     }
     else
     {
-        SET_TR_UNAVAILABLE(nbr_flags);
+        SET_TR_UNAVAILABLE(nbr_flags_c);
     }
 
-    if(CHECK_BL_AVAILABLE(nbr_flags))
-    {
-        SET_BL_AVAILABLE(nbr_flags);
-    }
-    else
-    {
-        SET_BL_UNAVAILABLE(nbr_flags);
-    }
-
-    /* call the function which populates ref data for intra predicion */
     pf_intra_pred_luma_ref_substitution(
         pu1_src - src_stride - 1,
         pu1_src - src_stride,
         pu1_src - 1,
         src_stride,
         8,
-        nbr_flags,
+        nbr_flags_c,
         &ps_ed_ctxt->au1_ref_8x8[0][0],
         0);
 
     for(i = 0; i < 2; i++)
     {
         pu1_src_4x4 = pu1_src + i * 4 * src_stride;
-        cu_pos_y += i * 4;
-        next_left_intra_mode = left_intra_mode_ptr[i];
         for(j = 0; j < 2; j++)
         {
             WORD32 i4_best_satd;
+
             pu1_src_arr[i * 2 + j] = pu1_src_4x4;
-            nbr_flags = nbr_flags_ptr[i * 8 + j];
-            top_intra_mode = top_intra_mode_ptr[j];
-            left_intra_mode = next_left_intra_mode;
-            /* call the function which populates ref data for intra predicion */
+            nbr_flags_c = nbr_flags_ptr[i * 8 + j];
+
+            /* linearize ref samples for ipe of 4x4 block */
             pf_intra_pred_luma_ref_substitution(
                 pu1_src_4x4 - src_stride - 1,
                 pu1_src_4x4 - src_stride,
                 pu1_src_4x4 - 1,
                 src_stride,
                 4,
-                nbr_flags,
+                nbr_flags_c,
                 &ps_ed_ctxt->au1_ref_full_ctb[i * 2 + j][0],
                 0);
 
-            top_available = CHECK_T_AVAILABLE(nbr_flags);
-            left_available = CHECK_L_AVAILABLE(nbr_flags);
-            /* call the function which populates sad cost for all the modes */
+            /* populates mode bits cost */
             ihevce_intra_populate_mode_bits_cost(
-                top_intra_mode,
-                left_intra_mode,
-                top_available,
-                left_available,
-                cu_pos_y,
-                &ps_ed_ctxt->au2_mode_bits_cost_full_ctb[i * 2 + j][0],
-                lambda);
+                &ps_ed_ctxt->au2_mode_bits_cost_full_ctb[i * 2 + j][0], lambda);
+
             ihevce_ed_calc_4x4_blk(
                 ps_ed_4x4,
                 pu1_src_4x4,
                 src_stride,
                 &ps_ed_ctxt->au1_ref_full_ctb[i * 2 + j][0],
                 &ps_ed_ctxt->au2_mode_bits_cost_full_ctb[i * 2 + j][0],
-                sad_ptr,
                 &i4_best_satd,
                 i4_quality_preset,
-                &i4_4x4_best_sad_cost[i * 2 + j],
+                &ai4_4x4_best_sad_cost[i * 2 + j],
                 ps_ipe_optimised_function_list);
 
-            top_intra_mode_ptr[j] = ps_ed_4x4->best_mode;
-            next_left_intra_mode = ps_ed_4x4->best_mode;
             pu1_src_4x4 += 4;
             ps_ed_4x4 += 1;
-            sad_ptr += NUM_MODES;
         }
-        left_intra_mode_ptr[i] = next_left_intra_mode;
     }
 
     /* 8x8 merge */
     {
-        UWORD8 modes_to_eval[6];
-        WORD32 sad;
-        UWORD8 pred[16];
-        UWORD8 pred_8x8[64] = { 0 };
+        UWORD8 pred[64];
         WORD32 merge_success;
+        WORD32 sad, satd, cost;
+        UWORD16 u2_sum_best_4x4_sad_cost = 0;
+        UWORD16 u2_sum_best_4x4_satd_cost = 0;
+        WORD32 i4_best_8x8_sad, i4_best_8x8_satd = 0;
+        UWORD16 u2_best_8x8_cost = (UWORD16)(-1);
+        UWORD8 u1_best_8x8_mode;
+        UWORD8 modes_to_eval[6];
+        UWORD8 u1_cond_4x4_satd;
         UWORD8 mode;
 
+        /* init */
         ps_ed_4x4 = ps_ed_8x8;
-        mode = (ps_ed_4x4)->best_mode;
-
-        *pi4_best_satd = -1;
-
+        u1_best_8x8_mode = mode = ps_ed_4x4[0].best_mode;
         merge_success =
-            ((((ps_ed_4x4)->best_mode == (ps_ed_4x4 + 1)->best_mode) +
-              ((ps_ed_4x4)->best_mode == (ps_ed_4x4 + 2)->best_mode) +
-              ((ps_ed_4x4)->best_mode == (ps_ed_4x4 + 3)->best_mode)) == 3);
+            (((ps_ed_4x4[0].best_mode == ps_ed_4x4[1].best_mode) +
+              (ps_ed_4x4[0].best_mode == ps_ed_4x4[2].best_mode) +
+              (ps_ed_4x4[0].best_mode == ps_ed_4x4[3].best_mode)) == 3);
+        *pi4_best_satd = 0;
 
+        for(i = 0; i < 4; i++)
         {
-            WORD32 i4_satd;
-            //UWORD16 au2_4x4_sad_cost_array[4];/*SAD of 4x4 blocks*/
-            UWORD16 u2_sum_best_4x4_sad_cost; /*Sum of 4x4 sad costs*/
-            UWORD16 u2_sum_best_4x4_satd_cost; /*Sum of 4x4 satd costs*/
-            UWORD8 u1_best_8x8_mode; /*8x8 mode.*/
-            UWORD16 u2_best_8x8_cost; /*8x8 Cost. Can store SATD/SAD cost*/
-            WORD32 i4_best_8x8_sad_satd; /* SATD/SAD value of 8x8 block*/
-            UWORD16 au2_8x8_costs[6] = { 0 }; /*Cost of 8x8 block for 6 modes*/
-            UWORD8 u1_cond_4x4_satd; /*condition if 4x4 SATD needs to be done*/
-            UWORD8 u1_cond_8x8_satd; /*condition if 8x8 SATD needs to be done*/
-            UWORD8 u1_good_quality;
-            WORD32 i4_merge_success_stage2;
+            u2_sum_best_4x4_sad_cost += ai4_4x4_best_sad_cost[i];
+            modes_to_eval[i] = ps_ed_4x4[i].best_mode;
+        }
 
-            /*Initiallization*/
-            *pi4_best_satd = 0;
-            u2_best_8x8_cost = (UWORD16)(-1) /*max value*/;
-            u2_sum_best_4x4_sad_cost = 0;
-            *pi4_sum_4x4_satd = -1;
-            *pi4_min_4x4_satd = 0x7FFFFFFF;
-            i4_best_8x8_sad_satd = 0;
-            u2_sum_best_4x4_satd_cost = 0;
-            u1_best_8x8_mode = ps_ed_4x4->best_mode;
-
-            /*We thought of "replacing" SATDs by SADs for 4x4 vs 8x8 decision
-            for speed improvement, but it gave opposite results. Setting
-            good_quality to 1 in order to throw away the idea of "replacing".*/
-            u1_good_quality = 1;
-            //u1_good_quality = ((i4_quality_preset != IHEVCE_QUALITY_P5)
-            //  && (i4_quality_preset != IHEVCE_QUALITY_P4));
-
-            /*Needed to disable some processing based on speed preset*/
-            i4_merge_success_stage2 = 0;
-
-            /*Store SAD cost of 4x4 blocks */
+        u1_cond_4x4_satd = ((1 == i4_layer_id) || (!merge_success && i4_quality_preset < IHEVCE_QUALITY_P4));
+        if(u1_cond_4x4_satd)
+        {
+            /* Get SATD for 4x4 blocks */
             for(i = 0; i < 4; i++)
             {
-                //au2_4x4_sad_cost_array[i] = (ps_ed_4x4 + i)->best_sad_cost;
-                u2_sum_best_4x4_sad_cost +=
-                    i4_4x4_best_sad_cost[i];  //(ps_ed_4x4 + i)->best_sad_cost;
-                modes_to_eval[i] = (ps_ed_4x4 + i)->best_mode;
-                /*NOTE_01: i4_4x4_satd is not used anywhere at present.
-                Setting it to zero to avoid ASSERT failure */
-                /*Now taken care of incomplete CTB*/
-                //(ps_ed_4x4 + i)->i4_4x4_satd = 0;
+                mode = modes_to_eval[i];
+                g_apf_lum_ip[g_i4_ip_funcs[mode]](
+                    &ps_ed_ctxt->au1_ref_full_ctb[i][0], 0, &pred[0], 4, 4, mode);
+
+                satd = ps_cmn_utils_optimised_function_list->pf_HAD_4x4_8bit(
+                    pu1_src_arr[i], src_stride, &pred[0], 4, NULL, 0);
+
+                (ps_ed_4x4 + i)->i4_4x4_satd = satd;
+
+                u2_sum_best_4x4_satd_cost +=
+                    (satd + ps_ed_ctxt->au2_mode_bits_cost_full_ctb[i][mode]);
+                *pi4_best_satd += satd;
+            }
+        }
+
+        if(!merge_success)
+        {
+            UWORD8 i1_start; /* no of modes to evaluate */
+            UWORD8 ai1_modes[6];
+            WORD32 i4_merge_success_stage2 = 0;
+
+            /* Prepare 6 candidates for 8x8 block. Two are DC and planar */
+            ai1_modes[4] = 0;
+            ai1_modes[5] = 1;
+            i1_start = 4;
+
+            /* Assign along with removing duplicates rest 4 candidates. */
+            for(i = 3; i >= 0; i--)
+            {
+                WORD8 i1_fresh_mode_flag = 1;
+
+                mode = modes_to_eval[i];
+                /* Check if duplicate already exists in ai1_modes */
+                for(j = i1_start; j < 6; j++)
+                {
+                    if(mode == ai1_modes[j])
+                        i1_fresh_mode_flag = 0;
+                }
+                if(i1_fresh_mode_flag)
+                {
+                    i1_start--;
+                    ai1_modes[i1_start] = mode;
+                }
             }
 
-            /*Calculate SATD/SAd for 4x4 blocks*/
-            /*For (layer_2 && high_speed): No need to get 4x4 SATDs bcoz
-            it won't have any impact on quality but speed will improve.*/
-            u1_cond_4x4_satd = ((1 == i4_layer_id) || (u1_good_quality && (!merge_success)));
-
-            if(u1_cond_4x4_satd)
+            if(i4_quality_preset < IHEVCE_QUALITY_P4)
             {
-                *pi4_sum_4x4_satd = 0;
-                /*FYI: 1. Level 2 doesn't need the SATD.
-                2. The 4x4 vs. 8x8 decision for high_speed will
-                happen based on SAD. */
-                /*Get SATD for 4x4 blocks */
-                for(i = 0; i < 4; i++)
+                // 7.5 * lambda to incorporate transform flags
+                u2_sum_best_4x4_satd_cost +=
+                    (COMPUTE_RATE_COST_CLIP30(12, lambda, (LAMBDA_Q_SHIFT + 1)));
+
+                /* loop over all modes for calculating SATD */
+                for(i = i1_start; i < 6; i++)
                 {
-                    mode = modes_to_eval[i];
+                    mode = ai1_modes[i];
                     g_apf_lum_ip[g_i4_ip_funcs[mode]](
-                        &ps_ed_ctxt->au1_ref_full_ctb[i][0], 0, &pred[0], 4, 4, mode);
+                        &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred[0], 8, 8, mode);
 
-                    i4_satd = ps_cmn_utils_optimised_function_list->pf_HAD_4x4_8bit(
-                        pu1_src_arr[i], src_stride, &pred[0], 4, NULL, 0);
+                    satd = ps_cmn_utils_optimised_function_list->pf_HAD_8x8_8bit(
+                        pu1_src_arr[0], src_stride, &pred[0], 8, NULL, 0);
 
+                    cost = satd + ps_ed_ctxt->au2_mode_bits_cost_full_ctb[0][mode];
+
+                    /* Update data corresponding to least 8x8 cost */
+                    if(cost <= u2_best_8x8_cost)
                     {
-                        /*Save 4x4x satd in ed blk struct */
-                        (ps_ed_4x4 + i)->i4_4x4_satd = i4_satd;
+                        u2_best_8x8_cost = cost;
+                        i4_best_8x8_satd = satd;
+                        u1_best_8x8_mode = mode;
                     }
-
-                    /*(ps_ed_4x4 + i)->i4_4x4_satd = i4_satd; // See NOTE_01*/
-                    u2_sum_best_4x4_satd_cost +=
-                        ((UWORD16)i4_satd + ps_ed_ctxt->au2_mode_bits_cost_full_ctb[i][mode]);
-                    *pi4_best_satd += i4_satd;
                 }
-            }
-            /* Not being used in current code */
-            else /* (Level_2 && extreme_speed) */
-            {
-                /******DONT ENTER HERE AT aNY COST***************************/
-                /* Transistor killers lie ahead!!!!!!! */
-                /*This else part is not getting executed as of now*/
-                if(2 != i4_layer_id)
-                    ASSERT(0);
-                /*Update values by SAD_cost_array */
-                for(i = 0; i < 4; i++)
+
+                /* 8x8 vs 4x4 decision based on SATD values */
+                if((u2_best_8x8_cost <= u2_sum_best_4x4_satd_cost) || (u2_best_8x8_cost <= 300))
                 {
-                    mode = modes_to_eval[i];
-                    //u2_sum_best_4x4_satd_cost += au2_4x4_sad_cost_array[i];
-                    //sad = (WORD32)((ps_ed_4x4 + i)->best_sad_cost - ps_ed_ctxt->au2_mode_bits_cost_full_ctb[i][mode]);
-                    sad = (WORD32)(
-                        i4_4x4_best_sad_cost[i] - ps_ed_ctxt->au2_mode_bits_cost_full_ctb[i][mode]);
-                    *pi4_sum_4x4_satd += sad;
-                    /*(ps_ed_4x4 + i)->i4_4x4_satd = sad;// See NOTE_01*/
-                    *pi4_best_satd += sad;
-
-                    if(*pi4_min_4x4_satd > sad)
-                        *pi4_min_4x4_satd = sad;
-                }
-            }
-            if(!merge_success) /*If the modes are not identical*/
-            {
-                UWORD8 i1_start; /* no of modes to evaluate */
-                UWORD8 ai1_modes[6];
-
-                /* Prepare 6 candidates for 8x8 block. Two are DC and planar */
-                ai1_modes[4] = 0;
-                ai1_modes[5] = 1;
-                i1_start = 4;
-
-                /*Assign along with removing duplicates rest 4 candidates. */
-                for(i = 3; i >= 0; i--)
-                {
-                    WORD8 i1_fresh_mode_flag = 1;
-                    mode = modes_to_eval[i];
-                    /*Check if duplicate already exists in ai1_modes*/
-                    for(j = i1_start; j < 6; j++)
-                    {
-                        if(mode == ai1_modes[j])
-                            i1_fresh_mode_flag = 0;
-                    }
-                    if(i1_fresh_mode_flag)
-                    {
-                        i1_start--;
-                        ai1_modes[i1_start] = mode;
-                    }
+                    i4_merge_success_stage2 = 1;
                 }
 
-                /*Calculate SATD/SAD of 8x8 block for all modes*/
-                /*If (u1_good_quality == 0) then SATD gets replaced by SAD*/
-                if(u1_good_quality && (i4_quality_preset <= IHEVCE_QUALITY_P4))
-                {
-                    //7.5 * lambda to incorporate transfrom flags
-                    u2_sum_best_4x4_satd_cost +=
-                        (COMPUTE_RATE_COST_CLIP30(12, lambda, (LAMBDA_Q_SHIFT + 1)));
-
-                    /*Loop over all modes for calculating SATD*/
-                    for(i = i1_start; i < 6; i++)
-                    {
-                        mode = ai1_modes[i];
-                        g_apf_lum_ip[g_i4_ip_funcs[mode]](
-                            &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred_8x8[0], 8, 8, mode);
-
-                        i4_satd = ps_cmn_utils_optimised_function_list->pf_HAD_8x8_8bit(
-                            pu1_src_arr[0], src_stride, &pred_8x8[0], 8, NULL, 0);
-
-                        au2_8x8_costs[i] =
-                            ((UWORD16)i4_satd + ps_ed_ctxt->au2_mode_bits_cost_full_ctb[0][mode]);
-
-                        /*Update data correspoinding to least 8x8 cost */
-                        if(au2_8x8_costs[i] <= u2_best_8x8_cost)
-                        {
-                            u2_best_8x8_cost = au2_8x8_costs[i];
-                            i4_best_8x8_sad_satd = i4_satd;
-                            u1_best_8x8_mode = mode;
-                        }
-                    }
-                    /*8x8 vs 4x4 decision based on SATD values*/
-                    if((u2_best_8x8_cost <= u2_sum_best_4x4_satd_cost) || (u2_best_8x8_cost <= 300))
-                    {
-                        i4_merge_success_stage2 = 1;
-                    }
-
-                    /* EIID: Early inter-intra decision */
-                    /* Find the SAD based cost for 8x8 block for best mode */
-                    if(/*(ISLICE != i4_slice_type) && */ (1 == i4_layer_id))
-                    {
-                        UWORD8 i4_best_8x8_mode = u1_best_8x8_mode;
-                        WORD32 i4_best_8x8_sad_curr;
-
-                        g_apf_lum_ip[g_i4_ip_funcs[i4_best_8x8_mode]](
-                            &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred_8x8[0], 8, 8, i4_best_8x8_mode);
-
-                        i4_best_8x8_sad_curr = ps_ipe_optimised_function_list->pf_8x8_sad_computer(
-                            pu1_src_arr[0], &pred_8x8[0], src_stride, 8);
-
-                        //register best sad in the context
-                        //ps_ed_8x8->i4_best_sad_8x8_l1_ipe = i4_best_8x8_sad_curr;
-
-                        //register the best cost in the context
-                        //[0]th index is used since all 4 blocks are having same cost right now
-                        //also it doesnt depends on mode. It only depends on the lambda
-
-                        *pi4_best_sad_cost_8x8_l1_ipe =
-                            i4_best_8x8_sad_curr +
-                            ps_ed_ctxt->au2_mode_bits_cost_full_ctb[0][i4_best_8x8_mode];
-                        *pi4_best_sad_8x8_l1_ipe = i4_best_8x8_sad_curr;
-                    }
-                }
-                else /*If high_speed or extreme speed*/
-                {
-                    //7.5 * lambda to incorporate transfrom flags
-                    u2_sum_best_4x4_sad_cost +=
-                        (COMPUTE_RATE_COST_CLIP30(12, lambda, (LAMBDA_Q_SHIFT + 1)));
-
-                    /*Loop over all modes for calculating SAD*/
-                    for(i = i1_start; i < 6; i++)
-                    {
-                        mode = ai1_modes[i];
-                        g_apf_lum_ip[g_i4_ip_funcs[mode]](
-                            &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred_8x8[0], 8, 8, mode);
-
-                        sad = ps_ipe_optimised_function_list->pf_8x8_sad_computer(
-                            pu1_src_arr[0], &pred_8x8[0], src_stride, 8);
-
-                        au2_8x8_costs[i] +=
-                            ((UWORD16)sad + ps_ed_ctxt->au2_mode_bits_cost_full_ctb[0][mode]);
-
-                        /*Find the data correspoinding to least cost */
-                        if(au2_8x8_costs[i] <= u2_best_8x8_cost)
-                        {
-                            u2_best_8x8_cost = au2_8x8_costs[i];
-                            i4_best_8x8_sad_satd = sad;
-                            u1_best_8x8_mode = mode;
-                        }
-                    }
-                    /*8x8 vs 4x4 decision based on SAD values*/
-                    if((u2_best_8x8_cost <= u2_sum_best_4x4_sad_cost) || (u2_best_8x8_cost <= 300))
-                    {
-                        i4_merge_success_stage2 = 1;
-                    }
-
-                    /* EIID: Early inter-intra decision */
-                    /* Find the SAD based cost for 8x8 block for best mode */
-                    if(/*(ISLICE != i4_slice_type) && */ (1 == i4_layer_id))
-                    {
-                        //UWORD8 i4_best_8x8_mode = u1_best_8x8_mode;
-                        WORD32 i4_best_8x8_sad_cost_curr = u2_best_8x8_cost;
-
-                        //register best sad in the context
-                        //ps_ed_8x8->i4_best_sad_8x8_l1_ipe = i4_best_8x8_sad_curr;
-
-                        //register the best cost in the context
-                        *pi4_best_sad_cost_8x8_l1_ipe = i4_best_8x8_sad_cost_curr;
-                        *pi4_best_sad_8x8_l1_ipe =
-                            i4_best_8x8_sad_satd;  //i4_best_8x8_sad_cost_curr;
-                    }
-                }
-            }
-
-            /***** Modes for 4x4 and 8x8 are decided before this point ****/
-            if(merge_success || i4_merge_success_stage2)
-            {
-                /*FYI: 1. 8x8 SATD is not needed if merge is failed.
-                2. For layer_2: SATD won't be calculated for 8x8. So
-                the best_8x8_cost is SAD-cost. */
-
-                /* Store the 8x8 level data in the first 4x4 block*/
-                ps_ed_4x4->merge_success = 1;
-                ps_ed_4x4->best_merge_mode = u1_best_8x8_mode;
-                /* ps_ed_4x4->best_merge_sad_cost = u2_best_8x8_cost;
-                This data is not getting consumed anywhere at present */
-
-                top_intra_mode_ptr[0] = u1_best_8x8_mode;
-                top_intra_mode_ptr[1] = u1_best_8x8_mode;
-                left_intra_mode_ptr[0] = u1_best_8x8_mode;
-                left_intra_mode_ptr[1] = u1_best_8x8_mode;
-
-                /*If it is layer_1 and high_speed*/
-                u1_cond_8x8_satd =
-                    ((1 == i4_layer_id) &&
-                     (merge_success || ((!u1_good_quality) && i4_merge_success_stage2)));
-                if(u1_cond_8x8_satd)
-                {
-                    mode = u1_best_8x8_mode;
-                    g_apf_lum_ip[g_i4_ip_funcs[mode]](
-                        &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred_8x8[0], 8, 8, mode);
-
-                    if(i4_quality_preset > IHEVCE_QUALITY_P3)
-                    {
-                        i4_satd = ps_ipe_optimised_function_list->pf_8x8_sad_computer(
-                            pu1_src_arr[0], &pred_8x8[0], src_stride, 8);
-                    }
-                    else
-                    {
-                        i4_satd = ps_cmn_utils_optimised_function_list->pf_HAD_8x8_8bit(
-                            pu1_src_arr[0], src_stride, &pred_8x8[0], 8, NULL, 0);
-                    }
-                    /* u2_best_8x8_cost = ((UWORD16)i4_satd + mode_bits_cost[0][mode]);
-                    This data is not getting consumed at present */
-                    i4_best_8x8_sad_satd = i4_satd;
-                }
-                *pi4_best_satd = i4_best_8x8_sad_satd;
-
-                /* EIID: Early inter-intra decision */
                 /* Find the SAD based cost for 8x8 block for best mode */
-                if(/*(ISLICE != i4_slice_type) && */ (1 == i4_layer_id))
+                if(1 == i4_layer_id)
                 {
                     UWORD8 i4_best_8x8_mode = u1_best_8x8_mode;
                     WORD32 i4_best_8x8_sad_curr;
 
                     g_apf_lum_ip[g_i4_ip_funcs[i4_best_8x8_mode]](
-                        &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred_8x8[0], 8, 8, i4_best_8x8_mode);
+                        &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred[0], 8, 8, i4_best_8x8_mode);
 
                     i4_best_8x8_sad_curr = ps_ipe_optimised_function_list->pf_8x8_sad_computer(
-                        pu1_src_arr[0], &pred_8x8[0], src_stride, 8);
-                    //register best sad in the context
-                    //ps_ed_8x8->i4_best_sad_8x8_l1_ipe = i4_best_8x8_sad_curr;
-
-                    //register the best cost in the context
-                    //[0]th index is used since all 4 blocks are having same cost right now
-                    //also it doesnt depends on mode. It only depends on the lambda
+                        pu1_src_arr[0], &pred[0], src_stride, 8);
 
                     *pi4_best_sad_cost_8x8_l1_ipe =
                         i4_best_8x8_sad_curr +
                         ps_ed_ctxt->au2_mode_bits_cost_full_ctb[0][i4_best_8x8_mode];
                     *pi4_best_sad_8x8_l1_ipe = i4_best_8x8_sad_curr;
-
-                }  // EIID ends
-
-            }  //if(merge_success || i4_merge_success_stage2)
-        }
-    }
-}
-
-/*!
-******************************************************************************
-* \if Function name : ihevce_ed_calc_incomplete_ctb \endif
-*
-* \brief: performs L1 8x8 and 4x4 intra mode analysis
-*
-*****************************************************************************
-*/
-void ihevce_ed_calc_incomplete_ctb(
-    ihevce_ed_ctxt_t *ps_ed_ctxt,
-    ihevce_ed_blk_t *ps_ed_ctb,
-    ihevce_ed_ctb_l1_t *ps_ed_ctb_l1,
-    UWORD8 *pu1_src,
-    WORD32 src_stride,
-    WORD32 num_4x4_blks_x,
-    WORD32 num_4x4_blks_y,
-    WORD32 *nbr_flags,
-    WORD32 i4_layer_id,
-    WORD32 i4_row_block_no,
-    WORD32 i4_col_block_no,
-    ihevce_ipe_optimised_function_list_t *ps_ipe_optimised_function_list,
-    ihevce_cmn_opt_func_t *ps_cmn_utils_optimised_function_list)
-{
-    WORD32 i, j, k;
-    WORD32 z_scan_idx = 0;
-    WORD32 z_scan_act_idx = 0;
-    ihevc_intra_pred_luma_ref_substitution_ft *pf_intra_pred_luma_ref_substitution =
-        ps_ed_ctxt->ps_func_selector->ihevc_intra_pred_luma_ref_substitution_fptr;
-
-    //UWORD8 ref[18];
-    //WORD32 top_intra_modes[20];
-    WORD32 *sad_ptr = &ps_ed_ctxt->sad[0];
-    WORD32 lambda = ps_ed_ctxt->lambda;
-    //UWORD16 mode_bits_cost[NUM_MODES];
-
-    UWORD8 *pu1_src_8x8;
-    ihevce_ed_blk_t *ps_ed_8x8, *ps_ed_4x4;
-    WORD32 *top_intra_mode_ptr;
-    WORD32 *left_intra_mode_ptr = ps_ed_ctxt->left_ctb_intra_modes;
-    WORD32 *nbr_flags_ptr;
-    WORD32 top_intra_mode;
-    WORD32 left_intra_mode;
-    WORD32 next_left_intra_mode;
-    WORD32 nbr_flag = 0;
-    WORD32 top_available;
-    WORD32 left_available;
-    UWORD8 *pu1_src_4x4;
-    WORD32 left_over_4x4_blks;
-    WORD32 i4_incomplete_sum_4x4_satd = 0;
-    WORD32 i4_incomplete_min_4x4_satd = 0x7FFFFFFF;
-    WORD32 i4_best_sad_cost_8x8_l1_ipe, i4_best_sad_8x8_l1_ipe, i4_sum_4x4_satd, i4_min_4x4_satd;
-
-    (void)i4_row_block_no;
-    (void)i4_col_block_no;
-    /*Find the modulated qp of 16*16 at L2 from 8*8 SATDs in L2
-    THis is used as 64*64 Qp in L0*/
-    /*For Incomplete CTB, init all SATD to -1 and then popualate for the complete 8x8 blocks (CU 16 in L0)*/
-    /* Not populated for 4x4 blocks (CU 8 in L0), can be done */
-    /*Also, not 32x32 satd is not populated, as it would correspong to CU 64 and it is not an incomplete CTB */
-    if(i4_layer_id == 1)
-    {
-        WORD32 i4_i;
-
-        for(i4_i = 0; i4_i < 64; i4_i++)
-        {
-            (ps_ed_ctb + i4_i)->i4_4x4_satd = -1;
-            (ps_ed_ctb + i4_i)->i4_4x4_cur_satd = -1;
-        }
-
-        for(i4_i = 0; i4_i < 16; i4_i++)
-        {
-            ps_ed_ctb_l1->i4_sum_4x4_satd[i4_i] = -2;
-            ps_ed_ctb_l1->i4_min_4x4_satd[i4_i] = 0x7FFFFFFF;
-            ps_ed_ctb_l1->i4_8x8_satd[i4_i][0] = -2;
-            ps_ed_ctb_l1->i4_8x8_satd[i4_i][1] = -2;
-        }
-
-        for(i4_i = 0; i4_i < 4; i4_i++)
-        {
-            ps_ed_ctb_l1->i4_16x16_satd[i4_i][0] = -2;
-            ps_ed_ctb_l1->i4_16x16_satd[i4_i][1] = -2;
-            ps_ed_ctb_l1->i4_16x16_satd[i4_i][2] = -2;
-        }
-        ps_ed_ctb_l1->i4_32x32_satd[0][0] = -2;
-        ps_ed_ctb_l1->i4_32x32_satd[0][1] = -2;
-        ps_ed_ctb_l1->i4_32x32_satd[0][2] = -2;
-
-        ps_ed_ctb_l1->i4_32x32_satd[0][3] = -2;
-
-        for(i4_i = 0; i4_i < 16; i4_i++)
-        {
-            ps_ed_ctb_l1->i4_best_satd_8x8[i4_i] = -1;
-            ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_ipe[i4_i] = -1;
-            ps_ed_ctb_l1->i4_best_sad_8x8_l1_ipe[i4_i] = -1;
-            ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_me[i4_i] = -1;
-            ps_ed_ctb_l1->i4_sad_cost_me_for_ref[i4_i] = -1;
-            ps_ed_ctb_l1->i4_sad_me_for_ref[i4_i] = -1;
-            ps_ed_ctb_l1->i4_best_sad_8x8_l1_me[i4_i] = -1;
-
-            ps_ed_ctb_l1->i4_best_sad_8x8_l1_me_for_decide[i4_i] = -1;
-        }
-    }
-    /*
-    * src scan happens in raster scan order. ps_ed update happens in z-scan order.
-    */
-    for(i = 0; i < num_4x4_blks_x; i++)
-    {
-        ps_ed_ctxt->ai4_top_intra_modes_ic_ctb[i] = INTRA_DC;
-    }
-    next_left_intra_mode = left_intra_mode_ptr[0];
-    for(i = 0; i < num_4x4_blks_y / 2; i++)
-    {
-        pu1_src_8x8 = pu1_src + i * 2 * 4 * src_stride;
-        top_intra_mode_ptr = &ps_ed_ctxt->ai4_top_intra_modes_ic_ctb[0];
-        nbr_flags_ptr = &nbr_flags[0] + 2 * 8 * i;
-
-        for(j = 0; j < num_4x4_blks_x / 2; j++)
-        {
-            WORD32 i4_best_satd;
-            // Multiply i by 16 since the
-            // matrix is prepared for ctb_size = 64
-            z_scan_idx = gau1_ctb_raster_to_zscan[i * 2 * 16 + j * 2];
-            z_scan_act_idx = gau1_ctb_raster_to_zscan[i * 16 + j];
-            ASSERT(z_scan_act_idx <= 15);
-            ps_ed_8x8 = ps_ed_ctb + z_scan_idx;
-
-            ihevce_ed_calc_8x8_blk(
-                ps_ed_ctxt,
-                ps_ed_8x8,
-                pu1_src_8x8,
-                src_stride,
-                nbr_flags_ptr,
-                top_intra_mode_ptr,
-                left_intra_mode_ptr,
-                i * 8,
-                lambda,
-                sad_ptr + z_scan_idx * NUM_MODES,
-                &i4_best_satd,
-                i4_layer_id,
-                ps_ed_ctxt->i4_quality_preset,
-                ps_ed_ctxt->i4_slice_type,
-                &i4_best_sad_cost_8x8_l1_ipe,
-                &i4_best_sad_8x8_l1_ipe,
-                &i4_sum_4x4_satd,
-                &i4_min_4x4_satd,
-                ps_ipe_optimised_function_list,
-                ps_cmn_utils_optimised_function_list);
-
-            ASSERT(i4_best_satd >= 0);
-            if(i4_layer_id == 1)
-            {
-                ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_ipe[z_scan_act_idx] =
-                    i4_best_sad_cost_8x8_l1_ipe;
-                ps_ed_ctb_l1->i4_best_sad_8x8_l1_ipe[z_scan_act_idx] = i4_best_sad_8x8_l1_ipe;
-                ps_ed_ctb_l1->i4_best_satd_8x8[z_scan_act_idx] = i4_best_satd;
-                ps_ed_ctxt->i8_sum_best_satd += i4_best_satd;
-                ps_ed_ctxt->i8_sum_sq_best_satd += (i4_best_satd * i4_best_satd);
-                //ps_ed_ctb_l1->i4_sum_4x4_satd[z_scan_act_idx] = i4_sum_4x4_satd;
-                //ps_ed_ctb_l1->i4_min_4x4_satd[z_scan_act_idx] = i4_min_4x4_satd;
-            }
-
-            pu1_src_8x8 += 8;
-            //ps_ed_8x8  += 4;
-            top_intra_mode_ptr += 2;
-            nbr_flags_ptr += 2;
-        }
-
-        next_left_intra_mode = left_intra_mode_ptr[0];
-        left_over_4x4_blks = (num_4x4_blks_x - (2 * (num_4x4_blks_x / 2)));
-        left_over_4x4_blks = left_over_4x4_blks * 2;
-
-        pu1_src_4x4 = pu1_src_8x8;
-
-        i4_incomplete_sum_4x4_satd = 0;
-        i4_incomplete_min_4x4_satd = 0x7FFFFFFF;
-
-        /* For leftover right 4x4 blks (num_4x4_blks_x - 2 *(num_4x4_blks_x/2))*/
-        for(k = 0; k < left_over_4x4_blks; k++)
-        {
-            WORD32 i4_best_satd;
-            WORD32 i4_dummy_sad_cost;
-            // Multiply i by 16 since the
-            // matrix is prepared for ctb_size = 64
-            ASSERT(left_over_4x4_blks == 2);
-            z_scan_idx = gau1_ctb_raster_to_zscan[i * 2 * 16 + k * 16 + j * 2];
-            ps_ed_4x4 = ps_ed_ctb + z_scan_idx;
-
-            top_intra_mode = ps_ed_ctxt->ai4_top_intra_modes_ic_ctb[j];
-            left_intra_mode = next_left_intra_mode;
-
-            nbr_flag = nbr_flags[i * 2 * 8 + k * 8 + j * 2];
-
-            /* call the function which populates ref data for intra predicion */
-            pf_intra_pred_luma_ref_substitution(
-                pu1_src_4x4 - src_stride - 1,
-                pu1_src_4x4 - src_stride,
-                pu1_src_4x4 - 1,
-                src_stride,
-                4,
-                nbr_flag,
-                &ps_ed_ctxt->au1_ref_ic_ctb[0],
-                0);
-
-            top_available = CHECK_T_AVAILABLE(nbr_flag);
-            left_available = CHECK_L_AVAILABLE(nbr_flag);
-            /* call the function which populates sad cost for all the modes */
-            ihevce_intra_populate_mode_bits_cost(
-                top_intra_mode,
-                left_intra_mode,
-                top_available,
-                left_available,
-                i * 4,
-                &ps_ed_ctxt->au2_mode_bits_cost_ic_ctb[0],
-                lambda);
-
-            ihevce_ed_calc_4x4_blk(
-                ps_ed_4x4,
-                pu1_src_4x4,
-                src_stride,
-                &ps_ed_ctxt->au1_ref_ic_ctb[0],
-                &ps_ed_ctxt->au2_mode_bits_cost_ic_ctb[0],
-                sad_ptr + z_scan_idx * NUM_MODES,
-                &i4_best_satd,
-                ps_ed_ctxt->i4_quality_preset,
-                &i4_dummy_sad_cost,
-                ps_ipe_optimised_function_list);
-
-            ASSERT(i4_best_satd >= 0);
-            if(i4_layer_id == 1)  //Can we ignore this check?
-            {
-                z_scan_act_idx = gau1_ctb_raster_to_zscan[i * 16 + j];
-                /*Note : The satd population is not populated for last 4*4 block in incomplete CTB */
-                /* Which corresponds to CU 8 in L0 */
-
-                /*MAM_VAR_L1 */
-                i4_incomplete_sum_4x4_satd = i4_incomplete_sum_4x4_satd + i4_best_satd;
-                if(i4_incomplete_min_4x4_satd >= i4_best_satd)
-                    i4_incomplete_min_4x4_satd = i4_best_satd;
-                ps_ed_ctxt->i8_sum_best_satd += i4_best_satd;
-                ps_ed_ctxt->i8_sum_sq_best_satd += (i4_best_satd * i4_best_satd);
-                if((k & 1) == 0)
-                {
-                    ps_ed_ctb_l1->i4_best_satd_8x8[z_scan_act_idx] = 0;
                 }
-                ps_ed_ctb_l1->i4_best_satd_8x8[z_scan_act_idx] += i4_best_satd;
             }
-
-            ps_ed_ctxt->ai4_top_intra_modes_ic_ctb[j * 2] = ps_ed_4x4->best_mode;
-            next_left_intra_mode = ps_ed_4x4->best_mode;
-            pu1_src_4x4 += src_stride;
-            left_intra_mode_ptr[k] = next_left_intra_mode;
-        }
-        left_intra_mode_ptr += 2;
-    }
-
-    if(num_4x4_blks_y & 1)
-    {
-        /* For leftover bottom 4x4 blks. (num_4x4_blks_x) */
-        pu1_src_4x4 = pu1_src + i * 2 * 4 * src_stride;
-        //memset(&ps_ed_ctb_l1->i4_best_satd_8x8[i][0],0,4*sizeof(WORD32));
-        for(j = 0; j < num_4x4_blks_x; j++)
-        {
-            WORD32 i4_best_satd;
-            WORD32 i4_dummy_sad_cost;
-            // Multiply i by 16 since the
-            // matrix is prepared for ctb_size = 64
-            z_scan_idx = gau1_ctb_raster_to_zscan[i * 2 * 16 + j];
-            ps_ed_4x4 = ps_ed_ctb + z_scan_idx;
-
-            if((j & 1) == 0)
+            else /*If high_speed or extreme speed*/
             {
-                i4_incomplete_sum_4x4_satd = 0;
-                i4_incomplete_min_4x4_satd = 0x7FFFFFFF;
-            }
+                // 7.5 * lambda to incorporate transform flags
+                u2_sum_best_4x4_sad_cost +=
+                    (COMPUTE_RATE_COST_CLIP30(12, lambda, (LAMBDA_Q_SHIFT + 1)));
 
-            top_intra_mode = ps_ed_ctxt->ai4_top_intra_modes_ic_ctb[j];
-            left_intra_mode = next_left_intra_mode;
-
-            nbr_flag = nbr_flags[i * 2 * 8 + j];
-
-            /* call the function which populates ref data for intra predicion */
-            pf_intra_pred_luma_ref_substitution(
-                pu1_src_4x4 - src_stride - 1,
-                pu1_src_4x4 - src_stride,
-                pu1_src_4x4 - 1,
-                src_stride,
-                4,
-                nbr_flag,
-                &ps_ed_ctxt->au1_ref_ic_ctb[0],
-                0);
-
-            top_available = CHECK_T_AVAILABLE(nbr_flag);
-            left_available = CHECK_L_AVAILABLE(nbr_flag);
-            /* call the function which populates sad cost for all the modes */
-            ihevce_intra_populate_mode_bits_cost(
-                top_intra_mode,
-                left_intra_mode,
-                top_available,
-                left_available,
-                i * 4,
-                &ps_ed_ctxt->au2_mode_bits_cost_ic_ctb[0],
-                lambda);
-
-            ihevce_ed_calc_4x4_blk(
-                ps_ed_4x4,
-                pu1_src_4x4,
-                src_stride,
-                &ps_ed_ctxt->au1_ref_ic_ctb[0],
-                &ps_ed_ctxt->au2_mode_bits_cost_ic_ctb[0],
-                sad_ptr + z_scan_idx * NUM_MODES,
-                &i4_best_satd,
-                ps_ed_ctxt->i4_quality_preset,
-                &i4_dummy_sad_cost,
-                ps_ipe_optimised_function_list);
-
-            /*Note : The satd population is not populated for last 4*4 block in incomplete CTB */
-            /* Which corresponds to CU 8 in L0 */
-
-            /*MAM_VAR_L1 */
-            ASSERT(i4_best_satd >= 0);
-            if(i4_layer_id == 1)  //Can we ignore this check?
-            {
-                z_scan_act_idx = gau1_ctb_raster_to_zscan[i * 16 + (j >> 1)];
-                if((j & 1) == 0)
+                /*Loop over all modes for calculating SAD*/
+                for(i = i1_start; i < 6; i++)
                 {
-                    ps_ed_ctb_l1->i4_best_satd_8x8[z_scan_act_idx] = 0;
+                    mode = ai1_modes[i];
+                    g_apf_lum_ip[g_i4_ip_funcs[mode]](
+                        &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred[0], 8, 8, mode);
+
+                    sad = ps_ipe_optimised_function_list->pf_8x8_sad_computer(
+                        pu1_src_arr[0], &pred[0], src_stride, 8);
+
+                    cost = sad + ps_ed_ctxt->au2_mode_bits_cost_full_ctb[0][mode];
+
+                    /*Find the data correspoinding to least cost */
+                    if(cost <= u2_best_8x8_cost)
+                    {
+                        u2_best_8x8_cost = cost;
+                        i4_best_8x8_sad = sad;
+                        u1_best_8x8_mode = mode;
+                    }
                 }
-                ps_ed_ctb_l1->i4_best_satd_8x8[z_scan_act_idx] += i4_best_satd;
-                ps_ed_ctxt->i8_sum_best_satd += i4_best_satd;
-                ps_ed_ctxt->i8_sum_sq_best_satd += (i4_best_satd * i4_best_satd);
-                i4_incomplete_sum_4x4_satd = i4_incomplete_sum_4x4_satd + i4_best_satd;
-                if(i4_incomplete_min_4x4_satd >= i4_best_satd)
-                    i4_incomplete_min_4x4_satd = i4_best_satd;
+
+                /* 8x8 vs 4x4 decision based on SAD values */
+                if((u2_best_8x8_cost <= u2_sum_best_4x4_sad_cost) || (u2_best_8x8_cost <= 300))
+                {
+                    i4_merge_success_stage2 = 1;
+                    if(1 == i4_layer_id)
+                    {
+                        g_apf_lum_ip[g_i4_ip_funcs[u1_best_8x8_mode]](
+                            &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred[0], 8, 8, u1_best_8x8_mode);
+                        i4_best_8x8_satd = ps_cmn_utils_optimised_function_list->pf_HAD_8x8_8bit(
+                            pu1_src_arr[0], src_stride, &pred[0], 8, NULL, 0);
+                    }
+                }
+
+                if(1 == i4_layer_id)
+                {
+                    *pi4_best_sad_cost_8x8_l1_ipe = u2_best_8x8_cost;
+                    *pi4_best_sad_8x8_l1_ipe = i4_best_8x8_sad;
+                }
             }
-
-            ps_ed_ctxt->ai4_top_intra_modes_ic_ctb[j] = ps_ed_4x4->best_mode;
-            next_left_intra_mode = ps_ed_4x4->best_mode;
-            pu1_src_4x4 += 4;
-        }
-    }
-    left_intra_mode_ptr[0] = next_left_intra_mode;
-}
-
-/*!
-******************************************************************************
-* \if Function name : ihevce_cu_level_qp_mod \endif
-*
-* \brief: Performs CU level QP modulation
-*
-*****************************************************************************
-*/
-WORD32 ihevce_cu_level_qp_mod(
-    WORD32 i4_qscale,
-    WORD32 i4_satd,
-    long double ld_curr_frame_log_avg_act,
-    float f_mod_strength,
-    WORD32 *pi4_act_factor,
-    WORD32 *pi4_q_scale_mod,
-    rc_quant_t *ps_rc_quant_ctxt)
-{
-    WORD32 i4_temp_qscale;
-    WORD32 i4_temp_qp;
-
-    if(i4_satd != -1)
-    {
-        WORD32 i4_loc_satd = i4_satd;
-        if(i4_loc_satd < 1)
-        {
-            i4_loc_satd = 1;
-        }
-        if((WORD32)ld_curr_frame_log_avg_act == 0)
-        {
-            *pi4_act_factor = (1 << (QP_LEVEL_MOD_ACT_FACTOR));
+            if(i4_merge_success_stage2)
+            {
+                ps_ed_4x4->merge_success = 1;
+                ps_ed_4x4->best_merge_mode = u1_best_8x8_mode;
+                *pi4_best_satd = i4_best_8x8_satd;
+            }
         }
         else
         {
-            UWORD32 u4_log2_sq_cur_satd;
-            ULWORD64 u8_sq_cur_satd;
-            WORD32 qp_offset;
+            ps_ed_4x4->merge_success = 1;
+            ps_ed_4x4->best_merge_mode = u1_best_8x8_mode;
 
-            ASSERT(USE_SQRT_AVG_OF_SATD_SQR);
-            u8_sq_cur_satd = (i4_loc_satd * i4_loc_satd);
-            GET_POS_MSB_64(u4_log2_sq_cur_satd, u8_sq_cur_satd);
-            if(ABS((
-                   long double)(((1 << u4_log2_sq_cur_satd) * POW_2_TO_1_BY_4) - ((long double)u8_sq_cur_satd))) >
-               ABS((
-                   long double)(((1 << u4_log2_sq_cur_satd) * POW_2_TO_3_BY_4) - ((long double)u8_sq_cur_satd))))
+            if(1 == i4_layer_id)
             {
-                u4_log2_sq_cur_satd += 1;
+                mode = u1_best_8x8_mode;
+                g_apf_lum_ip[g_i4_ip_funcs[mode]](
+                    &ps_ed_ctxt->au1_ref_8x8[0][0], 0, &pred[0], 8, 8, mode);
+
+                i4_best_8x8_sad = ps_ipe_optimised_function_list->pf_8x8_sad_computer(
+                    pu1_src_arr[0], &pred[0], src_stride, 8);
+
+                *pi4_best_sad_cost_8x8_l1_ipe =
+                    i4_best_8x8_sad + ps_ed_ctxt->au2_mode_bits_cost_full_ctb[0][mode];
+                *pi4_best_sad_8x8_l1_ipe = i4_best_8x8_sad;
+
+                i4_best_8x8_satd = ps_cmn_utils_optimised_function_list->pf_HAD_8x8_8bit(
+                    pu1_src_arr[0], src_stride, &pred[0], 8, NULL, 0);
             }
-            qp_offset = (WORD32)(
-                f_mod_strength *
-                (float)((long double)u4_log2_sq_cur_satd - ld_curr_frame_log_avg_act));
-            qp_offset = CLIP3(qp_offset, MIN_QP_MOD_OFFSET, MAX_QP_MOD_OFFSET);
-            *pi4_act_factor = (WORD32)(
-                gad_look_up_activity[qp_offset + ABS(MIN_QP_MOD_OFFSET)] *
-                (1 << QP_LEVEL_MOD_ACT_FACTOR));
+            *pi4_best_satd = i4_best_8x8_satd;
         }
-
-        ASSERT(*pi4_act_factor > 0);
-        i4_temp_qscale = ((i4_qscale * (*pi4_act_factor)) + (1 << (QP_LEVEL_MOD_ACT_FACTOR - 1))) >>
-                         QP_LEVEL_MOD_ACT_FACTOR;
     }
-    else
-    {
-        i4_temp_qscale = i4_qscale;
-        *pi4_act_factor = (1 << QP_LEVEL_MOD_ACT_FACTOR);
-    }
-    ASSERT(*pi4_act_factor > 0);
-
-    if(i4_temp_qscale > ps_rc_quant_ctxt->i2_max_qscale)
-    {
-        i4_temp_qscale = ps_rc_quant_ctxt->i2_max_qscale;
-    }
-    else if(i4_temp_qscale < ps_rc_quant_ctxt->i2_min_qscale)
-    {
-        i4_temp_qscale = ps_rc_quant_ctxt->i2_min_qscale;
-    }
-    /*store q scale for stat gen for I frame model*/
-    /*Here activity factor is not modified as the cu qp would be clipped in rd-opt stage*/
-    *pi4_q_scale_mod = i4_temp_qscale;
-    i4_temp_qp = ps_rc_quant_ctxt->pi4_qscale_to_qp[i4_temp_qscale];
-    if(i4_temp_qp > ps_rc_quant_ctxt->i2_max_qp)
-    {
-        i4_temp_qp = ps_rc_quant_ctxt->i2_max_qp;
-    }
-    else if(i4_temp_qp < ps_rc_quant_ctxt->i2_min_qp)
-    {
-        i4_temp_qp = ps_rc_quant_ctxt->i2_min_qp;
-    }
-    return (i4_temp_qp);
 }
 
 /*!
 ******************************************************************************
 * \if Function name : ihevce_ed_calc_ctb \endif
 *
-* \brief: performs L1 8x8 and 4x4 intra mode analysis
+* \brief: performs L1/L2 8x8 and 4x4 intra mode analysis
 *
 *****************************************************************************
 */
@@ -1386,33 +722,16 @@ void ihevce_ed_calc_ctb(
     WORD32 num_4x4_blks_y,
     WORD32 *nbr_flags,
     WORD32 i4_layer_id,
-    WORD32 i4_row_block_no,
-    WORD32 i4_col_block_no,
     ihevce_ipe_optimised_function_list_t *ps_ipe_optimised_function_list,
     ihevce_cmn_opt_func_t *ps_cmn_utils_optimised_function_list)
 {
+    ihevce_ed_blk_t *ps_ed_8x8;
+    UWORD8 *pu1_src_8x8;
+    WORD32 *nbr_flags_ptr;
+    WORD32 lambda = ps_ed_ctxt->lambda;
     WORD32 i, j;
     WORD32 z_scan_idx = 0;
     WORD32 z_scan_act_idx = 0;
-    ihevce_ed_blk_t *ps_ed_8x8;
-    UWORD8 *pu1_src_8x8;
-
-    WORD32 top_intra_modes[20];
-    WORD32 *top_intra_mode_ptr;
-    WORD32 *left_intra_mode_ptr = ps_ed_ctxt->left_ctb_intra_modes;
-
-    WORD32 *sad_ptr = &ps_ed_ctxt->sad[0];
-    WORD32 lambda = ps_ed_ctxt->lambda;
-    WORD32 *nbr_flags_ptr;
-    WORD32 i4_best_sad_cost_8x8_l1_ipe, i4_best_sad_8x8_l1_ipe, i4_sum_4x4_satd, i4_min_4x4_satd;
-
-    (void)num_4x4_blks_y;
-    (void)i4_row_block_no;
-    (void)i4_col_block_no;
-    ASSERT(num_4x4_blks_x % 2 == 0);
-    ASSERT(num_4x4_blks_y % 2 == 0);
-    ASSERT((num_4x4_blks_x == 4) || (num_4x4_blks_x == 8));
-    ASSERT((num_4x4_blks_y == 4) || (num_4x4_blks_y == 8));
 
     if(i4_layer_id == 1)
     {
@@ -1421,7 +740,6 @@ void ihevce_ed_calc_ctb(
         for(i4_i = 0; i4_i < 64; i4_i++)
         {
             (ps_ed_ctb + i4_i)->i4_4x4_satd = -1;
-            (ps_ed_ctb + i4_i)->i4_4x4_cur_satd = -1;
         }
 
         for(i4_i = 0; i4_i < 16; i4_i++)
@@ -1442,68 +760,55 @@ void ihevce_ed_calc_ctb(
         ps_ed_ctb_l1->i4_32x32_satd[0][1] = -2;
         ps_ed_ctb_l1->i4_32x32_satd[0][2] = -2;
         ps_ed_ctb_l1->i4_32x32_satd[0][3] = -2;
+
         for(i4_i = 0; i4_i < 16; i4_i++)
         {
-            ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_me[i4_i] = -2;
-            ps_ed_ctb_l1->i4_sad_cost_me_for_ref[i4_i] = -2;
-            ps_ed_ctb_l1->i4_sad_me_for_ref[i4_i] = -2;
-            ps_ed_ctb_l1->i4_best_sad_8x8_l1_me[i4_i] = -2;
+            ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_me[i4_i] = -1;
+            ps_ed_ctb_l1->i4_sad_cost_me_for_ref[i4_i] = -1;
+            ps_ed_ctb_l1->i4_sad_me_for_ref[i4_i] = -1;
+            ps_ed_ctb_l1->i4_best_sad_8x8_l1_me[i4_i] = -1;
 
-            ps_ed_ctb_l1->i4_best_sad_8x8_l1_me_for_decide[i4_i] = -2;
+            ps_ed_ctb_l1->i4_best_sad_8x8_l1_me_for_decide[i4_i] = -1;
 
-            ps_ed_ctb_l1->i4_best_satd_8x8[i4_i] = -2;
-            ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_ipe[i4_i] = -2;
-            ps_ed_ctb_l1->i4_best_sad_8x8_l1_ipe[i4_i] = -2;
+            ps_ed_ctb_l1->i4_best_satd_8x8[i4_i] = -1;
+            ps_ed_ctb_l1->i4_best_sad_cost_8x8_l1_ipe[i4_i] = -1;
+            ps_ed_ctb_l1->i4_best_sad_8x8_l1_ipe[i4_i] = -1;
         }
     }
-    /*
-    * src scan happens in raster scan order. ps_ed update happens in z-scan order.
-    */
-    for(i = 0; i < num_4x4_blks_x; i++)
-    {
-        top_intra_modes[i] = INTRA_DC;
-    }
-    for(i = 0; i < num_4x4_blks_x / 2; i++)
+
+    ASSERT((num_4x4_blks_x & 1) == 0);
+    ASSERT((num_4x4_blks_y & 1) == 0);
+    for(i = 0; i < num_4x4_blks_y / 2; i++)
     {
         pu1_src_8x8 = pu1_src + i * 2 * 4 * src_stride;
-        top_intra_mode_ptr = &top_intra_modes[0];
         nbr_flags_ptr = &nbr_flags[0] + 2 * 8 * i;
 
         for(j = 0; j < num_4x4_blks_x / 2; j++)
         {
             WORD32 i4_best_satd;
-            ASSERT(i <= 3);
-            ASSERT(j <= 3);
+            WORD32 i4_best_sad_cost_8x8_l1_ipe;
+            WORD32 i4_best_sad_8x8_l1_ipe;
 
-            // Multiply i by 16 since the
-            // matrix is prepared for ctb_size = 64
             z_scan_idx = gau1_ctb_raster_to_zscan[i * 2 * 16 + j * 2];
             z_scan_act_idx = gau1_ctb_raster_to_zscan[i * 16 + j];
             ASSERT(z_scan_act_idx <= 15);
 
             ps_ed_8x8 = ps_ed_ctb + z_scan_idx;
-
             ihevce_ed_calc_8x8_blk(
                 ps_ed_ctxt,
                 ps_ed_8x8,
                 pu1_src_8x8,
                 src_stride,
                 nbr_flags_ptr,
-                top_intra_mode_ptr,
-                left_intra_mode_ptr,
-                i * 8,
                 lambda,
-                sad_ptr + z_scan_idx * NUM_MODES,
                 &i4_best_satd,
                 i4_layer_id,
                 ps_ed_ctxt->i4_quality_preset,
-                ps_ed_ctxt->i4_slice_type,
                 &i4_best_sad_cost_8x8_l1_ipe,
                 &i4_best_sad_8x8_l1_ipe,
-                &i4_sum_4x4_satd,
-                &i4_min_4x4_satd,
                 ps_ipe_optimised_function_list,
                 ps_cmn_utils_optimised_function_list);
+            ASSERT(i4_best_satd >= 0);
 
             if(i4_layer_id == 1)
             {
@@ -1513,17 +818,68 @@ void ihevce_ed_calc_ctb(
                 ps_ed_ctb_l1->i4_best_satd_8x8[z_scan_act_idx] = i4_best_satd;
                 ps_ed_ctxt->i8_sum_best_satd += i4_best_satd;
                 ps_ed_ctxt->i8_sum_sq_best_satd += (i4_best_satd * i4_best_satd);
-                //ps_ed_ctb_l1->i4_sum_4x4_satd[z_scan_act_idx] = i4_sum_4x4_satd;
-                //ps_ed_ctb_l1->i4_min_4x4_satd[z_scan_act_idx] = i4_min_4x4_satd;
             }
-
             pu1_src_8x8 += 8;
-            //ps_ed_8x8  += 4;
-            top_intra_mode_ptr += 2;
             nbr_flags_ptr += 2;
         }
-        left_intra_mode_ptr += 2;
     }
+}
+
+float fast_log2(float val)
+{
+    union { float val; int32_t x; } u = { val };
+    float log_2 = (float)(((u.x >> 23) & 255) - 128);
+
+    u.x &= ~(255 << 23);
+    u.x += 127 << 23;
+    log_2 += ((-1.0f / 3) * u.val + 2) * u.val - 2.0f / 3;
+    return log_2;
+}
+
+/*!
+******************************************************************************
+* \if Function name : ihevce_cu_level_qp_mod \endif
+*
+* \brief: Performs CU level QP modulation
+*
+*****************************************************************************
+*/
+WORD32 ihevce_cu_level_qp_mod(
+    WORD32 frm_qscale,
+    WORD32 cu_satd,
+    long double frm_avg_activity,
+    float f_mod_strength,
+    WORD32 *pi4_act_factor,
+    WORD32 *pi4_q_scale_mod,
+    rc_quant_t *rc_quant_ctxt)
+{
+    WORD32 cu_qscale;
+    WORD32 cu_qp;
+
+    *pi4_act_factor = (1 << QP_LEVEL_MOD_ACT_FACTOR);
+    if(cu_satd != -1 && (WORD32)frm_avg_activity != 0)
+    {
+        ULWORD64 sq_cur_satd = (cu_satd * cu_satd);
+        float log2_sq_cur_satd = fast_log2(1 + sq_cur_satd);
+        WORD32 qp_offset = f_mod_strength * (log2_sq_cur_satd - frm_avg_activity);
+
+        ASSERT(USE_SQRT_AVG_OF_SATD_SQR);
+        qp_offset = CLIP3(qp_offset, MIN_QP_MOD_OFFSET, MAX_QP_MOD_OFFSET);
+        *pi4_act_factor *= gad_look_up_activity[qp_offset + ABS(MIN_QP_MOD_OFFSET)];
+        ASSERT(*pi4_act_factor > 0);
+        cu_qscale = ((frm_qscale * (*pi4_act_factor)) + (1 << (QP_LEVEL_MOD_ACT_FACTOR - 1)));
+        cu_qscale >>= QP_LEVEL_MOD_ACT_FACTOR;
+    }
+    else
+    {
+        cu_qscale = frm_qscale;
+    }
+    cu_qscale = CLIP3(cu_qscale, rc_quant_ctxt->i2_min_qscale, rc_quant_ctxt->i2_max_qscale);
+    cu_qp = rc_quant_ctxt->pi4_qscale_to_qp[cu_qscale];
+    cu_qp = CLIP3(cu_qp, rc_quant_ctxt->i2_min_qp, rc_quant_ctxt->i2_max_qp);
+    *pi4_q_scale_mod = cu_qscale;
+
+    return (cu_qp);
 }
 
 /*!
@@ -1808,10 +1164,9 @@ void ihevce_scale_by_2(
         if(ht_offset == 0)
         {
             /* Top padding of 16 is done for 1st row only after we reach end of that row */
-            WORD32 pad_wd = dst_strd;
-            WORD32 pad_ht = 16;
-            UWORD8 *dst = pu1_dst - 16;
-
+            pad_wd = dst_strd;
+            pad_ht = 16;
+            dst = pu1_dst - 16;
             for(i = 1; i <= pad_ht; i++)
             {
                 memcpy(dst - (i * dst_strd), dst, pad_wd);
@@ -1822,10 +1177,9 @@ void ihevce_scale_by_2(
          reached end of frame */
         if(ht - ht_offset - block_ht == 0)
         {
-            WORD32 pad_wd = dst_strd;
-            WORD32 pad_ht = 16 + CEIL16((ht >> 1)) - (ht >> 1) + 4;
-            UWORD8 *dst = pu1_dst + (((block_ht >> 1) - 1) * dst_strd) - 16;
-
+            pad_wd = dst_strd;
+            pad_ht = 16 + CEIL16((ht >> 1)) - (ht >> 1) + 4;
+            dst = pu1_dst + (((block_ht >> 1) - 1) * dst_strd) - 16;
             for(i = 1; i <= pad_ht; i++)
                 memcpy(dst + (i * dst_strd), dst, pad_wd);
         }
@@ -1837,25 +1191,9 @@ void ihevce_scale_by_2(
 * \if Function name : ihevce_decomp_pre_intra_process_row \endif
 *
 * \brief
-*    Row level function which down scales a given row by 2 in horz and
-*    vertical direction creates output of size wd/2 * ht/2.
-*
-*  @param[in]  pu1_src : soource pointer
-*  @param[in]  src_stride : source stride
-*  @param[out] pu1_dst : desitnation pointer
-*  @param[in]  dst_stride : destination stride
-*  @param[in]  layer_wd : layer width
-*  @param[in]  layer_ht : layer height
-*  @param[in]  ht_offset : height offset of the block to be scaled
-*  @param[in]  block_ht : height of the block to be scaled
-*  @param[in]  wd_offset : width offset of the block to be scaled
-*  @param[in]  block_wd : width of the block to be scaled
-*  @param[in]  num_col_blks : number of col blks in that row
-*
-* \return None
-*
-*  @NOTE : When decompositionis done from L1 to L2 pre intra analysis is
-*          done on L1
+*  Row level function which down scales a given row by 2 in horz and vertical
+*  direction creates output of size wd/2 * ht/2. When decomposition is done
+*  from L1 to L2 pre intra analysis is done on L1
 *
 *****************************************************************************
 */
@@ -1870,196 +1208,29 @@ void ihevce_decomp_pre_intra_process_row(
     WORD32 ht_offset,
     WORD32 block_ht,
     WORD32 block_wd,
-    WORD32 i4_cu_aligned_pic_wd,
-    WORD32 i4_cu_aligned_pic_ht,
     WORD32 num_col_blks,
     WORD32 layer_no,
     ihevce_ed_ctxt_t *ps_ed_ctxt,
     ihevce_ed_blk_t *ps_ed_row,
     ihevce_ed_ctb_l1_t *ps_ed_ctb_l1_row,
-    ihevce_8x8_L0_satd_t *ps_layer0_cur_satd,
-    ihevce_8x8_L0_mean_t *ps_layer0_cur_mean,
     WORD32 num_4x4_blks_ctb_y,
     WORD32 num_4x4_blks_last_ctb_x,
     WORD32 skip_decomp,
     WORD32 skip_pre_intra,
     WORD32 row_block_no,
-    WORD32 i4_enable_noise_detection,
     ctb_analyse_t *ps_ctb_analyse,
     ihevce_ipe_optimised_function_list_t *ps_ipe_optimised_function_list,
     ihevce_cmn_opt_func_t *ps_cmn_utils_optimised_function_list)
 {
+    WORD32 do_pre_intra_analysis = ((layer_no == 1) || (layer_no == 2)) && (!skip_pre_intra);
     WORD32 col_block_no;
-
-    //ihevce_ed_ctxt_t *ps_ed_ctxt = (ihevce_ed_ctxt_t *)pv_ed_ctxt;
-    UWORD8 *pu1_src_pre_intra = pu1_src + (ht_offset * src_stride);
-    WORD32 num_4x4_blks_in_ctb = block_wd >> 2;
-    //WORD32 nbr_flags[64];
-    WORD32 *nbr_flags_ptr = &ps_ed_ctxt->ai4_nbr_flags[0];
-    WORD32 src_inc_pre_intra = num_4x4_blks_in_ctb * 4;
-    WORD32 inc_ctb = 0;
-    ihevce_ed_blk_t *ps_ed_ctb = ps_ed_row;
-    ihevce_ed_ctb_l1_t *ps_ed_ctb_l1 = ps_ed_ctb_l1_row;
     WORD32 i, j;
-    WORD32 do_pre_intra_analysis;
-    pf_ed_calc_ctb ed_calc_ctb;
-    ctb_analyse_t *ps_ctb_analyse_curr;
 
-    (void)i4_cu_aligned_pic_wd;
-    (void)i4_cu_aligned_pic_ht;
-    (void)ps_layer0_cur_satd;
-    (void)ps_layer0_cur_mean;
-    (void)i4_enable_noise_detection;
-    /*increment the struct pointer to point to the first CTB of the current row. */
-    ps_ctb_analyse_curr = ps_ctb_analyse + row_block_no * num_col_blks;
-
-    //if((num_4x4_blks_ctb_x == num_4x4_blks_ctb_y) && (num_4x4_blks_in_ctb == num_4x4_blks_ctb_x) )
-    if(num_4x4_blks_in_ctb == num_4x4_blks_ctb_y)
-    {
-        ed_calc_ctb = ihevce_ed_calc_ctb;
-    }
-    else
-    {
-        ed_calc_ctb = ihevce_ed_calc_incomplete_ctb;
-    }
-
-    inc_ctb = num_4x4_blks_in_ctb * num_4x4_blks_in_ctb;
-
-    do_pre_intra_analysis = ((layer_no == 1) || (layer_no == 2)) && (!skip_pre_intra);
-
-    /*
-    * For optimal pre intra analysis first block is processed outside
-    * the loop.
-    */
     if(!skip_decomp)
     {
-        ihevce_scale_by_2(
-            pu1_src,
-            src_stride,
-            pu1_dst_decomp,
-            dst_stride,
-            layer_wd,
-            layer_ht,
-            pu1_wkg_mem,
-            ht_offset,
-            block_ht,
-            block_wd * 0,
-            block_wd,
-            ps_cmn_utils_optimised_function_list->pf_copy_2d,
-            ps_ipe_optimised_function_list->pf_scaling_filter_mxn);
-        /* Disable noise detection */
-        ps_ctb_analyse_curr->s_ctb_noise_params.i4_noise_present = 0;
+        ctb_analyse_t *ps_ctb_analyse_curr = ps_ctb_analyse + row_block_no * num_col_blks;
 
-        memset(
-            ps_ctb_analyse_curr->s_ctb_noise_params.au1_is_8x8Blk_noisy,
-            0,
-            sizeof(ps_ctb_analyse_curr->s_ctb_noise_params.au1_is_8x8Blk_noisy));
-    }
-
-    /*
-    * Pre intra analysis for the first ctb.
-    * To analyse any given CTB we need to set the availability flags of the
-    * following neighbouring CTB: BL,L,TL,T,TR.
-    */
-    if(do_pre_intra_analysis)
-    {
-        /*
-        * At the beginning of ctb row set left intra modes to default value.
-        */
-        for(j = 0; j < num_4x4_blks_ctb_y; j++)
-        {
-            ps_ed_ctxt->left_ctb_intra_modes[j] = INTRA_DC;
-        }
-
-        /*
-        * Copy the neighbor flags for a general ctb (ctb inside the frame; not any corners).
-        * The table gau4_nbr_flags_8x8_4x4blks generated for 16x16 4x4 blocks(ctb_size = 64).
-        * But the same table holds good for other 4x4 blocks 2d arrays(eg 8x8 4x4 blks,4x4 4x4blks).
-        * But the flags must be accessed with stride of 16 since the table has been generated for
-        * ctb_size = 64. For odd 4x4 2d arrays(eg 3x3 4x4 blks) the flags needs modification.
-        * The flags also need modification for corner ctbs.
-        */
-        memcpy(
-            ps_ed_ctxt->ai4_nbr_flags,
-            gau4_nbr_flags_8x8_4x4blks,
-            sizeof(gau4_nbr_flags_8x8_4x4blks));
-
-        /*
-        * Since this is the fist ctb in the ctb row, set left flags unavailable for 1st CTB col
-        */
-        for(j = 0; j < num_4x4_blks_ctb_y; j++)
-        {
-            SET_L_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
-            SET_BL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
-            SET_TL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
-        }
-        /*
-        * If this is the fist ctb row, set top flags unavailable.
-        */
-        if(ht_offset == 0)
-        {
-            for(j = 0; j < num_4x4_blks_in_ctb; j++)
-            {
-                SET_T_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j]);
-                SET_TR_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j]);
-                SET_TL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j]);
-            }
-        }
-
-        /* If this is last ctb row,set BL as not available. */
-        if(ht_offset + block_ht >= layer_ht)
-        {
-            for(j = 0; j < num_4x4_blks_in_ctb; j++)
-            {
-                SET_BL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[(num_4x4_blks_ctb_y - 1) * 8 + j]);
-            }
-        }
-        col_block_no = 0;
-        /* Call intra analysis for the ctb */
-        ed_calc_ctb(
-            ps_ed_ctxt,
-            ps_ed_ctb,
-            ps_ed_ctb_l1,
-            pu1_src_pre_intra,
-            src_stride,
-            num_4x4_blks_in_ctb,
-            num_4x4_blks_ctb_y,
-            nbr_flags_ptr,
-            layer_no,
-            row_block_no,
-            col_block_no,
-            ps_ipe_optimised_function_list,
-            ps_cmn_utils_optimised_function_list
-
-        );
-
-        pu1_src_pre_intra += src_inc_pre_intra;
-        ps_ed_ctb += inc_ctb;
-        ps_ed_ctb_l1 += 1;
-        /*
-        * For the rest of the ctbs, set left flags available.
-        */
-        for(j = 0; j < num_4x4_blks_ctb_y; j++)
-        {
-            SET_L_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
-        }
-        for(j = 0; j < num_4x4_blks_ctb_y - 1; j++)
-        {
-            SET_BL_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
-            SET_TL_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[(j + 1) * 8]);
-        }
-        if(ht_offset != 0)
-        {
-            SET_TL_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[0]);
-        }
-    }
-
-    /* The first ctb is processed before the loop.
-    * The last one is processed after the loop.
-    */
-    for(col_block_no = 1; col_block_no < num_col_blks - 1; col_block_no++)
-    {
-        if(!skip_decomp)
+        for(col_block_no = 0; col_block_no < num_col_blks; col_block_no++)
         {
             ihevce_scale_by_2(
                 pu1_src,
@@ -2075,6 +1246,7 @@ void ihevce_decomp_pre_intra_process_row(
                 block_wd,
                 ps_cmn_utils_optimised_function_list->pf_copy_2d,
                 ps_ipe_optimised_function_list->pf_scaling_filter_mxn);
+
             /* Disable noise detection */
             memset(
                 ps_ctb_analyse_curr->s_ctb_noise_params.au1_is_8x8Blk_noisy,
@@ -2082,112 +1254,102 @@ void ihevce_decomp_pre_intra_process_row(
                 sizeof(ps_ctb_analyse_curr->s_ctb_noise_params.au1_is_8x8Blk_noisy));
 
             ps_ctb_analyse_curr->s_ctb_noise_params.i4_noise_present = 0;
-        }
 
-        if(do_pre_intra_analysis)
-        {
-            ed_calc_ctb(
-                ps_ed_ctxt,
-                ps_ed_ctb,
-                ps_ed_ctb_l1,
-                pu1_src_pre_intra,
-                src_stride,
-                num_4x4_blks_in_ctb,
-                num_4x4_blks_ctb_y,
-                nbr_flags_ptr,
-                layer_no,
-                row_block_no,
-                col_block_no,
-                ps_ipe_optimised_function_list,
-                ps_cmn_utils_optimised_function_list);
-            pu1_src_pre_intra += src_inc_pre_intra;
-            ps_ed_ctb += inc_ctb;
-            ps_ed_ctb_l1 += 1;
+            ps_ctb_analyse_curr++;
         }
     }
 
-    /* Last ctb in row */
-    if((!skip_decomp) && (col_block_no == (num_col_blks - 1)))
+    if(do_pre_intra_analysis)
     {
-        ihevce_scale_by_2(
-            pu1_src,
-            src_stride,
-            pu1_dst_decomp,
-            dst_stride,
-            layer_wd,
-            layer_ht,
-            pu1_wkg_mem,
-            ht_offset,
-            block_ht,
-            block_wd * col_block_no,
-            block_wd,
-            ps_cmn_utils_optimised_function_list->pf_copy_2d,
-            ps_ipe_optimised_function_list->pf_scaling_filter_mxn);
-        {
-            /* Disable noise detection */
-            memset(
-                ps_ctb_analyse_curr->s_ctb_noise_params.au1_is_8x8Blk_noisy,
-                0,
-                sizeof(ps_ctb_analyse_curr->s_ctb_noise_params.au1_is_8x8Blk_noisy));
+        ihevce_ed_blk_t *ps_ed_ctb = ps_ed_row;
+        ihevce_ed_ctb_l1_t *ps_ed_ctb_l1 = ps_ed_ctb_l1_row;
+        WORD32 *nbr_flags_ptr = &ps_ed_ctxt->ai4_nbr_flags[0];
+        UWORD8 *pu1_src_pre_intra = pu1_src + (ht_offset * src_stride);
+        WORD32 num_4x4_blks_in_ctb = block_wd >> 2;
+        WORD32 src_inc_pre_intra = num_4x4_blks_in_ctb * 4;
+        WORD32 inc_ctb = num_4x4_blks_in_ctb * num_4x4_blks_in_ctb;
 
-            ps_ctb_analyse_curr->s_ctb_noise_params.i4_noise_present = 0;
-        }
-    }
+        /* To analyse any given CTB we need to set the availability flags of the
+         * following neighbouring CTB: BL,L,TL,T,TR */
+        /* copy the neighbor flags for a general ctb (ctb inside the frame); not any corners */
+        memcpy(
+            ps_ed_ctxt->ai4_nbr_flags,
+            gau4_nbr_flags_8x8_4x4blks,
+            sizeof(gau4_nbr_flags_8x8_4x4blks));
 
-    if(do_pre_intra_analysis && (col_block_no == (num_col_blks - 1)))
-    {
-        /*
-        * The last ctb can be complete or incomplete. The complete
-        * ctb is handled in the if and incomplete is handled in the
-        * else case
-        */
-        //if(num_4x4_blks_last_ctb == num_4x4_blks_in_ctb)
-        if((num_4x4_blks_last_ctb_x == num_4x4_blks_ctb_y) &&
-           (num_4x4_blks_in_ctb == num_4x4_blks_last_ctb_x))
+        /* set top flags unavailable for first ctb row */
+        if(ht_offset == 0)
         {
-            /* Last ctb so set top right not available */
-            SET_TR_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[num_4x4_blks_in_ctb - 1]);
-
-            ed_calc_ctb(
-                ps_ed_ctxt,
-                ps_ed_ctb,
-                ps_ed_ctb_l1,
-                pu1_src_pre_intra,
-                src_stride,
-                num_4x4_blks_in_ctb,
-                num_4x4_blks_in_ctb,
-                nbr_flags_ptr,
-                layer_no,
-                row_block_no,
-                col_block_no,
-                ps_ipe_optimised_function_list,
-                ps_cmn_utils_optimised_function_list);
-            pu1_src_pre_intra += src_inc_pre_intra;
-            ps_ed_ctb += inc_ctb;
-            ps_ed_ctb_l1 += 1;
-        }
-        else
-        {
-            /* Last ctb so set top right not available */
-            for(i = 0; i < num_4x4_blks_ctb_y; i++)
+            for(j = 0; j < num_4x4_blks_in_ctb; j++)
             {
-                SET_TR_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[i * 8 + num_4x4_blks_in_ctb - 1]);
+                SET_T_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j]);
+                SET_TR_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j]);
+                SET_TL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j]);
+            }
+        }
+
+        /* set bottom left flags as not available for last row */
+        if(ht_offset + block_ht >= layer_ht)
+        {
+            for(j = 0; j < num_4x4_blks_in_ctb; j++)
+            {
+                SET_BL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[(num_4x4_blks_ctb_y - 1) * 8 + j]);
+            }
+        }
+
+        /* set left flags unavailable for 1st ctb col */
+        for(j = 0; j < num_4x4_blks_ctb_y; j++)
+        {
+            SET_L_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
+            SET_BL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
+            SET_TL_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
+        }
+
+        for(col_block_no = 0; col_block_no < num_col_blks; col_block_no++)
+        {
+            if(col_block_no == 1)
+            {
+                /* For the rest of the ctbs, set left flags available */
+                for(j = 0; j < num_4x4_blks_ctb_y; j++)
+                {
+                    SET_L_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
+                }
+                for(j = 0; j < num_4x4_blks_ctb_y - 1; j++)
+                {
+                    SET_BL_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[j * 8]);
+                    SET_TL_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[(j + 1) * 8]);
+                }
+                if(ht_offset != 0)
+                {
+                    SET_TL_AVAILABLE(ps_ed_ctxt->ai4_nbr_flags[0]);
+                }
             }
 
-            ihevce_ed_calc_incomplete_ctb(
+            if(col_block_no == num_col_blks - 1)
+            {
+                /* set top right flags unavailable for last ctb col */
+                for(i = 0; i < num_4x4_blks_ctb_y; i++)
+                {
+                    SET_TR_UNAVAILABLE(ps_ed_ctxt->ai4_nbr_flags[i * 8 + num_4x4_blks_last_ctb_x - 1]);
+                }
+            }
+
+            /* Call intra analysis for the ctb */
+            ihevce_ed_calc_ctb(
                 ps_ed_ctxt,
                 ps_ed_ctb,
                 ps_ed_ctb_l1,
                 pu1_src_pre_intra,
                 src_stride,
-                num_4x4_blks_last_ctb_x,
+                (col_block_no == num_col_blks - 1) ? num_4x4_blks_last_ctb_x : num_4x4_blks_in_ctb,
                 num_4x4_blks_ctb_y,
                 nbr_flags_ptr,
                 layer_no,
-                row_block_no,
-                col_block_no,
                 ps_ipe_optimised_function_list,
                 ps_cmn_utils_optimised_function_list);
+            pu1_src_pre_intra += src_inc_pre_intra;
+            ps_ed_ctb += inc_ctb;
+            ps_ed_ctb_l1 += 1;
         }
     }
 }
@@ -2197,18 +1359,8 @@ void ihevce_decomp_pre_intra_process_row(
 * \if Function name : ihevce_decomp_pre_intra_process \endif
 *
 * \brief
-*    Frame level function to decompose given layer L0 into coarser layers
-*
-* \param[in] pv_ctxt : pointer to master context of decomp_pre_intra module
-* \param[in] ps_inp  : pointer to input yuv buffer (frame buffer)
-* \param[in] pv_multi_thrd_ctxt : pointer to multithread context
-* \param[out] thrd_id : thread id
-*
-* \return
-*    None
-*
-* \author
-*  Ittiam
+*  Frame level function to decompose given layer L0 into coarser layers and
+*  perform intra analysis on layers below L0
 *
 *****************************************************************************
 */
@@ -2218,60 +1370,37 @@ void ihevce_decomp_pre_intra_process(
     frm_ctb_ctxt_t *ps_frm_ctb_prms,
     void *pv_multi_thrd_ctxt,
     WORD32 thrd_id,
-    WORD32 i4_ping_pong,
-    ihevce_8x8_L0_satd_t *ps_layer0_cur_satd,
-    ihevce_8x8_L0_mean_t *ps_layer0_cur_mean)
+    WORD32 i4_ping_pong)
 {
+    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt = pv_ctxt;
+    ihevce_decomp_pre_intra_ctxt_t *ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thrd_id];
+    multi_thrd_ctxt_t *ps_multi_thrd = (multi_thrd_ctxt_t *)pv_multi_thrd_ctxt;
+    WORD32 i4_num_layers = ps_ctxt->i4_num_layers;
+    UWORD8 *pu1_wkg_mem = ps_ctxt->au1_wkg_mem;
+    ihevce_ed_ctxt_t *ps_ed_ctxt = ps_ctxt->ps_ed_ctxt;
+    ihevce_ed_ctb_l1_t *ps_ed_ctb_l1 = ps_ed_ctxt->ps_ed_ctb_l1;
+    ihevce_ed_blk_t *ps_ed;
     WORD32 i4_layer_no;
-    WORD32 i4_num_layers;
     WORD32 end_of_layer;
     UWORD8 *pu1_src, *pu1_dst;
     WORD32 src_stride, dst_stride;
     WORD32 i4_layer_wd, i4_layer_ht;
-    WORD32 ht_offset, block_ht;
-    WORD32 row_block_no, num_row_blocks;
-    UWORD8 *pu1_wkg_mem;
-    WORD32 block_wd;
-    WORD32 num_col_blks;
+    WORD32 ht_offset, block_ht, row_block_no, num_row_blocks;
+    WORD32 block_wd, num_col_blks;
     WORD32 skip_decomp, skip_pre_intra;
-    WORD32 i4_cu_aligned_pic_wd, i4_cu_aligned_pic_ht;
-    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt =
-        (ihevce_decomp_pre_intra_master_ctxt_t *)pv_ctxt;
-
-    ihevce_decomp_pre_intra_ctxt_t *ps_ctxt =
-        ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thrd_id];
-    multi_thrd_ctxt_t *ps_multi_thrd = (multi_thrd_ctxt_t *)pv_multi_thrd_ctxt;
-
-    ihevce_ed_ctxt_t *ps_ed_ctxt;
-    ihevce_ed_blk_t *ps_ed;
-    ihevce_ed_ctb_l1_t *ps_ed_ctb_l1;
-    WORD32 inc_ctb = 0;
-    WORD32 num_4x4_blks_lyr;
-
-    i4_num_layers = ps_ctxt->i4_num_layers;
+    WORD32 inc_ctb;
 
     ASSERT(i4_num_layers >= 3);
-
-    /*
-     * Always force minimum layers as 4 so that we would have both l1 and l2
-     * pre intra analysis
-     */
-    if(i4_num_layers == 3)
-    {
-        i4_num_layers = 4;
-    }
-
     ps_ctxt->as_layers[0].pu1_inp = (UWORD8 *)ps_lap_out_prms->s_input_buf.pv_y_buf;
     ps_ctxt->as_layers[0].i4_inp_stride = ps_lap_out_prms->s_input_buf.i4_y_strd;
     ps_ctxt->as_layers[0].i4_actual_wd = ps_lap_out_prms->s_input_buf.i4_y_wd;
     ps_ctxt->as_layers[0].i4_actual_ht = ps_lap_out_prms->s_input_buf.i4_y_ht;
 
-    /* ------------ Loop over all the layers --------------- */
-    /* This loop does only decomp for all layers by picking jobs from job queue */
-    /* Decomp for all layers will completed with this for loop */
-    for(i4_layer_no = 0; i4_layer_no < (i4_num_layers - 1); i4_layer_no++)
+    /* This loop does decomp & intra by picking jobs from job queue */
+    for(i4_layer_no = 0; i4_layer_no < i4_num_layers; i4_layer_no++)
     {
         WORD32 idx = 0;
+
         src_stride = ps_ctxt->as_layers[i4_layer_no].i4_inp_stride;
         pu1_src = ps_ctxt->as_layers[i4_layer_no].pu1_inp;
         i4_layer_wd = ps_ctxt->as_layers[i4_layer_no].i4_actual_wd;
@@ -2282,77 +1411,24 @@ void ihevce_decomp_pre_intra_process(
         block_ht = ps_ctxt->as_layers[i4_layer_no].i4_decomp_blk_ht;
         num_col_blks = ps_ctxt->as_layers[i4_layer_no].i4_num_col_blks;
         num_row_blocks = ps_ctxt->as_layers[i4_layer_no].i4_num_row_blks;
-        i4_cu_aligned_pic_wd = ps_frm_ctb_prms->i4_cu_aligned_pic_wd;
-        i4_cu_aligned_pic_ht = ps_frm_ctb_prms->i4_cu_aligned_pic_ht;
-
-        /* register ed_ctxt buffer pointer */
-        //pv_ed_ctxt =  &ps_ctxt->as_layers[i4_layer_no].s_early_decision;
-        //ps_ed_ctxt = (ihevce_ed_ctxt_t *)pv_ed_ctxt;
-        //ps_ed = ps_ed_ctxt->ps_ed;
-
-        //pv_ed_ctxt = &ps_ctxt->ps_ed_ctxt;
-        ps_ed_ctxt = ps_ctxt->ps_ed_ctxt;
-
-        /* initialize ed_ctxt here */
-        /* init is moved here since now allocation is happening for only one instance
-        is allocated. for each layer it is re-used */
-        ps_ed_ctxt->lambda = ps_ctxt->ai4_lambda[i4_layer_no];
-        ps_ed_ctxt->i4_slice_type = ps_ctxt->i4_slice_type;
-        ps_ed_ctxt->level = ps_ctxt->i4_codec_level;
-        if(0 == i4_layer_no)
-        {
-            ps_ed_ctxt->ps_ed_pic = NULL;
-            ps_ed_ctxt->ps_ed = NULL;
-            ps_ed_ctxt->ps_ed_ctb_l1_pic = NULL;
-            ps_ed_ctxt->ps_ed_ctb_l1 = NULL;
-        }
-        else if(1 == i4_layer_no)
-        {
-            ps_ed_ctxt->ps_ed_pic = ps_ctxt->ps_layer1_buf;
-            ps_ed_ctxt->ps_ed = ps_ctxt->ps_layer1_buf;
-            ps_ed_ctxt->ps_ed_ctb_l1_pic = ps_ctxt->ps_ed_ctb_l1;
-            ps_ed_ctxt->ps_ed_ctb_l1 = ps_ctxt->ps_ed_ctb_l1;
-            ps_ctxt->ps_layer0_cur_satd = NULL;
-            ps_ctxt->ps_layer0_cur_mean = NULL;
-        }
-        else if(2 == i4_layer_no)
-        {
-            ps_ed_ctxt->ps_ed_pic = ps_ctxt->ps_layer2_buf;
-            ps_ed_ctxt->ps_ed = ps_ctxt->ps_layer2_buf;
-            ps_ed_ctxt->ps_ed_ctb_l1_pic = NULL;
-            ps_ed_ctxt->ps_ed_ctb_l1 = NULL;
-            ps_ctxt->ps_layer0_cur_satd = NULL;
-            ps_ctxt->ps_layer0_cur_mean = NULL;
-        }
-
-        /*Calculate the number of 4x4 blocks in a CTB in that layer*/
-        /*Divide block_wd by 4. 4 to get no of 4x4 blks*/
-        num_4x4_blks_lyr = block_wd >> 2;
-        inc_ctb = num_4x4_blks_lyr * num_4x4_blks_lyr;
-
-        ps_ed = ps_ed_ctxt->ps_ed;
-        ps_ed_ctb_l1 = ps_ed_ctxt->ps_ed_ctb_l1;
-
+        inc_ctb = (block_wd >> 2) * (block_wd >> 2);
         end_of_layer = 0;
-        skip_decomp = 0;
         skip_pre_intra = 1;
-        //if( i4_layer_no >= ps_ctxt->i4_num_layers)
+        skip_decomp = 0;
         if(i4_layer_no >= (ps_ctxt->i4_num_layers - 1))
         {
             skip_decomp = 1;
         }
-        /* ------------ Loop over all the CTB rows --------------- */
+
+        /* ------------ Loop over all the CTB rows & perform Decomp --------------- */
         while(0 == end_of_layer)
         {
             job_queue_t *ps_pre_enc_job;
-            WORD32 num_4x4_blks_ctb_y = 0;
-            WORD32 num_4x4_blks_last_ctb_x = 0;
+            WORD32 num_4x4_blks_ctb_y = 0, num_4x4_blks_last_ctb_x = 0;
 
             /* Get the current row from the job queue */
             ps_pre_enc_job = (job_queue_t *)ihevce_pre_enc_grp_get_next_job(
                 pv_multi_thrd_ctxt, (DECOMP_JOB_LYR0 + i4_layer_no), 1, i4_ping_pong);
-
-            pu1_wkg_mem = ps_ctxt->pu1_wkg_mem;
 
             /* If all rows are done, set the end of layer flag to 1, */
             if(NULL == ps_pre_enc_job)
@@ -2371,17 +1447,6 @@ void ihevce_decomp_pre_intra_process(
                     pu1_dst = ps_ctxt->as_layers[i4_layer_no + 1].pu1_inp +
                               ((block_ht >> 1) * dst_stride * row_block_no);
 
-                    /*L0 8x8 curr satd for qp mod*/
-                    if(i4_layer_no == 0)
-                    {
-                        ps_ctxt->ps_layer0_cur_satd =
-                            ps_layer0_cur_satd + (row_block_no * num_col_blks /*num ctbs*/ *
-                                                  (block_wd >> 3) * (block_ht >> 3));
-                        ps_ctxt->ps_layer0_cur_mean =
-                            ps_layer0_cur_mean + (row_block_no * num_col_blks /*num ctbs*/ *
-                                                  (block_wd >> 3) * (block_ht >> 3));
-                    }
-
                     /* call the row level processing function */
                     ihevce_decomp_pre_intra_process_row(
                         pu1_src,
@@ -2394,32 +1459,19 @@ void ihevce_decomp_pre_intra_process(
                         ht_offset,
                         block_ht,
                         block_wd,
-                        i4_cu_aligned_pic_wd,
-                        i4_cu_aligned_pic_ht,
                         num_col_blks,
                         i4_layer_no,
                         ps_ed_ctxt,
                         ps_ed,
                         ps_ed_ctb_l1,
-                        ps_ctxt->ps_layer0_cur_satd,
-                        ps_ctxt->ps_layer0_cur_mean,
                         num_4x4_blks_ctb_y,
                         num_4x4_blks_last_ctb_x,
                         skip_decomp,
                         skip_pre_intra,
                         row_block_no,
-                        ps_ctxt->i4_enable_noise_detection,
                         ps_ctxt->ps_ctb_analyse,
                         &ps_ctxt->s_ipe_optimised_function_list,
                         &ps_ctxt->s_cmn_opt_func);
-
-                    /*When decompositionis done from L1 to L2
-                    pre intra analysis is done on L1*/
-                    if(i4_layer_no == 1 || i4_layer_no == 2)
-                    {
-                        // ps_ed   = ps_ed_ctxt->ps_ed +
-                        //          (row_block_no * inc_ctb * (num_col_blks));
-                    }
                 }
                 idx++;
                 /* set the output dependency */
@@ -2429,6 +1481,7 @@ void ihevce_decomp_pre_intra_process(
         }
         ps_ctxt->as_layers[i4_layer_no].i4_num_rows_processed = idx;
 
+        /* ------------ For the same rows perform preintra if required --------------- */
         ihevce_ed_frame_init(ps_ed_ctxt, i4_layer_no);
 
         if((1 == i4_layer_no) && (IHEVCE_QUALITY_P6 == ps_ctxt->i4_quality_preset))
@@ -2448,6 +1501,7 @@ void ihevce_decomp_pre_intra_process(
                     for(ctb_ctr = 0; ctb_ctr < ctb_ctr_blks; ctb_ctr++)
                     {
                         ihevce_ed_ctb_l1_t *ps_ed_ctb_curr_l1 = ps_ed_ctb_row_l1 + ctb_ctr;
+
                         for(i = 0; i < 16; i++)
                         {
                             ps_ed_ctb_curr_l1->i4_best_sad_cost_8x8_l1_ipe[i] = 0x7fffffff;
@@ -2472,36 +1526,20 @@ void ihevce_decomp_pre_intra_process(
         {
             WORD32 i4_num_rows = ps_ctxt->as_layers[i4_layer_no].i4_num_rows_processed;
 
-            src_stride = ps_ctxt->as_layers[i4_layer_no].i4_inp_stride;
-            pu1_src = ps_ctxt->as_layers[i4_layer_no].pu1_inp;
-            i4_layer_wd = ps_ctxt->as_layers[i4_layer_no].i4_actual_wd;
-            i4_layer_ht = ps_ctxt->as_layers[i4_layer_no].i4_actual_ht;
-            pu1_dst = ps_ctxt->as_layers[i4_layer_no + 1].pu1_inp;
-            dst_stride = ps_ctxt->as_layers[i4_layer_no + 1].i4_inp_stride;
-            block_wd = ps_ctxt->as_layers[i4_layer_no].i4_decomp_blk_wd;
-            block_ht = ps_ctxt->as_layers[i4_layer_no].i4_decomp_blk_ht;
-            num_col_blks = ps_ctxt->as_layers[i4_layer_no].i4_num_col_blks;
-            num_row_blocks = ps_ctxt->as_layers[i4_layer_no].i4_num_row_blks;
-            i4_cu_aligned_pic_wd = ps_frm_ctb_prms->i4_cu_aligned_pic_wd;
-            i4_cu_aligned_pic_ht = ps_frm_ctb_prms->i4_cu_aligned_pic_ht;
-
-            /* register ed_ctxt buffer pointer */
-            ps_ed_ctxt = ps_ctxt->ps_ed_ctxt;
-
-            /* initialize ed_ctxt here */
-            /* init is moved here since now allocation is happening for only one instance
-            is allocated. for each layer it is re-used */
             ps_ed_ctxt->lambda = ps_ctxt->ai4_lambda[i4_layer_no];
-            ps_ed_ctxt->i4_slice_type = ps_ctxt->i4_slice_type;
-            ps_ed_ctxt->level = ps_ctxt->i4_codec_level;
-            if(1 == i4_layer_no)
+            if(0 == i4_layer_no)
+            {
+                ps_ed_ctxt->ps_ed_pic = NULL;
+                ps_ed_ctxt->ps_ed = NULL;
+                ps_ed_ctxt->ps_ed_ctb_l1_pic = NULL;
+                ps_ed_ctxt->ps_ed_ctb_l1 = NULL;
+            }
+            else if(1 == i4_layer_no)
             {
                 ps_ed_ctxt->ps_ed_pic = ps_ctxt->ps_layer1_buf;
                 ps_ed_ctxt->ps_ed = ps_ctxt->ps_layer1_buf;
                 ps_ed_ctxt->ps_ed_ctb_l1_pic = ps_ctxt->ps_ed_ctb_l1;
                 ps_ed_ctxt->ps_ed_ctb_l1 = ps_ctxt->ps_ed_ctb_l1;
-                ps_ctxt->ps_layer0_cur_satd = NULL;
-                ps_ctxt->ps_layer0_cur_mean = NULL;
             }
             else if(2 == i4_layer_no)
             {
@@ -2509,91 +1547,71 @@ void ihevce_decomp_pre_intra_process(
                 ps_ed_ctxt->ps_ed = ps_ctxt->ps_layer2_buf;
                 ps_ed_ctxt->ps_ed_ctb_l1_pic = NULL;
                 ps_ed_ctxt->ps_ed_ctb_l1 = NULL;
-                ps_ctxt->ps_layer0_cur_satd = NULL;
-                ps_ctxt->ps_layer0_cur_mean = NULL;
             }
 
-            /*Calculate the number of 4x4 blocks in a CTB in that layer*/
-            /*Divide block_wd by 4. 4 to get no of 4x4 blks*/
-            num_4x4_blks_lyr = block_wd >> 2;
-            inc_ctb = num_4x4_blks_lyr * num_4x4_blks_lyr;
-
-            ps_ed = ps_ed_ctxt->ps_ed;
-            ps_ed_ctb_l1 = ps_ed_ctxt->ps_ed_ctb_l1;
             skip_decomp = 1;
             skip_pre_intra = 0;
+
             for(idx = 0; idx < i4_num_rows; idx++)
             {
-                WORD32 num_4x4_blks_ctb_y = 0;
-                WORD32 num_4x4_blks_last_ctb_x = 0;
+                WORD32 num_4x4_blks_ctb_y = 0, num_4x4_blks_last_ctb_x = 0;
 
-                pu1_wkg_mem = ps_ctxt->pu1_wkg_mem;
+                /* Obtain the current row's details from the job */
+                row_block_no = ps_ctxt->as_layers[i4_layer_no].ai4_curr_row_no[idx];
+                ht_offset = row_block_no * block_ht;
 
+                if(row_block_no < (num_row_blocks))
                 {
-                    /* Obtain the current row's details from the job */
-                    row_block_no = ps_ctxt->as_layers[i4_layer_no].ai4_curr_row_no[idx];
-                    ht_offset = row_block_no * block_ht;
+                    pu1_dst = ps_ctxt->as_layers[i4_layer_no + 1].pu1_inp +
+                              ((block_ht >> 1) * dst_stride * row_block_no);
 
-                    if(row_block_no < (num_row_blocks))
+                    if(i4_layer_no == 1 || i4_layer_no == 2)
                     {
-                        pu1_dst = ps_ctxt->as_layers[i4_layer_no + 1].pu1_inp +
-                                  ((block_ht >> 1) * dst_stride * row_block_no);
-
-                        if(i4_layer_no == 1 || i4_layer_no == 2)
+                        ps_ed = ps_ed_ctxt->ps_ed + (row_block_no * inc_ctb * (num_col_blks));
+                        ps_ed_ctb_l1 = ps_ed_ctxt->ps_ed_ctb_l1 + (row_block_no * num_col_blks);
+                        ps_ed_ctxt->i4_quality_preset = ps_ctxt->i4_quality_preset;
+                        num_4x4_blks_last_ctb_x = block_wd >> 2;
+                        num_4x4_blks_ctb_y = block_ht >> 2;
+                        if(row_block_no == num_row_blocks - 1)
                         {
-                            ps_ed = ps_ed_ctxt->ps_ed + (row_block_no * inc_ctb * (num_col_blks));
-                            ps_ed_ctb_l1 = ps_ed_ctxt->ps_ed_ctb_l1 + (row_block_no * num_col_blks);
-
-                            ps_ed_ctxt->i4_quality_preset = ps_ctxt->i4_quality_preset;
-                            num_4x4_blks_ctb_y = block_ht >> 2;
-                            num_4x4_blks_last_ctb_x = block_wd >> 2;
-
-                            if(row_block_no == num_row_blocks - 1)
+                            if(i4_layer_ht % block_ht)
                             {
-                                if(i4_layer_ht % block_ht)
-                                {
-                                    num_4x4_blks_ctb_y = ((i4_layer_ht % block_ht) + 3) >> 2;
-                                }
-                            }
-
-                            if(i4_layer_wd % block_wd)
-                            {
-                                num_4x4_blks_last_ctb_x = ((i4_layer_wd % block_wd) + 3) >> 2;
+                                num_4x4_blks_ctb_y = ((i4_layer_ht % block_ht) + 3) >> 2;
                             }
                         }
-
-                        /* call the row level processing function */
-                        ihevce_decomp_pre_intra_process_row(
-                            pu1_src,
-                            src_stride,
-                            pu1_dst,
-                            dst_stride,
-                            i4_layer_wd,
-                            i4_layer_ht,
-                            pu1_wkg_mem,
-                            ht_offset,
-                            block_ht,
-                            block_wd,
-                            i4_cu_aligned_pic_wd,
-                            i4_cu_aligned_pic_ht,
-                            num_col_blks,
-                            i4_layer_no,
-                            ps_ed_ctxt,
-                            ps_ed,
-                            ps_ed_ctb_l1,
-                            ps_ctxt->ps_layer0_cur_satd,
-                            ps_ctxt->ps_layer0_cur_mean,
-                            num_4x4_blks_ctb_y,
-                            num_4x4_blks_last_ctb_x,
-                            skip_decomp,
-                            skip_pre_intra,
-                            row_block_no,
-                            0,
-                            NULL,
-                            &ps_ctxt->s_ipe_optimised_function_list,
-                            &ps_ctxt->s_cmn_opt_func);
+                        if(i4_layer_wd % block_wd)
+                        {
+                            num_4x4_blks_last_ctb_x = ((i4_layer_wd % block_wd) + 3) >> 2;
+                        }
                     }
+
+                    /* call the row level processing function */
+                    ihevce_decomp_pre_intra_process_row(
+                        pu1_src,
+                        src_stride,
+                        pu1_dst,
+                        dst_stride,
+                        i4_layer_wd,
+                        i4_layer_ht,
+                        pu1_wkg_mem,
+                        ht_offset,
+                        block_ht,
+                        block_wd,
+                        num_col_blks,
+                        i4_layer_no,
+                        ps_ed_ctxt,
+                        ps_ed,
+                        ps_ed_ctb_l1,
+                        num_4x4_blks_ctb_y,
+                        num_4x4_blks_last_ctb_x,
+                        skip_decomp,
+                        skip_pre_intra,
+                        row_block_no,
+                        NULL,
+                        &ps_ctxt->s_ipe_optimised_function_list,
+                        &ps_ctxt->s_cmn_opt_func);
                 }
+
                 if(1 == i4_layer_no)
                 {
                     ps_multi_thrd->aai4_l1_pre_intra_done[i4_ping_pong][row_block_no] = 1;
@@ -2708,102 +1726,62 @@ void *ihevce_decomp_pre_intra_init(
     WORD32 i4_resolution_id,
     UWORD8 u1_is_popcnt_available)
 {
-    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt;
-    ihevce_decomp_pre_intra_ctxt_t *ps_ctxt;
-    WORD32 thread_no;
-    WORD32 n_tot_layers;
-    WORD32 count;
-    WORD32 a_wd[MAX_NUM_HME_LAYERS], a_ht[MAX_NUM_HME_LAYERS], layer_no;
+    ihevce_decomp_pre_intra_master_ctxt_t *ps_mstr_ctxt = ps_mem_tab[DECOMP_PRE_INTRA_CTXT].pv_base;
+    ihevce_decomp_pre_intra_ctxt_t *ps_ctxt = ps_mem_tab[DECOMP_PRE_INTRA_THRDS_CTXT].pv_base;
+    ihevce_ed_ctxt_t *ps_ed_ctxt = ps_mem_tab[DECOMP_PRE_INTRA_ED_CTXT].pv_base;
+    ihevce_tgt_params_t *ps_tgt_prms = &ps_init_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id];
+    WORD32 min_cu_size = 1 << ps_init_prms->s_config_prms.i4_min_log2_cu_size;
+    WORD32 a_wd[MAX_NUM_HME_LAYERS], a_ht[MAX_NUM_HME_LAYERS];
     WORD32 a_disp_wd[MAX_NUM_LAYERS], a_disp_ht[MAX_NUM_LAYERS];
-    ihevce_ed_ctxt_t *ps_ed_ctxt;
-    WORD32 min_cu_size;
-
-    /* get the min cu size from config params */
-    min_cu_size = ps_init_prms->s_config_prms.i4_min_log2_cu_size;
-
-    min_cu_size = 1 << min_cu_size;
+    WORD32 n_tot_layers;
+    WORD32 i, j, k;
 
     /* Get the height and width of each layer */
-    *a_wd = ps_init_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id].i4_width +
-            SET_CTB_ALIGN(
-                ps_init_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id].i4_width, min_cu_size);
-    *a_ht =
-        ps_init_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id].i4_height +
-        SET_CTB_ALIGN(
-            ps_init_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id].i4_height, min_cu_size);
-
+    *a_wd = ps_tgt_prms->i4_width + SET_CTB_ALIGN(ps_tgt_prms->i4_width, min_cu_size);
+    *a_ht = ps_tgt_prms->i4_height + SET_CTB_ALIGN(ps_tgt_prms->i4_height, min_cu_size);
     n_tot_layers = hme_derive_num_layers(1, a_wd, a_ht, a_disp_wd, a_disp_ht);
-
-    /* Decomp state structure */
-    ps_master_ctxt =
-        (ihevce_decomp_pre_intra_master_ctxt_t *)ps_mem_tab[DECOMP_PRE_INTRA_CTXT].pv_base;
-    ps_master_ctxt->i4_num_proc_thrds = i4_num_proc_thrds;
-
-    ps_ctxt = (ihevce_decomp_pre_intra_ctxt_t *)ps_mem_tab[DECOMP_PRE_INTRA_THRDS_CTXT].pv_base;
-    ps_ed_ctxt = (ihevce_ed_ctxt_t *)ps_mem_tab[DECOMP_PRE_INTRA_ED_CTXT].pv_base;
-
-    for(thread_no = 0; thread_no < ps_master_ctxt->i4_num_proc_thrds; thread_no++)
+    ps_mstr_ctxt->i4_num_proc_thrds = i4_num_proc_thrds;
+    for(i = 0; i < ps_mstr_ctxt->i4_num_proc_thrds; i++)
     {
-        ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thread_no] = ps_ctxt;
-
-        ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thread_no]->i4_num_layers = n_tot_layers;
-
-        ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thread_no]->pu1_wkg_mem =
-            &ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thread_no]->au1_wkg_mem[0];
-
-        ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thread_no]->ps_ed_ctxt = ps_ed_ctxt;
-
-        for(layer_no = 0; layer_no < n_tot_layers; layer_no++)
+        ps_mstr_ctxt->aps_decomp_pre_intra_thrd_ctxt[i] = ps_ctxt;
+        ps_ctxt->i4_num_layers = n_tot_layers;
+        ps_ctxt->ps_ed_ctxt = ps_ed_ctxt;
+        for(j = 0; j < n_tot_layers; j++)
         {
-            WORD32 max_ctb_size;
-            WORD32 decomp_blk_ht, decomp_blk_wd;
+            /** If CTB size= 64, decomp_blk_wd = 64 for L0, 32 for L1 , 16 for L2, 8 for L3 */
+            WORD32 max_ctb_size = 1 << ps_init_prms->s_config_prms.i4_max_log2_cu_size;
+            WORD32 decomp_blk_wd = max_ctb_size >> j;
+            WORD32 decomp_blk_ht = max_ctb_size >> j;
 
-            ps_ctxt->as_layers[layer_no].i4_actual_wd = a_wd[layer_no];
-            ps_ctxt->as_layers[layer_no].i4_actual_ht = a_ht[layer_no];
-            ps_ctxt->as_layers[layer_no].i4_inp_stride = 0;
-            ps_ctxt->as_layers[layer_no].pu1_inp = NULL;
-            ps_ctxt->as_layers[layer_no].i4_num_rows_processed = 0;
-
-            for(count = 0; count < MAX_NUM_CTB_ROWS_FRM; count++)
+            ps_ctxt->as_layers[j].i4_actual_wd = a_wd[j];
+            ps_ctxt->as_layers[j].i4_actual_ht = a_ht[j];
+            if(0 == j)
             {
-                ps_ctxt->as_layers[layer_no].ai4_curr_row_no[count] = -1;
-            }
-            if(0 == layer_no)
-            {
-                ps_ctxt->as_layers[layer_no].i4_padded_ht = a_ht[layer_no];
-                ps_ctxt->as_layers[layer_no].i4_padded_wd = a_wd[layer_no];
+                ps_ctxt->as_layers[j].i4_padded_ht = a_ht[j];
+                ps_ctxt->as_layers[j].i4_padded_wd = a_wd[j];
             }
             else
             {
-                ps_ctxt->as_layers[layer_no].i4_padded_ht = a_ht[layer_no] + 32 + 4;
-                ps_ctxt->as_layers[layer_no].i4_padded_wd = a_wd[layer_no] + 32 + 4;
+                ps_ctxt->as_layers[j].i4_padded_ht = a_ht[j] + 32 + 4;
+                ps_ctxt->as_layers[j].i4_padded_wd = a_wd[j] + 32 + 4;
             }
-
-            /** If CTB size= 64.decomp_blk_wd = 64 for L0, 32 for L1 , 16 for L2, 8 for L3 */
-            max_ctb_size = 1 << ps_init_prms->s_config_prms.i4_max_log2_cu_size;
-
-            ps_ctxt->as_layers[layer_no].i4_decomp_blk_ht = max_ctb_size >> layer_no;
-            ps_ctxt->as_layers[layer_no].i4_decomp_blk_wd = max_ctb_size >> layer_no;
-
-            decomp_blk_ht = ps_ctxt->as_layers[layer_no].i4_decomp_blk_ht;
-            decomp_blk_wd = ps_ctxt->as_layers[layer_no].i4_decomp_blk_wd;
-
-            ps_ctxt->as_layers[layer_no].i4_num_row_blks =
-                ((a_ht[layer_no] + (decomp_blk_ht - 1)) / decomp_blk_ht);
-
-            ps_ctxt->as_layers[layer_no].i4_num_col_blks =
-                ((a_wd[layer_no] + (decomp_blk_wd - 1)) / decomp_blk_wd);
+            ps_ctxt->as_layers[j].pu1_inp = NULL;
+            ps_ctxt->as_layers[j].i4_inp_stride = 0;
+            ps_ctxt->as_layers[j].i4_decomp_blk_ht = decomp_blk_ht;
+            ps_ctxt->as_layers[j].i4_decomp_blk_wd = decomp_blk_wd;
+            ps_ctxt->as_layers[j].i4_num_row_blks = ((a_ht[j] + (decomp_blk_ht - 1)) / decomp_blk_ht);
+            ps_ctxt->as_layers[j].i4_num_col_blks = ((a_wd[j] + (decomp_blk_wd - 1)) / decomp_blk_wd);
+            for(k = 0; k < MAX_NUM_CTB_ROWS_FRM; k++)
+            {
+                ps_ctxt->as_layers[j].ai4_curr_row_no[k] = -1;
+            }
+            ps_ctxt->as_layers[j].i4_num_rows_processed = 0;
         }
-        ps_ed_ctxt->ps_func_selector = ps_func_selector;
-
-        ps_ctxt->i4_quality_preset =
-            ps_init_prms->s_tgt_lyr_prms.as_tgt_params[i4_resolution_id].i4_quality_preset;
-
+        ps_ctxt->i4_quality_preset = ps_tgt_prms->i4_quality_preset;
         if(ps_ctxt->i4_quality_preset == IHEVCE_QUALITY_P7)
         {
             ps_ctxt->i4_quality_preset = IHEVCE_QUALITY_P6;
         }
-
         if(ps_init_prms->s_coding_tools_prms.i4_vqet &
            (1 << BITPOS_IN_VQ_TOGGLE_FOR_CONTROL_TOGGLER))
         {
@@ -2821,38 +1799,25 @@ void *ihevce_decomp_pre_intra_init(
         {
             ps_ctxt->i4_enable_noise_detection = 0;
         }
-
         ihevce_cmn_utils_instr_set_router(
             &ps_ctxt->s_cmn_opt_func, u1_is_popcnt_available, ps_init_prms->e_arch_type);
-
         ihevce_ipe_instr_set_router(
             &ps_ctxt->s_ipe_optimised_function_list, ps_init_prms->e_arch_type);
+
+        ps_ed_ctxt->ps_func_selector = ps_func_selector;
 
         ps_ctxt++;
         ps_ed_ctxt++;
     }
     /* return the handle to caller */
-    return ((void *)ps_master_ctxt);
+    return ((void *)ps_mstr_ctxt);
 }
 
 /*!
-******************************************************************************
-* \if Function name : ihevce_decomp_pre_intra_frame_init \endif
-*
-* \brief
-*    Frame Intialization for Decomp intra pre analysis.
-*
-* \param[in] pv_ctxt : pointer to module ctxt
-* \param[in] ppu1_decomp_lyr_bufs : pointer to array of layer buffer pointers
-* \param[in] pi4_lyr_buf_stride : pointer to array of layer buffer strides
-*
-* \return
-*    None
-*
-* \author
-*  Ittiam
-*
-*****************************************************************************
+************************************************************************
+* @brief
+*    Init decomp pre intra layer buffers
+************************************************************************
 */
 void ihevce_decomp_pre_intra_frame_init(
     void *pv_ctxt,
@@ -2862,66 +1827,46 @@ void ihevce_decomp_pre_intra_frame_init(
     ihevce_ed_blk_t *ps_layer2_buf,
     ihevce_ed_ctb_l1_t *ps_ed_ctb_l1,
     WORD32 i4_ol_sad_lambda_qf,
-    WORD32 i4_slice_type,
     ctb_analyse_t *ps_ctb_analyse)
 {
-    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt;
+    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt = pv_ctxt;
     ihevce_decomp_pre_intra_ctxt_t *ps_ctxt;
-    WORD32 thread_no;
+    WORD32 i, j;
 
-    /* Decomp state structure */
-    ps_master_ctxt = (ihevce_decomp_pre_intra_master_ctxt_t *)pv_ctxt;
-
-    for(thread_no = 0; thread_no < ps_master_ctxt->i4_num_proc_thrds; thread_no++)
+    for(i = 0; i < ps_master_ctxt->i4_num_proc_thrds; i++)
     {
-        WORD32 layer_no;
-
-        ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[thread_no];
+        ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[i];
 
         /* L0 layer (actual input) is registered in process call */
-        for(layer_no = 1; layer_no < ps_ctxt->i4_num_layers; layer_no++)
+        for(j = 1; j < ps_ctxt->i4_num_layers; j++)
         {
-            ps_ctxt->as_layers[layer_no].i4_inp_stride = pi4_lyr_buf_stride[layer_no - 1];
-            ps_ctxt->as_layers[layer_no].pu1_inp = ppu1_decomp_lyr_bufs[layer_no - 1];
+            ps_ctxt->as_layers[j].i4_inp_stride = pi4_lyr_buf_stride[j - 1];
+            ps_ctxt->as_layers[j].pu1_inp = ppu1_decomp_lyr_bufs[j - 1];
 
-            /*Populating the buffer pointers for layer1 and layer2 buffers to store the
-            structure for each 4x4 block after pre intra analysis on their respective laeyrs*/
-
-            if(layer_no == 1)
+            /* Populating the buffer pointers for layer1 and layer2 buffers to store the
+            structure for each 4x4 block after pre intra analysis on their respective layers */
+            if(j == 1)
             {
                 WORD32 sad_lambda_l1 = (3 * i4_ol_sad_lambda_qf >> 2);
                 WORD32 temp = 1 << LAMBDA_Q_SHIFT;
                 WORD32 lambda = ((temp) > sad_lambda_l1) ? temp : sad_lambda_l1;
-                //ps_ctxt->as_layers[1].s_early_decision.ps_ed_pic = ps_layer1_buf;
-                //ps_ctxt->as_layers[1].s_early_decision.ps_ed = ps_layer1_buf;
+
                 ps_ctxt->ps_layer1_buf = ps_layer1_buf;
                 ps_ctxt->ps_ed_ctb_l1 = ps_ed_ctb_l1;
-                ps_ctxt->ai4_lambda[layer_no] = lambda;
-                ps_ctxt->i4_codec_level = 0;
-                ps_ctxt->i4_slice_type = i4_slice_type;
+                ps_ctxt->ai4_lambda[j] = lambda;
             }
-            else if(layer_no == 2)
+            else if(j == 2)
             {
                 WORD32 sad_lambda_l2 = i4_ol_sad_lambda_qf >> 1;
                 WORD32 temp = 1 << LAMBDA_Q_SHIFT;
                 WORD32 lambda = ((temp) > sad_lambda_l2) ? temp : sad_lambda_l2;
 
-                //ps_ctxt->as_layers[2].s_early_decision.ps_ed_pic = ps_layer2_buf;
-                //ps_ctxt->as_layers[2].s_early_decision.ps_ed = ps_layer2_buf;
                 ps_ctxt->ps_layer2_buf = ps_layer2_buf;
-                //ihevce_ed_frame_init(ps_ctxt->ps_ed_ctxt);
-                ps_ctxt->ai4_lambda[layer_no] = lambda;
-                ps_ctxt->i4_codec_level = 0;
-                ps_ctxt->i4_slice_type = i4_slice_type;
+                ps_ctxt->ai4_lambda[j] = lambda;
             }
             else
             {
-                //ps_ctxt->as_layers[0].s_early_decision.ps_ed_pic = NULL;
-                //ps_ctxt->as_layers[0].s_early_decision.ps_ed = NULL;
-                //ps_ctxt->ps_layer1_buf = NULL;
-                ps_ctxt->ai4_lambda[layer_no] = -1;
-                ps_ctxt->i4_codec_level = 0;
-                ps_ctxt->i4_slice_type = i4_slice_type;
+                ps_ctxt->ai4_lambda[j] = -1;
             }
         }
 
@@ -2933,8 +1878,7 @@ void ihevce_decomp_pre_intra_frame_init(
 /**
 *******************************************************************************
 *
-* @brief
-*     Merge Sort function.
+* @brief Merge Sort function.
 *
 * @par Description:
 *     This function sorts the data in the input array in ascending
@@ -2951,11 +1895,6 @@ void ihevce_decomp_pre_intra_frame_init(
 *                     in sets of 4.
 *   i4_op_sort_level: Output sort level. Specify the level upto which sorting is required.
 *                     If it is given as length of array it sorts for whole array.
-*
-* @returns
-*
-* @remarks
-*  None
 *
 *******************************************************************************
 */
@@ -3048,553 +1987,344 @@ void ihevce_merge_sort(
     }
 }
 
+/*!
+************************************************************************
+* @brief
+*   Calculate the average activities at 16*16 (8*8 in L1) and 32*32
+*   (8*8 in L2) block sizes. As this function accumulates activities
+*   across blocks of a frame, this needs to be called by only one thread
+*   and only after ensuring the processing of entire frame is done
+************************************************************************
+*/
 void ihevce_decomp_pre_intra_curr_frame_pre_intra_deinit(
     void *pv_pre_intra_ctxt,
     pre_enc_me_ctxt_t *ps_curr_out,
-    WORD32 i4_is_last_thread,
-    frm_ctb_ctxt_t *ps_frm_ctb_prms,
-    WORD32 i4_temporal_lyr_id,
-    WORD32 i4_enable_noise_detection)
+    frm_ctb_ctxt_t *ps_frm_ctb_prms)
 {
-    ihevce_decomp_pre_intra_master_ctxt_t *ps_pre_intra_master_ctxt =
-        (ihevce_decomp_pre_intra_master_ctxt_t *)pv_pre_intra_ctxt;
-    ihevce_decomp_pre_intra_ctxt_t *ps_pre_intra_ctxt =
-        ps_pre_intra_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[0];
+    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt = pv_pre_intra_ctxt;
+    ihevce_decomp_pre_intra_ctxt_t *ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[0];
 
-    WORD32 i4_k;
+    ULWORD64 u8_frame_8x8_sum_act_sqr = 0;
+    LWORD64 ai8_frame_8x8_sum_act_sqr[2] = { 0, 0 };
+    WORD32 ai4_frame_8x8_sum_act[2] = { 0, 0 };
+    WORD32 ai4_frame_8x8_sum_blks[2] = { 0, 0 };
+
+    LWORD64 ai8_frame_16x16_sum_act_sqr[3] = { 0, 0, 0 };
+    WORD32 ai4_frame_16x16_sum_act[3] = { 0, 0, 0 };
+    WORD32 ai4_frame_16x16_sum_blks[3] = { 0, 0, 0 };
+
+    LWORD64 ai8_frame_32x32_sum_act_sqr[3] = { 0, 0, 0 };
+    WORD32 ai4_frame_32x32_sum_act[3] = { 0, 0, 0 };
+    WORD32 ai4_frame_32x32_sum_blks[3] = { 0, 0, 0 };
+
+    ihevce_ed_ctb_l1_t *ps_ed_ctb_pic_l1 = ps_curr_out->ps_ed_ctb_l1;
+    ihevce_ed_blk_t *ps_ed_blk_l1 = ps_curr_out->ps_layer1_buf;
+    WORD32 ctb_wd = ps_ctxt->as_layers[1].i4_decomp_blk_wd;
+    WORD32 h_ctb_cnt = ps_ctxt->as_layers[1].i4_num_col_blks;
+    WORD32 v_ctb_cnt = ps_ctxt->as_layers[1].i4_num_row_blks;
+    WORD32 sub_blk_cnt = ((ctb_wd >> 2) * (ctb_wd >> 2));
+    WORD32 i4_avg_noise_satd;
     WORD32 ctb_ctr, vert_ctr;
+    WORD32 i, j, k;
 
-    WORD32 ai4_curr_frame_8x8_sum_act[2] = { 0, 0 };
-    LWORD64 ai8_curr_frame_8x8_sum_act_sqr[2] = { 0, 0 };
-    WORD32 ai4_curr_frame_8x8_sum_blks[2] = { 0, 0 };
-    ULWORD64 u8_curr_frame_8x8_sum_act_sqr = 0;
-
-    LWORD64 ai8_curr_frame_16x16_sum_act_sqr[3] = { 0, 0, 0 };
-    WORD32 ai4_curr_frame_16x16_sum_act[3] = { 0, 0, 0 };
-    WORD32 ai4_curr_frame_16x16_sum_blks[3] = { 0, 0, 0 };
-
-    LWORD64 ai8_curr_frame_32x32_sum_act_sqr[3] = { 0, 0, 0 };
-    WORD32 ai4_curr_frame_32x32_sum_act[3] = { 0, 0, 0 };
-    WORD32 ai4_curr_frame_32x32_sum_blks[3] = { 0, 0, 0 };
-
-    (void)i4_temporal_lyr_id;
-    (void)i4_enable_noise_detection;
-
-    if(i4_is_last_thread == 1)
     {
-        WORD32 i4_slice_type = ps_curr_out->s_slice_hdr.i1_slice_type;
-        //ps_pre_intra_ctxt->i4_slice_type;
-        WORD32 ctb_ctr_blks = ps_pre_intra_ctxt->as_layers[1].i4_num_col_blks;
-        WORD32 vert_ctr_blks = ps_pre_intra_ctxt->as_layers[1].i4_num_row_blks;
-        ihevce_ed_ctb_l1_t *ps_ed_ctb_pic_l1 = ps_curr_out->ps_ed_ctb_l1;
-        WORD32 block_wd = ps_pre_intra_ctxt->as_layers[1].i4_decomp_blk_wd;
-        WORD32 inc_ctb = ((block_wd >> 2) * (block_wd >> 2));
-        ihevce_ed_blk_t *ps_ed_blk_l1 = ps_curr_out->ps_layer1_buf;
-        ihevce_ed_blk_t *ps_ed;
-        WORD32 i, j;
-        WORD32 i4_avg_noise_satd;
-        WORD32 k;
-        WORD32 i4_layer_wd = ps_pre_intra_ctxt->as_layers[1].i4_actual_wd;
-        WORD32 i4_layer_ht = ps_pre_intra_ctxt->as_layers[1].i4_actual_ht;
-
-        /*Calculate min noise threshold */
-        /*Min noise threshold is calculted by taking average of lowest 1% satd val in the complete 4x4 frame satds*/
-        //ihevce_ed_ctxt_t *ps_ed_ctxt =  ps_pre_intra_ctxt->ps_ed_ctxt;
+        /* Calculate min noise threshold */
+        /* Min noise threshold is calculated by taking average of lowest 1% satd val in
+         * the complete 4x4 frame satds */
+#define MAX_SATD 64
+#define SATD_NOISE_FLOOR_THRESHOLD 16
+#define MIN_BLKS 2
+        WORD32 i4_layer_wd = ps_ctxt->as_layers[1].i4_actual_wd;
+        WORD32 i4_layer_ht = ps_ctxt->as_layers[1].i4_actual_ht;
         WORD32 i4_min_blk = ((MIN_BLKS * (i4_layer_wd >> 1) * (i4_layer_ht >> 1)) / 100);
-        WORD32 ai4_noise_thr_hstrgm[MAX_SATD_THRSHLD];
-        memset(&ai4_noise_thr_hstrgm[0], 0, (sizeof(WORD32) * MAX_SATD_THRSHLD));
-        ASSERT(!(USE_CUR_L0_SATD && USE_CUR_SATD));
-        for(vert_ctr = 0; vert_ctr < vert_ctr_blks; vert_ctr++)
+        WORD32 i4_total_blks = 0;
+        WORD32 satd_hist[MAX_SATD];
+        LWORD64 i8_acc_satd = 0;
+
+        memset(satd_hist, 0, sizeof(satd_hist));
+        for(i = 0; i < sub_blk_cnt * h_ctb_cnt * v_ctb_cnt; i++)
         {
-            ps_ed = ps_ed_blk_l1 + (vert_ctr * inc_ctb * (ctb_ctr_blks));
-            for(ctb_ctr = 0; ctb_ctr < ctb_ctr_blks; ctb_ctr++)
+            if(ps_ed_blk_l1[i].i4_4x4_satd >= 0 && ps_ed_blk_l1[i].i4_4x4_satd < MAX_SATD)
             {
-                /* Populate avg satd to calculate MI and activity factors */
-                for(i = 0; i < 4; i++)
-                {
-                    for(j = 0; j < 4; j++)
-                    {
-                        for(k = 0; k < 4; k++)
-                        {
-                            if(-1 != (ps_ed + j * 4 + i * 16 + k)->i4_4x4_satd)
-                            {
-                                WORD32 i4_satd_lim;
-                                i4_satd_lim = (ps_ed + j * 4 + i * 16 + k)->i4_4x4_satd;
-                                /* Histogram creation for Noise threshold */
-                                if(i4_satd_lim < MAX_SATD_THRSHLD)
-                                {
-                                    ai4_noise_thr_hstrgm[i4_satd_lim]++;
-                                }
-                            }
-                        }
-                    }
-                }
-                ps_ed += inc_ctb;
+                satd_hist[ps_ed_blk_l1[i].i4_4x4_satd]++;
             }
         }
+        for(i = 0; i < MAX_SATD && i4_total_blks <= i4_min_blk; i++)
         {
-            WORD32 i4_total_blks = 0;
-            LWORD64 i8_acc_satd = 0;
-            for(i = MIN_SATD_THRSHLD; i < MAX_SATD_THRSHLD; i++)
-            {
-                i4_total_blks += ai4_noise_thr_hstrgm[i];
-                i8_acc_satd += (i * ai4_noise_thr_hstrgm[i]);
-
-                if(i4_total_blks > i4_min_blk)
-                    break;
-            }
-            if(i4_total_blks < i4_min_blk)
-            {
-                i4_avg_noise_satd = SATD_NOISE_FLOOR_THRESHOLD;
-            }
-            else
-            {
-                i4_avg_noise_satd = (WORD32)(i8_acc_satd + (i4_total_blks >> 1)) / i4_total_blks;
-            }
+            i4_total_blks += satd_hist[i];
+            i8_acc_satd += (i * satd_hist[i]);
         }
-
+        if(i4_total_blks < i4_min_blk)
+        {
+            i4_avg_noise_satd = SATD_NOISE_FLOOR_THRESHOLD;
+        }
+        else
+        {
+            i4_avg_noise_satd = (WORD32)(i8_acc_satd + (i4_total_blks >> 1)) / i4_total_blks;
+        }
         ps_curr_out->i4_avg_noise_thrshld_4x4 = i4_avg_noise_satd;
+    }
 
-        for(vert_ctr = 0; vert_ctr < vert_ctr_blks; vert_ctr++)
+    for(vert_ctr = 0; vert_ctr < v_ctb_cnt; vert_ctr++)
+    {
+        ihevce_ed_ctb_l1_t *ps_ed_ctb_row_l1 =
+            ps_ed_ctb_pic_l1 + vert_ctr * ps_frm_ctb_prms->i4_num_ctbs_horz;
+        ihevce_ed_blk_t *ps_ed = ps_ed_blk_l1 + (vert_ctr * sub_blk_cnt * h_ctb_cnt);
+
+        for(ctb_ctr = 0; ctb_ctr < h_ctb_cnt; ctb_ctr++, ps_ed += sub_blk_cnt)
         {
-            ihevce_ed_ctb_l1_t *ps_ed_ctb_row_l1 =
-                ps_ed_ctb_pic_l1 + vert_ctr * ps_frm_ctb_prms->i4_num_ctbs_horz;
-            ps_ed = ps_ed_blk_l1 + (vert_ctr * inc_ctb * (ctb_ctr_blks));
+            ihevce_ed_ctb_l1_t *ps_ed_ctb_curr_l1 = ps_ed_ctb_row_l1 + ctb_ctr;
+            WORD8 b8_satd_eval[4];
+            WORD32 ai4_satd_4x4[64];
+            WORD32 ai4_satd_8x8[16];  // derived from accumulating 4x4 satds
+            WORD32 ai4_satd_16x16[4] = { 0 };  // derived from accumulating 8x8 satds
+            WORD32 i4_satd_32x32 = 0;  // derived from accumulating 8x8 satds
+            /* This 2-D array will contain 4x4 satds sorted in ascending order in sets
+             * of 4, 16, 64  For example : '5 10 2 7 6 12 3 1' array input will return
+             * '2 5 7 10 1 3 6 12' if sorted in sets of 4 */
+            WORD32 aai4_sort_4_16_64_satd[3][64];
+            /* This 2-D array will contain 8x8 satds sorted in ascending order in sets of
+             * 4, 16***/
+            WORD32 aai4_sort_4_16_satd[2][64];
 
-            for(ctb_ctr = 0; ctb_ctr < ctb_ctr_blks; ctb_ctr++)
+            memset(b8_satd_eval, 1, sizeof(b8_satd_eval));
+            for(i = 0; i < 4; i++)
             {
-                /*sum of (sum of L1_4x4 @ L1_8x8) @ L1_16x16 level */
-                WORD32 ai4_sum_sum_4x4_satd_16x16[4] = { 0, 0, 0, 0 };
-                /*min of (sum of L1_4x4 @ L1_8x8) @ L1_16x16 level */
-                WORD32 ai4_min_sum_4x4_satd_16x16[4] = {
-                    MAX_32BIT_VAL, MAX_32BIT_VAL, MAX_32BIT_VAL, MAX_32BIT_VAL
-                };
-                /*min of (min of L1_4x4 @ L1_8x8) @ L1_16x16 level */
-                WORD32 ai4_min_min_4x4_satd_16x16[4] = {
-                    MAX_32BIT_VAL, MAX_32BIT_VAL, MAX_32BIT_VAL, MAX_32BIT_VAL
-                };
-                WORD32 i4_sum_4x4_satd, i4_min_4x4_satd;
-                ihevce_ed_ctb_l1_t *ps_ed_ctb_curr_l1 = ps_ed_ctb_row_l1 + ctb_ctr;
+                ihevce_ed_blk_t *ps_ed_b32 = &ps_ed[i * 16];
 
-                WORD32 is_min_block_uncompensated_in_l32x32 = 0;
-
-                /*min of L1_4x4 @ L1_8x8*/
-                WORD32 ai4_min_satd_ctb[MAX_CTB_SIZE];
-                /*** This 2-D array will contain 4x4 satds sorted in ascending order in sets of 4,16,64 ***/
-                /*** For example : '5 10 2 7 6 12 3 1' array input will return '2 5 7 10 1 3 6 12' if sorted in sets of 4 ***/
-                WORD32 aai4_min_4_16_64_satd[3][MAX_CTB_SIZE];
-
-                /*sum of L1_4x4 @ L1_8x8*/
-                WORD32 ai4_sum_satd_ctb[MAX_CTB_SIZE >> 2];
-                /*** This 2-D array will contain 4x4 satds sorted in ascending order in sets of 4,16***/
-                WORD32 aai4_sum_4_16_satd_ctb[2][MAX_CTB_SIZE];
-
-                /* sum of (sum of L1_4x4 @ L1_8x8) @ L1_16x16 */
-                WORD32 ai4_sum_sum_satd_ctb[(MAX_CTB_SIZE >> 2) >> 2];
-                /*L1_32x32 = L0_64x64
-                so in L1_32x32 there are 64 L1_4x4blocks*/
-                for(i = 0; i < MAX_CTB_SIZE; i++)
+                for(j = 0; j < 4; j++)
                 {
-                    ai4_min_satd_ctb[i] = -1;
-                }
-                for(j = 0; j < 3; j++)
-                {
-                    for(i = 0; i < MAX_CTB_SIZE; i++)
+                    ihevce_ed_blk_t *ps_ed_b16 = &ps_ed_b32[j * 4];
+                    WORD32 satd_sum = 0;
+                    WORD32 blk_cnt = 0;
+
+                    for(k = 0; k < 4; k++)
                     {
-                        aai4_min_4_16_64_satd[j][i] = -1;
-                    }
-                }
-                /*L1_32x32 = L0_64x64
-                so in L1_32x32 there are 16 L1_8x8blocks*/
-                for(i = 0; i < (MAX_CTB_SIZE >> 2); i++)
-                {
-                    ai4_sum_satd_ctb[i] = -1;
-                }
-                for(j = 0; j < 2; j++)
-                {
-                    for(i = 0; i < (MAX_CTB_SIZE >> 2); i++)
-                    {
-                        aai4_sum_4_16_satd_ctb[j][i] = -1;
-                    }
-                }
-                /*L1_32x32 = L0_64x64
-                so in L1_32x32 there are 16 L1_16x16blocks*/
-                for(i = 0; i < ((MAX_CTB_SIZE >> 2) >> 2); i++)
-                {
-                    ai4_sum_sum_satd_ctb[i] = 0;
-                }
-                /*Populate sum min 4x4 activty */
-                /*loop for L1_32x32 block*/
-                for(i = 0; i < 4; i++)
-                {
-                    /*loop for L1_16x16 block*/
-                    for(j = 0; j < 4; j++)
-                    {
-                        WORD32 i4_sum_satd_dumyy = 0;
-                        WORD32 i4_num_satd_blks = 0;
-                        /* loop for L1_8x8 block*/
-                        for(k = 0; k < 4; k++)
+                        ihevce_ed_blk_t *ps_ed_b4 = &ps_ed_b16[k];
+
+                        if(-1 != ps_ed_b4->i4_4x4_satd)
                         {
-                            WORD32 i4_satd_lim;
-                            i4_satd_lim = (ps_ed + j * 4 + i * 16 + k)->i4_4x4_satd;
-
-                            /*complete ctb will not have i4_4x4_satd = -1*/
-                            if(-1 != i4_satd_lim)
-                            {
+#define SUB_NOISE_THRSHLD 0
 #if SUB_NOISE_THRSHLD
-                                i4_satd_lim = i4_satd_lim - i4_avg_noise_satd;
-                                if(i4_satd_lim < 0)
-                                {
-                                    i4_satd_lim = 0;
-                                }
-#else
-                                if(i4_satd_lim < i4_avg_noise_satd)
-                                {
-                                    i4_satd_lim = i4_avg_noise_satd;
-                                }
-#endif
-                                i4_num_satd_blks++;
-                                /*populate 4x4 data to calculate modulation index */
-                                (ps_ed + j * 4 + i * 16 + k)->i4_4x4_satd = i4_satd_lim;
-
-                                i4_sum_satd_dumyy += i4_satd_lim;
-                                ai4_min_satd_ctb[j * 4 + i * 16 + k] = i4_satd_lim;
+                            ps_ed_b4->i4_4x4_satd = ps_ed_b4->i4_4x4_satd - i4_avg_noise_satd;
+                            if(ps_ed_b4->i4_4x4_satd < 0)
+                            {
+                                ps_ed_b4->i4_4x4_satd = 0;
                             }
+#else
+                            if(ps_ed_b4->i4_4x4_satd < i4_avg_noise_satd)
+                            {
+                                ps_ed_b4->i4_4x4_satd = i4_avg_noise_satd;
+                            }
+#endif
+                            blk_cnt++;
+                            satd_sum += ps_ed_b4->i4_4x4_satd;
                         }
-                        if(i4_num_satd_blks != 0)
-                        {
-                            /*make the sum of satd always for 4 blocks even it is incomplete ctb */
-                            i4_sum_satd_dumyy = i4_sum_satd_dumyy * 4 / i4_num_satd_blks;
-                        }
-                        else
-                        {
-                            i4_sum_satd_dumyy = -1;
-                        }
-                        /*sum of L1_4x4 @ L1_8x8block level*/
-                        ai4_sum_satd_ctb[j + i * 4] = i4_sum_satd_dumyy;
-                        /*sum of L1_8x8 @ L1_16x16block level*/
-                        ai4_sum_sum_satd_ctb[i] += i4_sum_satd_dumyy;
-                        /*store sum of 4x4 @ L1_8x8block level*/
-                        ps_ed_ctb_curr_l1->i4_sum_4x4_satd[i * 4 + j] = i4_sum_satd_dumyy;
-                        /*store min of 4x4 @ L1_8x8block level */
-                        //ps_ed_ctb_curr_l1->i4_min_4x4_satd[i * 4 + j] = i4_min_satd_dumyy;
+                        ai4_satd_4x4[i * 16 + j * 4 + k] = ps_ed_b4->i4_4x4_satd;
+                    }
+                    ASSERT(blk_cnt == 0 || blk_cnt == 4);
+                    if(blk_cnt == 0)
+                    {
+                        satd_sum = -1;
+                    }
+                    ai4_satd_8x8[i * 4 + j] = satd_sum;
+                    ai4_satd_16x16[i] += satd_sum;
+                    i4_satd_32x32 += satd_sum;
+                    ps_ed_ctb_curr_l1->i4_sum_4x4_satd[i * 4 + j] = satd_sum;
+                }
+            }
+
+            {
+                /* This function will sort 64 elements in array ai4_satd_4x4 in ascending order
+                 *  to 3 arrays in sets of 4, 16, 64 into the 2-D array aai4_min_4_16_64_satd */
+                WORD32 array_length = sizeof(ai4_satd_4x4) / sizeof(WORD32);
+                ihevce_merge_sort(
+                    &ai4_satd_4x4[0], aai4_sort_4_16_64_satd, array_length, 1, 64);
+
+                /* This function will sort 64 elements in array ai4_satd_8x8 in ascending order
+                 *  to 2 arrays in sets of 4, 16 into the 2-D array aai4_sum_4_16_satd_ctb */
+                array_length = sizeof(ai4_satd_8x8) / sizeof(WORD32);
+                ihevce_merge_sort(
+                    &ai4_satd_8x8[0], aai4_sort_4_16_satd, array_length, 1, 16);
+            }
+
+            /* Populate avg satd to calculate modulation index and activity factors */
+            /* 16x16 */
+            for(i = 0; i < 4; i++)
+            {
+                for(j = 0; j < 4; j++)
+                {
+                    WORD32 satd_sum = ps_ed_ctb_curr_l1->i4_sum_4x4_satd[i * 4 + j];
+                    WORD32 satd_min = aai4_sort_4_16_64_satd[0][i * 16 + j * 4 + MEDIAN_CU_TU];
+
+                    ASSERT(-2 != satd_sum);
+                    ps_ed_ctb_curr_l1->i4_min_4x4_satd[i * 4 + j] = satd_min;
+
+                    if(-1 != satd_sum)
+                    {
+                        ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][0] = satd_sum;
+                        ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][1] = satd_min;
+
+                        u8_frame_8x8_sum_act_sqr += (satd_sum * satd_sum);
+                        ai4_frame_8x8_sum_act[0] += satd_sum;
+                        ai8_frame_8x8_sum_act_sqr[0] += (satd_sum * satd_sum);
+                        ai4_frame_8x8_sum_blks[0] += 1;
+                        ai4_frame_8x8_sum_act[1] += satd_min;
+                        ai8_frame_8x8_sum_act_sqr[1] += (satd_min * satd_min);
+                        ai4_frame_8x8_sum_blks[1] += 1;
+                    }
+                    else
+                    {
+                        ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][0] = -1;
+                        ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][1] = -1;
+                        b8_satd_eval[i] = 0;
                     }
                 }
+
+                if(b8_satd_eval[i])
                 {
-                    WORD32 i4_array_length = sizeof(ai4_min_satd_ctb) / sizeof(WORD32);
+                    ps_ed_ctb_curr_l1->i4_16x16_satd[i][0] = ai4_satd_16x16[i];
+                    ps_ed_ctb_curr_l1->i4_16x16_satd[i][1] = aai4_sort_4_16_satd[0][i * 4 + MEDIAN_CU_TU];
+                    ps_ed_ctb_curr_l1->i4_16x16_satd[i][2] = aai4_sort_4_16_64_satd[1][i * 16 + MEDIAN_CU_TU_BY_2];
 
-                    /*** This function will sort 64 elements in array ai4_min_satd_ctb in ascending order to ***/
-                    /*** 3 arrays in sets of 4,16,64 into the 2-D array   aai4_min_4_16_64_satd              ***/
-                    ihevce_merge_sort(
-                        &ai4_min_satd_ctb[0], aai4_min_4_16_64_satd, i4_array_length, 1, 64);
+                    for(k = 0; k < 3; k++)
+                    {
+                        WORD32 satd = ps_ed_ctb_curr_l1->i4_16x16_satd[i][k];
 
-                    i4_array_length = sizeof(ai4_sum_satd_ctb) / sizeof(WORD32);
-
-                    /*** This function will sort 16 elements in array ai4_sum_satd_ctb in ascending order to ***/
-                    /*** 2 arrays in sets of 4,16 into the 2-D array   aai4_sum_4_16_satd_ctb                ***/
-                    ihevce_merge_sort(
-                        &ai4_sum_satd_ctb[0], aai4_sum_4_16_satd_ctb, i4_array_length, 1, 16);
+                        ai4_frame_16x16_sum_act[k] += satd;
+                        ai8_frame_16x16_sum_act_sqr[k] += (satd * satd);
+                        ai4_frame_16x16_sum_blks[k] += 1;
+                    }
                 }
-
-                /*Populate avg satd to calculate MI and activity factors*/
-                for(i = 0; i < 4; i++)
+                else
                 {
-                    WORD32 is_min_block_uncompensated_in_l116x16 = 0;
                     ps_ed_ctb_curr_l1->i4_16x16_satd[i][0] = -1;
                     ps_ed_ctb_curr_l1->i4_16x16_satd[i][1] = -1;
                     ps_ed_ctb_curr_l1->i4_16x16_satd[i][2] = -1;
-
-                    for(j = 0; j < 4; j++)
-                    {
-                        ps_ed_ctb_curr_l1->i4_min_4x4_satd[i * 4 + j] =
-                            aai4_min_4_16_64_satd[0][i * 16 + j * 4 + MEDIAN_CU_TU];
-                        /*Accumulate the sum of 8*8 activities in the current layer (16*16 CU in L0)*/
-                        i4_sum_4x4_satd = ps_ed_ctb_curr_l1->i4_sum_4x4_satd[i * 4 + j];
-                        i4_min_4x4_satd = ps_ed_ctb_curr_l1->i4_min_4x4_satd[i * 4 + j];
-                        ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][0] = -1;
-                        ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][1] = -1;
-                        ASSERT(-2 != i4_sum_4x4_satd);
-
-                        if((-1 != i4_sum_4x4_satd))
-                        {
-                            WORD32 not_skipped = 1;
-
-                            if((i4_slice_type == ISLICE) || (1 == not_skipped))
-                            {
-                                is_min_block_uncompensated_in_l116x16 = 1;
-                                is_min_block_uncompensated_in_l32x32 = 1;
-
-                                u8_curr_frame_8x8_sum_act_sqr +=
-                                    (i4_sum_4x4_satd * i4_sum_4x4_satd);
-
-                                ai4_curr_frame_8x8_sum_act[0] += i4_sum_4x4_satd;
-                                ai8_curr_frame_8x8_sum_act_sqr[0] +=
-                                    (i4_sum_4x4_satd * i4_sum_4x4_satd);
-                                ai4_curr_frame_8x8_sum_blks[0] += 1;
-                                ai4_curr_frame_8x8_sum_act[1] += i4_min_4x4_satd;
-                                ai8_curr_frame_8x8_sum_act_sqr[1] +=
-                                    (i4_min_4x4_satd * i4_min_4x4_satd);
-                                ai4_curr_frame_8x8_sum_blks[1] += 1;
-                            }
-
-                            ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][0] = i4_sum_4x4_satd;
-                            ps_ed_ctb_curr_l1->i4_8x8_satd[i * 4 + j][1] = i4_min_4x4_satd;
-                        }
-                        else
-                        {
-                            ai4_sum_sum_4x4_satd_16x16[i] = MAX_32BIT_VAL;
-                            ai4_min_sum_4x4_satd_16x16[i] = MAX_32BIT_VAL;
-                            ai4_min_min_4x4_satd_16x16[i] = MAX_32BIT_VAL;
-                        }
-                    }
-
-                    //if(1 == is_min_block_comensated_in_l116x16)
-                    {
-                        ai4_min_sum_4x4_satd_16x16[i] =
-                            aai4_sum_4_16_satd_ctb[0][i * 4 + MEDIAN_CU_TU];
-                        ai4_min_min_4x4_satd_16x16[i] =
-                            aai4_min_4_16_64_satd[1][i * 16 + MEDIAN_CU_TU_BY_2];
-
-                        if(ai4_sum_sum_4x4_satd_16x16[i] != MAX_32BIT_VAL)
-                        {
-                            ai4_sum_sum_4x4_satd_16x16[i] = 0;
-                            for(j = 0; j < 4; j++)
-                            {
-                                ai4_sum_sum_4x4_satd_16x16[i] +=
-                                    ps_ed_ctb_curr_l1->i4_sum_4x4_satd[i * 4 + j];
-                            }
-                            ps_ed_ctb_curr_l1->i4_16x16_satd[i][0] = ai4_sum_sum_4x4_satd_16x16[i];
-                            ps_ed_ctb_curr_l1->i4_16x16_satd[i][1] = ai4_min_sum_4x4_satd_16x16[i];
-                            ps_ed_ctb_curr_l1->i4_16x16_satd[i][2] = ai4_min_min_4x4_satd_16x16[i];
-                        }
-                    }
-                    if(1 == is_min_block_uncompensated_in_l116x16)
-                    {
-                        if(MAX_32BIT_VAL != ai4_sum_sum_4x4_satd_16x16[i])
-                        {
-                            ai4_curr_frame_16x16_sum_act[0] += ai4_sum_sum_4x4_satd_16x16[i];
-                            ai8_curr_frame_16x16_sum_act_sqr[0] +=
-                                (ai4_sum_sum_4x4_satd_16x16[i] * ai4_sum_sum_4x4_satd_16x16[i]);
-                            ai4_curr_frame_16x16_sum_blks[0] += 1;
-                        }
-                        if(MAX_32BIT_VAL != ai4_min_sum_4x4_satd_16x16[i])
-                        {
-                            ai4_curr_frame_16x16_sum_act[1] += ai4_min_sum_4x4_satd_16x16[i];
-                            ai8_curr_frame_16x16_sum_act_sqr[1] +=
-                                (ai4_min_sum_4x4_satd_16x16[i] * ai4_min_sum_4x4_satd_16x16[i]);
-                            ai4_curr_frame_16x16_sum_blks[1] += 1;
-                            ai4_curr_frame_16x16_sum_act[2] += ai4_min_min_4x4_satd_16x16[i];
-                            ai8_curr_frame_16x16_sum_act_sqr[2] +=
-                                (ai4_min_min_4x4_satd_16x16[i] * ai4_min_min_4x4_satd_16x16[i]);
-                            ai4_curr_frame_16x16_sum_blks[2] += 1;
-                        }
-                    }
                 }
-                /*32x32*/
-                {
-                    ps_ed_ctb_curr_l1->i4_32x32_satd[0][0] = -1;
-                    ps_ed_ctb_curr_l1->i4_32x32_satd[0][1] = -1;
-                    ps_ed_ctb_curr_l1->i4_32x32_satd[0][2] = -1;
-                    ps_ed_ctb_curr_l1->i4_32x32_satd[0][3] = -1;
-
-                    if((MAX_32BIT_VAL != ai4_sum_sum_4x4_satd_16x16[0]) ||
-                       (MAX_32BIT_VAL != ai4_sum_sum_4x4_satd_16x16[2]) ||
-                       (MAX_32BIT_VAL != ai4_sum_sum_4x4_satd_16x16[1]) ||
-                       (MAX_32BIT_VAL != ai4_sum_sum_4x4_satd_16x16[3]))
-                    {
-                        //if(1 == is_min_block_comensated_in_l32x32)
-                        {
-                            {
-                                WORD32 aai4_min_sum_sum_4x4_satd_16x16[1][64];
-                                WORD32 i4_array_length =
-                                    sizeof(ai4_sum_sum_4x4_satd_16x16) / sizeof(WORD32);
-                                /*** Sort 4 elements in ascending order ***/
-                                ihevce_merge_sort(
-                                    &ai4_sum_sum_4x4_satd_16x16[0],
-                                    aai4_min_sum_sum_4x4_satd_16x16,
-                                    i4_array_length,
-                                    1,
-                                    4);
-
-                                ps_ed_ctb_curr_l1->i4_32x32_satd[0][0] =
-                                    aai4_min_sum_sum_4x4_satd_16x16[0][MEDIAN_CU_TU];
-                            }
-                            {
-                                ps_ed_ctb_curr_l1->i4_32x32_satd[0][1] =
-                                    aai4_sum_4_16_satd_ctb[1][MEDIAN_CU_TU_BY_2];
-                            }
-                            {
-                                ps_ed_ctb_curr_l1->i4_32x32_satd[0][2] =
-                                    aai4_min_4_16_64_satd[2][MEDIAN_CU_TU_BY_4];
-                            }
-
-                            /*Sum of all 32x32 activity */
-                            ps_ed_ctb_curr_l1->i4_32x32_satd[0][3] = 0;
-                            for(j = 0; j < 4; j++)
-                            {
-                                if(MAX_32BIT_VAL != ai4_sum_sum_4x4_satd_16x16[j])
-                                    ps_ed_ctb_curr_l1->i4_32x32_satd[0][3] +=
-                                        ai4_sum_sum_4x4_satd_16x16[j];
-                            }
-
-                            if(1 == is_min_block_uncompensated_in_l32x32)
-                            {
-                                /*Accumulate the sum of 32*32 activities in the current layer (64*64 CU in L0)*/
-                                if(MAX_32BIT_VAL != ps_ed_ctb_curr_l1->i4_32x32_satd[0][0])
-                                {
-                                    ai4_curr_frame_32x32_sum_act[0] +=
-                                        ps_ed_ctb_curr_l1->i4_32x32_satd[0][0];
-                                    ai8_curr_frame_32x32_sum_act_sqr[0] +=
-                                        (ps_ed_ctb_curr_l1->i4_32x32_satd[0][0] *
-                                         ps_ed_ctb_curr_l1->i4_32x32_satd[0][0]);
-                                    ai4_curr_frame_32x32_sum_blks[0] += 1;
-                                }
-
-                                if(MAX_32BIT_VAL != ps_ed_ctb_curr_l1->i4_32x32_satd[0][1])
-                                {
-                                    ai4_curr_frame_32x32_sum_act[1] +=
-                                        ps_ed_ctb_curr_l1->i4_32x32_satd[0][1];
-                                    ai8_curr_frame_32x32_sum_act_sqr[1] +=
-                                        (ps_ed_ctb_curr_l1->i4_32x32_satd[0][1] *
-                                         ps_ed_ctb_curr_l1->i4_32x32_satd[0][1]);
-                                    ai4_curr_frame_32x32_sum_blks[1] += 1;
-                                }
-
-                                if(MAX_32BIT_VAL != ps_ed_ctb_curr_l1->i4_32x32_satd[0][2])
-                                {
-                                    ai4_curr_frame_32x32_sum_act[2] +=
-                                        ps_ed_ctb_curr_l1->i4_32x32_satd[0][2];
-                                    ai8_curr_frame_32x32_sum_act_sqr[2] +=
-                                        (ps_ed_ctb_curr_l1->i4_32x32_satd[0][2] *
-                                         ps_ed_ctb_curr_l1->i4_32x32_satd[0][2]);
-                                    ai4_curr_frame_32x32_sum_blks[2] += 1;
-                                }
-                            }
-                        }
-                    }
-                }
-                /*Increment ctb count*/
-                ps_ed += inc_ctb;
             }
-        }
-
-        /* Spatial Variation and modulation index calculated for the frame */
-        {
-            for(i4_k = 0; i4_k < 2; i4_k++)
-            {
-                /*8x8*/
-#if USE_SQRT_AVG_OF_SATD_SQR
-                ps_curr_out->i8_curr_frame_8x8_sum_act[i4_k] = ai8_curr_frame_8x8_sum_act_sqr[i4_k];
-#else
-                ps_curr_out->i8_curr_frame_8x8_sum_act[i4_k] = ai4_curr_frame_8x8_sum_act[i4_k];
-#endif
-                ps_curr_out->i4_curr_frame_8x8_sum_act_for_strength[i4_k] =
-                    ai4_curr_frame_8x8_sum_act[i4_k];
-                ps_curr_out->i4_curr_frame_8x8_num_blks[i4_k] = ai4_curr_frame_8x8_sum_blks[i4_k];
-                ps_curr_out->u8_curr_frame_8x8_sum_act_sqr = u8_curr_frame_8x8_sum_act_sqr;
-
-                /*16x16*/
-#if USE_SQRT_AVG_OF_SATD_SQR
-                ps_curr_out->i8_curr_frame_16x16_sum_act[i4_k] =
-                    ai8_curr_frame_16x16_sum_act_sqr[i4_k];
-#else
-                ps_curr_out->i8_curr_frame_16x16_sum_act[i4_k] = ai4_curr_frame_16x16_sum_act[i4_k];
-#endif
-                ps_curr_out->i4_curr_frame_16x16_num_blks[i4_k] =
-                    ai4_curr_frame_16x16_sum_blks[i4_k];
-
-                /*32x32*/
-#if USE_SQRT_AVG_OF_SATD_SQR
-                ps_curr_out->i8_curr_frame_32x32_sum_act[i4_k] =
-                    ai8_curr_frame_32x32_sum_act_sqr[i4_k];
-#else
-                ps_curr_out->i8_curr_frame_32x32_sum_act[i4_k] = ai4_curr_frame_32x32_sum_act[i4_k];
-#endif
-                ps_curr_out->i4_curr_frame_32x32_num_blks[i4_k] =
-                    ai4_curr_frame_32x32_sum_blks[i4_k];
-            }
-
-            /*16x16*/
-#if USE_SQRT_AVG_OF_SATD_SQR
-            ps_curr_out->i8_curr_frame_16x16_sum_act[2] = ai8_curr_frame_16x16_sum_act_sqr[2];
-#else
-            ps_curr_out->i8_curr_frame_16x16_sum_act[2] = ai4_curr_frame_16x16_sum_act[2];
-#endif
-
-            ps_curr_out->i4_curr_frame_16x16_num_blks[2] = ai4_curr_frame_16x16_sum_blks[2];
 
             /*32x32*/
-#if USE_SQRT_AVG_OF_SATD_SQR
-            ps_curr_out->i8_curr_frame_32x32_sum_act[2] = ai8_curr_frame_32x32_sum_act_sqr[2];
-#else
-            ps_curr_out->i8_curr_frame_32x32_sum_act[2] = ai4_curr_frame_32x32_sum_act[2];
-#endif
-            ps_curr_out->i4_curr_frame_32x32_num_blks[2] = ai4_curr_frame_32x32_sum_blks[2];
+            if(b8_satd_eval[0] && b8_satd_eval[1] && b8_satd_eval[2] && b8_satd_eval[3])
+            {
+                WORD32 aai4_sort_4_satd[1][64];
+                WORD32 array_length = sizeof(ai4_satd_16x16) / sizeof(WORD32);
+                WORD32 satd;
+
+                /* Sort 4 elements in ascending order */
+                ihevce_merge_sort(ai4_satd_16x16, aai4_sort_4_satd, array_length, 1, 4);
+
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][0] = aai4_sort_4_satd[0][MEDIAN_CU_TU];
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][1] = aai4_sort_4_16_satd[1][MEDIAN_CU_TU_BY_2];
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][2] = aai4_sort_4_16_64_satd[2][MEDIAN_CU_TU_BY_4];
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][3] = i4_satd_32x32;
+
+                for(k = 0; k < 3; k++)
+                {
+                    WORD32 satd = ps_ed_ctb_curr_l1->i4_32x32_satd[0][k];
+
+                    ai4_frame_32x32_sum_act[k] += satd;
+                    ai8_frame_32x32_sum_act_sqr[k] += (satd * satd);
+                    ai4_frame_32x32_sum_blks[k] += 1;
+                }
+            }
+            else
+            {
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][0] = -1;
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][1] = -1;
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][2] = -1;
+                ps_ed_ctb_curr_l1->i4_32x32_satd[0][3] = -1;
+            }
         }
     }
+
+    for(i = 0; i < 2; i++)
+    {
+        /*8x8*/
+#if USE_SQRT_AVG_OF_SATD_SQR
+        ps_curr_out->i8_curr_frame_8x8_sum_act[i] = ai8_frame_8x8_sum_act_sqr[i];
+#else
+        ps_curr_out->i8_curr_frame_8x8_sum_act[i] = ai4_frame_8x8_sum_act[i];
+#endif
+        ps_curr_out->i4_curr_frame_8x8_sum_act_for_strength[i] = ai4_frame_8x8_sum_act[i];
+        ps_curr_out->i4_curr_frame_8x8_num_blks[i] = ai4_frame_8x8_sum_blks[i];
+        ps_curr_out->u8_curr_frame_8x8_sum_act_sqr = u8_frame_8x8_sum_act_sqr;
+
+        /*16x16*/
+#if USE_SQRT_AVG_OF_SATD_SQR
+        ps_curr_out->i8_curr_frame_16x16_sum_act[i] = ai8_frame_16x16_sum_act_sqr[i];
+#else
+        ps_curr_out->i8_curr_frame_16x16_sum_act[i] = ai4_frame_16x16_sum_act[i];
+#endif
+        ps_curr_out->i4_curr_frame_16x16_num_blks[i] = ai4_frame_16x16_sum_blks[i];
+
+        /*32x32*/
+#if USE_SQRT_AVG_OF_SATD_SQR
+        ps_curr_out->i8_curr_frame_32x32_sum_act[i] = ai8_frame_32x32_sum_act_sqr[i];
+#else
+        ps_curr_out->i8_curr_frame_32x32_sum_act[i] = ai4_frame_32x32_sum_act[i];
+#endif
+        ps_curr_out->i4_curr_frame_32x32_num_blks[i] = ai4_frame_32x32_sum_blks[i];
+    }
+
+    /*16x16*/
+#if USE_SQRT_AVG_OF_SATD_SQR
+    ps_curr_out->i8_curr_frame_16x16_sum_act[2] = ai8_frame_16x16_sum_act_sqr[2];
+#else
+    ps_curr_out->i8_curr_frame_16x16_sum_act[2] = ai4_frame_16x16_sum_act[2];
+#endif
+    ps_curr_out->i4_curr_frame_16x16_num_blks[2] = ai4_frame_16x16_sum_blks[2];
+
+    /*32x32*/
+#if USE_SQRT_AVG_OF_SATD_SQR
+    ps_curr_out->i8_curr_frame_32x32_sum_act[2] = ai8_frame_32x32_sum_act_sqr[2];
+#else
+    ps_curr_out->i8_curr_frame_32x32_sum_act[2] = ai4_frame_32x32_sum_act[2];
+#endif
+    ps_curr_out->i4_curr_frame_32x32_num_blks[2] = ai4_frame_32x32_sum_blks[2];
 }
 
 /*!
-******************************************************************************
-* \if Function name : ihevce_decomp_pre_intra_get_frame_satd \endif
+************************************************************************
+* @brief
+*  accumulate L1 intra satd across all threads.
+*  Note: call to this function has to be made after all threads have
+*  finished preintra processing
 *
-* \brief
-*    Number of memory records are returned for enc_loop module
-*
-*
-* \return
-*    None
-*
-* \author
-*  Ittiam
-*
-*****************************************************************************
+************************************************************************
 */
-LWORD64 ihevce_decomp_pre_intra_get_frame_satd(void *pv_ctxt, WORD32 *i4_width, WORD32 *i4_hieght)
+LWORD64 ihevce_decomp_pre_intra_get_frame_satd(void *pv_ctxt, WORD32 *wd, WORD32 *ht)
 {
-    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt =
-        (ihevce_decomp_pre_intra_master_ctxt_t *)pv_ctxt;
-    WORD32 i4_i;
-    LWORD64 i8_tot_satd = 0;
+    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt = pv_ctxt;
+    ihevce_decomp_pre_intra_ctxt_t *ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[0];
+    LWORD64 satd_sum = ps_ctxt->ps_ed_ctxt->i8_sum_best_satd;
+    WORD32 i;
 
-    /*accumulate SATD acorss all thread. note that every thread will enter this function,
-    hence it must be guranteed that all thread must have completed preintra pass by now*/
-    for(i4_i = 0; i4_i < ps_master_ctxt->i4_num_proc_thrds; i4_i++)
+    *wd = ps_ctxt->as_layers[1].i4_actual_wd;
+    *ht = ps_ctxt->as_layers[1].i4_actual_ht;
+    for(i = 1; i < ps_master_ctxt->i4_num_proc_thrds; i++)
     {
-        ihevce_decomp_pre_intra_ctxt_t *ps_ctxt =
-            ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[i4_i];
-
-        //i8_tot_satd += ps_ctxt->as_layers[1].s_early_decision.i8_sum_best_satd;
-        i8_tot_satd += ps_ctxt->ps_ed_ctxt->i8_sum_best_satd;
-
-        *i4_width = ps_ctxt->as_layers[1].i4_actual_wd;
-        *i4_hieght = ps_ctxt->as_layers[1].i4_actual_ht;
+        ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[i];
+        satd_sum += ps_ctxt->ps_ed_ctxt->i8_sum_best_satd;
     }
 
-    return i8_tot_satd;
+    return satd_sum;
 }
 
-LWORD64 ihevce_decomp_pre_intra_get_frame_satd_squared(
-    void *pv_ctxt, WORD32 *i4_width, WORD32 *i4_hieght)
+LWORD64 ihevce_decomp_pre_intra_get_frame_satd_squared(void *pv_ctxt, WORD32 *wd, WORD32 *ht)
 {
-    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt =
-        (ihevce_decomp_pre_intra_master_ctxt_t *)pv_ctxt;
-    WORD32 i4_i;
-    LWORD64 i8_tot_satd = 0;
+    ihevce_decomp_pre_intra_master_ctxt_t *ps_master_ctxt = pv_ctxt;
+    ihevce_decomp_pre_intra_ctxt_t *ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[0];
+    LWORD64 satd_sum = ps_ctxt->ps_ed_ctxt->i8_sum_sq_best_satd;
+    WORD32 i;
 
-    /*accumulate SATD acorss all thread. note that every thread will enter this function,
-    hence it must be guranteed that all thread must have completed preintra pass by now*/
-    for(i4_i = 0; i4_i < ps_master_ctxt->i4_num_proc_thrds; i4_i++)
+    *wd = ps_ctxt->as_layers[1].i4_actual_wd;
+    *ht = ps_ctxt->as_layers[1].i4_actual_ht;
+    for(i = 1; i < ps_master_ctxt->i4_num_proc_thrds; i++)
     {
-        ihevce_decomp_pre_intra_ctxt_t *ps_ctxt =
-            ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[i4_i];
-
-        //i8_tot_satd += ps_ctxt->as_layers[1].s_early_decision.i8_sum_best_satd;
-        i8_tot_satd += (ps_ctxt->ps_ed_ctxt->i8_sum_sq_best_satd);
-
-        *i4_width = ps_ctxt->as_layers[1].i4_actual_wd;
-        *i4_hieght = ps_ctxt->as_layers[1].i4_actual_ht;
+        ps_ctxt = ps_master_ctxt->aps_decomp_pre_intra_thrd_ctxt[i];
+        satd_sum += ps_ctxt->ps_ed_ctxt->i8_sum_sq_best_satd;
     }
 
-    return i8_tot_satd;
+    return satd_sum;
 }

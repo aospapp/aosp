@@ -2,8 +2,8 @@
 #
 # This file is part of pyasn1-modules software.
 #
-# Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# Copyright (c) 2005-2019, Ilya Etingof <etingof@gmail.com>
+# License: http://snmplabs.com/pyasn1/license.html
 #
 import sys
 
@@ -39,6 +39,7 @@ Programming Language :: Python :: 3.3
 Programming Language :: Python :: 3.4
 Programming Language :: Python :: 3.5
 Programming Language :: Python :: 3.6
+Programming Language :: Python :: 3.7
 Topic :: Communications
 Topic :: System :: Monitoring
 Topic :: System :: Networking :: Monitoring
@@ -68,7 +69,7 @@ try:
 
     params = {
         'zip_safe': True,
-        'install_requires': ['pyasn1>=0.4.1,<0.5.0']
+        'install_requires': ['pyasn1>=0.4.6,<0.5.0']
     }
 
 except ImportError:
@@ -81,7 +82,7 @@ except ImportError:
 
     if sys.version_info[:2] > (2, 4):
         params = {
-            'requires': ['pyasn1(>=0.4.1,<0.5.0)']
+            'requires': ['pyasn1(>=0.4.6,<0.5.0)']
         }
     else:
         params = {
@@ -99,7 +100,7 @@ params.update(
      'url': 'https://github.com/etingof/pyasn1-modules',
      'platforms': ['any'],
      'classifiers': [x for x in classifiers.split('\n') if x],
-     'license': 'BSD',
+     'license': 'BSD-2-Clause',
      'packages': ['pyasn1_modules']}
 )
 

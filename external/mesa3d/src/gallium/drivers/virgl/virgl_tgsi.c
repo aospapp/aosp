@@ -25,10 +25,17 @@
    so add a transform stage to remove things we don't want to send unless
    the receiver supports it.
 */
+
 #include "tgsi/tgsi_transform.h"
+#include "tgsi/tgsi_info.h"
 #include "virgl_context.h"
+#include "virgl_screen.h"
+
 struct virgl_transform_context {
    struct tgsi_transform_context base;
+   bool cull_enabled;
+   bool has_precise;
+   bool fake_fp64;
 };
 
 static void
@@ -55,9 +62,13 @@ static void
 virgl_tgsi_transform_property(struct tgsi_transform_context *ctx,
                               struct tgsi_full_property *prop)
 {
+   struct virgl_transform_context *vtctx = (struct virgl_transform_context *)ctx;
    switch (prop->Property.PropertyName) {
    case TGSI_PROPERTY_NUM_CLIPDIST_ENABLED:
    case TGSI_PROPERTY_NUM_CULLDIST_ENABLED:
+      if (vtctx->cull_enabled)
+	 ctx->emit_property(ctx, prop);
+      break;
    case TGSI_PROPERTY_NEXT_SHADER:
       break;
    default:
@@ -70,7 +81,15 @@ static void
 virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
 				 struct tgsi_full_instruction *inst)
 {
-   if (inst->Instruction.Precise)
+   struct virgl_transform_context *vtctx = (struct virgl_transform_context *)ctx;
+   if (vtctx->fake_fp64 &&
+       (tgsi_opcode_infer_src_type(inst->Instruction.Opcode, 0) == TGSI_TYPE_DOUBLE ||
+        tgsi_opcode_infer_dst_type(inst->Instruction.Opcode, 0) == TGSI_TYPE_DOUBLE)) {
+      debug_printf("VIRGL: ARB_gpu_shader_fp64 is exposed but not supported.");
+      return;
+   }
+
+   if (!vtctx->has_precise && inst->Instruction.Precise)
       inst->Instruction.Precise = 0;
 
    for (unsigned i = 0; i < inst->Instruction.NumSrcRegs; i++) {
@@ -82,9 +101,9 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
    ctx->emit_instruction(ctx, inst);
 }
 
-struct tgsi_token *virgl_tgsi_transform(const struct tgsi_token *tokens_in)
+struct tgsi_token *virgl_tgsi_transform(struct virgl_context *vctx, const struct tgsi_token *tokens_in)
 {
-
+   struct virgl_screen *vscreen = (struct virgl_screen *)vctx->base.screen;
    struct virgl_transform_context transform;
    const uint newLen = tgsi_num_tokens(tokens_in);
    struct tgsi_token *new_tokens;
@@ -97,6 +116,10 @@ struct tgsi_token *virgl_tgsi_transform(const struct tgsi_token *tokens_in)
    transform.base.transform_declaration = virgl_tgsi_transform_declaration;
    transform.base.transform_property = virgl_tgsi_transform_property;
    transform.base.transform_instruction = virgl_tgsi_transform_instruction;
+   transform.cull_enabled = vscreen->caps.caps.v1.bset.has_cull;
+   transform.has_precise = vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_TGSI_PRECISE;
+   transform.fake_fp64 =
+      vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_FAKE_FP64;
    tgsi_transform_shader(tokens_in, new_tokens, newLen, &transform.base);
 
    return new_tokens;

@@ -13,9 +13,9 @@
 
 #include "core/fxcrt/unowned_ptr.h"
 #include "core/fxge/cfx_fontmapper.h"
-#include "core/fxge/ifx_systemfontinfo.h"
+#include "core/fxge/systemfontinfo_iface.h"
 
-class CFX_FolderFontInfo : public IFX_SystemFontInfo {
+class CFX_FolderFontInfo : public SystemFontInfoIface {
  public:
   CFX_FolderFontInfo();
   ~CFX_FolderFontInfo() override;
@@ -28,18 +28,11 @@ class CFX_FolderFontInfo : public IFX_SystemFontInfo {
                 bool bItalic,
                 int charset,
                 int pitch_family,
-                const char* face) override;
-#ifdef PDF_ENABLE_XFA
-  void* MapFontByUnicode(uint32_t dwUnicode,
-                         int weight,
-                         bool bItalic,
-                         int pitch_family) override;
-#endif  // PDF_ENABLE_XFA
+                const char* family) override;
   void* GetFont(const char* face) override;
   uint32_t GetFontData(void* hFont,
                        uint32_t table,
-                       uint8_t* buffer,
-                       uint32_t size) override;
+                       pdfium::span<uint8_t> buffer) override;
   void DeleteFont(void* hFont) override;
   bool GetFaceName(void* hFont, ByteString* name) override;
   bool GetFontCharset(void* hFont, int* charset) override;

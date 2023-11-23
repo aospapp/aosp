@@ -102,8 +102,8 @@ void cras_alert_pending(struct cras_alert *alert);
  *    data - A pointer to data that is copied and passed to the callback.
  *    data_size - Size of the data.
  */
-void cras_alert_pending_data(struct cras_alert *alert,
-			     void *data, size_t data_size);
+void cras_alert_pending_data(struct cras_alert *alert, void *data,
+			     size_t data_size);
 
 /* Processes all alerts that are pending.
  *

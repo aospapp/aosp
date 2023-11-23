@@ -7,6 +7,7 @@ import os
 import time
 import re
 import shutil
+import codecs
 
 import common
 from autotest_lib.client.common_lib import error
@@ -14,103 +15,39 @@ from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import ap_constants
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.server import hosts
-from autotest_lib.server import frontend
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros.ap_configurators import ap_configurator
 from autotest_lib.server.cros.ap_configurators import ap_cartridge
 from autotest_lib.server.cros.ap_configurators import ap_spec as ap_spec_module
+from autotest_lib.server.cros.chaos_lib import chaos_datastore_utils
 
 
-def allocate_packet_capturer(lock_manager, hostname, prefix):
-    """Allocates a machine to capture packets.
+def allocate_packet_capturer(lock_manager):
+    """Finds a packet capturer to capture packets.
 
-    Locks the allocated machine if the machine was discovered via AFE
-    to prevent tests stomping on each other.
+    Locks the allocated pcap if it is discovered in datastore
 
     @param lock_manager HostLockManager object.
-    @param hostname string optional hostname of a packet capture machine.
-    @param prefix string chamber location (ex. chromeos3, chromeos5, chromeos7)
 
     @return: An SSHHost object representing a locked packet_capture machine.
     """
-    if hostname is not None:
-        return hosts.SSHHost(hostname)
-
-    afe = frontend.AFE(debug=True,
-                       server=site_utils.get_global_afe_hostname())
-    available_pcaps = afe.get_hosts(label='packet_capture')
+    # Gets available unlocked PCAPs
+    dutils = chaos_datastore_utils.ChaosDataStoreUtils()
+    available_pcaps = dutils.get_devices_by_type(ap_label='CrOS_PCAP',
+                                                 lab_label='CrOS_Chaos')
     for pcap in available_pcaps:
-        pcap_prefix = pcap.hostname.split('-')[0]
         # Ensure the pcap and dut are in the same subnet
-        if pcap_prefix == prefix:
-            if lock_manager.lock([pcap.hostname]):
-                return hosts.SSHHost(pcap.hostname + '.cros')
-            else:
-                logging.info('Unable to lock %s', pcap.hostname)
-                continue
-    raise error.TestError('Unable to lock any pcaps - check in cautotest if '
-                          'pcaps in %s are locked.', prefix)
-
-def allocate_webdriver_instance(lock_manager):
-    """Allocates a machine to capture webdriver instance.
-
-    Locks the allocated machine if the machine was discovered via AFE
-    to prevent tests stomping on each other.
-
-    @param lock_manager HostLockManager object.
-
-    @return An SSHHost object representing a locked webdriver instance.
-    """
-    afe = frontend.AFE(debug=True,
-                       server=site_utils.get_global_afe_hostname())
-    hostname = '%s.cros' % site_utils.lock_host_with_labels(
-        afe, lock_manager, labels=['webdriver'])
-    webdriver_host = hosts.SSHHost(hostname)
-    if webdriver_host is not None:
-        return webdriver_host
-    logging.error("Unable to allocate VM instance")
-    return None
-
-
-def is_VM_running(master, instance):
-    """Check if locked VM is running.
-
-    @param master: chaosvmmaster SSHHost
-    @param instance: locked webdriver instance
-
-    @return True if locked VM is running; False otherwise
-    """
-    hostname = instance.hostname.split('.')[0]
-    logging.debug('Check %s VM status', hostname)
-    list_running_vms_cmd = 'VBoxManage list runningvms'
-    running_vms = master.run(list_running_vms_cmd).stdout
-    return hostname in running_vms
-
-
-def power_on_VM(master, instance):
-    """Power on VM
-
-    @param master: chaosvmmaster SSHHost
-    @param instance: locked webdriver instance
-
-    """
-    hostname = instance.hostname.split('.')[0]
-    logging.debug('Powering on %s VM without GUI', hostname)
-    power_on_cmd = 'VBoxManage startvm %s --type headless' % hostname
-    master.run(power_on_cmd)
-
-
-def power_off_VM(master, instance):
-    """Power off VM
-
-    @param master: chaosvmmaster SSHHost
-    @param instance: locked webdriver instance
-
-    """
-    hostname = instance.hostname.split('.')[0]
-    logging.debug('Powering off %s VM', hostname)
-    power_off_cmd = 'VBoxManage controlvm %s poweroff' % hostname
-    master.run(power_off_cmd)
+        # Encode response that's in unicode format
+        pcap_hostname = pcap['hostname'].encode("utf-8")
+        # Pass pcap hostname as set to lock_kmanager
+        pcap_host = set([pcap_hostname])
+        if lock_manager.lock(pcap_host):
+            return hosts.SSHHost(pcap['hostname'] + '.cros')
+        else:
+            logging.info('Unable to lock %s', pcap['hostname'])
+            continue
+    raise error.TestError('Unable to lock any pcaps - check datastore for '
+                          'pcaps locked status')
 
 
 def power_down_aps(aps, broken_pdus=[]):

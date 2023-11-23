@@ -6,6 +6,8 @@
 
 #include "xfa/fgas/layout/cfx_breakpiece.h"
 
+#include "xfa/fgas/layout/cfx_textuserdata.h"
+
 CFX_BreakPiece::CFX_BreakPiece()
     : m_dwStatus(CFX_BreakType::Piece),
       m_iStartPos(0),
@@ -30,7 +32,9 @@ int32_t CFX_BreakPiece::GetEndPos() const {
 }
 
 CFX_Char* CFX_BreakPiece::GetChar(int32_t index) const {
-  ASSERT(index >= 0 && index < m_iChars && m_pChars);
+  ASSERT(index >= 0);
+  ASSERT(index < m_iChars);
+  ASSERT(m_pChars);
   return &(*m_pChars)[m_iStartChar + index];
 }
 

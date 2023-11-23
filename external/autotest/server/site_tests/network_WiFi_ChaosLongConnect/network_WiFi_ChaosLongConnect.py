@@ -24,7 +24,7 @@ class network_WiFi_ChaosLongConnect(test.test):
 
         @param capturer: a packet capture device
         @param capturer_frequency: integer channel frequency in MHz.
-        @param capturer_ht_type: string specifier of channel HT type.
+        @param capturer_ht_type: object specifier of channel HT type.
         @param host: an Autotest host object, DUT.
         @param assoc_params: an AssociationParameters object.
         @param client: WiFiClient object
@@ -41,7 +41,7 @@ class network_WiFi_ChaosLongConnect(test.test):
             raise error.TestError('Failed to set up isolated test context '
                     'profile.')
 
-        capturer.start_capture(capturer_frequency, ht_type=capturer_ht_type)
+        capturer.start_capture(capturer_frequency, width_type=capturer_ht_type)
         try:
             success = False
             for i in range(DUT_CONNECTION_RETRIES):

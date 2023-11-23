@@ -14,11 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    default_visibility: ["//visibility:private"],
+}
+
 java_defaults {
     name: "bouncycastle-errorprone-defaults",
     errorprone: {
         javacflags: [
-            "-Xep:MissingOverride:OFF",  // Ignore missing @Override.
+            "-Xep:MissingOverride:OFF", // Ignore missing @Override.
         ],
     },
 }
@@ -42,10 +46,89 @@ java_defaults {
     },
 }
 
+// The src files for bouncycastle, used to generate core platform / intra-core
+// API stubs.
+filegroup {
+    name: "bouncycastle_java_files",
+    visibility: [
+        "//libcore",
+    ],
+    srcs: ["repackaged/bcprov/src/main/java/**/*.java"],
+}
+
+// A bouncycastle library repackaged in com.android.org.bouncycastle for use
+// in the Android platform where it is important not to conflict with the
+// original org.bouncycastle package.
+java_library {
+    name: "bouncycastle",
+    // Restrict visibility to only those targets that need to access it.
+    visibility: [
+        "//art/build/apex",
+        "//external/wycheproof",
+        "//libcore",
+    ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
+    defaults: ["bouncycastle-defaults"],
+    installable: true,
+
+    srcs: [":bouncycastle_java_files"],
+
+    libs: ["unsupportedappusage"],
+
+    sdk_version: "none",
+    system_modules: "art-module-intra-core-api-stubs-system-modules",
+}
+
+// A guaranteed unstripped version of bouncycastle.
+// The build system may or may not strip the bouncycastle jar, but this one will
+// not be stripped. See b/24535627.
+java_library {
+    name: "bouncycastle-testdex",
+    visibility: [
+        "//art:__subpackages__",
+    ],
+    defaults: ["bouncycastle-defaults"],
+    installable: true,
+
+    srcs: [":bouncycastle_java_files"],
+
+    libs: ["unsupportedappusage"],
+
+    sdk_version: "none",
+    system_modules: "art-module-intra-core-api-stubs-system-modules",
+    dex_preopt: {
+        enabled: false,
+    },
+    java_version: "1.7",
+}
+
+unbundled_visibility = [
+    "//build/make/tools/signapk",
+    "//build/make/tools/signtos",
+    "//cts/hostsidetests/devicepolicy/app/DeviceOwner",
+    "//cts/tests/libcore/okhttp",
+    "//cts/tests/security",
+    "//cts/tests/tests/keystore",
+    "//external/conscrypt",
+    "//external/okhttp",
+    "//external/robolectric-shadows",
+    "//external/robolectric-shadows/robolectric",
+    "//external/robolectric-shadows/shadows/supportv4",
+    "//external/robolectric-shadows/shadows/httpclient",
+    "//frameworks/opt/net/wifi/service",
+    "//frameworks/opt/net/wifi/tests/wifitests",
+    "//libcore",
+    "//system/extras/verity",
+]
+
 // A bouncycastle library in the original org.bouncycastle package for use
 // outside of the platform. e.g. for host or in unbundled apps.
-java_library_static {
+java_library {
     name: "bouncycastle-unbundled",
+    visibility: unbundled_visibility,
     defaults: ["bouncycastle-defaults"],
     host_supported: true,
 
@@ -58,55 +141,11 @@ java_library_static {
     java_version: "1.7",
 }
 
-// The src files for bouncycastle, used to generate core platform / intra-core
-// API stubs.
-filegroup {
-    name: "bouncycastle_java_files",
-    srcs: ["repackaged/bcprov/src/main/java/**/*.java"],
-}
-
-// A bouncycastle library repackaged in com.android.org.bouncycastle for use
-// in the Android platform where it is important not to conflict with the
-// original org.bouncycastle package.
-java_library {
-    name: "bouncycastle",
-    defaults: ["bouncycastle-defaults"],
-    installable: true,
-
-    srcs: [":bouncycastle_java_files"],
-
-    no_standard_libs: true,
-    libs: [
-        "core-all",
-    ],
-    system_modules: "core-all-system-modules",
-}
-
-// A guaranteed unstripped version of bouncycastle.
-// The build system may or may not strip the bouncycastle jar, but this one will
-// not be stripped. See b/24535627.
-java_library {
-    name: "bouncycastle-testdex",
-    defaults: ["bouncycastle-defaults"],
-    installable: true,
-
-    srcs: [":bouncycastle_java_files"],
-
-    no_standard_libs: true,
-    libs: [
-        "core-all",
-    ],
-    dex_preopt: {
-        enabled: false,
-    },
-    system_modules: "core-all-system-modules",
-    java_version: "1.7",
-}
-
 // Bouncycastle PKIX classes in the original org.bouncycastle package for use
 // outside of the platform. e.g. for host or in unbundled apps / CTS tests.
-java_library_static {
+java_library {
     name: "bouncycastle-bcpkix-unbundled",
+    visibility: unbundled_visibility,
     defaults: ["bouncycastle-defaults"],
     host_supported: true,
 
@@ -121,6 +160,7 @@ java_library_static {
 // outside of the platform. e.g. for host or in unbundled apps / CTS tests.
 java_library_static {
     name: "bouncycastle-ocsp-unbundled",
+    visibility: unbundled_visibility,
     defaults: ["bouncycastle-defaults"],
     host_supported: true,
 
@@ -128,21 +168,45 @@ java_library_static {
         "bcpkix/src/main/java/org/bouncycastle/cert/ocsp/**/*.java",
         "bcprov/src/main/java/org/bouncycastle/asn1/ocsp/**/*.java",
     ],
-    libs: [ "bouncycastle-unbundled",
-            "bouncycastle-bcpkix-unbundled"
+    libs: [
+        "bouncycastle-unbundled",
+        "bouncycastle-bcpkix-unbundled",
     ],
 
     sdk_version: "core_current",
 }
 
 // For compatibility with old bouncycastle-host name.
+//
+// When converting .mk files to .bp files do not change the visibility of this
+// module, instead replace usages of this with bouncycastle-unbundled.
 java_library_host {
     name: "bouncycastle-host",
     static_libs: ["bouncycastle-unbundled"],
 }
 
-// For compatibility with old bouncycastle-bcpkix-host name.
-java_library_host {
-    name: "bouncycastle-bcpkix-host",
-    static_libs: ["bouncycastle-bcpkix-unbundled"],
+// Bouncycastle subset for use by platform/packages/modules/IPsec project.
+//
+// Avoids including the whole of bouncycastle_unbundled in IPsec.
+//
+// Specifically, SHA1Digest and MD4Digest (and their dependencies) must be used by IKEv2 to support
+// legacy authentication methods.
+java_library {
+    name: "bouncycastle_ike_digests",
+    visibility: ["//packages/modules/IPsec"],
+    apex_available: [
+        "com.android.ipsec",
+        "test_com.android.ipsec",
+    ],
+    srcs: [
+        "bcprov/src/main/java/org/bouncycastle/crypto/Digest.java",
+        "bcprov/src/main/java/org/bouncycastle/crypto/ExtendedDigest.java",
+        "bcprov/src/main/java/org/bouncycastle/crypto/digests/EncodableDigest.java",
+        "bcprov/src/main/java/org/bouncycastle/crypto/digests/GeneralDigest.java",
+        "bcprov/src/main/java/org/bouncycastle/crypto/digests/MD4Digest.java",
+        "bcprov/src/main/java/org/bouncycastle/crypto/digests/SHA1Digest.java",
+        "bcprov/src/main/java/org/bouncycastle/util/Memoable.java",
+        "bcprov/src/main/java/org/bouncycastle/util/Pack.java",
+    ],
+    sdk_version: "core_current",
 }

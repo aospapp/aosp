@@ -48,33 +48,40 @@ final public class ListFormatter {
     @Deprecated
     public enum Style {
         /**
-         * Standard style.
+         * Standard, conjunction style.
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
         @Deprecated
         STANDARD("standard"),
         /**
-         * Style for full durations
+         * Disjunction style.
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
         @Deprecated
-        DURATION("unit"),
+        OR("or"),
         /**
-         * Style for durations in abbrevated form
+         * Style for full units
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
         @Deprecated
-        DURATION_SHORT("unit-short"),
+        UNIT("unit"),
         /**
-         * Style for durations in narrow form
+         * Style for units in abbrevated form
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
         @Deprecated
-        DURATION_NARROW("unit-narrow");
+        UNIT_SHORT("unit-short"),
+        /**
+         * Style for units in narrow form
+         * @deprecated This API is ICU internal only.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        @Deprecated
+        UNIT_NARROW("unit-narrow");
 
         private final String name;
 

@@ -35,7 +35,7 @@ class platform_CryptohomeFio(test.test):
                  script=None, sysctls_list=None):
         """
         Create a 300MB file in tmpfs/encrypted/unencrypted location
-        and run fio tesst.
+        and run fio test.
 
         @param disk_configs: list of keys from DISK_CONFIG_KEYS.
         @param script: fio script to run

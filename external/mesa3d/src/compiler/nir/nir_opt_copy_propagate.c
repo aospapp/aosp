@@ -34,6 +34,8 @@
 
 static bool is_move(nir_alu_instr *instr)
 {
+   assert(instr->src[0].src.is_ssa);
+
    if (instr->op != nir_op_fmov &&
        instr->op != nir_op_imov)
       return false;
@@ -46,9 +48,6 @@ static bool is_move(nir_alu_instr *instr)
    if (instr->src[0].abs || instr->src[0].negate)
       return false;
 
-   if (!instr->src[0].src.is_ssa)
-      return false;
-
    return true;
 
 }
@@ -56,8 +55,7 @@ static bool is_move(nir_alu_instr *instr)
 static bool is_vec(nir_alu_instr *instr)
 {
    for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
-      if (!instr->src[i].src.is_ssa)
-         return false;
+      assert(instr->src[i].src.is_ssa);
 
       /* we handle modifiers in a separate pass */
       if (instr->src[i].abs || instr->src[i].negate)
@@ -102,30 +100,28 @@ static bool
 copy_prop_src(nir_src *src, nir_instr *parent_instr, nir_if *parent_if,
               unsigned num_components)
 {
-   if (!src->is_ssa) {
-      if (src->reg.indirect)
-         return copy_prop_src(src->reg.indirect, parent_instr, parent_if, 1);
+   assert(src->is_ssa);
+
+   nir_instr *src_instr = src->ssa->parent_instr;
+   nir_ssa_def *copy_def;
+   if (src_instr->type == nir_instr_type_alu) {
+      nir_alu_instr *alu_instr = nir_instr_as_alu(src_instr);
+      if (!is_swizzleless_move(alu_instr))
+         return false;
+
+      if (alu_instr->src[0].src.ssa->num_components != num_components)
+         return false;
+
+      copy_def= alu_instr->src[0].src.ssa;
+   } else {
       return false;
    }
 
-   nir_instr *src_instr = src->ssa->parent_instr;
-   if (src_instr->type != nir_instr_type_alu)
-      return false;
-
-   nir_alu_instr *alu_instr = nir_instr_as_alu(src_instr);
-   if (!is_swizzleless_move(alu_instr))
-      return false;
-
-   if (alu_instr->src[0].src.ssa->num_components != num_components)
-      return false;
-
    if (parent_instr) {
-      nir_instr_rewrite_src(parent_instr, src,
-                            nir_src_for_ssa(alu_instr->src[0].src.ssa));
+      nir_instr_rewrite_src(parent_instr, src, nir_src_for_ssa(copy_def));
    } else {
       assert(src == &parent_if->condition);
-      nir_if_rewrite_condition(parent_if,
-                               nir_src_for_ssa(alu_instr->src[0].src.ssa));
+      nir_if_rewrite_condition(parent_if, nir_src_for_ssa(copy_def));
    }
 
    return true;
@@ -135,12 +131,7 @@ static bool
 copy_prop_alu_src(nir_alu_instr *parent_alu_instr, unsigned index)
 {
    nir_alu_src *src = &parent_alu_instr->src[index];
-   if (!src->src.is_ssa) {
-      if (src->src.reg.indirect)
-         return copy_prop_src(src->src.reg.indirect, &parent_alu_instr->instr,
-                              NULL, 1);
-      return false;
-   }
+   assert(src->src.is_ssa);
 
    nir_instr *src_instr =  src->src.ssa->parent_instr;
    if (src_instr->type != nir_instr_type_alu)
@@ -151,17 +142,17 @@ copy_prop_alu_src(nir_alu_instr *parent_alu_instr, unsigned index)
       return false;
 
    nir_ssa_def *def;
-   unsigned new_swizzle[4] = {0, 0, 0, 0};
+   unsigned new_swizzle[NIR_MAX_VEC_COMPONENTS] = {0, 0, 0, 0};
 
    if (alu_instr->op == nir_op_fmov ||
        alu_instr->op == nir_op_imov) {
-      for (unsigned i = 0; i < 4; i++)
+      for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++)
          new_swizzle[i] = alu_instr->src[0].swizzle[src->swizzle[i]];
       def = alu_instr->src[0].src.ssa;
    } else {
       def = NULL;
 
-      for (unsigned i = 0; i < 4; i++) {
+      for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++) {
          if (!nir_alu_instr_channel_used(parent_alu_instr, index, i))
             continue;
 
@@ -176,44 +167,13 @@ copy_prop_alu_src(nir_alu_instr *parent_alu_instr, unsigned index)
       }
    }
 
-   for (unsigned i = 0; i < 4; i++)
+   for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++)
       src->swizzle[i] = new_swizzle[i];
 
    nir_instr_rewrite_src(&parent_alu_instr->instr, &src->src,
                          nir_src_for_ssa(def));
 
    return true;
-}
-
-static bool
-copy_prop_dest(nir_dest *dest, nir_instr *instr)
-{
-   if (!dest->is_ssa && dest->reg.indirect)
-      return copy_prop_src(dest->reg.indirect, instr, NULL, 1);
-
-   return false;
-}
-
-static bool
-copy_prop_deref_var(nir_instr *instr, nir_deref_var *deref_var)
-{
-   if (!deref_var)
-      return false;
-
-   bool progress = false;
-   for (nir_deref *deref = deref_var->deref.child;
-        deref; deref = deref->child) {
-      if (deref->deref_type != nir_deref_type_array)
-         continue;
-
-      nir_deref_array *arr = nir_deref_as_array(deref);
-      if (arr->deref_array_type != nir_deref_array_type_indirect)
-         continue;
-
-      while (copy_prop_src(&arr->indirect, instr, NULL, 1))
-         progress = true;
-   }
-   return progress;
 }
 
 static bool
@@ -228,8 +188,24 @@ copy_prop_instr(nir_instr *instr)
          while (copy_prop_alu_src(alu_instr, i))
             progress = true;
 
-      while (copy_prop_dest(&alu_instr->dest.dest, instr))
-         progress = true;
+      return progress;
+   }
+
+   case nir_instr_type_deref: {
+      nir_deref_instr *deref = nir_instr_as_deref(instr);
+
+      if (deref->deref_type != nir_deref_type_var) {
+         assert(deref->dest.is_ssa);
+         const unsigned comps = deref->dest.ssa.num_components;
+         while (copy_prop_src(&deref->parent, instr, NULL, comps))
+            progress = true;
+      }
+
+      if (deref->deref_type == nir_deref_type_array ||
+          deref->deref_type == nir_deref_type_ptr_as_array) {
+         while (copy_prop_src(&deref->arr.index, instr, NULL, 1))
+            progress = true;
+      }
 
       return progress;
    }
@@ -242,14 +218,6 @@ copy_prop_instr(nir_instr *instr)
             progress = true;
       }
 
-      if (copy_prop_deref_var(instr, tex->texture))
-         progress = true;
-      if (copy_prop_deref_var(instr, tex->sampler))
-         progress = true;
-
-      while (copy_prop_dest(&tex->dest, instr))
-         progress = true;
-
       return progress;
    }
 
@@ -257,23 +225,9 @@ copy_prop_instr(nir_instr *instr)
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
       for (unsigned i = 0;
            i < nir_intrinsic_infos[intrin->intrinsic].num_srcs; i++) {
-         unsigned num_components =
-            nir_intrinsic_infos[intrin->intrinsic].src_components[i];
-         if (!num_components)
-            num_components = intrin->num_components;
+         unsigned num_components = nir_intrinsic_src_components(intrin, i);
 
          while (copy_prop_src(&intrin->src[i], instr, NULL, num_components))
-            progress = true;
-      }
-
-      for (unsigned i = 0;
-           i < nir_intrinsic_infos[intrin->intrinsic].num_variables; i++) {
-         if (copy_prop_deref_var(instr, intrin->variables[i]))
-            progress = true;
-      }
-
-      if (nir_intrinsic_infos[intrin->intrinsic].has_dest) {
-         while (copy_prop_dest(&intrin->dest, instr))
             progress = true;
       }
 
@@ -322,6 +276,10 @@ nir_copy_prop_impl(nir_function_impl *impl)
    if (progress) {
       nir_metadata_preserve(impl, nir_metadata_block_index |
                                   nir_metadata_dominance);
+   } else {
+#ifndef NDEBUG
+      impl->valid_metadata &= ~nir_metadata_not_properly_reset;
+#endif
    }
 
    return progress;

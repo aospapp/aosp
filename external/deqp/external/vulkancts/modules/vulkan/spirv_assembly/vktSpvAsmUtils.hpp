@@ -64,7 +64,7 @@ namespace SpirVAssembly
 																											\
 	"%v4f32_v4f32_function = OpTypeFunction %v4f32 %v4f32\n"									\
 	"%bool_function = OpTypeFunction %bool\n"																\
-	"%fun = OpTypeFunction %void\n"																			\
+	"%voidf = OpTypeFunction %void\n"																			\
 																											\
 	"%ip_f32 = OpTypePointer Input %f32\n"																	\
 	"%ip_i32 = OpTypePointer Input %i32\n"																	\
@@ -249,7 +249,15 @@ enum ExtensionFloat16Int8FeaturesBits
 	EXTFLOAT16INT8FEATURES_INT8		= (1u << 2),
 };
 typedef deUint32 ExtensionFloat16Int8Features;
-typedef vk::VkPhysicalDeviceFloatControlsPropertiesKHR ExtensionFloatControlsFeatures;
+typedef vk::VkPhysicalDeviceFloatControlsProperties ExtensionFloatControlsFeatures;
+
+enum ExtensionVulkanMemoryModelFeaturesBits
+{
+	EXTVULKANMEMORYMODELFEATURES_ENABLE							= (1u << 1),
+	EXTVULKANMEMORYMODELFEATURES_DEVICESCOPE					= (1u << 2),
+	EXTVULKANMEMORYMODELFEATURES_AVAILABILITYVISIBILITYCHAINS	= (1u << 3),
+};
+typedef deUint32 ExtensionVulkanMemoryModelFeatures;
 
 struct VulkanFeatures
 {
@@ -258,27 +266,39 @@ struct VulkanFeatures
 	Extension8BitStorageFeatures		ext8BitStorage;
 	Extension16BitStorageFeatures		ext16BitStorage;
 	ExtensionVariablePointersFeatures	extVariablePointers;
+	ExtensionVulkanMemoryModelFeatures	extVulkanMemoryModel;
 	ExtensionFloatControlsFeatures		floatControlsProperties;
+
 
 	VulkanFeatures				(void)
 		: extFloat16Int8		(0)
 		, ext8BitStorage		(0)
 		, ext16BitStorage		(0)
 		, extVariablePointers	(0)
+		, extVulkanMemoryModel	(0)
 	{
 		deMemset(&coreFeatures, 0, sizeof(coreFeatures));
 		deMemset(&floatControlsProperties, 0, sizeof(ExtensionFloatControlsFeatures));
+		floatControlsProperties.denormBehaviorIndependence	= vk::VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR;
+		floatControlsProperties.roundingModeIndependence	= vk::VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR;
 	}
+};
+
+struct VariableLocation
+{
+	deUint32 set;
+	deUint32 binding;
+
+	// Returns a string representation of the structure suitable for test names.
+	std::string toString() const ;
+
+	// Returns a string representation of the structure suitable for test descriptions.
+	std::string toDescription() const;
 };
 
 // Returns true if the given 8bit storage extension features in `toCheck` are all supported.
 bool is8BitStorageFeaturesSupported (const Context&						context,
 									  Extension8BitStorageFeatures		toCheck);
-
-// Returns true if the given 16bit storage extension features in `toCheck` are all supported.
-bool isCoreFeaturesSupported (const Context&						context,
-							  const vk::VkPhysicalDeviceFeatures&	toCheck,
-							  const char**							missingFeature);
 
 // Returns true if the given 16bit storage extension features in `toCheck` are all supported.
 bool isCoreFeaturesSupported (const Context&						context,
@@ -296,6 +316,10 @@ bool isVariablePointersFeaturesSupported (const Context&					context,
 // Returns true if the given 16bit float/8bit int extension features in `toCheck` are all supported.
 bool isFloat16Int8FeaturesSupported (const Context&					context,
 									 ExtensionFloat16Int8Features	toCheck);
+
+// Returns true if the given Vulkan Memory Model extension features in `toCheck` are all supported.
+bool isVulkanMemoryModelFeaturesSupported (const Context&						context,
+										   ExtensionVulkanMemoryModelFeatures	toCheck);
 
 // Returns true if the given float controls features in `toCheck` are all supported.
 bool isFloatControlsFeaturesSupported (const Context&							context,
@@ -352,6 +376,24 @@ std::vector<float> getFloat32s (de::Random& rnd, deUint32 count);
 // The first 14 number pairs are manually picked, while the rest are randomly generated.
 // Expected count to be at least 14 (numPicks).
 std::vector<deFloat16> getFloat16s (de::Random& rnd, deUint32 count);
+
+// Generate an OpCapability Shader line.
+std::string getOpCapabilityShader();
+
+// Generate an unused Vertex entry point.
+std::string getUnusedEntryPoint();
+
+// Generate unused decorations for an input/output buffer.
+std::string getUnusedDecorations(const VariableLocation& location);
+
+// Generate unused types and constants, including a buffer type.
+std::string getUnusedTypesAndConstants();
+
+// Generate the declaration of an unused buffer variable.
+std::string getUnusedBuffer();
+
+// Generate the body of an unused function that uses the previous buffer.
+std::string getUnusedFunctionBody();
 
 } // SpirVAssembly
 } // vkt

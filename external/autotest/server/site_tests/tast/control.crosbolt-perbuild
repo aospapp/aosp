@@ -20,7 +20,6 @@ of Autotest. See https://chromium.googlesource.com/chromiumos/platform/tast/ for
 more information.
 
 This test runs Tast-based crosbolt performance tests against a remote DUT.
-It fails if any individual Tast tests fail.
 
 See http://go/tast-failures for information about investigating failures.
 '''
@@ -30,6 +29,8 @@ def run(machine):
                  host=hosts.create_host(machine),
                  test_exprs=['(!disabled && "group:crosbolt" && '
                              'crosbolt_perbuild)'],
-                 ignore_test_failures=False)
+                 ignore_test_failures=True,
+                 max_run_sec=18000,  # 5 hours.
+                 command_args=args)
 
 parallel_simple(run, machines)

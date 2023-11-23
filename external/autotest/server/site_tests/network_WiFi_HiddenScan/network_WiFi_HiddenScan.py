@@ -24,7 +24,7 @@ class network_WiFi_HiddenScan(wifi_cell_test_base.WiFiCellTestBase):
         # Start capture before starting anything else.
         self.context.capture_host.start_capture(
                 ap_config.frequency,
-                ht_type=ap_config.ht_packet_capture_mode,
+                width_type=ap_config.packet_capture_mode,
                 snaplen=packet_capturer.SNAPLEN_WIFI_PROBE_REQUEST)
 
         # We're looking for the MAC address, so disable randomization.

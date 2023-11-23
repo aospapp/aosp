@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("../../../gn/perfetto.gni")
 import("../../../gn/proto_library.gni")
 import("proto_files.gni")
 
-proto_library("lite") {
-  generate_python = false
+perfetto_proto_library("@TYPE@") {
+  proto_generators = [ "zero" ]
   sources = []
   foreach(source, trace_processor_protos) {
     sources += [ "$source.proto" ]
   }
-  proto_in_dir = "$perfetto_root_path/protos"
-  proto_out_dir = "$perfetto_root_path/protos"
+  deps = [ "../metrics:@TYPE@" ]
+}
+
+perfetto_proto_library("metrics_impl_zero") {
+  proto_generators = [ "zero" ]
+  sources = [ "metrics_impl.proto" ]
 }

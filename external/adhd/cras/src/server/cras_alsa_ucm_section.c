@@ -11,7 +11,8 @@
 #include "cras_alsa_mixer_name.h"
 #include "utlist.h"
 
-static void ucm_section_free(struct ucm_section *section) {
+static void ucm_section_free(struct ucm_section *section)
+{
 	if (section->name)
 		free((void *)section->name);
 	if (section->jack_name)
@@ -27,14 +28,13 @@ static void ucm_section_free(struct ucm_section *section) {
 void ucm_section_free_list(struct ucm_section *sections)
 {
 	struct ucm_section *section;
-	DL_FOREACH(sections, section) {
+	DL_FOREACH (sections, section) {
 		DL_DELETE(sections, section);
 		ucm_section_free(section);
 	}
 }
 
-struct ucm_section *ucm_section_create(const char *name,
-				       int dev_idx,
+struct ucm_section *ucm_section_create(const char *name, int dev_idx,
 				       enum CRAS_STREAM_DIRECTION dir,
 				       const char *jack_name,
 				       const char *jack_type)
@@ -45,8 +45,7 @@ struct ucm_section *ucm_section_create(const char *name,
 	if (!name)
 		return NULL;
 
-	section = (struct ucm_section *)
-		  calloc(1, sizeof(struct ucm_section));
+	section = (struct ucm_section *)calloc(1, sizeof(struct ucm_section));
 	if (!section)
 		return NULL;
 
@@ -78,8 +77,7 @@ error:
 	return NULL;
 }
 
-int ucm_section_set_mixer_name(struct ucm_section *section,
-			       const char *name)
+int ucm_section_set_mixer_name(struct ucm_section *section, const char *name)
 {
 	if (!section || !name)
 		return -EINVAL;
@@ -92,8 +90,7 @@ int ucm_section_set_mixer_name(struct ucm_section *section,
 	return 0;
 }
 
-int ucm_section_add_coupled(struct ucm_section *section,
-			    const char *name,
+int ucm_section_add_coupled(struct ucm_section *section, const char *name,
 			    mixer_name_type type)
 {
 	struct mixer_name *m_name;
@@ -119,11 +116,11 @@ int ucm_section_concat_coupled(struct ucm_section *section,
 
 void ucm_section_dump(struct ucm_section *section)
 {
-	syslog(LOG_DEBUG, "section: %s [%d] (%s)",
-		section->name, section->dev_idx,
-		section->dir == CRAS_STREAM_OUTPUT ? "output" : "input");
-	syslog(LOG_DEBUG, "  jack: %s %s",
-		section->jack_name, section->jack_type);
+	syslog(LOG_DEBUG, "section: %s [%d] (%s)", section->name,
+	       section->dev_idx,
+	       section->dir == CRAS_STREAM_OUTPUT ? "output" : "input");
+	syslog(LOG_DEBUG, "  jack: %s %s", section->jack_name,
+	       section->jack_type);
 	syslog(LOG_DEBUG, "  mixer_name: %s", section->mixer_name);
 	mixer_name_dump(section->coupled, "  coupled");
 }

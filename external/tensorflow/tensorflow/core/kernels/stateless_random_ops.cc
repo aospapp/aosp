@@ -18,6 +18,7 @@ limitations under the License.
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
+#include "tensorflow/core/framework/tensor_util.h"
 #include "tensorflow/core/kernels/random_op.h"
 #include "tensorflow/core/lib/random/random_distributions.h"
 #include "tensorflow/core/platform/logging.h"
@@ -74,7 +75,7 @@ class StatelessRandomOpBase : public OpKernel {
     const Tensor& shape_t = context->input(0);
     const Tensor& seed_t = context->input(1);
     TensorShape shape;
-    OP_REQUIRES_OK(context, MakeShape(shape_t, &shape));
+    OP_REQUIRES_OK(context, tensor::MakeShape(shape_t, &shape));
     OP_REQUIRES(context, seed_t.dims() == 1 && seed_t.dim_size(0) == 2,
                 errors::InvalidArgument("seed must have shape [2], not ",
                                         seed_t.shape().DebugString()));
@@ -200,7 +201,7 @@ TF_CALL_double(REGISTER_CPU);
 TF_CALL_int32(REGISTER_INT_CPU);
 TF_CALL_int64(REGISTER_INT_CPU);
 
-#if GOOGLE_CUDA
+#if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 
 TF_CALL_half(REGISTER_GPU);
 TF_CALL_float(REGISTER_GPU);
@@ -208,7 +209,7 @@ TF_CALL_double(REGISTER_GPU);
 TF_CALL_int32(REGISTER_INT_GPU);
 TF_CALL_int64(REGISTER_INT_GPU);
 
-#endif  // GOOGLE_CUDA
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 
 #undef REGISTER
 #undef REGISTER_INT

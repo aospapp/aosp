@@ -12,7 +12,7 @@ config ENV
   bool "env"
   default y
   help
-    usage: env [-i] [-u NAME] [NAME=VALUE...] [COMMAND [ARG...]]
+    usage: env [-i] [-u NAME] [NAME=VALUE...] [COMMAND...]
 
     Set the environment for command invocation, or list environment variables.
 
@@ -28,11 +28,10 @@ GLOBALS(
   struct arg_list *u;
 );
 
-extern char **environ;
-
 void env_main(void)
 {
   char **ev = toys.optargs;
+  struct arg_list *u;
 
   // If first nonoption argument is "-" treat it as -i
   if (*ev && **ev == '-' && !(*ev)[1]) {
@@ -40,21 +39,16 @@ void env_main(void)
     ev++;
   }
 
-  if (toys.optflags & FLAG_i) clearenv();
-  while (TT.u) {
-    unsetenv(TT.u->arg);
-    TT.u = TT.u->next;
-  }
+  if (FLAG(i)) xclearenv();
+  else for (u = TT.u; u; u = u->next) xunsetenv(u->arg);
 
-  for (; *ev; ev++) {
-    char *name = *ev, *val = strchr(name, '=');
+  for (; *ev; ev++)
+    if (strchr(*ev, '=')) xsetenv(xstrdup(*ev), 0);
+    else {
+      // a common use of env is to bypass shell builtins
+      toys.stacktop = 0;
+      xexec(ev);
+    }
 
-    if (val) {
-      *(val++) = 0;
-      setenv(name, val, 1);
-    } else xexec(ev);
-  }
-
-  if (environ) for (ev = environ; *ev; ev++)
-    xprintf("%s%c", *ev, '\n'*!(toys.optflags&FLAG_0));
+  for (ev = environ; *ev; ev++) xprintf("%s%c", *ev, '\n'*!FLAG(0));
 }

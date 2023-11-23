@@ -43,11 +43,6 @@
 #define CONFIG_MXC_UART_BASE	UART1_BASE
 
 /*
- * SPI Configs
- * */
-#define CONFIG_HARD_SPI /* puts SPI: ready */
-
-/*
  * MMC Configs
  * */
 #define CONFIG_SYS_FSL_ESDHC_ADDR	MMC_SDHC1_BASE_ADDR
@@ -55,7 +50,6 @@
 /*
  * Eth Configs
  */
-#define CONFIG_MII
 #define CONFIG_PHY_SMSC
 
 #define CONFIG_FEC_MXC
@@ -120,7 +114,6 @@
 /*-----------------------------------------------------------------------
  * Physical Memory Map
  */
-#define CONFIG_NR_DRAM_BANKS	1
 #define PHYS_SDRAM_1		CSD0_BASE_ADDR
 #define PHYS_SDRAM_1_SIZE	(256 * 1024 * 1024)
 
@@ -142,8 +135,6 @@
  * Environment organization
  */
 
-#define CONFIG_ENV_OFFSET      (6 * 64 * 1024)
-#define CONFIG_ENV_SIZE        (8 * 1024)
 #define CONFIG_SYS_MMC_ENV_DEV 0
 
 #endif

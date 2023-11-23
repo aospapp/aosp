@@ -27,7 +27,7 @@
 
 volatile sig_atomic_t wakeup = 1;
 
-void handler(int signo)
+void handler(int signo LTP_ATTRIBUTE_UNUSED)
 {
 	printf("Caught SIGBUS\n");
 	wakeup++;

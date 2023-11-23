@@ -46,6 +46,7 @@
 #include "texstore.h"
 #include "transformfeedback.h"
 #include "varray.h"
+#include "util/u_atomic.h"
 
 
 /* Debug flags */
@@ -72,11 +73,11 @@ buffer_usage_warning(struct gl_context *ctx, GLuint *id, const char *fmt, ...)
    va_list args;
 
    va_start(args, fmt);
-   _mesa_gl_vdebug(ctx, id,
-                   MESA_DEBUG_SOURCE_API,
-                   MESA_DEBUG_TYPE_PERFORMANCE,
-                   MESA_DEBUG_SEVERITY_MEDIUM,
-                   fmt, args);
+   _mesa_gl_vdebugf(ctx, id,
+                    MESA_DEBUG_SOURCE_API,
+                    MESA_DEBUG_TYPE_PERFORMANCE,
+                    MESA_DEBUG_SEVERITY_MEDIUM,
+                    fmt, args);
    va_end(args);
 }
 
@@ -112,8 +113,13 @@ get_buffer_target(struct gl_context *ctx, GLenum target)
 
    switch (target) {
    case GL_ARRAY_BUFFER_ARB:
+      if (ctx->Array.ArrayBufferObj)
+         ctx->Array.ArrayBufferObj->UsageHistory |= USAGE_ARRAY_BUFFER;
       return &ctx->Array.ArrayBufferObj;
    case GL_ELEMENT_ARRAY_BUFFER_ARB:
+      if (ctx->Array.VAO->IndexBufferObj)
+         ctx->Array.VAO->IndexBufferObj->UsageHistory
+            |= USAGE_ELEMENT_ARRAY_BUFFER;
       return &ctx->Array.VAO->IndexBufferObj;
    case GL_PIXEL_PACK_BUFFER_EXT:
       return &ctx->Pack.BufferObj;
@@ -128,8 +134,7 @@ get_buffer_target(struct gl_context *ctx, GLenum target)
          return &ctx->QueryBuffer;
       break;
    case GL_DRAW_INDIRECT_BUFFER:
-      if ((ctx->API == API_OPENGL_CORE &&
-           ctx->Extensions.ARB_draw_indirect) ||
+      if ((_mesa_is_desktop_gl(ctx) && ctx->Extensions.ARB_draw_indirect) ||
            _mesa_is_gles31(ctx)) {
          return &ctx->DrawIndirectBuffer;
       }
@@ -346,7 +351,8 @@ buffer_object_subdata_range_good(struct gl_context *ctx,
 
 /**
  * Test the format and type parameters and set the GL error code for
- * \c glClearBufferData and \c glClearBufferSubData.
+ * \c glClearBufferData, \c glClearNamedBufferData, \c glClearBufferSubData
+ * and \c glClearNamedBufferSubData.
  *
  * \param ctx             GL context.
  * \param internalformat  Format to which the data is to be converted.
@@ -356,7 +362,8 @@ buffer_object_subdata_range_good(struct gl_context *ctx,
  * \return   If internalformat, format and type are legal the mesa_format
  *           corresponding to internalformat, otherwise MESA_FORMAT_NONE.
  *
- * \sa glClearBufferData and glClearBufferSubData
+ * \sa glClearBufferData, glClearNamedBufferData, glClearBufferSubData and
+ *     glClearNamedBufferSubData.
  */
 static mesa_format
 validate_clear_buffer_format(struct gl_context *ctx,
@@ -386,14 +393,14 @@ validate_clear_buffer_format(struct gl_context *ctx,
    }
 
    if (!_mesa_is_color_format(format)) {
-      _mesa_error(ctx, GL_INVALID_ENUM,
+      _mesa_error(ctx, GL_INVALID_VALUE,
                   "%s(format is not a color format)", caller);
       return MESA_FORMAT_NONE;
    }
 
    errorFormatType = _mesa_error_check_format_and_type(ctx, format, type);
    if (errorFormatType != GL_NO_ERROR) {
-      _mesa_error(ctx, GL_INVALID_ENUM,
+      _mesa_error(ctx, GL_INVALID_VALUE,
                   "%s(invalid format or type)", caller);
       return MESA_FORMAT_NONE;
    }
@@ -471,7 +478,7 @@ _mesa_delete_buffer_object(struct gl_context *ctx,
    bufObj->RefCount = -1000;
    bufObj->Name = ~0;
 
-   simple_mtx_destroy(&bufObj->Mutex);
+   simple_mtx_destroy(&bufObj->MinMaxCacheMutex);
    free(bufObj->Label);
    free(bufObj);
 }
@@ -490,16 +497,9 @@ _mesa_reference_buffer_object_(struct gl_context *ctx,
 {
    if (*ptr) {
       /* Unreference the old buffer */
-      GLboolean deleteFlag = GL_FALSE;
       struct gl_buffer_object *oldObj = *ptr;
 
-      simple_mtx_lock(&oldObj->Mutex);
-      assert(oldObj->RefCount > 0);
-      oldObj->RefCount--;
-      deleteFlag = (oldObj->RefCount == 0);
-      simple_mtx_unlock(&oldObj->Mutex);
-
-      if (deleteFlag) {
+      if (p_atomic_dec_zero(&oldObj->RefCount)) {
 	 assert(ctx->Driver.DeleteBuffer);
          ctx->Driver.DeleteBuffer(ctx, oldObj);
       }
@@ -510,12 +510,8 @@ _mesa_reference_buffer_object_(struct gl_context *ctx,
 
    if (bufObj) {
       /* reference new buffer */
-      simple_mtx_lock(&bufObj->Mutex);
-      assert(bufObj->RefCount > 0);
-
-      bufObj->RefCount++;
+      p_atomic_inc(&bufObj->RefCount);
       *ptr = bufObj;
-      simple_mtx_unlock(&bufObj->Mutex);
    }
 }
 
@@ -547,11 +543,11 @@ _mesa_initialize_buffer_object(struct gl_context *ctx,
                                GLuint name)
 {
    memset(obj, 0, sizeof(struct gl_buffer_object));
-   simple_mtx_init(&obj->Mutex, mtx_plain);
    obj->RefCount = 1;
    obj->Name = name;
    obj->Usage = GL_STATIC_DRAW_ARB;
 
+   simple_mtx_init(&obj->MinMaxCacheMutex, mtx_plain);
    if (get_no_minmax_cache())
       obj->UsageHistory |= USAGE_DISABLE_MINMAX_CACHE;
 }
@@ -608,7 +604,7 @@ _mesa_total_buffer_object_memory(struct gl_context *ctx)
  * \sa glBufferDataARB, dd_function_table::BufferData.
  */
 static GLboolean
-buffer_data_fallback(struct gl_context *ctx, GLenum target, GLsizeiptr size,
+buffer_data_fallback(struct gl_context *ctx, GLenum target, GLsizeiptrARB size,
                      const GLvoid *data, GLenum usage, GLenum storageFlags,
                      struct gl_buffer_object *bufObj)
 {
@@ -654,8 +650,8 @@ buffer_data_fallback(struct gl_context *ctx, GLenum target, GLsizeiptr size,
  * \sa glBufferSubDataARB, dd_function_table::BufferSubData.
  */
 static void
-buffer_sub_data_fallback(struct gl_context *ctx, GLintptr offset,
-                         GLsizeiptr size, const GLvoid *data,
+buffer_sub_data_fallback(struct gl_context *ctx, GLintptrARB offset,
+                         GLsizeiptrARB size, const GLvoid *data,
                          struct gl_buffer_object *bufObj)
 {
    (void) ctx;
@@ -870,7 +866,7 @@ _mesa_init_buffer_objects( struct gl_context *ctx )
    GLuint i;
 
    memset(&DummyBufferObject, 0, sizeof(DummyBufferObject));
-   simple_mtx_init(&DummyBufferObject.Mutex, mtx_plain);
+   simple_mtx_init(&DummyBufferObject.MinMaxCacheMutex, mtx_plain);
    DummyBufferObject.RefCount = 1000*1000*1000; /* never delete */
 
    _mesa_reference_buffer_object(ctx, &ctx->Array.ArrayBufferObj,

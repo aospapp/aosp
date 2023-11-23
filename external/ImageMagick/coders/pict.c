@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -325,8 +325,9 @@ static MagickBooleanType
 %
 */
 
-static const unsigned char *ExpandBuffer(const unsigned char *magick_restrict pixels,
-  const unsigned int bits_per_pixel,MagickSizeType *bytes_per_line)
+static const unsigned char *UnpackScanline(
+  const unsigned char *magick_restrict pixels,const unsigned int bits_per_pixel,
+  unsigned char *scanline,MagickSizeType *bytes_per_line)
 {
   register const unsigned char
     *p;
@@ -336,9 +337,6 @@ static const unsigned char *ExpandBuffer(const unsigned char *magick_restrict pi
 
   register unsigned char
     *q;
-
-  static unsigned char
-    scanline[8*256];
 
   p=pixels;
   q=scanline;
@@ -427,7 +425,8 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
 
   unsigned char
     *pixels,
-    *scanline;
+    *scanline,
+    unpack_buffer[8*256];
 
   /*
     Determine pixel buffer size.
@@ -482,7 +481,7 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
             status=MagickFalse;
             break;
           }
-        p=ExpandBuffer(scanline,bits_per_pixel,&number_pixels);
+        p=UnpackScanline(scanline,bits_per_pixel,unpack_buffer,&number_pixels);
         if ((q+number_pixels) > (pixels+(*extent)))
           {
             status=MagickFalse;
@@ -521,7 +520,8 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
         {
           length=(size_t) ((scanline[j] & 0xff)+1);
           number_pixels=length*bytes_per_pixel;
-          p=ExpandBuffer(scanline+j+1,bits_per_pixel,&number_pixels);
+          p=UnpackScanline(scanline+j+1,bits_per_pixel,unpack_buffer,
+            &number_pixels);
           if ((q-pixels+number_pixels) <= *extent)
             (void) memcpy(q,p,(size_t) number_pixels);
           q+=number_pixels;
@@ -531,7 +531,8 @@ static unsigned char *DecodeImage(Image *blob,Image *image,
         {
           length=(size_t) (((scanline[j] ^ 0xff) & 0xff)+2);
           number_pixels=bytes_per_pixel;
-          p=ExpandBuffer(scanline+j+1,bits_per_pixel,&number_pixels);
+          p=UnpackScanline(scanline+j+1,bits_per_pixel,unpack_buffer,
+            &number_pixels);
           for (i=0; i < (ssize_t) length; i++)
           {
             if ((q-pixels+number_pixels) <= *extent)
@@ -1763,10 +1764,19 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   pixmap.table=0;
   pixmap.reserved=0;
   transfer_mode=0;
-  x_resolution=image->resolution.x != 0.0 ? image->resolution.x :
-    DefaultResolution;
-  y_resolution=image->resolution.y != 0.0 ? image->resolution.y :
-    DefaultResolution;
+  x_resolution=0.0;
+  y_resolution=0.0;
+  if ((image->resolution.x > MagickEpsilon) && 
+      (image->resolution.y > MagickEpsilon))
+    {
+      x_resolution=image->resolution.x;
+      y_resolution=image->resolution.y;
+      if (image->units == PixelsPerCentimeterResolution)
+        {
+          x_resolution*=2.54;
+          y_resolution*=2.54;
+        }
+    }
   storage_class=image->storage_class;
   if (image_info->compression == JPEGCompression)
     storage_class=DirectClass;
@@ -1785,6 +1795,9 @@ static MagickBooleanType WritePICTImage(const ImageInfo *image_info,
   bytes_per_line=image->columns;
   if (storage_class == DirectClass)
     bytes_per_line*=image->alpha_trait != UndefinedPixelTrait ? 4 : 3;
+  if ((bytes_per_line == 0) || (bytes_per_line > 0x7FFFU) ||
+      ((row_bytes+MaxCount*2U) >= 0x7FFFU))
+    ThrowWriterException(ImageError,"WidthOrHeightExceedsLimit");
   buffer=(unsigned char *) AcquireQuantumMemory(PictInfoSize,sizeof(*buffer));
   packed_scanline=(unsigned char *) AcquireQuantumMemory((size_t)
    (row_bytes+2*MaxCount),sizeof(*packed_scanline));

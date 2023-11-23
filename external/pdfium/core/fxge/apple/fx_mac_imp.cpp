@@ -12,7 +12,8 @@
 #include "core/fxge/cfx_folderfontinfo.h"
 #include "core/fxge/cfx_fontmgr.h"
 #include "core/fxge/cfx_gemodule.h"
-#include "core/fxge/ifx_systemfontinfo.h"
+#include "core/fxge/fx_font.h"
+#include "core/fxge/systemfontinfo_iface.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
@@ -35,7 +36,7 @@ const struct {
     {"Times-Italic", "Times New Roman Italic"},
 };
 
-class CFX_MacFontInfo : public CFX_FolderFontInfo {
+class CFX_MacFontInfo final : public CFX_FolderFontInfo {
  public:
   CFX_MacFontInfo() {}
   ~CFX_MacFontInfo() override {}
@@ -46,6 +47,8 @@ class CFX_MacFontInfo : public CFX_FolderFontInfo {
                 int charset,
                 int pitch_family,
                 const char* family) override;
+
+  bool ParseFontCfg(const char** pUserPaths);
 };
 
 const char JAPAN_GOTHIC[] = "Hiragino Kaku Gothic Pro W6";
@@ -118,23 +121,39 @@ void* CFX_MacFontInfo::MapFont(int weight,
   return it != m_FontList.end() ? it->second.get() : nullptr;
 }
 
+bool CFX_MacFontInfo::ParseFontCfg(const char** pUserPaths) {
+  if (!pUserPaths)
+    return false;
+
+  for (const char** pPath = pUserPaths; *pPath; ++pPath)
+    AddPath(*pPath);
+  return true;
+}
 }  // namespace
 
-std::unique_ptr<IFX_SystemFontInfo> IFX_SystemFontInfo::CreateDefault(
-    const char** pUnused) {
+std::unique_ptr<SystemFontInfoIface> SystemFontInfoIface::CreateDefault(
+    const char** pUserPaths) {
   auto pInfo = pdfium::MakeUnique<CFX_MacFontInfo>();
-  pInfo->AddPath("~/Library/Fonts");
-  pInfo->AddPath("/Library/Fonts");
-  pInfo->AddPath("/System/Library/Fonts");
+  if (!pInfo->ParseFontCfg(pUserPaths)) {
+    pInfo->AddPath("~/Library/Fonts");
+    pInfo->AddPath("/Library/Fonts");
+    pInfo->AddPath("/System/Library/Fonts");
+  }
   return std::move(pInfo);
 }
 
-void CFX_GEModule::InitPlatform() {
-  m_pPlatformData = new CApplePlatform;
-  m_pFontMgr->SetSystemFontInfo(IFX_SystemFontInfo::CreateDefault(nullptr));
+CApplePlatform::CApplePlatform() = default;
+
+CApplePlatform::~CApplePlatform() = default;
+
+void CApplePlatform::Init() {
+  CFX_GEModule* pModule = CFX_GEModule::Get();
+  pModule->GetFontMgr()->SetSystemFontInfo(
+      SystemFontInfoIface::CreateDefault(pModule->GetUserFontPaths()));
 }
 
-void CFX_GEModule::DestroyPlatform() {
-  delete reinterpret_cast<CApplePlatform*>(m_pPlatformData);
-  m_pPlatformData = nullptr;
+// static
+std::unique_ptr<CFX_GEModule::PlatformIface>
+CFX_GEModule::PlatformIface::Create() {
+  return pdfium::MakeUnique<CApplePlatform>();
 }

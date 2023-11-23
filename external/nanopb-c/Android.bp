@@ -30,6 +30,7 @@ cc_defaults {
     sdk_version: "19",
     export_include_dirs: ["."],
     vendor_available: true,
+    host_supported: true,
 }
 
 cc_library_static {

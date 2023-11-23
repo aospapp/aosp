@@ -1,3 +1,7 @@
+# Copyright (c) 2008 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Provides a factory method to create a host object."""
 
 import logging
@@ -10,7 +14,6 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros.dynamic_suite import constants
-from autotest_lib.server.hosts import adb_host
 from autotest_lib.server.hosts import cros_host
 from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import jetstream_host
@@ -18,6 +21,7 @@ from autotest_lib.server.hosts import moblab_host
 from autotest_lib.server.hosts import gce_host
 from autotest_lib.server.hosts import sonic_host
 from autotest_lib.server.hosts import ssh_host
+from autotest_lib.server.hosts import labstation_host
 
 
 CONFIG = global_config.global_config
@@ -35,14 +39,13 @@ _started_hostnames = set()
 # A list of all the possible host types, ordered according to frequency of
 # host types in the lab, so the more common hosts don't incur a repeated ssh
 # overhead in checking for less common host types.
-host_types = [cros_host.CrosHost, moblab_host.MoblabHost,
-              jetstream_host.JetstreamHost, sonic_host.SonicHost,
-              adb_host.ADBHost, gce_host.GceHost,]
-OS_HOST_DICT = {'android': adb_host.ADBHost,
-                'brillo': adb_host.ADBHost,
-                'cros' : cros_host.CrosHost,
+host_types = [cros_host.CrosHost, labstation_host.LabstationHost,
+              moblab_host.MoblabHost, jetstream_host.JetstreamHost,
+              sonic_host.SonicHost, gce_host.GceHost]
+OS_HOST_DICT = {'cros': cros_host.CrosHost,
                 'jetstream': jetstream_host.JetstreamHost,
-                'moblab': moblab_host.MoblabHost}
+                'moblab': moblab_host.MoblabHost,
+                'labstation': labstation_host.LabstationHost}
 
 # Timeout for early connectivity check to the host, in seconds.
 _CONNECTIVITY_CHECK_TIMEOUT_S = 10
@@ -187,12 +190,12 @@ def create_host(machine, host_class=None, connectivity_class=None, **args):
     detected_args = _get_host_arguments(machine)
     hostname = detected_args.pop('hostname')
     afe_host = detected_args['afe_host']
+    info_store = detected_args['host_info_store'].get()
     args.update(detected_args)
-
     host_os = None
     full_os_prefix = constants.OS_PREFIX + ':'
     # Let's grab the os from the labels if we can for host class detection.
-    for label in afe_host.labels:
+    for label in info_store.labels:
         if label.startswith(full_os_prefix):
             host_os = label[len(full_os_prefix):]
             break
@@ -247,10 +250,6 @@ def create_target_machine(machine, **kwargs):
 
     @returns: The target machine to be used for verify/repair.
     """
-    # For Brillo/Android devices connected to moblab, the `machine` name is
-    # either `localhost` or `127.0.0.1`. It needs to be translated to the host
-    # container IP if the code is running inside a container. This way, autoserv
-    # can ssh to the moblab and run actual adb/fastboot commands.
     is_moblab = CONFIG.get_config_value('SSP', 'is_moblab', type=bool,
                                         default=False)
     hostname = machine['hostname'] if isinstance(machine, dict) else machine

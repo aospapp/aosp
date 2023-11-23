@@ -3,12 +3,13 @@ package org.unicode.cldr.unittest;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -20,7 +21,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.unicode.cldr.test.DisplayAndInputProcessor;
-import org.unicode.cldr.tool.GenerateBirth.Versions;
+import org.unicode.cldr.tool.CldrVersion;
 import org.unicode.cldr.tool.LikelySubtags;
 import org.unicode.cldr.util.Builder;
 import org.unicode.cldr.util.CLDRConfig;
@@ -99,7 +100,11 @@ public class TestBasic extends TestFmwkPlus {
         Pair.of("ldml", "version"),
         Pair.of("supplementalData", "version"),
         Pair.of("ldmlICU", "version"),
-        Pair.of("layout", "standard"));
+        Pair.of("layout", "standard"),
+        Pair.of("currency", "id"),      // for v1.1.1
+        Pair.of("monthNames", "type"),  // for v1.1.1
+        Pair.of("alias", "type")        // for v1.1.1
+        );
 
     private static final ImmutableSet<Pair<String, String>> knownChildExceptions = ImmutableSet.of(
         Pair.of("abbreviationFallback", "special"),
@@ -362,7 +367,6 @@ public class TestBasic extends TestFmwkPlus {
     }
 
     public void TestCurrencyFallback() {
-        XPathParts parts = new XPathParts();
         Factory cldrFactory = testInfo.getCldrFactory();
         Set<String> currencies = testInfo.getStandardCodes().getAvailableCodes(
             "currency");
@@ -380,7 +384,6 @@ public class TestBasic extends TestFmwkPlus {
             final UnicodeSet OK_CURRENCY_FALLBACK = (UnicodeSet) new UnicodeSet(
                 "[\\u0000-\\u00FF]").addAll(safeExemplars(file, ""))
                     .addAll(safeExemplars(file, "auxiliary"))
-//                .addAll(safeExemplars(file, "currencySymbol"))
                     .freeze();
             UnicodeSet badSoFar = new UnicodeSet();
 
@@ -392,10 +395,8 @@ public class TestBasic extends TestFmwkPlus {
                 String value = file.getStringValue(path);
 
                 // check for special characters
-
                 if (CHARACTERS_THAT_SHOULD_HAVE_FALLBACKS.containsSome(value)) {
-
-                    parts.set(path);
+                    XPathParts parts = XPathParts.getFrozenInstance(path);
                     if (!parts.getElement(-1).equals("symbol")) {
                         continue;
                     }
@@ -414,8 +415,7 @@ public class TestBasic extends TestFmwkPlus {
                         List<String> fallbackList = fallbacks
                             .getSubstitutes(fishyCodepoint);
 
-                        String nfkc = Normalizer.normalize(fishyCodepoint,
-                            Normalizer.NFKC);
+                        String nfkc = Normalizer.normalize(fishyCodepoint, Normalizer.NFKC);
                         if (!nfkc.equals(UTF16.valueOf(fishyCodepoint))) {
                             if (fallbackList == null) {
                                 fallbackList = new ArrayList<String>();
@@ -553,7 +553,6 @@ public class TestBasic extends TestFmwkPlus {
             new TreeMap<String, Set<String>>(), TreeSet.class);
         Relation<String, String> nonDistinguishing = Relation.of(
             new TreeMap<String, Set<String>>(), TreeSet.class);
-        XPathParts parts = new XPathParts();
         Factory cldrFactory = testInfo.getCldrFactory();
         CLDRFile english = testInfo.getEnglish();
 
@@ -621,10 +620,11 @@ public class TestBasic extends TestFmwkPlus {
                     continue;
 
                 String fullPath = file.getFullXPath(path);
-                parts.set(fullPath);
+                XPathParts parts = XPathParts.getFrozenInstance(fullPath);
                 for (int i = 0; i < parts.size(); ++i) {
-                    if (parts.getAttributeCount(i) == 0)
+                    if (parts.getAttributeCount(i) == 0) {
                         continue;
+                    }
                     String element = parts.getElement(i);
                     for (String attribute : parts.getAttributeKeys(i)) {
                         if (skipAttributes.contains(attribute))
@@ -980,9 +980,13 @@ public class TestBasic extends TestFmwkPlus {
             .getAvailableLanguages();
         PluralInfo rootRules = SUPPLEMENTAL_DATA_INFO.getPlurals(
             PluralType.cardinal, "root");
-        EnumSet<MissingType> errors = EnumSet.of(MissingType.collation);
-        EnumSet<MissingType> warnings = EnumSet.of(MissingType.collation,
-            MissingType.index_exemplars, MissingType.punct_exemplars);
+        Multimap<MissingType, Comparable> errors = TreeMultimap.create();
+        errors.put(MissingType.collation, "?");
+        
+        Multimap<MissingType, Comparable> warnings = TreeMultimap.create();
+        warnings.put(MissingType.collation, "?");
+        warnings.put(MissingType.index_exemplars, "?");
+        warnings.put(MissingType.punct_exemplars, "?");
 
         Set<String> collations = new HashSet<String>();
 
@@ -990,23 +994,6 @@ public class TestBasic extends TestFmwkPlus {
         Factory collationFactory = Factory.make(CLDRPaths.COLLATION_DIRECTORY,
             ".*", DraftStatus.contributed);
         for (String localeID : collationFactory.getAvailable()) {
-            // if (localeID.equals("root")) {
-            // CLDRFile cldrFile = collationFactory.make(localeID, false,
-            // DraftStatus.contributed);
-            // for (String path : cldrFile) {
-            // if (path.startsWith("//ldml/collations")) {
-            // String fullPath = cldrFile.getFullXPath(path);
-            // String valid = parts.set(fullPath).getAttributeValue(1,
-            // "validSubLocales");
-            // for (String validSub : valid.trim().split("\\s+")) {
-            // if (isTopLevel(validSub)) {
-            // collations.add(validSub);
-            // }
-            // }
-            // break; // done with root
-            // }
-            // }
-            // } else
             if (isTopLevel(localeID)) {
                 collations.add(localeID);
             }
@@ -1031,7 +1018,7 @@ public class TestBasic extends TestFmwkPlus {
                 + testInfo.getEnglish().getName(localeID) + ")";
 
             if (!collations.contains(localeID)) {
-                warnings.add(MissingType.collation);
+                warnings.put(MissingType.collation, "missing");
                 logln(name + " is missing " + MissingType.collation.toString());
             }
 
@@ -1050,32 +1037,36 @@ public class TestBasic extends TestFmwkPlus {
                 if (pluralInfo == rootRules) {
                     logln(name + " is missing "
                         + MissingType.plurals.toString());
-                    warnings.add(MissingType.plurals);
+                    warnings.put(MissingType.plurals, "missing");
                 }
                 UnicodeSet main = cldrFile.getExemplarSet("",
                     WinningChoice.WINNING);
                 if (main == null || main.isEmpty()) {
                     errln("  " + name + " is missing "
                         + MissingType.main_exemplars.toString());
-                    errors.add(MissingType.main_exemplars);
+                    errors.put(MissingType.main_exemplars, "missing");
                 }
                 UnicodeSet index = cldrFile.getExemplarSet("index",
                     WinningChoice.WINNING);
                 if (index == null || index.isEmpty()) {
                     logln(name + " is missing "
                         + MissingType.index_exemplars.toString());
-                    warnings.add(MissingType.index_exemplars);
+                    warnings.put(MissingType.index_exemplars, "missing");
                 }
                 UnicodeSet punctuation = cldrFile.getExemplarSet("punctuation",
                     WinningChoice.WINNING);
                 if (punctuation == null || punctuation.isEmpty()) {
                     logln(name + " is missing "
                         + MissingType.punct_exemplars.toString());
-                    warnings.add(MissingType.punct_exemplars);
+                    warnings.put(MissingType.punct_exemplars, "missing");
                 }
             } catch (Exception e) {
-                errln("  " + name + " is missing main locale data.");
-                errors.add(MissingType.no_main);
+                StringWriter x = new StringWriter();
+                PrintWriter pw = new PrintWriter(x);
+                e.printStackTrace(pw);
+                pw.flush();
+                errln("  " + name + " is missing main locale data." + x);
+                errors.put(MissingType.no_main, x.toString());
             }
 
             // report errors
@@ -1127,12 +1118,11 @@ public class TestBasic extends TestFmwkPlus {
 
     public void TestBasicDTDCompatibility() {
 
-        // Only run the rest in exhaustive mode, since it requires CLDR_ARCHIVE_DIRECTORY
-        if (getInclusion() <= 5) {
+        if (logKnownIssue("cldrbug:11583", "Comment out test until last release data is available for unit tests")) {
             return;
         }
 
-        final String oldCommon = CLDRPaths.ARCHIVE_DIRECTORY + "/cldr-" + Versions.v22_1.toString() + "/common";
+        final String oldCommon = CldrVersion.v22_1.getBaseDirectory() + "/common";
 
         // set up exceptions
         Set<String> changedToEmpty = new HashSet<String>(
@@ -1312,17 +1302,14 @@ public class TestBasic extends TestFmwkPlus {
                 type
                     + " DTD elements with children must have 'special' elements",
                 Collections.EMPTY_SET, elementsWithoutSpecial);
-
-            // Only run the rest in exhaustive mode, since it requires CLDR_ARCHIVE_DIRECTORY
-            if (getInclusion() <= 5) {
+            
+            if (logKnownIssue("cldrbug:11583", "Comment out test until last release data is available for unit tests")) {
                 return;
             }
 
-            for (Versions version : Versions.values()) {
-                if (version == Versions.trunk) {
+            for (CldrVersion version : CldrVersion.CLDR_VERSIONS_DESCENDING) {
+                if (version == CldrVersion.unknown || version == CldrVersion.trunk) {
                     continue;
-                } else if (version == Versions.v1_1_1) {
-                    break;
                 }
                 DtdData dtdDataOld;
                 try {
@@ -1332,11 +1319,11 @@ public class TestBasic extends TestFmwkPlus {
                     switch (type) {
                     case ldmlBCP47:
                     case ldmlICU:
-                        tooOld = version.compareTo(Versions.v1_7_2) >= 0;
+                        tooOld = version.isOlderThan(CldrVersion.v1_7_2);
                         break;
                     case keyboard:
                     case platform:
-                        tooOld = version.compareTo(Versions.v22_1) >= 0;
+                        tooOld = version.isOlderThan(CldrVersion.v22_1);
                         break;
                     default:
                         break;
@@ -1344,7 +1331,8 @@ public class TestBasic extends TestFmwkPlus {
                     if (tooOld) {
                         continue;
                     } else {
-                        throw e;
+                        errln(version + ": " + e.getClass().getSimpleName() + ", " + e.getMessage());
+                        continue;
                     }
                 }
                 // verify that if E is in dtdDataOld, then it is in dtdData, and
@@ -1374,7 +1362,7 @@ public class TestBasic extends TestFmwkPlus {
                                 continue;
                             }
                             assertNotNull(
-                                type + " DTD - Children of «"
+                                type + " DTD - Trunk children of «"
                                     + newElement.getName()
                                     + "» must be superset of v"
                                     + version + ", and must contain «"
@@ -1390,13 +1378,12 @@ public class TestBasic extends TestFmwkPlus {
                                 continue;
                             }
                             assertNotNull(
-                                type + " DTD - Attributes of «"
+                                type + " DTD - Trunk attributes of «"
                                     + newElement.getName()
                                     + "» must be superset of v"
                                     + version + ", and must contain «"
                                     + oldAttribute.getName() + "»",
                                 newAttribute);
-
                         }
                     }
                 }
@@ -1421,7 +1408,6 @@ public class TestBasic extends TestFmwkPlus {
             "//supplementalData/territoryContainment/group[@type=\"419\"][@contains=\"013 029 005\"][@grouping=\"true\"]",
             "//supplementalData/territoryContainment/group[@type=\"003\"][@contains=\"021 013 029\"][@grouping=\"true\"]");
 
-        //checkDtdComparatorForResource("TestBasic_ja.xml", DtdType.ldmlICU);
     }
 
     public void TestDtdComparisonsAll() {
@@ -1489,7 +1475,7 @@ public class TestBasic extends TestFmwkPlus {
             dtdType = overrideDtdType;
         }
 
-        public void handlePathValue(String path, String value) {
+        public void handlePathValue(String path, @SuppressWarnings("unused") String value) {
             if (dtdType == null) {
                 try {
                     dtdType = DtdType.fromPath(path);

@@ -26,9 +26,9 @@
 
 
 #include "tcuDefs.hpp"
-#include "tcuResource.hpp"
 
 #include "vktTestCase.hpp"
+#include "vktTestCaseUtil.hpp"
 
 #include "gluShaderUtil.hpp"
 #include "vkPrograms.hpp"
@@ -42,21 +42,6 @@ namespace vkt
 namespace Draw
 {
 
-class ShaderSourceProvider
-{
-public:
-	static std::string getSource (tcu::Archive& archive, const char* path)
-	{
-		de::UniquePtr<tcu::Resource> resource(archive.getResource(path));
-
-		std::vector<deUint8> readBuffer(resource->getSize() + 1);
-		resource->read(&readBuffer[0], resource->getSize());
-		readBuffer[readBuffer.size() - 1] = 0;
-
-		return std::string(reinterpret_cast<const char*>(&readBuffer[0]));
-	}
-};
-
 typedef std::map<glu::ShaderType, const char*> ShaderMap;
 
 struct TestSpecBase
@@ -65,22 +50,30 @@ struct TestSpecBase
 	vk::VkPrimitiveTopology	topology;
 };
 
-template<typename Instance>
+template<typename Instance, typename Support = NoSupport0>
 class InstanceFactory : public TestCase
 {
 public:
 	InstanceFactory (tcu::TestContext& testCtx, const std::string& name, const std::string& desc, typename Instance::TestSpec testSpec)
 		: TestCase		(testCtx, name, desc)
 		, m_testSpec	(testSpec)
+		, m_support		()
 	{
 	}
 
-	TestInstance* createInstance (Context& context) const
+	InstanceFactory (tcu::TestContext& testCtx, const std::string& name, const std::string& desc, typename Instance::TestSpec testSpec, const Support& support)
+		: TestCase		(testCtx, name, desc)
+		, m_testSpec	(testSpec)
+		, m_support		(support)
+	{
+	}
+
+	TestInstance*	createInstance	(Context& context) const
 	{
 		return new Instance(context, m_testSpec);
 	}
 
-	virtual void initPrograms (vk::SourceCollections& programCollection) const
+	virtual void	initPrograms	(vk::SourceCollections& programCollection) const
 	{
 		for (ShaderMap::const_iterator i = m_testSpec.shaders.begin(); i != m_testSpec.shaders.end(); ++i)
 		{
@@ -89,8 +82,14 @@ public:
 		}
 	}
 
+	virtual void	checkSupport	(Context& context) const
+	{
+		m_support.checkSupport(context);
+	}
+
 private:
-	const typename Instance::TestSpec m_testSpec;
+	const typename Instance::TestSpec	m_testSpec;
+	const Support						m_support;
 };
 
 } // Draw

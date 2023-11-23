@@ -12,10 +12,10 @@ az{
     }
     ExemplarCharacters{"[a b c ç d e ə f g ğ h x ı i İ j k q l m n o ö p r s ş t u ü v y z]"}
     ExemplarCharactersIndex{"[A B C Ç D E Ə F G Ğ H X I İ J K Q L M N O Ö P R S Ş T U Ü V Y Z W]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -151,40 +151,40 @@ az{
                         other{"000K"}
                     }
                     1000000{
-                        one{"0M"}
-                        other{"0M"}
+                        one{"0 mln"}
+                        other{"0 mln"}
                     }
                     10000000{
-                        one{"00M"}
-                        other{"00M"}
+                        one{"00 mln"}
+                        other{"00 mln"}
                     }
                     100000000{
-                        one{"000M"}
-                        other{"000M"}
+                        one{"000 mln"}
+                        other{"000 mln"}
                     }
                     1000000000{
-                        one{"0G"}
-                        other{"0G"}
+                        one{"0 mlrd"}
+                        other{"0 mlrd"}
                     }
                     10000000000{
-                        one{"00G"}
-                        other{"00G"}
+                        one{"00 mlrd"}
+                        other{"00 mlrd"}
                     }
                     100000000000{
-                        one{"000G"}
-                        other{"000G"}
+                        one{"000 mlrd"}
+                        other{"000 mlrd"}
                     }
                     1000000000000{
-                        one{"0T"}
-                        other{"0T"}
+                        one{"0 trln"}
+                        other{"0 trln"}
                     }
                     10000000000000{
-                        one{"00T"}
-                        other{"00T"}
+                        one{"00 trln"}
+                        other{"00 trln"}
                     }
                     100000000000000{
-                        one{"000T"}
-                        other{"000T"}
+                        one{"000 trln"}
+                        other{"000 trln"}
                     }
                 }
             }
@@ -218,7 +218,7 @@ az{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.53"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -280,6 +280,40 @@ az{
                 yyyyQQQQ{"G y QQQQ"}
             }
             intervalFormats{
+                GyM{
+                    G{"GGGGG MM/y– GGGGG MM/y"}
+                    M{"GGGGG MM/y – MM/y"}
+                    y{"GGGGG MM/y – MM/y"}
+                }
+                GyMEd{
+                    G{"GGGGG dd/MM/y, E – GGGGG dd/MM/y, E"}
+                    M{"GGGGG dd/MM/y, E – dd/MM/y, E"}
+                    d{"GGGGG dd/MM/y, E – dd/MM/y, E"}
+                    y{"GGGGG dd/MM/y, E – dd/MM/y, E"}
+                }
+                GyMMM{
+                    G{"G MMM y – G MMM y"}
+                    M{"G MMM – MMM y"}
+                    y{"G MMM y – MMM y"}
+                }
+                GyMMMEd{
+                    G{"G d MMM y, E – G d MMM y, E"}
+                    M{"G d MMM, E – d MMM y, E"}
+                    d{"G d MMM, E – d MMM y, E"}
+                    y{"G d MMM y, E – d MMM y, E"}
+                }
+                GyMMMd{
+                    G{"G d MMM y – G d MMM y"}
+                    M{"G d MMM – d MMM y"}
+                    d{"G d – d MMM y"}
+                    y{"G d MMM y – d MMM y"}
+                }
+                GyMd{
+                    G{"GGGGG dd/MM/y – GGGGG dd/MM/y"}
+                    M{"GGGGG dd/MM/y – dd/MM/y"}
+                    d{"GGGGG dd/MM/y – dd/MM/y"}
+                    y{"GGGGG dd/MM/y – dd/MM/y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -432,8 +466,8 @@ az{
                 MMM{"LLL"}
                 MMMEd{"d MMM, E"}
                 MMMMW{
-                    one{"MMM, W 'həftə'"}
-                    other{"MMM, W 'həftə'"}
+                    one{"MMMM, W 'həftə'"}
+                    other{"MMMM, W 'həftə'"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -464,10 +498,10 @@ az{
                 format{
                     abbreviated{
                         "B.",
-                        "B.E.",
-                        "Ç.A.",
+                        "B.e.",
+                        "Ç.a.",
                         "Ç.",
-                        "C.A.",
+                        "C.a.",
                         "C.",
                         "Ş.",
                     }
@@ -629,6 +663,40 @@ az{
                 }
             }
             intervalFormats{
+                GyM{
+                    G{"GGGGG MM.y – GGGGG MM.y"}
+                    M{"GGGGG MM.y – MM.y"}
+                    y{"GGGGG MM.y – MM.y"}
+                }
+                GyMEd{
+                    G{"GGGGG dd.MM.y, E – GGGGG dd.MM.y, E"}
+                    M{"GGGGG dd.MM.y, E – dd.MM.y, E"}
+                    d{"GGGGG dd.MM.y, E – dd.MM.y, E"}
+                    y{"GGGGG dd.MM.y, E – dd.MM.y, E"}
+                }
+                GyMMM{
+                    G{"G MMM y – G MMM y"}
+                    M{"G MMM – MMM y"}
+                    y{"G MMM y – MMM y"}
+                }
+                GyMMMEd{
+                    G{"G d MMM y, E – d MMM y, E"}
+                    M{"G d MMM, E – d MMM y, E"}
+                    d{"G d MMM, E – d MMM y, E"}
+                    y{"G d MMM y, E – d MMM y, E"}
+                }
+                GyMMMd{
+                    G{"G d MMM y – G d MMM y"}
+                    M{"G d MMM – d MMM y"}
+                    d{"G d – d MMM y"}
+                    y{"G d MMM y – d MMM y"}
+                }
+                GyMd{
+                    G{"GGGGG dd.MM.y – GGGGG dd.MM.y"}
+                    M{"GGGGG dd.MM.y – dd.MM.y"}
+                    d{"GGGGG dd.MM.y – dd.MM.y"}
+                    y{"GGGGG dd.MM.y – dd.MM.y"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -798,9 +866,9 @@ az{
                         "12",
                     }
                     wide{
-                        "Yanvar",
+                        "yanvar",
                         "Fevral",
-                        "Mart",
+                        "mart",
                         "Aprel",
                         "May",
                         "İyun",
@@ -809,7 +877,7 @@ az{
                         "Sentyabr",
                         "Oktyabr",
                         "Noyabr",
-                        "Dekabr",
+                        "dekabr",
                     }
                 }
             }
@@ -852,6 +920,70 @@ az{
                         "2-ci kvartal",
                         "3-cü kvartal",
                         "4-cü kvartal",
+                    }
+                }
+            }
+        }
+        islamic{
+            monthNames{
+                format{
+                    abbreviated{
+                        "Məh.",
+                        "Səf.",
+                        "Rəb. I",
+                        "Rəb. II",
+                        "Cəm. I",
+                        "Cəm. II",
+                        "Rəc.",
+                        "Şab.",
+                        "Ram.",
+                        "Şəv.",
+                        "Zilq.",
+                        "Zilh.",
+                    }
+                    wide{
+                        "Məhərrəm",
+                        "Səfər",
+                        "Rəbiüləvvəl",
+                        "Rəbiülaxır",
+                        "Cəmadiyələvvəl",
+                        "Cəmadiyəlaxır",
+                        "Rəcəb",
+                        "Şaban",
+                        "Ramazan",
+                        "Şəvval",
+                        "Zilqədə",
+                        "Zilhiccə",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Məh.",
+                        "Səf.",
+                        "Rəb. I",
+                        "Rəb. II",
+                        "Cəm. I",
+                        "Cəm. II",
+                        "Rəc.",
+                        "Şab.",
+                        "Ram.",
+                        "Şəv.",
+                        "Zilq.",
+                        "Zilh.",
+                    }
+                    wide{
+                        "Məhərrəm",
+                        "Səfər",
+                        "Rəbiüləvvəl",
+                        "Rəbiülaxır",
+                        "Cəmadiyələvvəl",
+                        "Cəmadiyəlaxır",
+                        "Rəcəb",
+                        "Şaban",
+                        "Ramazan",
+                        "Şəvval",
+                        "Zilqədə",
+                        "Zilhiccə",
                     }
                 }
             }
@@ -927,7 +1059,7 @@ az{
         rightwards_arrows{"Sağa Oxlar"}
         sign_standard_symbols{"İşarə/Standart Simvollar"}
         small_form_variant{"Kiçik Forma Variantları"}
-        smiley{"smayli"}
+        smiley{"təbəssüm"}
         smileys_people{"Gülüş və Camaat"}
         south_asian_scripts{"Cənubi Asiya Yazıları"}
         southeast_asian_scripts{"Cənub-Şərqi Asiya Yazıları"}
@@ -1739,11 +1871,21 @@ az{
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
         }
+        or-narrow{
+            2{"{0}, yaxud {1}"}
+        }
+        or-short{
+            2{"{0}, yaxud {1}"}
+        }
         standard{
             2{"{0} və {1}"}
             end{"{0} və {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
         }
         standard-short{
             2{"{0} və {1}"}

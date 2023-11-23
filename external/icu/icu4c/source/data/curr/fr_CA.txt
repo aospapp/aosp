@@ -210,9 +210,6 @@ fr_CA{
             one{"livre des Îles Malouines"}
             other{"livres des Îles Malouines"}
         }
-        GEL{
-            one{"lari géorgien"}
-        }
         GYD{
             one{"dollar guyanien"}
             other{"dollars guyaniens"}
@@ -270,5 +267,5 @@ fr_CA{
             other{"rials yéménites"}
         }
     }
-    Version{"2.1.43.65"}
+    Version{"36.1"}
 }

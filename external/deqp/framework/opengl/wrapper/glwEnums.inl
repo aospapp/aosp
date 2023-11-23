@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
+ * Generated from Khronos GL API description (gl.xml) revision 9d534f9312e56c72df763207e449c6719576fd54.
  */
 #define GL_DEPTH_BUFFER_BIT												0x00000100
 #define GL_STENCIL_BUFFER_BIT											0x00000400
@@ -54,6 +54,15 @@
 #define GL_TESS_EVALUATION_SHADER_BIT_EXT								0x00000010
 #define GL_COMPUTE_SHADER_BIT											0x00000020
 #define GL_ALL_SHADER_BITS												0xFFFFFFFFu
+#define GL_SUBGROUP_FEATURE_BASIC_BIT_KHR								0x00000001
+#define GL_SUBGROUP_FEATURE_VOTE_BIT_KHR								0x00000002
+#define GL_SUBGROUP_FEATURE_ARITHMETIC_BIT_KHR							0x00000004
+#define GL_SUBGROUP_FEATURE_BALLOT_BIT_KHR								0x00000008
+#define GL_SUBGROUP_FEATURE_SHUFFLE_BIT_KHR								0x00000010
+#define GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR					0x00000020
+#define GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR							0x00000040
+#define GL_SUBGROUP_FEATURE_QUAD_BIT_KHR								0x00000080
+#define GL_SUBGROUP_FEATURE_PARTITIONED_BIT_NV							0x00000100
 #define GL_FALSE														0
 #define GL_NO_ERROR														0
 #define GL_ZERO															0
@@ -1036,7 +1045,9 @@
 #define GL_TRANSFORM_FEEDBACK_BUFFER_BINDING							0x8C8F
 #define GL_POINT_SPRITE_COORD_ORIGIN									0x8CA0
 #define GL_LOWER_LEFT													0x8CA1
+#define GL_LOWER_LEFT_EXT												0x8CA1
 #define GL_UPPER_LEFT													0x8CA2
+#define GL_UPPER_LEFT_EXT												0x8CA2
 #define GL_STENCIL_BACK_REF												0x8CA3
 #define GL_STENCIL_BACK_VALUE_MASK										0x8CA4
 #define GL_STENCIL_BACK_WRITEMASK										0x8CA5
@@ -1716,9 +1727,13 @@
 #define GL_TRANSFORM_FEEDBACK_BUFFER_INDEX								0x934B
 #define GL_TRANSFORM_FEEDBACK_BUFFER_STRIDE								0x934C
 #define GL_CLIP_ORIGIN													0x935C
+#define GL_CLIP_ORIGIN_EXT												0x935C
 #define GL_CLIP_DEPTH_MODE												0x935D
+#define GL_CLIP_DEPTH_MODE_EXT											0x935D
 #define GL_NEGATIVE_ONE_TO_ONE											0x935E
+#define GL_NEGATIVE_ONE_TO_ONE_EXT										0x935E
 #define GL_ZERO_TO_ONE													0x935F
+#define GL_ZERO_TO_ONE_EXT												0x935F
 #define GL_CLEAR_TEXTURE												0x9365
 #define GL_TEXTURE_REDUCTION_MODE_ARB									0x9366
 #define GL_WEIGHTED_AVERAGE_ARB											0x9367
@@ -1786,6 +1801,10 @@
 #define GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR						0x93DC
 #define GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12							0x93DD
 #define GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR						0x93DD
+#define GL_SUBGROUP_SIZE_KHR											0x9532
+#define GL_SUBGROUP_SUPPORTED_STAGES_KHR								0x9533
+#define GL_SUBGROUP_SUPPORTED_FEATURES_KHR								0x9534
+#define GL_SUBGROUP_QUAD_ALL_STAGES_KHR									0x9535
 #define GL_PER_GPU_STORAGE_NV											0x9548
 #define GL_MULTICAST_PROGRAMMABLE_SAMPLE_LOCATION_NV					0x9549
 #define GL_SHADER_BINARY_FORMAT_SPIR_V									0x9551

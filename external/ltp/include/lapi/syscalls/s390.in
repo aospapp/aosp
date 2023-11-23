@@ -323,6 +323,7 @@ setgid 214
 setfsuid 215
 setfsgid 216
 newfstatat 293
+syncfs 338
 process_vm_readv 340
 process_vm_writev 341
 kcmp 343
@@ -331,9 +332,15 @@ sched_getattr 346
 renameat2 347
 getrandom 349
 memfd_create 350
+bpf 351
+userfaultfd 355
 membarrier 356
 execveat 354
 mlock2 374
 copy_file_range 375
 preadv2 376
 pwritev2 377
+pkey_mprotect 384
+pkey_alloc 385
+pkey_free 386
+pidfd_send_signal 424

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -29,7 +29,7 @@ public interface IMultiReportOutput {
 	 * @throws IOException
 	 *             if the creation fails
 	 */
-	public OutputStream createFile(String path) throws IOException;
+	OutputStream createFile(String path) throws IOException;
 
 	/**
 	 * Closes the underlying resource container.
@@ -37,6 +37,6 @@ public interface IMultiReportOutput {
 	 * @throws IOException
 	 *             if closing fails
 	 */
-	public void close() throws IOException;
+	void close() throws IOException;
 
 }

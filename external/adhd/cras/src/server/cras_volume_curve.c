@@ -49,9 +49,8 @@ struct cras_volume_curve *cras_volume_curve_create_default()
 	return cras_volume_curve_create_simple_step(0, 50);
 }
 
-struct cras_volume_curve *cras_volume_curve_create_simple_step(
-		long max_volume,
-		long volume_step)
+struct cras_volume_curve *cras_volume_curve_create_simple_step(long max_volume,
+							       long volume_step)
 {
 	struct stepped_curve *curve;
 	curve = (struct stepped_curve *)calloc(1, sizeof(*curve));
@@ -63,8 +62,8 @@ struct cras_volume_curve *cras_volume_curve_create_simple_step(
 	return &curve->curve;
 }
 
-struct cras_volume_curve *cras_volume_curve_create_explicit(
-		long dB_values[NUM_VOLUME_STEPS])
+struct cras_volume_curve *
+cras_volume_curve_create_explicit(long dB_values[NUM_VOLUME_STEPS])
 {
 	struct explicit_curve *curve;
 	curve = (struct explicit_curve *)calloc(1, sizeof(*curve));

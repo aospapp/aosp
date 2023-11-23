@@ -17,7 +17,7 @@
 %                                January 2014                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -1539,10 +1539,6 @@ static MagickBooleanType EncodeImageAttributes(Image *image,FILE *file,
       (void) FormatLocaleFile(file,"],\n");
       image_info=DestroyImageInfo(image_info);
     }
-  (void) GetImageProperty(image,"exif:*",exception);
-  (void) GetImageProperty(image,"icc:*",exception);
-  (void) GetImageProperty(image,"iptc:*",exception);
-  (void) GetImageProperty(image,"xmp:*",exception);
   ResetImagePropertyIterator(image);
   property=GetNextImageProperty(image);
   if (property != (const char *) NULL)

@@ -22,7 +22,6 @@ limitations under the License.
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/kernels/register.h"
 #include "tensorflow/lite/string_util.h"
-#include "tensorflow/lite/version.h"
 
 namespace tflite {
 namespace label_image {
@@ -61,6 +60,7 @@ void resize(T* out, uint8_t* in, int image_height, int image_width,
   auto* params = reinterpret_cast<TfLiteResizeBilinearParams*>(
       malloc(sizeof(TfLiteResizeBilinearParams)));
   params->align_corners = false;
+  params->half_pixel_centers = false;
   interpreter->AddNodeWithParameters({0, 1}, {2}, nullptr, 0, params, resize_op,
                                      nullptr);
 

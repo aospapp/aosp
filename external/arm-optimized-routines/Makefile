@@ -1,6 +1,6 @@
 # Makefile - requires GNU make
 #
-# Copyright (c) 2018, Arm Limited.
+# Copyright (c) 2018-2019, Arm Limited.
 # SPDX-License-Identifier: MIT
 
 srcdir = .
@@ -9,70 +9,48 @@ bindir = $(prefix)/bin
 libdir = $(prefix)/lib
 includedir = $(prefix)/include
 
-MATH_SRCS = $(wildcard $(srcdir)/math/*.[cS])
-MATH_BASE = $(basename $(MATH_SRCS))
-MATH_OBJS = $(MATH_BASE:$(srcdir)/%=build/%.o)
-RTEST_SRCS = $(wildcard $(srcdir)/test/rtest/*.[cS])
-RTEST_BASE = $(basename $(RTEST_SRCS))
-RTEST_OBJS = $(RTEST_BASE:$(srcdir)/%=build/%.o)
-ALL_OBJS = $(MATH_OBJS) \
-	$(RTEST_OBJS) \
-	build/test/mathtest.o \
-	build/test/mathbench.o \
-
-INCLUDES = $(wildcard $(srcdir)/math/include/*.h)
-ALL_INCLUDES = $(INCLUDES:$(srcdir)/math/%=build/%)
-
-ALL_LIBS = \
-	build/lib/libmathlib.so \
-	build/lib/libmathlib.a \
-
-ALL_TOOLS = \
-	build/bin/mathtest \
-	build/bin/mathbench \
-	build/bin/mathbench_libc \
-
-HOST_TOOLS = \
-	build/bin/rtest \
-
-TESTS = $(wildcard $(srcdir)/test/testcases/directed/*.tst)
-RTESTS = $(wildcard $(srcdir)/test/testcases/random/*.tst)
-
 # Configure these in config.mk, do not make changes in this file.
+SUBS = math string
 HOST_CC = cc
 HOST_CFLAGS = -std=c99 -O2
 HOST_LDFLAGS =
-HOST_LDLIBS = -lm -lmpfr -lmpc
+HOST_LDLIBS =
 EMULATOR =
-CFLAGS = -std=c99 -O2
-LDFLAGS =
-LDLIBS = -lm
 CPPFLAGS =
+CFLAGS = -std=c99 -O2
+CFLAGS_SHARED = -fPIC
+CFLAGS_ALL = -Ibuild/include $(CPPFLAGS) $(CFLAGS)
+LDFLAGS =
+LDLIBS =
 AR = $(CROSS_COMPILE)ar
 RANLIB = $(CROSS_COMPILE)ranlib
 INSTALL = install
 
-CFLAGS_ALL = -I$(srcdir)/math/include $(CPPFLAGS) $(CFLAGS)
-LDFLAGS_ALL = $(LDFLAGS)
+all:
 
 -include config.mk
 
-all: $(ALL_LIBS) $(ALL_TOOLS) $(ALL_INCLUDES)
+$(foreach sub,$(SUBS),$(eval include $(srcdir)/$(sub)/Dir.mk))
 
-DIRS = $(dir $(ALL_LIBS) $(ALL_TOOLS) $(ALL_OBJS) $(ALL_INCLUDES))
-ALL_DIRS = $(sort $(DIRS:%/=%))
+# Required targets of subproject foo:
+#   all-foo
+#   check-foo
+#   clean-foo
+#   install-foo
+# Required make variables of subproject foo:
+#   foo-files: Built files (all in build/).
+# Make variables used by subproject foo:
+#   foo-...: Variables defined in foo/Dir.mk or by config.mk.
 
-$(ALL_LIBS) $(ALL_TOOLS) $(ALL_OBJS) $(ALL_OBJS:%.o=%.os) $(ALL_INCLUDES): | $(ALL_DIRS)
+all: $(SUBS:%=all-%)
 
-$(ALL_DIRS):
+ALL_FILES = $(foreach sub,$(SUBS),$($(sub)-files))
+DIRS = $(sort $(patsubst %/,%,$(dir $(ALL_FILES))))
+$(ALL_FILES): | $(DIRS)
+$(DIRS):
 	mkdir -p $@
 
-$(ALL_OBJS:%.o=%.os): CFLAGS_ALL += -fPIC
-
-$(RTEST_OBJS): CC = $(HOST_CC)
-$(RTEST_OBJS): CFLAGS_ALL = $(HOST_CFLAGS)
-
-build/test/mathtest.o: CFLAGS_ALL += -fmath-errno
+$(filter %.os,$(ALL_FILES)): CFLAGS_ALL += $(CFLAGS_SHARED)
 
 build/%.o: $(srcdir)/%.S
 	$(CC) $(CFLAGS_ALL) -c -o $@ $<
@@ -86,30 +64,7 @@ build/%.os: $(srcdir)/%.S
 build/%.os: $(srcdir)/%.c
 	$(CC) $(CFLAGS_ALL) -c -o $@ $<
 
-build/lib/libmathlib.so: $(MATH_OBJS:%.o=%.os)
-	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -shared -o $@ $^
-
-build/lib/libmathlib.a: $(MATH_OBJS)
-	rm -f $@
-	$(AR) rc $@ $^
-	$(RANLIB) $@
-
-build/bin/rtest: $(RTEST_OBJS)
-	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ $^ $(HOST_LDLIBS)
-
-build/bin/mathtest: build/test/mathtest.o build/lib/libmathlib.a
-	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -static -o $@ $^ $(LDLIBS)
-
-build/bin/mathbench: build/test/mathbench.o build/lib/libmathlib.a
-	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -static -o $@ $^ $(LDLIBS)
-
-build/bin/mathbench_libc: build/test/mathbench.o
-	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -static -o $@ $^ $(LDLIBS)
-
-build/include/%.h: $(srcdir)/math/include/%.h
-	cp $< $@
-
-clean:
+clean: $(SUBS:%=clean-%)
 	rm -rf build
 
 distclean: clean
@@ -127,20 +82,8 @@ $(DESTDIR)$(libdir)/%: build/lib/%
 $(DESTDIR)$(includedir)/%: build/include/%
 	$(INSTALL) -m 644 -D $< $@
 
-install-tools: $(ALL_TOOLS:build/bin/%=$(DESTDIR)$(bindir)/%)
+install: $(SUBS:%=install-%)
 
-install-libs: $(ALL_LIBS:build/lib/%=$(DESTDIR)$(libdir)/%)
+check: $(SUBS:%=check-%)
 
-install-headers: $(ALL_INCLUDES:build/include/%=$(DESTDIR)$(includedir)/%)
-
-install: install-libs install-headers
-
-check: $(ALL_TOOLS)
-	cat $(TESTS) | $(EMULATOR) build/bin/mathtest
-
-rcheck: $(HOST_TOOLS) $(ALL_TOOLS)
-	cat $(RTESTS) | build/bin/rtest | $(EMULATOR) build/bin/mathtest
-
-check-all: check rcheck
-
-.PHONY: all clean distclean install install-tools install-libs install-headers check rcheck check-all
+.PHONY: all clean distclean install check

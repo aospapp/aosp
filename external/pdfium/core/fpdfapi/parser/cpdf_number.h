@@ -10,20 +10,18 @@
 #include <memory>
 
 #include "core/fpdfapi/parser/cpdf_object.h"
+#include "core/fxcrt/fx_number.h"
 #include "core/fxcrt/fx_string.h"
 #include "core/fxcrt/fx_system.h"
 
-class CPDF_Number : public CPDF_Object {
+class CPDF_Number final : public CPDF_Object {
  public:
-  CPDF_Number();
-  explicit CPDF_Number(int value);
-  explicit CPDF_Number(float value);
-  explicit CPDF_Number(const ByteStringView& str);
-  ~CPDF_Number() override;
+  template <typename T, typename... Args>
+  friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
 
   // CPDF_Object:
   Type GetType() const override;
-  std::unique_ptr<CPDF_Object> Clone() const override;
+  RetainPtr<CPDF_Object> Clone() const override;
   ByteString GetString() const override;
   float GetNumber() const override;
   int GetInteger() const override;
@@ -31,16 +29,19 @@ class CPDF_Number : public CPDF_Object {
   bool IsNumber() const override;
   CPDF_Number* AsNumber() override;
   const CPDF_Number* AsNumber() const override;
-  bool WriteTo(IFX_ArchiveStream* archive) const override;
+  bool WriteTo(IFX_ArchiveStream* archive,
+               const CPDF_Encryptor* encryptor) const override;
 
-  bool IsInteger() const { return m_bInteger; }
+  bool IsInteger() const { return m_Number.IsInteger(); }
 
- protected:
-  bool m_bInteger;
-  union {
-    int m_Integer;
-    float m_Float;
-  };
+ private:
+  CPDF_Number();
+  explicit CPDF_Number(int value);
+  explicit CPDF_Number(float value);
+  explicit CPDF_Number(ByteStringView str);
+  ~CPDF_Number() override;
+
+  FX_Number m_Number;
 };
 
 inline CPDF_Number* ToNumber(CPDF_Object* obj) {

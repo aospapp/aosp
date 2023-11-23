@@ -9,7 +9,7 @@
 #include <tpm-v2.h>
 #include <asm/state.h>
 #include <asm/unaligned.h>
-#include <linux/crc8.h>
+#include <u-boot/crc.h>
 
 /* Hierarchies */
 enum tpm2_hierarchy {
@@ -215,21 +215,21 @@ static int sandbox_tpm2_check_readyness(struct udevice *dev, int command)
 	return 0;
 }
 
-static int sandbox_tpm2_fill_buf(u8 **recv, size_t *recv_len, u16 tag, u32 rc)
+static int sandbox_tpm2_fill_buf(u8 *recv, size_t *recv_len, u16 tag, u32 rc)
 {
 	*recv_len = sizeof(tag) + sizeof(u32) + sizeof(rc);
 
 	/* Write tag */
-	put_unaligned_be16(tag, *recv);
-	*recv += sizeof(tag);
+	put_unaligned_be16(tag, recv);
+	recv += sizeof(tag);
 
 	/* Write length */
-	put_unaligned_be32(*recv_len, *recv);
-	*recv += sizeof(u32);
+	put_unaligned_be32(*recv_len, recv);
+	recv += sizeof(u32);
 
 	/* Write return code */
-	put_unaligned_be32(rc, *recv);
-	*recv += sizeof(rc);
+	put_unaligned_be32(rc, recv);
+	recv += sizeof(rc);
 
 	/* Add trailing \0 */
 	*recv = '\0';
@@ -272,7 +272,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 	u32 capability, property, property_count;
 
 	/* TPM2_PCR_Read/Extend variables */
-	int pcr_index;
+	int pcr_index = 0;
 	u64 pcr_map = 0;
 	u32 selections, pcr_nb;
 	u16 alg;
@@ -287,7 +287,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		printf("TPM2: Unmatching length, received: %ld, expected: %d\n",
 		       send_size, length);
 		rc = TPM2_RC_SIZE;
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		return 0;
 	}
 
@@ -295,13 +295,13 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 	sent += sizeof(command);
 	rc = sandbox_tpm2_check_readyness(dev, command);
 	if (rc) {
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		return 0;
 	}
 
 	rc = sandbox_tpm2_check_session(dev, command, tag, &sent, &hierarchy);
 	if (rc) {
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		return 0;
 	}
 
@@ -319,7 +319,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 
 		tpm->startup_done = true;
 
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		break;
 
 	case TPM2_CC_SELF_TEST:
@@ -335,7 +335,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 
 		tpm->tests_done = true;
 
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		break;
 
 	case TPM2_CC_CLEAR:
@@ -358,7 +358,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 				tpm->pcr[i][j] = 0;
 		}
 
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		break;
 
 	case TPM2_CC_HIERCHANGEAUTH:
@@ -372,7 +372,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 			sent += new_pw_sz;
 		}
 
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		break;
 
 	case TPM2_CC_GET_CAPABILITY:
@@ -392,7 +392,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		if (!property_count ||
 		    property + property_count > TPM2_PROPERTY_NB) {
 			rc = TPM2_RC_HANDLE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
 		/* Write tag */
@@ -445,7 +445,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		tpm->properties[TPM2_LOCKOUT_RECOVERY] = get_unaligned_be32(sent);
 		sent += sizeof(*tpm->properties);
 
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		break;
 
 	case TPM2_CC_PCR_READ:
@@ -454,7 +454,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		if (selections != 1) {
 			printf("Sandbox cannot handle more than one PCR\n");
 			rc = TPM2_RC_VALUE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
 		alg = get_unaligned_be16(sent);
@@ -462,7 +462,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		if (alg != TPM2_ALG_SHA256) {
 			printf("Sandbox TPM only handle SHA256 algorithm\n");
 			rc = TPM2_RC_VALUE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
 		pcr_array_sz = *sent;
@@ -470,7 +470,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		if (!pcr_array_sz || pcr_array_sz > 8) {
 			printf("Sandbox TPM cannot handle so much PCRs\n");
 			rc = TPM2_RC_VALUE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
 		for (i = 0; i < pcr_array_sz; i++)
@@ -480,13 +480,13 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 			printf("Sandbox TPM handles up to %d PCR(s)\n",
 			       SANDBOX_TPM_PCR_NB);
 			rc = TPM2_RC_VALUE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
-		if (pcr_map >> SANDBOX_TPM_PCR_NB) {
-			printf("Wrong PCR map.\n");
+		if (!pcr_map) {
+			printf("Empty PCR map.\n");
 			rc = TPM2_RC_VALUE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
 		for (i = 0; i < SANDBOX_TPM_PCR_NB; i++)
@@ -538,7 +538,7 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		if (pcr_nb != 1) {
 			printf("Sandbox cannot handle more than one PCR\n");
 			rc = TPM2_RC_VALUE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
 		/* Check the hash algorithm */
@@ -547,19 +547,19 @@ static int sandbox_tpm2_xfer(struct udevice *dev, const u8 *sendbuf,
 		if (alg != TPM2_ALG_SHA256) {
 			printf("Sandbox TPM only handle SHA256 algorithm\n");
 			rc = TPM2_RC_VALUE;
-			return sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+			return sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		}
 
 		/* Extend the PCR */
 		rc = sandbox_tpm2_extend(dev, pcr_index, sent);
 
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 		break;
 
 	default:
 		printf("TPM2 command %02x unknown in Sandbox\n", command);
 		rc = TPM2_RC_COMMAND_CODE;
-		sandbox_tpm2_fill_buf(&recv, recv_len, tag, rc);
+		sandbox_tpm2_fill_buf(recv, recv_len, tag, rc);
 	}
 
 	return 0;
@@ -589,6 +589,9 @@ static int sandbox_tpm2_probe(struct udevice *dev)
 {
 	struct sandbox_tpm2 *tpm = dev_get_priv(dev);
 	struct tpm_chip_priv *priv = dev_get_uclass_priv(dev);
+
+	/* Use the TPM v2 stack */
+	priv->version = TPM_V2;
 
 	memset(tpm, 0, sizeof(*tpm));
 

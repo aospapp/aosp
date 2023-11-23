@@ -33,7 +33,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
-import android.text.format.Time;
+import android.text.format.TimeMigrationUtils;
 
 import com.android.ims.internal.Logger;
 
@@ -52,6 +52,7 @@ public class PollingTask {
     public long mId;
     public int mType;
     public List<Contacts.Item> mContacts = new ArrayList<Contacts.Item>();
+    public int mSubId;
 
     private long mTimeUnit;
     private int mTotalRetry;
@@ -61,9 +62,10 @@ public class PollingTask {
     private boolean mCancelled = false;
     private boolean mCompleted = false;
 
-    public PollingTask(int type, List<Contacts.Item> list) {
+    public PollingTask(int type, List<Contacts.Item> list, int subId) {
         mId = sMaxId++;
         mType = type;
+        mSubId = subId;
 
         mContacts.clear();
         for(int i = 0; i < list.size(); i++) {
@@ -213,9 +215,8 @@ public class PollingTask {
             time = System.currentTimeMillis();
         }
 
-        Time tobj = new Time();
-        tobj.set(time);
-        return String.format("%s.%s", tobj.format("%m-%d %H:%M:%S"), time % 1000);
+        String timeString = TimeMigrationUtils.formatMillisWithFixedFormat(time);
+        return String.format("%s.%s", timeString, time % 1000);
     }
 
     public boolean isCompleted() {

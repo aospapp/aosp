@@ -34,11 +34,43 @@ package org.jf.dexlib2;
 public class VersionMap {
     public static final int NO_VERSION = -1;
 
+    public static int mapDexVersionToApi(int dexVersion) {
+        switch (dexVersion) {
+            case 35:
+                return 23;
+            case 37:
+                return 25;
+            case 38:
+                return 27;
+            case 39:
+                return 28;
+            default:
+                return NO_VERSION;
+        }
+    }
+
+    public static int mapApiToDexVersion(int api) {
+        if (api <= 23) {
+            return 35;
+        }
+        if (api <= 25) {
+            return 37;
+        }
+        if (api <= 27) {
+            return 38;
+        }
+        return 39;
+    }
+
     public static int mapArtVersionToApi(int artVersion) {
-        // NOTE: Art version 87 and api level 26 do not correspond to any
-        // particular android release and represent the current (as of
-        // October 2016) state of aosp/master.
-        if (artVersion >= 87) {
+        // 144 is the current version in the master branch of AOSP as of 2018-05-22
+        if (artVersion >= 144) {
+            return 28;
+        }
+        if (artVersion >= 131) {
+            return 27;
+        }
+        if (artVersion >= 124) {
             return 26;
         }
         if (artVersion >= 79) {
@@ -57,6 +89,10 @@ public class VersionMap {
     }
 
     public static int mapApiToArtVersion(int api) {
+        if (api < 19) {
+            return NO_VERSION;
+        }
+
         switch (api) {
             case 19:
             case 20:
@@ -70,14 +106,13 @@ public class VersionMap {
             case 24:
             case 25:
                 return 79;
+            case 26:
+                return 124;
+            case 27:
+                return 131;
+            default:
+                // 144 is the current version in the master branch of AOSP as of 2018-05-22
+                return 144;
         }
-
-        // NOTE: Art version 87 and api level 26 do not correspond to any
-        // particular android release and represent the current (as of
-        // October 2016) state of aosp/master.
-        if (api > 25) {
-            return 87;
-        }
-        return NO_VERSION;
     }
 }

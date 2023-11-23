@@ -2,7 +2,8 @@
  * Vulkan Conformance Tests
  * ------------------------
  *
- * Copyright (c) 2017 The Khronos Group Inc.
+ * Copyright (c) 2019 The Khronos Group Inc.
+ * Copyright (c) 2019 Google Inc.
  * Copyright (c) 2017 Codeplay Software Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -281,6 +282,7 @@ struct CaseDefinition
 {
 	int					opType;
 	VkShaderStageFlags	shaderStage;
+	de::SharedPtr<bool>	geometryPointSizeSupported;
 };
 
 void initFrameBufferPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
@@ -529,90 +531,103 @@ void initFrameBufferPrograms(SourceCollections& programCollection, CaseDefinitio
 				"    out_color.g = 0.0f;\n"
 				"  }\n"
 				"  gl_Position = gl_in[0].gl_Position;\n"
+				"  gl_PointSize = gl_in[0].gl_PointSize;\n"
 				"  EmitVertex();\n"
 				"  EndPrimitive();\n"
 				"}\n";
 			*/
-			const string geometry =
-				"; SPIR-V\n"
-				"; Version: 1.3\n"
-				"; Generator: Khronos Glslang Reference Front End; 2\n"
-				"; Bound: 42\n"
-				"; Schema: 0\n"
-				"OpCapability Geometry\n"
-				"OpCapability GroupNonUniform\n"
-				"%1 = OpExtInstImport \"GLSL.std.450\"\n"
-				"OpMemoryModel Logical GLSL450\n"
-				"OpEntryPoint Geometry %4 \"main\" %15 %31 %37\n"
-				"OpExecutionMode %4 InputPoints\n"
-				"OpExecutionMode %4 Invocations 1\n"
-				"OpExecutionMode %4 OutputPoints\n"
-				"OpExecutionMode %4 OutputVertices 1\n"
-				"OpDecorate %15 Location 0\n"
-				"OpMemberDecorate %29 0 BuiltIn Position\n"
-				"OpMemberDecorate %29 1 BuiltIn PointSize\n"
-				"OpMemberDecorate %29 2 BuiltIn ClipDistance\n"
-				"OpMemberDecorate %29 3 BuiltIn CullDistance\n"
-				"OpDecorate %29 Block\n"
-				"OpMemberDecorate %34 0 BuiltIn Position\n"
-				"OpMemberDecorate %34 1 BuiltIn PointSize\n"
-				"OpMemberDecorate %34 2 BuiltIn ClipDistance\n"
-				"OpMemberDecorate %34 3 BuiltIn CullDistance\n"
-				"OpDecorate %34 Block\n"
-				"%2 = OpTypeVoid\n"
-				"%3 = OpTypeFunction %2\n"
-				"%6 = OpTypeBool\n"
-				"%7 = OpTypeInt 32 0\n"
-				"%8 = OpConstant %7 3\n"
-				"%12 = OpTypeFloat 32\n"
-				"%13 = OpTypeVector %12 4\n"
-				"%14 = OpTypePointer Output %13\n"
-				"%15 = OpVariable %14 Output\n"
-				"%16 = OpConstant %12 " + electedValue.str() + "\n"
-				"%17 = OpConstant %7 0\n"
-				"%18 = OpTypePointer Output %12\n"
-				"%20 = OpConstant %12 1\n"
-				"%21 = OpConstant %7 1\n"
-				"%24 = OpConstant %12 " + unelectedValue.str() + "\n"
-				"%26 = OpConstant %12 0\n"
-				"%28 = OpTypeArray %12 %21\n"
-				"%29 = OpTypeStruct %13 %12 %28 %28\n"
-				"%30 = OpTypePointer Output %29\n"
-				"%31 = OpVariable %30 Output\n"
-				"%32 = OpTypeInt 32 1\n"
-				"%33 = OpConstant %32 0\n"
-				"%34 = OpTypeStruct %13 %12 %28 %28\n"
-				"%35 = OpTypeArray %34 %21\n"
-				"%36 = OpTypePointer Input %35\n"
-				"%37 = OpVariable %36 Input\n"
-				"%38 = OpTypePointer Input %13\n"
-				"%4 = OpFunction %2 None %3\n"
-				"%5 = OpLabel\n"
-				"%9 = OpGroupNonUniformElect %6 %8\n"
-				"OpSelectionMerge %11 None\n"
-				"OpBranchConditional %9 %10 %23\n"
-				"%10 = OpLabel\n"
-				"%19 = OpAccessChain %18 %15 %17\n"
-				"OpStore %19 %16\n"
-				"%22 = OpAccessChain %18 %15 %21\n"
-				"OpStore %22 %20\n"
-				"OpBranch %11\n"
-				"%23 = OpLabel\n"
-				"%25 = OpAccessChain %18 %15 %17\n"
-				"OpStore %25 %24\n"
-				"%27 = OpAccessChain %18 %15 %21\n"
-				"OpStore %27 %26\n"
-				"OpBranch %11\n"
-				"%11 = OpLabel\n"
-				"%39 = OpAccessChain %38 %37 %33 %33\n"
-				"%40 = OpLoad %13 %39\n"
-				"%41 = OpAccessChain %14 %31 %33\n"
-				"OpStore %41 %40\n"
-				"OpEmitVertex\n"
-				"OpEndPrimitive\n"
-				"OpReturn\n"
-				"OpFunctionEnd\n";
-			programCollection.spirvAsmSources.add("geometry") << geometry << buildOptionsSpr;
+			std::ostringstream geometry;
+			geometry
+				<< "; SPIR-V\n"
+				<< "; Version: 1.3\n"
+				<< "; Generator: Khronos Glslang Reference Front End; 2\n"
+				<< "; Bound: 42\n"
+				<< "; Schema: 0\n"
+				<< "OpCapability Geometry\n"
+				<< (*caseDef.geometryPointSizeSupported ?
+					"OpCapability GeometryPointSize\n" : "")
+				<< "OpCapability GroupNonUniform\n"
+				<< "%1 = OpExtInstImport \"GLSL.std.450\"\n"
+				<< "OpMemoryModel Logical GLSL450\n"
+				<< "OpEntryPoint Geometry %4 \"main\" %15 %31 %37\n"
+				<< "OpExecutionMode %4 InputPoints\n"
+				<< "OpExecutionMode %4 Invocations 1\n"
+				<< "OpExecutionMode %4 OutputPoints\n"
+				<< "OpExecutionMode %4 OutputVertices 1\n"
+				<< "OpDecorate %15 Location 0\n"
+				<< "OpMemberDecorate %29 0 BuiltIn Position\n"
+				<< "OpMemberDecorate %29 1 BuiltIn PointSize\n"
+				<< "OpMemberDecorate %29 2 BuiltIn ClipDistance\n"
+				<< "OpMemberDecorate %29 3 BuiltIn CullDistance\n"
+				<< "OpDecorate %29 Block\n"
+				<< "OpMemberDecorate %34 0 BuiltIn Position\n"
+				<< "OpMemberDecorate %34 1 BuiltIn PointSize\n"
+				<< "OpMemberDecorate %34 2 BuiltIn ClipDistance\n"
+				<< "OpMemberDecorate %34 3 BuiltIn CullDistance\n"
+				<< "OpDecorate %34 Block\n"
+				<< "%2 = OpTypeVoid\n"
+				<< "%3 = OpTypeFunction %2\n"
+				<< "%6 = OpTypeBool\n"
+				<< "%7 = OpTypeInt 32 0\n"
+				<< "%8 = OpConstant %7 3\n"
+				<< "%12 = OpTypeFloat 32\n"
+				<< "%13 = OpTypeVector %12 4\n"
+				<< "%14 = OpTypePointer Output %13\n"
+				<< "%15 = OpVariable %14 Output\n"
+				<< "%16 = OpConstant %12 " << electedValue.str() << "\n"
+				<< "%17 = OpConstant %7 0\n"
+				<< "%18 = OpTypePointer Output %12\n"
+				<< "%20 = OpConstant %12 1\n"
+				<< "%21 = OpConstant %7 1\n"
+				<< "%24 = OpConstant %12 " << unelectedValue.str() << "\n"
+				<< "%26 = OpConstant %12 0\n"
+				<< "%28 = OpTypeArray %12 %21\n"
+				<< "%29 = OpTypeStruct %13 %12 %28 %28\n"
+				<< "%30 = OpTypePointer Output %29\n"
+				<< "%31 = OpVariable %30 Output\n"
+				<< "%32 = OpTypeInt 32 1\n"
+				<< "%33 = OpConstant %32 0\n"
+				<< "%34 = OpTypeStruct %13 %12 %28 %28\n"
+				<< "%35 = OpTypeArray %34 %21\n"
+				<< "%36 = OpTypePointer Input %35\n"
+				<< "%37 = OpVariable %36 Input\n"
+				<< "%38 = OpTypePointer Input %13\n"
+				<< (*caseDef.geometryPointSizeSupported ?
+					"%42 = OpConstant %32 1\n"
+					"%43 = OpTypePointer Input %12\n"
+					"%44 = OpTypePointer Output %12\n" : "")
+				<< "%4 = OpFunction %2 None %3\n"
+				<< "%5 = OpLabel\n"
+				<< "%9 = OpGroupNonUniformElect %6 %8\n"
+				<< "OpSelectionMerge %11 None\n"
+				<< "OpBranchConditional %9 %10 %23\n"
+				<< "%10 = OpLabel\n"
+				<< "%19 = OpAccessChain %18 %15 %17\n"
+				<< "OpStore %19 %16\n"
+				<< "%22 = OpAccessChain %18 %15 %21\n"
+				<< "OpStore %22 %20\n"
+				<< "OpBranch %11\n"
+				<< "%23 = OpLabel\n"
+				<< "%25 = OpAccessChain %18 %15 %17\n"
+				<< "OpStore %25 %24\n"
+				<< "%27 = OpAccessChain %18 %15 %21\n"
+				<< "OpStore %27 %26\n"
+				<< "OpBranch %11\n"
+				<< "%11 = OpLabel\n"
+				<< "%39 = OpAccessChain %38 %37 %33 %33\n"
+				<< "%40 = OpLoad %13 %39\n"
+				<< "%41 = OpAccessChain %14 %31 %33\n"
+				<< "OpStore %41 %40\n"
+				<< (*caseDef.geometryPointSizeSupported ?
+					"%45 = OpAccessChain %43 %37 %33 %42\n"
+					"%46 = OpLoad %12 %45\n"
+					"%47 = OpAccessChain %44 %31 %42\n"
+					"OpStore %47 %46\n" : "" )
+				<< "OpEmitVertex\n"
+				<< "OpEndPrimitive\n"
+				<< "OpReturn\n"
+				<< "OpFunctionEnd\n";
+			programCollection.spirvAsmSources.add("geometry") << geometry.str() << buildOptionsSpr;
 		}
 		else if (VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT == caseDef.shaderStage)
 		{
@@ -623,7 +638,7 @@ void initFrameBufferPrograms(SourceCollections& programCollection, CaseDefinitio
 				<< "void main (void)\n"
 				<< "{\n"
 				<< "  if (gl_InvocationID == 0)\n"
-				<<"  {\n"
+				<< "  {\n"
 				<< "    gl_TessLevelOuter[0] = 1.0f;\n"
 				<< "    gl_TessLevelOuter[1] = 1.0f;\n"
 				<< "  }\n"
@@ -832,7 +847,7 @@ void initFrameBufferPrograms(SourceCollections& programCollection, CaseDefinitio
 				"void main (void)\n"
 				"{\n"
 				"  if (gl_InvocationID == 0)\n"
-				  {\n"
+				"  {\n"
 				"    gl_TessLevelOuter[0] = 1.0f;\n"
 				"    gl_TessLevelOuter[1] = 1.0f;\n"
 				"  }\n"
@@ -1208,6 +1223,7 @@ void initFrameBufferPrograms(SourceCollections& programCollection, CaseDefinitio
 					<< "  out_color.g = float(value);\n"
 					<< "  out_color.a = float(tempResult2);\n"
 					<< "  gl_Position = gl_in[0].gl_Position;\n"
+					<< (*caseDef.geometryPointSizeSupported ? "  gl_PointSize = gl_in[0].gl_PointSize;\n" : "" )
 					<< "  EmitVertex();\n"
 					<< "  EndPrimitive();\n"
 					<< "}\n";
@@ -1379,6 +1395,18 @@ void initPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
 		}
 		else
 		{
+			std::ostringstream testSrc;
+			testSrc << "  uint tempRes;\n"
+					<< "  if (subgroupElect())\n"
+					<< "  {\n"
+					<< "    tempRes = " << ELECTED_VALUE << ";\n"
+					<< "    atomicAdd(numSubgroupsExecuted, 1);\n"
+					<< "  }\n"
+					<< "  else\n"
+					<< "  {\n"
+					<< "    tempRes = " << UNELECTED_VALUE << ";\n"
+					<< "  }\n";
+
 			{
 				std::ostringstream  vertex;
 				vertex	<< "#version 450\n"
@@ -1394,15 +1422,8 @@ void initPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
 						<< "\n"
 						<< "void main (void)\n"
 						<< "{\n"
-						<< "  if (subgroupElect())\n"
-						<< "  {\n"
-						<< "    result[gl_VertexIndex] = " << ELECTED_VALUE << ";\n"
-						<< "    atomicAdd(numSubgroupsExecuted, 1);\n"
-						<< "  }\n"
-						<< "  else\n"
-						<< "  {\n"
-						<< "    result[gl_VertexIndex] = " << UNELECTED_VALUE << ";\n"
-						<< "  }\n"
+						<< testSrc.str()
+						<< "  result[gl_VertexIndex] = tempRes;\n"
 						<< "  float pixelSize = 2.0f/1024.0f;\n"
 						<< "  float pixelPosition = pixelSize/2.0f - 1.0f;\n"
 						<< "  gl_Position = vec4(float(gl_VertexIndex) * pixelSize + pixelPosition, 0.0f, 0.0f, 1.0f);\n"
@@ -1428,15 +1449,8 @@ void initPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
 						<< "\n"
 						<< "void main (void)\n"
 						<< "{\n"
-						<< "  if (subgroupElect())\n"
-						<< "  {\n"
-						<< "    result[gl_PrimitiveID] = " << ELECTED_VALUE << ";\n"
-						<< "    atomicAdd(numSubgroupsExecuted, 1);\n"
-						<< "  }\n"
-						<< "  else\n"
-						<< "  {\n"
-						<< "    result[gl_PrimitiveID] = " << UNELECTED_VALUE << ";\n"
-						<< "  }\n"
+						<< testSrc.str()
+						<< "  result[gl_PrimitiveID] = tempRes;\n"
 						<< "  if (gl_InvocationID == 0)\n"
 						<< "  {\n"
 						<< "    gl_TessLevelOuter[0] = 1.0f;\n"
@@ -1464,15 +1478,8 @@ void initPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
 						<< "\n"
 						<< "void main (void)\n"
 						<< "{\n"
-						<< "  if (subgroupElect())\n"
-						<< "  {\n"
-						<< "    result[gl_PrimitiveID * 2 + uint(gl_TessCoord.x + 0.5)] = " << ELECTED_VALUE << ";\n"
-						<< "    atomicAdd(numSubgroupsExecuted, 1);\n"
-						<< "  }\n"
-						<< "  else\n"
-						<< "  {\n"
-						<< "    result[gl_PrimitiveID * 2 + uint(gl_TessCoord.x + 0.5)] = " << UNELECTED_VALUE << ";\n"
-						<< "  }\n"
+						<< testSrc.str()
+						<< "  result[gl_PrimitiveID * 2 + uint(gl_TessCoord.x + 0.5)] = tempRes;\n"
 						<< "  float pixelSize = 2.0f/1024.0f;\n"
 						<< "  gl_Position = gl_in[0].gl_Position + gl_TessCoord.x * pixelSize / 2.0f;\n"
 						<< "}\n";
@@ -1497,15 +1504,8 @@ void initPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
 							<< "\n"
 							<< "void main (void)\n"
 							<< "{\n"
-							<< "  if (subgroupElect())\n"
-							<< "  {\n"
-							<< "    result[gl_PrimitiveIDIn] = " << ELECTED_VALUE << ";\n"
-							<< "    atomicAdd(numSubgroupsExecuted, 1);\n"
-							<< "  }\n"
-							<< "  else\n"
-							<< "  {\n"
-							<< "    result[gl_PrimitiveIDIn] = " << UNELECTED_VALUE << ";\n"
-							<< "  }\n"
+							<< testSrc.str()
+							<< "  result[gl_PrimitiveIDIn] = tempRes;\n"
 							<< "  gl_Position = gl_in[0].gl_Position;\n"
 							<< "  EmitVertex();\n"
 							<< "  EndPrimitive();\n"
@@ -1526,15 +1526,8 @@ void initPrograms(SourceCollections& programCollection, CaseDefinition caseDef)
 							<< "void main (void)\n"
 							<< "{\n"
 							<< "  if (gl_HelperInvocation) return;\n"
-							<< "  if (subgroupElect())\n"
-							<< "  {\n"
-							<< "    data = " << ELECTED_VALUE << ";\n"
-							<< "    atomicAdd(numSubgroupsExecuted, 1);\n"
-							<< "  }\n"
-							<< "  else\n"
-							<< "  {\n"
-							<< "    data = " << UNELECTED_VALUE << ";\n"
-							<< "  }\n"
+							<< testSrc.str()
+							<< "  data = tempRes;\n"
 							<< "}\n";
 				programCollection.glslSources.add("fragment")
 					<< glu::FragmentSource(fragment.str())<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_3, 0u);
@@ -1843,6 +1836,8 @@ void supportedCheck (Context& context, CaseDefinition caseDef)
 	DE_UNREF(caseDef);
 	if (!subgroups::isSubgroupSupported(context))
 		TCU_THROW(NotSupportedError, "Subgroup operations are not supported");
+
+	*caseDef.geometryPointSizeSupported = subgroups::isTessellationAndGeometryPointSizeSupported(context);
 }
 
 tcu::TestStatus noSSBOtest (Context& context, const CaseDefinition caseDef)
@@ -2154,7 +2149,7 @@ tcu::TestCaseGroup* createSubgroupsBasicTests(tcu::TestContext& testCtx)
 		const std::string op = de::toLower(getOpTypeName(opTypeIndex));
 
 		{
-			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_COMPUTE_BIT};
+			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_COMPUTE_BIT, de::SharedPtr<bool>(new bool)};
 			addFunctionCaseWithPrograms(computeGroup.get(), op, "",
 										supportedCheck, initPrograms, test, caseDef);
 		}
@@ -2166,33 +2161,22 @@ tcu::TestCaseGroup* createSubgroupsBasicTests(tcu::TestContext& testCtx)
 		}
 
 		{
-			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_ALL_GRAPHICS};
+			const CaseDefinition caseDef = {opTypeIndex, VK_SHADER_STAGE_ALL_GRAPHICS, de::SharedPtr<bool>(new bool)};
 			addFunctionCaseWithPrograms(graphicGroup.get(),
 										op, "",
 										supportedCheck, initPrograms, test, caseDef);
 		}
 
-		if (OPTYPE_ELECT == opTypeIndex)
+		for (int stageIndex = 0; stageIndex < DE_LENGTH_OF_ARRAY(stages); ++stageIndex)
 		{
-			for (int stageIndex = 1; stageIndex < DE_LENGTH_OF_ARRAY(stages); ++stageIndex)
-			{
-				const CaseDefinition caseDef = {opTypeIndex, stages[stageIndex]};
-				addFunctionCaseWithPrograms(framebufferGroup.get(),
-							op + "_" + getShaderStageName(caseDef.shaderStage), "",
-							supportedCheck, initFrameBufferPrograms, noSSBOtest, caseDef);
-			}
-		}
-		else
-		{
-			for (int stageIndex = 0; stageIndex < DE_LENGTH_OF_ARRAY(stages); ++stageIndex)
-			{
-				const CaseDefinition caseDefFrag = {opTypeIndex, stages[stageIndex]};
-				addFunctionCaseWithPrograms(framebufferGroup.get(),
-							op + "_" + getShaderStageName(caseDefFrag.shaderStage), "",
-							supportedCheck, initFrameBufferPrograms, noSSBOtest, caseDefFrag);
-			}
-		}
+			if (OPTYPE_ELECT == opTypeIndex && stageIndex == 0)
+				continue;		// This is not tested. I don't know why.
 
+			const CaseDefinition caseDef = {opTypeIndex, stages[stageIndex], de::SharedPtr<bool>(new bool)};
+			addFunctionCaseWithPrograms(framebufferGroup.get(),
+						op + "_" + getShaderStageName(caseDef.shaderStage), "",
+						supportedCheck, initFrameBufferPrograms, noSSBOtest, caseDef);
+		}
 	}
 
 	de::MovePtr<tcu::TestCaseGroup> group(new tcu::TestCaseGroup(

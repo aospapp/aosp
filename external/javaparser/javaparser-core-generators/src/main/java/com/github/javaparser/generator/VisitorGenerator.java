@@ -12,7 +12,7 @@ import com.github.javaparser.utils.SourceRoot;
 
 import java.util.Optional;
 
-import static com.github.javaparser.ast.Modifier.PUBLIC;
+import static com.github.javaparser.ast.Modifier.Keyword.PUBLIC;
 
 /**
  * Makes it easier to generate visitor classes.
@@ -36,7 +36,7 @@ public abstract class VisitorGenerator extends Generator {
     }
 
     public final void generate() throws Exception {
-        Log.info("Running %s", getClass().getSimpleName());
+        Log.info("Running %s", () -> getClass().getSimpleName());
 
         final CompilationUnit compilationUnit = sourceRoot.tryToParse(pkg, visitorClassName + ".java").getResult().get();
 

@@ -15,10 +15,11 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_ARENA_PLANNER_H_
 #define TENSORFLOW_LITE_ARENA_PLANNER_H_
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
-#include "tensorflow/lite/c/c_api_internal.h"
+#include "tensorflow/lite/c/common.h"
 #include "tensorflow/lite/graph_info.h"
 #include "tensorflow/lite/memory_planner.h"
 #include "tensorflow/lite/simple_memory_arena.h"
@@ -58,11 +59,15 @@ class ArenaPlanner : public MemoryPlanner {
   ArenaPlanner& operator=(const ArenaPlanner&) = delete;
 
   TfLiteStatus ResetAllocations() override;
+  TfLiteStatus ResetAllocationsAfter(int node) override;
   TfLiteStatus PlanAllocations() override;
   TfLiteStatus ExecuteAllocations(int first_node, int last_node) override;
+  TfLiteStatus ReleaseNonPersistentMemory() override;
+  TfLiteStatus AcquireNonPersistentMemory() override;
+  bool HasNonPersistentMemory() override;
 
   // Returns the base arena location for a given allocation type.
-  int64_t BasePointer(TfLiteAllocationType type);
+  std::intptr_t BasePointer(TfLiteAllocationType type);
 
  private:
   // Make sure all the arenas have reserved enough memory to store all their
@@ -78,7 +83,7 @@ class ArenaPlanner : public MemoryPlanner {
   TfLiteStatus ResolveTensorAllocation(int tensor_index);
 
   // Register an allocation for the given tensor.
-  TfLiteStatus CalculateTensorAllocation(int tensor_index);
+  TfLiteStatus CalculateTensorAllocation(int tensor_index, int node_index);
 
   // Register a deallocation for the given tensor.
   TfLiteStatus CalculateTensorDeallocation(int tensor_index);
@@ -97,11 +102,11 @@ class ArenaPlanner : public MemoryPlanner {
   // Stores allocation data for all tensors.
   std::vector<ArenaAlloc> allocs_;
 
-  // A chronological list of instructions to allocated and deallocate tensors,
+  // A chronological list of instructions to allocate and deallocate tensors,
   // reflecting the way they are used in the graph.
   std::vector<AllocationInfo> alloc_queue_;
 
-  // Raw memory buffer that is allocated for all temporary and graph outputs.
+  // Raw memory buffer that is allocated for all temporary and graph outputs
   // that are declared kTfLiteArenaRw.
   SimpleMemoryArena arena_;
 
@@ -114,7 +119,7 @@ class ArenaPlanner : public MemoryPlanner {
   // unpredictable results.
   bool preserve_inputs_;
 
-  // If true, then no overlapping of memory areas is done, meaning intermediates
+  // If true, then no overlapping of memory areas is done, meaning intermediate
   // results can be queried after running (modulo running delegates).
   bool preserve_intermediates_;
 

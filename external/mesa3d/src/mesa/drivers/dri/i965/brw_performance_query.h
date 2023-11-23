@@ -28,32 +28,93 @@
 
 #include "brw_context.h"
 
-struct brw_pipeline_stat
-{
-   uint32_t reg;
-   uint32_t numerator;
-   uint32_t denominator;
-};
+#include "perf/gen_perf.h"
 
-struct brw_perf_query_counter
-{
-   const char *name;
-   const char *desc;
-   GLenum type;
-   GLenum data_type;
-   uint64_t raw_max;
-   size_t offset;
-   size_t size;
+struct gen_perf_query_info;
 
+/*
+ * When currently allocate only one page for pipeline statistics queries. Here
+ * we derived the maximum number of counters for that amount.
+ */
+#define STATS_BO_SIZE               4096
+#define STATS_BO_END_OFFSET_BYTES   (STATS_BO_SIZE / 2)
+#define MAX_STAT_COUNTERS           (STATS_BO_END_OFFSET_BYTES / 8)
+
+/**
+ * i965 representation of a performance query object.
+ *
+ * NB: We want to keep this structure relatively lean considering that
+ * applications may expect to allocate enough objects to be able to
+ * query around all draw calls in a frame.
+ */
+struct brw_perf_query_object
+{
+   struct gl_perf_query_object base;
+
+   const struct gen_perf_query_info *query;
+
+   /* See query->kind to know which state below is in use... */
    union {
-      uint64_t (*oa_counter_read_uint64)(struct brw_context *brw,
-                                         const struct brw_perf_query_info *query,
-                                         uint64_t *accumulator);
-      float (*oa_counter_read_float)(struct brw_context *brw,
-                                     const struct brw_perf_query_info *query,
-                                     uint64_t *accumulator);
-      struct brw_pipeline_stat pipeline_stat;
+      struct {
+
+         /**
+          * BO containing OA counter snapshots at query Begin/End time.
+          */
+         struct brw_bo *bo;
+
+         /**
+          * Address of mapped of @bo
+          */
+         void *map;
+
+         /**
+          * The MI_REPORT_PERF_COUNT command lets us specify a unique
+          * ID that will be reflected in the resulting OA report
+          * that's written by the GPU. This is the ID we're expecting
+          * in the begin report and the the end report should be
+          * @begin_report_id + 1.
+          */
+         int begin_report_id;
+
+         /**
+          * Reference the head of the brw->perfquery.sample_buffers
+          * list at the time that the query started (so we only need
+          * to look at nodes after this point when looking for samples
+          * related to this query)
+          *
+          * (See struct brw_oa_sample_buf description for more details)
+          */
+         struct exec_node *samples_head;
+
+         /**
+          * false while in the unaccumulated_elements list, and set to
+          * true when the final, end MI_RPC snapshot has been
+          * accumulated.
+          */
+         bool results_accumulated;
+
+         /**
+          * Frequency of the GT at begin and end of the query.
+          */
+         uint64_t gt_frequency[2];
+
+         /**
+          * Accumulated OA results between begin and end of the query.
+          */
+         struct gen_perf_query_result result;
+      } oa;
+
+      struct {
+         /**
+          * BO containing starting and ending snapshots for the
+          * statistics counters.
+          */
+         struct brw_bo *bo;
+      } pipeline_stats;
    };
 };
+
+void brw_perf_query_register_mdapi_oa_query(struct brw_context *brw);
+void brw_perf_query_register_mdapi_statistic_query(struct brw_context *brw);
 
 #endif /* BRW_PERFORMANCE_QUERY_H */

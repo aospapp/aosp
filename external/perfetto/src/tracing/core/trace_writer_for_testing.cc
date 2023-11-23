@@ -17,12 +17,10 @@
 #include "src/tracing/core/trace_writer_for_testing.h"
 
 #include "perfetto/base/logging.h"
-#include "perfetto/base/utils.h"
+#include "perfetto/ext/base/utils.h"
 #include "perfetto/protozero/message.h"
-#include "perfetto/trace/trace.pb.h"
-#include "perfetto/trace/trace.pbzero.h"
-#include "perfetto/trace/trace_packet.pb.h"
-#include "perfetto/trace/trace_packet.pbzero.h"
+#include "protos/perfetto/trace/trace.pbzero.h"
+#include "protos/perfetto/trace/trace_packet.pbzero.h"
 
 namespace perfetto {
 
@@ -45,29 +43,27 @@ void TraceWriterForTesting::Flush(std::function<void()> callback) {
     callback();
 }
 
-std::vector<protos::TracePacket> TraceWriterForTesting::GetAllTracePackets() {
+std::vector<protos::gen::TracePacket>
+TraceWriterForTesting::GetAllTracePackets() {
   PERFETTO_CHECK(cur_packet_->is_finalized());
 
-  auto trace = protos::Trace();
   std::vector<uint8_t> buffer = delegate_.StitchSlices();
-  if (!trace.ParseFromArray(buffer.data(), static_cast<int>(buffer.size())))
-    return {};
-
-  std::vector<protos::TracePacket> ret;
-  for (const auto& packet : trace.packet()) {
-    ret.emplace_back(packet);
+  protozero::ProtoDecoder trace(buffer.data(), buffer.size());
+  std::vector<protos::gen::TracePacket> ret;
+  for (auto fld = trace.ReadField(); fld.valid(); fld = trace.ReadField()) {
+    PERFETTO_CHECK(fld.id() == protos::pbzero::Trace::kPacketFieldNumber);
+    protos::gen::TracePacket packet;
+    packet.ParseFromArray(fld.data(), fld.size());
+    ret.emplace_back(std::move(packet));
   }
+  PERFETTO_CHECK(trace.bytes_left() == 0);
   return ret;
 }
 
-std::unique_ptr<protos::TracePacket> TraceWriterForTesting::ParseProto() {
-  PERFETTO_CHECK(cur_packet_->is_finalized());
-
-  auto trace = GetAllTracePackets();
-  PERFETTO_CHECK(!trace.empty());
-  auto packet =
-      std::unique_ptr<protos::TracePacket>(new protos::TracePacket(trace[0]));
-  return packet;
+protos::gen::TracePacket TraceWriterForTesting::GetOnlyTracePacket() {
+  auto packets = GetAllTracePackets();
+  PERFETTO_CHECK(packets.size() == 1);
+  return packets[0];
 }
 
 TraceWriterForTesting::TracePacketHandle

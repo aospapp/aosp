@@ -21,12 +21,27 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+
+/**
+ * Building this file with MinGW g++ 7.3 or 7.4 with:
+ *   scons platform=windows toolchain=crossmingw machine=x86 build=profile
+ * triggers an internal compiler error.
+ * Overriding the optimization level to -O1 works around the issue.
+ * MinGW 5.3.1 does not seem to have the bug, neither does 8.3.  So for now
+ * we're simply testing for version 7.x here.
+ */
+#if defined(__MINGW32__) && __GNUC__ == 7
+#warning "disabling optimizations for this file to work around compiler bug in MinGW gcc 7.x"
+#pragma GCC optimize("O1")
+#endif
+
+
 #include "ir.h"
 #include "ir_builder.h"
 #include "linker.h"
 #include "glsl_parser_extras.h"
 #include "glsl_symbol_table.h"
-#include "main/core.h"
+#include "main/mtypes.h"
 #include "main/uniforms.h"
 #include "program/prog_statevars.h"
 #include "program/prog_instruction.h"
@@ -441,7 +456,7 @@ private:
 builtin_variable_generator::builtin_variable_generator(
    exec_list *instructions, struct _mesa_glsl_parse_state *state)
    : instructions(instructions), state(state), symtab(state->symbols),
-     compatibility(state->compat_shader || !state->is_version(140, 100)),
+     compatibility(state->compat_shader || state->ARB_compatibility_enable),
      bool_t(glsl_type::bool_type), int_t(glsl_type::int_type),
      uint_t(glsl_type::uint_type),
      uint64_t(glsl_type::uint64_t_type),
@@ -1009,7 +1024,7 @@ builtin_variable_generator::generate_vs_special_vars()
 {
    ir_variable *var;
 
-   if (state->is_version(130, 300))
+   if (state->is_version(130, 300) || state->EXT_gpu_shader4_enable)
       add_system_value(SYSTEM_VALUE_VERTEX_ID, int_t, "gl_VertexID");
    if (state->is_version(460, 0)) {
       add_system_value(SYSTEM_VALUE_BASE_VERTEX, int_t, "gl_BaseVertex");
@@ -1018,7 +1033,8 @@ builtin_variable_generator::generate_vs_special_vars()
    }
    if (state->ARB_draw_instanced_enable)
       add_system_value(SYSTEM_VALUE_INSTANCE_ID, int_t, "gl_InstanceIDARB");
-   if (state->ARB_draw_instanced_enable || state->is_version(140, 300))
+   if (state->ARB_draw_instanced_enable || state->is_version(140, 300) ||
+       state->EXT_gpu_shader4_enable)
       add_system_value(SYSTEM_VALUE_INSTANCE_ID, int_t, "gl_InstanceID");
    if (state->ARB_shader_draw_parameters_enable) {
       add_system_value(SYSTEM_VALUE_BASE_VERTEX, int_t, "gl_BaseVertexARB");
@@ -1171,7 +1187,7 @@ builtin_variable_generator::generate_fs_special_vars()
    if (state->is_version(120, 100))
       add_input(VARYING_SLOT_PNTC, vec2_t, "gl_PointCoord");
 
-   if (state->has_geometry_shader()) {
+   if (state->has_geometry_shader() || state->EXT_gpu_shader4_enable) {
       var = add_input(VARYING_SLOT_PRIMITIVE_ID, int_t, "gl_PrimitiveID");
       var->data.interpolation = INTERP_MODE_FLAT;
    }
@@ -1194,6 +1210,7 @@ builtin_variable_generator::generate_fs_special_vars()
       var->data.precision = GLSL_PRECISION_MEDIUM;
       var->data.read_only = 1;
       var->data.fb_fetch_output = 1;
+      var->data.memory_coherent = 1;
    }
 
    if (state->es_shader && state->language_version == 100 && state->EXT_blend_func_extended_enable) {

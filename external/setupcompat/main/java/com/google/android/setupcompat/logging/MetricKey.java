@@ -18,6 +18,7 @@ package com.google.android.setupcompat.logging;
 
 import static com.google.android.setupcompat.internal.Validations.assertLengthInRange;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -40,6 +41,21 @@ public final class MetricKey implements Parcelable {
   /**
    * Creates a new instance of MetricKey.
    *
+   * @param name metric name to identify what we log
+   * @param activity activity of metric screen, uses to generate screenName
+   */
+  public static MetricKey get(@NonNull String name, @NonNull Activity activity) {
+    String screenName = activity.getComponentName().getClassName();
+    assertLengthInRange(name, "MetricKey.name", MIN_METRIC_KEY_LENGTH, MAX_METRIC_KEY_LENGTH);
+    Preconditions.checkArgument(
+        METRIC_KEY_PATTERN.matcher(name).matches(),
+        "Invalid MetricKey, only alpha numeric characters are allowed.");
+    return new MetricKey(name, screenName);
+  }
+
+  /**
+   * Creates a new instance of MetricKey.
+   *
    * <p>NOTE:
    *
    * <ul>
@@ -50,15 +66,21 @@ public final class MetricKey implements Parcelable {
    * </ul>
    */
   public static MetricKey get(@NonNull String name, @NonNull String screenName) {
+    // We only checked the length of customized screen name, by the reason if the screenName match
+    // to the class name skip check it
+    if (!SCREEN_COMPONENTNAME_PATTERN.matcher(screenName).matches()) {
+      assertLengthInRange(
+          screenName, "MetricKey.screenName", MIN_SCREEN_NAME_LENGTH, MAX_SCREEN_NAME_LENGTH);
+      Preconditions.checkArgument(
+          SCREEN_NAME_PATTERN.matcher(screenName).matches(),
+          "Invalid ScreenName, only alpha numeric characters are allowed.");
+    }
+
     assertLengthInRange(name, "MetricKey.name", MIN_METRIC_KEY_LENGTH, MAX_METRIC_KEY_LENGTH);
-    assertLengthInRange(
-        screenName, "MetricKey.screenName", MIN_SCREEN_NAME_LENGTH, MAX_SCREEN_NAME_LENGTH);
     Preconditions.checkArgument(
         METRIC_KEY_PATTERN.matcher(name).matches(),
         "Invalid MetricKey, only alpha numeric characters are allowed.");
-    Preconditions.checkArgument(
-        METRIC_KEY_PATTERN.matcher(screenName).matches(),
-        "Invalid MetricKey, only alpha numeric characters are allowed.");
+
     return new MetricKey(name, screenName);
   }
 
@@ -145,4 +167,7 @@ public final class MetricKey implements Parcelable {
   private static final int MAX_SCREEN_NAME_LENGTH = 50;
   private static final int MAX_METRIC_KEY_LENGTH = 30;
   private static final Pattern METRIC_KEY_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]+");
+  private static final Pattern SCREEN_COMPONENTNAME_PATTERN =
+      Pattern.compile("^([a-z]+[.])+[A-Z][a-zA-Z0-9]+");
+  private static final Pattern SCREEN_NAME_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]+");
 }

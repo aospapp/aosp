@@ -8,13 +8,6 @@
 
 #include <asm/ibmpc.h>
 
-/* ACPI */
-
-/* Boot */
-#define CONFIG_BOOTCOMMAND "run bootcmd"
-
-/* DISK Partition support */
-
 /* Miscellaneous configurable options */
 
 #define CONFIG_SYS_CBSIZE	2048
@@ -24,8 +17,6 @@
 /* Memory */
 #define CONFIG_SYS_LOAD_ADDR			0x100000
 #define CONFIG_PHYSMEM
-
-#define CONFIG_NR_DRAM_BANKS			3
 
 #define CONFIG_SYS_STACK_SIZE			(32 * 1024)
 
@@ -40,16 +31,8 @@
 /* Environment */
 #define CONFIG_SYS_MMC_ENV_DEV			0
 #define CONFIG_SYS_MMC_ENV_PART			0
-#define CONFIG_ENV_SIZE				(64 * 1024)
-#define CONFIG_ENV_OFFSET			(3 * 1024 * 1024)
-#define CONFIG_ENV_OFFSET_REDUND		(6 * 1024 * 1024)
-#define CONFIG_SUPPORT_EMMC_BOOT
-
-/* PCI */
-#define CONFIG_CMD_PCI
 
 /* RTC */
 #define CONFIG_SYS_ISA_IO_BASE_ADDRESS	0
-#define CONFIG_RTC_MC146818
 
 #endif

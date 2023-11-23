@@ -1,7 +1,7 @@
 /*
  * HTTP support routines for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
+ * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -20,13 +20,13 @@
 #include "cups-private.h"
 #ifdef HAVE_DNSSD
 #  include <dns_sd.h>
-#  ifdef WIN32
+#  ifdef _WIN32
 #    include <io.h>
 #  elif defined(HAVE_POLL)
 #    include <poll.h>
 #  else
 #    include <sys/select.h>
-#  endif /* WIN32 */
+#  endif /* _WIN32 */
 #elif defined(HAVE_AVAHI)
 #  include <avahi-client/client.h>
 #  include <avahi-client/lookup.h>
@@ -502,7 +502,6 @@ httpAssembleUUID(const char *server,	/* I - Server name */
 		 size_t     bufsize)	/* I - Size of buffer */
 {
   char			data[1024];	/* Source string for MD5 */
-  _cups_md5_state_t	md5state;	/* MD5 state */
   unsigned char		md5sum[16];	/* MD5 digest/sum */
 
 
@@ -517,9 +516,7 @@ httpAssembleUUID(const char *server,	/* I - Server name */
            port, name ? name : server, number,
 	   (unsigned)CUPS_RAND() & 0xffff, (unsigned)CUPS_RAND() & 0xffff);
 
-  _cupsMD5Init(&md5state);
-  _cupsMD5Append(&md5state, (unsigned char *)data, (int)strlen(data));
-  _cupsMD5Finish(&md5state, md5sum);
+  cupsHashData("md5", (unsigned char *)data, strlen(data), md5sum, sizeof(md5sum));
 
  /*
   * Generate the UUID from the MD5...
@@ -1035,7 +1032,7 @@ httpSeparateURI(
 
     *ptr = '\0';
 
-    if (*uri != ':')
+    if (*uri != ':' || *scheme == '.' || !*scheme)
     {
       *scheme = '\0';
       return (HTTP_URI_STATUS_BAD_SCHEME);
@@ -1306,6 +1303,152 @@ httpSeparateURI(
 
 
 /*
+ * '_httpSetDigestAuthString()' - Calculate a Digest authentication response
+ *                                using the appropriate RFC 2068/2617/7616
+ *                                algorithm.
+ */
+
+int					/* O - 1 on success, 0 on failure */
+_httpSetDigestAuthString(
+    http_t     *http,			/* I - HTTP connection */
+    const char *nonce,			/* I - Nonce value */
+    const char *method,			/* I - HTTP method */
+    const char *resource)		/* I - HTTP resource path */
+{
+  char		kd[65],			/* Final MD5/SHA-256 digest */
+		ha1[65],		/* Hash of username:realm:password */
+		ha2[65],		/* Hash of method:request-uri */
+		username[HTTP_MAX_VALUE],
+					/* username:password */
+		*password,		/* Pointer to password */
+		temp[1024],		/* Temporary string */
+		digest[1024];		/* Digest auth data */
+  unsigned char	hash[32];		/* Hash buffer */
+  size_t	hashsize;		/* Size of hash */
+
+
+  DEBUG_printf(("2_httpSetDigestAuthString(http=%p, nonce=\"%s\", method=\"%s\", resource=\"%s\")", http, nonce, method, resource));
+
+  if (nonce && *nonce && strcmp(nonce, http->nonce))
+  {
+    strlcpy(http->nonce, nonce, sizeof(http->nonce));
+
+    if (nonce == http->nextnonce)
+      http->nextnonce[0] = '\0';
+
+    http->nonce_count = 1;
+  }
+  else
+    http->nonce_count ++;
+
+  strlcpy(username, http->userpass, sizeof(username));
+  if ((password = strchr(username, ':')) != NULL)
+    *password++ = '\0';
+  else
+    return (0);
+
+  if (http->algorithm[0])
+  {
+   /*
+    * Follow RFC 2617/7616...
+    */
+
+    int		i;			/* Looping var */
+    char	cnonce[65];		/* cnonce value */
+    const char	*hashalg;		/* Hashing algorithm */
+
+    for (i = 0; i < 64; i ++)
+      cnonce[i] = "0123456789ABCDEF"[CUPS_RAND() & 15];
+    cnonce[64] = '\0';
+
+    if (!_cups_strcasecmp(http->algorithm, "MD5"))
+    {
+     /*
+      * RFC 2617 Digest with MD5
+      */
+
+      hashalg = "md5";
+    }
+    else if (!_cups_strcasecmp(http->algorithm, "SHA-256"))
+    {
+     /*
+      * RFC 7616 Digest with SHA-256
+      */
+
+      hashalg = "sha2-256";
+    }
+    else
+    {
+     /*
+      * Some other algorithm we don't support, skip this one...
+      */
+
+      return (0);
+    }
+
+   /*
+    * Calculate digest value...
+    */
+
+    /* H(A1) = H(username:realm:password) */
+    snprintf(temp, sizeof(temp), "%s:%s:%s", username, http->realm, password);
+    hashsize = (size_t)cupsHashData(hashalg, (unsigned char *)temp, strlen(temp), hash, sizeof(hash));
+    cupsHashString(hash, hashsize, ha1, sizeof(ha1));
+
+    /* H(A2) = H(method:uri) */
+    snprintf(temp, sizeof(temp), "%s:%s", method, resource);
+    hashsize = (size_t)cupsHashData(hashalg, (unsigned char *)temp, strlen(temp), hash, sizeof(hash));
+    cupsHashString(hash, hashsize, ha2, sizeof(ha2));
+
+    /* KD = H(H(A1):nonce:nc:cnonce:qop:H(A2)) */
+    snprintf(temp, sizeof(temp), "%s:%s:%08x:%s:%s:%s", ha1, http->nonce, http->nonce_count, cnonce, "auth", ha2);
+    hashsize = (size_t)cupsHashData(hashalg, (unsigned char *)temp, strlen(temp), hash, sizeof(hash));
+    cupsHashString(hash, hashsize, kd, sizeof(kd));
+
+   /*
+    * Pass the RFC 2617/7616 WWW-Authenticate header...
+    */
+
+    if (http->opaque[0])
+      snprintf(digest, sizeof(digest), "username=\"%s\", realm=\"%s\", nonce=\"%s\", algorithm=%s, qop=auth, opaque=\"%s\", cnonce=\"%s\", nc=%08x, uri=\"%s\", response=\"%s\"", cupsUser(), http->realm, http->nonce, http->algorithm, http->opaque, cnonce, http->nonce_count, resource, kd);
+    else
+      snprintf(digest, sizeof(digest), "username=\"%s\", realm=\"%s\", nonce=\"%s\", algorithm=%s, qop=auth, cnonce=\"%s\", nc=%08x, uri=\"%s\", response=\"%s\"", username, http->realm, http->nonce, http->algorithm, cnonce, http->nonce_count, resource, kd);
+  }
+  else
+  {
+   /*
+    * Use old RFC 2069 Digest method...
+    */
+
+    /* H(A1) = H(username:realm:password) */
+    snprintf(temp, sizeof(temp), "%s:%s:%s", username, http->realm, password);
+    hashsize = (size_t)cupsHashData("md5", (unsigned char *)temp, strlen(temp), hash, sizeof(hash));
+    cupsHashString(hash, hashsize, ha1, sizeof(ha1));
+
+    /* H(A2) = H(method:uri) */
+    snprintf(temp, sizeof(temp), "%s:%s", method, resource);
+    hashsize = (size_t)cupsHashData("md5", (unsigned char *)temp, strlen(temp), hash, sizeof(hash));
+    cupsHashString(hash, hashsize, ha2, sizeof(ha2));
+
+    /* KD = H(H(A1):nonce:H(A2)) */
+    snprintf(temp, sizeof(temp), "%s:%s:%s", ha1, http->nonce, ha2);
+    hashsize = (size_t)cupsHashData("md5", (unsigned char *)temp, strlen(temp), hash, sizeof(hash));
+    cupsHashString(hash, hashsize, kd, sizeof(kd));
+
+   /*
+    * Pass the old RFC 2069 WWW-Authenticate header...
+    */
+
+    snprintf(digest, sizeof(digest), "username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"", username, http->realm, http->nonce, resource, kd);
+  }
+
+  httpSetAuthString(http, "Digest", digest);
+
+  return (1);
+}
+
+
+/*
  * 'httpStateString()' - Return the string describing a HTTP state value.
  *
  * @since CUPS 2.0/OS 10.10@
@@ -1359,6 +1502,9 @@ _httpStatus(cups_lang_t   *lang,	/* I - Language */
 	break;
     case HTTP_STATUS_MOVED_PERMANENTLY :
         s = _("Moved Permanently");
+	break;
+    case HTTP_STATUS_FOUND :
+        s = _("Found");
 	break;
     case HTTP_STATUS_SEE_OTHER :
         s = _("See Other");
@@ -1622,9 +1768,6 @@ _httpResolveURI(
     _http_uribuf_t	uribuf;		/* URI buffer */
     int			offline = 0;	/* offline-report state set? */
 #  ifdef HAVE_DNSSD
-#    ifdef WIN32
-#      pragma comment(lib, "dnssd.lib")
-#    endif /* WIN32 */
     DNSServiceRef	ref,		/* DNS-SD master service reference */
 			domainref = NULL,/* DNS-SD service reference for domain */
 			ippref = NULL,	/* DNS-SD service reference for network IPP */
@@ -1753,11 +1896,11 @@ _httpResolveURI(
 	  FD_ZERO(&input_set);
 	  FD_SET(DNSServiceRefSockFD(ref), &input_set);
 
-#      ifdef WIN32
+#      ifdef _WIN32
 	  stimeout.tv_sec  = (long)timeout;
 #      else
 	  stimeout.tv_sec  = timeout;
-#      endif /* WIN32 */
+#      endif /* _WIN32 */
 	  stimeout.tv_usec = 0;
 
 	  fds = select(DNSServiceRefSockFD(ref)+1, &input_set, NULL, NULL,

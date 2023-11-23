@@ -53,6 +53,7 @@ enum ImageType
 vk::VkImageType			mapImageType					(const ImageType imageType);
 vk::VkImageViewType		mapImageViewType				(const ImageType imageType);
 std::string				getImageTypeName				(const ImageType imageType);
+std::string				getFormatPrefix					(const tcu::TextureFormat& format);
 std::string				getShaderImageType				(const tcu::TextureFormat& format, const ImageType imageType, const bool multisample = false);
 std::string				getShaderImageFormatQualifier	(const tcu::TextureFormat& format);
 std::string				getGlslSamplerType				(const tcu::TextureFormat& format, vk::VkImageViewType type);
@@ -114,10 +115,6 @@ deUint32				getNumPixels		(const ImageType imageType, const tcu::UVec3& imageSiz
 deUint32				getDimensions		(const ImageType imageType);								//!< Coordinate dimension used for addressing (e.g. 3 (x,y,z) for 2d array)
 deUint32				getLayerDimensions	(const ImageType imageType);								//!< Coordinate dimension used for addressing a single layer (e.g. 2 (x,y) for 2d array)
 
-vk::Move<vk::VkPipelineLayout>		makePipelineLayout				(const vk::DeviceInterface&					vk,
-																	 const vk::VkDevice							device,
-																	 const vk::VkDescriptorSetLayout			descriptorSetLayout);
-
 vk::Move<vk::VkPipeline>			makeComputePipeline				(const vk::DeviceInterface&					vk,
 																	 const vk::VkDevice							device,
 																	 const vk::VkPipelineLayout					pipelineLayout,
@@ -137,32 +134,6 @@ vk::Move<vk::VkRenderPass>			makeRenderPass					(const vk::DeviceInterface&					
 																	 const vk::VkDevice							device,
 																	 const vk::VkFormat							inputFormat,
 																	 const vk::VkFormat							colorFormat);
-
-vk::Move<vk::VkRenderPass>			makeRenderPass					(const vk::DeviceInterface&					vk,
-																	 const vk::VkDevice							device);
-
-vk::Move<vk::VkBufferView>			makeBufferView					(const vk::DeviceInterface&					vk,
-																	 const vk::VkDevice							device,
-																	 const vk::VkBuffer							buffer,
-																	 const vk::VkFormat							format,
-																	 const vk::VkDeviceSize						offset,
-																	 const vk::VkDeviceSize						size);
-
-vk::Move<vk::VkImageView>			makeImageView					(const vk::DeviceInterface&					vk,
-																	 const vk::VkDevice							device,
-																	 const vk::VkImage							image,
-																	 const vk::VkImageViewType					imageViewType,
-																	 const vk::VkFormat							format,
-																	 const vk::VkImageSubresourceRange			subresourceRange,
-																	 const vk::VkImageViewUsageCreateInfo*		ImageUsageCreateInfoKHR = DE_NULL);
-
-vk::Move<vk::VkDescriptorSet>		makeDescriptorSet				(const vk::DeviceInterface&					vk,
-																	 const vk::VkDevice							device,
-																	 const vk::VkDescriptorPool					descriptorPool,
-																	 const vk::VkDescriptorSetLayout			setLayout);
-
-vk::VkBufferCreateInfo				makeBufferCreateInfo			(const vk::VkDeviceSize						bufferSize,
-																	 const vk::VkBufferUsageFlags				usage);
 
 vk::VkBufferImageCopy				makeBufferImageCopy				(const vk::VkExtent3D						extent,
 																	 const deUint32								arraySize);
@@ -193,14 +164,6 @@ void beginRenderPass (const vk::DeviceInterface&	vk,
 					  const vk::VkRenderPass		renderPass,
 					  const vk::VkFramebuffer		framebuffer,
 					  const vk::VkExtent2D&			renderSize);
-
-vk::Move<vk::VkFramebuffer> makeFramebuffer (const vk::DeviceInterface&	vk,
-											 const vk::VkDevice			device,
-											 const vk::VkRenderPass		renderPass,
-											 const deUint32				attachmentCount,
-											 const vk::VkImageView*		pAttachments,
-											 const vk::VkExtent2D&		size,
-											 const deUint32				layersCount);
 
 } // image
 } // vkt

@@ -16,10 +16,18 @@ class network_WiFi_VerifyRouter(wifi_cell_test_base.WiFiCellTestBase):
     version = 1
     MAX_ASSOCIATION_RETRIES = 8  # Super lucky number.  Not science.
 
+    # Antenna bitmap constants.
+    ANTENNAS_1 = 0x1
+    ANTENNAS_2 = 0x2
+    ANTENNAS_BOTH = ANTENNAS_1 | ANTENNAS_2
+
     # We don't want to accept really low signal strength, so we pick an
     # arbitrary threshold.
     SIGNAL_THRESHOLD = -60
 
+    # Antennas on a device should have similar signal stength, so we pick
+    # another arbitrary threshold.
+    ANTENNA_VARIANCE_THRESHOLD = 15
 
     def _connect(self, wifi_params):
         assoc_result = xmlrpc_datatypes.deserialize(
@@ -31,6 +39,48 @@ class network_WiFi_VerifyRouter(wifi_cell_test_base.WiFiCellTestBase):
                      assoc_result.association_time,
                      assoc_result.configuration_time)
         return assoc_result.success
+
+    def _check_signal_levels(self, instance, bitmap, channel):
+        signal_level = self.context.client.wifi_signal_level
+        if signal_level is None:
+            return 'Could not retrieve signal info from device.'
+
+        logging.info('Signal level for AP %d with bitmap %d is %d',
+                     instance, bitmap, signal_level)
+        self.write_perf_keyval(
+                {'signal_for_ap_%d_bm_%d_ch_%d' %
+                         (instance, bitmap, channel): signal_level})
+        # Don't accept very low signal strength.
+        if signal_level < self.SIGNAL_THRESHOLD:
+            return 'Signal too weak (%s dBm)' % (signal_level)
+
+        # In our conductive testbeds, AP antennas are connected 1:1 with DUT
+        # antennas. This means that when broadcasting from one AP antenna
+        # we will only see signal on one DUT antenna. Thus, don't test per
+        # antenna DUT signal when only using one AP antenna.
+        if bitmap != self.ANTENNAS_BOTH:
+            return None
+
+        antenna_signal_levels = self.context.client.wifi_signal_level_all_chains
+        # Some devices don't report per antenna signal levels. This is not an
+        # error so we log our inability to retrieve the data and return without
+        # failure.
+        if antenna_signal_levels is None:
+            logging.info('Could not retrieve per antenna signal info from'
+                    ' device.')
+            return None
+
+        max_signal = max(antenna_signal_levels)
+        min_signal = min(antenna_signal_levels)
+        if min_signal < self.SIGNAL_THRESHOLD:
+            return ('Signal too weak on at least one antenna (%s dBm)' %
+                    antenna_signal_levels)
+
+        if max_signal - min_signal > self.ANTENNA_VARIANCE_THRESHOLD:
+            return ('Antenna signals vary significantly (%s dBm)' %
+                    antenna_signal_levels)
+
+        return None
 
 
     def _antenna_test(self, bitmap, channel):
@@ -86,18 +136,11 @@ class network_WiFi_VerifyRouter(wifi_cell_test_base.WiFiCellTestBase):
             client_conf = xmlrpc_datatypes.AssociationParameters(
                     ssid=self.context.router.get_ssid(instance=instance))
             if self._connect(client_conf):
-                signal_level = self.context.client.wifi_signal_level
-                logging.info('Signal level for AP %d with bitmap %d is %d',
-                             instance, bitmap, signal_level)
-                self.write_perf_keyval(
-                        {'signal_for_ap_%d_bm_%d_ch_%d' %
-                                 (instance, bitmap, channel):
-                         signal_level})
-                # Don't accept very low signal strength.
-                if signal_level < self.SIGNAL_THRESHOLD:
-                    failures.append(context_message)
+                failure = self._check_signal_levels(instance, bitmap, channel)
+                if failure:
+                    failures.append('%s: %s' % (context_message, failure))
             else:
-                failures.append(context_message)
+                failures.append('%s: Failed to connect.' % context_message)
             # Don't automatically reconnect to this AP.
             self.context.client.shill.disconnect(
                     self.context.router.get_ssid(instance=instance))
@@ -128,9 +171,9 @@ class network_WiFi_VerifyRouter(wifi_cell_test_base.WiFiCellTestBase):
         # TODO: communicate this back from the driver better, so we don't have
         # to build an exception list.
         if self.context.router.board == "gale":
-            bitmaps = (3, 1)
+            bitmaps = (self.ANTENNAS_BOTH, self.ANTENNAS_1)
         else:
-            bitmaps = (3, 1, 2)
+            bitmaps = (self.ANTENNAS_BOTH, self.ANTENNAS_1, self.ANTENNAS_2)
 
         # Run antenna test for 2GHz band and 5GHz band
         for channel in (6, 149):
@@ -149,4 +192,5 @@ class network_WiFi_VerifyRouter(wifi_cell_test_base.WiFiCellTestBase):
         if all_failures:
             failure_message = ', '.join(
                     ['(' + message + ')' for message in all_failures])
-            raise error.TestFail('Failed to connect when %s.' % failure_message)
+            raise error.TestFail("Failed the following configurations: %s." %
+                    failure_message)

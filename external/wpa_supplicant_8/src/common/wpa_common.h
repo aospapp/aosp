@@ -22,6 +22,15 @@
 
 #define OWE_DH_GROUP 19
 
+#ifdef CONFIG_NO_TKIP
+#define WPA_ALLOWED_PAIRWISE_CIPHERS \
+(WPA_CIPHER_CCMP | WPA_CIPHER_GCMP | WPA_CIPHER_NONE | \
+WPA_CIPHER_GCMP_256 | WPA_CIPHER_CCMP_256)
+#define WPA_ALLOWED_GROUP_CIPHERS \
+(WPA_CIPHER_CCMP | WPA_CIPHER_GCMP | \
+WPA_CIPHER_GCMP_256 | WPA_CIPHER_CCMP_256 | \
+WPA_CIPHER_GTK_NOT_USED)
+#else /* CONFIG_NO_TKIP */
 #define WPA_ALLOWED_PAIRWISE_CIPHERS \
 (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP | WPA_CIPHER_TKIP | WPA_CIPHER_NONE | \
 WPA_CIPHER_GCMP_256 | WPA_CIPHER_CCMP_256)
@@ -29,6 +38,7 @@ WPA_CIPHER_GCMP_256 | WPA_CIPHER_CCMP_256)
 (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP | WPA_CIPHER_TKIP | \
 WPA_CIPHER_GCMP_256 | WPA_CIPHER_CCMP_256 | \
 WPA_CIPHER_GTK_NOT_USED)
+#endif /* CONFIG_NO_TKIP */
 #define WPA_ALLOWED_GROUP_MGMT_CIPHERS \
 (WPA_CIPHER_AES_128_CMAC | WPA_CIPHER_BIP_GMAC_128 | WPA_CIPHER_BIP_GMAC_256 | \
 WPA_CIPHER_BIP_CMAC_256)
@@ -104,16 +114,16 @@ WPA_CIPHER_BIP_CMAC_256)
 #endif
 #define RSN_KEY_DATA_MAC_ADDR RSN_SELECTOR(0x00, 0x0f, 0xac, 3)
 #define RSN_KEY_DATA_PMKID RSN_SELECTOR(0x00, 0x0f, 0xac, 4)
-#ifdef CONFIG_IEEE80211W
 #define RSN_KEY_DATA_IGTK RSN_SELECTOR(0x00, 0x0f, 0xac, 9)
-#endif /* CONFIG_IEEE80211W */
 #define RSN_KEY_DATA_KEYID RSN_SELECTOR(0x00, 0x0f, 0xac, 10)
 #define RSN_KEY_DATA_MULTIBAND_GTK RSN_SELECTOR(0x00, 0x0f, 0xac, 11)
 #define RSN_KEY_DATA_MULTIBAND_KEYID RSN_SELECTOR(0x00, 0x0f, 0xac, 12)
 #define RSN_KEY_DATA_OCI RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
+#define RSN_KEY_DATA_BIGTK RSN_SELECTOR(0x00, 0x0f, 0xac, 14)
 
 #define WFA_KEY_DATA_IP_ADDR_REQ RSN_SELECTOR(0x50, 0x6f, 0x9a, 4)
 #define WFA_KEY_DATA_IP_ADDR_ALLOC RSN_SELECTOR(0x50, 0x6f, 0x9a, 5)
+#define WFA_KEY_DATA_TRANSITION_DISABLE RSN_SELECTOR(0x50, 0x6f, 0x9a, 0x20)
 
 #define WPA_OUI_TYPE RSN_SELECTOR(0x00, 0x50, 0xf2, 1)
 
@@ -130,10 +140,10 @@ WPA_CIPHER_BIP_CMAC_256)
 #pragma pack(push, 1)
 #endif /* _MSC_VER */
 
-#ifdef CONFIG_IEEE80211W
 #define WPA_IGTK_LEN 16
 #define WPA_IGTK_MAX_LEN 32
-#endif /* CONFIG_IEEE80211W */
+#define WPA_BIGTK_LEN 16
+#define WPA_BIGTK_MAX_LEN 32
 
 
 /* IEEE 802.11, 7.3.2.25.3 RSN Capabilities */
@@ -226,12 +236,15 @@ struct wpa_gtk {
 	size_t gtk_len;
 };
 
-#ifdef CONFIG_IEEE80211W
 struct wpa_igtk {
 	u8 igtk[WPA_IGTK_MAX_LEN];
 	size_t igtk_len;
 };
-#endif /* CONFIG_IEEE80211W */
+
+struct wpa_bigtk {
+	u8 bigtk[WPA_BIGTK_MAX_LEN];
+	size_t bigtk_len;
+};
 
 /* WPA IE version 1
  * 00-50-f2:1 (OUI:OUI type)
@@ -291,14 +304,19 @@ struct rsn_error_kde {
 	be16 error_type;
 } STRUCT_PACKED;
 
-#ifdef CONFIG_IEEE80211W
 #define WPA_IGTK_KDE_PREFIX_LEN (2 + 6)
 struct wpa_igtk_kde {
 	u8 keyid[2];
 	u8 pn[6];
 	u8 igtk[WPA_IGTK_MAX_LEN];
 } STRUCT_PACKED;
-#endif /* CONFIG_IEEE80211W */
+
+#define WPA_BIGTK_KDE_PREFIX_LEN (2 + 6)
+struct wpa_bigtk_kde {
+	u8 keyid[2];
+	u8 pn[6];
+	u8 bigtk[WPA_BIGTK_MAX_LEN];
+} STRUCT_PACKED;
 
 struct rsn_mdie {
 	u8 mobility_domain[MOBILITY_DOMAIN_ID_LEN];
@@ -329,6 +347,7 @@ struct rsn_ftie_sha384 {
 #define FTIE_SUBELEM_R0KH_ID 3
 #define FTIE_SUBELEM_IGTK 4
 #define FTIE_SUBELEM_OCI 5
+#define FTIE_SUBELEM_BIGTK 6
 
 struct rsn_rdie {
 	u8 id;
@@ -336,6 +355,12 @@ struct rsn_rdie {
 	le16 status_code;
 } STRUCT_PACKED;
 
+/* WFA Transition Disable KDE (using OUI_WFA) */
+/* Transition Disable Bitmap bits */
+#define TRANSITION_DISABLE_WPA3_PERSONAL BIT(0)
+#define TRANSITION_DISABLE_SAE_PK BIT(1)
+#define TRANSITION_DISABLE_WPA3_ENTERPRISE BIT(2)
+#define TRANSITION_DISABLE_ENHANCED_OPEN BIT(3)
 
 #ifdef _MSC_VER
 #pragma pack(pop)
@@ -372,7 +397,9 @@ int wpa_ft_mic(const u8 *kck, size_t kck_len, const u8 *sta_addr,
 	       const u8 *mdie, size_t mdie_len,
 	       const u8 *ftie, size_t ftie_len,
 	       const u8 *rsnie, size_t rsnie_len,
-	       const u8 *ric, size_t ric_len, u8 *mic);
+	       const u8 *ric, size_t ric_len,
+	       const u8 *rsnxe, size_t rsnxe_len,
+	       u8 *mic);
 int wpa_derive_pmk_r0(const u8 *xxkey, size_t xxkey_len,
 		      const u8 *ssid, size_t ssid_len,
 		      const u8 *mdid, const u8 *r0kh_id, size_t r0kh_id_len,
@@ -451,13 +478,18 @@ struct wpa_ft_ies {
 	size_t gtk_len;
 	const u8 *r0kh_id;
 	size_t r0kh_id_len;
+	const u8 *fte_anonce;
+	const u8 *fte_snonce;
 	const u8 *rsn;
 	size_t rsn_len;
+	u16 rsn_capab;
 	const u8 *rsn_pmkid;
 	const u8 *tie;
 	size_t tie_len;
 	const u8 *igtk;
 	size_t igtk_len;
+	const u8 *bigtk;
+	size_t bigtk_len;
 #ifdef CONFIG_OCV
 	const u8 *oci;
 	size_t oci_len;
@@ -466,10 +498,71 @@ struct wpa_ft_ies {
 	size_t ric_len;
 	int key_mgmt;
 	int pairwise_cipher;
+	const u8 *rsnxe;
+	size_t rsnxe_len;
 };
 
 int wpa_ft_parse_ies(const u8 *ies, size_t ies_len, struct wpa_ft_ies *parse,
 		     int use_sha384);
+
+struct wpa_eapol_ie_parse {
+	const u8 *wpa_ie;
+	size_t wpa_ie_len;
+	const u8 *rsn_ie;
+	size_t rsn_ie_len;
+	const u8 *pmkid;
+	const u8 *key_id;
+	const u8 *gtk;
+	size_t gtk_len;
+	const u8 *mac_addr;
+	size_t mac_addr_len;
+	const u8 *igtk;
+	size_t igtk_len;
+	const u8 *bigtk;
+	size_t bigtk_len;
+	const u8 *mdie;
+	size_t mdie_len;
+	const u8 *ftie;
+	size_t ftie_len;
+	const u8 *ip_addr_req;
+	const u8 *ip_addr_alloc;
+	const u8 *transition_disable;
+	size_t transition_disable_len;
+	const u8 *oci;
+	size_t oci_len;
+	const u8 *osen;
+	size_t osen_len;
+	const u8 *rsnxe;
+	size_t rsnxe_len;
+	const u8 *reassoc_deadline;
+	const u8 *key_lifetime;
+	const u8 *lnkid;
+	size_t lnkid_len;
+	const u8 *ext_capab;
+	size_t ext_capab_len;
+	const u8 *supp_rates;
+	size_t supp_rates_len;
+	const u8 *ext_supp_rates;
+	size_t ext_supp_rates_len;
+	const u8 *ht_capabilities;
+	const u8 *vht_capabilities;
+	const u8 *supp_channels;
+	size_t supp_channels_len;
+	const u8 *supp_oper_classes;
+	size_t supp_oper_classes_len;
+	u8 qosinfo;
+	u16 aid;
+	const u8 *wmm;
+	size_t wmm_len;
+};
+
+int wpa_parse_kde_ies(const u8 *buf, size_t len, struct wpa_eapol_ie_parse *ie);
+static inline int wpa_supplicant_parse_ies(const u8 *buf, size_t len,
+					   struct wpa_eapol_ie_parse *ie)
+{
+	return wpa_parse_kde_ies(buf, len, ie);
+}
+
 
 int wpa_cipher_key_len(int cipher);
 int wpa_cipher_rsc_len(int cipher);

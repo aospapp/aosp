@@ -44,7 +44,7 @@ import org.jf.dexlib2.iface.*;
 import org.jf.dexlib2.iface.reference.FieldReference;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.MethodUtil;
-import org.jf.util.AlignmentUtils;
+import org.jf.dexlib2.util.AlignmentUtils;
 import org.jf.util.ExceptionWithContext;
 import org.jf.util.SparseArray;
 
@@ -529,8 +529,8 @@ public class ClassProto implements TypeProto {
                     ClassProto superclass = null;
                     if (superclassType != null) {
                         superclass = (ClassProto) classPath.getClass(superclassType);
-                            startFieldOffset = superclass.getNextFieldOffset();
-                        }
+                        startFieldOffset = superclass.getNextFieldOffset();
+                    }
 
                     int fieldIndexMod;
                     if ((startFieldOffset % 8) == 0) {
@@ -617,12 +617,12 @@ public class ClassProto implements TypeProto {
 
                         //add padding to align the wide fields, if needed
                         if (fieldTypes[i] == WIDE && !gotDouble) {
-                                if (fieldOffset % 8 != 0) {
-                                    assert fieldOffset % 8 == 4;
-                                    fieldOffset += 4;
-                                }
-                                gotDouble = true;
+                            if (fieldOffset % 8 != 0) {
+                                assert fieldOffset % 8 == 4;
+                                fieldOffset += 4;
                             }
+                            gotDouble = true;
+                        }
 
                         instanceFields.append(fieldOffset, field);
                         if (fieldTypes[i] == WIDE) {
@@ -979,14 +979,14 @@ public class ClassProto implements TypeProto {
                         for (int j=0; j<vtable.size(); j++) {
                             Method candidate = vtable.get(j);
                             if (MethodUtil.methodSignaturesMatch(candidate, interfaceMethod)) {
-                        if (!classPath.shouldCheckPackagePrivateAccess() ||
+                                if (!classPath.shouldCheckPackagePrivateAccess() ||
                                         AnalyzedMethodUtil.canAccess(ClassProto.this, candidate, true, false, false)) {
                                     if (interfaceMethodOverrides(interfaceMethod, candidate)) {
                                         vtable.set(j, interfaceMethod);
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
                         if (vtableIndex >= 0) {
                             if (!isOverridableByDefaultMethod(vtable.get(vtableIndex))) {

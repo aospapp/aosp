@@ -15,10 +15,10 @@ ms{
         "sy} t {ts} u {ua} v w x y z]"
     }
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -182,7 +182,7 @@ ms{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -601,6 +601,44 @@ ms{
                 yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y – M/y GGGGG"}
+                    y{"M/y – M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, d/M/y GGGGG – E, d/M/y GGGGG"}
+                    M{"E, d/M/y – E, d/M/y GGGGG"}
+                    d{"E, d/M/y – E, d/M/y GGGGG"}
+                    y{"E, d/M/y – E, d/M/y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, d MMM, y G – E, d MMM, y G"}
+                    M{"E, d MMM – E, d MMM, y G"}
+                    d{"E, d MMM – E, d MMM, y G"}
+                    y{"E, d MMM, y – E, d MMM, y G"}
+                }
+                GyMMMd{
+                    G{"d MMM, y G – d MMM, y G"}
+                    M{"d MMM – d MMM, y G"}
+                    d{"d–d MMM, y G"}
+                    y{"d MMM, y – d MMM, y G"}
+                }
+                GyMd{
+                    G{"d/M/y GGGGG – d/M/y GGGG"}
+                    M{"d/M/y – d/M/y GGGGG"}
+                    d{"d/M/y – d/M/y GGGGG"}
+                    y{"d/M/y – d/M/y GGGGG"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -752,9 +790,6 @@ ms{
                 MEd{"E, d-M"}
                 MMM{"LLL"}
                 MMMEd{"E, d MMM"}
-                MMMMW{
-                    other{"'week' W 'of' MMM"}
-                }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 MMdd{"dd/MM"}
@@ -927,6 +962,44 @@ ms{
                 }
             }
             intervalFormats{
+                Gy{
+                    G{"y G – y G"}
+                    y{"y–y G"}
+                }
+                GyM{
+                    G{"M/y GGGGG – M/y GGGGG"}
+                    M{"M/y –M/y GGGGG"}
+                    y{"M/y – M/y GGGGG"}
+                }
+                GyMEd{
+                    G{"E, dd-MM-y GGGG – E, dd-MM-y GGGG"}
+                    M{"E, d/M/y – E, d/M/y GGGGG"}
+                    d{"E, d/M/y – E, d/M/y GGGGG"}
+                    y{"E, d/M/y – E, d/M/y GGGGG"}
+                }
+                GyMMM{
+                    G{"MMM y G – MMM y G"}
+                    M{"MMM – MMM y G"}
+                    y{"MMM y – MMM y G"}
+                }
+                GyMMMEd{
+                    G{"E, d MMM y G – E, d MMM y G"}
+                    M{"E,d MMM – E, d MMM y G"}
+                    d{"E, d MMM – E, d MMM y G"}
+                    y{"E, d MMM y – E, d MMM y G"}
+                }
+                GyMMMd{
+                    G{"d MMM y G – d MMM y G"}
+                    M{"d MMM – d MMM y G"}
+                    d{"d–d MMM y G"}
+                    y{"d MMM y – d MMM y G"}
+                }
+                GyMd{
+                    G{"d/M/y GGGGG – d/M/y GGGGG"}
+                    M{"d/M/y – d/M/y GGGGG"}
+                    d{"d/M/y – d/M/y GGGGG"}
+                    y{"d/M/y – d/M/y GGGGG"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -1551,20 +1624,6 @@ ms{
                         "11",
                         "12",
                     }
-                    wide{
-                        "Muharram",
-                        "Safar",
-                        "Rabiʻ I",
-                        "Rabiʻ II",
-                        "Jumada I",
-                        "Jumada II",
-                        "Rajab",
-                        "Shaʻban",
-                        "Ramadan",
-                        "Shawwal",
-                        "Dhuʻl-Qiʻdah",
-                        "Dhuʻl-Hijjah",
-                    }
                 }
                 stand-alone{
                     abbreviated{
@@ -1834,7 +1893,7 @@ ms{
         variant_forms{"Bentuk Varian"}
         vocalic_jamo{"Jamo Vokal"}
         weather{"cuaca"}
-        western_asian_scripts{"Tiulisan Asia Barat"}
+        western_asian_scripts{"Skrip Asia Barat"}
         whitespace{"Ruang putih"}
     }
     delimiters{
@@ -1883,7 +1942,7 @@ ms{
         day-short{
             dn{"hari"}
             relative{
-                "-1"{"semlm"}
+                "-1"{"semalam"}
                 "-2"{"kelmarin"}
                 "0"{"hari ini"}
                 "1"{"esok"}
@@ -2476,9 +2535,9 @@ ms{
         week-narrow{
             dn{"mgu"}
             relative{
-                "-1"{"mng lepas"}
-                "0"{"mng ini"}
-                "1"{"mng depan"}
+                "-1"{"mgu lepas"}
+                "0"{"mgu ini"}
+                "1"{"mgu depan"}
             }
             relativePeriod{"minggu ke-{0}"}
             relativeTime{
@@ -2493,9 +2552,9 @@ ms{
         week-short{
             dn{"mgu"}
             relative{
-                "-1"{"mng lepas"}
-                "0"{"mng ini"}
-                "1"{"mng depan"}
+                "-1"{"mgu lepas"}
+                "0"{"mgu ini"}
+                "1"{"mgu depan"}
             }
             relativePeriod{"minggu ke-{0}"}
             relativeTime{
@@ -2604,6 +2663,10 @@ ms{
             end{"{0} dan {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        standard-narrow{
+            2{"{0}, {1}"}
+            end{"{0}, {1}"}
         }
         standard-short{
             2{"{0} dan {1}"}

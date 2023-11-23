@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from absl.testing import parameterized
 from fruit_test_common import *
 
 COMMON_DEFINITIONS = '''
@@ -22,73 +23,81 @@ COMMON_DEFINITIONS = '''
     using namespace fruit::impl;
     '''
 
-def test_size():
-    source = '''
-        int main() {
-          Assert(getTypeId<char[27]>().type_info->size() == 27);
-        }
-        '''
-    expect_success(
-        COMMON_DEFINITIONS,
-        source,
-        locals())
+class TestTypeInfo(parameterized.TestCase):
+    def test_size(self):
+        source = '''
+            int main() {
+              Assert(getTypeId<char[27]>().type_info->size() == 27);
+            }
+            '''
+        expect_success(
+            COMMON_DEFINITIONS,
+            source,
+            locals())
 
-def test_alignment():
-    source = '''
-        struct alignas(128) TypeAligned128 {
-        };
-        
-        int main() {
-          Assert(getTypeId<TypeAligned128>().type_info->alignment() == 128);
-        }
-        '''
-    expect_success(
-        COMMON_DEFINITIONS,
-        source,
-        locals())
+    def test_alignment(self):
+        source = '''
+            struct alignas(128) TypeAligned128 {
+            };
+            
+            int main() {
+              Assert(getTypeId<TypeAligned128>().type_info->alignment() == 128);
+            }
+            '''
+        expect_success(
+            COMMON_DEFINITIONS,
+            source,
+            locals())
 
-def test_name():
-    source = '''
-        struct MyStruct {
-        };
-        
-        int main() {
-          std::string result = getTypeId<MyStruct>().type_info->name();
-          if (result != "MyStruct" && result != "struct MyStruct") {
-            std::cerr << "Demangling failed." << std::endl;
-            std::cerr << "typeid(MyStruct).name() == " << typeid(MyStruct).name() << std::endl;
-            std::cerr << "getTypeId<MyStruct>().type_info->name() == " << result << std::endl;
-            abort();
-          }
-          Assert(std::string(getTypeId<MyStruct>()) == "MyStruct" || std::string(getTypeId<MyStruct>()) == "struct MyStruct");
-        }
-        '''
-    expect_success(
-        COMMON_DEFINITIONS,
-        source,
-        locals())
+    @parameterized.parameters([
+        ('MyStruct', '{"MyStruct", "struct MyStruct"}'),
+        ('std::pair<MyStruct, int>', '{"std::pair<MyStruct, int>", "std::__1::pair<MyStruct, int>"}'),
+    ])
+    def test_name(self, T, Expected):
+        source = '''
+            struct MyStruct {
+            };
+            
+            int main() {
+              std::string result = getTypeId<T>().type_info->name();
+              Assert(std::string(getTypeId<T>()) == getTypeId<T>().type_info->name());
+              for (std::string expected : Expected) {
+                if (result == expected) {
+                  return 0;
+                }
+              }
+              std::cerr << "Unexpected demangled name." << std::endl;
+              std::cerr << "typeid(T).name() == " << typeid(T).name() << std::endl;
+              std::cerr << "getTypeId<T>().type_info->name() == " << result << std::endl;
+              abort();
+            }
+            '''
+        expect_success(
+            COMMON_DEFINITIONS,
+            source,
+            locals())
 
-def test_isTriviallyDestructible_true():
-    source = '''
-        int main() {
-          Assert(getTypeId<int>().type_info->isTriviallyDestructible());
-        }
-        '''
-    expect_success(
-        COMMON_DEFINITIONS,
-        source,
-        locals())
+    def test_isTriviallyDestructible_true(self):
+        source = '''
+            int main() {
+              Assert(getTypeId<int>().type_info->isTriviallyDestructible());
+            }
+            '''
+        expect_success(
+            COMMON_DEFINITIONS,
+            source,
+            locals())
 
-def test_isTriviallyDestructible_false():
-    source = '''
-        int main() {
-          Assert(!getTypeId<std::vector<int>>().type_info->isTriviallyDestructible());
-        }
-        '''
-    expect_success(
-        COMMON_DEFINITIONS,
-        source,
-        locals())
+    def test_isTriviallyDestructible_false(self):
+        source = '''
+            int main() {
+              Assert(!getTypeId<std::vector<int>>().type_info->isTriviallyDestructible());
+            }
+            '''
+        expect_success(
+            COMMON_DEFINITIONS,
+            source,
+            locals())
 
-if __name__== '__main__':
-    main(__file__)
+if __name__ == '__main__':
+    absltest.main()

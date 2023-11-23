@@ -18,8 +18,9 @@ CFWL_ComboEdit::CFWL_ComboEdit(
     std::unique_ptr<CFWL_WidgetProperties> properties,
     CFWL_Widget* pOuter)
     : CFWL_Edit(app, std::move(properties), pOuter) {
-  m_pOuter = static_cast<CFWL_ComboBox*>(pOuter);
 }
+
+CFWL_ComboEdit::~CFWL_ComboEdit() = default;
 
 void CFWL_ComboEdit::ClearSelected() {
   ClearSelection();
@@ -62,7 +63,6 @@ void CFWL_ComboEdit::OnProcessMessage(CFWL_Message* pMessage) {
       if ((pMsg->m_dwCmd == FWL_MouseCommand::LeftButtonDown) &&
           ((m_pProperties->m_dwStates & FWL_WGTSTATE_Focused) == 0)) {
         SetSelected();
-        m_pOuter->SetFocus(true);
       }
       break;
     }

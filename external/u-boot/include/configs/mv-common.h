@@ -19,7 +19,6 @@
 /*
  * High Level Configuration Options (easy to change)
  */
-#define CONFIG_MARVELL		1
 
 /*
  * Custom CONFIG_SYS_TEXT_BASE can be done in <board>.h
@@ -38,16 +37,7 @@
 #define CONFIG_SYS_NS16550_COM1		MV_UART_CONSOLE_BASE
 #endif
 
-/*
- * Serial Port configuration
- * The following definitions let you select what serial you want to use
- * for your console driver.
- */
-
-#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, \
-					  115200,230400, 460800, 921600 }
 /* auto boot */
-#define CONFIG_PREBOOT
 
 /*
  * For booting Linux, the board info and command line data
@@ -68,7 +58,6 @@
 /*
  * Other required minimal configurations
  */
-#define CONFIG_ARCH_CPU_INIT	/* call arch_cpu_init() */
 #define CONFIG_SYS_LOAD_ADDR	0x00800000	/* default load adr- 8M */
 #define CONFIG_SYS_MEMTEST_START 0x00800000	/* 8M */
 #define CONFIG_SYS_MEMTEST_END	0x00ffffff	/*(_16M -1) */
@@ -77,17 +66,6 @@
 
 /* ====> Include platform Common Definitions */
 #include <asm/arch/config.h>
-
-/*
- * DRAM Banks configuration, Custom config can be done in <board>.h
- */
-#ifndef CONFIG_NR_DRAM_BANKS
-#define CONFIG_NR_DRAM_BANKS	CONFIG_NR_DRAM_BANKS_MAX
-#else
-#if (CONFIG_NR_DRAM_BANKS > CONFIG_NR_DRAM_BANKS_MAX)
-#error CONFIG_NR_DRAM_BANKS Configurated more than available
-#endif
-#endif /* CONFIG_NR_DRAM_BANKS */
 
 /* ====> Include driver Common Definitions */
 /*

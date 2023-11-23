@@ -12,15 +12,21 @@
 #include "biquad.h"
 
 #ifndef max
-#define max(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a > _b ? _a : _b; })
+#define max(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a > _b ? _a : _b;                                             \
+	})
 #endif
 
 #ifndef min
-#define min(a, b) ({ __typeof__(a) _a = (a);	\
-			__typeof__(b) _b = (b);	\
-			_a < _b ? _a : _b; })
+#define min(a, b)                                                              \
+	({                                                                     \
+		__typeof__(a) _a = (a);                                        \
+		__typeof__(b) _b = (b);                                        \
+		_a < _b ? _a : _b;                                             \
+	})
 #endif
 
 #ifndef M_PI
@@ -43,34 +49,33 @@ static void biquad_lowpass(struct biquad *bq, double cutoff, double resonance)
 	/* Limit cutoff to 0 to 1. */
 	cutoff = max(0.0, min(cutoff, 1.0));
 
-	if (cutoff == 1) {
-		/* When cutoff is 1, the z-transform is 1. */
-		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
-	} else if (cutoff > 0) {
-		/* Compute biquad coefficients for lowpass filter */
-		resonance = max(0.0, resonance); /* can't go negative */
-		double g = pow(10.0, 0.05 * resonance);
-		double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
-
-		double theta = M_PI * cutoff;
-		double sn = 0.5 * d * sin(theta);
-		double beta = 0.5 * (1 - sn) / (1 + sn);
-		double gamma = (0.5 + beta) * cos(theta);
-		double alpha = 0.25 * (0.5 + beta - gamma);
-
-		double b0 = 2 * alpha;
-		double b1 = 2 * 2 * alpha;
-		double b2 = 2 * alpha;
-		double a1 = 2 * -gamma;
-		double a2 = 2 * beta;
-
-		set_coefficient(bq, b0, b1, b2, 1, a1, a2);
-	} else {
-		/* When cutoff is zero, nothing gets through the filter, so set
+	if (cutoff == 1 || cutoff == 0) {
+		/* When cutoff is 1, the z-transform is 1.
+		 * When cutoff is zero, nothing gets through the filter, so set
 		 * coefficients up correctly.
 		 */
-		set_coefficient(bq, 0, 0, 0, 1, 0, 0);
+		set_coefficient(bq, cutoff, 0, 0, 1, 0, 0);
+		return;
 	}
+
+	/* Compute biquad coefficients for lowpass filter */
+	resonance = max(0.0, resonance); /* can't go negative */
+	double g = pow(10.0, 0.05 * resonance);
+	double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
+
+	double theta = M_PI * cutoff;
+	double sn = 0.5 * d * sin(theta);
+	double beta = 0.5 * (1 - sn) / (1 + sn);
+	double gamma = (0.5 + beta) * cos(theta);
+	double alpha = 0.25 * (0.5 + beta - gamma);
+
+	double b0 = 2 * alpha;
+	double b1 = 2 * 2 * alpha;
+	double b2 = 2 * alpha;
+	double a1 = 2 * -gamma;
+	double a2 = 2 * beta;
+
+	set_coefficient(bq, b0, b1, b2, 1, a1, a2);
 }
 
 static void biquad_highpass(struct biquad *bq, double cutoff, double resonance)
@@ -78,36 +83,35 @@ static void biquad_highpass(struct biquad *bq, double cutoff, double resonance)
 	/* Limit cutoff to 0 to 1. */
 	cutoff = max(0.0, min(cutoff, 1.0));
 
-	if (cutoff == 1) {
-		/* The z-transform is 0. */
-		set_coefficient(bq, 0, 0, 0, 1, 0, 0);
-	} else if (cutoff > 0) {
-		/* Compute biquad coefficients for highpass filter */
-		resonance = max(0.0, resonance); /* can't go negative */
-		double g = pow(10.0, 0.05 * resonance);
-		double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
-
-		double theta = M_PI * cutoff;
-		double sn = 0.5 * d * sin(theta);
-		double beta = 0.5 * (1 - sn) / (1 + sn);
-		double gamma = (0.5 + beta) * cos(theta);
-		double alpha = 0.25 * (0.5 + beta + gamma);
-
-		double b0 = 2 * alpha;
-		double b1 = 2 * -2 * alpha;
-		double b2 = 2 * alpha;
-		double a1 = 2 * -gamma;
-		double a2 = 2 * beta;
-
-		set_coefficient(bq, b0, b1, b2, 1, a1, a2);
-	} else {
+	if (cutoff == 1 || cutoff == 0) {
+		/* When cutoff is one, the z-transform is 0. */
 		/* When cutoff is zero, we need to be careful because the above
 		 * gives a quadratic divided by the same quadratic, with poles
 		 * and zeros on the unit circle in the same place. When cutoff
 		 * is zero, the z-transform is 1.
 		 */
-		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+		set_coefficient(bq, 1 - cutoff, 0, 0, 1, 0, 0);
+		return;
 	}
+
+	/* Compute biquad coefficients for highpass filter */
+	resonance = max(0.0, resonance); /* can't go negative */
+	double g = pow(10.0, 0.05 * resonance);
+	double d = sqrt((4 - sqrt(16 - 16 / (g * g))) / 2);
+
+	double theta = M_PI * cutoff;
+	double sn = 0.5 * d * sin(theta);
+	double beta = 0.5 * (1 - sn) / (1 + sn);
+	double gamma = (0.5 + beta) * cos(theta);
+	double alpha = 0.25 * (0.5 + beta + gamma);
+
+	double b0 = 2 * alpha;
+	double b1 = 2 * -2 * alpha;
+	double b2 = 2 * alpha;
+	double a1 = 2 * -gamma;
+	double a2 = 2 * beta;
+
+	set_coefficient(bq, b0, b1, b2, 1, a1, a2);
 }
 
 static void biquad_bandpass(struct biquad *bq, double frequency, double Q)
@@ -118,28 +122,7 @@ static void biquad_bandpass(struct biquad *bq, double frequency, double Q)
 	/* Don't let Q go negative, which causes an unstable filter. */
 	Q = max(0.0, Q);
 
-	if (frequency > 0 && frequency < 1) {
-		double w0 = M_PI * frequency;
-		if (Q > 0) {
-			double alpha = sin(w0) / (2 * Q);
-			double k = cos(w0);
-
-			double b0 = alpha;
-			double b1 = 0;
-			double b2 = -alpha;
-			double a0 = 1 + alpha;
-			double a1 = -2 * k;
-			double a2 = 1 - alpha;
-
-			set_coefficient(bq, b0, b1, b2, a0, a1, a2);
-		} else {
-			/* When Q = 0, the above formulas have problems. If we
-			 * look at the z-transform, we can see that the limit
-			 * as Q->0 is 1, so set the filter that way.
-			 */
-			set_coefficient(bq, 1, 0, 0, 1, 0, 0);
-		}
-	} else {
+	if (frequency <= 0 || frequency >= 1) {
 		/* When the cutoff is zero, the z-transform approaches 0, if Q
 		 * > 0. When both Q and cutoff are zero, the z-transform is
 		 * pretty much undefined. What should we do in this case?
@@ -147,7 +130,29 @@ static void biquad_bandpass(struct biquad *bq, double frequency, double Q)
 		 * z-transform also approaches 0.
 		 */
 		set_coefficient(bq, 0, 0, 0, 1, 0, 0);
+		return;
 	}
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is 1, so set the filter that way.
+		 */
+		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+		return;
+	}
+
+	double w0 = M_PI * frequency;
+	double alpha = sin(w0) / (2 * Q);
+	double k = cos(w0);
+
+	double b0 = alpha;
+	double b1 = 0;
+	double b2 = -alpha;
+	double a0 = 1 + alpha;
+	double a1 = -2 * k;
+	double a2 = 1 - alpha;
+
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
 static void biquad_lowshelf(struct biquad *bq, double frequency, double db_gain)
@@ -160,28 +165,30 @@ static void biquad_lowshelf(struct biquad *bq, double frequency, double db_gain)
 	if (frequency == 1) {
 		/* The z-transform is a constant gain. */
 		set_coefficient(bq, A * A, 0, 0, 1, 0, 0);
-	} else if (frequency > 0) {
-		double w0 = M_PI * frequency;
-		double S = 1; /* filter slope (1 is max value) */
-		double alpha = 0.5 * sin(w0) *
-			sqrt((A + 1 / A) * (1 / S - 1) + 2);
-		double k = cos(w0);
-		double k2 = 2 * sqrt(A) * alpha;
-		double a_plus_one = A + 1;
-		double a_minus_one = A - 1;
-
-		double b0 = A * (a_plus_one - a_minus_one * k + k2);
-		double b1 = 2 * A * (a_minus_one - a_plus_one * k);
-		double b2 = A * (a_plus_one - a_minus_one * k - k2);
-		double a0 = a_plus_one + a_minus_one * k + k2;
-		double a1 = -2 * (a_minus_one + a_plus_one * k);
-		double a2 = a_plus_one + a_minus_one * k - k2;
-
-		set_coefficient(bq, b0, b1, b2, a0, a1, a2);
-	} else {
+		return;
+	}
+	if (frequency <= 0) {
 		/* When frequency is 0, the z-transform is 1. */
 		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+		return;
 	}
+
+	double w0 = M_PI * frequency;
+	double S = 1; /* filter slope (1 is max value) */
+	double alpha = 0.5 * sin(w0) * sqrt((A + 1 / A) * (1 / S - 1) + 2);
+	double k = cos(w0);
+	double k2 = 2 * sqrt(A) * alpha;
+	double a_plus_one = A + 1;
+	double a_minus_one = A - 1;
+
+	double b0 = A * (a_plus_one - a_minus_one * k + k2);
+	double b1 = 2 * A * (a_minus_one - a_plus_one * k);
+	double b2 = A * (a_plus_one - a_minus_one * k - k2);
+	double a0 = a_plus_one + a_minus_one * k + k2;
+	double a1 = -2 * (a_minus_one + a_plus_one * k);
+	double a2 = a_plus_one + a_minus_one * k - k2;
+
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
 static void biquad_highshelf(struct biquad *bq, double frequency,
@@ -195,28 +202,30 @@ static void biquad_highshelf(struct biquad *bq, double frequency,
 	if (frequency == 1) {
 		/* The z-transform is 1. */
 		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
-	} else if (frequency > 0) {
-		double w0 = M_PI * frequency;
-		double S = 1; /* filter slope (1 is max value) */
-		double alpha = 0.5 * sin(w0) *
-			sqrt((A + 1 / A) * (1 / S - 1) + 2);
-		double k = cos(w0);
-		double k2 = 2 * sqrt(A) * alpha;
-		double a_plus_one = A + 1;
-		double a_minus_one = A - 1;
-
-		double b0 = A * (a_plus_one + a_minus_one * k + k2);
-		double b1 = -2 * A * (a_minus_one + a_plus_one * k);
-		double b2 = A * (a_plus_one + a_minus_one * k - k2);
-		double a0 = a_plus_one - a_minus_one * k + k2;
-		double a1 = 2 * (a_minus_one - a_plus_one * k);
-		double a2 = a_plus_one - a_minus_one * k - k2;
-
-		set_coefficient(bq, b0, b1, b2, a0, a1, a2);
-	} else {
+		return;
+	}
+	if (frequency <= 0) {
 		/* When frequency = 0, the filter is just a gain, A^2. */
 		set_coefficient(bq, A * A, 0, 0, 1, 0, 0);
+		return;
 	}
+
+	double w0 = M_PI * frequency;
+	double S = 1; /* filter slope (1 is max value) */
+	double alpha = 0.5 * sin(w0) * sqrt((A + 1 / A) * (1 / S - 1) + 2);
+	double k = cos(w0);
+	double k2 = 2 * sqrt(A) * alpha;
+	double a_plus_one = A + 1;
+	double a_minus_one = A - 1;
+
+	double b0 = A * (a_plus_one + a_minus_one * k + k2);
+	double b1 = -2 * A * (a_minus_one + a_plus_one * k);
+	double b2 = A * (a_plus_one + a_minus_one * k - k2);
+	double a0 = a_plus_one - a_minus_one * k + k2;
+	double a1 = 2 * (a_minus_one - a_plus_one * k);
+	double a2 = a_plus_one - a_minus_one * k - k2;
+
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
 static void biquad_peaking(struct biquad *bq, double frequency, double Q,
@@ -230,31 +239,32 @@ static void biquad_peaking(struct biquad *bq, double frequency, double Q,
 
 	double A = pow(10.0, db_gain / 40);
 
-	if (frequency > 0 && frequency < 1) {
-		if (Q > 0) {
-			double w0 = M_PI * frequency;
-			double alpha = sin(w0) / (2 * Q);
-			double k = cos(w0);
-
-			double b0 = 1 + alpha * A;
-			double b1 = -2 * k;
-			double b2 = 1 - alpha * A;
-			double a0 = 1 + alpha / A;
-			double a1 = -2 * k;
-			double a2 = 1 - alpha / A;
-
-			set_coefficient(bq, b0, b1, b2, a0, a1, a2);
-		} else {
-			/* When Q = 0, the above formulas have problems. If we
-			 * look at the z-transform, we can see that the limit
-			 * as Q->0 is A^2, so set the filter that way.
-			 */
-			set_coefficient(bq, A * A, 0, 0, 1, 0, 0);
-		}
-	} else {
+	if (frequency <= 0 || frequency >= 1) {
 		/* When frequency is 0 or 1, the z-transform is 1. */
 		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+		return;
 	}
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is A^2, so set the filter that way.
+		 */
+		set_coefficient(bq, A * A, 0, 0, 1, 0, 0);
+		return;
+	}
+
+	double w0 = M_PI * frequency;
+	double alpha = sin(w0) / (2 * Q);
+	double k = cos(w0);
+
+	double b0 = 1 + alpha * A;
+	double b1 = -2 * k;
+	double b2 = 1 - alpha * A;
+	double a0 = 1 + alpha / A;
+	double a1 = -2 * k;
+	double a2 = 1 - alpha / A;
+
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
 static void biquad_notch(struct biquad *bq, double frequency, double Q)
@@ -265,31 +275,32 @@ static void biquad_notch(struct biquad *bq, double frequency, double Q)
 	/* Don't let Q go negative, which causes an unstable filter. */
 	Q = max(0.0, Q);
 
-	if (frequency > 0 && frequency < 1) {
-		if (Q > 0) {
-			double w0 = M_PI * frequency;
-			double alpha = sin(w0) / (2 * Q);
-			double k = cos(w0);
-
-			double b0 = 1;
-			double b1 = -2 * k;
-			double b2 = 1;
-			double a0 = 1 + alpha;
-			double a1 = -2 * k;
-			double a2 = 1 - alpha;
-
-			set_coefficient(bq, b0, b1, b2, a0, a1, a2);
-		} else {
-			/* When Q = 0, the above formulas have problems. If we
-			 * look at the z-transform, we can see that the limit
-			 * as Q->0 is 0, so set the filter that way.
-			 */
-			set_coefficient(bq, 0, 0, 0, 1, 0, 0);
-		}
-	} else {
+	if (frequency <= 0 || frequency >= 1) {
 		/* When frequency is 0 or 1, the z-transform is 1. */
 		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+		return;
 	}
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is 0, so set the filter that way.
+		 */
+		set_coefficient(bq, 0, 0, 0, 1, 0, 0);
+		return;
+	}
+
+	double w0 = M_PI * frequency;
+	double alpha = sin(w0) / (2 * Q);
+	double k = cos(w0);
+
+	double b0 = 1;
+	double b1 = -2 * k;
+	double b2 = 1;
+	double a0 = 1 + alpha;
+	double a1 = -2 * k;
+	double a2 = 1 - alpha;
+
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
 static void biquad_allpass(struct biquad *bq, double frequency, double Q)
@@ -300,31 +311,33 @@ static void biquad_allpass(struct biquad *bq, double frequency, double Q)
 	/* Don't let Q go negative, which causes an unstable filter. */
 	Q = max(0.0, Q);
 
-	if (frequency > 0 && frequency < 1) {
-		if (Q > 0) {
-			double w0 = M_PI * frequency;
-			double alpha = sin(w0) / (2 * Q);
-			double k = cos(w0);
-
-			double b0 = 1 - alpha;
-			double b1 = -2 * k;
-			double b2 = 1 + alpha;
-			double a0 = 1 + alpha;
-			double a1 = -2 * k;
-			double a2 = 1 - alpha;
-
-			set_coefficient(bq, b0, b1, b2, a0, a1, a2);
-		} else {
-			/* When Q = 0, the above formulas have problems. If we
-			 * look at the z-transform, we can see that the limit
-			 * as Q->0 is -1, so set the filter that way.
-			 */
-			set_coefficient(bq, -1, 0, 0, 1, 0, 0);
-		}
-	} else {
+	if (frequency <= 0 || frequency >= 1) {
 		/* When frequency is 0 or 1, the z-transform is 1. */
 		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
+		return;
 	}
+
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is -1, so set the filter that way.
+		 */
+		set_coefficient(bq, -1, 0, 0, 1, 0, 0);
+		return;
+	}
+
+	double w0 = M_PI * frequency;
+	double alpha = sin(w0) / (2 * Q);
+	double k = cos(w0);
+
+	double b0 = 1 - alpha;
+	double b1 = -2 * k;
+	double b2 = 1 + alpha;
+	double a0 = 1 + alpha;
+	double a1 = -2 * k;
+	double a2 = 1 - alpha;
+
+	set_coefficient(bq, b0, b1, b2, a0, a1, a2);
 }
 
 void biquad_set(struct biquad *bq, enum biquad_type type, double freq, double Q,

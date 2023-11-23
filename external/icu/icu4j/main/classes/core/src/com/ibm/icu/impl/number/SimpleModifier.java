@@ -2,9 +2,11 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 package com.ibm.icu.impl.number;
 
+import java.text.Format.Field;
+
+import com.ibm.icu.impl.FormattedStringBuilder;
 import com.ibm.icu.impl.SimpleFormatterImpl;
 import com.ibm.icu.impl.number.range.PrefixInfixSuffixLengthHelper;
-import com.ibm.icu.text.NumberFormat.Field;
 import com.ibm.icu.util.ICUException;
 
 /**
@@ -64,8 +66,8 @@ public class SimpleModifier implements Modifier {
     }
 
     @Override
-    public int apply(NumberStringBuilder output, int leftIndex, int rightIndex) {
-        return formatAsPrefixSuffix(output, leftIndex, rightIndex, field);
+    public int apply(FormattedStringBuilder output, int leftIndex, int rightIndex) {
+        return formatAsPrefixSuffix(output, leftIndex, rightIndex);
     }
 
     @Override
@@ -137,10 +139,9 @@ public class SimpleModifier implements Modifier {
      * @return The number of characters (UTF-16 code points) that were added to the StringBuilder.
      */
     public int formatAsPrefixSuffix(
-            NumberStringBuilder result,
+            FormattedStringBuilder result,
             int startIndex,
-            int endIndex,
-            Field field) {
+            int endIndex) {
         if (suffixOffset == -1) {
             // There is no argument for the inner number; overwrite the entire segment with our string.
             return result.splice(startIndex, endIndex, compiledPattern, 2, 2 + prefixLength, field);
@@ -161,16 +162,16 @@ public class SimpleModifier implements Modifier {
 
     /**
      * TODO: Like above, this belongs with the rest of the SimpleFormatterImpl code.
-     * I put it here so that the SimpleFormatter uses in NumberStringBuilder are near each other.
+     * I put it here so that the SimpleFormatter uses in FormattedStringBuilder are near each other.
      *
      * <p>
-     * Applies the compiled two-argument pattern to the NumberStringBuilder.
+     * Applies the compiled two-argument pattern to the FormattedStringBuilder.
      *
      * <p>
      * This method is optimized for the case where the prefix and suffix are often empty, such as
      * in the range pattern like "{0}-{1}".
      */
-    public static void formatTwoArgPattern(String compiledPattern, NumberStringBuilder result, int index, PrefixInfixSuffixLengthHelper h,
+    public static void formatTwoArgPattern(String compiledPattern, FormattedStringBuilder result, int index, PrefixInfixSuffixLengthHelper h,
             Field field) {
         int argLimit = SimpleFormatterImpl.getArgumentLimit(compiledPattern);
         if (argLimit != 2) {

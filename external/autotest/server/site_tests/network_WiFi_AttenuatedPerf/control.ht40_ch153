@@ -25,11 +25,13 @@ def run(machine):
             channel=153,
             n_capabilities=[hostap_config.HostapConfig.N_CAPABILITY_HT40_MINUS],
             mode=hostap_config.HostapConfig.MODE_11N_PURE)
+    attenuation_increment = 4
+    final_attenuation = 100
     job.run_test('network_WiFi_AttenuatedPerf',
                  tag=NAME.split('.')[1],
                  host=host,
                  raw_cmdline_args=args,
-                 additional_params=ap_config)
+                 additional_params=(ap_config, attenuation_increment, final_attenuation))
 
 
 parallel_simple(run, machines)

@@ -10,10 +10,10 @@
 #include <cpu.h>
 #include <dm.h>
 #include <dm/uclass-internal.h>
+#include <serial.h>
 #include <version.h>
 #include <asm/acpi/global_nvs.h>
 #include <asm/acpi_table.h>
-#include <asm/io.h>
 #include <asm/ioapic.h>
 #include <asm/lapic.h>
 #include <asm/mpspec.h>
@@ -337,25 +337,141 @@ static void acpi_create_mcfg(struct acpi_mcfg *mcfg)
 	header->checksum = table_compute_checksum((void *)mcfg, header->length);
 }
 
-void enter_acpi_mode(int pm1_cnt)
+__weak u32 acpi_fill_csrt(u32 current)
 {
-	u16 val = inw(pm1_cnt);
+	return current;
+}
 
-	/*
-	 * PM1_CNT register bit0 selects the power management event to be
-	 * either an SCI or SMI interrupt. When this bit is set, then power
-	 * management events will generate an SCI interrupt. When this bit
-	 * is reset power management events will generate an SMI interrupt.
-	 *
-	 * Per ACPI spec, it is the responsibility of the hardware to set
-	 * or reset this bit. OSPM always preserves this bit position.
-	 *
-	 * U-Boot does not support SMI. And we don't have plan to support
-	 * anything running in SMM within U-Boot. To create a legacy-free
-	 * system, and expose ourselves to OSPM as working under ACPI mode
-	 * already, turn this bit on.
-	 */
-	outw(val | PM1_CNT_SCI_EN, pm1_cnt);
+static void acpi_create_csrt(struct acpi_csrt *csrt)
+{
+	struct acpi_table_header *header = &(csrt->header);
+	u32 current = (u32)csrt + sizeof(struct acpi_csrt);
+
+	memset((void *)csrt, 0, sizeof(struct acpi_csrt));
+
+	/* Fill out header fields */
+	acpi_fill_header(header, "CSRT");
+	header->length = sizeof(struct acpi_csrt);
+	header->revision = 0;
+
+	current = acpi_fill_csrt(current);
+
+	/* (Re)calculate length and checksum */
+	header->length = current - (u32)csrt;
+	header->checksum = table_compute_checksum((void *)csrt, header->length);
+}
+
+static void acpi_create_spcr(struct acpi_spcr *spcr)
+{
+	struct acpi_table_header *header = &(spcr->header);
+	struct serial_device_info serial_info = {0};
+	ulong serial_address, serial_offset;
+	struct udevice *dev;
+	uint serial_config;
+	uint serial_width;
+	int access_size;
+	int space_id;
+	int ret = -ENODEV;
+
+	/* Fill out header fields */
+	acpi_fill_header(header, "SPCR");
+	header->length = sizeof(struct acpi_spcr);
+	header->revision = 2;
+
+	/* Read the device once, here. It is reused below */
+	dev = gd->cur_serial_dev;
+	if (dev)
+		ret = serial_getinfo(dev, &serial_info);
+	if (ret)
+		serial_info.type = SERIAL_CHIP_UNKNOWN;
+
+	/* Encode chip type */
+	switch (serial_info.type) {
+	case SERIAL_CHIP_16550_COMPATIBLE:
+		spcr->interface_type = ACPI_DBG2_16550_COMPATIBLE;
+		break;
+	case SERIAL_CHIP_UNKNOWN:
+	default:
+		spcr->interface_type = ACPI_DBG2_UNKNOWN;
+		break;
+	}
+
+	/* Encode address space */
+	switch (serial_info.addr_space) {
+	case SERIAL_ADDRESS_SPACE_MEMORY:
+		space_id = ACPI_ADDRESS_SPACE_MEMORY;
+		break;
+	case SERIAL_ADDRESS_SPACE_IO:
+	default:
+		space_id = ACPI_ADDRESS_SPACE_IO;
+		break;
+	}
+
+	serial_width = serial_info.reg_width * 8;
+	serial_offset = serial_info.reg_offset << serial_info.reg_shift;
+	serial_address = serial_info.addr + serial_offset;
+
+	/* Encode register access size */
+	switch (serial_info.reg_shift) {
+	case 0:
+		access_size = ACPI_ACCESS_SIZE_BYTE_ACCESS;
+		break;
+	case 1:
+		access_size = ACPI_ACCESS_SIZE_WORD_ACCESS;
+		break;
+	case 2:
+		access_size = ACPI_ACCESS_SIZE_DWORD_ACCESS;
+		break;
+	case 3:
+		access_size = ACPI_ACCESS_SIZE_QWORD_ACCESS;
+		break;
+	default:
+		access_size = ACPI_ACCESS_SIZE_UNDEFINED;
+		break;
+	}
+
+	debug("UART type %u @ %lx\n", spcr->interface_type, serial_address);
+
+	/* Fill GAS */
+	spcr->serial_port.space_id = space_id;
+	spcr->serial_port.bit_width = serial_width;
+	spcr->serial_port.bit_offset = 0;
+	spcr->serial_port.access_size = access_size;
+	spcr->serial_port.addrl = lower_32_bits(serial_address);
+	spcr->serial_port.addrh = upper_32_bits(serial_address);
+
+	/* Encode baud rate */
+	switch (serial_info.baudrate) {
+	case 9600:
+		spcr->baud_rate = 3;
+		break;
+	case 19200:
+		spcr->baud_rate = 4;
+		break;
+	case 57600:
+		spcr->baud_rate = 6;
+		break;
+	case 115200:
+		spcr->baud_rate = 7;
+		break;
+	default:
+		spcr->baud_rate = 0;
+		break;
+	}
+
+	serial_config = SERIAL_DEFAULT_CONFIG;
+	if (dev)
+		ret = serial_getconfig(dev, &serial_config);
+
+	spcr->parity = SERIAL_GET_PARITY(serial_config);
+	spcr->stop_bits = SERIAL_GET_STOP(serial_config);
+
+	/* No PCI devices for now */
+	spcr->pci_device_id = 0xffff;
+	spcr->pci_vendor_id = 0xffff;
+
+	/* Fix checksum */
+	header->checksum = table_compute_checksum((void *)spcr, header->length);
 }
 
 /*
@@ -372,6 +488,8 @@ ulong write_acpi_tables(ulong start)
 	struct acpi_fadt *fadt;
 	struct acpi_mcfg *mcfg;
 	struct acpi_madt *madt;
+	struct acpi_csrt *csrt;
+	struct acpi_spcr *spcr;
 	int i;
 
 	current = start;
@@ -460,20 +578,24 @@ ulong write_acpi_tables(ulong start)
 	acpi_add_table(rsdp, mcfg);
 	current = ALIGN(current, 16);
 
+	debug("ACPI:    * CSRT\n");
+	csrt = (struct acpi_csrt *)current;
+	acpi_create_csrt(csrt);
+	current += csrt->header.length;
+	acpi_add_table(rsdp, csrt);
+	current = ALIGN(current, 16);
+
+	debug("ACPI:    * SPCR\n");
+	spcr = (struct acpi_spcr *)current;
+	acpi_create_spcr(spcr);
+	current += spcr->header.length;
+	acpi_add_table(rsdp, spcr);
+	current = ALIGN(current, 16);
+
 	debug("current = %x\n", current);
 
 	acpi_rsdp_addr = (unsigned long)rsdp;
 	debug("ACPI: done\n");
-
-	/* Don't touch ACPI hardware on HW reduced platforms */
-	if (fadt->flags & ACPI_FADT_HW_REDUCED_ACPI)
-		return current;
-
-	/*
-	 * Other than waiting for OSPM to request us to switch to ACPI mode,
-	 * do it by ourselves, since SMI will not be triggered.
-	 */
-	enter_acpi_mode(fadt->pm1a_cnt_blk);
 
 	return current;
 }
@@ -481,82 +603,4 @@ ulong write_acpi_tables(ulong start)
 ulong acpi_get_rsdp_addr(void)
 {
 	return acpi_rsdp_addr;
-}
-
-static struct acpi_rsdp *acpi_valid_rsdp(struct acpi_rsdp *rsdp)
-{
-	if (strncmp((char *)rsdp, RSDP_SIG, sizeof(RSDP_SIG) - 1) != 0)
-		return NULL;
-
-	debug("Looking on %p for valid checksum\n", rsdp);
-
-	if (table_compute_checksum((void *)rsdp, 20) != 0)
-		return NULL;
-	debug("acpi rsdp checksum 1 passed\n");
-
-	if ((rsdp->revision > 1) &&
-	    (table_compute_checksum((void *)rsdp, rsdp->length) != 0))
-		return NULL;
-	debug("acpi rsdp checksum 2 passed\n");
-
-	return rsdp;
-}
-
-struct acpi_fadt *acpi_find_fadt(void)
-{
-	char *p, *end;
-	struct acpi_rsdp *rsdp = NULL;
-	struct acpi_rsdt *rsdt;
-	struct acpi_fadt *fadt = NULL;
-	int i;
-
-	/* Find RSDP */
-	for (p = (char *)ROM_TABLE_ADDR; p < (char *)ROM_TABLE_END; p += 16) {
-		rsdp = acpi_valid_rsdp((struct acpi_rsdp *)p);
-		if (rsdp)
-			break;
-	}
-
-	if (rsdp == NULL)
-		return NULL;
-
-	debug("RSDP found at %p\n", rsdp);
-	rsdt = (struct acpi_rsdt *)rsdp->rsdt_address;
-
-	end = (char *)rsdt + rsdt->header.length;
-	debug("RSDT found at %p ends at %p\n", rsdt, end);
-
-	for (i = 0; ((char *)&rsdt->entry[i]) < end; i++) {
-		fadt = (struct acpi_fadt *)rsdt->entry[i];
-		if (strncmp((char *)fadt, "FACP", 4) == 0)
-			break;
-		fadt = NULL;
-	}
-
-	if (fadt == NULL)
-		return NULL;
-
-	debug("FADT found at %p\n", fadt);
-	return fadt;
-}
-
-void *acpi_find_wakeup_vector(struct acpi_fadt *fadt)
-{
-	struct acpi_facs *facs;
-	void *wake_vec;
-
-	debug("Trying to find the wakeup vector...\n");
-
-	facs = (struct acpi_facs *)fadt->firmware_ctrl;
-
-	if (facs == NULL) {
-		debug("No FACS found, wake up from S3 not possible.\n");
-		return NULL;
-	}
-
-	debug("FACS found at %p\n", facs);
-	wake_vec = (void *)facs->firmware_waking_vector;
-	debug("OS waking vector is %p\n", wake_vec);
-
-	return wake_vec;
 }

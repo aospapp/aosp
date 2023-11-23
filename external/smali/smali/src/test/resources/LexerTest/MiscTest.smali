@@ -45,6 +45,16 @@ illegal-method-access
 class-change-error
 instantiation-error
 
+invoke-static
+invoke-instance
+invoke-constructor
+invoke-direct
+invoke-interface
+static-put
+static-get
+instance-put
+instance-get
+
 inline@0xABCD
 inline@0x0123
 inline@0x0123ABCD

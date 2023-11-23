@@ -2,11 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import os
 import logging
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import utils
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 TARGET_BIOS = 'host_firmware'
@@ -241,6 +239,7 @@ class firmware_FMap(FirmwareTest):
 
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         self.get_areas()
 
         for key in self._TARGET_AREA.keys():

@@ -868,8 +868,8 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         gp.setLocale(new ULocale("aar"));
         BreakIterator brk = gp.getBreakIterator(GlobalizationPreferences.BI_LINE);
         String locStr = brk.getLocale(ULocale.VALID_LOCALE).toString();
-        if (!locStr.equals("root")) {
-            errln("FAIL: Line break iterator locale is " + locStr + " Expected: root");
+        if (!locStr.isEmpty()) {
+            errln("FAIL: Line break iterator locale is " + locStr + " Expected: \"\"");
         }
 
         // Set locale - es
@@ -1200,8 +1200,8 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         df = gp.getDateFormat(GlobalizationPreferences.DF_SHORT, GlobalizationPreferences.DF_NONE);
         pattern = ((SimpleDateFormat)df).toPattern();
         // fr_CA pattern must be used
-        if (!pattern.equals("yy-MM-dd")) {
-            errln("FAIL: SHORT date pattern is " + pattern + " Expected: yy-MM-dd");
+        if (!pattern.equals("y-MM-dd")) {
+            errln("FAIL: SHORT date pattern is " + pattern + " Expected: y-MM-dd");
         }
 
 

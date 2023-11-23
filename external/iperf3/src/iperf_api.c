@@ -1,5 +1,5 @@
 /*
- * iperf, Copyright (c) 2014-2018, The Regents of the University of
+ * iperf, Copyright (c) 2014-2019, The Regents of the University of
  * California, through Lawrence Berkeley National Laboratory (subject
  * to receipt of any required approvals from the U.S. Dept. of
  * Energy).  All rights reserved.
@@ -238,6 +238,12 @@ iperf_get_test_num_streams(struct iperf_test *ipt)
 }
 
 int
+iperf_get_test_repeating_payload(struct iperf_test *ipt)
+{
+    return ipt->repeating_payload;
+}
+
+int
 iperf_get_test_server_port(struct iperf_test *ipt)
 {
     return ipt->server_port;
@@ -328,6 +334,12 @@ iperf_get_iperf_version(void)
     return (char*)iperf_version;
 }
 
+int
+iperf_get_test_no_delay(struct iperf_test *ipt)
+{
+    return ipt->no_delay;
+}
+
 /************** Setter routines for some fields inside iperf_test *************/
 
 void
@@ -376,6 +388,12 @@ void
 iperf_set_test_blksize(struct iperf_test *ipt, int blksize)
 {
     ipt->settings->blksize = blksize;
+}
+
+void
+iperf_set_test_logfile(struct iperf_test *ipt, char *logfile)
+{
+    ipt->logfile = strdup(logfile);
 }
 
 void
@@ -430,6 +448,12 @@ void
 iperf_set_test_num_streams(struct iperf_test *ipt, int num_streams)
 {
     ipt->num_streams = num_streams;
+}
+
+void
+iperf_set_test_repeating_payload(struct iperf_test *ipt, int repeating_payload)
+{
+    ipt->repeating_payload = repeating_payload;
 }
 
 static void
@@ -579,6 +603,12 @@ iperf_set_test_bidirectional(struct iperf_test* ipt, int bidirectional)
         iperf_set_test_reverse(ipt, ipt->reverse);
 }
 
+void
+iperf_set_test_no_delay(struct iperf_test* ipt, int no_delay)
+{
+    ipt->no_delay = no_delay;
+}
+
 /********************** Get/set test protocol structure ***********************/
 
 struct protocol *
@@ -662,7 +692,7 @@ void
 iperf_on_connect(struct iperf_test *test)
 {
     time_t now_secs;
-    const char* rfc1123_fmt = "%a, %d %b %Y %H:%M:%S GMT";
+    const char* rfc1123_fmt = "%a, %d %b %Y %H:%M:%S %Z";
     char now_str[100];
     char ipr[INET6_ADDRSTRLEN];
     int port;
@@ -812,6 +842,7 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
         {NULL, 0, NULL, 0}
     };
     int flag;
+    int portno;
     int blksize;
     int server_flag, client_flag, rate_flag, duration_flag;
     char *endptr;
@@ -831,7 +862,12 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
     while ((flag = getopt_long(argc, argv, "p:f:i:D1VJvsc:ub:t:n:k:l:P:Rw:B:M:N46S:L:ZO:F:A:T:C:dI:hX:", longopts, NULL)) != -1) {
         switch (flag) {
             case 'p':
-                test->server_port = atoi(optarg);
+		portno = atoi(optarg);
+		if (portno < 1 || portno > 65535) {
+		    i_errno = IEBADPORT;
+		    return -1;
+		}
+		test->server_port = portno;
                 break;
             case 'f':
 		if (!optarg) {
@@ -995,7 +1031,12 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
                 test->bind_address = strdup(optarg);
                 break;
             case OPT_CLIENT_PORT:
-                test->bind_port = atoi(optarg);
+		portno = atoi(optarg);
+		if (portno < 1 || portno > 65535) {
+		    i_errno = IEBADPORT;
+		    return -1;
+		}
+                test->bind_port = portno;
                 break;
             case 'M':
                 test->settings->mss = atoi(optarg);
@@ -1193,15 +1234,6 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
         }
     }
 
-    /* Set logging to a file if specified, otherwise use the default (stdout) */
-    if (test->logfile) {
-        test->outfile = fopen(test->logfile, "a+");
-        if (test->outfile == NULL) {
-            i_errno = IELOGFILE;
-            return -1;
-        }
-    }
-
     /* Check flag / role compatibility. */
     if (test->role == 'c' && server_flag) {
         i_errno = IESERVERONLY;
@@ -1225,8 +1257,10 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
 
         char *client_password = NULL;
         size_t s;
-        if ((client_password = getenv("IPERF3_PASSWORD")) == NULL &&
-            iperf_getpass(&client_password, &s, stdin) < 0){
+        /* Need to copy env var, so we can do a common free */
+        if ((client_password = getenv("IPERF3_PASSWORD")) != NULL)
+             client_password = strdup(client_password);
+        else if (iperf_getpass(&client_password, &s, stdin) < 0){
             return -1;
         } 
 
@@ -1243,6 +1277,8 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
         test->settings->client_username = client_username;
         test->settings->client_password = client_password;
         test->settings->client_rsa_pubkey = load_pubkey_from_file(client_rsa_public_key);
+	free(client_rsa_public_key);
+	client_rsa_public_key = NULL;
     }
 
     if (test->role == 'c' && (server_rsa_private_key || test->server_authorized_users)){
@@ -1252,11 +1288,14 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
         !(server_rsa_private_key && test->server_authorized_users)) {
          i_errno = IESETSERVERAUTH;
         return -1;
-    } else if (test->role == 's' && server_rsa_private_key && test_load_private_key_from_file(server_rsa_private_key) < 0){
-        i_errno = IESETSERVERAUTH;
-        return -1;
-    } else {
+    } else if (test->role == 's' && server_rsa_private_key) {
         test->server_rsa_private_key = load_privkey_from_file(server_rsa_private_key);
+        if (test->server_rsa_private_key == NULL){
+            i_errno = IESETSERVERAUTH;
+            return -1;
+        }
+	free(server_rsa_private_key);
+	server_rsa_private_key = NULL;
     }
 
 #endif //HAVE_SSL
@@ -1321,6 +1360,20 @@ iperf_parse_arguments(struct iperf_test *test, int argc, char **argv)
     }
     if (test->json_output && test->debug) {
         warning("Debug output (-d) may interfere with JSON output (-J)");
+    }
+
+    return 0;
+}
+
+/*
+ * Open the file specified by test->logfile and set test->outfile to its' FD.
+ */
+int iperf_open_logfile(struct iperf_test *test)
+{
+    test->outfile = fopen(test->logfile, "a+");
+    if (test->outfile == NULL) {
+        i_errno = IELOGFILE;
+        return -1;
     }
 
     return 0;
@@ -1510,9 +1563,13 @@ int test_is_authorized(struct iperf_test *test){
         int ret = check_authentication(username, password, ts, test->server_authorized_users);
         if (ret == 0){
             iperf_printf(test, report_authetication_successed, username, ts);
+            free(username);
+            free(password);
             return 0;
         } else {
             iperf_printf(test, report_authetication_failed, username, ts);
+            free(username);
+            free(password);
             return -1;
         }
     }
@@ -1670,6 +1727,8 @@ send_parameters(struct iperf_test *test)
 	    cJSON_AddNumberToObject(j, "get_server_output", iperf_get_test_get_server_output(test));
 	if (test->udp_counters_64bit)
 	    cJSON_AddNumberToObject(j, "udp_counters_64bit", iperf_get_test_udp_counters_64bit(test));
+	if (test->repeating_payload)
+	    cJSON_AddNumberToObject(j, "repeating_payload", test->repeating_payload);
 #if defined(HAVE_SSL)
     if (test->settings->client_username && test->settings->client_password && test->settings->client_rsa_pubkey){
         encode_auth_setting(test->settings->client_username, test->settings->client_password, test->settings->client_rsa_pubkey, &test->settings->authtoken);
@@ -1706,7 +1765,10 @@ get_parameters(struct iperf_test *test)
         r = -1;
     } else {
 	if (test->debug) {
-	    printf("get_parameters:\n%s\n", cJSON_Print(j));
+            char *str;
+            str = cJSON_Print(j);
+            printf("get_parameters:\n%s\n", str );
+            free(str);
 	}
 
 	if ((j_p = cJSON_GetObjectItem(j, "tcp")) != NULL)
@@ -1763,6 +1825,8 @@ get_parameters(struct iperf_test *test)
 	    iperf_set_test_get_server_output(test, 1);
 	if ((j_p = cJSON_GetObjectItem(j, "udp_counters_64bit")) != NULL)
 	    iperf_set_test_udp_counters_64bit(test, 1);
+	if ((j_p = cJSON_GetObjectItem(j, "repeating_payload")) != NULL)
+	    test->repeating_payload = 1;
 #if defined(HAVE_SSL)
 	if ((j_p = cJSON_GetObjectItem(j, "authtoken")) != NULL)
         test->settings->authtoken = strdup(j_p->valuestring);
@@ -1869,7 +1933,9 @@ send_results(struct iperf_test *test)
 		}
 	    }
 	    if (r == 0 && test->debug) {
-		printf("send_results\n%s\n", cJSON_Print(j));
+                char *str = cJSON_Print(j);
+		printf("send_results\n%s\n", str);
+                free(str);
 	    }
 	    if (r == 0 && JSON_write(test->ctrl_sck, j) < 0) {
 		i_errno = IESENDRESULTS;
@@ -1925,7 +1991,9 @@ get_results(struct iperf_test *test)
 	    r = -1;
 	} else {
 	    if (test->debug) {
-		printf("get_results\n%s\n", cJSON_Print(j));
+                char *str = cJSON_Print(j);
+                printf("get_results\n%s\n", str);
+                free(str);
 	    }
 
 	    test->remote_cpu_util[0] = j_cpu_util_total->valuedouble;
@@ -2342,7 +2410,6 @@ iperf_free_test(struct iperf_test *test)
         SLIST_REMOVE_HEAD(&test->streams, streams);
         iperf_free_stream(sp);
     }
-
     if (test->server_hostname)
 	free(test->server_hostname);
     if (test->tmp_template)
@@ -2361,6 +2428,26 @@ iperf_free_test(struct iperf_test *test)
             free(xbe);
         }
     }
+#if defined(HAVE_SSL)
+
+    if (test->server_rsa_private_key)
+      EVP_PKEY_free(test->server_rsa_private_key);
+    test->server_rsa_private_key = NULL;
+
+    free(test->settings->authtoken);
+    test->settings->authtoken = NULL;
+
+    free(test->settings->client_username);
+    test->settings->client_username = NULL;
+
+    free(test->settings->client_password);
+    test->settings->client_password = NULL;
+
+    if (test->settings->client_rsa_pubkey)
+      EVP_PKEY_free(test->settings->client_rsa_pubkey);
+    test->settings->client_rsa_pubkey = NULL;
+#endif /* HAVE_SSL */
+
     if (test->settings)
     free(test->settings);
     if (test->title)
@@ -2459,6 +2546,9 @@ iperf_reset_test(struct iperf_test *test)
 
     SLIST_INIT(&test->streams);
 
+    if (test->remote_congestion_used)
+        free(test->remote_congestion_used);
+    test->remote_congestion_used = NULL;
     test->role = 's';
     test->mode = RECEIVER;
     test->sender_has_retransmits = 0;
@@ -3325,7 +3415,7 @@ iperf_print_results(struct iperf_test *test)
             }
 
             /* Print server output if we're on the client and it was requested/provided */
-            if (test->role == 'c' && iperf_get_test_get_server_output(test)) {
+            if (test->role == 'c' && iperf_get_test_get_server_output(test) && !test->json_output) {
                 if (test->json_server_output) {
                     iperf_printf(test, "\nServer JSON output:\n%s\n", cJSON_Print(test->json_server_output));
                     cJSON_Delete(test->json_server_output);

@@ -1,4 +1,8 @@
-# Copyright 2011 Google Inc. All Rights Reserved.
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Module to get the settings from experiment file."""
 
 from __future__ import print_function
@@ -39,8 +43,8 @@ class Settings(object):
   def GetField(self, name):
     """Get the value of a field with a given name."""
     if name not in self.fields:
-      raise SyntaxError("Field '%s' not a valid field in '%s' settings." %
-                        (name, self.name))
+      raise SyntaxError(
+          "Field '%s' not a valid field in '%s' settings." % (name, self.name))
     field = self.fields[name]
     if not field.assigned and field.required:
       raise SyntaxError("Required field '%s' not defined in '%s' settings." %
@@ -66,8 +70,8 @@ class Settings(object):
       if not self.fields[name].assigned and self.fields[name].required:
         raise SyntaxError('Field %s is invalid.' % name)
 
-  def GetXbuddyPath(self, path_str, autotest_path, board, chromeos_root,
-                    log_level):
+  def GetXbuddyPath(self, path_str, autotest_path, debug_path, board,
+                    chromeos_root, log_level, download_debug):
     prefix = 'remote'
     l = logger.GetLogger()
     if (path_str.find('trybot') < 0 and path_str.find('toolchain') < 0 and
@@ -76,6 +80,7 @@ class Settings(object):
     else:
       xbuddy_path = '%s/%s' % (prefix, path_str)
     image_downloader = ImageDownloader(l, log_level)
-    image_and_autotest_path = image_downloader.Run(
-        misc.CanonicalizePath(chromeos_root), xbuddy_path, autotest_path)
-    return image_and_autotest_path
+    # Returns three variables: image, autotest_path, debug_path
+    return image_downloader.Run(
+        misc.CanonicalizePath(chromeos_root), xbuddy_path, autotest_path,
+        debug_path, download_debug)

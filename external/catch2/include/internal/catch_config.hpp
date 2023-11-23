@@ -82,10 +82,10 @@ namespace Catch {
         std::string getProcessName() const;
         std::string const& getReporterName() const;
 
-        std::vector<std::string> const& getTestsOrTags() const;
+        std::vector<std::string> const& getTestsOrTags() const override;
         std::vector<std::string> const& getSectionsToRun() const override;
 
-        virtual TestSpec const& testSpec() const override;
+        TestSpec const& testSpec() const override;
         bool hasTestFilters() const override;
 
         bool showHelp() const;

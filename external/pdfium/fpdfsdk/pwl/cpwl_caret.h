@@ -7,35 +7,40 @@
 #ifndef FPDFSDK_PWL_CPWL_CARET_H_
 #define FPDFSDK_PWL_CPWL_CARET_H_
 
+#include <memory>
+
+#include "core/fxcrt/cfx_timer.h"
 #include "fpdfsdk/pwl/cpwl_wnd.h"
 
-class CPWL_Caret : public CPWL_Wnd {
+class CPWL_Caret final : public CPWL_Wnd, public CFX_Timer::CallbackIface {
  public:
-  CPWL_Caret();
+  CPWL_Caret(const CreateParams& cp,
+             std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData);
   ~CPWL_Caret() override;
 
-  // CPWL_Wnd
-  ByteString GetClassName() const override;
+  // CPWL_Wnd:
   void DrawThisAppearance(CFX_RenderDevice* pDevice,
                           const CFX_Matrix& mtUser2Device) override;
   bool InvalidateRect(CFX_FloatRect* pRect) override;
   bool SetVisible(bool bVisible) override;
-  void TimerProc() override;
+
+  // CFX_Timer::CallbackIface:
+  void OnTimerFired() override;
 
   void SetCaret(bool bVisible,
                 const CFX_PointF& ptHead,
                 const CFX_PointF& ptFoot);
-  void SetInvalidRect(CFX_FloatRect rc) { m_rcInvalid = rc; }
+  void SetInvalidRect(const CFX_FloatRect& rc) { m_rcInvalid = rc; }
 
  private:
   CFX_FloatRect GetCaretRect() const;
 
-  bool m_bFlash;
+  bool m_bFlash = false;
   CFX_PointF m_ptHead;
   CFX_PointF m_ptFoot;
-  float m_fWidth;
-  int32_t m_nDelay;
+  float m_fWidth = 0.4f;
   CFX_FloatRect m_rcInvalid;
+  std::unique_ptr<CFX_Timer> m_pTimer;
 };
 
 #endif  // FPDFSDK_PWL_CPWL_CARET_H_

@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos GL API description (gl.xml) revision acc85f4b76949b015c0354bd8c20a1076a49b1cf.
+ * Generated from Khronos GL API description (gl.xml) revision 9d534f9312e56c72df763207e449c6719576fd54.
  */
 
 if (de::contains(extSet, "GL_KHR_blend_equation_advanced"))
@@ -65,6 +65,11 @@ if (de::contains(extSet, "GL_EXT_texture_buffer"))
 if (de::contains(extSet, "GL_EXT_primitive_bounding_box"))
 {
 	gl->primitiveBoundingBox	= (glPrimitiveBoundingBoxFunc)	loader->get("glPrimitiveBoundingBoxEXT");
+}
+
+if (de::contains(extSet, "GL_EXT_clip_control"))
+{
+	gl->clipControl	= (glClipControlFunc)	loader->get("glClipControlEXT");
 }
 
 if (de::contains(extSet, "GL_EXT_copy_image"))

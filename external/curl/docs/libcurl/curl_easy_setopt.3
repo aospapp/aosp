@@ -20,7 +20,7 @@
 .\" *
 .\" **************************************************************************
 .\"
-.TH curl_easy_setopt 3 "March 03, 2019" "libcurl 7.64.1" "libcurl Manual"
+.TH curl_easy_setopt 3 "August 09, 2019" "libcurl 7.67.0" "libcurl Manual"
 
 .SH NAME
 curl_easy_setopt \- set options for a curl easy handle
@@ -257,6 +257,8 @@ TLS authentication methods. See \fICURLOPT_TLSAUTH_TYPE(3)\fP
 Proxy TLS authentication methods. See \fICURLOPT_PROXY_TLSAUTH_TYPE(3)\fP
 .IP CURLOPT_PROXYAUTH
 HTTP proxy authentication methods. See \fICURLOPT_PROXYAUTH(3)\fP
+.IP CURLOPT_SASL_AUTHZID
+SASL authorisation identity (identity to act as). See \fICURLOPT_SASL_AUTHZID(3)\fP
 .IP CURLOPT_SASL_IR
 Enable SASL initial response. See \fICURLOPT_SASL_IR(3)\fP
 .IP CURLOPT_XOAUTH2_BEARER
@@ -469,6 +471,8 @@ Maximum number of connections in the connection pool. See \fICURLOPT_MAXCONNECTS
 Use a new connection. \fICURLOPT_FRESH_CONNECT(3)\fP
 .IP CURLOPT_FORBID_REUSE
 Prevent subsequent connections from re-using this. See \fICURLOPT_FORBID_REUSE(3)\fP
+.IP CURLOPT_MAXAGE_CONN
+Limit the age of connections for reuse. See \fICURLOPT_MAXAGE_CONN(3)\fP
 .IP CURLOPT_CONNECTTIMEOUT
 Timeout for the connection phase. See \fICURLOPT_CONNECTTIMEOUT(3)\fP
 .IP CURLOPT_CONNECTTIMEOUT_MS

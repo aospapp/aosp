@@ -21,8 +21,8 @@
 extern "C" {
 #endif
 
-#include "../../../libese/include/ese/ese.h"
-#include "../../../libese/include/ese/bit_spec.h"
+#include <ese/ese.h>
+#include <ese/bit_spec.h>
 
 /* Reserved codes for T=1 devices in EseOperation­>errors. */
 enum Teq1Error {

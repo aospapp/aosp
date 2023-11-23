@@ -1,20 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2018 SUSE Linux.  All Rights Reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
- * Started by Jan Kara <jack@suse.cz>
+ * Author: Jan Kara <jack@suse.cz>
  * Chnaged to use fzsync library by Cyril Hrubis <chrubis@suse.cz>
  *
  * DESCRIPTION
@@ -85,15 +72,11 @@ static void verify_inotify(void)
 	int inotify_fd;
 	int wd;
 
-	inotify_fd = myinotify_init1(0);
-	if (inotify_fd < 0)
-		tst_brk(TBROK | TERRNO, "inotify_init failed");
+	inotify_fd = SAFE_MYINOTIFY_INIT1(0);
 
 	tst_fzsync_pair_reset(&fzsync_pair, write_seek);
 	while (tst_fzsync_run_a(&fzsync_pair)) {
-		wd = myinotify_add_watch(inotify_fd, FNAME, IN_MODIFY);
-		if (wd < 0)
-			tst_brk(TBROK | TERRNO, "inotify_add_watch() failed.");
+		wd = SAFE_MYINOTIFY_ADD_WATCH(inotify_fd, FNAME, IN_MODIFY);
 
 		tst_fzsync_start_race_a(&fzsync_pair);
 		wd = myinotify_rm_watch(inotify_fd, wd);

@@ -78,9 +78,16 @@ OpCapability Shader
 %acquire_and_release = OpConstant %u32 6
 %sequentially_consistent = OpConstant %u32 16
 %acquire_release_uniform_workgroup = OpConstant %u32 328
+%acquire_uniform_workgroup = OpConstant %u32 322
+%release_uniform_workgroup = OpConstant %u32 324
 %acquire_and_release_uniform = OpConstant %u32 70
 %acquire_release_subgroup = OpConstant %u32 136
+%acquire_release_workgroup = OpConstant %u32 264
 %uniform = OpConstant %u32 64
+%uniform_workgroup = OpConstant %u32 320
+%workgroup_memory = OpConstant %u32 256
+%image_memory = OpConstant %u32 2048
+%uniform_image_memory = OpConstant %u32 2112
 
 %main = OpFunction %void None %func
 %main_entry = OpLabel
@@ -245,14 +252,62 @@ OpControlBarrier %workgroup %workgroup %acquire_release_uniform_workgroup
   ASSERT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_VULKAN_1_0));
 }
 
-TEST_F(ValidateBarriers, OpControlBarrierWebGPUSuccess) {
+TEST_F(ValidateBarriers, OpControlBarrierWebGPUAcquireReleaseSuccess) {
   const std::string body = R"(
-OpControlBarrier %workgroup %queuefamily %none
-OpControlBarrier %workgroup %workgroup %acquire_release_uniform_workgroup
+OpControlBarrier %workgroup %workgroup %acquire_release_workgroup
 )";
 
   CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
   ASSERT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
+}
+
+TEST_F(ValidateBarriers, OpControlBarrierWebGPURelaxedFailure) {
+  const std::string body = R"(
+OpControlBarrier %workgroup %workgroup %workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("For WebGPU, AcquireRelease must be set for Memory "
+                        "Semantics of OpControlBarrier"));
+}
+
+TEST_F(ValidateBarriers, OpControlBarrierWebGPUMissingWorkgroupFailure) {
+  const std::string body = R"(
+OpControlBarrier %workgroup %workgroup %acquire_release
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("For WebGPU, WorkgroupMemory must be set for Memory "
+                        "Semantics"));
+}
+
+TEST_F(ValidateBarriers, OpControlBarrierWebGPUUniformFailure) {
+  const std::string body = R"(
+OpControlBarrier %workgroup %workgroup %acquire_release_uniform_workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("For WebGPU only WorkgroupMemory and AcquireRelease may be set "
+                "for Memory Semantics of OpControlBarrier."));
+}
+
+TEST_F(ValidateBarriers, OpControlBarrierWebGPUReleaseFailure) {
+  const std::string body = R"(
+OpControlBarrier %workgroup %workgroup %release_uniform_workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("For WebGPU, AcquireRelease must be set for Memory "
+                        "Semantics of OpControlBarrier"));
 }
 
 TEST_F(ValidateBarriers, OpControlBarrierExecutionModelFragmentSpirv12) {
@@ -286,9 +341,8 @@ OpControlBarrier %f32_1 %device %none
 
   CompileSuccessfully(GenerateShaderCode(body));
   ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
-  EXPECT_THAT(
-      getDiagnosticString(),
-      HasSubstr("ControlBarrier: expected Execution Scope to be a 32-bit int"));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ControlBarrier: expected scope to be a 32-bit int"));
 }
 
 TEST_F(ValidateBarriers, OpControlBarrierU64ExecutionScope) {
@@ -298,9 +352,8 @@ OpControlBarrier %u64_1 %device %none
 
   CompileSuccessfully(GenerateShaderCode(body));
   ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
-  EXPECT_THAT(
-      getDiagnosticString(),
-      HasSubstr("ControlBarrier: expected Execution Scope to be a 32-bit int"));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ControlBarrier: expected scope to be a 32-bit int"));
 }
 
 TEST_F(ValidateBarriers, OpControlBarrierFloatMemoryScope) {
@@ -310,9 +363,8 @@ OpControlBarrier %device %f32_1 %none
 
   CompileSuccessfully(GenerateShaderCode(body));
   ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
-  EXPECT_THAT(
-      getDiagnosticString(),
-      HasSubstr("ControlBarrier: expected Memory Scope to be a 32-bit int"));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ControlBarrier: expected scope to be a 32-bit int"));
 }
 
 TEST_F(ValidateBarriers, OpControlBarrierU64MemoryScope) {
@@ -322,9 +374,8 @@ OpControlBarrier %device %u64_1 %none
 
   CompileSuccessfully(GenerateShaderCode(body));
   ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
-  EXPECT_THAT(
-      getDiagnosticString(),
-      HasSubstr("ControlBarrier: expected Memory Scope to be a 32-bit int"));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ControlBarrier: expected scope to be a 32-bit int"));
 }
 
 TEST_F(ValidateBarriers, OpControlBarrierFloatMemorySemantics) {
@@ -365,7 +416,7 @@ OpControlBarrier %device %workgroup %none
                         "is limited to Workgroup and Subgroup"));
 }
 
-TEST_F(ValidateBarriers, OpControlBarrierWebGPUExecutionScopeDevice) {
+TEST_F(ValidateBarriers, OpControlBarrierWebGPUExecutionScopeDeviceBad) {
   const std::string body = R"(
 OpControlBarrier %device %workgroup %none
 )";
@@ -374,7 +425,19 @@ OpControlBarrier %device %workgroup %none
   ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("ControlBarrier: in WebGPU environment Execution Scope "
-                        "is limited to Workgroup and Subgroup"));
+                        "is limited to Workgroup"));
+}
+
+TEST_F(ValidateBarriers, OpControlBarrierWebGPUExecutionScopeSubgroupBad) {
+  const std::string body = R"(
+OpControlBarrier %subgroup %workgroup %none
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ControlBarrier: in WebGPU environment Execution Scope "
+                        "is limited to Workgroup"));
 }
 
 TEST_F(ValidateBarriers, OpControlBarrierVulkanMemoryScopeSubgroup) {
@@ -409,6 +472,18 @@ OpControlBarrier %subgroup %cross_device %none
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("ControlBarrier: in Vulkan environment, Memory Scope "
                         "cannot be CrossDevice"));
+}
+
+TEST_F(ValidateBarriers, OpControlBarrierWebGPUMemoryScopeNonWorkgroup) {
+  const std::string body = R"(
+OpControlBarrier %workgroup %subgroup %acquire_release_workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ControlBarrier: in WebGPU environment Memory Scope is "
+                        "limited to Workgroup for OpControlBarrier"));
 }
 
 TEST_F(ValidateBarriers, OpControlBarrierAcquireAndRelease) {
@@ -630,6 +705,87 @@ OpMemoryBarrier %workgroup %acquire_release_uniform_workgroup
   ASSERT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_VULKAN_1_0));
 }
 
+TEST_F(ValidateBarriers, OpMemoryBarrierWebGPUImageMemorySuccess) {
+  const std::string body = R"(
+OpMemoryBarrier %workgroup %image_memory
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_WEBGPU_0));
+}
+
+TEST_F(ValidateBarriers, OpMemoryBarrierWebGPUDeviceFailure) {
+  const std::string body = R"(
+OpMemoryBarrier %subgroup %image_memory
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("in WebGPU environment Memory Scope is limited to "
+                        "Workgroup for OpMemoryBarrier"));
+}
+
+TEST_F(ValidateBarriers, OpMemoryBarrierWebGPUAcquireReleaseFailure) {
+  const std::string body = R"(
+OpMemoryBarrier %workgroup %acquire_release_uniform_workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ImageMemory must be set for Memory Semantics of "
+                        "OpMemoryBarrier"));
+}
+
+TEST_F(ValidateBarriers, OpMemoryBarrierWebGPURelaxedFailure) {
+  const std::string body = R"(
+OpMemoryBarrier %workgroup %uniform_workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ImageMemory must be set for Memory Semantics of "
+                        "OpMemoryBarrier"));
+}
+
+TEST_F(ValidateBarriers, OpMemoryBarrierWebGPUAcquireFailure) {
+  const std::string body = R"(
+OpMemoryBarrier %workgroup %acquire_uniform_workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ImageMemory must be set for Memory Semantics of "
+                        "OpMemoryBarrier"));
+}
+
+TEST_F(ValidateBarriers, OpMemoryBarrierWebGPUReleaseFailure) {
+  const std::string body = R"(
+OpMemoryBarrier %workgroup %release_uniform_workgroup
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("ImageMemory must be set for Memory Semantics of "
+                        "OpMemoryBarrier"));
+}
+
+TEST_F(ValidateBarriers, OpMemoryBarrierWebGPUUniformFailure) {
+  const std::string body = R"(
+OpMemoryBarrier %workgroup %uniform_image_memory
+)";
+
+  CompileSuccessfully(GenerateWebGPUShaderCode(body), SPV_ENV_WEBGPU_0);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions(SPV_ENV_WEBGPU_0));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("only ImageMemory may be set for Memory Semantics of "
+                        "OpMemoryBarrier"));
+}
+
 TEST_F(ValidateBarriers, OpMemoryBarrierFloatMemoryScope) {
   const std::string body = R"(
 OpMemoryBarrier %f32_1 %acquire_release_uniform_workgroup
@@ -637,9 +793,8 @@ OpMemoryBarrier %f32_1 %acquire_release_uniform_workgroup
 
   CompileSuccessfully(GenerateShaderCode(body));
   ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
-  EXPECT_THAT(
-      getDiagnosticString(),
-      HasSubstr("MemoryBarrier: expected Memory Scope to be a 32-bit int"));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("MemoryBarrier: expected scope to be a 32-bit int"));
 }
 
 TEST_F(ValidateBarriers, OpMemoryBarrierU64MemoryScope) {
@@ -649,9 +804,8 @@ OpMemoryBarrier %u64_1 %acquire_release_uniform_workgroup
 
   CompileSuccessfully(GenerateShaderCode(body));
   ASSERT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
-  EXPECT_THAT(
-      getDiagnosticString(),
-      HasSubstr("MemoryBarrier: expected Memory Scope to be a 32-bit int"));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("MemoryBarrier: expected scope to be a 32-bit int"));
 }
 
 TEST_F(ValidateBarriers, OpMemoryBarrierFloatMemorySemantics) {
@@ -833,8 +987,7 @@ OpMemoryNamedBarrier %barrier %f32_1 %acquire_release_workgroup
             ValidateInstructions(SPV_ENV_UNIVERSAL_1_1));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr(
-          "MemoryNamedBarrier: expected Memory Scope to be a 32-bit int"));
+      HasSubstr("MemoryNamedBarrier: expected scope to be a 32-bit int"));
 }
 
 TEST_F(ValidateBarriers, OpMemoryNamedBarrierFloatMemorySemantics) {
@@ -872,8 +1025,8 @@ TEST_F(ValidateBarriers, TypeAsMemoryScope) {
 OpMemoryBarrier %u32 %u32_0
 )";
 
-  CompileSuccessfully(GenerateKernelCode(body));
-  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  CompileSuccessfully(GenerateKernelCode(body), SPV_ENV_UNIVERSAL_1_1);
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_UNIVERSAL_1_1));
   EXPECT_THAT(getDiagnosticString(), HasSubstr("Operand 5[%uint] cannot be a "
                                                "type"));
 }
@@ -1277,6 +1430,115 @@ OpFunctionEnd
 
   CompileSuccessfully(text, SPV_ENV_UNIVERSAL_1_3);
   EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_UNIVERSAL_1_3));
+}
+
+TEST_F(ValidateBarriers, VolatileMemoryBarrier) {
+  const std::string text = R"(
+OpCapability Shader
+OpCapability VulkanMemoryModelKHR
+OpCapability VulkanMemoryModelDeviceScopeKHR
+OpCapability Linkage
+OpExtension "SPV_KHR_vulkan_memory_model"
+OpMemoryModel Logical VulkanKHR
+%void = OpTypeVoid
+%int = OpTypeInt 32 0
+%device = OpConstant %int 1
+%semantics = OpConstant %int 32768
+%functy = OpTypeFunction %void
+%func = OpFunction %void None %functy
+%1 = OpLabel
+OpMemoryBarrier %device %semantics
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("Memory Semantics Volatile can only be used with "
+                        "atomic instructions"));
+}
+
+TEST_F(ValidateBarriers, VolatileControlBarrier) {
+  const std::string text = R"(
+OpCapability Shader
+OpCapability VulkanMemoryModelKHR
+OpCapability VulkanMemoryModelDeviceScopeKHR
+OpCapability Linkage
+OpExtension "SPV_KHR_vulkan_memory_model"
+OpMemoryModel Logical VulkanKHR
+%void = OpTypeVoid
+%int = OpTypeInt 32 0
+%device = OpConstant %int 1
+%semantics = OpConstant %int 32768
+%functy = OpTypeFunction %void
+%func = OpFunction %void None %functy
+%1 = OpLabel
+OpControlBarrier %device %device %semantics
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("Memory Semantics Volatile can only be used with "
+                        "atomic instructions"));
+}
+
+TEST_F(ValidateBarriers, CooperativeMatrixSpecConstantVolatile) {
+  const std::string text = R"(
+OpCapability Shader
+OpCapability VulkanMemoryModelKHR
+OpCapability VulkanMemoryModelDeviceScopeKHR
+OpCapability CooperativeMatrixNV
+OpCapability Linkage
+OpExtension "SPV_KHR_vulkan_memory_model"
+OpExtension "SPV_NV_cooperative_matrix"
+OpMemoryModel Logical VulkanKHR
+%void = OpTypeVoid
+%int = OpTypeInt 32 0
+%device = OpConstant %int 1
+%semantics = OpSpecConstant %int 32768
+%functy = OpTypeFunction %void
+%func = OpFunction %void None %functy
+%1 = OpLabel
+OpControlBarrier %device %device %semantics
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+}
+
+TEST_F(ValidateBarriers, CooperativeMatrixNonConstantSemantics) {
+  const std::string text = R"(
+OpCapability Shader
+OpCapability VulkanMemoryModelKHR
+OpCapability VulkanMemoryModelDeviceScopeKHR
+OpCapability CooperativeMatrixNV
+OpCapability Linkage
+OpExtension "SPV_KHR_vulkan_memory_model"
+OpExtension "SPV_NV_cooperative_matrix"
+OpMemoryModel Logical VulkanKHR
+%void = OpTypeVoid
+%int = OpTypeInt 32 0
+%device = OpConstant %int 1
+%semantics = OpUndef %int
+%functy = OpTypeFunction %void
+%func = OpFunction %void None %functy
+%1 = OpLabel
+OpControlBarrier %device %device %semantics
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("Memory Semantics must be a constant instruction when "
+                        "CooperativeMatrixNV capability is present"));
 }
 
 }  // namespace

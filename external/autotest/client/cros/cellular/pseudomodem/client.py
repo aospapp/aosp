@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -6,6 +6,7 @@
 
 import cmd
 import dbus
+import dbus.types
 import dbus.exceptions
 
 import pm_constants
@@ -156,8 +157,13 @@ class PseudoModemClient(cmd.Cmd):
                 return
             pco_value = arglist[1]
             try:
-                self._get_proxy().UpdatePcoInfo(
-                        pco_value, dbus_interface=pm_constants.I_TESTING)
+                pco_list = [dbus.types.Struct(
+                    [dbus.types.UInt32(1),
+                        dbus.types.Boolean(True),
+                        dbus.types.ByteArray(pco_value)],
+                    signature='ubay')]
+                self._get_proxy().UpdatePco(
+                        pco_list, dbus_interface=pm_constants.I_TESTING)
                 print '\nPCO value updated!\n'
             except dbus.exceptions.DBusException as e:
                 print ('\nAn error occurred while communicating with '
@@ -171,7 +177,7 @@ class PseudoModemClient(cmd.Cmd):
     def help_set(self):
         """Handles the 'help set' command."""
         print ('\nUsage: set pco <pco-value>\n<pco-value> can be empty to set'
-               ' the PCO value to an empty string.\n')
+               ' the PCO value to an empty list.\n')
 
 
     def _get_state_machine(self, args):

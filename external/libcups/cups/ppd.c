@@ -1,7 +1,7 @@
 /*
  * PPD file routines for CUPS.
  *
- * Copyright 2007-2017 by Apple Inc.
+ * Copyright 2007-2018 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -94,9 +94,9 @@ static ppd_group_t	*ppd_get_group(ppd_file_t *ppd, const char *name,
 				       cups_encoding_t encoding);
 static ppd_option_t	*ppd_get_option(ppd_group_t *group, const char *name);
 static _ppd_globals_t	*ppd_globals_alloc(void);
-#if defined(HAVE_PTHREAD_H) || defined(WIN32)
+#if defined(HAVE_PTHREAD_H) || defined(_WIN32)
 static void		ppd_globals_free(_ppd_globals_t *g);
-#endif /* HAVE_PTHREAD_H || WIN32 */
+#endif /* HAVE_PTHREAD_H || _WIN32 */
 #ifdef HAVE_PTHREAD_H
 static void		ppd_globals_init(void);
 #endif /* HAVE_PTHREAD_H */
@@ -333,7 +333,9 @@ ppdErrorString(ppd_status_t status)	/* I - PPD status */
 		  _("Bad custom parameter"),
 		  _("Missing option keyword"),
 		  _("Bad value string"),
-		  _("Missing CloseGroup")
+		  _("Missing CloseGroup"),
+		  _("Bad CloseUI/JCLCloseUI"),
+		  _("Missing CloseUI/JCLCloseUI")
 		};
 
 
@@ -1542,8 +1544,29 @@ _ppdOpen(
         choice->code = _cupsStrRetain(custom_attr->value);
       }
     }
-    else if (!strcmp(keyword, "CloseUI") || !strcmp(keyword, "JCLCloseUI"))
+    else if (!strcmp(keyword, "CloseUI"))
     {
+      if ((!option || option->section == PPD_ORDER_JCL) && pg->ppd_conform == PPD_CONFORM_STRICT)
+      {
+        pg->ppd_status = PPD_BAD_CLOSE_UI;
+
+	goto error;
+      }
+
+      option = NULL;
+
+      _cupsStrFree(string);
+      string = NULL;
+    }
+    else if (!strcmp(keyword, "JCLCloseUI"))
+    {
+      if ((!option || option->section != PPD_ORDER_JCL) && pg->ppd_conform == PPD_CONFORM_STRICT)
+      {
+        pg->ppd_status = PPD_BAD_CLOSE_UI;
+
+	goto error;
+      }
+
       option = NULL;
 
       _cupsStrFree(string);
@@ -1753,8 +1776,7 @@ _ppdOpen(
                      constraint->choice1, constraint->option2,
 		     constraint->choice2))
       {
-        case 0 : /* Error */
-	case 1 : /* Error */
+        default : /* Error */
 	    pg->ppd_status = PPD_BAD_UI_CONSTRAINTS;
 	    goto error;
 
@@ -2004,6 +2026,16 @@ _ppdOpen(
       ppd_add_attr(ppd, keyword, name, text, string);
     else
       _cupsStrFree(string);
+  }
+
+ /*
+  * Check for a missing CloseUI/JCLCloseUI...
+  */
+
+  if (option && pg->ppd_conform == PPD_CONFORM_STRICT)
+  {
+    pg->ppd_status = PPD_MISSING_CLOSE_UI;
+    goto error;
   }
 
  /*
@@ -2804,13 +2836,13 @@ ppd_globals_alloc(void)
  * 'ppd_globals_free()' - Free global data.
  */
 
-#if defined(HAVE_PTHREAD_H) || defined(WIN32)
+#if defined(HAVE_PTHREAD_H) || defined(_WIN32)
 static void
 ppd_globals_free(_ppd_globals_t *pg)	/* I - Pointer to global data */
 {
   free(pg);
 }
-#endif /* HAVE_PTHREAD_H || WIN32 */
+#endif /* HAVE_PTHREAD_H || _WIN32 */
 
 
 #ifdef HAVE_PTHREAD_H

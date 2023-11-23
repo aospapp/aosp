@@ -1,7 +1,6 @@
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """A module to provide interface to gpt information.
 
 gpt stands for GUID partition table, it is a data structure describing
@@ -11,8 +10,11 @@ including information about all defined partitions including their properties.
 It also allows to modify partition properties as required.
 """
 
+
 class CgptError(Exception):
+    """Cgpt-specific exception."""
     pass
+
 
 class CgptHandler(object):
     """Object representing one or more gpts present in the system.
@@ -37,11 +39,7 @@ class CgptHandler(object):
 
     # This dictionary maps gpt attributes the user can modify into the cgpt
     # utility command line options.
-    ATTR_TO_COMMAND = {
-        'priority' : 'P',
-        'tries' : 'T',
-        'successful' : 'S'
-        }
+    ATTR_TO_COMMAND = {'priority': 'P', 'tries': 'T', 'successful': 'S'}
 
     def __init__(self, os_if):
         self.os_if = os_if
@@ -55,7 +53,7 @@ class CgptHandler(object):
         """
 
         device_dump = self.os_if.run_shell_command_get_output(
-            'cgpt show %s' % dev_name)
+                'cgpt show %s' % dev_name)
         label = None
         label_data = {}
         device_data = {}
@@ -98,8 +96,8 @@ class CgptHandler(object):
         try:
             result = self.devices[device][partition_name]
         except KeyError:
-            raise CgptError('could not retrieve partiton %s of device %s' % (
-                    partition_name, device))
+            raise CgptError('could not retrieve partiton %s of device %s' %
+                            (partition_name, device))
         return result
 
     def set_partition(self, device, partition_name, partition_value):
@@ -124,14 +122,13 @@ class CgptHandler(object):
             try:
                 if value == current[prop]:
                     continue
-                options.append('-%s %d' % (
-                        self.ATTR_TO_COMMAND[prop], value))
+                options.append('-%s %d' % (self.ATTR_TO_COMMAND[prop], value))
             except KeyError:
                 raise CgptError("unknown or immutable property '%s'" % prop)
 
         if not options:
             return
 
-        command = 'cgpt add -i %d %s %s' % (
-            current['partition'], ' '.join(options), device)
-        self.os_if.run_shell_command(command)
+        cgpt_add_cmd = 'cgpt add -i %d %s %s' % (current['partition'],
+                                                 ' '.join(options), device)
+        self.os_if.run_shell_command(cgpt_add_cmd, modifies_device=True)

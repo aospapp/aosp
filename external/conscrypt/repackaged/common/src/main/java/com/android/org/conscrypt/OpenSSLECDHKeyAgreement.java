@@ -33,7 +33,6 @@ import javax.crypto.spec.SecretKeySpec;
  * Elliptic Curve Diffie-Hellman key agreement backed by the OpenSSL engine.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.IntraCoreApi
 @Internal
 public final class OpenSSLECDHKeyAgreement extends KeyAgreementSpi {
 
@@ -49,7 +48,6 @@ public final class OpenSSLECDHKeyAgreement extends KeyAgreementSpi {
     /** Agreed key. Only available after {@link #engineDoPhase(Key, boolean)} completes. */
     private byte[] mResult;
 
-    @libcore.api.IntraCoreApi
     public OpenSSLECDHKeyAgreement() {}
 
     @Override
@@ -101,7 +99,7 @@ public final class OpenSSLECDHKeyAgreement extends KeyAgreementSpi {
         checkCompleted();
         int available = sharedSecret.length - offset;
         if (mResult.length > available) {
-            throw new ShortBufferException(
+            throw new ShortBufferWithoutStackTraceException(
                     "Needed: " + mResult.length + ", available: " + available);
         }
 

@@ -101,6 +101,7 @@ extern struct toy_context {
   char **optargs;          // Arguments left over from get_optflags()
   unsigned long long optflags; // Command line option flags from get_optflags()
   int optc;                // Count of optargs
+  int envc;                // Count of original environ entries
   int old_umask;           // Old umask preserved by TOYFLAG_UMASK
   short toycount;          // Total number of commands in this build
   short signal;            // generic_signal() records what signal it saw here
@@ -125,3 +126,10 @@ extern char **environ;
 #define GLOBALS(...)
 #define ARRAY_LEN(array) (sizeof(array)/sizeof(*array))
 #define TAGGED_ARRAY(X, ...) {__VA_ARGS__}
+
+#ifndef TOYBOX_VERSION
+#ifndef TOYBOX_VENDOR
+#define TOYBOX_VENDOR ""
+#endif
+#define TOYBOX_VERSION "0.8.3"TOYBOX_VENDOR
+#endif

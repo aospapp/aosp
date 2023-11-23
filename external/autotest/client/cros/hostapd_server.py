@@ -123,8 +123,11 @@ eap_reauth_period=10
     def start(self):
         """Start the hostap server."""
         config_file = self.write_config()
+        env = dict(os.environ)
+        env['OPENSSL_CONF'] = '/etc/ssl/openssl.cnf.compat'
         self._process = subprocess.Popen(
-                 [self.HOSTAPD_EXECUTABLE, '-dd', config_file])
+                 [self.HOSTAPD_EXECUTABLE, '-dd', config_file],
+                 env=env)
 
 
     def stop(self):

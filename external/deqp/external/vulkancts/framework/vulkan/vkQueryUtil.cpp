@@ -29,6 +29,7 @@
 #include "deSTLUtil.hpp"
 
 #include <vector>
+#include <sstream>
 
 namespace vk
 {
@@ -154,6 +155,43 @@ VkPhysicalDeviceFeatures2 getPhysicalDeviceFeatures2 (const InstanceInterface& v
 	return features;
 }
 
+VkPhysicalDeviceVulkan12Features getPhysicalDeviceVulkan12Features (const InstanceInterface& vk, VkPhysicalDevice physicalDevice)
+{
+	VkPhysicalDeviceFeatures2			features;
+	VkPhysicalDeviceVulkan12Features	vulkan_12_features;
+
+	deMemset(&features, 0, sizeof(features));
+	features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+
+	deMemset(&vulkan_12_features, 0, sizeof(vulkan_12_features));
+	vulkan_12_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+
+	features.pNext = &vulkan_12_features;
+
+	vk.getPhysicalDeviceFeatures2(physicalDevice, &features);
+	return vulkan_12_features;
+}
+
+VkPhysicalDeviceVulkan11Properties getPhysicalDeviceVulkan11Properties (const InstanceInterface& vk, VkPhysicalDevice physicalDevice)
+{
+	VkPhysicalDeviceVulkan11Properties	vulkan11properties	= initVulkanStructure();
+	VkPhysicalDeviceProperties2			properties			= initVulkanStructure(&vulkan11properties);
+
+	vk.getPhysicalDeviceProperties2(physicalDevice, &properties);
+
+	return vulkan11properties;
+}
+
+VkPhysicalDeviceVulkan12Properties getPhysicalDeviceVulkan12Properties (const InstanceInterface& vk, VkPhysicalDevice physicalDevice)
+{
+	VkPhysicalDeviceVulkan12Properties	vulkan12properties	= initVulkanStructure();
+	VkPhysicalDeviceProperties2			properties			= initVulkanStructure(&vulkan12properties);
+
+	vk.getPhysicalDeviceProperties2(physicalDevice, &properties);
+
+	return vulkan12properties;
+}
+
 VkPhysicalDeviceProperties getPhysicalDeviceProperties (const InstanceInterface& vk, VkPhysicalDevice physicalDevice)
 {
 	VkPhysicalDeviceProperties	properties;
@@ -171,6 +209,23 @@ VkPhysicalDeviceMemoryProperties getPhysicalDeviceMemoryProperties (const Instan
 	deMemset(&properties, 0, sizeof(properties));
 
 	vk.getPhysicalDeviceMemoryProperties(physicalDevice, &properties);
+
+	if (properties.memoryTypeCount > VK_MAX_MEMORY_TYPES)
+	{
+		std::ostringstream msg;
+		msg << "Invalid memoryTypeCount in VkPhysicalDeviceMemoryProperties (got " << properties.memoryTypeCount
+			<< ", max " << VK_MAX_MEMORY_TYPES << ")";
+		TCU_FAIL(msg.str());
+	}
+
+	if (properties.memoryHeapCount > VK_MAX_MEMORY_HEAPS)
+	{
+		std::ostringstream msg;
+		msg << "Invalid memoryHeapCount in VkPhysicalDeviceMemoryProperties (got " << properties.memoryHeapCount
+			<< ", max " << VK_MAX_MEMORY_HEAPS << ")";
+		TCU_FAIL(msg.str());
+	}
+
 	return properties;
 }
 
@@ -385,38 +440,6 @@ bool isCompatible (const VkLayerProperties& layerProperties, const RequiredLayer
 	return true;
 }
 
-bool isInstanceExtensionSupported (const deUint32 instanceVersion, const std::vector<std::string>& extensions, const std::string& required)
-{
-	if (isCoreInstanceExtension(instanceVersion, required))
-		return true;
-	else
-		return de::contains(extensions.begin(), extensions.end(), required);
-}
-
-bool isDeviceExtensionSupported (const deUint32 deviceVersion, const std::vector<std::string>& extensions, const std::string& required)
-{
-	if (isCoreDeviceExtension(deviceVersion, required))
-		return true;
-	else
-		return de::contains(extensions.begin(), extensions.end(), required);
-}
-
-bool isInstanceExtensionSupported (const deUint32 instanceVersion, const std::vector<VkExtensionProperties>& extensions, const RequiredExtension& required)
-{
-	if (isCoreInstanceExtension(instanceVersion, required.name))
-		return true;
-	else
-		return isExtensionSupported(extensions.begin(), extensions.end(), required);
-}
-
-bool isDeviceExtensionSupported (const deUint32 deviceVersion, const std::vector<VkExtensionProperties>& extensions, const RequiredExtension& required)
-{
-	if (isCoreDeviceExtension(deviceVersion, required.name))
-		return true;
-	else
-		return isExtensionSupported(extensions.begin(), extensions.end(), required);
-}
-
 bool isExtensionSupported (const std::vector<VkExtensionProperties>& extensions, const RequiredExtension& required)
 {
 	return isExtensionSupported(extensions.begin(), extensions.end(), required);
@@ -425,6 +448,15 @@ bool isExtensionSupported (const std::vector<VkExtensionProperties>& extensions,
 bool isExtensionSupported (const vector<std::string>& extensionStrings, const std::string& extensionName)
 {
 	return de::contains(extensionStrings.begin(), extensionStrings.end(), extensionName);
+}
+
+bool isInstanceExtensionSupported(const deUint32 instanceVersion, const std::vector<std::string>& extensions, const std::string& required)
+{
+	// NOTE: this function is only needed in few cases during creation of context,
+	// dont use it, call Context::isInstanceFunctionalitySupported instead
+	if (isCoreInstanceExtension(instanceVersion, required))
+		return true;
+	return de::contains(extensions.begin(), extensions.end(), required);
 }
 
 bool isLayerSupported (const std::vector<VkLayerProperties>& layers, const RequiredLayer& required)

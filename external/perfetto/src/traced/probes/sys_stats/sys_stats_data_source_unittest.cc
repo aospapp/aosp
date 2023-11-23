@@ -16,16 +16,16 @@
 
 #include <unistd.h>
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-#include "perfetto/base/temp_file.h"
+#include "perfetto/ext/base/temp_file.h"
 #include "src/base/test/test_task_runner.h"
 #include "src/traced/probes/sys_stats/sys_stats_data_source.h"
 #include "src/tracing/core/trace_writer_for_testing.h"
+#include "test/gtest_and_gmock.h"
 
-#include "perfetto/config/sys_stats/sys_stats_config.pb.h"
-#include "perfetto/trace/trace_packet.pb.h"
-#include "perfetto/trace/trace_packet.pbzero.h"
+#include "protos/perfetto/common/sys_stats_counters.gen.h"
+#include "protos/perfetto/config/data_source_config.gen.h"
+#include "protos/perfetto/config/sys_stats/sys_stats_config.gen.h"
+#include "protos/perfetto/trace/sys_stats/sys_stats.gen.h"
 
 using ::testing::_;
 using ::testing::Invoke;
@@ -232,25 +232,23 @@ class SysStatsDataSourceTest : public ::testing::Test {
 };
 
 TEST_F(SysStatsDataSourceTest, Meminfo) {
-  using C = protos::MeminfoCounters;
-  protos::DataSourceConfig config;
-  config.mutable_sys_stats_config()->set_meminfo_period_ms(1);
-  config.mutable_sys_stats_config()->add_meminfo_counters(C::MEMINFO_MEM_TOTAL);
-  config.mutable_sys_stats_config()->add_meminfo_counters(C::MEMINFO_MEM_FREE);
-  config.mutable_sys_stats_config()->add_meminfo_counters(
-      C::MEMINFO_ACTIVE_ANON);
-  config.mutable_sys_stats_config()->add_meminfo_counters(
-      C::MEMINFO_INACTIVE_FILE);
-  config.mutable_sys_stats_config()->add_meminfo_counters(C::MEMINFO_CMA_FREE);
-  DataSourceConfig config_obj;
-  config_obj.FromProto(config);
-  auto data_source = GetSysStatsDataSource(config_obj);
+  using C = protos::gen::MeminfoCounters;
+  DataSourceConfig config;
+  protos::gen::SysStatsConfig sys_cfg;
+  sys_cfg.set_meminfo_period_ms(10);
+  sys_cfg.add_meminfo_counters(C::MEMINFO_MEM_TOTAL);
+  sys_cfg.add_meminfo_counters(C::MEMINFO_MEM_FREE);
+  sys_cfg.add_meminfo_counters(C::MEMINFO_ACTIVE_ANON);
+  sys_cfg.add_meminfo_counters(C::MEMINFO_INACTIVE_FILE);
+  sys_cfg.add_meminfo_counters(C::MEMINFO_CMA_FREE);
+  config.set_sys_stats_config_raw(sys_cfg.SerializeAsString());
+  auto data_source = GetSysStatsDataSource(config);
 
   WaitTick(data_source.get());
 
-  std::unique_ptr<protos::TracePacket> packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet->has_sys_stats());
-  const auto& sys_stats = packet->sys_stats();
+  protos::gen::TracePacket packet = writer_raw_->GetOnlyTracePacket();
+  ASSERT_TRUE(packet.has_sys_stats());
+  const auto& sys_stats = packet.sys_stats();
   EXPECT_EQ(sys_stats.vmstat_size(), 0);
   EXPECT_EQ(sys_stats.cpu_stat_size(), 0);
 
@@ -267,24 +265,39 @@ TEST_F(SysStatsDataSourceTest, Meminfo) {
                                    KV{C::MEMINFO_CMA_FREE, 60}));
 }
 
-TEST_F(SysStatsDataSourceTest, Vmstat) {
-  using C = protos::VmstatCounters;
-  protos::DataSourceConfig config;
-  config.mutable_sys_stats_config()->set_vmstat_period_ms(1);
-  config.mutable_sys_stats_config()->add_vmstat_counters(
-      C::VMSTAT_NR_FREE_PAGES);
-  config.mutable_sys_stats_config()->add_vmstat_counters(C::VMSTAT_PGACTIVATE);
-  config.mutable_sys_stats_config()->add_vmstat_counters(
-      C::VMSTAT_PGMIGRATE_FAIL);
-  DataSourceConfig config_obj;
-  config_obj.FromProto(config);
-  auto data_source = GetSysStatsDataSource(config_obj);
+TEST_F(SysStatsDataSourceTest, MeminfoAll) {
+  DataSourceConfig config;
+  protos::gen::SysStatsConfig sys_cfg;
+  sys_cfg.set_meminfo_period_ms(10);
+  config.set_sys_stats_config_raw(sys_cfg.SerializeAsString());
+  auto data_source = GetSysStatsDataSource(config);
 
   WaitTick(data_source.get());
 
-  std::unique_ptr<protos::TracePacket> packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet->has_sys_stats());
-  const auto& sys_stats = packet->sys_stats();
+  protos::gen::TracePacket packet = writer_raw_->GetOnlyTracePacket();
+  ASSERT_TRUE(packet.has_sys_stats());
+  const auto& sys_stats = packet.sys_stats();
+  EXPECT_EQ(sys_stats.vmstat_size(), 0);
+  EXPECT_EQ(sys_stats.cpu_stat_size(), 0);
+  EXPECT_GE(sys_stats.meminfo_size(), 10);
+}
+
+TEST_F(SysStatsDataSourceTest, Vmstat) {
+  using C = protos::gen::VmstatCounters;
+  DataSourceConfig config;
+  protos::gen::SysStatsConfig sys_cfg;
+  sys_cfg.set_vmstat_period_ms(10);
+  sys_cfg.add_vmstat_counters(C::VMSTAT_NR_FREE_PAGES);
+  sys_cfg.add_vmstat_counters(C::VMSTAT_PGACTIVATE);
+  sys_cfg.add_vmstat_counters(C::VMSTAT_PGMIGRATE_FAIL);
+  config.set_sys_stats_config_raw(sys_cfg.SerializeAsString());
+  auto data_source = GetSysStatsDataSource(config);
+
+  WaitTick(data_source.get());
+
+  protos::gen::TracePacket packet = writer_raw_->GetOnlyTracePacket();
+  ASSERT_TRUE(packet.has_sys_stats());
+  const auto& sys_stats = packet.sys_stats();
   EXPECT_EQ(sys_stats.meminfo_size(), 0);
   EXPECT_EQ(sys_stats.cpu_stat_size(), 0);
 
@@ -298,72 +311,84 @@ TEST_F(SysStatsDataSourceTest, Vmstat) {
                                         KV{C::VMSTAT_PGMIGRATE_FAIL, 3439}));
 }
 
-TEST_F(SysStatsDataSourceTest, StatAll) {
-  using C = protos::SysStatsConfig;
-  protos::DataSourceConfig config;
-  config.mutable_sys_stats_config()->set_stat_period_ms(1);
-  config.mutable_sys_stats_config()->add_stat_counters(C::STAT_CPU_TIMES);
-  config.mutable_sys_stats_config()->add_stat_counters(C::STAT_IRQ_COUNTS);
-  config.mutable_sys_stats_config()->add_stat_counters(C::STAT_SOFTIRQ_COUNTS);
-  config.mutable_sys_stats_config()->add_stat_counters(C::STAT_FORK_COUNT);
-  DataSourceConfig config_obj;
-  config_obj.FromProto(config);
-  auto data_source = GetSysStatsDataSource(config_obj);
+TEST_F(SysStatsDataSourceTest, VmstatAll) {
+  DataSourceConfig config;
+  protos::gen::SysStatsConfig sys_cfg;
+  sys_cfg.set_vmstat_period_ms(10);
+  config.set_sys_stats_config_raw(sys_cfg.SerializeAsString());
+  auto data_source = GetSysStatsDataSource(config);
 
   WaitTick(data_source.get());
 
-  std::unique_ptr<protos::TracePacket> packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet);
-  ASSERT_TRUE(packet->has_sys_stats());
-  const auto& sys_stats = packet->sys_stats();
+  protos::gen::TracePacket packet = writer_raw_->GetOnlyTracePacket();
+  ASSERT_TRUE(packet.has_sys_stats());
+  const auto& sys_stats = packet.sys_stats();
+  EXPECT_EQ(sys_stats.meminfo_size(), 0);
+  EXPECT_EQ(sys_stats.cpu_stat_size(), 0);
+  EXPECT_GE(sys_stats.vmstat_size(), 10);
+}
+
+TEST_F(SysStatsDataSourceTest, StatAll) {
+  DataSourceConfig config;
+  protos::gen::SysStatsConfig sys_cfg;
+  sys_cfg.set_stat_period_ms(10);
+  config.set_sys_stats_config_raw(sys_cfg.SerializeAsString());
+  auto data_source = GetSysStatsDataSource(config);
+
+  WaitTick(data_source.get());
+
+  protos::gen::TracePacket packet = writer_raw_->GetOnlyTracePacket();
+  ASSERT_TRUE(packet.has_sys_stats());
+  const auto& sys_stats = packet.sys_stats();
   EXPECT_EQ(sys_stats.meminfo_size(), 0);
   EXPECT_EQ(sys_stats.vmstat_size(), 0);
 
   ASSERT_EQ(sys_stats.cpu_stat_size(), 8);
-  EXPECT_EQ(sys_stats.cpu_stat(0).user_ns(), 762178 * 10000000ull);
-  EXPECT_EQ(sys_stats.cpu_stat(0).system_mode_ns(), 902284 * 10000000ull);
-  EXPECT_EQ(sys_stats.cpu_stat(0).softirq_ns(), 68262 * 10000000ull);
-  EXPECT_EQ(sys_stats.cpu_stat(7).user_ns(), 180484 * 10000000ull);
-  EXPECT_EQ(sys_stats.cpu_stat(7).system_mode_ns(), 139874 * 10000000ull);
-  EXPECT_EQ(sys_stats.cpu_stat(7).softirq_ns(), 13407 * 10000000ull);
+  EXPECT_EQ(sys_stats.cpu_stat()[0].user_ns(), 762178 * 10000000ull);
+  EXPECT_EQ(sys_stats.cpu_stat()[0].system_mode_ns(), 902284 * 10000000ull);
+  EXPECT_EQ(sys_stats.cpu_stat()[0].softirq_ns(), 68262 * 10000000ull);
+  EXPECT_EQ(sys_stats.cpu_stat()[7].user_ns(), 180484 * 10000000ull);
+  EXPECT_EQ(sys_stats.cpu_stat()[7].system_mode_ns(), 139874 * 10000000ull);
+  EXPECT_EQ(sys_stats.cpu_stat()[7].softirq_ns(), 13407 * 10000000ull);
 
-  EXPECT_EQ(sys_stats.num_forks(), 243320);
+  EXPECT_EQ(sys_stats.num_forks(), 243320u);
 
-  EXPECT_EQ(sys_stats.num_irq_total(), 238128517);
-  ASSERT_EQ(sys_stats.num_irq_size(), 793);
-  EXPECT_EQ(sys_stats.num_irq(0).count(), 0);
-  EXPECT_EQ(sys_stats.num_irq(3).count(), 63500984);
-  EXPECT_EQ(sys_stats.num_irq(790).count(), 680);
+  EXPECT_EQ(sys_stats.num_irq_total(), 238128517u);
+  ASSERT_EQ(sys_stats.num_irq_size(), 102);
+  EXPECT_EQ(sys_stats.num_irq()[0].count(), 63500984u);
+  EXPECT_EQ(sys_stats.num_irq()[0].irq(), 3);
+  EXPECT_EQ(sys_stats.num_irq()[1].count(), 6253792u);
+  EXPECT_EQ(sys_stats.num_irq()[1].irq(), 5);
+  EXPECT_EQ(sys_stats.num_irq()[101].count(), 680u);
 
-  EXPECT_EQ(sys_stats.num_softirq_total(), 84611084);
+  EXPECT_EQ(sys_stats.num_softirq_total(), 84611084u);
   ASSERT_EQ(sys_stats.num_softirq_size(), 10);
-  EXPECT_EQ(sys_stats.num_softirq(0).count(), 10220177);
-  EXPECT_EQ(sys_stats.num_softirq(9).count(), 16443195);
+  EXPECT_EQ(sys_stats.num_softirq()[0].count(), 10220177u);
+  EXPECT_EQ(sys_stats.num_softirq()[9].count(), 16443195u);
 
-  EXPECT_EQ(sys_stats.num_softirq_total(), 84611084);
+  EXPECT_EQ(sys_stats.num_softirq_total(), 84611084u);
 }
 
 TEST_F(SysStatsDataSourceTest, StatForksOnly) {
-  using C = protos::SysStatsConfig;
-  protos::DataSourceConfig config;
-  config.mutable_sys_stats_config()->set_stat_period_ms(1);
-  config.mutable_sys_stats_config()->add_stat_counters(C::STAT_FORK_COUNT);
+  protos::gen::SysStatsConfig cfg;
+  cfg.set_stat_period_ms(10);
+  cfg.add_stat_counters(protos::gen::SysStatsConfig::STAT_FORK_COUNT);
   DataSourceConfig config_obj;
-  config_obj.FromProto(config);
+  config_obj.set_sys_stats_config_raw(cfg.SerializeAsString());
   auto data_source = GetSysStatsDataSource(config_obj);
 
   WaitTick(data_source.get());
 
-  std::unique_ptr<protos::TracePacket> packet = writer_raw_->ParseProto();
-  ASSERT_TRUE(packet->has_sys_stats());
-  const auto& sys_stats = packet->sys_stats();
+  protos::gen::TracePacket packet = writer_raw_->GetOnlyTracePacket();
+  ASSERT_TRUE(packet.has_sys_stats());
+  const auto& sys_stats = packet.sys_stats();
   EXPECT_EQ(sys_stats.meminfo_size(), 0);
   EXPECT_EQ(sys_stats.vmstat_size(), 0);
   ASSERT_EQ(sys_stats.cpu_stat_size(), 0);
-  EXPECT_EQ(sys_stats.num_forks(), 243320);
-  EXPECT_EQ(sys_stats.num_irq_total(), 0);
+  EXPECT_EQ(sys_stats.num_forks(), 243320u);
+  EXPECT_EQ(sys_stats.num_irq_total(), 0u);
   ASSERT_EQ(sys_stats.num_irq_size(), 0);
-  EXPECT_EQ(sys_stats.num_softirq_total(), 0);
+  EXPECT_EQ(sys_stats.num_softirq_total(), 0u);
   ASSERT_EQ(sys_stats.num_softirq_size(), 0);
 }
 

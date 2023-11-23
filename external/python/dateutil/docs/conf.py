@@ -106,7 +106,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -186,6 +186,20 @@ html_static_path = []
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'dateutildoc'
 
+# -- Options for autodoc -------------------------------------------------
+
+autodoc_mock_imports = ['ctypes.wintypes', 'six.moves.winreg']
+
+# Need to mock this out specifically to avoid errors
+import ctypes
+def pointer_mock(*args, **kwargs):
+    try:
+        return ctypes.POINTER(*args, **kwargs)
+    except Exception:
+        return None
+
+ctypes.POINTER = pointer_mock
+sys.modules['ctypes'] = ctypes
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -264,3 +278,12 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+# -- Link checking options -------------------------------------------------
+linkcheck_ignore = [
+    # This has been spotty lately so we're adding a mirror
+    r'https://pgp.mit.edu',
+]
+
+# Reduce problems with ephemeral failures
+linkcheck_retries = 5

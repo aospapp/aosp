@@ -32,6 +32,9 @@ NuggetClient::NuggetClient(const std::string& device_name)
     : device_name_(device_name), open_(false) {
 }
 
+NuggetClient::NuggetClient(const char* device_name)
+    : device_name_(device_name ? device_name : ""), open_(false) {}
+
 NuggetClient::~NuggetClient() {
   Close();
 }

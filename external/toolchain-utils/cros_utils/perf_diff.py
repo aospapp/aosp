@@ -1,5 +1,9 @@
-#!/usr/bin/env python2
-# Copyright 2012 Google Inc. All Rights Reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """One-line documentation for perf_diff module.
 
 A detailed description of perf_diff.
@@ -10,11 +14,12 @@ from __future__ import print_function
 __author__ = 'asharif@google.com (Ahmad Sharif)'
 
 import argparse
+import functools
 import re
 import sys
 
-import misc
-import tabulator
+from cros_utils import misc
+from cros_utils import tabulator
 
 ROWS_TO_SHOW = 'Rows_to_show_in_the_perf_table'
 TOTAL_EVENTS = 'Total_events_of_this_profile'
@@ -38,7 +43,7 @@ def GetPerfDictFromReport(report_file):
 
 
 def _SortDictionaryByValue(d):
-  l = [(k, v) for (k, v) in d.iteritems()]
+  l = d.items()
 
   def GetFloat(x):
     if misc.IsFloat(x):
@@ -271,11 +276,11 @@ class PerfDiffer(object):
     for report in self._reports:
       if section_name in report.sections:
         section = report.sections[section_name]
-        function_names = [f.name for f in section.functions]
+        function_names = {f.name for f in section.functions}
         function_names_list.append(function_names)
 
     self._common_function_names[section_name] = (
-        reduce(set.intersection, map(set, function_names_list)))
+        functools.reduce(set.intersection, function_names_list))
 
   def _GetTopFunctions(self, section_name, num_functions):
     all_functions = {}
@@ -301,17 +306,19 @@ class PerfDiffer(object):
 def Main(argv):
   """The entry of the main."""
   parser = argparse.ArgumentParser()
-  parser.add_argument('-n',
-                      '--num_symbols',
-                      dest='num_symbols',
-                      default='5',
-                      help='The number of symbols to show.')
-  parser.add_argument('-c',
-                      '--common_only',
-                      dest='common_only',
-                      action='store_true',
-                      default=False,
-                      help='Diff common symbols only.')
+  parser.add_argument(
+      '-n',
+      '--num_symbols',
+      dest='num_symbols',
+      default='5',
+      help='The number of symbols to show.')
+  parser.add_argument(
+      '-c',
+      '--common_only',
+      dest='common_only',
+      action='store_true',
+      default=False,
+      help='Diff common symbols only.')
 
   options, args = parser.parse_known_args(argv)
 

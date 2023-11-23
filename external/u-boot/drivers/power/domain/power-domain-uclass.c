@@ -7,6 +7,7 @@
 #include <dm.h>
 #include <power-domain.h>
 #include <power-domain-uclass.h>
+#include <dm/device-internal.h>
 
 static inline struct power_domain_ops *power_domain_dev_ops(struct udevice *dev)
 {
@@ -28,7 +29,8 @@ static int power_domain_of_xlate_default(struct power_domain *power_domain,
 	return 0;
 }
 
-int power_domain_get(struct udevice *dev, struct power_domain *power_domain)
+int power_domain_get_by_index(struct udevice *dev,
+			      struct power_domain *power_domain, int index)
 {
 	struct ofnode_phandle_args args;
 	int ret;
@@ -38,7 +40,8 @@ int power_domain_get(struct udevice *dev, struct power_domain *power_domain)
 	debug("%s(dev=%p, power_domain=%p)\n", __func__, dev, power_domain);
 
 	ret = dev_read_phandle_with_args(dev, "power-domains",
-					 "#power-domain-cells", 0, 0, &args);
+					 "#power-domain-cells", 0, index,
+					 &args);
 	if (ret) {
 		debug("%s: dev_read_phandle_with_args failed: %d\n",
 		      __func__, ret);
@@ -73,6 +76,11 @@ int power_domain_get(struct udevice *dev, struct power_domain *power_domain)
 	return 0;
 }
 
+int power_domain_get(struct udevice *dev, struct power_domain *power_domain)
+{
+	return power_domain_get_by_index(dev, power_domain, 0);
+}
+
 int power_domain_free(struct power_domain *power_domain)
 {
 	struct power_domain_ops *ops = power_domain_dev_ops(power_domain->dev);
@@ -99,6 +107,47 @@ int power_domain_off(struct power_domain *power_domain)
 
 	return ops->off(power_domain);
 }
+
+#if (CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA))
+static int dev_power_domain_ctrl(struct udevice *dev, bool on)
+{
+	struct power_domain pd;
+	int i, count, ret = 0;
+
+	count = dev_count_phandle_with_args(dev, "power-domains",
+					    "#power-domain-cells");
+	for (i = 0; i < count; i++) {
+		ret = power_domain_get_by_index(dev, &pd, i);
+		if (ret)
+			return ret;
+		if (on)
+			ret = power_domain_on(&pd);
+		else
+			ret = power_domain_off(&pd);
+	}
+
+	/*
+	 * power_domain_get() bound the device, thus
+	 * we must remove it again to prevent unbinding
+	 * active devices (which would result in unbind
+	 * error).
+	 */
+	if (count > 0 && !on)
+		device_remove(pd.dev, DM_REMOVE_NORMAL);
+
+	return ret;
+}
+
+int dev_power_domain_on(struct udevice *dev)
+{
+	return dev_power_domain_ctrl(dev, true);
+}
+
+int dev_power_domain_off(struct udevice *dev)
+{
+	return dev_power_domain_ctrl(dev, false);
+}
+#endif
 
 UCLASS_DRIVER(power_domain) = {
 	.id		= UCLASS_POWER_DOMAIN,

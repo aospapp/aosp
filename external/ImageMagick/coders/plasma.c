@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -47,12 +47,12 @@
 #include "MagickCore/constitute.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
-#include "MagickCore/fx.h"
 #include "MagickCore/image.h"
 #include "MagickCore/image-private.h"
 #include "MagickCore/list.h"
 #include "MagickCore/magick.h"
 #include "MagickCore/memory_.h"
+#include "MagickCore/module.h"
 #include "MagickCore/monitor.h"
 #include "MagickCore/monitor-private.h"
 #include "MagickCore/pixel-accessor.h"
@@ -62,7 +62,7 @@
 #include "MagickCore/quantum-private.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
-#include "MagickCore/module.h"
+#include "MagickCore/visual-effects.h"
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -91,23 +91,24 @@
 %
 */
 
-static inline void PlasmaPixel(Image *image,RandomInfo *random_info,double x,
-  double y,ExceptionInfo *exception)
+static inline MagickBooleanType PlasmaPixel(Image *image,
+  RandomInfo *magick_restrict random_info,const double x,const double y,
+  ExceptionInfo *exception)
 {
   register Quantum
     *q;
 
-  q=GetAuthenticPixels(image,(ssize_t) ceil(x-0.5),(ssize_t) ceil(y-0.5),1,1,
+  q=GetAuthenticPixels(image,(ssize_t) (x+0.5),(ssize_t) (y+0.5),1,1,
     exception);
   if (q == (Quantum *) NULL)
-    return;
-  SetPixelRed(image,ScaleShortToQuantum((unsigned short) (65535.0*
-    GetPseudoRandomValue(random_info)+0.5)),q);
-  SetPixelGreen(image,ScaleShortToQuantum((unsigned short) (65535.0*
-    GetPseudoRandomValue(random_info)+0.5)),q);
-  SetPixelBlue(image,ScaleShortToQuantum((unsigned short) (65535.0*
-    GetPseudoRandomValue(random_info)+0.5)),q);
-  (void) SyncAuthenticPixels(image,exception);
+    return(MagickFalse);
+  SetPixelRed(image,(Quantum) (QuantumRange*
+    GetPseudoRandomValue(random_info)+0.5),q);
+  SetPixelGreen(image,(Quantum) (QuantumRange*
+    GetPseudoRandomValue(random_info)+0.5),q);
+  SetPixelBlue(image,(Quantum) (QuantumRange*
+    GetPseudoRandomValue(random_info)+0.5),q);
+  return(SyncAuthenticPixels(image,exception));
 }
 
 static Image *ReadPlasmaImage(const ImageInfo *image_info,
@@ -180,21 +181,27 @@ static Image *ReadPlasmaImage(const ImageInfo *image_info,
       */
       (void) SetImageColorspace(image,sRGBColorspace,exception);
       random_info=AcquireRandomInfo();
-      PlasmaPixel(image,random_info,segment_info.x1,segment_info.y1,exception);
-      PlasmaPixel(image,random_info,segment_info.x1,(segment_info.y1+
+      status=PlasmaPixel(image,random_info,segment_info.x1,segment_info.y1,
+        exception);
+      status&=PlasmaPixel(image,random_info,segment_info.x1,(segment_info.y1+
         segment_info.y2)/2,exception);
-      PlasmaPixel(image,random_info,segment_info.x1,segment_info.y2,exception);
-      PlasmaPixel(image,random_info,(segment_info.x1+segment_info.x2)/2,
+      status&=PlasmaPixel(image,random_info,segment_info.x1,segment_info.y2,
+        exception);
+      status&=PlasmaPixel(image,random_info,(segment_info.x1+segment_info.x2)/2,
         segment_info.y1,exception);
-      PlasmaPixel(image,random_info,(segment_info.x1+segment_info.x2)/2,
+      status&=PlasmaPixel(image,random_info,(segment_info.x1+segment_info.x2)/2,
         (segment_info.y1+segment_info.y2)/2,exception);
-      PlasmaPixel(image,random_info,(segment_info.x1+segment_info.x2)/2,
+      status&=PlasmaPixel(image,random_info,(segment_info.x1+segment_info.x2)/2,
         segment_info.y2,exception);
-      PlasmaPixel(image,random_info,segment_info.x2,segment_info.y1,exception);
-      PlasmaPixel(image,random_info,segment_info.x2,(segment_info.y1+
+      status&=PlasmaPixel(image,random_info,segment_info.x2,segment_info.y1,
+        exception);
+      status&=PlasmaPixel(image,random_info,segment_info.x2,(segment_info.y1+
         segment_info.y2)/2,exception);
-      PlasmaPixel(image,random_info,segment_info.x2,segment_info.y2,exception);
+      status&=PlasmaPixel(image,random_info,segment_info.x2,segment_info.y2,
+        exception);
       random_info=DestroyRandomInfo(random_info);
+      if (status == MagickFalse)
+        return(image);  
     }
   i=(size_t) MagickMax(image->columns,image->rows)/2;
   for (max_depth=0; i != 0; max_depth++)

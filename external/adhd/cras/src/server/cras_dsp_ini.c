@@ -9,8 +9,8 @@
 #include "cras_dsp_ini.h"
 #include "iniparser_wrapper.h"
 
-#define MAX_INI_KEY_LENGTH 64  /* names like "output_source:output_0" */
-#define MAX_NR_PORT 128	/* the max number of ports for a plugin */
+#define MAX_INI_KEY_LENGTH 64 /* names like "output_source:output_0" */
+#define MAX_NR_PORT 128 /* the max number of ports for a plugin */
 #define MAX_PORT_NAME_LENGTH 20 /* names like "output_32" */
 #define MAX_DUMMY_INI_CH 8 /* Max number of channels to create dummy ini */
 
@@ -73,7 +73,7 @@ static int lookup_flow(struct ini *ini, const char *name)
 	int i;
 	const struct flow *flow;
 
-	FOR_ARRAY_ELEMENT(&ini->flows, i, flow) {
+	ARRAY_ELEMENT_FOREACH (&ini->flows, i, flow) {
 		if (strcmp(flow->name, name) == 0)
 			return i;
 	}
@@ -106,7 +106,7 @@ static int parse_ports(struct ini *ini, const char *sec_name,
 		direction = PORT_INPUT;
 		snprintf(key, sizeof(key), "input_%d", i);
 		str = getstring(ini, sec_name, key);
-		if (str == NULL)  {
+		if (str == NULL) {
 			direction = PORT_OUTPUT;
 			snprintf(key, sizeof(key), "output_%d", i);
 			str = getstring(ini, sec_name, key);
@@ -149,8 +149,8 @@ static int parse_plugin_section(struct ini *ini, const char *sec_name,
 	p->library = getstring(ini, sec_name, "library");
 	p->label = getstring(ini, sec_name, "label");
 	p->purpose = getstring(ini, sec_name, "purpose");
-	p->disable_expr = cras_expr_expression_parse(
-		getstring(ini, sec_name, "disable"));
+	p->disable_expr =
+		cras_expr_expression_parse(getstring(ini, sec_name, "disable"));
 
 	if (p->library == NULL || p->label == NULL) {
 		syslog(LOG_ERR, "A plugin must have library and label: %s",
@@ -175,8 +175,8 @@ static void fill_flow_info(struct ini *ini)
 	struct plugin **pplugin;
 	int *pport;
 
-	FOR_ARRAY_ELEMENT(&ini->plugins, i, plugin) {
-		FOR_ARRAY_ELEMENT(&plugin->ports, j, port) {
+	ARRAY_ELEMENT_FOREACH (&ini->plugins, i, plugin) {
+		ARRAY_ELEMENT_FOREACH (&plugin->ports, j, port) {
 			int flow_id = port->flow_id;
 			if (flow_id == INVALID_FLOW_ID)
 				continue;
@@ -196,9 +196,7 @@ static void fill_flow_info(struct ini *ini)
 }
 
 /* Adds a port to a plugin with specified flow id and direction. */
-static void add_audio_port(struct ini *ini,
-			   struct plugin *plugin,
-			   int flow_id,
+static void add_audio_port(struct ini *ini, struct plugin *plugin, int flow_id,
 			   enum port_direction port_direction)
 {
 	struct port *p;
@@ -210,12 +208,9 @@ static void add_audio_port(struct ini *ini,
 }
 
 /* Fills fields for a swap_lr plugin.*/
-static void fill_swap_lr_plugin(struct ini *ini,
-				struct plugin *plugin,
-				int input_flowid_0,
-				int input_flowid_1,
-				int output_flowid_0,
-				int output_flowid_1)
+static void fill_swap_lr_plugin(struct ini *ini, struct plugin *plugin,
+				int input_flowid_0, int input_flowid_1,
+				int output_flowid_0, int output_flowid_1)
 {
 	plugin->title = "swap_lr";
 	plugin->library = "builtin";
@@ -250,7 +245,7 @@ struct plugin *find_first_playback_sink_plugin(struct ini *ini)
 	int i;
 	struct plugin *plugin;
 
-	FOR_ARRAY_ELEMENT(&ini->plugins, i, plugin) {
+	ARRAY_ELEMENT_FOREACH (&ini->plugins, i, plugin) {
 		if (strcmp(plugin->library, "builtin") != 0)
 			continue;
 		if (strcmp(plugin->label, "sink") != 0)
@@ -296,11 +291,8 @@ static int insert_swap_lr_plugin(struct ini *ini)
 
 	/* Creates a swap_lr plugin and sets the input and output ports. */
 	swap_lr = ARRAY_APPEND_ZERO(&ini->plugins);
-	fill_swap_lr_plugin(ini,
-			    swap_lr,
-			    sink_input_flowid_0,
-			    sink_input_flowid_1,
-			    swap_lr_output_flowid_0,
+	fill_swap_lr_plugin(ini, swap_lr, sink_input_flowid_0,
+			    sink_input_flowid_1, swap_lr_output_flowid_0,
 			    swap_lr_output_flowid_1);
 
 	/* Look up first sink again because ini->plugins could be realloc'ed */
@@ -380,7 +372,7 @@ struct ini *cras_dsp_ini_create(const char *ini_filename)
 
 	dict = iniparser_load_wrapper((char *)ini_filename);
 	if (!dict) {
-		syslog(LOG_ERR, "no ini file %s", ini_filename);
+		syslog(LOG_DEBUG, "no ini file %s", ini_filename);
 		goto bail;
 	}
 	ini->dict = dict;
@@ -416,7 +408,7 @@ void cras_dsp_ini_free(struct ini *ini)
 	int i;
 
 	/* free plugins */
-	FOR_ARRAY_ELEMENT(&ini->plugins, i, p) {
+	ARRAY_ELEMENT_FOREACH (&ini->plugins, i, p) {
 		cras_expr_expression_free(p->disable_expr);
 		ARRAY_FREE(&p->ports);
 	}
@@ -434,18 +426,24 @@ void cras_dsp_ini_free(struct ini *ini)
 static const char *port_direction_str(enum port_direction port_direction)
 {
 	switch (port_direction) {
-	case PORT_INPUT: return "input";
-	case PORT_OUTPUT: return "output";
-	default: return "unknown";
+	case PORT_INPUT:
+		return "input";
+	case PORT_OUTPUT:
+		return "output";
+	default:
+		return "unknown";
 	}
 }
 
 static const char *port_type_str(enum port_type port_type)
 {
 	switch (port_type) {
-	case PORT_CONTROL: return "control";
-	case PORT_AUDIO: return "audio";
-	default: return "unknown";
+	case PORT_CONTROL:
+		return "control";
+	case PORT_AUDIO:
+		return "audio";
+	default:
+		return "unknown";
 	}
 }
 
@@ -467,13 +465,13 @@ void cras_dsp_ini_dump(struct dumper *d, struct ini *ini)
 	dumpf(d, "ini->dict = %p\n", ini->dict);
 
 	dumpf(d, "number of plugins = %d\n", ARRAY_COUNT(&ini->plugins));
-	FOR_ARRAY_ELEMENT(&ini->plugins, i, plugin) {
+	ARRAY_ELEMENT_FOREACH (&ini->plugins, i, plugin) {
 		dumpf(d, "[plugin %d: %s]\n", i, plugin->title);
 		dumpf(d, "library=%s\n", plugin->library);
 		dumpf(d, "label=%s\n", plugin->label);
 		dumpf(d, "purpose=%s\n", plugin->purpose);
 		dumpf(d, "disable=%p\n", plugin->disable_expr);
-		FOR_ARRAY_ELEMENT(&plugin->ports, j, port) {
+		ARRAY_ELEMENT_FOREACH (&plugin->ports, j, port) {
 			dumpf(d,
 			      "  [%s port %d] type=%s, flow_id=%d, value=%g\n",
 			      port_direction_str(port->direction), j,
@@ -483,11 +481,10 @@ void cras_dsp_ini_dump(struct dumper *d, struct ini *ini)
 	}
 
 	dumpf(d, "number of flows = %d\n", ARRAY_COUNT(&ini->flows));
-	FOR_ARRAY_ELEMENT(&ini->flows, i, flow) {
-		dumpf(d, "  [flow %d] %s, %s, %s:%d -> %s:%d\n",
-		      i, flow->name, port_type_str(flow->type),
-		      plugin_title(flow->from), flow->from_port,
-		      plugin_title(flow->to), flow->to_port);
+	ARRAY_ELEMENT_FOREACH (&ini->flows, i, flow) {
+		dumpf(d, "  [flow %d] %s, %s, %s:%d -> %s:%d\n", i, flow->name,
+		      port_type_str(flow->type), plugin_title(flow->from),
+		      flow->from_port, plugin_title(flow->to), flow->to_port);
 	}
 
 	dumpf(d, "---- ini dump end ----\n");

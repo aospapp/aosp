@@ -28,7 +28,6 @@ from autotest_lib.frontend.afe import models
 from autotest_lib.frontend.afe import rpc_utils
 from autotest_lib.server import frontend
 from autotest_lib.server.hosts import moblab_host
-from chromite.lib import gs
 
 _CONFIG = global_config.global_config
 MOBLAB_BOTO_LOCATION = '/home/moblab/.boto'
@@ -75,8 +74,7 @@ class GsUtil:
     @classmethod
     def get_gsutil_cmd(cls):
       if not cls._GSUTIL_CMD:
-         cls._GSUTIL_CMD = gs.GSContext.GetDefaultGSUtilBin(
-           cache_dir=CROS_CACHEDIR)
+         cls._GSUTIL_CMD = 'gsutil'
 
       return cls._GSUTIL_CMD
 
@@ -640,7 +638,7 @@ def _test_dut_ssh_connection(ip):
 
     @return: True if the ssh connection is good False else
     """
-    cmd = ('ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no '
+    cmd = ('ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=no '
             "root@%s 'timeout 2 cat /etc/lsb-release'") % ip
     try:
         release = subprocess.check_output(cmd, shell=True)

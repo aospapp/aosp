@@ -19,11 +19,7 @@
 /*
  * CFI Flash
  */
-#define CONFIG_FLASH_CFI_DRIVER
 #define CONFIG_SYS_CFI_FLASH_STATUS_POLL /* fix amd flash issue */
-#define CONFIG_SYS_FLASH_CFI
-#define CONFIG_SYS_FLASH_USE_BUFFER_WRITE
-#define CONFIG_SYS_FLASH_PROTECTION
 #define CONFIG_SYS_MAX_FLASH_BANKS_DETECT	1
 #define CONFIG_SYS_MAX_FLASH_SECT	512
 
@@ -51,7 +47,6 @@
  */
 #define CONFIG_SYS_SDRAM_BASE		0xD0000000
 #define CONFIG_SYS_SDRAM_SIZE		0x08000000
-#define CONFIG_NR_DRAM_BANKS		1
 #define CONFIG_MONITOR_IS_IN_RAM
 #define CONFIG_SYS_MONITOR_LEN		0x80000	/* Reserve 512k */
 #define CONFIG_SYS_MONITOR_BASE	(CONFIG_SYS_SDRAM_BASE + \
@@ -67,9 +62,7 @@
  * (which is common practice).
  */
 
-#define CONFIG_ENV_SIZE			0x20000	/* 128k, 1 sector */
 #define CONFIG_ENV_OVERWRITE		/* Serial change Ok	*/
-#define CONFIG_ENV_ADDR			(0xe2800000 + CONFIG_SYS_MONITOR_LEN)
 
 /*
  * MISC

@@ -13,19 +13,9 @@
 #include "cras_shm.h"
 #include "cras_types.h"
 
+struct cras_connect_message;
 struct cras_rclient;
 struct dev_mix;
-
-/* Holds identifiers for an shm segment.
- *  shm_fd - File descriptor shared with client to access shm.
- *  shm_name - Name of the shm area.
- *  length - Size of the shm region.
- */
-struct rstream_shm_info {
-	int shm_fd;
-	char shm_name[NAME_MAX];
-	size_t length;
-};
 
 /* Holds informations about the master active device.
  * Members:
@@ -43,6 +33,7 @@ struct master_dev_info {
  * Members:
  *    stream_id - identifier for this stream.
  *    stream_type - not used.
+ *    client_type - The client type of this stream, like Chrome, ARC++.
  *    direction - input or output.
  *    flags - Indicative of what special handling is needed.
  *    fd - Socket for requesting and sending audio buffer events.
@@ -51,7 +42,6 @@ struct master_dev_info {
  *    master_dev_info - The info of the master device this stream attaches to.
  *    is_draining - The stream is draining and waiting to be removed.
  *    client - The client who uses this stream.
- *    shm_info - Configuration data for shared memory
  *    shm - shared memory
  *    audio_area - space for playback/capture audio
  *    format - format of the stream
@@ -59,9 +49,12 @@ struct master_dev_info {
  *    sleep_interval_ts - Time between audio callbacks.
  *    last_fetch_ts - The time of the last stream fetch.
  *    longest_fetch_interval_ts - Longest interval between two fetches.
+ *    start_ts - The time when the stream started.
+ *    first_missed_cb_ts - The time when the first missed callback happens.
  *    buf_state - State of the buffer from all devices for this stream.
  *    apm_list - List of audio processing module instances.
  *    num_attached_devs - Number of iodevs this stream has attached to.
+ *    num_missed_cb - Number of callback schedules have been missed.
  *    queued_frames - Cached value of the number of queued frames in shm.
  *    is_pinned - True if the stream is a pinned stream, false otherwise.
  *    pinned_dev_idx - device the stream is pinned, 0 if none.
@@ -70,6 +63,7 @@ struct master_dev_info {
 struct cras_rstream {
 	cras_stream_id_t stream_id;
 	enum CRAS_STREAM_TYPE stream_type;
+	enum CRAS_CLIENT_TYPE client_type;
 	enum CRAS_STREAM_DIRECTION direction;
 	uint32_t flags;
 	int fd;
@@ -78,17 +72,19 @@ struct cras_rstream {
 	int is_draining;
 	struct master_dev_info master_dev;
 	struct cras_rclient *client;
-	struct rstream_shm_info shm_info;
-	struct cras_audio_shm shm;
+	struct cras_audio_shm *shm;
 	struct cras_audio_area *audio_area;
 	struct cras_audio_format format;
 	struct timespec next_cb_ts;
 	struct timespec sleep_interval_ts;
 	struct timespec last_fetch_ts;
 	struct timespec longest_fetch_interval;
+	struct timespec start_ts;
+	struct timespec first_missed_cb_ts;
 	struct buffer_share *buf_state;
 	struct cras_apm_list *apm_list;
 	int num_attached_devs;
+	int num_missed_cb;
 	int queued_frames;
 	int is_pinned;
 	uint32_t pinned_dev_idx;
@@ -98,6 +94,7 @@ struct cras_rstream {
 
 /* Config for creating an rstream.
  *    stream_type - CRAS_STREAM_TYPE.
+ *    client_type - CRAS_CLIENT_TYPE.
  *    direction - CRAS_STREAM_OUTPUT or CRAS_STREAM_INPUT.
  *    dev_idx - Pin to this device if != NO_DEVICE.
  *    flags - Any special handling for this stream.
@@ -105,12 +102,18 @@ struct cras_rstream {
  *    format - The audio format the stream wishes to use.
  *    buffer_frames - Total number of audio frames to buffer.
  *    cb_threshold - # of frames when to request more from the client.
- *    audio_fd - The fd to read/write audio signals to.
+ *    audio_fd - The fd to read/write audio signals to. May be -1 for server
+ *               stream. Some functions may mutably borrow the config and move
+ *               the fd ownership.
+ *    client_shm_fd - The shm fd to use to back the samples area. May be -1.
+ *                    Some functions may dup this fd while borrowing the config.
+ *    client_shm_size - The size of shm area backed by client_shm_fd.
  *    client - The client that owns this stream.
  */
 struct cras_rstream_config {
 	cras_stream_id_t stream_id;
 	enum CRAS_STREAM_TYPE stream_type;
+	enum CRAS_CLIENT_TYPE client_type;
 	enum CRAS_STREAM_DIRECTION direction;
 	uint32_t dev_idx;
 	uint32_t flags;
@@ -119,12 +122,59 @@ struct cras_rstream_config {
 	size_t buffer_frames;
 	size_t cb_threshold;
 	int audio_fd;
+	int client_shm_fd;
+	size_t client_shm_size;
 	struct cras_rclient *client;
 };
 
+/* Fills cras_rstream_config with given parameters.
+ *
+ * Args:
+ *   audio_fd - The audio fd pointer from client. Its ownership will be moved to
+ *              stream_config.
+ *   client_shm_fd - The shared memory fd pointer for samples from client. Its
+ *                   ownership will be moved to stream_config.
+ *   Other args - See comments in struct cras_rstream_config.
+ */
+void cras_rstream_config_init(
+	struct cras_rclient *client, cras_stream_id_t stream_id,
+	enum CRAS_STREAM_TYPE stream_type, enum CRAS_CLIENT_TYPE client_type,
+	enum CRAS_STREAM_DIRECTION direction, uint32_t dev_idx, uint32_t flags,
+	uint32_t effects, const struct cras_audio_format *format,
+	size_t buffer_frames, size_t cb_threshold, int *audio_fd,
+	int *client_shm_fd, size_t client_shm_size,
+	struct cras_rstream_config *stream_config);
+
+/* Fills cras_rstream_config with given parameters and a cras_connect_message.
+ *
+ * Args:
+ *   client - The rclient which handles the connect message.
+ *   msg - The cras_connect_message from client.
+ *   aud_fd - The audio fd pointer from client. Its ownership will be moved to
+ *            stream_config.
+ *   client_shm_fd - The shared memory fd pointer for samples from client. Its
+ *                   ownership will be moved to stream_config.
+ *   remote_format - The remote_format for the config.
+ *   stream_config - The cras_rstream_config to be filled.
+ */
+void cras_rstream_config_init_with_message(
+	struct cras_rclient *client, const struct cras_connect_message *msg,
+	int *aud_fd, int *client_shm_fd,
+	const struct cras_audio_format *remote_format,
+	struct cras_rstream_config *stream_config);
+
+/* Cleans up given cras_rstream_config. All fds inside the config will be
+ * closed.
+ *
+ * Args:
+ *   stream_config - The config to be cleaned up.
+ */
+void cras_rstream_config_cleanup(struct cras_rstream_config *stream_config);
+
 /* Creates an rstream.
  * Args:
- *    config - Params for configuration of the new rstream.
+ *    config - Params for configuration of the new rstream. It's a mutable
+ *             borrow.
  *    stream_out - Filled with the newly created stream pointer.
  * Returns:
  *    0 on success, EINVAL if an invalid argument is passed, or ENOMEM if out of
@@ -137,29 +187,29 @@ int cras_rstream_create(struct cras_rstream_config *config,
 void cras_rstream_destroy(struct cras_rstream *stream);
 
 /* Gets the id of the stream */
-static inline cras_stream_id_t cras_rstream_id(
-		const struct cras_rstream *stream)
+static inline cras_stream_id_t
+cras_rstream_id(const struct cras_rstream *stream)
 {
 	return stream->stream_id;
 }
 
 /* Gets the total buffer size in frames for the given client stream. */
-static inline size_t cras_rstream_get_buffer_frames(
-		const struct cras_rstream *stream)
+static inline size_t
+cras_rstream_get_buffer_frames(const struct cras_rstream *stream)
 {
 	return stream->buffer_frames;
 }
 
 /* Gets the callback threshold in frames for the given client stream. */
-static inline size_t cras_rstream_get_cb_threshold(
-		const struct cras_rstream *stream)
+static inline size_t
+cras_rstream_get_cb_threshold(const struct cras_rstream *stream)
 {
 	return stream->cb_threshold;
 }
 
 /* Gets the max write size for the stream. */
-static inline size_t cras_rstream_get_max_write_frames(
-		const struct cras_rstream *stream)
+static inline size_t
+cras_rstream_get_max_write_frames(const struct cras_rstream *stream)
 {
 	if (stream->flags & BULK_AUDIO_OK)
 		return cras_rstream_get_buffer_frames(stream);
@@ -167,15 +217,15 @@ static inline size_t cras_rstream_get_max_write_frames(
 }
 
 /* Gets the stream type of this stream. */
-static inline enum CRAS_STREAM_TYPE cras_rstream_get_type(
-		const struct cras_rstream *stream)
+static inline enum CRAS_STREAM_TYPE
+cras_rstream_get_type(const struct cras_rstream *stream)
 {
 	return stream->stream_type;
 }
 
 /* Gets the direction (input/output/loopback) of the stream. */
-static inline enum CRAS_STREAM_DIRECTION cras_rstream_get_direction(
-		const struct cras_rstream *stream)
+static inline enum CRAS_STREAM_DIRECTION
+cras_rstream_get_direction(const struct cras_rstream *stream)
 {
 	return stream->direction;
 }
@@ -202,54 +252,44 @@ static inline int cras_rstream_get_audio_fd(const struct cras_rstream *stream)
 }
 
 /* Gets the is_draning flag. */
-static inline
-int cras_rstream_get_is_draining(const struct cras_rstream *stream)
+static inline int
+cras_rstream_get_is_draining(const struct cras_rstream *stream)
 {
 	return stream->is_draining;
 }
 
 /* Sets the is_draning flag. */
 static inline void cras_rstream_set_is_draining(struct cras_rstream *stream,
-					    int is_draining)
+						int is_draining)
 {
 	stream->is_draining = is_draining;
 }
 
-/* Gets the shm key used to find the outputshm region. */
-static inline int cras_rstream_output_shm_fd(const struct cras_rstream *stream)
+/* Gets the shm fds used for the stream shm */
+static inline int cras_rstream_get_shm_fds(const struct cras_rstream *stream,
+					   int *header_fd, int *samples_fd)
 {
-	return stream->shm_info.shm_fd;
+	if (!header_fd || !samples_fd)
+		return -EINVAL;
+
+	*header_fd = stream->shm->header_info.fd;
+	*samples_fd = stream->shm->samples_info.fd;
+
+	return 0;
 }
 
-/* Gets the shm key used to find the input shm region. */
-static inline int cras_rstream_input_shm_fd(const struct cras_rstream *stream)
+/* Gets the size of the shm area used for samples for this stream. */
+static inline size_t
+cras_rstream_get_samples_shm_size(const struct cras_rstream *stream)
 {
-	return stream->shm_info.shm_fd;
-}
-
-/* Gets the total size of shm memory allocated. */
-static inline size_t cras_rstream_get_total_shm_size(
-		const struct cras_rstream *stream)
-{
-	if (stream->direction == CRAS_STREAM_OUTPUT)
-		return cras_shm_total_size(&stream->shm);
-
-	/* Use the shm size for loopback streams. */
-	return cras_shm_total_size(&stream->shm);
+	return cras_shm_samples_size(stream->shm);
 }
 
 /* Gets shared memory region for this stream. */
-static inline
-struct cras_audio_shm *cras_rstream_input_shm(struct cras_rstream *stream)
+static inline struct cras_audio_shm *
+cras_rstream_shm(struct cras_rstream *stream)
 {
-	return &stream->shm;
-}
-
-/* Gets shared memory region for this stream. */
-static inline
-struct cras_audio_shm *cras_rstream_output_shm(struct cras_rstream *stream)
-{
-	return &stream->shm;
+	return stream->shm;
 }
 
 /* Checks if the stream uses an output device. */
@@ -273,8 +313,9 @@ static inline int stream_is_server_only(const struct cras_rstream *s)
 unsigned int cras_rstream_get_effects(const struct cras_rstream *stream);
 
 /* Gets the format of data after stream specific processing. */
-struct cras_audio_format *cras_rstream_post_processing_format(
-		const struct cras_rstream *stream, void *dev_ptr);
+struct cras_audio_format *
+cras_rstream_post_processing_format(const struct cras_rstream *stream,
+				    void *dev_ptr);
 
 /* Checks how much time has passed since last stream fetch and records
  * the longest fetch interval. */
@@ -289,15 +330,13 @@ int cras_rstream_request_audio(struct cras_rstream *stream,
 int cras_rstream_audio_ready(struct cras_rstream *stream, size_t count);
 
 /* Let the rstream know when a device is added or removed. */
-void cras_rstream_dev_attach(struct cras_rstream *rstream,
-			     unsigned int dev_id,
+void cras_rstream_dev_attach(struct cras_rstream *rstream, unsigned int dev_id,
 			     void *dev_ptr);
 void cras_rstream_dev_detach(struct cras_rstream *rstream, unsigned int dev_id);
 
 /* A device using this stream has read or written samples. */
 void cras_rstream_dev_offset_update(struct cras_rstream *rstream,
-				    unsigned int frames,
-				    unsigned int dev_id);
+				    unsigned int frames, unsigned int dev_id);
 
 void cras_rstream_update_input_write_pointer(struct cras_rstream *rstream);
 void cras_rstream_update_output_read_pointer(struct cras_rstream *rstream);
@@ -307,13 +346,13 @@ unsigned int cras_rstream_dev_offset(const struct cras_rstream *rstream,
 
 static inline unsigned int cras_rstream_level(struct cras_rstream *rstream)
 {
-	const struct cras_audio_shm *shm = cras_rstream_input_shm(rstream);
+	const struct cras_audio_shm *shm = cras_rstream_shm(rstream);
 	return cras_shm_frames_written(shm);
 }
 
 static inline int cras_rstream_input_level_met(struct cras_rstream *rstream)
 {
-	const struct cras_audio_shm *shm = cras_rstream_input_shm(rstream);
+	const struct cras_audio_shm *shm = cras_rstream_shm(rstream);
 	return cras_shm_frames_written(shm) >= rstream->cb_threshold;
 }
 
@@ -332,8 +371,7 @@ float cras_rstream_get_volume_scaler(struct cras_rstream *rstream);
 /* Returns a pointer to readable frames, fills frames with the number of frames
  * available. */
 uint8_t *cras_rstream_get_readable_frames(struct cras_rstream *rstream,
-					  unsigned int offset,
-					  size_t *frames);
+					  unsigned int offset, size_t *frames);
 
 /* Returns non-zero if the stream is muted. */
 int cras_rstream_get_mute(const struct cras_rstream *rstream);

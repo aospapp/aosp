@@ -1,12 +1,12 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
-  
+
   You may not use this file except in compliance with the License.  You may
   obtain a copy of the License at
-  
+
     https://imagemagick.org/script/license.php
-  
+
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,6 +14,11 @@
   limitations under the License.
 */
 
+#if defined(__ANDROID__)
+AddMagickCoder(DDS)
+AddMagickCoder(JPEG)
+AddMagickCoder(XC)
+#else
 AddMagickCoder(AAI)
 AddMagickCoder(ART)
 AddMagickCoder(AVS)
@@ -89,6 +94,9 @@ AddMagickCoder(JNX)
   AddMagickCoder(JPEG)
 #endif
 AddMagickCoder(JSON)
+#if defined(MAGICKCORE_JXL_DELEGATE)
+  AddMagickCoder(JXL)
+#endif
 AddMagickCoder(LABEL)
 AddMagickCoder(MAC)
 AddMagickCoder(MAGICK)
@@ -150,6 +158,7 @@ AddMagickCoder(THUMBNAIL)
 #endif
 AddMagickCoder(TILE)
 AddMagickCoder(TIM)
+AddMagickCoder(TIM2)
 #if defined(MAGICKCORE_FREETYPE_DELEGATE)
   AddMagickCoder(TTF)
 #endif
@@ -183,3 +192,4 @@ AddMagickCoder(XTRN)
 #endif
 AddMagickCoder(YCBCR)
 AddMagickCoder(YUV)
+#endif

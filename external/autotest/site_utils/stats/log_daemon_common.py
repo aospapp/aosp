@@ -1,11 +1,11 @@
 from __future__ import print_function
 
 import sys
+import logging
 from logging import handlers
 
 import common
 
-from chromite.lib import cros_logging as logging
 from infra_libs import ts_mon
 
 

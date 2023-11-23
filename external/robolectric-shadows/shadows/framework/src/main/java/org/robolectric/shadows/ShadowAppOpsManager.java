@@ -6,6 +6,7 @@ import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.P;
 // BEGIN-INTERNAL
 import static android.os.Build.VERSION_CODES.Q;
+import static android.os.Build.VERSION_CODES.R;
 // END-INTERNAL
 import static org.robolectric.shadow.api.Shadow.invokeConstructor;
 
@@ -13,6 +14,7 @@ import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.app.AppOpsManager;
+import android.app.AppOpsManager.AttributedOpEntry;
 import android.app.AppOpsManager.OnOpChangedListener;
 import android.app.AppOpsManager.OpEntry;
 import android.app.AppOpsManager.PackageOps;
@@ -23,6 +25,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.util.LongSparseArray;
 import android.util.LongSparseLongArray;
+
 import com.android.internal.app.IAppOpsService;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -129,6 +132,24 @@ public class ShadowAppOpsManager {
   }
   // END-INTERNAL
 
+  /**
+   * Like {@link #unsafeCheckOpNoThrow(String, int, String)} but returns the <em>raw</em> mode
+   * associated with the op. Does not throw a security exception, does not translate {@link
+   * AppOpsManager#MODE_FOREGROUND}.
+   */
+  @Implementation(minSdk = Q)
+  protected int unsafeCheckOpRawNoThrow(String op, int uid, String packageName) {
+    return unsafeCheckOpRawNoThrow(AppOpsManager.strOpToOp(op), uid, packageName);
+  }
+
+  private int unsafeCheckOpRawNoThrow(int op, int uid, String packageName) {
+    Integer mode = appModeMap.get(getOpMapKey(uid, packageName, op));
+    if (mode == null) {
+      return AppOpsManager.MODE_ALLOWED;
+    }
+    return mode;
+  }
+
   @Implementation(minSdk = P)
   @Deprecated // renamed to unsafeCheckOpNoThrow
   protected int checkOpNoThrow(String op, int uid, String packageName) {
@@ -151,7 +172,7 @@ public class ShadowAppOpsManager {
     return mode;
   }
 
-  @Implementation(minSdk = KITKAT)
+  @Implementation(minSdk = KITKAT, maxSdk = Q)
   public int noteOp(int op, int uid, String packageName) {
     mStoredOps.put(getInternalKey(uid, packageName), op);
 
@@ -159,11 +180,31 @@ public class ShadowAppOpsManager {
     return AppOpsManager.MODE_ALLOWED;
   }
 
-  @Implementation(minSdk = M)
+  @Implementation(minSdk = R)
+  @HiddenApi
+  public int noteOp(int op, int uid, String packageName, String message) {
+    mStoredOps.put(getInternalKey(uid, packageName), op);
+
+    // Permission check not currently implemented in this shadow.
+    return AppOpsManager.MODE_ALLOWED;
+  }
+
+  @Implementation(minSdk = M, maxSdk = Q)
   @HiddenApi
   protected int noteProxyOpNoThrow(int op, String proxiedPackageName) {
     mStoredOps.put(getInternalKey(Binder.getCallingUid(), proxiedPackageName), op);
     return checkOpNoThrow(op, Binder.getCallingUid(), proxiedPackageName);
+  }
+
+  @Implementation(minSdk = R)
+  @HiddenApi
+  protected int noteProxyOpNoThrow(int op, String proxiedPackageName, int proxiedUid,
+          String featureId, String message) {
+    if (featureId != null) {
+      throw new RuntimeException("non null featureIds are not supported by Robolectric yet");
+    }
+    mStoredOps.put(getInternalKey(proxiedUid, proxiedPackageName), op);
+    return checkOpNoThrow(op, proxiedUid, proxiedPackageName);
   }
 
   @Implementation(minSdk = KITKAT)
@@ -274,8 +315,28 @@ public class ShadowAppOpsManager {
     final LongSparseArray<String> proxyPackages = new LongSparseArray<>();
     proxyPackages.put(key, PROXY_PACKAGE);
 
-    return new OpEntry(op, false, AppOpsManager.MODE_ALLOWED, accessTimes,
-        durations, rejectTimes, proxyUids, proxyPackages);
+    if (RuntimeEnvironment.getApiLevel() <= Build.VERSION_CODES.Q) {
+      return ReflectionHelpers.callConstructor(
+              OpEntry.class,
+              ClassParameter.from(int.class, op),
+              ClassParameter.from(boolean.class, false),
+              ClassParameter.from(int.class, AppOpsManager.MODE_ALLOWED),
+              ClassParameter.from(LongSparseLongArray.class, accessTimes),
+              ClassParameter.from(LongSparseLongArray.class, durations),
+              ClassParameter.from(LongSparseLongArray.class, rejectTimes),
+              ClassParameter.from(LongSparseLongArray.class, proxyUids),
+              ClassParameter.from(LongSparseArray.class, proxyPackages));
+    }
+
+    LongSparseArray<AppOpsManager.NoteOpEvent> accessEvents = new LongSparseArray<>();
+    LongSparseArray<AppOpsManager.NoteOpEvent> rejectEvents = new LongSparseArray<>();
+
+    accessEvents.put(key, new AppOpsManager.NoteOpEvent(OP_TIME, DURATION,
+            new AppOpsManager.OpEventProxyInfo(PROXY_UID, PROXY_PACKAGE, null)));
+    rejectEvents.put(key, new AppOpsManager.NoteOpEvent(REJECT_TIME, -1, null));
+
+    return new OpEntry(op, AppOpsManager.MODE_ALLOWED, Collections.singletonMap(null,
+            new AttributedOpEntry(op, false, accessEvents, rejectEvents)));
     // END-INTERNAL
   }
 

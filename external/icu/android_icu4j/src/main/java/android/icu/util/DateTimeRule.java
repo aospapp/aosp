@@ -18,6 +18,7 @@ import java.io.Serializable;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
+@libcore.api.IntraCoreApi
 public class DateTimeRule implements Serializable {
 
     private static final long serialVersionUID = 2183055795738051443L;
@@ -26,12 +27,14 @@ public class DateTimeRule implements Serializable {
      * Date rule type defined by exact day of month.
      * For example, March 14.
      */
+    @libcore.api.IntraCoreApi
     public static final int DOM = 0;
 
     /**
      * Date rule type defined by day of week in month.
      * For example, 2nd Sunday in March.
      */
+    @libcore.api.IntraCoreApi
     public static final int DOW = 1;
 
     /**
@@ -39,6 +42,7 @@ public class DateTimeRule implements Serializable {
      * after exact day of month.
      * For example, 1st Monday on or after March 15.
      */
+    @libcore.api.IntraCoreApi
     public static final int DOW_GEQ_DOM = 2;
 
     /**
@@ -46,21 +50,25 @@ public class DateTimeRule implements Serializable {
      * before exact day of month.
      * For example, last Saturday on or before March 15.
      */
+    @libcore.api.IntraCoreApi
     public static final int DOW_LEQ_DOM = 3;
 
     /**
      * Time rule type for local wall time.
      */
+    @libcore.api.IntraCoreApi
     public static final int WALL_TIME = 0;
 
     /**
      * Time rule type for local standard time.
      */
+    @libcore.api.IntraCoreApi
     public static final int STANDARD_TIME = 1;
 
     /**
      * Time rule type for coordinated universal time.
      */
+    @libcore.api.IntraCoreApi
     public static final int UTC_TIME = 2;
 
     // private stuff
@@ -159,6 +167,7 @@ public class DateTimeRule implements Serializable {
      *
      * @return The date rule type.
      */
+    @libcore.api.IntraCoreApi
     public int getDateRuleType() {
         return dateRuleType;
     }
@@ -168,6 +177,7 @@ public class DateTimeRule implements Serializable {
      *
      * @return The rule month.
      */
+    @libcore.api.IntraCoreApi
     public int getRuleMonth() {
         return month;
     }
@@ -178,6 +188,7 @@ public class DateTimeRule implements Serializable {
      *
      * @return The rule day of month
      */
+    @libcore.api.IntraCoreApi
     public int getRuleDayOfMonth() {
         return dayOfMonth;
     }
@@ -188,6 +199,7 @@ public class DateTimeRule implements Serializable {
      *
      * @return The rule day of week.
      */
+    @libcore.api.IntraCoreApi
     public int getRuleDayOfWeek() {
         return dayOfWeek;
     }
@@ -209,6 +221,7 @@ public class DateTimeRule implements Serializable {
      * @return The time rule type, either <code>WALL_TIME</code> or <code>STANDARD_TIME</code>
      *         or <code>UTC_TIME</code>.
      */
+    @libcore.api.IntraCoreApi
     public int getTimeRuleType() {
         return timeRuleType;
     }
@@ -218,6 +231,7 @@ public class DateTimeRule implements Serializable {
      *
      * @return The time in the rule day in milliseconds.
      */
+    @libcore.api.IntraCoreApi
     public int getRuleMillisInDay() {
         return millisInDay;
     }

@@ -24,6 +24,7 @@
 #include "vktMemoryAllocationTests.hpp"
 
 #include "vktTestCaseUtil.hpp"
+#include "vktCustomInstancesDevices.hpp"
 
 #include "tcuMaybe.hpp"
 #include "tcuResultCollector.hpp"
@@ -128,15 +129,19 @@ public:
 	{
 		if (m_useDeviceGroups)
 			createDeviceGroup();
+		else
+			createDevice();
+
 		m_allocFlagsInfo.sType		= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO_KHR;
 		m_allocFlagsInfo.pNext		= DE_NULL;
 		m_allocFlagsInfo.flags		= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
 		m_allocFlagsInfo.deviceMask	= 0;
 	}
 
+	void						createDevice		(void);
 	void						createDeviceGroup	(void);
 	const vk::DeviceInterface&	getDeviceInterface	(void) { return m_useDeviceGroups ? *m_deviceDriver : m_context.getDeviceInterface(); }
-	vk::VkDevice				getDevice			(void) { return m_useDeviceGroups ? m_logicalDevice.get() : m_context.getDevice(); }
+	vk::VkDevice				getDevice			(void) { return m_logicalDevice.get();}
 
 protected:
 	bool									m_useDeviceGroups;
@@ -146,10 +151,69 @@ protected:
 	VkPhysicalDeviceMemoryProperties		m_memoryProperties;
 
 private:
-	vk::Move<vk::VkInstance>		m_deviceGroupInstance;
+	CustomInstance					m_deviceGroupInstance;
 	vk::Move<vk::VkDevice>			m_logicalDevice;
 	de::MovePtr<vk::DeviceDriver>	m_deviceDriver;
 };
+
+void BaseAllocateTestInstance::createDevice (void)
+{
+	VkInstance										instance				(m_context.getInstance());
+	InstanceDriver									instanceDriver			(m_context.getPlatformInterface(), instance);
+	const VkPhysicalDeviceFeatures					deviceFeatures			= getPhysicalDeviceFeatures(instanceDriver, m_context.getPhysicalDevice());
+	const float										queuePriority			= 1.0f;
+	deUint32										queueFamilyIndex		= 0;
+	bool											protMemSupported		= false;
+
+	VkPhysicalDeviceProtectedMemoryFeatures protectedMemoryFeature =
+	{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,// VkStructureType					sType
+		DE_NULL,													// const void*						pNext
+		VK_FALSE													// VkBool32							protectedMemory;
+	};
+
+	VkPhysicalDeviceFeatures				features;
+	deMemset(&features, 0, sizeof(vk::VkPhysicalDeviceFeatures));
+
+	VkPhysicalDeviceFeatures2				features2		=
+	{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,				// VkStructureType					sType
+		&protectedMemoryFeature,									// const void*						pNext
+		features													// VkPhysicalDeviceFeatures			features
+	};
+
+	// Check if the physical device supports the protected memory feature
+	instanceDriver.getPhysicalDeviceFeatures2(m_context.getPhysicalDevice(), &features2);
+	protMemSupported = ((VkPhysicalDeviceProtectedMemoryFeatures*)(features2.pNext))->protectedMemory;
+
+	VkDeviceQueueCreateFlags queueCreateFlags = protMemSupported ? (vk::VkDeviceQueueCreateFlags)vk::VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT : 0u;
+
+	VkDeviceQueueCreateInfo							queueInfo		=
+	{
+		VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,					// VkStructureType					sType;
+		DE_NULL,													// const void*						pNext;
+		queueCreateFlags,											// VkDeviceQueueCreateFlags			flags;
+		queueFamilyIndex,											// deUint32							queueFamilyIndex;
+		1u,															// deUint32							queueCount;
+		&queuePriority												// const float*						pQueuePriorities;
+	};
+
+	const VkDeviceCreateInfo						deviceInfo		=
+	{
+		VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,						// VkStructureType					sType;
+		protMemSupported ? &features2 : DE_NULL,					// const void*						pNext;
+		(VkDeviceCreateFlags)0,										// VkDeviceCreateFlags				flags;
+		1u,															// uint32_t							queueCreateInfoCount;
+		&queueInfo,													// const VkDeviceQueueCreateInfo*	pQueueCreateInfos;
+		0u,															// uint32_t							enabledLayerCount;
+		DE_NULL,													// const char* const*				ppEnabledLayerNames;
+		0u,															// uint32_t							enabledExtensionCount;
+		DE_NULL,													// const char* const*				ppEnabledExtensionNames;
+		protMemSupported ? DE_NULL : &deviceFeatures				// const VkPhysicalDeviceFeatures*	pEnabledFeatures;
+	};
+
+	m_logicalDevice		= createCustomDevice(m_context.getTestContext().getCommandLine().isValidationEnabled(), m_context.getPlatformInterface(), instance, instanceDriver, m_context.getPhysicalDevice(), &deviceInfo);
+}
 
 void BaseAllocateTestInstance::createDeviceGroup (void)
 {
@@ -159,8 +223,8 @@ void BaseAllocateTestInstance::createDeviceGroup (void)
 	const float										queuePriority			= 1.0f;
 	deUint32										queueFamilyIndex		= 0;
 	const std::vector<std::string>					requiredExtensions		(1, "VK_KHR_device_group_creation");
-	m_deviceGroupInstance													= createInstanceWithExtensions(m_context.getPlatformInterface(), m_context.getUsedApiVersion(), requiredExtensions);
-	std::vector<VkPhysicalDeviceGroupProperties>	devGroupProperties		= enumeratePhysicalDeviceGroups(m_context.getInstanceInterface(), m_deviceGroupInstance.get());
+	m_deviceGroupInstance													= createCustomInstanceWithExtensions(m_context, requiredExtensions);
+	std::vector<VkPhysicalDeviceGroupProperties>	devGroupProperties		= enumeratePhysicalDeviceGroups(m_context.getInstanceInterface(), m_deviceGroupInstance);
 	m_numPhysDevices														= devGroupProperties[devGroupIdx].physicalDeviceCount;
 	m_subsetAllocationAllowed												= devGroupProperties[devGroupIdx].subsetAllocation;
 	if (m_numPhysDevices < 2)
@@ -177,7 +241,7 @@ void BaseAllocateTestInstance::createDeviceGroup (void)
 		devGroupProperties[devGroupIdx].physicalDeviceCount,								//physicalDeviceCount
 		devGroupProperties[devGroupIdx].physicalDevices										//physicalDevices
 	};
-	VkInstance										instance				(m_useDeviceGroups ? m_deviceGroupInstance.get() : m_context.getInstance());
+	VkInstance										instance				(m_useDeviceGroups ? m_deviceGroupInstance : m_context.getInstance());
 	InstanceDriver									instanceDriver			(m_context.getPlatformInterface(), instance);
 	const VkPhysicalDeviceFeatures					deviceFeatures	=		getPhysicalDeviceFeatures(instanceDriver, deviceGroupInfo.pPhysicalDevices[physDeviceIdx]);
 
@@ -211,7 +275,8 @@ void BaseAllocateTestInstance::createDeviceGroup (void)
 		deviceExtensions.empty() ? DE_NULL : &deviceExtensions[0],	// const char* const*	ppEnabledExtensionNames;
 		&deviceFeatures,											// const VkPhysicalDeviceFeatures*	pEnabledFeatures;
 	};
-	m_logicalDevice		= createDevice(m_context.getPlatformInterface(), instance, instanceDriver, deviceGroupInfo.pPhysicalDevices[physDeviceIdx], &deviceInfo);
+
+	m_logicalDevice		= createCustomDevice(m_context.getTestContext().getCommandLine().isValidationEnabled(), m_context.getPlatformInterface(), instance, instanceDriver, deviceGroupInfo.pPhysicalDevices[physDeviceIdx], &deviceInfo);
 	m_deviceDriver		= de::MovePtr<DeviceDriver>(new DeviceDriver(m_context.getPlatformInterface(), instance, *m_logicalDevice));
 	m_memoryProperties	= getPhysicalDeviceMemoryProperties(instanceDriver, deviceGroupInfo.pPhysicalDevices[physDeviceIdx]);
 }
@@ -297,6 +362,12 @@ tcu::TestStatus AllocateFreeTestInstance::iterate (void)
 		const VkDeviceSize		allocationSize	= (m_config.memorySize ? memReqs.size : (VkDeviceSize)(*m_config.memoryPercentage * (float)memoryHeap.size));
 		const VkDeviceSize		roundedUpAllocationSize	 = roundUpToNextMultiple(allocationSize, m_memoryLimits.deviceMemoryAllocationGranularity);
 		vector<VkDeviceMemory>	memoryObjects	(m_config.memoryAllocationCount, (VkDeviceMemory)0);
+		deUint32				totalAllocateCount		= m_config.memoryAllocationCount;
+		VkResult				result					= vk::VK_SUCCESS;
+		// Because of the size limitation of protect heap, we ignore the "VK_ERROR_OUT_OF_DEVICE_MEMORY"
+		// when total number of protected memory reaches 80 times.
+		const deUint32			protectHeapLimit		= 80;
+
 
 		log << TestLog::Message << "Memory type index: " << m_memoryTypeIndex << TestLog::EndMessage;
 
@@ -345,24 +416,35 @@ tcu::TestStatus AllocateFreeTestInstance::iterate (void)
 									m_memoryTypeIndex									// memoryTypeIndex;
 								};
 
-								VK_CHECK(vkd.allocateMemory(device, &alloc, (const VkAllocationCallbacks*)DE_NULL, &memoryObjects[ndx]));
+								result = vkd.allocateMemory(device, &alloc, (const VkAllocationCallbacks*)DE_NULL, &memoryObjects[ndx]);
+								if ( VK_ERROR_OUT_OF_DEVICE_MEMORY == result &&
+								    (memoryType.propertyFlags & vk::VK_MEMORY_PROPERTY_PROTECTED_BIT) == vk::VK_MEMORY_PROPERTY_PROTECTED_BIT &&
+								    ndx >= protectHeapLimit)
+								{
+									totalAllocateCount = (deUint32)ndx + 1;
+									break;
+								}
+								else
+								{
+									VK_CHECK(result);
+								}
 
 								TCU_CHECK(!!memoryObjects[ndx]);
 							}
 
 							if (m_config.order == TestConfig::ALLOC_FREE)
 							{
-								for (size_t ndx = 0; ndx < m_config.memoryAllocationCount; ndx++)
+								for (size_t ndx = 0; ndx < totalAllocateCount; ndx++)
 								{
-									const VkDeviceMemory mem = memoryObjects[memoryObjects.size() - 1 - ndx];
+									const VkDeviceMemory mem = memoryObjects[totalAllocateCount - 1 - ndx];
 
 									vkd.freeMemory(device, mem, (const VkAllocationCallbacks*)DE_NULL);
-									memoryObjects[memoryObjects.size() - 1 - ndx] = (VkDeviceMemory)0;
+									memoryObjects[totalAllocateCount - 1 - ndx] = (VkDeviceMemory)0;
 								}
 							}
 							else
 							{
-								for (size_t ndx = 0; ndx < m_config.memoryAllocationCount; ndx++)
+								for (size_t ndx = 0; ndx < totalAllocateCount; ndx++)
 								{
 									const VkDeviceMemory mem = memoryObjects[ndx];
 

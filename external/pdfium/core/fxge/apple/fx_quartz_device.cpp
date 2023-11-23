@@ -10,20 +10,18 @@
 #include "core/fxge/agg/fx_agg_driver.h"
 #endif
 
-#include "core/fxcrt/fx_memory.h"
 #include "core/fxge/cfx_graphstatedata.h"
 #include "core/fxge/cfx_pathdata.h"
 #include "core/fxge/cfx_renderdevice.h"
 #include "core/fxge/dib/cfx_dibitmap.h"
 #include "core/fxge/fx_freetype.h"
-#include "third_party/base/ptr_util.h"
 
 #include "core/fxge/apple/apple_int.h"
 #ifndef CGFLOAT_IS_DOUBLE
 #error Expected CGFLOAT_IS_DOUBLE to be defined by CoreGraphics headers
 #endif
 
-void* CQuartz2D::createGraphics(const RetainPtr<CFX_DIBitmap>& pBitmap) {
+void* CQuartz2D::CreateGraphics(const RetainPtr<CFX_DIBitmap>& pBitmap) {
   if (!pBitmap)
     return nullptr;
   CGBitmapInfo bmpInfo = kCGBitmapByteOrder32Little;
@@ -43,7 +41,7 @@ void* CQuartz2D::createGraphics(const RetainPtr<CFX_DIBitmap>& pBitmap) {
   return context;
 }
 
-void CQuartz2D::destroyGraphics(void* graphics) {
+void CQuartz2D::DestroyGraphics(void* graphics) {
   if (graphics)
     CGContextRelease((CGContextRef)graphics);
 }
@@ -63,36 +61,31 @@ void CQuartz2D::DestroyFont(void* pFont) {
   CGFontRelease((CGFontRef)pFont);
 }
 
-void CQuartz2D::setGraphicsTextMatrix(void* graphics, CFX_Matrix* matrix) {
-  if (!graphics || !matrix)
+void CQuartz2D::SetGraphicsTextMatrix(void* graphics,
+                                      const CFX_Matrix& matrix) {
+  if (!graphics)
     return;
-  CGContextRef context = (CGContextRef)graphics;
-  CGFloat ty = CGBitmapContextGetHeight(context) - matrix->f;
+  CGContextRef context = reinterpret_cast<CGContextRef>(graphics);
+  CGFloat ty = CGBitmapContextGetHeight(context) - matrix.f;
   CGContextSetTextMatrix(
-      context, CGAffineTransformMake(matrix->a, matrix->b, matrix->c, matrix->d,
-                                     matrix->e, ty));
+      context, CGAffineTransformMake(matrix.a, matrix.b, matrix.c, matrix.d,
+                                     matrix.e, ty));
 }
 
-bool CQuartz2D::drawGraphicsString(void* graphics,
+bool CQuartz2D::DrawGraphicsString(void* graphics,
                                    void* font,
                                    float fontSize,
                                    uint16_t* glyphIndices,
                                    CGPoint* glyphPositions,
                                    int32_t charsCount,
-                                   FX_ARGB argb,
-                                   CFX_Matrix* matrix) {
+                                   FX_ARGB argb) {
   if (!graphics)
     return false;
+
   CGContextRef context = (CGContextRef)graphics;
   CGContextSetFont(context, (CGFontRef)font);
   CGContextSetFontSize(context, fontSize);
-  if (matrix) {
-    CGAffineTransform m = CGContextGetTextMatrix(context);
-    m = CGAffineTransformConcat(
-        m, CGAffineTransformMake(matrix->a, matrix->b, matrix->c, matrix->d,
-                                 matrix->e, matrix->f));
-    CGContextSetTextMatrix(context, m);
-  }
+
   int32_t a;
   int32_t r;
   int32_t g;
@@ -107,23 +100,14 @@ bool CQuartz2D::drawGraphicsString(void* graphics,
     glyphPositionsCG[index].y = glyphPositions[index].y;
   }
 #else
-  CGPoint* glyphPositionsCG = (CGPoint*)glyphPositions;
+  CGPoint* glyphPositionsCG = glyphPositions;
 #endif
-  CGContextShowGlyphsAtPositions(context, (CGGlyph*)glyphIndices,
+  CGContextShowGlyphsAtPositions(context,
+                                 reinterpret_cast<CGGlyph*>(glyphIndices),
                                  glyphPositionsCG, charsCount);
 #if CGFLOAT_IS_DOUBLE
   delete[] glyphPositionsCG;
 #endif
   CGContextRestoreGState(context);
   return true;
-}
-
-void CQuartz2D::saveGraphicsState(void* graphics) {
-  if (graphics)
-    CGContextSaveGState((CGContextRef)graphics);
-}
-
-void CQuartz2D::restoreGraphicsState(void* graphics) {
-  if (graphics)
-    CGContextRestoreGState((CGContextRef)graphics);
 }

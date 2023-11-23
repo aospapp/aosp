@@ -14,26 +14,27 @@
 
 CXFA_FFSignature::CXFA_FFSignature(CXFA_Node* pNode) : CXFA_FFField(pNode) {}
 
-CXFA_FFSignature::~CXFA_FFSignature() {}
+CXFA_FFSignature::~CXFA_FFSignature() = default;
 
 bool CXFA_FFSignature::LoadWidget() {
+  ASSERT(!IsLoaded());
   return CXFA_FFField::LoadWidget();
 }
 
 void CXFA_FFSignature::RenderWidget(CXFA_Graphics* pGS,
                                     const CFX_Matrix& matrix,
-                                    uint32_t dwStatus) {
-  if (!IsMatchVisibleStatus(dwStatus))
+                                    HighlightOption highlight) {
+  if (!HasVisibleStatus())
     return;
 
   CFX_Matrix mtRotate = GetRotateMatrix();
   mtRotate.Concat(matrix);
 
-  CXFA_FFWidget::RenderWidget(pGS, mtRotate, dwStatus);
+  CXFA_FFWidget::RenderWidget(pGS, mtRotate, highlight);
 
-  DrawBorder(pGS, m_pNode->GetWidgetAcc()->GetUIBorder(), m_rtUI, mtRotate);
+  DrawBorder(pGS, m_pNode->GetUIBorder(), m_rtUI, mtRotate);
   RenderCaption(pGS, &mtRotate);
-  DrawHighlight(pGS, &mtRotate, dwStatus, false);
+  DrawHighlight(pGS, &mtRotate, highlight, kSquareShape);
 }
 
 bool CXFA_FFSignature::OnMouseEnter() {
@@ -41,6 +42,12 @@ bool CXFA_FFSignature::OnMouseEnter() {
 }
 
 bool CXFA_FFSignature::OnMouseExit() {
+  return false;
+}
+
+bool CXFA_FFSignature::AcceptsFocusOnButtonDown(uint32_t dwFlags,
+                                                const CFX_PointF& point,
+                                                FWL_MouseCommand command) {
   return false;
 }
 
@@ -94,12 +101,10 @@ bool CXFA_FFSignature::OnChar(uint32_t dwChar, uint32_t dwFlags) {
   return false;
 }
 
-FWL_WidgetHit CXFA_FFSignature::OnHitTest(const CFX_PointF& point) {
-  if (m_pNormalWidget &&
-      m_pNormalWidget->HitTest(FWLToClient(point)) != FWL_WidgetHit::Unknown) {
+FWL_WidgetHit CXFA_FFSignature::HitTest(const CFX_PointF& point) {
+  auto* pNorm = GetNormalWidget();
+  if (pNorm && pNorm->HitTest(FWLToClient(point)) != FWL_WidgetHit::Unknown)
     return FWL_WidgetHit::Client;
-  }
-
   if (!GetRectWithoutRotate().Contains(point))
     return FWL_WidgetHit::Unknown;
   if (m_rtCaption.Contains(point))

@@ -35,7 +35,7 @@ import com.google.turbine.bytecode.ClassFile.ModuleInfo.UseInfo;
 import com.google.turbine.model.Const;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** A JVMS §4 class file reader. */
 public class ClassReader {

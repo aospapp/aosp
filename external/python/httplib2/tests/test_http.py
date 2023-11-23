@@ -12,8 +12,6 @@ from six.moves import http_client, urllib
 import socket
 import tests
 
-DUMMY_URL = "http://127.0.0.1:1"
-
 
 def _raise_connection_refused_exception(*args, **kwargs):
     raise socket.error(errno.ECONNREFUSED, "Connection refused.")
@@ -23,9 +21,9 @@ def test_connection_type():
     http = httplib2.Http()
     http.force_exception_to_status_code = False
     response, content = http.request(
-        DUMMY_URL, connection_type=tests.MockHTTPConnection
+        tests.DUMMY_URL, connection_type=tests.MockHTTPConnection
     )
-    assert response["content-location"] == DUMMY_URL
+    assert response["content-location"] == tests.DUMMY_URL
     assert content == b"the body"
 
 
@@ -36,7 +34,7 @@ def test_bad_status_line_retry():
     http.force_exception_to_status_code = False
     try:
         response, content = http.request(
-            DUMMY_URL, connection_type=tests.MockHTTPBadStatusConnection
+            tests.DUMMY_URL, connection_type=tests.MockHTTPBadStatusConnection
         )
     except http_client.BadStatusLine:
         assert tests.MockHTTPBadStatusConnection.num_calls == 2
@@ -69,7 +67,7 @@ def test_connection_refused_raises_exception(mock_socket_connect):
     http = httplib2.Http()
     http.force_exception_to_status_code = False
     with tests.assert_raises(socket.error):
-        http.request(DUMMY_URL)
+        http.request(tests.DUMMY_URL)
 
 
 @pytest.mark.skipif(
@@ -82,7 +80,7 @@ def test_connection_refused_returns_response(mock_socket_connect):
     mock_socket_connect.side_effect = _raise_connection_refused_exception
     http = httplib2.Http()
     http.force_exception_to_status_code = True
-    response, content = http.request(DUMMY_URL)
+    response, content = http.request(tests.DUMMY_URL)
     content = content.lower()
     assert response["content-type"] == "text/plain"
     assert (

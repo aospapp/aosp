@@ -1,16 +1,18 @@
-#!/usr/bin/env python2
-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 """Unittest for buildbot_utils.py."""
 
 from __future__ import print_function
 
-from mock import patch
-
 import time
+
 import unittest
+from unittest.mock import patch
 
 from cros_utils import buildbot_utils
 from cros_utils import command_executer
@@ -34,8 +36,18 @@ class TrybotTest(unittest.TestCase):
   tryjob_out = (
       '[{"buildbucket_id": "8952721143823688176", "build_config": '
       '"cave-llvm-toolchain-tryjob", "url": '
+      # pylint: disable=line-too-long
       '"http://cros-goldeneye/chromeos/healthmonitoring/buildDetails?buildbucketId=8952721143823688176"}]'
   )
+
+  GSUTILS_LS = '\n'.join([
+      'gs://chromeos-image-archive/{0}/R78-12421.0.0/',
+      'gs://chromeos-image-archive/{0}/R78-12422.0.0/',
+      'gs://chromeos-image-archive/{0}/R78-12423.0.0/',
+      # "R79-12384.0.0" image should be blacklisted.
+      # TODO(crbug.com/992242): Remove the filter by 2019-09-05.
+      'gs://chromeos-image-archive/{0}/R79-12384.0.0/',
+  ])
 
   buildresult_out = (
       '{"8952721143823688176": {"status": "pass", "artifacts_url":'
@@ -70,7 +82,7 @@ class TrybotTest(unittest.TestCase):
 
           # async
           buildbucket_id, image = buildbot_utils.GetTrybotImage(
-              '/tmp', 'falco-release-tryjob', [], async=True)
+              '/tmp', 'falco-release-tryjob', [], asynchronous=True)
           self.assertEqual(buildbucket_id, self.buildbucket_id)
           self.assertEqual(' ', image)
 
@@ -111,6 +123,26 @@ class TrybotTest(unittest.TestCase):
   def testParseTryjobBuildbucketId(self):
     buildbucket_id = buildbot_utils.ParseTryjobBuildbucketId(self.tryjob_out)
     self.assertEqual(buildbucket_id, self.buildbucket_id)
+
+  def testGetLatestImageValid(self):
+    with patch.object(command_executer.CommandExecuter,
+                      'ChrootRunCommandWOutput') as mocked_run:
+      with patch.object(buildbot_utils, 'DoesImageExist') as mocked_imageexist:
+        IMAGE_DIR = 'lulu-release'
+        mocked_run.return_value = (0, self.GSUTILS_LS.format(IMAGE_DIR), '')
+        mocked_imageexist.return_value = True
+        image = buildbot_utils.GetLatestImage('', IMAGE_DIR)
+        self.assertEqual(image, '{0}/R78-12423.0.0'.format(IMAGE_DIR))
+
+  def testGetLatestImageInvalid(self):
+    with patch.object(command_executer.CommandExecuter,
+                      'ChrootRunCommandWOutput') as mocked_run:
+      with patch.object(buildbot_utils, 'DoesImageExist') as mocked_imageexist:
+        IMAGE_DIR = 'kefka-release'
+        mocked_run.return_value = (0, self.GSUTILS_LS.format(IMAGE_DIR), '')
+        mocked_imageexist.return_value = False
+        image = buildbot_utils.GetLatestImage('', IMAGE_DIR)
+        self.assertIsNone(image)
 
 
 if __name__ == '__main__':

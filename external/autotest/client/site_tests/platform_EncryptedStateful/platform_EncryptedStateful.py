@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, tempfile, shutil, stat, time, posix
+import logging, os, tempfile, shutil, stat, time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 
@@ -259,8 +259,7 @@ class platform_EncryptedStateful(test.test):
         # Perform post-mount sanity checks (and handle unfinalized devices).
         encstate.check_sizes(finalized=os.path.exists(encstate.key))
 
-    def factory_key(self):
-        # Create test root directory.
+    def no_tpm(self):
         encstate = EncryptedStateful()
 
         # Make sure we haven't run here before.
@@ -268,22 +267,6 @@ class platform_EncryptedStateful(test.test):
                   "%s does not exist" % (encstate.key))
         chk.check(not os.path.exists(encstate.block),
                   "%s does not exist" % (encstate.block))
-
-        # Mount a fresh encrypted stateful, with factory static key.
-        encstate.mount("factory")
-
-        # Perform post-mount sanity checks.
-        encstate.check_sizes()
-
-        # Check disk reclamation for kernels that support PUNCH_HOLE.
-        if self.is_punch_hole_supported():
-            encstate.check_reclamation()
-
-        # Check explicit umount.
-        encstate.umount()
-
-    def no_tpm(self):
-        encstate = EncryptedStateful()
 
         # Relocate the TPM device during mount.
         tpm = "/dev/tpm0"
@@ -300,13 +283,17 @@ class platform_EncryptedStateful(test.test):
         # Perform post-mount sanity checks.
         encstate.check_sizes(finalized=False)
 
+        # Check disk reclamation for kernels that support PUNCH_HOLE.
+        if self.is_punch_hole_supported():
+            encstate.check_reclamation()
+
+        # Check explicit umount.
+        encstate.umount()
+
     def run_once(self):
         # Do a no-write test of system's existing encrypted partition.
         self.existing_partition()
 
-        # Do a no-write, no-TPM test with sanity checks.
+        # Do a no-write, no-TPM test with sanity checks. Also do a reclamation
+        # check against the encrypted stateful partition.
         self.no_tpm()
-
-        # There is no interactively controllable TPM mock yet for
-        # mount-encrypted, so we can only test the static key currently.
-        self.factory_key()

@@ -37,6 +37,7 @@ public class ConnectivityConstants {
     public static final String NetworkCallbackSuspended = "Suspended";
     public static final String NetworkCallbackResumed = "Resumed";
     public static final String NetworkCallbackLinkPropertiesChanged = "LinkPropertiesChanged";
+    public static final String NetworkCallbackBlockedStatusChanged = "BlockedStatusChanged";
     public static final String NetworkCallbackInvalid = "Invalid";
 
     /**
@@ -45,24 +46,16 @@ public class ConnectivityConstants {
     public static final String EventConnectivityChanged = "ConnectivityChanged";
 
     /**
-     * Packet keep-alive event
+     * Socket keep-alive event
      */
-    public static final String EventPacketKeepaliveCallback = "PacketKeepaliveCallback";
+    public static final String EventSocketKeepaliveCallback = "SocketKeepaliveCallback";
 
     /**
-     * Packet keep-alive - sub-names
+     * Constants for SocketKeepaliveEvent.
      */
-    public static final String PacketKeepaliveCallbackStarted = "Started";
-    public static final String PacketKeepaliveCallbackStopped = "Stopped";
-    public static final String PacketKeepaliveCallbackError = "Error";
-    public static final String PacketKeepaliveCallbackInvalid = "Invalid";
-
-    /**
-     * Constants for PacketKeepaliveEvent.
-     */
-    public static class PacketKeepaliveContainer {
+    public static class SocketKeepaliveContainer {
         public static final String ID = "id";
-        public static final String PACKET_KEEPALIVE_EVENT = "packetKeepaliveEvent";
+        public static final String SOCKET_KEEPALIVE_EVENT = "socketKeepaliveEvent";
     }
 
     /**

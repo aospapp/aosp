@@ -16,51 +16,49 @@
 
 package com.github.javaparser.symbolsolver.resolution;
 
-import com.github.javaparser.ParseException;
 import com.github.javaparser.SlowTest;
-import com.github.javaparser.symbolsolver.AbstractTest;
+import com.github.javaparser.symbolsolver.AbstractSymbolResolutionTest;
 import com.github.javaparser.symbolsolver.SourceFileInfoExtractor;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
+import com.github.javaparser.symbolsolver.utils.LeanParserConfiguration;
+import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Category(SlowTest.class)
-public class AnalyseJavaParserTest extends AbstractTest {
+@SlowTest
+class AnalyseJavaParserTest extends AbstractSymbolResolutionTest {
 
-    private static final File src = adaptPath(new File("src/test/test_sourcecode/javaparser_src/proper_source"));
+    private static final Path root = adaptPath("src/test/test_sourcecode/javaparser_src");
+    private static final Path properSrc = root.resolve("proper_source");
 
     private SourceFileInfoExtractor getSourceFileInfoExtractor() {
-        CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
-        combinedTypeSolver.add(new ReflectionTypeSolver());
-        combinedTypeSolver.add(new JavaParserTypeSolver(src));
-        combinedTypeSolver.add(new JavaParserTypeSolver(adaptPath(new File("src/test/test_sourcecode/javaparser_src/generated"))));
-        SourceFileInfoExtractor sourceFileInfoExtractor = new SourceFileInfoExtractor();
-        sourceFileInfoExtractor.setTypeSolver(combinedTypeSolver);
+        CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver(
+                new ReflectionTypeSolver(),
+                new JavaParserTypeSolver(properSrc, new LeanParserConfiguration()),
+                new JavaParserTypeSolver(root.resolve("generated"), new LeanParserConfiguration()));
+        SourceFileInfoExtractor sourceFileInfoExtractor = new SourceFileInfoExtractor(combinedTypeSolver);
         sourceFileInfoExtractor.setPrintFileName(false);
         return sourceFileInfoExtractor;
     }
 
-    static String readFile(File file)
+    private static String readFile(Path file)
             throws IOException {
-        byte[] encoded = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
+        byte[] encoded = Files.readAllBytes(file);
         return new String(encoded, StandardCharsets.UTF_8);
     }
 
     private static final boolean DEBUG = true;
 
-    private void parse(String fileName) throws IOException, ParseException {
-        File sourceFile = new File(src.getAbsolutePath() + "/" + fileName + ".java");
+    private void parse(String fileName) throws IOException {
+        Path sourceFile = properSrc.resolve( fileName + ".java");
         SourceFileInfoExtractor sourceFileInfoExtractor = getSourceFileInfoExtractor();
         OutputStream outErrStream = new ByteArrayOutputStream();
         PrintStream outErr = new PrintStream(outErrStream);
@@ -70,15 +68,15 @@ public class AnalyseJavaParserTest extends AbstractTest {
         sourceFileInfoExtractor.solve(sourceFile);
         String output = outErrStream.toString();
 
-        String path = "src/test/resources/javaparser_expected_output/" + fileName.replaceAll("/", "_") + ".txt";
-        File dstFile = adaptPath(new File(path));
+        String path = "expected_output/" + fileName.replaceAll("/", "_") + ".txt";
+        Path dstFile = adaptPath(root.resolve(path));
 
-        if (DEBUG && (sourceFileInfoExtractor.getKo() != 0 || sourceFileInfoExtractor.getUnsupported() != 0)) {
+        if (DEBUG && (sourceFileInfoExtractor.getFailures() != 0 || sourceFileInfoExtractor.getUnsupported() != 0)) {
             System.err.println(output);
         }
 
-        assertTrue("No failures expected when analyzing " + path, 0 == sourceFileInfoExtractor.getKo());
-        assertTrue("No UnsupportedOperationException expected when analyzing " + path, 0 == sourceFileInfoExtractor.getUnsupported());
+        assertEquals(0, sourceFileInfoExtractor.getFailures(), "No failures expected when analyzing " + path);
+        assertEquals(0, sourceFileInfoExtractor.getUnsupported(), "No UnsupportedOperationException expected when analyzing " + path);
 
         String expected = readFile(dstFile);
 
@@ -86,7 +84,7 @@ public class AnalyseJavaParserTest extends AbstractTest {
         String[] expectedLines = expected.split("\n");
 
         for (int i = 0; i < Math.min(outputLines.length, expectedLines.length); i++) {
-            assertEquals("Line " + (i + 1) + " of " + path + " is different from what is expected", expectedLines[i].trim(), outputLines[i].trim());
+            assertEquals(expectedLines[i].trim(), outputLines[i].trim(), "Line " + (i + 1) + " of " + path + " is different from what is expected");
         }
 
         assertEquals(expectedLines.length, outputLines.length);
@@ -100,27 +98,27 @@ public class AnalyseJavaParserTest extends AbstractTest {
     }
 
     @Test
-    public void parsePositionUtils() throws IOException, ParseException {
+    void parsePositionUtils() throws IOException {
         parse("com/github/javaparser/PositionUtils");
     }
 
     @Test
-    public void parseJavaParser() throws IOException, ParseException {
+    void parseJavaParser() throws IOException {
         parse("com/github/javaparser/JavaParser");
     }
 
     @Test
-    public void parseStatement() throws IOException, ParseException {
+    void parseStatement() throws IOException {
         parse("com/github/javaparser/ast/stmt/Statement");
     }
 
     @Test
-    public void parseCatchClause() throws IOException, ParseException {
+    void parseCatchClause() throws IOException {
         parse("com/github/javaparser/ast/stmt/CatchClause");
     }
 
     @Test
-    public void parseStatements() throws IOException, ParseException {
+    void parseStatements() throws IOException {
         parse("com/github/javaparser/ast/stmt/LabeledStmt");
         parse("com/github/javaparser/ast/stmt/BreakStmt");
         parse("com/github/javaparser/ast/stmt/ReturnStmt");
@@ -144,7 +142,7 @@ public class AnalyseJavaParserTest extends AbstractTest {
     }
 
     @Test
-    public void parseExpressions() throws IOException, ParseException {
+    void parseExpressions() throws IOException {
         parse("com/github/javaparser/ast/expr/NameExpr");
         parse("com/github/javaparser/ast/expr/FieldAccessExpr");
         parse("com/github/javaparser/ast/expr/CharLiteralExpr");
@@ -186,7 +184,7 @@ public class AnalyseJavaParserTest extends AbstractTest {
     }
 
     @Test
-    public void parseTypes() throws IOException, ParseException {
+    void parseTypes() throws IOException {
         parse("com/github/javaparser/ast/type/ClassOrInterfaceType");
         parse("com/github/javaparser/ast/type/PrimitiveType");
         parse("com/github/javaparser/ast/type/WildcardType");
@@ -197,7 +195,7 @@ public class AnalyseJavaParserTest extends AbstractTest {
     }
 
     @Test
-    public void parseVisitors() throws IOException, ParseException {
+    void parseVisitors() throws IOException {
         parse("com/github/javaparser/ast/visitor/EqualsVisitor");
         parse("com/github/javaparser/ast/visitor/ModifierVisitorAdapter");
         parse("com/github/javaparser/ast/visitor/DumpVisitor");
@@ -208,17 +206,17 @@ public class AnalyseJavaParserTest extends AbstractTest {
     }
 
     @Test
-    public void parseCloneVisitor() throws IOException, ParseException {
+    void parseCloneVisitor() throws IOException {
         parse("com/github/javaparser/ast/visitor/CloneVisitor");
     }
 
     @Test
-    public void parseSourcesHelper() throws IOException, ParseException {
+    void parseSourcesHelper() throws IOException {
         parse("com/github/javaparser/SourcesHelper");
     }
 
     @Test
-    public void parseComments() throws IOException, ParseException {
+    void parseComments() throws IOException {
         parse("com/github/javaparser/ast/comments/LineComment");
         parse("com/github/javaparser/ast/comments/Comment");
         parse("com/github/javaparser/ast/comments/CommentsParser");
@@ -228,7 +226,7 @@ public class AnalyseJavaParserTest extends AbstractTest {
     }
 
     @Test
-    public void parseTheRest() throws IOException, ParseException {
+    void parseTheRest() throws IOException {
         parse("com/github/javaparser/ast/internal/Utils");
         parse("com/github/javaparser/ast/body/AnnotationMemberDeclaration");
         parse("com/github/javaparser/ast/body/EnumDeclaration");

@@ -114,7 +114,7 @@ class RebootDut(Action):
         context.host.reboot()
         if self._restart_chrome_for_cfm:
             context.cfm_facade.restart_chrome_for_cfm()
-            context.cfm_facade.wait_for_meetings_telemetry_commands()
+            context.cfm_facade.wait_for_telemetry_commands()
 
 class RepeatTimes(Action):
     """

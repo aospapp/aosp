@@ -13,6 +13,31 @@ import utils
 
 from autotest_lib.client.cros.cellular import mm1_constants
 
+def SubscriptionStateToPco(state):
+    """
+    Takes an old SubscriptionState enum and returns a Pco that will be
+    interpreted as that subscription state.
+
+    @param state: see mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_*
+    """
+
+    pco_data = '\x27\x08\x00\xFF\x00\x04\x13\x01\x84'
+    if state == mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNKNOWN:
+        pco_data += '\xFF'
+    elif state == mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNPROVISIONED:
+        pco_data += '\x05'
+    elif state == mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_PROVISIONED:
+        pco_data += '\x00'
+    elif state == mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_OUT_OF_DATA:
+        pco_data += '\x03'
+
+    return dbus.types.Struct(
+            [dbus.types.UInt32(1),
+             dbus.types.Boolean(True),
+             dbus.types.ByteArray(pco_data)],
+            signature='ubay')
+
+
 class Modem3gpp(modem.Modem):
     """
     Pseudomodem implementation of the
@@ -74,11 +99,7 @@ class Modem3gpp(modem.Modem):
                              config=config)
 
         self._scanned_networks = {}
-        self._cached_pco_value = ''
-        self._cached_unregistered_subscription_state = (
-                mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNKNOWN)
-        self._cached_registered_subscription_state = (
-                mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_PROVISIONED)
+        self._cached_pco = dbus.types.Array([], "(ubay)")
 
 
     def _InitializeProperties(self):
@@ -146,9 +167,7 @@ class Modem3gpp(modem.Modem):
             'OperatorName' : '',
             'EnabledFacilityLocks' : (
                     dbus.types.UInt32(self.sim.enabled_locks)),
-            'SubscriptionState' : dbus.types.UInt32(
-                    mm1_constants.MM_MODEM_3GPP_SUBSCRIPTION_STATE_UNKNOWN),
-            'VendorPcoInfo': ''
+            'Pco': dbus.types.Array([], "(ubay)"),
         }
 
 
@@ -189,25 +208,25 @@ class Modem3gpp(modem.Modem):
         return scanned
 
 
-    def AssignPcoValue(self, pco_value):
+    def AssignPco(self, pco):
         """
-        Stores the given value so that it is shown as the value of VendorPcoInfo
-        when the modem is in a registered state.
+        Stores the given value so that it is shown as the value of Pco when
+        the modem is in a registered state.
 
         Always prefer this method over calling "Set" directly if the PCO value
         should be cached.
 
-        Note: See testing.Testing.UpdatePcoInfo, which allows calling this
-        method over D-Bus.
+        Note: See testing.Testing.UpdatePco, which allows calling this method
+        over D-Bus.
 
-        @param pco_value: String containing the PCO value to remember.
+        @param pco_value: D-Bus struct containing the PCO value to remember.
 
         """
-        self._cached_pco_value = pco_value
-        self.UpdatePcoInfo()
+        self._cached_pco = pco
+        self.UpdatePco()
 
 
-    def UpdatePcoInfo(self):
+    def UpdatePco(self):
         """
         Updates the current PCO value based on the registration state.
 
@@ -217,14 +236,13 @@ class Modem3gpp(modem.Modem):
         state = self.Get(mm1_constants.I_MODEM_3GPP, 'RegistrationState')
         if (state == mm1_constants.MM_MODEM_3GPP_REGISTRATION_STATE_HOME or
             state == mm1_constants.MM_MODEM_3GPP_REGISTRATION_STATE_ROAMING):
-            new_pco_value = self._cached_pco_value
+            new_pco_value = self._cached_pco
         else:
-            new_pco_value = ''
-        self.Set(mm1_constants.I_MODEM_3GPP, 'VendorPcoInfo', new_pco_value)
+            new_pco_value = dbus.types.Array([], "(ubay)")
+        self.Set(mm1_constants.I_MODEM_3GPP, 'Pco', new_pco_value)
 
 
     def AssignSubscriptionState(self,
-                                unregistered_subscription_state,
                                 registered_subscription_state):
         """
         Caches the given subscription states and updates the actual
@@ -236,35 +254,9 @@ class Modem3gpp(modem.Modem):
                 returned when the modem is registered on a network.
 
         """
-        self._cached_unregistered_subscription_state = (
-                unregistered_subscription_state)
-        self._cached_registered_subscription_state = (
-                registered_subscription_state)
-        self.UpdateSubscriptionState()
-
-
-    def UpdateSubscriptionState(self):
-        """
-        Updates the current |SubscriptionState| property depending on the
-        |RegistrationState|.
-
-        """
-        if not mm1_constants.I_MODEM_3GPP in self._properties:
-            return
-        registration_state = self.Get(mm1_constants.I_MODEM_3GPP,
-                                      'RegistrationState')
-        if (registration_state ==
-            mm1_constants.MM_MODEM_3GPP_REGISTRATION_STATE_HOME or
-            registration_state ==
-            mm1_constants.MM_MODEM_3GPP_REGISTRATION_STATE_ROAMING):
-            new_subscription_state = self._cached_registered_subscription_state
-        else:
-            new_subscription_state = (
-                    self._cached_unregistered_subscription_state)
-
-        self.SetUInt32(mm1_constants.I_MODEM_3GPP,
-                       'SubscriptionState',
-                       new_subscription_state)
+        new_pco = SubscriptionStateToPco(registered_subscription_state)
+        self.AssignPco([new_pco])
+        self.UpdatePco()
 
 
     def UpdateLockStatus(self):
@@ -315,8 +307,7 @@ class Modem3gpp(modem.Modem):
 
         """
         self.SetUInt32(mm1_constants.I_MODEM_3GPP, 'RegistrationState', state)
-        self.UpdatePcoInfo()
-        self.UpdateSubscriptionState()
+        self.UpdatePco()
 
 
     @property

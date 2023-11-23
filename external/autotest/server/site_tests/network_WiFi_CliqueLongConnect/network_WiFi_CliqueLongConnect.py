@@ -24,7 +24,7 @@ class network_WiFi_CliqueLongConnect(test.test):
 
         @param capturer: a packet capture device
         @param capturer_frequency: integer channel frequency in MHz.
-        @param capturer_ht_type: string specifier of channel HT type.
+        @param capturer_ht_type: object specifier of channel HT type.
         @param dut_pool: the DUT pool to be used for the test. It is a 2D list
                          of DUTObjects.
         @param assoc_params_list: a list of AssociationParameters objects.

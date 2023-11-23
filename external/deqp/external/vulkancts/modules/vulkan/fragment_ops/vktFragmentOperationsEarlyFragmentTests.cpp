@@ -90,28 +90,6 @@ Move<VkRenderPass> makeRenderPass (const DeviceInterface&	vk,
 	return makeRenderPass(vk, device, colorFormat, useDepthStencilAttachment ? depthStencilFormat : VK_FORMAT_UNDEFINED);
 }
 
-Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&		vk,
-									 const VkDevice				device,
-									 const VkRenderPass			renderPass,
-									 const deUint32				attachmentCount,
-									 const VkImageView*			pAttachments,
-									 const tcu::IVec2			size)
-{
-	const VkFramebufferCreateInfo framebufferInfo = {
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,		// VkStructureType                             sType;
-		DE_NULL,										// const void*                                 pNext;
-		(VkFramebufferCreateFlags)0,					// VkFramebufferCreateFlags                    flags;
-		renderPass,										// VkRenderPass                                renderPass;
-		attachmentCount,								// uint32_t                                    attachmentCount;
-		pAttachments,									// const VkImageView*                          pAttachments;
-		static_cast<deUint32>(size.x()),				// uint32_t                                    width;
-		static_cast<deUint32>(size.y()),				// uint32_t                                    height;
-		1u,												// uint32_t                                    layers;
-	};
-
-	return createFramebuffer(vk, device, &framebufferInfo);
-}
-
 Move<VkPipeline> makeGraphicsPipeline (const DeviceInterface&	vk,
 									   const VkDevice			device,
 									   const VkPipelineLayout	pipelineLayout,
@@ -240,6 +218,7 @@ public:
 
 	void				initPrograms		(SourceCollections&		programCollection) const;
 	TestInstance*		createInstance		(Context&				context) const;
+	virtual void		checkSupport		(Context&				context) const;
 
 private:
 	const deUint32		m_flags;
@@ -373,7 +352,7 @@ tcu::TestStatus EarlyFragmentTestInstance::iterate (void)
 
 	const deUint32					numVertices				= 6;
 	const VkDeviceSize				vertexBufferSizeBytes	= sizeof(tcu::Vec4) * numVertices;
-	const Unique<VkBuffer>			vertexBuffer			(makeBuffer(vk, device, makeBufferCreateInfo(vertexBufferSizeBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)));
+	const Unique<VkBuffer>			vertexBuffer			(makeBuffer(vk, device, vertexBufferSizeBytes, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
 	const UniquePtr<Allocation>		vertexBufferAlloc		(bindBuffer(vk, device, allocator, *vertexBuffer, MemoryRequirement::HostVisible));
 
 	{
@@ -394,7 +373,7 @@ tcu::TestStatus EarlyFragmentTestInstance::iterate (void)
 	// Result buffer
 
 	const VkDeviceSize				resultBufferSizeBytes	= sizeof(deUint32);
-	const Unique<VkBuffer>			resultBuffer			(makeBuffer(vk, device, makeBufferCreateInfo(resultBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)));
+	const Unique<VkBuffer>			resultBuffer			(makeBuffer(vk, device, resultBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT));
 	const UniquePtr<Allocation>		resultBufferAlloc		(bindBuffer(vk, device, allocator, *resultBuffer, MemoryRequirement::HostVisible));
 
 	{
@@ -407,7 +386,7 @@ tcu::TestStatus EarlyFragmentTestInstance::iterate (void)
 	// Render result buffer (to retrieve color attachment contents)
 
 	const VkDeviceSize				colorBufferSizeBytes	= tcu::getPixelSize(mapVkFormat(colorFormat)) * renderSize.x() * renderSize.y();
-	const Unique<VkBuffer>			colorBuffer				(makeBuffer(vk, device, makeBufferCreateInfo(colorBufferSizeBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT)));
+	const Unique<VkBuffer>			colorBuffer				(makeBuffer(vk, device, colorBufferSizeBytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT));
 	const UniquePtr<Allocation>		colorBufferAlloc		(bindBuffer(vk, device, allocator, *colorBuffer, MemoryRequirement::HostVisible));
 
 	// Descriptors
@@ -432,7 +411,7 @@ tcu::TestStatus EarlyFragmentTestInstance::iterate (void)
 	const Unique<VkShaderModule>	vertexModule  (createShaderModule(vk, device, m_context.getBinaryCollection().get("vert"), 0u));
 	const Unique<VkShaderModule>	fragmentModule(createShaderModule(vk, device, m_context.getBinaryCollection().get("frag"), 0u));
 	const Unique<VkRenderPass>		renderPass	  (makeRenderPass(vk, device, colorFormat, m_useTestAttachment, testFormat));
-	const Unique<VkFramebuffer>		framebuffer	  (makeFramebuffer(vk, device, *renderPass, numUsedAttachmentImages, attachmentImages, renderSize));
+	const Unique<VkFramebuffer>		framebuffer	  (makeFramebuffer(vk, device, *renderPass, numUsedAttachmentImages, attachmentImages, renderSize.x(), renderSize.y()));
 	const Unique<VkPipelineLayout>	pipelineLayout(makePipelineLayout(vk, device, *descriptorSetLayout));
 	const Unique<VkPipeline>		pipeline	  (makeGraphicsPipeline(vk, device, *pipelineLayout, *renderPass, *vertexModule, *fragmentModule, renderSize,
 												  (m_testMode == MODE_DEPTH), (m_testMode == MODE_STENCIL)));
@@ -523,17 +502,12 @@ tcu::TestStatus EarlyFragmentTestInstance::iterate (void)
 
 TestInstance* EarlyFragmentTest::createInstance (Context& context) const
 {
-	// Check required features
-	{
-		VkPhysicalDeviceFeatures features;
-		context.getInstanceInterface().getPhysicalDeviceFeatures(context.getPhysicalDevice(), &features);
-
-		// SSBO writes in fragment shader
-		if (!features.fragmentStoresAndAtomics)
-			throw tcu::NotSupportedError("Missing required feature: fragmentStoresAndAtomics");
-	}
-
 	return new EarlyFragmentTestInstance(context, m_flags);
+}
+
+void EarlyFragmentTest::checkSupport (Context& context) const
+{
+	context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_FRAGMENT_STORES_AND_ATOMICS);
 }
 
 } // anonymous ns

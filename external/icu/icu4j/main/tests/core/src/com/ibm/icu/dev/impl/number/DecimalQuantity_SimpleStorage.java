@@ -319,37 +319,39 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
   }
 
   @Override
-  public void setIntegerLength(int minInt, int maxInt) {
+  public void setMinInteger(int minInt) {
     // Graceful failures for bogus input
     minInt = Math.max(0, minInt);
-    maxInt = Math.max(0, maxInt);
-
-    // The minima must be less than or equal to the maxima
-    if (maxInt < minInt) {
-      minInt = maxInt;
-    }
 
     // Save values into internal state
     // Negation is safe for minFrac/maxFrac because -Integer.MAX_VALUE > Integer.MIN_VALUE
-    lOptPos = maxInt;
     lReqPos = minInt;
   }
 
   @Override
-  public void setFractionLength(int minFrac, int maxFrac) {
+  public void setMinFraction(int minFrac) {
     // Graceful failures for bogus input
     minFrac = Math.max(0, minFrac);
-    maxFrac = Math.max(0, maxFrac);
-
-    // The minima must be less than or equal to the maxima
-    if (maxFrac < minFrac) {
-      minFrac = maxFrac;
-    }
 
     // Save values into internal state
     // Negation is safe for minFrac/maxFrac because -Integer.MAX_VALUE > Integer.MIN_VALUE
     rReqPos = -minFrac;
-    rOptPos = -maxFrac;
+  }
+
+  @Override
+  public void applyMaxInteger(int maxInt) {
+    BigDecimal d;
+    if (primary != -1) {
+      d = BigDecimal.valueOf(primary).scaleByPowerOfTen(primaryScale);
+    } else {
+      d = fallback;
+    }
+    d = d.scaleByPowerOfTen(-maxInt).remainder(BigDecimal.ONE).scaleByPowerOfTen(maxInt);
+    if (primary != -1) {
+      primary = d.scaleByPowerOfTen(-primaryScale).longValueExact();
+    } else {
+      fallback = d;
+    }
   }
 
   @Override
@@ -361,6 +363,12 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
     if (isNegative()) d = d.negate();
     fallback = d;
     primary = -1;
+  }
+
+  @Override
+  public void roundToNickel(int roundingMagnitude, MathContext mathContext) {
+    BigDecimal nickel = BigDecimal.valueOf(5).scaleByPowerOfTen(roundingMagnitude);
+    roundToIncrement(nickel, mathContext);
   }
 
   @Override
@@ -455,7 +463,7 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
   }
 
   @Override
-  public boolean isZero() {
+  public boolean isZeroish() {
     if (primary == -1) {
       return fallback.compareTo(BigDecimal.ZERO) == 0;
     } else {
@@ -510,7 +518,7 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
 
   @Override
   public int signum() {
-      return isNegative() ? -1 : isZero() ? 0 : 1;
+      return isNegative() ? -1 : isZeroish() ? 0 : 1;
   }
 
   private void setNegative(boolean isNegative) {

@@ -7,6 +7,7 @@
 #ifndef XFA_FXFA_CXFA_FFBARCODE_H_
 #define XFA_FXFA_CXFA_FFBARCODE_H_
 
+#include "core/fxcrt/unowned_ptr.h"
 #include "fxbarcode/BC_Library.h"
 #include "xfa/fxfa/cxfa_ffpageview.h"
 #include "xfa/fxfa/cxfa_fftextedit.h"
@@ -77,27 +78,33 @@ enum class BarcodeType {
 };
 
 struct BarCodeInfo {
-  uint32_t uHash;
-  const wchar_t* pName;
+  uint32_t uHash;     // |pName| hashed as if wide string.
+  const char* pName;  // Raw, POD struct.
   BarcodeType eName;
   BC_TYPE eBCType;
 };
 
-class CXFA_FFBarcode : public CXFA_FFTextEdit {
+class CXFA_Barcode;
+
+class CXFA_FFBarcode final : public CXFA_FFTextEdit {
  public:
   static const BarCodeInfo* GetBarcodeTypeByName(const WideString& wsName);
 
-  explicit CXFA_FFBarcode(CXFA_Node* pNode);
+  CXFA_FFBarcode(CXFA_Node* pNode, CXFA_Barcode* barcode);
   ~CXFA_FFBarcode() override;
 
   // CXFA_FFTextEdit
   bool LoadWidget() override;
   void RenderWidget(CXFA_Graphics* pGS,
                     const CFX_Matrix& matrix,
-                    uint32_t dwStatus) override;
+                    HighlightOption highlight) override;
   void UpdateWidgetProperty() override;
-  bool OnLButtonDown(uint32_t dwFlags, const CFX_PointF& point) override;
-  bool OnRButtonDown(uint32_t dwFlags, const CFX_PointF& point) override;
+  bool AcceptsFocusOnButtonDown(uint32_t dwFlags,
+                                const CFX_PointF& point,
+                                FWL_MouseCommand command) override;
+
+ private:
+  UnownedPtr<CXFA_Barcode> const barcode_;
 };
 
 #endif  // XFA_FXFA_CXFA_FFBARCODE_H_

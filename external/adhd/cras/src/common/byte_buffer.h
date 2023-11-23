@@ -23,8 +23,8 @@ struct byte_buffer {
 static inline struct byte_buffer *byte_buffer_create(size_t buffer_size_bytes)
 {
 	struct byte_buffer *buf;
-	buf = (struct byte_buffer *)
-		calloc(1, sizeof(struct byte_buffer) + buffer_size_bytes);
+	buf = (struct byte_buffer *)calloc(1, sizeof(struct byte_buffer) +
+						      buffer_size_bytes);
 	if (!buf)
 		return buf;
 	buf->max_size = buffer_size_bytes;
@@ -64,6 +64,15 @@ static inline unsigned int buf_readable(struct byte_buffer *buf)
 		return buf->write_idx - buf->read_idx;
 
 	return buf->used_size - buf->read_idx;
+}
+
+/* Adjust readable size to given value. Use with caution. */
+static inline unsigned int buf_adjust_readable(struct byte_buffer *buf,
+					       size_t readable)
+{
+	buf->level = MIN(readable, buf->used_size);
+	buf->write_idx = (buf->read_idx + buf->level) % buf->used_size;
+	return 0;
 }
 
 static inline unsigned int buf_queued(struct byte_buffer *buf)

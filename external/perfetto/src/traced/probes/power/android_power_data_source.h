@@ -20,14 +20,13 @@
 #include <bitset>
 #include <memory>
 
-#include "perfetto/base/scoped_file.h"
-#include "perfetto/base/weak_ptr.h"
+#include "perfetto/ext/base/scoped_file.h"
+#include "perfetto/ext/base/weak_ptr.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "src/traced/probes/probes_data_source.h"
 
 namespace perfetto {
 
-class DataSourceConfig;
 class TraceWriter;
 namespace base {
 class TaskRunner;
@@ -35,7 +34,7 @@ class TaskRunner;
 
 class AndroidPowerDataSource : public ProbesDataSource {
  public:
-  static constexpr int kTypeId = 5;
+  static const ProbesDataSource::Descriptor descriptor;
 
   AndroidPowerDataSource(DataSourceConfig,
                          base::TaskRunner*,
@@ -58,7 +57,7 @@ class AndroidPowerDataSource : public ProbesDataSource {
   void WritePowerRailsData();
 
   base::TaskRunner* const task_runner_;
-  uint32_t poll_rate_ms_ = 0;
+  uint32_t poll_interval_ms_ = 0;
   std::bitset<8> counters_enabled_;
   bool rails_collection_enabled_;
   bool rail_descriptors_logged_;

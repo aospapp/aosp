@@ -1,19 +1,21 @@
-# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
+import re
 import socket
 import time
 import urllib2
 
 import common
 
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import routing
 
 
-def CheckInterfaceForDestination(host, expected_interface):
+def CheckInterfaceForDestination(host, expected_interface,
+                                 family=socket.AF_UNSPEC):
     """
     Checks that routes for host go through a given interface.
 
@@ -29,28 +31,42 @@ def CheckInterfaceForDestination(host, expected_interface):
             a different interface than the expected one.
 
     """
-    # addrinfo records: (family, type, proto, canonname, (addr, port))
-    server_addresses = [record[4][0]
-                        for record in socket.getaddrinfo(host, 80)]
+    def _MatchesRoute(address, expected_interface):
+        """
+        Returns whether or not |expected_interface| is used to reach |address|.
 
-    route_found = False
-    routes = routing.NetworkRoutes()
-    for address in server_addresses:
-        route = routes.getRouteFor(address)
-        if not route:
-            continue
+        @param address: string containing an IP (v4 or v6) address.
+        @param expected_interface: string containing an interface name.
 
-        route_found = True
+        """
+        output = utils.run('ip route get %s' % address).stdout
 
-        interface = route.interface
+        if re.search(r'unreachable', output):
+            return False
+
+        match = re.search(r'\sdev\s(\S+)', output)
+        if match is None:
+            return False
+        interface = match.group(1)
+
         logging.info('interface for %s: %s', address, interface)
         if interface != expected_interface:
             raise error.TestFail('Target server %s uses interface %s'
                                  '(%s expected).' %
                                  (address, interface, expected_interface))
+        return True
 
-    if not route_found:
-        raise error.TestFail('No route found for "%s".' % host)
+    # addrinfo records: (family, type, proto, canonname, (addr, port))
+    server_addresses = [record[4][0]
+                        for record in socket.getaddrinfo(host, 80, family)]
+    for address in server_addresses:
+        # Routes may not always be up by this point. Note that routes for v4 or
+        # v6 may come up before the other, so we simply do this poll for all
+        # addresses.
+        utils.poll_for_condition(
+            condition=lambda: _MatchesRoute(address, expected_interface),
+            exception=error.TestFail('No route to %s' % address),
+            timeout=1)
 
 FETCH_URL_PATTERN_FOR_TEST = \
     'http://testing-chargen.appspot.com/download?size=%d'

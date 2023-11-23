@@ -149,9 +149,15 @@ class firmware_ECUsbPorts(FirmwareTest):
             'smart_usb_charge' in self.faft_config.ec_capability)
         self._port_count = self.get_port_count()
 
-        logging.info("Turn off all USB ports and then turn them on again.")
-        self.switcher.mode_aware_reboot(
-                'custom', self.fake_reboot_by_usb_mode_change)
+        if self._port_count == 0:
+            raise error.TestNAError("No USB-A port; nothing needs to be tested")
+
+        if self.servo.main_device_is_ccd():
+            logging.info("Using CCD, ignore checking USB port connection.")
+        else:
+            logging.info("Turn off all USB ports and then turn them on again.")
+            self.switcher.mode_aware_reboot(
+                    'custom', self.fake_reboot_by_usb_mode_change)
 
         logging.info("Check USB ports are disabled when powered off.")
         self.switcher.mode_aware_reboot('custom', self.check_power_off_mode)

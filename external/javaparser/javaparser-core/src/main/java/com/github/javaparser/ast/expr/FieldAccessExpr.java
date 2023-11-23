@@ -26,6 +26,7 @@ import com.github.javaparser.ast.nodeTypes.NodeWithScope;
 import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
 import com.github.javaparser.ast.nodeTypes.NodeWithTypeArguments;
 import com.github.javaparser.ast.observer.ObservableProperty;
+import com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.GenericVisitor;
 import com.github.javaparser.ast.visitor.VoidVisitor;
@@ -35,18 +36,21 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.FieldAccessExprMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import com.github.javaparser.metamodel.OptionalProperty;
+import com.github.javaparser.resolution.Resolvable;
+import com.github.javaparser.resolution.UnsolvedSymbolException;
+import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
 import java.util.function.Consumer;
+import com.github.javaparser.ast.Generated;
 
 /**
- * Access of a field of an object.
+ * Access of a field of an object or a class.
  * <br/>In <code>person.name</code> "name" is the name and "person" is the scope.
  *
  * @author Julio Vilmar Gesser
  */
-public final class FieldAccessExpr extends Expression implements NodeWithSimpleName<FieldAccessExpr>, NodeWithTypeArguments<FieldAccessExpr>, NodeWithScope<FieldAccessExpr> {
+public class FieldAccessExpr extends Expression implements NodeWithSimpleName<FieldAccessExpr>, NodeWithTypeArguments<FieldAccessExpr>, NodeWithScope<FieldAccessExpr>, Resolvable<ResolvedValueDeclaration> {
 
     private Expression scope;
 
@@ -56,11 +60,11 @@ public final class FieldAccessExpr extends Expression implements NodeWithSimpleN
     private SimpleName name;
 
     public FieldAccessExpr() {
-        this(null, new ThisExpr(), new NodeList<>(), new SimpleName());
+        this(null, new ThisExpr(), null, new SimpleName());
     }
 
     public FieldAccessExpr(final Expression scope, final String name) {
-        this(null, scope, new NodeList<>(), new SimpleName(name));
+        this(null, scope, null, new SimpleName(name));
     }
 
     @AllFieldsConstructor
@@ -111,34 +115,9 @@ public final class FieldAccessExpr extends Expression implements NodeWithSimpleN
         return this;
     }
 
-    /**
-     * Use {@link #getName} instead.
-     */
-    @Deprecated
-    public SimpleName getField() {
-        return name;
-    }
-
     @Generated("com.github.javaparser.generator.core.node.PropertyGenerator")
     public Expression getScope() {
         return scope;
-    }
-
-    /**
-     * Use {@link #setName} with new SimpleName(field) instead.
-     */
-    @Deprecated
-    public FieldAccessExpr setField(final String field) {
-        setName(new SimpleName(field));
-        return this;
-    }
-
-    /**
-     * Use {@link #setName} instead.
-     */
-    @Deprecated
-    public FieldAccessExpr setFieldExpr(SimpleName inner) {
-        return setName(inner);
     }
 
     /**
@@ -254,9 +233,41 @@ public final class FieldAccessExpr extends Expression implements NodeWithSimpleN
         action.accept(this);
     }
 
+    /**
+     * Attempts to resolve the declaration corresponding to the accessed field. If successful, a
+     * {@link ResolvedValueDeclaration} representing the declaration of the value accessed by this
+     * {@code FieldAccessExpr} is returned. Otherwise, an {@link UnsolvedSymbolException} is thrown.
+     *
+     * @return a {@link ResolvedValueDeclaration} representing the declaration of the accessed value.
+     * @throws UnsolvedSymbolException if the declaration corresponding to the field access expression could not be
+     *                                 resolved.
+     * @see NameExpr#resolve()
+     * @see MethodCallExpr#resolve()
+     * @see ObjectCreationExpr#resolve()
+     * @see ExplicitConstructorInvocationStmt#resolve()
+     */
+    @Override
+    public ResolvedValueDeclaration resolve() {
+        return getSymbolResolver().resolveDeclaration(this, ResolvedValueDeclaration.class);
+    }
+
     @Override
     @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
     public Optional<FieldAccessExpr> toFieldAccessExpr() {
         return Optional.of(this);
+    }
+
+    /**
+     * Indicate if this FieldAccessExpr is an element directly contained in a larger FieldAccessExpr.
+     */
+    public boolean isInternal() {
+        return this.getParentNode().isPresent() && this.getParentNode().get() instanceof FieldAccessExpr;
+    }
+
+    /**
+     * Indicate if this FieldAccessExpr is top level, i.e., it is not directly contained in a larger FieldAccessExpr.
+     */
+    public boolean isTopLevel() {
+        return !isInternal();
     }
 }

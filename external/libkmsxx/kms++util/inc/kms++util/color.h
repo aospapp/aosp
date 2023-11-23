@@ -25,8 +25,19 @@ struct RGB
 	uint32_t bgr888() const;
 	uint32_t argb8888() const;
 	uint32_t abgr8888() const;
+	uint32_t rgba8888() const;
+	uint32_t bgra8888() const;
+
+	// XXX these functions leave the lowest 2 bits zero
+	uint32_t argb2101010() const;
+	uint32_t abgr2101010() const;
+	uint32_t rgba1010102() const;
+	uint32_t bgra1010102() const;
+
 	uint16_t rgb565() const;
 	uint16_t bgr565() const;
+	uint16_t argb4444() const;
+	uint16_t argb1555() const;
 	YUV yuv(YUVType type = YUVType::BT601_Lim) const;
 
 	uint8_t b;

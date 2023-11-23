@@ -27,9 +27,7 @@
 
 #include <algorithm>
 
-#if defined(DEQP_HAVE_SPIRV_TOOLS)
-#	include "spirv-tools/libspirv.h"
-#endif
+#include "spirv-tools/libspirv.h"
 
 namespace vk
 {
@@ -37,15 +35,17 @@ namespace vk
 using std::string;
 using std::vector;
 
-#if defined(DEQP_HAVE_SPIRV_TOOLS)
-
-// Convert a Vulkan version number to a SPIRV-Tools target environment enum.
-static spv_target_env mapVulkanVersionToSpirvToolsEnv(deUint32 vulkanVersion)
+// Returns the SPIRV-Tools target environment enum for the given dEQP Spirv validator options object.
+// Do this here instead of as a method on SpirvValidatorOptions because only this file has access to
+// the SPIRV-Tools headers.
+static spv_target_env getSpirvToolsEnvForValidatorOptions(SpirvValidatorOptions opts)
 {
-	switch (vulkanVersion)
+	const bool allow_1_4 = opts.supports_VK_KHR_spirv_1_4;
+	switch (opts.vulkanVersion)
 	{
 		case VK_MAKE_VERSION(1, 0, 0): return SPV_ENV_VULKAN_1_0;
-		case VK_MAKE_VERSION(1, 1, 0): return SPV_ENV_VULKAN_1_1;
+		case VK_MAKE_VERSION(1, 1, 0): return allow_1_4 ? SPV_ENV_VULKAN_1_1_SPIRV_1_4 : SPV_ENV_VULKAN_1_1;
+		case VK_MAKE_VERSION(1, 2, 0): return SPV_ENV_VULKAN_1_2;
 		default:
 			break;
 	}
@@ -63,6 +63,8 @@ static spv_target_env mapTargetSpvEnvironment(SpirvVersion spirvVersion)
 		case SPIRV_VERSION_1_1: result = SPV_ENV_UNIVERSAL_1_1; break;	//!< SPIR-V 1.1
 		case SPIRV_VERSION_1_2: result = SPV_ENV_UNIVERSAL_1_2; break;	//!< SPIR-V 1.2
 		case SPIRV_VERSION_1_3: result = SPV_ENV_UNIVERSAL_1_3; break;	//!< SPIR-V 1.3
+		case SPIRV_VERSION_1_4: result = SPV_ENV_UNIVERSAL_1_4; break;	//!< SPIR-V 1.4
+		case SPIRV_VERSION_1_5: result = SPV_ENV_UNIVERSAL_1_5; break;	//!< SPIR-V 1.5
 		default:				TCU_THROW(InternalError, "Unknown SPIR-V version");
 	}
 
@@ -82,7 +84,8 @@ bool assembleSpirV (const SpirVAsmSource* program, std::vector<deUint32>* dst, S
 	{
 		const std::string&	spvSource			= program->source;
 		const deUint64		compileStartTime	= deGetMicroseconds();
-		const spv_result_t	compileOk			= spvTextToBinary(context, spvSource.c_str(), spvSource.size(), &binary, &diagnostic);
+		const deUint32		options				= SPV_TEXT_TO_BINARY_OPTION_PRESERVE_NUMERIC_IDS;
+		const spv_result_t	compileOk			= spvTextToBinaryWithOptions(context, spvSource.c_str(), spvSource.size(), options, &binary, &diagnostic);
 
 		buildInfo->source			= spvSource;
 		buildInfo->infoLog			= diagnostic? diagnostic->error : ""; // \todo [2015-07-13 pyry] Include debug log?
@@ -146,14 +149,22 @@ void disassembleSpirV (size_t binarySizeInWords, const deUint32* binary, std::os
 
 bool validateSpirV (size_t binarySizeInWords, const deUint32* binary, std::ostream* infoLog, const SpirvValidatorOptions &val_options)
 {
-	const spv_context	context		= spvContextCreate(mapVulkanVersionToSpirvToolsEnv(val_options.vulkanVersion));
-	spv_diagnostic		diagnostic	= DE_NULL;
+	const spv_context		context		= spvContextCreate(getSpirvToolsEnvForValidatorOptions(val_options));
+	spv_diagnostic			diagnostic	= DE_NULL;
+	spv_validator_options	options		= DE_NULL;
+	spv_text				disasmText	= DE_NULL;
+
+	if (!context)
+		throw std::bad_alloc();
 
 	try
 	{
 		spv_const_binary_t		cbinary	= { binary, binarySizeInWords };
 
-		spv_validator_options options = spvValidatorOptionsCreate();
+		options = spvValidatorOptionsCreate();
+
+		if (options == DE_NULL)
+			throw std::bad_alloc();
 
 		switch (val_options.blockLayout)
 		{
@@ -165,6 +176,9 @@ bool validateSpirV (size_t binarySizeInWords, const deUint32* binary, std::ostre
 			case SpirvValidatorOptions::kRelaxedBlockLayout:
 				spvValidatorOptionsSetRelaxBlockLayout(options, true);
 				break;
+			case SpirvValidatorOptions::kUniformStandardLayout:
+				spvValidatorOptionsSetUniformBufferStandardLayout(options, true);
+				break;
 			case SpirvValidatorOptions::kScalarBlockLayout:
 				spvValidatorOptionsSetScalarBlockLayout(options, true);
 				break;
@@ -173,20 +187,27 @@ bool validateSpirV (size_t binarySizeInWords, const deUint32* binary, std::ostre
 		const spv_result_t		valid	= spvValidateWithOptions(context, options, &cbinary, &diagnostic);
 		const bool				passed	= (valid == SPV_SUCCESS);
 
-		if (diagnostic)
+		*infoLog << "Validation " << (passed ? "PASSED: " : "FAILED: ");
+
+		if (diagnostic && diagnostic->error)
 		{
 			// Print the diagnostic whether validation passes or fails.
 			// In theory we could get a warning even in the pass case, but there are no cases
 			// like that now.
-			*infoLog << "Validation " << (passed ? "PASSED: " : "FAILED: ") << diagnostic->error << "\n";
+			*infoLog << diagnostic->error << "\n";
 
-			spv_text text;
-			spvBinaryToText(context, binary, binarySizeInWords, SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES | SPV_BINARY_TO_TEXT_OPTION_INDENT, &text, DE_NULL);
+			const deUint32		disasmOptions	= SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES
+												| SPV_BINARY_TO_TEXT_OPTION_INDENT;
+			const spv_result_t	disasmResult	= spvBinaryToText(context, binary, binarySizeInWords, disasmOptions, &disasmText, DE_NULL);
 
-			*infoLog << text->str << "\n";
-			spvTextDestroy(text);
+			if (disasmResult != SPV_SUCCESS)
+				*infoLog << "Disassembly failed with code: " << de::toString(disasmResult) << "\n";
+
+			if (disasmText != DE_NULL)
+				*infoLog << disasmText->str << "\n";
 		}
 
+		spvTextDestroy(disasmText);
 		spvValidatorOptionsDestroy(options);
 		spvDiagnosticDestroy(diagnostic);
 		spvContextDestroy(context);
@@ -195,30 +216,13 @@ bool validateSpirV (size_t binarySizeInWords, const deUint32* binary, std::ostre
 	}
 	catch (...)
 	{
+		spvTextDestroy(disasmText);
+		spvValidatorOptionsDestroy(options);
 		spvDiagnosticDestroy(diagnostic);
 		spvContextDestroy(context);
 
 		throw;
 	}
 }
-
-#else // defined(DEQP_HAVE_SPIRV_TOOLS)
-
-bool assembleSpirV (const SpirVAsmSource*, std::vector<deUint32>*, SpirVProgramInfo*, SpirvVersion)
-{
-	TCU_THROW(NotSupportedError, "SPIR-V assembly not supported (DEQP_HAVE_SPIRV_TOOLS not defined)");
-}
-
-void disassembleSpirV (size_t, const deUint32*, std::ostream*, SpirvVersion)
-{
-	TCU_THROW(NotSupportedError, "SPIR-V disassembling not supported (DEQP_HAVE_SPIRV_TOOLS not defined)");
-}
-
-bool validateSpirV (size_t, const deUint32*, std::ostream*, const SpirvValidatorOptions&)
-{
-	TCU_THROW(NotSupportedError, "SPIR-V validation not supported (DEQP_HAVE_SPIRV_TOOLS not defined)");
-}
-
-#endif
 
 } // vk

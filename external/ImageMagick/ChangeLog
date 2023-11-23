@@ -1,3 +1,463 @@
+2020-01-04  7.0.9-14 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-14, GIT revision 16654:89ef7ea:20200104.
+
+2020-01-01  7.0.9-14 Cristy  <quetzlzacatenango@image...>
+  * Support extended Fx assignment operators (e.g. *=, /=, ++, --, etc.)
+  * Support Fx for() iterator.
+  * Optimize Fx performance.
+  * Ensure circle.rb renders the same for IMv6 and IMv7 (reference
+    https://github.com/rmagick/rmagick/issues/905).
+
+2019-12-30  7.0.9-13 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-13, GIT revision 16616:dbafe0b:20191230.
+
+2019-12-27  7.0.9-13 Cristy  <quetzlzacatenango@image...>
+  * xc:white no longer creates a black PNM image (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1817).
+  * Sync pixel cache for -kmeans option.
+  * Thread -kmeans option.
+  * PSD: only set the alpha channel when type is not 0.
+  * Fix Lab to custom profile (CMYK or RGB) conversion bug (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=37318).
+
+2019-12-26  7.0.9-12 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-12, GIT revision 16587:7d6a559:20191226.
+
+2019-12-26  7.0.9-12 Cristy  <quetzlzacatenango@image...>
+  * Fix Build failure with MinGW-w64 (reference
+    https://github.com/ImageMagick/ImageMagick6/issues/67).
+  * Inject image profile properties immediately after the image is read.
+
+2019-12-23  7.0.9-11 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-11, GIT revision 16568:1d6c960:20191224.
+
+2019-12-18  7.0.9-11 Cristy  <quetzlzacatenango@image...>
+  * Replace pseudo-random number generator with a Xoshiro generator.
+  * The -layers optimize option requires a fully transparent previous image.
+
+2019-12-22  7.0.9-10 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-10, GIT revision 16548:281649843:20191222.
+
+2019-12-18  7.0.9-10 Cristy  <quetzlzacatenango@image...>
+  * Some clang releases do not support _aligned_alloc().
+  * Support -kmeans command-line option.
+
+2019-12-07  7.0.9-9 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-9, GIT revision 16513:8ec82f4:20191215.
+
+2019-12-07  7.0.9-9 Cristy  <quetzlzacatenango@image...>
+  * Build file clean-up (reference
+    https://github.com/ImageMagick/ImageMagick/pull/1798).
+  * Improve semaphore handling @
+    https://github.com/ImageMagick/ImageMagick/pull/1798).
+  * Introduce HeapOverflowSanityCheckGetExtent() method (reference
+    https://github.com/ImageMagick/ImageMagick/pull/1798).
+
+2019-12-01  7.0.9-8 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-8, GIT revision 16474:0bc0e95:20191207.
+
+2019-12-01  7.0.9-8 Cristy  <quetzlzacatenango@image...>
+  * -type bilevel behavior restored, it creates a black and white image.
+
+2019-11-30  7.0.9-7 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-7, GIT revision 16449:971ba06:20191130.
+
+2019-11-26  7.0.9-7 Cristy  <quetzlzacatenango@image...>
+  * Support Pocketmod image format, e.g.
+    convert -density 300 pages?.pdf pocketmod:organize.pdf
+  * Fixed numerous issues  posted to GitHub (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+  * Update documentation.
+
+2019-11-26  7.0.9-6 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-6, GIT revision 16407:1725ec3:20191126.
+
+2019-11-19  7.0.9-6 Cristy  <quetzlzacatenango@image...>
+  * Increase the maximum number of bezier coordinates (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1784).
+  * Santize "'" from SHOW and WIN delegates under Linux, '"\' for Windows
+    (thanks to Enzo Puig).
+  * Correct for TGA orientation (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=34757).
+  * The result for -compose Copy -extent on a  MYK image is CMYK (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=37118).
+  * Fix potential buffer overflow when reading a fax image (alert from
+    Justin).
+  * Support dng:use-camera-wb option.
+
+2019-11-17  7.0.9-5 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-5, GIT revision 16369:747618e:20191117.
+
+2019-11-16  7.0.9-5 Cristy  <quetzlzacatenango@image...>
+  * Ensure Ascii85 compression is thread safe.
+  * Fixed numerous issues  posted to GitHub (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-11-13  7.0.9-4 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-4, GIT revision 16354:5f53562:20191114.
+
+2019-11-10  7.0.9-4 Cristy  <quetzlzacatenango@image...>
+  * Add exception parameter to CMS transform methods.
+  * Output exception there is an attempt to perform an operation not allowed by
+    the security policy
+  * Fixed numerous issues  posted to GitHub (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-10-30  7.0.9-2 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-2, GIT revision 16325:6f84d89:20191030.
+
+2019-10-29  7.0.9-2 Cristy  <quetzlzacatenango@image...>
+  * JPEG and JPG are aliases in coder security policy.
+  * Fixed numerous issues  posted to GitHub (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-10-27  7.0.9-1 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-1, GIT revision 16313:e068be3:20191027.
+
+2019-10-27  7.0.9-1 Cristy  <quetzlzacatenango@image...>
+  * Fixed numerous issues  posted to GitHub (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-10-23  7.0.9-0 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.9-0, GIT revision 16297:8744fd9:20191024
+
+2019-10-06  7.0.9-0 Cristy  <quetzlzacatenango@image...>
+  * Fixed numerous issues  posted to GitHub (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+  * Support trim:background-color define for -trim option.
+
+2019-10-05  7.0.8-68 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-68, GIT revision 16184:b75b0e5:20191005.
+
+2019-09-30  7.0.8-68 Cristy  <quetzlzacatenango@image...>
+  * Support animated WebP encoding/decoding (reference
+    https://github.com/ImageMagick/ImageMagick/pull/1708).
+  * Text stroke cut off (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=1&t=36829).
+  * Adds support for lossless JPEG1 recompression (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=2&t=36828).
+
+2019-09-29  7.0.8-67 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-67, GIT revision 16145:6f2feb9:20190929.
+
+2019-09-28  7.0.8-67 Cristy  <quetzlzacatenango@image...>
+  * line endings renedered as empty boxes (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1704).
+
+2019-09-21  7.0.8-66 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-66, GIT revision 16134:f6ce80a:20190921.
+
+2019-09-09  7.0.8-66 Cristy  <quetzlzacatenango@image...>
+  * Support compound statements in FX while() (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1701).
+
+2019-09-15  7.0.8-65 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-65, GIT revision 16130:254db34:20190915.
+
+2019-09-09  7.0.8-65 Cristy  <quetzlzacatenango@image...>
+  * Eliminate fault when trace delegate is not available.
+  * Properly distinquish linear and non-linear gray colorspaces (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1680).
+
+2019-09-07  7.0.8-64 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-64, GIT revision 16108:2ad3cbc:20190907.
+
+2019-09-02  7.0.8-64 Cristy  <quetzlzacatenango@image...>
+  * Support XPM symbolic (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1684).
+  * DilateIntensity is channel independent (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36641).
+
+2019-08-31  7.0.8-63 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-63, GIT revision 16088:3b7a33d:20190831.
+
+2019-08-24  7.0.8-63 Cristy  <quetzlzacatenango@image...>
+  * Properly identify the DNG and AI image format (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36581).
+
+2019-08-23  7.0.8-62 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-62, GIT revision 16061:7525595:20190823.
+
+2019-08-23  7.0.8-62 Dirk Lemstra <dirk@lem.....org>
+  * Added option to limit the maximum point size with -define
+    caption:max-pointsize=pointsize.
+  * Corrected JP2 numresolution calculation (reference:
+    https://github.com/ImageMagick/ImageMagick/issues/1673)
+
+2019-08-19  7.0.8-62 Cristy  <quetzlzacatenango@image...>
+  * Conditionally compile call to AcquireCLocale() (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1669).
+  * More robust support for converting bitmap to vector.
+
+2019-08-16  7.0.8-61 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-61, GIT revision 16033:0c5808c:20190816.
+
+2019-08-03  7.0.8-61 Cristy  <quetzlzacatenango@image...>
+  * Issue with -background and -swirl (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36512).
+
+2019-08-10  7.0.8-60 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-60, GIT revision 16020:52ff205:20190810.
+
+2019-08-07  7.0.8-60 Cristy  <quetzlzacatenango@image...>
+  * Enable reading EXR image file from stdin.
+
+2019-08-04  7.0.8-59 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-59, GIT revision 15986:c3de0e7:20190804.
+
+2019-08-01  7.0.8-59 Cristy  <quetzlzacatenango@image...>
+  * Module is a reserved keyword for C++ 20 (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1650).
+
+2019-07-29  7.0.8-58 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-58, GIT revision 15962:cf00632:20190729.
+
+2019-07-27  7.0.8-58 Cristy  <quetzlzacatenango@image...>
+  * Improve GetNextToken() performance.
+
+2019-07-26  7.0.8-57 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-57, GIT revision 15948:8fba4a3:20190726.
+
+2019-07-22  7.0.8-57 Cristy  <quetzlzacatenango@image...>
+  * Heap-buffer-overflow in Postscript coder (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1644).
+  * The -alpha shape option nondeteministic under OpenMP (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36396).
+  * Correction to the ModulusAdd and ModulusSubtract composite op (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=2&t=36413).
+
+2019-07-20  7.0.8-56 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-56, GIT revision 15936:2ac4147:20190720.
+
+2019-07-20  7.0.8-56 Cristy  <quetzlzacatenango@image...>
+  * Unexpected -alpha shape results (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36396).
+  * Converting from PDF to PBM inverts the image (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1643).
+
+2019-07-18  7.0.8-55 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-55, GIT revision 15930:ac09240:20190718.
+
+2019-07-18  7.0.8-55 Cristy  <quetzlzacatenango@image...>
+  * Heap-buffer overflow (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1641
+  * PerlMagick test suite passes again (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1640) 
+
+2019-07-16  7.0.8-54 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-54, GIT revision 15916:e868e22:20190716.
+
+2019-07-08  7.0.8-54 Cristy  <quetzlzacatenango@image...>
+  * resolve division by zero  (reference
+     https://github.com/ImageMagick/ImageMagick/issues/1629).
+  * introducing MagickLevelImageColors() MagickWand method.
+  * Transient problem with text placement with gravity (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1633).
+  * Support TIM2 image format (reference
+    https://github.com/ImageMagick/ImageMagick/pull/1571).
+  * For -magnify option, specify an alternative scaling method with -define
+    magnify:method=method, choose from these methods: eagle2X, eagle3X,
+    eagle3XB, epb2X, fish2X, hq2X,  scale2X (default), scale3X, xbr2X.
+
+2019-07-05  7.0.8-53 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-53, GIT revision 15828:f5d59c0:20190705.
+
+2019-07-05  7.0.8-53 Cristy  <quetzlzacatenango@image...>
+   * Fix -fx parsing issue (reference
+     https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36314).
+
+2019-07-05  7.0.8-52 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-52, GIT revision 15825:ea47310:20190705.
+
+2019-07-01  7.0.8-52 Cristy  <quetzlzacatenango@image...>
+  * Eliminate buffer overflow in TranslateEvent() (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1621).
+
+2019-06-30  7.0.8-51 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-51, GIT revision 15812:51f11c4:20190630.
+
+2019-06-24  7.0.8-51 Cristy  <quetzlzacatenango@image...>
+  * Clone rather than copy X window name/icon.
+  * Optimize PDF reader.
+
+2019-06-23  7.0.8-50 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-50, GIT revision 15778:4a60519:20190623
+
+2019-06-14  7.0.8-50 Dirk Lemstra <dirk@lem.....org>
+  * Added support for reading all images from a HEIC image (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1391).
+  * Heap-buffer-overflow in MagickCore/fourier.c (reference
+   https://github.com/ImageMagick/ImageMagick/issues/1588).
+  * Fixed a number of issues (reference
+    https://imagemagick.org/discourse-server/viewforum.php?f=3).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-06-08  7.0.8-49 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-49, GIT revision 15708:6d7e1db:20190608
+
+2019-06-03  7.0.8-49 Cristy  <quetzlzacatenango@image...>
+  * Add support for RGB565 image format (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=2&t=36078).
+  * Use user defined allocator instead of `malloc` (reference
+    https://github.com/ImageMagick/ImageMagick6/pull/49/).
+  * Add static decorator to accelerator kernels (reference
+    https://github.com/ImageMagick/ImageMagick/issues/1366).
+
+2019-06-01  7.0.8-48 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-48, GIT revision 15689:061a3bb82:20190601
+
+2019-06-01  7.0.8-48 Cristy  <quetzlzacatenango@image...>
+  * Fix transient convolution bug (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36119).
+
+2019-05-26  7.0.8-47 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-47, GIT revision 15681:5cffc6cbb:20190526
+
+2019-05-19  7.0.8-47 Cristy  <quetzlzacatenango@image...>
+  * Support 16 and 32 bit tiled float TIFF images.
+  * Convolve morphology alpha channel fix (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=36086).
+  * Text improvements to the internal SVG renderer.
+
+2019-05-14  7.0.8-46 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-46, GIT revision 15655:84dd3301c:20190518
+
+2019-05-14  7.0.8-46 Cristy  <quetzlzacatenango@image...>
+  * PerlMagick unit tests pass again.
+  * Builds under MacOS X and FreeBSD works again.
+  * Return HEIC images in the sRGB colorspace.
+
+2019-05-12  7.0.8-45 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-45, GIT revision 15634:784105bcb:20190512
+
+2019-05-06  7.0.8-45 Cristy  <quetzlzacatenango@image...>
+  * Fix image signatures to ensure they are Q-depth invariant (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=1&t=35970).
+  * Fixed a number of issues (reference
+    https://imagemagick.org/discourse-server/viewforum.php?f=3).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-05-03  7.0.8-44 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-44, GIT revision 15600:41f47759a:20190503
+
+2019-05-03  7.0.8-44 Cristy  <quetzlzacatenango@image...>
+  * Fixed a number of issues (reference
+    https://imagemagick.org/discourse-server/viewforum.php?f=3).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-05-01  7.0.8-43 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-43, GIT revision 15595:0062cef74:20190502
+
+2019-05-01  7.0.8-43 Cristy  <quetzlzacatenango@image...>
+  * Fixed a number of issues (reference
+    https://imagemagick.org/discourse-server/viewforum.php?f=3).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-04-29  7.0.8-42 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-42, GIT revision 15570:71190ccd0:20190424
+
+2019-04-20  7.0.8-42 Cristy  <quetzlzacatenango@image...>
+  * Fixed a number of issues (reference
+    https://imagemagick.org/discourse-server/viewforum.php?f=3).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-04-19  7.0.8-41 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-41, GIT revision 15540:c78993d13:20190420
+
+2019-04-13  7.0.8-41 Cristy  <quetzlzacatenango@image...>
+  * Fixed a number of issues (reference
+    https://imagemagick.org/discourse-server/viewforum.php?f=3).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+  * Honor SOURCE_DATE_EPOCH environment variable (reference
+    https://github.com/ImageMagick/ImageMagick/pull/1496/).
+  * Standardize on UTC time for any image format timestamp.
+  * Add MagickAutoThresholdImage(), MagickCannyEdgeImage(),
+    MagickComplexImages(), MagickConnectedComponentsImage(),
+    MagickHoughLineImage(), MagickKuwaharaImage(), MagickLevelizeImageColors(),
+    MagickLevelImageColors(), MagickMeanShiftImage(), MagickPolynomialImage(),
+    MagickRangeThresholdImage(), MagickSetSeed(), MagickWaveletDenoiseImage()
+    methods to MagickWand API.
+
+2019-04-12  7.0.8-40 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-40, GIT revision 15510:7e503e231:20190412
+
+2019-04-10  7.0.8-40 Cristy  <quetzlzacatenango@image...>
+  * Fixed a number of issues (reference
+    https://imagemagick.org/discourse-server/viewforum.php?f=3).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+
+2019-04-07  7.0.8-39 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-39, GIT revision 15489:6120f8bc1:20190406
+
+2019-04-06  7.0.8-39 Cristy  <quetzlzacatenango@image...>
+  * The -layers option compared pixels inocorrectly as opacity rather than
+    alpha.
+  * The -preview raise option now returns expected results.
+  * Initialise ghostscript instances with NULL (reference
+    https://github.com/ImageMagick/ImageMagick/pull/1538).
+
+2019-04-06  7.0.8-38 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-38, GIT revision 15483:23edcef04:20190406
+
+2019-04-06  7.0.8-38 Cristy  <quetzlzacatenango@image...>
+  * Modulo off by one patch for -virtual-pixel option (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=35789).
+
+2019-04-03  7.0.8-37 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-37, GIT revision 15470:477216fd7:20190403
+
+2019-04-03  7.0.8-37 Cristy  <quetzlzacatenango@image...>
+  * Fixed -virtual-pixel option (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=35789).
+
+2019-03-31  7.0.8-36 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-36, GIT revision 15464:3a928224d:20190331
+
+2019-03-27  7.0.8-36 Cristy  <quetzlzacatenango@image...>
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-03-24  7.0.8-35 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-35, GIT revision 15440:4a0a88e41:20190324
+
+2019-03-23  7.0.8-35 Cristy  <quetzlzacatenango@image...>
+  * -draw image DstOver is now responsive to the composite operator (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=1&t=35650).
+  * Fixed a number of issues (reference
+    https://github.com/ImageMagick/ImageMagick/issues).
+
+2019-03-15  7.0.8-34 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-34, GIT revision 15413:860af935d:20190315
+
+2019-03-11  7.0.8-34 Cristy  <quetzlzacatenango@image...>
+  * Associate one lock with each resource.
+  * Report exception if opening TIFF did not work out.
+  * Fixed numerous use of uninitialized values, integer overflow, memory
+    exceeded, and timeouts (credit to OSS Fuzz).
+
+2019-03-10  7.0.8-33 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-33, GIT revision 15401:c805e3205:20190310
+
+2019-03-06  7.0.8-33 Cristy  <quetzlzacatenango@image...>
+  * Fix SVG conversion infinite loop (reference
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=35591).
+  * Initialize primitive drawing structure after resizing.
+
+2019-03-05  7.0.8-32 Cristy  <quetzlzacatenango@image...>
+  * Release ImageMagick version 7.0.8-32, GIT revision 15386:58d9c4692:20190305
+
+2019-03-05  7.0.8-32 Cristy  <quetzlzacatenango@image...>
+  * Fix out-of-boundary LocaleLowerCase() @
+    https://github.com/ImageMagick/ImageMagick/issues/1495
+
 2019-03-04  7.0.8-31 Cristy  <quetzlzacatenango@image...>
   * Release ImageMagick version 7.0.8-31, GIT revision 15381:3122a669d:20190304
 
@@ -517,7 +977,7 @@
   * Stop potential leaks in the JNG decoder (reference:
     https://github.com/ImageMagick/ImageMagick/issues/760).
   * Maximum valid hour is 23, not 24, in the PNG tIME chunk, and maximum
-    valid minute is 59, not 60.  
+    valid minute is 59, not 60.
 
 2017-09-12  7.0.7-2 Cristy  <quetzlzacatenango@image...>
   * Release ImageMagick version 7.0.7-2, GIT revision 21089:4e46ad9dd:20170912.
@@ -759,7 +1219,7 @@
   * Release ImageMagick version 7.0.5-6, GIT revision 20039:9371904:20170512.
 
 2017-05-10  7.0.5-6 John Cupitt <jcupitt@gmail.com>
-  * Revise DICOM window and rescale handling (reference 
+  * Revise DICOM window and rescale handling (reference
     https://github.com/ImageMagick/ImageMagick/pull/484)
 
 2017-05-06  7.0.5-6 Cristy  <quetzlzacatenango@image...>
@@ -966,7 +1426,7 @@
   * Set colorspace to sRGB if -append has non-homogenous colorspaces (reference
     https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=29105).
   * Respect connected-components:area-threshold define (reference
-    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=31006). 
+    https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=31006).
   * Enable alpha channel if background color is non-opaque (reference
     https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=31016).
   * Return correct offset for negative index for -fx option (reference
@@ -1023,7 +1483,6 @@
     https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=30797).
   * Mask composite produces proper results for the convert utility (reference
     https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=29675).
-    
 
 2016-10-10  7.0.3-5 Cristy  <quetzlzacatenango@image...>
   * Release ImageMagick version 7.0.3-5, GIT revision 18975:a8174a2:20161030.
@@ -1052,7 +1511,7 @@
   * Release ImageMagick version 7.0.3-2, GIT revision 18887:6b27c5b:20161002.
 
 2016-09-27  7.0.3-2 Dirk Lemstra <dirk@lem.....org>
-  * Fixed incorrect RLE decoding when reading an SGI image (reference 
+  * Fixed incorrect RLE decoding when reading an SGI image (reference
     https://imagemagick.org/discourse-server/viewtopic.php?f=3&t=30514)
 
 2016-09-20  7.0.3-1 Cristy  <quetzlzacatenango@image...>
@@ -1153,7 +1612,7 @@
 2016-06-23  7.0.2-2 Cristy  <quetzlzacatenango@image...>
   * Correct for numerical instability (reference
     https://github.com/ImageMagick/ImageMagick/issues/218).
-			 
+
 2016-06-21  7.0.2-1 Cristy  <quetzlzacatenango@image...>
   * Release ImageMagick version 7.0.2-1, GIT revision 18479:931319b:20160622.
 
@@ -1275,7 +1734,7 @@
 2016-04-30  7.0.1-0 Cristy  <quetzlzacatenango@image...>
   * New version 7.0.1-0, GIT revision 10716:b527bce:20160430.
 
-2016-01-30  7.0.0-0 	Fahad-Alsaidi & ShamsaHamed
+2016-01-30  7.0.0-0 Fahad-Alsaidi & ShamsaHamed
   * Add support for languages that require complex text layout (reference
     https://github.com/ImageMagick/ImageMagick/pull/88).
 

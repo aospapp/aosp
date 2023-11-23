@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -146,6 +146,9 @@ extern MagickPrivate MagickBooleanType
   NTGetExecutionPath(char *,const size_t),
   NTGetModulePath(const char *,char *),
   NTReportEvent(const char *,const MagickBooleanType);
+
+extern MagickExport MagickBooleanType
+  NTLongPathsEnabled();
 
 extern MagickPrivate struct dirent
   *NTReadDirectory(DIR *);

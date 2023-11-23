@@ -29,6 +29,7 @@ class firmware_ECAdc(FirmwareTest):
             raise error.TestFail("Abnormal EC temperature %d K" % t)
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.check_ec_capability(['adc_ectemp']):
             raise error.TestNAError("Nothing needs to be tested on this device")
         logging.info("Reading EC internal temperature for %d times.",

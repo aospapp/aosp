@@ -12,7 +12,6 @@ echo "Running test to validate software write protect cannot be disabled when \
 hardware write protect is enabled"
 
 echo "Making sure all write protect is enabled"
-enable_sw_write_protect
 check_hw_and_sw_write_protect_enabled
 
 echo "Validating initial state"

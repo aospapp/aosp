@@ -1,11 +1,11 @@
 /*
-  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.
   obtain a copy of the License at
   
-    http://imagemagick.org/script/license.php
+    https://imagemagick.org/script/license.php
   
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,13 +26,13 @@ extern "C" {
   Define declarations.
 */
 #define MagickPackageName "ImageMagick"
-#define MagickCopyright  "© 1999-2019 ImageMagick Studio LLC"
-#define MagickLibVersion  0x708
-#define MagickLibVersionText  "7.0.8"
-#define MagickLibVersionNumber  6,0,0
-#define MagickLibAddendum  "-32"
-#define MagickLibInterface  6
-#define MagickLibMinInterface  6
+#define MagickCopyright  "© 1999-2020 ImageMagick Studio LLC"
+#define MagickLibVersion  0x709
+#define MagickLibVersionText  "7.0.9"
+#define MagickLibVersionNumber  7,0,0
+#define MagickLibAddendum  "-13"
+#define MagickLibInterface  7
+#define MagickLibMinInterface  7
 #if defined(_WINDOWS)
 #  if defined(_WIN64)
 #    define MagickPlatform "x64"
@@ -42,12 +42,12 @@ extern "C" {
 #else
 #define MagickPlatform  "i686"
 #endif
-#define MagickppLibVersionText  "7.0.8"
+#define MagickppLibVersionText  "7.0.9"
 #define MagickppLibVersionNumber  4:0:0
-#define MagickppLibAddendum  "-32"
+#define MagickppLibAddendum  "-13"
 #define MagickppLibInterface  4
 #define MagickppLibMinInterface  4
-#define MagickReleaseDate  "2019-03-07"
+#define MagickReleaseDate  "2019-12-29"
 #define MagickAuthoritativeLicense  \
   "https://imagemagick.org/script/license.php"
 #define MagickAuthoritativeURL  "https://imagemagick.org"

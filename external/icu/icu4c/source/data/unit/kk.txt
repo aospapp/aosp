@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 kk{
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -53,6 +53,11 @@ kk{
                 one{"{0} акр"}
                 other{"{0} акр"}
             }
+            dunam{
+                dnam{"дунам"}
+                one{"{0} дунам"}
+                other{"{0} дунам"}
+            }
             hectare{
                 dnam{"гектар"}
                 one{"{0} гектар"}
@@ -62,7 +67,7 @@ kk{
                 dnam{"шаршы сантиметр"}
                 one{"{0} шаршы сантиметр"}
                 other{"{0} шаршы сантиметр"}
-                per{"{0}/см²"}
+                per{"{0}/шаршы сантиметр"}
             }
             square-foot{
                 dnam{"шаршы фут"}
@@ -73,25 +78,25 @@ kk{
                 dnam{"шаршы дюйм"}
                 one{"{0} шаршы дюйм"}
                 other{"{0} шаршы дюйм"}
-                per{"{0}/дюйм²"}
+                per{"{0}/шаршы дюйм"}
             }
             square-kilometer{
                 dnam{"шаршы километр"}
                 one{"{0} шаршы километр"}
                 other{"{0} шаршы километр"}
-                per{"{0}/км²"}
+                per{"{0}/шаршы километр"}
             }
             square-meter{
                 dnam{"шаршы метр"}
                 one{"{0} шаршы метр"}
                 other{"{0} шаршы метр"}
-                per{"{0}/метр²"}
+                per{"{0}/шаршы метр"}
             }
             square-mile{
                 dnam{"шаршы миля"}
                 one{"{0} шаршы миля"}
                 other{"{0} шаршы миля"}
-                per{"{0}/миля²"}
+                per{"{0}/шаршы миля"}
             }
             square-yard{
                 dnam{"шаршы ярд"}
@@ -118,6 +123,11 @@ kk{
                 one{"{0} миллимоль/литр"}
                 other{"{0} миллимоль/литр"}
             }
+            mole{
+                dnam{"моль"}
+                one{"{0} моль"}
+                other{"{0} моль"}
+            }
             part-per-million{
                 dnam{"миллиондық үлес"}
                 one{"{0} миллиондық үлес"}
@@ -132,6 +142,11 @@ kk{
                 dnam{"промилле"}
                 one{"{0} промилле"}
                 other{"{0} промилле"}
+            }
+            permyriad{
+                dnam{"промириад"}
+                one{"{0} промириад"}
+                other{"{0} промириад"}
             }
         }
         consumption{
@@ -232,6 +247,11 @@ kk{
                 other{"{0} тәулік"}
                 per{"тәулігіне {0}"}
             }
+            decade{
+                dnam{"декада"}
+                one{"{0} декада"}
+                other{"{0} декада"}
+            }
             hour{
                 dnam{"сағат"}
                 one{"{0} сағат"}
@@ -307,10 +327,20 @@ kk{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"британдық жылу бірлігі"}
+                one{"{0} британдық жылу бірлігі"}
+                other{"{0} британдық жылу бірлігі"}
+            }
             calorie{
                 dnam{"калория"}
                 one{"{0} калория"}
                 other{"{0} калория"}
+            }
+            electronvolt{
+                dnam{"электронвольт"}
+                one{"{0} электронвольт"}
+                other{"{0} электронвольт"}
             }
             foodcalorie{
                 dnam{"калория"}
@@ -338,6 +368,18 @@ kk{
                 other{"{0} киловатт-сағат"}
             }
         }
+        force{
+            newton{
+                dnam{"ньютон"}
+                one{"{0} ньютон"}
+                other{"{0} ньютон"}
+            }
+            pound-force{
+                dnam{"фунт-күш"}
+                one{"{0} фунт-күш"}
+                other{"{0} фунт-күш"}
+            }
+        }
         frequency{
             gigahertz{
                 dnam{"гигагерц"}
@@ -358,6 +400,43 @@ kk{
                 dnam{"мегагерц"}
                 one{"{0} мегагерц"}
                 other{"{0} мегагерц"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"нүкте/сантиметр"}
+                one{"{0} нүкте/сантиметр"}
+                other{"{0} нүкте/сантиметр"}
+            }
+            dot-per-inch{
+                dnam{"нүкте/дюйм"}
+                one{"{0} нүкте/дюйм"}
+                other{"{0} нүкте/дюйм"}
+            }
+            em{
+                dnam{"типографиялық эм"}
+                one{"{0} эм"}
+                other{"{0} эм"}
+            }
+            megapixel{
+                dnam{"мегапиксель"}
+                one{"{0} мегапиксель"}
+                other{"{0} мегапиксель"}
+            }
+            pixel{
+                dnam{"пиксель"}
+                one{"{0} пиксель"}
+                other{"{0} пиксель"}
+            }
+            pixel-per-centimeter{
+                dnam{"пиксель/сантиметр"}
+                one{"{0} пиксель/сантиметр"}
+                other{"{0} пиксель/сантиметр"}
+            }
+            pixel-per-inch{
+                dnam{"пиксель/дюйм"}
+                one{"{0} пиксель/дюйм"}
+                other{"{0} пиксель/дюйм"}
             }
         }
         length{
@@ -447,9 +526,14 @@ kk{
                 other{"{0} пикометр"}
             }
             point{
-                dnam{"ұпай"}
-                one{"{0} ұпай"}
-                other{"{0} ұпай"}
+                dnam{"пункт"}
+                one{"{0} пункт"}
+                other{"{0} пункт"}
+            }
+            solar-radius{
+                dnam{"Күн радиусы"}
+                one{"{0} Күн радиусы"}
+                other{"{0} Күн радиусы"}
             }
             yard{
                 dnam{"ярд"}
@@ -463,12 +547,27 @@ kk{
                 one{"{0} люкс"}
                 other{"{0} люкс"}
             }
+            solar-luminosity{
+                dnam{"Күн жарықтығы"}
+                one{"{0} Күн жарықтығы"}
+                other{"{0} Күн жарықтығы"}
+            }
         }
         mass{
             carat{
                 dnam{"карат"}
                 one{"{0} карат"}
                 other{"{0} карат"}
+            }
+            dalton{
+                dnam{"дальтон"}
+                one{"{0} дальтон"}
+                other{"{0} дальтон"}
+            }
+            earth-mass{
+                dnam{"Жер массасы"}
+                one{"{0} жер массасы"}
+                other{"{0} жер массасы"}
             }
             gram{
                 dnam{"грамм"}
@@ -514,6 +613,11 @@ kk{
                 other{"{0} фунт"}
                 per{"{0}/фунт"}
             }
+            solar-mass{
+                dnam{"Күн массасы"}
+                one{"{0} Күн массасы"}
+                other{"{0} Күн массасы"}
+            }
             ton{
                 dnam{"тонна"}
                 one{"{0} тонна"}
@@ -558,15 +662,30 @@ kk{
                 one{"{0} атмосфера"}
                 other{"{0} атмосфера"}
             }
+            bar{
+                dnam{"бар"}
+                one{"{0} бар"}
+                other{"{0} бар"}
+            }
             hectopascal{
                 dnam{"гектопаскаль"}
                 one{"{0} гектопаскаль"}
                 other{"{0} гектопаскаль"}
             }
             inch-hg{
-                dnam{"сынап бағанасының дюймы"}
-                one{"сынап бағанасының {0} дюймы"}
-                other{"сынап бағанасының {0} дюймы"}
+                dnam{"дюйм сынап бағанасы"}
+                one{"{0} дюйм сынап бағанасы"}
+                other{"{0} дюйм сынап бағанасы"}
+            }
+            kilopascal{
+                dnam{"килопаскаль"}
+                one{"{0} килопаскаль"}
+                other{"{0} килопаскаль"}
+            }
+            megapascal{
+                dnam{"мегапаскаль"}
+                one{"{0} мегапаскаль"}
+                other{"{0} мегапаскаль"}
             }
             millibar{
                 dnam{"миллибар"}
@@ -574,9 +693,14 @@ kk{
                 other{"{0} миллибар"}
             }
             millimeter-of-mercury{
-                dnam{"сынап бағанасының миллиметрі"}
-                one{"сынап бағанасының {0} миллиметрі"}
-                other{"сынап бағанасының {0} миллиметрі"}
+                dnam{"миллиметр сынап бағанасы"}
+                one{"{0} миллиметр сынап бағанасы"}
+                other{"{0} миллиметр сынап бағанасы"}
+            }
+            pascal{
+                dnam{"паскаль"}
+                one{"{0} паскаль"}
+                other{"{0} паскаль"}
             }
             pound-per-square-inch{
                 dnam{"фунт/шаршы дюйм"}
@@ -628,11 +752,28 @@ kk{
                 other{"{0} кельвин"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ньютон-метр"}
+                one{"{0} ньютон-метр"}
+                other{"{0} ньютон-метр"}
+            }
+            pound-foot{
+                dnam{"фунт-фут"}
+                one{"{0} фунт-фут"}
+                other{"{0} фунт-фут"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"акро-фут"}
                 one{"{0} aкро-фут"}
                 other{"{0} aкро-фут"}
+            }
+            barrel{
+                dnam{"баррель"}
+                one{"{0} баррель"}
+                other{"{0} баррель"}
             }
             centiliter{
                 dnam{"сантилитр"}
@@ -643,7 +784,7 @@ kk{
                 dnam{"текше сантиметр"}
                 one{"{0} текше сантиметр"}
                 other{"{0} текше сантиметр"}
-                per{"{0}/сантиметр³"}
+                per{"{0}/текше сантиметр"}
             }
             cubic-foot{
                 dnam{"текше фут"}
@@ -664,7 +805,7 @@ kk{
                 dnam{"текше метр"}
                 one{"{0} текше метр"}
                 other{"{0} текше метр"}
-                per{"{0}/метр³"}
+                per{"{0}/текше метр"}
             }
             cubic-mile{
                 dnam{"текше миля"}
@@ -695,6 +836,11 @@ kk{
                 dnam{"сұйық унция"}
                 one{"{0} сұйық унция"}
                 other{"{0} сұйық унция"}
+            }
+            fluid-ounce-imperial{
+                dnam{"имп. сұйық унция"}
+                one{"{0} имп. сұйық унция"}
+                other{"{0} имп. сұйық унция"}
             }
             gallon{
                 dnam{"галлон"}
@@ -1051,6 +1197,11 @@ kk{
                 one{"{0} акр"}
                 other{"{0} акр"}
             }
+            dunam{
+                dnam{"дунам"}
+                one{"{0} дунам"}
+                other{"{0} дунам"}
+            }
             hectare{
                 dnam{"гектар"}
                 one{"{0} га"}
@@ -1103,8 +1254,8 @@ kk{
         concentr{
             karat{
                 dnam{"карат"}
-                one{"{0} КТ"}
-                other{"{0} КТ"}
+                one{"{0} кар."}
+                other{"{0} кар."}
             }
             milligram-per-deciliter{
                 dnam{"мг/дл"}
@@ -1115,6 +1266,11 @@ kk{
                 dnam{"ммоль/л"}
                 one{"{0} ммоль/л"}
                 other{"{0} ммоль/л"}
+            }
+            mole{
+                dnam{"моль"}
+                one{"{0} моль"}
+                other{"{0} моль"}
             }
             part-per-million{
                 dnam{"ppm"}
@@ -1131,6 +1287,11 @@ kk{
                 one{"{0}‰"}
                 other{"{0}‰"}
             }
+            permyriad{
+                dnam{"‱"}
+                one{"{0}‱"}
+                other{"{0}‱"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -1145,13 +1306,13 @@ kk{
             }
             mile-per-gallon{
                 dnam{"миля/галлон"}
-                one{"{0} mpg"}
-                other{"{0} mpg"}
+                one{"{0} миля/гал."}
+                other{"{0} миля/гал."}
             }
             mile-per-gallon-imperial{
-                dnam{"mpg Imp."}
-                one{"{0} mpg Imp."}
-                other{"{0} mpg Imp."}
+                dnam{"миля/имп. гал."}
+                one{"{0} миля/имп. гал."}
+                other{"{0} миля/имп. гал."}
             }
         }
         coordinate{
@@ -1230,6 +1391,11 @@ kk{
                 other{"{0} күн"}
                 per{"{0}/күн"}
             }
+            decade{
+                dnam{"декада"}
+                one{"{0} декада"}
+                other{"{0} декада"}
+            }
             hour{
                 dnam{"сағат"}
                 one{"{0} сағ"}
@@ -1305,10 +1471,20 @@ kk{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+                one{"{0} Btu"}
+                other{"{0} Btu"}
+            }
             calorie{
                 dnam{"кал"}
                 one{"{0} кал"}
                 other{"{0} кал"}
+            }
+            electronvolt{
+                dnam{"эВ"}
+                one{"{0} эВ"}
+                other{"{0} эВ"}
             }
             foodcalorie{
                 dnam{"кал"}
@@ -1335,6 +1511,22 @@ kk{
                 one{"{0} кВт-сағ"}
                 other{"{0} кВт-сағ"}
             }
+            therm-us{
+                one{"{0} амер. термі"}
+                other{"{0} амер. термі"}
+            }
+        }
+        force{
+            newton{
+                dnam{"Н"}
+                one{"{0} Н"}
+                other{"{0} Н"}
+            }
+            pound-force{
+                dnam{"lbf"}
+                one{"{0} lbf"}
+                other{"{0} lbf"}
+            }
         }
         frequency{
             gigahertz{
@@ -1356,6 +1548,33 @@ kk{
                 dnam{"МГц"}
                 one{"{0} MГц"}
                 other{"{0} MГц"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"нүкте/см"}
+                one{"{0} нүкте/см"}
+                other{"{0} нүкте/см"}
+            }
+            dot-per-inch{
+                dnam{"нүкте/дюйм"}
+                one{"{0} нүкте/дюйм"}
+                other{"{0} нүкте/дюйм"}
+            }
+            em{
+                dnam{"эм"}
+                one{"{0} эм"}
+                other{"{0} эм"}
+            }
+            megapixel{
+                dnam{"Мп"}
+                one{"{0} Мп"}
+                other{"{0} Мп"}
+            }
+            pixel-per-centimeter{
+                dnam{"пиксель/см"}
+                one{"{0} пиксель/см"}
+                other{"{0} пиксель/см"}
             }
         }
         length{
@@ -1440,14 +1659,19 @@ kk{
                 other{"{0} пк"}
             }
             picometer{
-                dnam{"пикометр"}
+                dnam{"пм"}
                 one{"{0} пм"}
                 other{"{0} пм"}
             }
             point{
-                dnam{"ұпай"}
+                dnam{"пункт"}
                 one{"{0} ұпай"}
                 other{"{0} ұпай"}
+            }
+            solar-radius{
+                dnam{"R☉"}
+                one{"{0} R☉"}
+                other{"{0} R☉"}
             }
             yard{
                 dnam{"ярд"}
@@ -1461,12 +1685,27 @@ kk{
                 one{"{0} лк"}
                 other{"{0} лк"}
             }
+            solar-luminosity{
+                dnam{"L☉"}
+                one{"{0} L☉"}
+                other{"{0} L☉"}
+            }
         }
         mass{
             carat{
                 dnam{"карат"}
-                one{"{0} КТ"}
-                other{"{0} КТ"}
+                one{"{0} кар."}
+                other{"{0} кар."}
+            }
+            dalton{
+                dnam{"Да"}
+                one{"{0} Да"}
+                other{"{0} Да"}
+            }
+            earth-mass{
+                dnam{"M⊕"}
+                one{"{0} M⊕"}
+                other{"{0} M⊕"}
             }
             gram{
                 dnam{"грамм"}
@@ -1512,6 +1751,11 @@ kk{
                 other{"{0} фунт"}
                 per{"{0}/фунт"}
             }
+            solar-mass{
+                dnam{"M☉"}
+                one{"{0} M☉"}
+                other{"{0} M☉"}
+            }
             ton{
                 dnam{"тонна"}
                 one{"{0} тн"}
@@ -1556,25 +1800,45 @@ kk{
                 one{"{0} атм"}
                 other{"{0} атм"}
             }
+            bar{
+                dnam{"бар"}
+                one{"{0} бар"}
+                other{"{0} бар"}
+            }
             hectopascal{
                 dnam{"гектопаскаль"}
                 one{"{0} гПа"}
                 other{"{0} гПа"}
             }
             inch-hg{
-                dnam{"сынап бағаны дюймі"}
-                one{"{0} inHg"}
-                other{"{0} inHg"}
+                dnam{"дюйм сынап бағанасы"}
+                one{"{0} дюйм с.б."}
+                other{"{0} дюйм с.б."}
+            }
+            kilopascal{
+                dnam{"кПа"}
+                one{"{0} кПа"}
+                other{"{0} кПа"}
+            }
+            megapascal{
+                dnam{"МПа"}
+                one{"{0} МПа"}
+                other{"{0} МПа"}
             }
             millibar{
                 dnam{"мбар"}
-                one{"{0} мб"}
-                other{"{0} мб"}
+                one{"{0} мбар"}
+                other{"{0} мбар"}
             }
             millimeter-of-mercury{
-                dnam{"с.б.мм."}
-                one{"{0} с.б.мм."}
-                other{"{0} с.б.мм."}
+                dnam{"мм с.б."}
+                one{"{0} мм с.б."}
+                other{"{0} мм с.б."}
+            }
+            pascal{
+                dnam{"Па"}
+                one{"{0} Па"}
+                other{"{0} Па"}
             }
             pound-per-square-inch{
                 dnam{"psi"}
@@ -1626,11 +1890,28 @@ kk{
                 other{"{0} К"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"Н⋅м"}
+                one{"{0} Н⋅м"}
+                other{"{0} Н⋅м"}
+            }
+            pound-foot{
+                dnam{"lbf⋅ft"}
+                one{"{0} lbf⋅ft"}
+                other{"{0} lbf⋅ft"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"aкро-фут"}
                 one{"{0} aкро-фут"}
                 other{"{0} aкро-фут"}
+            }
+            barrel{
+                dnam{"bbl"}
+                one{"{0} bbl"}
+                other{"{0} bbl"}
             }
             centiliter{
                 dnam{"сл"}
@@ -1645,8 +1926,8 @@ kk{
             }
             cubic-foot{
                 dnam{"фут³"}
-                one{"{0} фт³"}
-                other{"{0} фт³"}
+                one{"{0} фут³"}
+                other{"{0} фут³"}
             }
             cubic-inch{
                 dnam{"дюйм³"}
@@ -1680,7 +1961,6 @@ kk{
                 other{"{0} к."}
             }
             cup-metric{
-                dnam{"м. кесе"}
                 one{"{0} mc"}
                 other{"{0} mc"}
             }
@@ -1690,20 +1970,25 @@ kk{
                 other{"{0} дл"}
             }
             fluid-ounce{
-                dnam{"fl oz"}
-                one{"{0} fl oz"}
-                other{"{0} fl oz"}
+                dnam{"сұй. унц."}
+                one{"{0} сұй. унц."}
+                other{"{0} сұй. унц."}
+            }
+            fluid-ounce-imperial{
+                dnam{"имп. fl oz"}
+                one{"{0} fl oz имп."}
+                other{"{0} fl oz имп."}
             }
             gallon{
-                dnam{"gal"}
-                one{"{0} gal"}
-                other{"{0} gal"}
-                per{"{0}/gal"}
+                dnam{"гал."}
+                one{"{0} гал."}
+                other{"{0} гал."}
+                per{"{0}/гал."}
             }
             gallon-imperial{
                 dnam{"имп. галлон"}
-                one{"{0} gal Imp."}
-                other{"{0} gal Imp."}
+                one{"{0} имп. гал."}
+                other{"{0} имп. гал."}
                 per{"{0}/имп. галлон"}
             }
             hectoliter{

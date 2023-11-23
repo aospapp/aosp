@@ -15,13 +15,13 @@
 %                                 July 2000                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
 %  obtain a copy of the License at                                            %
 %                                                                             %
-%    http://imagemagick.org/MagicksToolkit/script/license.php             %
+%    https://imagemagick.org/script/license.php                               %
 %                                                                             %
 %  Unless required by applicable law or agreed to in writing, software        %
 %  distributed under the License is distributed on an "AS IS" BASIS,          %
@@ -46,7 +46,6 @@
 #include "MagickCore/exception-private.h"
 #include "MagickCore/linked-list.h"
 #include "MagickCore/memory_.h"
-#include "MagickCore/memory-private.h"
 #include "MagickCore/mime.h"
 #include "MagickCore/mime-private.h"
 #include "MagickCore/option.h"
@@ -109,12 +108,6 @@ struct _MimeInfo
 /*
   Static declarations.
 */
-static const char
-  *MimeMap = (char *)
-    "<?xml version=\"1.0\"?>"
-    "<mimemap>"
-    "</mimemap>";
-
 static LinkedListInfo
   *mime_cache = (LinkedListInfo *) NULL;
 
@@ -125,9 +118,13 @@ static SemaphoreInfo
   Forward declarations.
 */
 static MagickBooleanType
-  IsMimeCacheInstantiated(ExceptionInfo *),
-  LoadMimeCache(LinkedListInfo *,const char *,const char *,const size_t,
+  IsMimeCacheInstantiated(ExceptionInfo *);
+
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
+static MagickBooleanType
+ LoadMimeCache(LinkedListInfo *,const char *,const char *,const size_t,
     ExceptionInfo *);
+#endif
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -161,12 +158,8 @@ MagickExport LinkedListInfo *AcquireMimeCache(const char *filename,
   LinkedListInfo
     *cache;
 
-  MagickStatusType
-    status;
-
   cache=NewLinkedList(0);
-  status=MagickTrue;
-#if !defined(MAGICKCORE_ZERO_CONFIGURATION_SUPPORT)
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
   {
     const StringInfo
       *option;
@@ -178,15 +171,13 @@ MagickExport LinkedListInfo *AcquireMimeCache(const char *filename,
     option=(const StringInfo *) GetNextValueInLinkedList(options);
     while (option != (const StringInfo *) NULL)
     {
-      status&=LoadMimeCache(cache,(const char *)
+      (void) LoadMimeCache(cache,(const char *)
         GetStringInfoDatum(option),GetStringInfoPath(option),0,exception);
       option=(const StringInfo *) GetNextValueInLinkedList(options);
     }
     options=DestroyConfigureOptions(options);
   }
 #endif
-  if (IsLinkedListEmpty(cache) != MagickFalse)
-    status&=LoadMimeCache(cache,MimeMap,"built-in",0,exception);
   return(cache);
 }
 
@@ -758,6 +749,7 @@ MagickExport MagickBooleanType ListMimeInfo(FILE *file,ExceptionInfo *exception)
   return(MagickTrue);
 }
 
+#if !MAGICKCORE_ZERO_CONFIGURATION_SUPPORT
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                                                                             %
@@ -965,6 +957,7 @@ static MagickBooleanType LoadMimeCache(LinkedListInfo *cache,const char *xml,
   mime_map=DestroyXMLTree(mime_map);
   return(status != 0 ? MagickTrue : MagickFalse);
 }
+#endif
 
 /*
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

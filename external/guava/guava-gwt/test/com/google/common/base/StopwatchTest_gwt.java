@@ -28,26 +28,6 @@ public void testCreateUnstarted() throws Exception {
   testCase.testCreateUnstarted();
 }
 
-public void testElapsedMillis() throws Exception {
-  com.google.common.base.StopwatchTest testCase = new com.google.common.base.StopwatchTest();
-  testCase.testElapsedMillis();
-}
-
-public void testElapsedMillis_multipleSegments() throws Exception {
-  com.google.common.base.StopwatchTest testCase = new com.google.common.base.StopwatchTest();
-  testCase.testElapsedMillis_multipleSegments();
-}
-
-public void testElapsedMillis_notRunning() throws Exception {
-  com.google.common.base.StopwatchTest testCase = new com.google.common.base.StopwatchTest();
-  testCase.testElapsedMillis_notRunning();
-}
-
-public void testElapsedMillis_whileRunning() throws Exception {
-  com.google.common.base.StopwatchTest testCase = new com.google.common.base.StopwatchTest();
-  testCase.testElapsedMillis_whileRunning();
-}
-
 public void testElapsed_micros() throws Exception {
   com.google.common.base.StopwatchTest testCase = new com.google.common.base.StopwatchTest();
   testCase.testElapsed_micros();
@@ -111,5 +91,10 @@ public void testStop_alreadyStopped() throws Exception {
 public void testStop_new() throws Exception {
   com.google.common.base.StopwatchTest testCase = new com.google.common.base.StopwatchTest();
   testCase.testStop_new();
+}
+
+public void testToString() throws Exception {
+  com.google.common.base.StopwatchTest testCase = new com.google.common.base.StopwatchTest();
+  testCase.testToString();
 }
 }

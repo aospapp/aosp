@@ -12,19 +12,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "cras_iodev.h"
 #include "cras_types.h"
 
-struct cras_iodev;
-struct cras_iodev_info;
-struct cras_ionode;
 struct cras_rclient;
-struct cras_rstream;
-struct cras_audio_format;
 struct stream_list;
 
 /* Device enabled/disabled callback. */
-typedef void (*device_enabled_callback_t)(struct cras_iodev *dev, void *cb_data);
-typedef void (*device_disabled_callback_t)(struct cras_iodev *dev, void *cb_data);
+typedef void (*device_enabled_callback_t)(struct cras_iodev *dev,
+					  void *cb_data);
+typedef void (*device_disabled_callback_t)(struct cras_iodev *dev,
+					   void *cb_data);
 
 /* Initialize the list of iodevs. */
 void cras_iodev_list_init();
@@ -90,8 +88,17 @@ int cras_iodev_list_get_inputs(struct cras_iodev_info **list_out);
  * Returns:
  *    Pointer to the first enabled device of direction.
  */
-struct cras_iodev *cras_iodev_list_get_first_enabled_iodev(
-	enum CRAS_STREAM_DIRECTION direction);
+struct cras_iodev *
+cras_iodev_list_get_first_enabled_iodev(enum CRAS_STREAM_DIRECTION direction);
+
+/* Returns SCO PCM device.
+ * Args:
+ *    direction - Playback or capture.
+ * Returns:
+ *    Pointer to the SCO PCM device of direction.
+ */
+struct cras_iodev *
+cras_iodev_list_get_sco_pcm_iodev(enum CRAS_STREAM_DIRECTION direction);
 
 /* Returns the active node id.
  * Args:
@@ -99,8 +106,8 @@ struct cras_iodev *cras_iodev_list_get_first_enabled_iodev(
  * Returns:
  *    The id of the active node.
  */
-cras_node_id_t cras_iodev_list_get_active_node_id(
-	enum CRAS_STREAM_DIRECTION direction);
+cras_node_id_t
+cras_iodev_list_get_active_node_id(enum CRAS_STREAM_DIRECTION direction);
 
 /* Stores the following data to the shared memory server state region:
  * (1) device list
@@ -128,7 +135,7 @@ void cras_iodev_list_notify_nodes_changed();
  *    direction - Direction of the node.
  */
 void cras_iodev_list_notify_active_node_changed(
-		enum CRAS_STREAM_DIRECTION direction);
+	enum CRAS_STREAM_DIRECTION direction);
 
 /* Sets an attribute of an ionode on a device.
  * Args:
@@ -137,8 +144,8 @@ void cras_iodev_list_notify_active_node_changed(
  *    attr - the attribute we want to change.
  *    value - the value we want to set.
  */
-int cras_iodev_list_set_node_attr(cras_node_id_t id,
-				  enum ionode_attr attr, int value);
+int cras_iodev_list_set_node_attr(cras_node_id_t id, enum ionode_attr attr,
+				  int value);
 
 /* Select a node as the preferred node.
  * Args:
@@ -149,12 +156,34 @@ int cras_iodev_list_set_node_attr(cras_node_id_t id,
 void cras_iodev_list_select_node(enum CRAS_STREAM_DIRECTION direction,
 				 cras_node_id_t node_id);
 
-/* Checks if an iodev is enabled. */
+/*
+ * Checks if an iodev is enabled. By enabled we mean all default streams will
+ * be routed to this iodev.
+ */
 int cras_iodev_list_dev_is_enabled(const struct cras_iodev *dev);
 
 /* Enables an iodev. If the fallback device was already enabled, this
  * call will disable it. */
 void cras_iodev_list_enable_dev(struct cras_iodev *dev);
+
+/*
+ * Suspends the connection of all types of stream attached to given iodev.
+ * This call doesn't disable the given iodev.
+ */
+void cras_iodev_list_suspend_dev(unsigned int dev_idx);
+
+/*
+ * Resumes the connection of all types of stream attached to given iodev.
+ * This call doesn't enable the given dev.
+ */
+void cras_iodev_list_resume_dev(unsigned int dev_idx);
+
+/*
+ * Sets mute state to device of given index.
+ * Args:
+ *    dev_idx - Index of the device to set mute state.
+ */
+void cras_iodev_list_set_dev_mute(unsigned int dev_idx);
 
 /*
  * Disables an iodev. If this is the last device to disable, the
@@ -209,9 +238,35 @@ struct stream_list *cras_iodev_list_get_stream_list();
 
 /* Sets the function to call when a device is enabled or disabled. */
 int cras_iodev_list_set_device_enabled_callback(
-		device_enabled_callback_t enabled_cb,
-		device_disabled_callback_t disabled_cb,
-		void *cb_data);
+	device_enabled_callback_t enabled_cb,
+	device_disabled_callback_t disabled_cb, void *cb_data);
+
+/* Registers loopback to an output device.
+ * Args:
+ *    loopback_type - Pre or post software DSP.
+ *    output_dev_idx - Index of the target output device.
+ *    hook_data - Callback function to process loopback data.
+ *    hook_start - Callback for starting or stopping loopback.
+ *    loopback_dev_idx - Index of the loopback device that
+ *        listens for output data.
+ */
+void cras_iodev_list_register_loopback(enum CRAS_LOOPBACK_TYPE loopback_type,
+				       unsigned int output_dev_idx,
+				       loopback_hook_data_t hook_data,
+				       loopback_hook_control_t hook_start,
+				       unsigned int loopback_dev_idx);
+
+/* Unregisters loopback from an output device by matching
+ * loopback type and loopback device index.
+ * Args:
+ *    loopback_type - Pre or post software DSP.
+ *    output_dev_idx - Index of the target output device.
+ *    loopback_dev_idx - Index of the loopback device that
+ *        listens for output data.
+ */
+void cras_iodev_list_unregister_loopback(enum CRAS_LOOPBACK_TYPE loopback_type,
+					 unsigned int output_dev_idx,
+					 unsigned int loopback_dev_idx);
 
 /* Suspends all hotwording streams. */
 int cras_iodev_list_suspend_hotword_streams();

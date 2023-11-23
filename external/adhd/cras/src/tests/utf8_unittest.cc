@@ -19,7 +19,8 @@ TEST(UTF8, ValidStress) {
 
   EXPECT_EQ(1, valid_utf8_string("The greek word 'kosme': "
                                  "\xce\xba\xe1\xbd\xb9\xcf\x83\xce"
-                                 "\xbc\xce\xb5", &pos));
+                                 "\xbc\xce\xb5",
+                                 &pos));
   EXPECT_EQ(35, pos);
 
   EXPECT_EQ(1, valid_utf8_string("Playback", &pos));
@@ -115,18 +116,22 @@ TEST(UTF8, InvalidStress) {
 
   /* Overlong representations of ASCII characters. */
   EXPECT_EQ(0, valid_utf8_string("This represents the / character with too"
-                                 "many bytes: \xe0\x80\xaf", &pos));
+                                 "many bytes: \xe0\x80\xaf",
+                                 &pos));
   EXPECT_EQ(53, pos);
   EXPECT_EQ(0, valid_utf8_string("This represents the / character with too"
-                                 "many bytes: \xf0\x80\x80\xaf", &pos));
+                                 "many bytes: \xf0\x80\x80\xaf",
+                                 &pos));
   EXPECT_EQ(53, pos);
 
   /* Should not be interpreted as the ASCII NUL character. */
   EXPECT_EQ(0, valid_utf8_string("This represents the NUL character with too"
-                                 "many bytes: \xe0\x80\x80", &pos));
+                                 "many bytes: \xe0\x80\x80",
+                                 &pos));
   EXPECT_EQ(55, pos);
   EXPECT_EQ(0, valid_utf8_string("This represents the NUL character with too"
-                                 "many bytes: \xf0\x80\x80\x80", &pos));
+                                 "many bytes: \xf0\x80\x80\x80",
+                                 &pos));
   EXPECT_EQ(55, pos);
 
   /* Single UTF-16 surrogates. */
@@ -148,7 +153,7 @@ TEST(UTF8, InvalidStress) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

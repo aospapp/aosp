@@ -65,8 +65,43 @@ int asn1_get_oid(const u8 *buf, size_t len, struct asn1_oid *oid,
 void asn1_oid_to_str(const struct asn1_oid *oid, char *buf, size_t len);
 unsigned long asn1_bit_string_to_long(const u8 *buf, size_t len);
 int asn1_oid_equal(const struct asn1_oid *a, const struct asn1_oid *b);
+int asn1_get_integer(const u8 *buf, size_t len, int *integer, const u8 **next);
+int asn1_get_sequence(const u8 *buf, size_t len, struct asn1_hdr *hdr,
+		      const u8 **next);
+int asn1_get_alg_id(const u8 *buf, size_t len, struct asn1_oid *oid,
+		    const u8 **params, size_t *params_len, const u8 **next);
+void asn1_put_integer(struct wpabuf *buf, int val);
+void asn1_put_octet_string(struct wpabuf *buf, const struct wpabuf *val);
+void asn1_put_oid(struct wpabuf *buf, const struct asn1_oid *oid);
+void asn1_put_hdr(struct wpabuf *buf, u8 class, int constructed, u8 tag,
+		  size_t len);
+void asn1_put_sequence(struct wpabuf *buf, const struct wpabuf *payload);
+void asn1_put_set(struct wpabuf *buf, const struct wpabuf *payload);
+void asn1_put_utf8string(struct wpabuf *buf, const char *val);
+struct wpabuf * asn1_build_alg_id(const struct asn1_oid *oid,
+				  const struct wpabuf *params);
+struct wpabuf * asn1_encaps(struct wpabuf *buf, u8 class, u8 tag);
 
-extern struct asn1_oid asn1_sha1_oid;
-extern struct asn1_oid asn1_sha256_oid;
+extern const struct asn1_oid asn1_sha1_oid;
+extern const struct asn1_oid asn1_sha256_oid;
+extern const struct asn1_oid asn1_ec_public_key_oid;
+extern const struct asn1_oid asn1_prime256v1_oid;
+extern const struct asn1_oid asn1_secp384r1_oid;
+extern const struct asn1_oid asn1_secp521r1_oid;
+extern const struct asn1_oid asn1_brainpoolP256r1_oid;
+extern const struct asn1_oid asn1_brainpoolP384r1_oid;
+extern const struct asn1_oid asn1_brainpoolP512r1_oid;
+extern const struct asn1_oid asn1_aes_siv_cmac_aead_256_oid;
+extern const struct asn1_oid asn1_aes_siv_cmac_aead_384_oid;
+extern const struct asn1_oid asn1_aes_siv_cmac_aead_512_oid;
+extern const struct asn1_oid asn1_aes_siv_cmac_aead_256_oid;
+extern const struct asn1_oid asn1_aes_siv_cmac_aead_384_oid;
+extern const struct asn1_oid asn1_aes_siv_cmac_aead_512_oid;
+extern const struct asn1_oid asn1_pbkdf2_oid;
+extern const struct asn1_oid asn1_pbkdf2_hmac_sha256_oid;
+extern const struct asn1_oid asn1_pbkdf2_hmac_sha384_oid;
+extern const struct asn1_oid asn1_pbkdf2_hmac_sha512_oid;
+extern const struct asn1_oid asn1_dpp_config_params_oid;
+extern const struct asn1_oid asn1_dpp_asymmetric_key_package_oid;
 
 #endif /* ASN1_H */

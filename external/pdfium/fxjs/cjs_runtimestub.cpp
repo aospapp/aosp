@@ -4,57 +4,33 @@
 
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#include <memory>
+#include "fxjs/cjs_runtimestub.h"
 
-#include "core/fxcrt/unowned_ptr.h"
 #include "fxjs/cjs_event_context_stub.h"
-#include "fxjs/ijs_runtime.h"
 #include "third_party/base/ptr_util.h"
 
-class CJS_RuntimeStub final : public IJS_Runtime {
- public:
-  explicit CJS_RuntimeStub(CPDFSDK_FormFillEnvironment* pFormFillEnv)
-      : m_pFormFillEnv(pFormFillEnv) {}
-  ~CJS_RuntimeStub() override {}
+CJS_RuntimeStub::CJS_RuntimeStub(CPDFSDK_FormFillEnvironment* pFormFillEnv)
+    : m_pFormFillEnv(pFormFillEnv) {}
 
-  IJS_EventContext* NewEventContext() override {
-    if (!m_pContext)
-      m_pContext = pdfium::MakeUnique<CJS_EventContextStub>();
-    return m_pContext.get();
-  }
+CJS_RuntimeStub::~CJS_RuntimeStub() = default;
 
-  void ReleaseEventContext(IJS_EventContext* pContext) override {}
+IJS_EventContext* CJS_RuntimeStub::NewEventContext() {
+  if (!m_pContext)
+    m_pContext = pdfium::MakeUnique<CJS_EventContextStub>();
+  return m_pContext.get();
+}
 
-  CPDFSDK_FormFillEnvironment* GetFormFillEnv() const override {
-    return m_pFormFillEnv.Get();
-  }
+void CJS_RuntimeStub::ReleaseEventContext(IJS_EventContext* pContext) {}
 
-#ifdef PDF_ENABLE_XFA
-  bool GetValueByName(const ByteStringView&, CFXJSE_Value*) override {
-    return false;
-  }
+CPDFSDK_FormFillEnvironment* CJS_RuntimeStub::GetFormFillEnv() const {
+  return m_pFormFillEnv.Get();
+}
 
-  bool SetValueByName(const ByteStringView&, CFXJSE_Value*) override {
-    return false;
-  }
-#endif  // PDF_ENABLE_XFA
+CJS_Runtime* CJS_RuntimeStub::AsCJSRuntime() {
+  return nullptr;
+}
 
-  int ExecuteScript(const WideString& script, WideString* info) override {
-    return 0;
-  }
-
- protected:
-  UnownedPtr<CPDFSDK_FormFillEnvironment> const m_pFormFillEnv;
-  std::unique_ptr<CJS_EventContextStub> m_pContext;
-};
-
-// static
-void IJS_Runtime::Initialize(unsigned int slot, void* isolate) {}
-
-// static
-void IJS_Runtime::Destroy() {}
-
-// static
-IJS_Runtime* IJS_Runtime::Create(CPDFSDK_FormFillEnvironment* pFormFillEnv) {
-  return new CJS_RuntimeStub(pFormFillEnv);
+Optional<IJS_Runtime::JS_Error> CJS_RuntimeStub::ExecuteScript(
+    const WideString& script) {
+  return pdfium::nullopt;
 }

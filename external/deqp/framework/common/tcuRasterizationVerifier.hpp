@@ -46,6 +46,8 @@ enum VerificationMode
 {
 	VERIFICATIONMODE_STRICT = 0,	// !< do not allow even a single bad pixel
 	VERIFICATIONMODE_WEAK,			// !< allow some bad pixels
+	VERIFICATIONMODE_WEAKER,		// !< allow more bad pixels
+	VERIFICATIONMODE_SMOOTH,		// !< allow no missing pixels
 
 	VERIFICATIONMODE_LAST
 };
@@ -71,6 +73,13 @@ struct TriangleSceneSpec
 
 struct LineSceneSpec
 {
+	LineSceneSpec()
+		: isStrip(false)
+		, isSmooth(false)
+		, stippleEnable(false)
+		, verificationMode(VERIFICATIONMODE_STRICT)
+	{}
+
 	struct SceneLine
 	{
 		tcu::Vec4	positions[2];
@@ -79,6 +88,12 @@ struct LineSceneSpec
 
 	std::vector<SceneLine>	lines;
 	float					lineWidth;
+	bool					isStrip;
+	bool					isSmooth;
+	bool					stippleEnable;
+	deUint32				stippleFactor;
+	deUint16				stipplePattern;
+	VerificationMode		verificationMode;
 };
 
 struct PointSceneSpec
@@ -129,7 +144,7 @@ CoverageType calculateTriangleCoverage (const tcu::Vec4& p0, const tcu::Vec4& p1
  *
  * Returns false if invalid rasterization is found.
  *//*--------------------------------------------------------------------*/
-bool verifyTriangleGroupRasterization (const tcu::Surface& surface, const TriangleSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, VerificationMode mode = VERIFICATIONMODE_STRICT, VerifyTriangleGroupRasterizationLogStash* logStash = DE_NULL);
+bool verifyTriangleGroupRasterization (const tcu::Surface& surface, const TriangleSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, VerificationMode mode = VERIFICATIONMODE_STRICT, VerifyTriangleGroupRasterizationLogStash* logStash = DE_NULL, const bool vulkanLinesTest = false);
 
 /*--------------------------------------------------------------------*//*!
  * \brief Verify line rasterization result
@@ -163,7 +178,7 @@ bool verifyClippedTriangulatedLineGroupRasterization (const tcu::Surface& surfac
  *
  * Returns false if both rasterizations are invalid.
  *//*--------------------------------------------------------------------*/
-bool verifyRelaxedLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log);
+bool verifyRelaxedLineGroupRasterization (const tcu::Surface& surface, const LineSceneSpec& scene, const RasterizationArguments& args, tcu::TestLog& log, const bool vulkanLinesTest = false);
 
 /*--------------------------------------------------------------------*//*!
  * \brief Verify point rasterization result

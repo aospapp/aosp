@@ -12,10 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library {
+cc_library_static {
     name: "libbz",
     host_supported: true,
+    vendor_available: true,
     recovery_available: true,
+    visibility: [
+        "//bootable/recovery:__subpackages__",
+        "//external/bsdiff:__subpackages__",
+        "//external/puffin:__subpackages__",
+        "//system/update_engine:__subpackages__",
+    ],
     arch: {
         arm: {
             // measurements show that the ARM version of ZLib is about x1.17 faster
@@ -51,7 +58,7 @@ cc_binary {
         "-Werror",
         "-Wno-unused-parameter",
     ],
-    shared_libs: ["libbz"],
+    static_libs: ["libbz"],
     srcs: ["bzip2.c"],
     stl: "none",
     symlinks: [

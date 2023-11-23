@@ -100,6 +100,8 @@ extern int util_ssnprintf(char* str, size_t size, const char* format, ...)
 
 extern int util_vssnprintf(char* str, size_t size, const char* format, va_list ap);
 
+extern bool util_strStartsWith(const char* str, const char* tofind);
+
 extern void util_getLocalTime(const char* fmt, char* buf, size_t len, time_t tm);
 
 extern void util_closeStdio(bool close_stdin, bool close_stdout, bool close_stderr);
@@ -107,6 +109,7 @@ extern void util_closeStdio(bool close_stdin, bool close_stdout, bool close_stde
 extern uint64_t util_hash(const char* buf, size_t len);
 
 extern int64_t util_timeNowMillis(void);
+extern void util_sleepForMSec(uint64_t msec);
 
 extern uint64_t util_getUINT32(const uint8_t* buf);
 extern uint64_t util_getUINT64(const uint8_t* buf);

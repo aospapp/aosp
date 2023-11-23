@@ -2,6 +2,17 @@ from autotest_lib.client.common_lib.cros import system_metrics_collector
 
 import unittest
 
+_FATRACE_OUTPUT_1 = (
+    'metrics_daemon(2276): W /var/log/vmlog/vmlog.20190221-005447\n'
+    'powerd(612): CW /var/lib/metrics/uma-events\n'
+    'powerd(612): CWO /var/lib/metrics/uma-events\n')
+
+_FATRACE_OUTPUT_2 = (
+    'chrome(13096): CWO /home/chronos/.com.google.Chrome.PMfcCO\n'
+    'chrome(13096): W /home/chronos/.com.google.Chrome.PMfcCO\n'
+    'chrome(13096): CW /home/chronos/Local State\n'
+    'metrics_daemon(2276): W /var/log/vmlog/vmlog.20190221-005447\n')
+
 # pylint: disable=missing-docstring
 class TestSystemMetricsCollector(unittest.TestCase):
     """
@@ -31,13 +42,27 @@ class TestSystemMetricsCollector(unittest.TestCase):
         metric.collect_metric()
         self.assertAlmostEqual(43, metric.values[0])
 
-    def test_storage_written_metric(self):
+    def test_storage_written_amount_metric(self):
         system_facade = FakeSystemFacade()
-        metric = system_metrics_collector.StorageWrittenMetric(system_facade)
+        metric = system_metrics_collector.StorageWrittenAmountMetric(
+                system_facade)
         metric.pre_collect()
         system_facade.storage_statistics['written_kb'] += 1337
         metric.collect_metric()
         self.assertEqual(1337, metric.values[0])
+
+    def test_storage_written_count_metric(self):
+        system_facade = FakeSystemFacade()
+        metric = system_metrics_collector.StorageWrittenCountMetric(
+                system_facade)
+        metric.pre_collect()
+        system_facade.bg_worker_output = _FATRACE_OUTPUT_1
+        metric.collect_metric()
+        system_facade.bg_worker_output = _FATRACE_OUTPUT_2
+        metric.collect_metric()
+        metric.post_collect()
+        self.assertEqual(3, metric.values[0])
+        self.assertEqual(4, metric.values[1])
 
     def test_collector(self):
         collector = system_metrics_collector.SystemMetricsCollector(
@@ -60,6 +85,7 @@ class TestSystemMetricsCollector(unittest.TestCase):
         collector.pre_collect()
         collector.collect_snapshot()
         collector.collect_snapshot()
+        collector.post_collect()
         collector.write_metrics(lambda **kwargs: None)
 
     def test_aggregate_metric_zero_samples(self):
@@ -170,6 +196,7 @@ class FakeSystemFacade(object):
             'read_kb': 665582,
             'written_kb': 188458,
         }
+        self.bg_worker_output = ''
 
     def get_mem_total(self):
         return self.mem_total_mb
@@ -191,6 +218,15 @@ class FakeSystemFacade(object):
 
     def get_storage_statistics(self, device=None):
         return self.storage_statistics
+
+    def start_bg_worker(self, command):
+        pass
+
+    def get_and_discard_bg_worker_output(self):
+        return self.bg_worker_output
+
+    def stop_bg_worker(self):
+        pass
 
 class TestMetric(system_metrics_collector.Metric):
     def __init__(self):

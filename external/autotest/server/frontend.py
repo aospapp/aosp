@@ -241,8 +241,7 @@ class _StableVersionMap(object):
         @param board    The board to be updated.
         @param version  The new version to be assigned to the board.
         """
-        self._afe.run('set_stable_version',
-                      version=version, board=board)
+        raise RuntimeError("server.frontend._StableVersionMap::set_version is intentionally deleted")
 
 
     def delete_version(self, board):
@@ -254,7 +253,7 @@ class _StableVersionMap(object):
 
         @param board    The board to be updated.
         """
-        self._afe.run('delete_stable_version', board=board)
+        raise RuntimeError("server.frontend._StableVersionMap::delete_version is intentionally deleted")
 
 
 class _OSVersionMap(_StableVersionMap):

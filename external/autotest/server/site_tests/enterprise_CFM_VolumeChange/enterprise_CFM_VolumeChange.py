@@ -55,7 +55,7 @@ class enterprise_CFM_VolumeChange(cfm_base_test.CfmBaseTest):
 
     def run_once(self, repeat, cmd):
         """Runs the test."""
-        self.cfm_facade.wait_for_meetings_telemetry_commands()
+        self.cfm_facade.wait_for_telemetry_commands()
         self.cfm_facade.start_meeting_session()
         if self.cfm_facade.is_mic_muted():
             self.cfm_facade.unmute_mic()

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -1342,6 +1342,7 @@ class DevServerTest(mox.MoxTestBase):
         self._testSuccessfulTriggerDownloadAndroid(synchronous=False)
 
 
+    @unittest.expectedFailure
     def testGetUnrestrictedDevservers(self):
         """Test method get_unrestricted_devservers works as expected."""
         restricted_devserver = 'http://192.168.0.100:8080'
@@ -1350,10 +1351,25 @@ class DevServerTest(mox.MoxTestBase):
         dev_server.ImageServer.servers().AndReturn([restricted_devserver,
                                                     unrestricted_devserver])
         self.mox.ReplayAll()
+        # crbug.com/1027277: get_unrestricted_devservers() now returns all
+        # servers.
         self.assertEqual(dev_server.ImageServer.get_unrestricted_devservers(
                                 [('192.168.0.0', 24)]),
                          [unrestricted_devserver])
 
+    def testGetUnrestrictedDevserversReturnsAll(self):
+        """Test method get_unrestricted_devservers works as expected."""
+        restricted_devserver = 'http://192.168.0.100:8080'
+        unrestricted_devserver = 'http://172.1.1.3:8080'
+        self.mox.StubOutWithMock(dev_server.ImageServer, 'servers')
+        dev_server.ImageServer.servers().AndReturn([restricted_devserver,
+                                                    unrestricted_devserver])
+        self.mox.ReplayAll()
+        # crbug.com/1027277: get_unrestricted_devservers() now returns all
+        # servers.
+        self.assertEqual(dev_server.ImageServer.get_unrestricted_devservers(
+                                [('192.168.0.0', 24)]),
+                         [restricted_devserver, unrestricted_devserver])
 
     def testDevserverHealthy(self):
         """Test which types of connections that method devserver_healthy uses
@@ -1446,19 +1462,19 @@ class DevServerTest(mox.MoxTestBase):
                         unrestricted_host, True, restricted_subnets),
                 (same_subnet_unrestricted_servers, True))
 
-        # If prefer_local_devserver is set to False, allow any devserver in
-        # unrestricted subet to be available, and retry is not allowed.
+        # crbug.com/1027277: If prefer_local_devserver is set to False, allow
+        # any devserver, and retry is not allowed.
         self.assertEqual(
                 dev_server.ImageServer.get_available_devservers(
                         unrestricted_host, False, restricted_subnets),
-                (unrestricted_servers, False))
+                (all_servers, False))
 
-        # When no hostname is specified, all devservers in unrestricted subnets
+        # crbug.com/1027277: When no hostname is specified, all devservers
         # should be considered, and retry is not allowed.
         self.assertEqual(
                 dev_server.ImageServer.get_available_devservers(
                         None, True, restricted_subnets),
-                (unrestricted_servers, False))
+                (all_servers, False))
 
         # dut in restricted subnet should only be offered devserver in the
         # same restricted subnet, and retry is not allowed.

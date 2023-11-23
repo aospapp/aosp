@@ -17,16 +17,18 @@
 package com.github.javaparser.symbolsolver.javassistmodel;
 
 import com.github.javaparser.ast.AccessSpecifier;
-import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.resolution.MethodUsage;
 import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.*;
 import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.core.resolution.Context;
+import com.github.javaparser.symbolsolver.core.resolution.MethodUsageResolutionCapability;
 import com.github.javaparser.symbolsolver.logic.AbstractTypeDeclaration;
+import com.github.javaparser.symbolsolver.logic.MethodResolutionCapability;
 import com.github.javaparser.symbolsolver.model.resolution.SymbolReference;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
+import com.github.javaparser.symbolsolver.model.typesystem.ReferenceTypeImpl;
 import com.github.javaparser.symbolsolver.resolution.MethodResolutionLogic;
 import com.github.javaparser.symbolsolver.resolution.SymbolSolver;
 import javassist.CtClass;
@@ -44,7 +46,8 @@ import java.util.stream.Collectors;
 /**
  * @author Federico Tomassetti
  */
-public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements ResolvedEnumDeclaration {
+public class JavassistEnumDeclaration extends AbstractTypeDeclaration
+        implements ResolvedEnumDeclaration, MethodResolutionCapability, MethodUsageResolutionCapability {
 
     private CtClass ctClass;
     private TypeSolver typeSolver;
@@ -76,7 +79,7 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
     public String getClassName() {
         String name = ctClass.getName().replace('$', '.');
         if (getPackageName() != null) {
-            return name.substring(getPackageName().length() + 1, name.length());
+            return name.substring(getPackageName().length() + 1);
         }
         return name;
     }
@@ -87,30 +90,32 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
     }
 
     @Override
-    public List<ResolvedReferenceType> getAncestors() {
+    public List<ResolvedReferenceType> getAncestors(boolean acceptIncompleteList) {
         // Direct ancestors of an enum are java.lang.Enum and interfaces
-        List<ResolvedReferenceType> ancestors = new LinkedList<>();
+        List<ResolvedReferenceType> ancestors = new ArrayList<>();
 
-        try {
-            CtClass superClass = ctClass.getSuperclass();
+        String superClassName = ctClass.getClassFile().getSuperclass();
 
-            if (superClass != null) {
-                ResolvedType superClassTypeUsage = JavassistFactory.typeUsageFor(superClass, typeSolver);
-
-                if (superClassTypeUsage.isReferenceType()) {
-                    ancestors.add(superClassTypeUsage.asReferenceType());
+        if (superClassName != null) {
+            try {
+                ancestors.add(new ReferenceTypeImpl(typeSolver.solveType(superClassName), typeSolver));
+            } catch (UnsolvedSymbolException e) {
+                if (!acceptIncompleteList) {
+                    // we only throw an exception if we require a complete list; otherwise, we attempt to continue gracefully
+                    throw e;
                 }
             }
+        }
 
-            for (CtClass interfaze : ctClass.getInterfaces()) {
-                ResolvedType interfazeTypeUsage = JavassistFactory.typeUsageFor(interfaze, typeSolver);
-
-                if (interfazeTypeUsage.isReferenceType()) {
-                    ancestors.add(interfazeTypeUsage.asReferenceType());
+        for (String interfazeName : ctClass.getClassFile().getInterfaces()) {
+            try {
+                ancestors.add(new ReferenceTypeImpl(typeSolver.solveType(interfazeName), typeSolver));
+            } catch (UnsolvedSymbolException e) {
+                if (!acceptIncompleteList) {
+                    // we only throw an exception if we require a complete list; otherwise, we attempt to continue gracefully
+                    throw e;
                 }
             }
-        } catch (NotFoundException e) {
-            throw new RuntimeException("Ancestor not found for " + ctClass.getName() + ".", e);
         }
 
         return ancestors;
@@ -150,7 +155,7 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
 
     @Override
     public boolean hasDirectlyAnnotation(String canonicalName) {
-        throw new UnsupportedOperationException();
+        return ctClass.hasAnnotation(canonicalName);
     }
 
     @Override
@@ -169,6 +174,7 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
         return javassistTypeDeclarationAdapter.containerType();
     }
 
+    @Override
     public SymbolReference<ResolvedMethodDeclaration> solveMethod(String name, List<ResolvedType> argumentsTypes, boolean staticOnly) {
         List<ResolvedMethodDeclaration> candidates = new ArrayList<>();
         Predicate<CtMethod> staticOnlyCheck = m -> !staticOnly || (staticOnly && Modifier.isStatic(m.getModifiers()));
@@ -195,9 +201,9 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
         return MethodResolutionLogic.findMostApplicable(candidates, name, argumentsTypes, typeSolver);
     }
 
-    public Optional<MethodUsage> solveMethodAsUsage(String name, List<ResolvedType> argumentsTypes, TypeSolver typeSolver,
+    public Optional<MethodUsage> solveMethodAsUsage(String name, List<ResolvedType> argumentsTypes,
                                                     Context invokationContext, List<ResolvedType> typeParameterValues) {
-        return JavassistUtils.getMethodUsage(ctClass, name, argumentsTypes, typeSolver, invokationContext);
+        return JavassistUtils.getMethodUsage(ctClass, name, argumentsTypes, typeSolver, getTypeParameters(), typeParameterValues);
     }
 
     @Override
@@ -243,7 +249,7 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
 
         String[] interfaceFQNs = getInterfaceFQNs();
         for (String interfaceFQN : interfaceFQNs) {
-            SymbolReference<? extends ResolvedValueDeclaration> interfaceRef = solveSymbolForFQN(name, typeSolver, interfaceFQN);
+            SymbolReference<? extends ResolvedValueDeclaration> interfaceRef = solveSymbolForFQN(name, interfaceFQN);
             if (interfaceRef.isSolved()) {
                 return interfaceRef;
             }
@@ -252,7 +258,7 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
         return SymbolReference.unsolved(ResolvedValueDeclaration.class);
     }
 
-    private SymbolReference<? extends ResolvedValueDeclaration> solveSymbolForFQN(String symbolName, TypeSolver typeSolver, String fqn) {
+    private SymbolReference<? extends ResolvedValueDeclaration> solveSymbolForFQN(String symbolName, String fqn) {
         if (fqn == null) {
             return SymbolReference.unsolved(ResolvedValueDeclaration.class);
         }
@@ -271,5 +277,18 @@ public class JavassistEnumDeclaration extends AbstractTypeDeclaration implements
                 .filter(f -> (f.getFieldInfo2().getAccessFlags() & AccessFlag.ENUM) != 0)
                 .map(f -> new JavassistEnumConstantDeclaration(f, typeSolver))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ResolvedConstructorDeclaration> getConstructors() {
+        return javassistTypeDeclarationAdapter.getConstructors();
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "{" +
+                "ctClass=" + ctClass.getName() +
+                ", typeSolver=" + typeSolver +
+                '}';
     }
 }

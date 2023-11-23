@@ -11,15 +11,8 @@
 
 #include "fxbarcode/BC_Library.h"
 #include "xfa/fwl/cfwl_edit.h"
-#include "xfa/fwl/cfwl_scrollbar.h"
-#include "xfa/fwl/cfwl_widget.h"
 
-class CFWL_WidgetProperties;
 class CFX_Barcode;
-class CFWL_Widget;
-
-#define XFA_BCS_NeedUpdate 0x0001
-#define XFA_BCS_EncodeSuccess 0x0002
 
 enum FWL_BCDAttribute {
   FWL_BCDATTRIBUTE_NONE = 0,
@@ -34,10 +27,9 @@ enum FWL_BCDAttribute {
   FWL_BCDATTRIBUTE_STARTCHAR = 1 << 8,
   FWL_BCDATTRIBUTE_ENDCHAR = 1 << 9,
   FWL_BCDATTRIBUTE_ECLEVEL = 1 << 10,
-  FWL_BCDATTRIBUTE_TRUNCATED = 1 << 11,
 };
 
-class CFWL_Barcode : public CFWL_Edit {
+class CFWL_Barcode final : public CFWL_Edit {
  public:
   explicit CFWL_Barcode(const CFWL_App* pApp);
   ~CFWL_Barcode() override;
@@ -50,6 +42,7 @@ class CFWL_Barcode : public CFWL_Edit {
 
   // CFWL_Edit
   void SetText(const WideString& wsText) override;
+  void SetTextSkipNotify(const WideString& wsText) override;
 
   void SetType(BC_TYPE type);
   bool IsProtectedType() const;
@@ -65,28 +58,32 @@ class CFWL_Barcode : public CFWL_Edit {
   void SetStartChar(char startChar);
   void SetEndChar(char endChar);
   void SetErrorCorrectionLevel(int32_t ecLevel);
-  void SetTruncated(bool truncated);
 
  private:
+  enum class Status : uint8_t {
+    kNormal,
+    kNeedUpdate,
+    kEncodeSuccess,
+  };
+
   void GenerateBarcodeImageCache();
   void CreateBarcodeEngine();
 
+  BC_TYPE m_type = BC_UNKNOWN;
+  BC_CHAR_ENCODING m_eCharEncoding = CHAR_ENCODING_UTF8;
+  BC_TEXT_LOC m_eTextLocation = BC_TEXT_LOC_NONE;
+  Status m_eStatus = Status::kNormal;
+  bool m_bCalChecksum = false;
+  bool m_bPrintChecksum = false;
+  char m_cStartChar = 0;
+  char m_cEndChar = 0;
+  int8_t m_nWideNarrowRatio = 1;
+  int32_t m_nModuleHeight = -1;
+  int32_t m_nModuleWidth = -1;
+  int32_t m_nDataLength = 0;
+  int32_t m_nECLevel = 0;
+  uint32_t m_dwAttributeMask = 0;
   std::unique_ptr<CFX_Barcode> m_pBarcodeEngine;
-  uint32_t m_dwStatus;
-  BC_TYPE m_type;
-  BC_CHAR_ENCODING m_eCharEncoding;
-  int32_t m_nModuleHeight;
-  int32_t m_nModuleWidth;
-  int32_t m_nDataLength;
-  bool m_bCalChecksum;
-  bool m_bPrintChecksum;
-  BC_TEXT_LOC m_eTextLocation;
-  int8_t m_nWideNarrowRatio;
-  char m_cStartChar;
-  char m_cEndChar;
-  int32_t m_nECLevel;
-  bool m_bTruncated;
-  uint32_t m_dwAttributeMask;
 };
 
 #endif  // XFA_FWL_CFWL_BARCODE_H_

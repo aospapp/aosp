@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python2 -u
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,6 +12,7 @@ that edits a control file.
 
 
 import argparse
+import fnmatch
 import glob
 import os
 import re
@@ -25,6 +26,11 @@ from autotest_lib.server.cros.dynamic_suite import reporting_utils
 DEPENDENCY_ARC = 'arc'
 SUITES_NEED_RETRY = set(['bvt-arc', 'bvt-cq', 'bvt-inline'])
 TESTS_NEED_ARC = 'cheets_'
+BVT_ATTRS = set(
+    ['suite:smoke', 'suite:bvt-inline', 'suite:bvt-cq', 'suite:bvt-arc'])
+TAST_PSA_URL = (
+    'https://groups.google.com/a/chromium.org/d/topic/chromium-os-dev'
+    '/zH1nO7OjJ2M/discussion')
 
 
 class ControlFileCheckerError(Exception):
@@ -145,7 +151,7 @@ def CheckSuites(ctrl_data, test_name, useflags):
                 '<your_ebuild>. 3. emerge-<board> <your_ebuild>' % test_name)
 
 
-def CheckValidAttr(ctrl_data, whitelist, test_name):
+def CheckValidAttr(ctrl_data, attr_whitelist, bvt_whitelist, test_name):
     """
     Check whether ATTRIBUTES are in the whitelist.
 
@@ -153,18 +159,28 @@ def CheckValidAttr(ctrl_data, whitelist, test_name):
     whitelist.
 
     @param ctrl_data: The control_data object for a test.
-    @param whitelist: whitelist set parsed from the attribute_whitelist file.
+    @param attr_whitelist: whitelist set parsed from the attribute_whitelist.
+    @param bvt_whitelist: whitelist set parsed from the bvt_whitelist.
     @param test_name: A string with the name of the test.
 
     @returns: None
     """
-    if not (whitelist >= ctrl_data.attributes):
-        attribute_diff = ctrl_data.attributes - whitelist
+    if not (attr_whitelist >= ctrl_data.attributes):
+        attribute_diff = ctrl_data.attributes - attr_whitelist
         raise ControlFileCheckerError(
             'Attribute(s): %s not in the whitelist in control file for test '
             'named %s. If this is a new attribute, please add it into '
             'AUTOTEST_DIR/site_utils/attribute_whitelist.txt file'
             % (attribute_diff, test_name))
+    if ctrl_data.attributes & BVT_ATTRS:
+        for pattern in bvt_whitelist:
+            if fnmatch.fnmatch(test_name, pattern):
+                break
+        else:
+            raise ControlFileCheckerError(
+                '%s not in the BVT whitelist. New BVT tests should be written '
+                'in Tast, not in Autotest. See: %s'
+                % (test_name, TAST_PSA_URL))
 
 
 def CheckSuiteLineRemoved(ctrl_file_path):
@@ -231,16 +247,22 @@ def main():
             'the PRESUBMIT_FILES environment variable.')
 
     # Parse the whitelist set from file, hardcode the filepath to the whitelist.
-    path_whitelist = os.path.join(common.autotest_dir,
-                                  'site_utils/attribute_whitelist.txt')
-    with open(path_whitelist, 'r') as f:
-        whitelist = {line.strip() for line in f.readlines() if line.strip()}
+    path_attr_whitelist = os.path.join(common.autotest_dir,
+                                       'site_utils/attribute_whitelist.txt')
+    with open(path_attr_whitelist, 'r') as f:
+        attr_whitelist = {
+            line.strip() for line in f.readlines() if line.strip()}
+
+    path_bvt_whitelist = os.path.join(common.autotest_dir,
+                                      'site_utils/bvt_whitelist.txt')
+    with open(path_bvt_whitelist, 'r') as f:
+        bvt_whitelist = {line.strip() for line in f.readlines() if line.strip()}
 
     # Delay getting the useflags. The call takes long time, so init useflags
     # only when needed, i.e., the script needs to check any control file.
     useflags = None
     for file_path in file_list.split('\n'):
-        control_file = re.search(r'.*/control(?:\.\w+)?$', file_path)
+        control_file = re.search(r'.*/control(?:\..+)?$', file_path)
         if control_file:
             ctrl_file_path = control_file.group(0)
             CheckSuiteLineRemoved(ctrl_file_path)
@@ -257,7 +279,7 @@ def main():
             if not useflags:
                 useflags = GetUseFlags(args.overlay)
             CheckSuites(ctrl_data, test_name, useflags)
-            CheckValidAttr(ctrl_data, whitelist, test_name)
+            CheckValidAttr(ctrl_data, attr_whitelist, bvt_whitelist, test_name)
             CheckRetry(ctrl_data, test_name)
             CheckDependencies(ctrl_data, test_name)
 

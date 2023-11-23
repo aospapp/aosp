@@ -15,8 +15,8 @@ ar{
         "آ ب ة ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ك ل م ن ه و ى ي]"
     }
     ExemplarCharactersIndex{"[ا ب ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ك ل م ن ه و ي]"}
-    ExemplarCharactersNumbers{"[\u061C\u200E \\- , ٫ ٬ . % ٪ ‰ ؉ + 0٠ 1١ 2٢ 3٣ 4٤ 5٥ 6٦ 7٧ 8٨ 9٩]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – — ، ؛ \\: ! ؟ . … ' \u0022 « » ( ) \\[ \\]]"}
+    ExemplarCharactersNumbers{"[\u061C\u200E \\- ‑ , ٫ ٬ . % ٪ ‰ ؉ + 0٠ 1١ 2٢ 3٣ 4٤ 5٥ 6٦ 7٧ 8٨ 9٩]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — ، ؛ \\: ! ؟ . … ' \u0022 « » ( ) \\[ \\]]"}
     MoreInformation{"؟"}
     NumberElements{
         arab{
@@ -360,7 +360,6 @@ ar{
                 exponential{"E"}
                 group{","}
                 infinity{"∞"}
-                list{";"}
                 minusSign{"‎-"}
                 nan{"ليس رقمًا"}
                 perMille{"‰"}
@@ -386,7 +385,7 @@ ar{
         minimumGroupingDigits{"1"}
         native{"arab"}
     }
-    Version{"2.1.43.50"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -736,12 +735,12 @@ ar{
                 MMMEd{"E، d MMM"}
                 MMMMEd{"E، d MMMM"}
                 MMMMW{
-                    few{"الأسبوع W من MMM"}
-                    many{"الأسبوع W من MMM"}
-                    one{"الأسبوع W من MMM"}
-                    other{"الأسبوع W من MMM"}
-                    two{"الأسبوع W من MMM"}
-                    zero{"الأسبوع W من MMM"}
+                    few{"الأسبوع W من MMMM"}
+                    many{"الأسبوع W من MMMM"}
+                    one{"الأسبوع W من MMMM"}
+                    other{"الأسبوع W من MMMM"}
+                    two{"الأسبوع W من MMMM"}
+                    zero{"الأسبوع W من MMMM"}
                 }
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
@@ -1276,12 +1275,24 @@ ar{
                 "{1} {0}",
             }
             availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
                 E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
                 Ed{"E، d"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
                 Gy{"y G"}
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E، d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
                 M{"L"}
                 MEd{"E، d/M"}
                 MMM{"LLL"}
@@ -1290,6 +1301,9 @@ ar{
                 MMMd{"d MMM"}
                 Md{"d/‏M"}
                 d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
                 y{"y G"}
                 yyyy{"y G"}
                 yyyyM{"M‏/y G"}
@@ -1800,6 +1814,13 @@ ar{
         }
         day-narrow{
             dn{"يوم"}
+            relative{
+                "-1"{"أمس"}
+                "-2"{"أول أمس"}
+                "0"{"اليوم"}
+                "1"{"غدًا"}
+                "2"{"بعد الغد"}
+            }
             relativeTime{
                 future{
                     few{"خلال {0} أيام"}
@@ -1821,6 +1842,13 @@ ar{
         }
         day-short{
             dn{"يوم"}
+            relative{
+                "-1"{"أمس"}
+                "-2"{"أول أمس"}
+                "0"{"اليوم"}
+                "1"{"غدًا"}
+                "2"{"بعد الغد"}
+            }
             relativeTime{
                 future{
                     few{"خلال {0} أيام"}
@@ -2919,20 +2947,31 @@ ar{
         or{
             2{"{0} أو {1}"}
             end{"{0} أو {1}"}
-            middle{"{0} و{1}"}
-            start{"{0} و{1}"}
+            middle{"{0} أو {1}"}
+            start{"{0} أو {1}"}
+        }
+        or-narrow{
+            start{"{0} أو {1}"}
+        }
+        or-short{
+            middle{"{0} أو {1}"}
         }
         standard{
             2{"{0} و{1}"}
-            end{"{0}، و{1}"}
-            middle{"{0}، {1}"}
-            start{"{0}، {1}"}
+            end{"{0} و{1}"}
+            middle{"{0} و{1}"}
+            start{"{0} و{1}"}
+        }
+        standard-narrow{
+            end{"{0} و{1}"}
+            middle{"{0} و{1}"}
+            start{"{0} و{1}"}
         }
         standard-short{
             2{"{0} و{1}"}
-            end{"{0}، و{1}"}
-            middle{"{0}، و{1}"}
-            start{"{0}، و{1}"}
+            end{"{0} و{1}"}
+            middle{"{0} و{1}"}
+            start{"{0} و{1}"}
         }
         unit{
             2{"{0} و{1}"}
@@ -2941,10 +2980,9 @@ ar{
             start{"{0}، و{1}"}
         }
         unit-narrow{
-            2{"{0}، {1}"}
-            end{"{0}، {1}"}
-            middle{"{0}، {1}"}
-            start{"{0}، {1}"}
+            end{"{0} و{1}"}
+            middle{"{0} و{1}"}
+            start{"{0} و{1}"}
         }
         unit-short{
             2{"{0} و{1}"}
@@ -2983,10 +3021,6 @@ ar{
                 "[\\-‒⁻₋−➖﹣－]",
                 "[,،٫、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
-            }
-            stricter{
-                "[,٫︐﹐，]",
-                "[.․﹒．｡]",
             }
         }
     }

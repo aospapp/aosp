@@ -338,6 +338,50 @@ public class ShadowMotionEvent {
             pointerPropertiesObjArray,
             pointerCoordsObjArray);
   }
+
+  @Implementation(minSdk = android.os.Build.VERSION_CODES.R)
+  @HiddenApi
+  protected static long nativeInitialize(
+          long nativePtr,
+          int deviceId,
+          int source,
+          int displayId,
+          int action,
+          int flags,
+          int edgeFlags,
+          int metaState,
+          int buttonState,
+          int classification,
+          float xOffset,
+          float yOffset,
+          float xPrecision,
+          float yPrecision,
+          long downTimeNanos,
+          long eventTimeNanos,
+          int pointerCount,
+          PointerProperties[] pointerPropertiesObjArray,
+          PointerCoords[] pointerCoordsObjArray) {
+    return
+            nativeInitialize(
+                    nativePtr,
+                    deviceId,
+                    source,
+                    action,
+                    flags,
+                    edgeFlags,
+                    metaState,
+                    buttonState,
+                    xOffset,
+                    yOffset,
+                    xPrecision,
+                    yPrecision,
+                    downTimeNanos,
+                    eventTimeNanos,
+                    pointerCount,
+                    pointerPropertiesObjArray,
+                    pointerCoordsObjArray);
+  }
+
   // END-INTERNAL
 
   @Implementation(maxSdk = KITKAT_WATCH)

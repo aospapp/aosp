@@ -29,6 +29,68 @@ sqr(T x)
     return x * x;
 }
 
+void test_bad_ranges() {
+  // Test cases where the mean is around the largest representable integer for
+  // `result_type`. These cases don't generate valid poisson distributions, but
+  // at least they don't blow up.
+  std::mt19937 eng;
+  
+  {
+    std::poisson_distribution<std::int16_t> distribution(32710.9);
+    for (int i=0; i < 1000; ++i) {
+      volatile std::int16_t res = distribution(eng);
+      ((void)res);
+    }
+  }
+  {
+    std::poisson_distribution<std::int16_t> distribution(std::numeric_limits<std::int16_t>::max());
+    for (int i=0; i < 1000; ++i) {
+      volatile std::int16_t res = distribution(eng);
+      ((void)res);
+    }
+  }
+  {
+    std::poisson_distribution<std::int16_t> distribution(
+    static_cast<double>(std::numeric_limits<std::int16_t>::max()) + 10);
+    for (int i=0; i < 1000; ++i) {
+      volatile std::int16_t res = distribution(eng);
+      ((void)res);
+    }
+  }
+  {
+    std::poisson_distribution<std::int16_t> distribution(
+      static_cast<double>(std::numeric_limits<std::int16_t>::max()) * 2);
+      for (int i=0; i < 1000; ++i) {
+        volatile std::int16_t res = distribution(eng);
+        ((void)res);
+      }
+  }
+  {
+    // We convert `INF` to `DBL_MAX` otherwise the distribution will hang.
+    std::poisson_distribution<std::int16_t> distribution(std::numeric_limits<double>::infinity());
+    for (int i=0; i < 1000; ++i) {
+      volatile std::int16_t res = distribution(eng);
+      ((void)res);
+    }
+  }
+  {
+    std::poisson_distribution<std::int16_t> distribution(0);
+    for (int i=0; i < 1000; ++i) {
+      volatile std::int16_t res = distribution(eng);
+      ((void)res);
+    }
+  }
+  {
+    // We convert `INF` to `DBL_MAX` otherwise the distribution will hang.
+    std::poisson_distribution<std::int16_t> distribution(-100);
+    for (int i=0; i < 1000; ++i) {
+      volatile std::int16_t res = distribution(eng);
+      ((void)res);
+    }
+  }
+}
+
+
 int main()
 {
     {
@@ -148,4 +210,6 @@ int main()
         assert(std::abs((skew - x_skew) / x_skew) < 0.01);
         assert(std::abs((kurtosis - x_kurtosis) / x_kurtosis) < 0.01);
     }
+
+  test_bad_ranges();
 }

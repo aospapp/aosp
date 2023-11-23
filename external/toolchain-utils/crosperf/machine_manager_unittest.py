@@ -1,6 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-# Copyright 2012 Google Inc. All Rights Reserved.
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Unittest for machine_manager."""
 
 from __future__ import print_function
@@ -8,9 +12,8 @@ from __future__ import print_function
 import os.path
 import time
 import hashlib
-
-import mock
 import unittest
+import unittest.mock as mock
 
 import label
 import machine_manager
@@ -48,14 +51,14 @@ class MyMachineManager(machine_manager.MachineManager):
 
 CHROMEOS_ROOT = '/tmp/chromeos-root'
 MACHINE_NAMES = ['lumpy1', 'lumpy2', 'lumpy3', 'daisy1', 'daisy2']
-LABEL_LUMPY = label.MockLabel(
-    'lumpy', 'lumpy_chromeos_image', 'autotest_dir', CHROMEOS_ROOT, 'lumpy',
-    ['lumpy1', 'lumpy2', 'lumpy3', 'lumpy4'], '', '', False, 'average,'
-    'gcc', None)
-LABEL_MIX = label.MockLabel('mix', 'chromeos_image', 'autotest_dir',
-                            CHROMEOS_ROOT, 'mix',
-                            ['daisy1', 'daisy2', 'lumpy3',
-                             'lumpy4'], '', '', False, 'average', 'gcc', None)
+LABEL_LUMPY = label.MockLabel('lumpy', 'build', 'lumpy_chromeos_image',
+                              'autotest_dir', 'debug_dir', CHROMEOS_ROOT,
+                              'lumpy', ['lumpy1', 'lumpy2', 'lumpy3', 'lumpy4'],
+                              '', '', False, 'average', 'gcc', False, None)
+LABEL_MIX = label.MockLabel('mix', 'build', 'chromeos_image', 'autotest_dir',
+                            'debug_dir', CHROMEOS_ROOT, 'mix',
+                            ['daisy1', 'daisy2', 'lumpy3', 'lumpy4'], '', '',
+                            False, 'average', 'gcc', False, None)
 
 
 class MachineManagerTest(unittest.TestCase):
@@ -180,7 +183,7 @@ class MachineManagerTest(unittest.TestCase):
     self.assertEqual(mock_run_cmd.call_count, 0)
     self.assertEqual(mock_run_croscmd.call_count, 0)
 
-    #Test 2: label.image_type == "trybot"
+    # Test 2: label.image_type == "trybot"
     ResetValues()
     LABEL_LUMPY.image_type = 'trybot'
     mock_run_cmd.return_value = 0
@@ -247,8 +250,6 @@ class MachineManagerTest(unittest.TestCase):
 
   @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommandWOutput')
   def test_try_to_lock_machine(self, mock_cros_runcmd):
-    self.assertRaises(self.mm._TryToLockMachine, None)
-
     mock_cros_runcmd.return_value = [0, 'false_lock_checksum', '']
     self.mock_cmd_exec.CrosRunCommandWOutput = mock_cros_runcmd
     self.mm._machines = []
@@ -454,7 +455,7 @@ class MachineManagerTest(unittest.TestCase):
         suite='telemetry_Crosperf')  # suite
 
     test_run = MockBenchmarkRun('test run', bench, LABEL_LUMPY, 1, [], self.mm,
-                                mock_logger, 'verbose', '')
+                                mock_logger, 'verbose', '', {})
 
     self.mm._machines = [
         self.mock_lumpy1, self.mock_lumpy2, self.mock_lumpy3, self.mock_daisy1,
@@ -484,9 +485,9 @@ class MachineManagerTest(unittest.TestCase):
 
   def test_get_all_cpu_info(self):
     info = self.mm.GetAllCPUInfo([LABEL_LUMPY, LABEL_MIX])
-    self.assertEqual(info,
-                     'lumpy\n-------------------\nlumpy_cpu_info\n\n\nmix\n-'
-                     '------------------\ndaisy_cpu_info\n\n\n')
+    self.assertEqual(
+        info, 'lumpy\n-------------------\nlumpy_cpu_info\n\n\nmix\n-'
+        '------------------\ndaisy_cpu_info\n\n\n')
 
 
 MEMINFO_STRING = """MemTotal:        3990332 kB
@@ -776,7 +777,7 @@ class CrosMachineTest(unittest.TestCase):
     self.assertEqual(cm.phys_kbytes, 4194304)
 
     mock_run_cmd.return_value = [1, MEMINFO_STRING, '']
-    self.assertRaises(cm._GetMemoryInfo)
+    self.assertRaises(Exception, cm._GetMemoryInfo)
 
   @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommandWOutput')
   @mock.patch.object(machine_manager.CrosMachine, 'SetUpChecksumInfo')
@@ -836,7 +837,16 @@ class CrosMachineTest(unittest.TestCase):
         '44:6d:57:20:4a:c5  txqueuelen 1000  (Ethernet)')
 
     mock_run_cmd.return_value = [0, 'invalid hardware config', '']
-    self.assertRaises(cm._GetMachineID)
+    self.assertRaises(Exception, cm._GetMachineID)
+
+  def test_add_cooldown_waittime(self):
+    cm = machine_manager.CrosMachine('1.2.3.4.cros', '/usr/local/chromeos',
+                                     'average')
+    self.assertEqual(cm.GetCooldownWaitTime(), 0)
+    cm.AddCooldownWaitTime(250)
+    self.assertEqual(cm.GetCooldownWaitTime(), 250)
+    cm.AddCooldownWaitTime(1)
+    self.assertEqual(cm.GetCooldownWaitTime(), 251)
 
 
 if __name__ == '__main__':

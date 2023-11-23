@@ -9,7 +9,8 @@ Test if dependency is properly processed, the test should be shown as TEST_NA in
 suite job result.
 """
 CRITERIA = "This test will never succeed."
-ATTRIBUTES = "suite:push_to_prod, suite:skylab_staging_test"
+# TODO(crbug/953089): Re-add this to test to suite:skylab_staging_test.
+ATTRIBUTES = "suite:push_to_prod"
 DEPENDENCIES = "no_such_dependency"
 TIME = "SHORT"
 TEST_CATEGORY = "General"

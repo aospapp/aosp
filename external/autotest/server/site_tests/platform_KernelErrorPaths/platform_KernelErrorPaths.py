@@ -5,6 +5,7 @@
 import logging, os, time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros.crash.crash_test import CrashTest as CrashTestDefs
 from autotest_lib.server import test
@@ -13,6 +14,8 @@ class platform_KernelErrorPaths(test.test):
     """Performs various kernel crash tests and makes sure that the expected
        results are found in the crash report."""
     version = 1
+    POLLING_INTERVAL_SECONDS = 5
+    KCRASH_TIMEOUT_SECONDS = 120
 
     def _run_client_command(self, command):
         try:
@@ -107,18 +110,17 @@ class platform_KernelErrorPaths(test.test):
             self.client.run('ps alx')
             raise
 
-        # give the crash_reporter some time to log the crash
-        time.sleep(5)
-
-        # check if dir /var/spool/crash exists on client or not
-        if not self._exists_on_client(self._crash_log_dir):
-            raise error.TestFail(
-                '%s does not exists on client' % self._crash_log_dir)
-
-        # check if kernel.*.kcrash files are on the client or not
         kcrash_file_path = '%s/kernel.*.kcrash' % self._crash_log_dir
-        if not self.client.list_files_glob(kcrash_file_path):
-            raise error.TestFail('No kcrash files found on client')
+
+        # give the crash_reporter some time to log the crash
+        try:
+          utils.poll_for_condition(
+              condition=lambda: self.client.list_files_glob(kcrash_file_path),
+              timeout=self.KCRASH_TIMEOUT_SECONDS,
+              sleep_interval=self.POLLING_INTERVAL_SECONDS,
+              desc="crash_reporter logging crash")
+        except utils.TimeoutError:
+          raise error.TestFail('No kcrash files found on client')
 
         result = self.client.run('cat %s/kernel.*.kcrash' %
                                  self._crash_log_dir)
@@ -190,29 +192,22 @@ class platform_KernelErrorPaths(test.test):
         does the following for successive sysrq-x invocations within a 20
         second interval:
         1. Abort the chrome process whose parent is the session_manager process.
-        2. Abort the X process. On Freon enabled systems, X is no longer present
-           so this step is a no-op.
-        3. Panic the kernel.
+        2. Panic the kernel.
         This function tests the above steps.
         """
-        for process, parent in [('chrome', 'session_manager'),
-                                ('X', None)]:
-            if process is 'X':
-                # With Freon there is no longer an X process. Lets send the
-                # sysrq_x and then continue on.
-                self._trigger_sysrq_x()
-                continue
-            orig_pid = self._get_pid(process, parent)
-            self._trigger_sysrq_x()
-            for _ in range(10):
-                new_pid = self._get_pid(process, parent)
-                logging.info("%s's original pid was %s and new pid is %s",
-                              process, orig_pid, new_pid)
-                if new_pid != orig_pid:
-                    break
-                time.sleep(1)
-            else:
-                raise error.TestFail('%s did not restart on sysrq-x' % process)
+        process = 'chrome'
+        parent = 'session_manager'
+        orig_pid = self._get_pid(process, parent)
+        self._trigger_sysrq_x()
+        for _ in range(10):
+            new_pid = self._get_pid(process, parent)
+            logging.info("%s's original pid was %s and new pid is %s",
+                          process, orig_pid, new_pid)
+            if new_pid != orig_pid:
+                break
+            time.sleep(1)
+        else:
+            raise error.TestFail('%s did not restart on sysrq-x' % process)
 
         boot_id = self.client.get_boot_id()
         trigger = 'sysrq-x'
@@ -235,10 +230,10 @@ class platform_KernelErrorPaths(test.test):
             logging.info("Falling back to %s", interface)
 
         # Find out how many cpus we have
-        client_no_cpus = int(
-            self.client.run('cat /proc/cpuinfo | grep processor | wc -l')
-                            .stdout.strip())
-        no_cpus = 1
+        client_cpus = map(lambda x: int(x),
+            self.client.run(
+                'cat /proc/cpuinfo | grep processor | cut -f 2 -d :')
+                .stdout.split())
 
         # Skip any triggers that are undefined for the given interface.
         if trigger == None:
@@ -258,11 +253,12 @@ class platform_KernelErrorPaths(test.test):
             # This needs to be pre-triggered so the second one locks.
             self._provoke_crash(interface, trigger, None)
 
-        if not all_cpu:
-            no_cpus = 1
+        if all_cpu:
+            which_cpus = client_cpus
         else:
-            no_cpus = client_no_cpus
-        for cpu in range(no_cpus):
+            which_cpus = [client_cpus[0]]
+
+        for cpu in which_cpus:
             # Always run on at least one cpu
             # Delete crash results, if any
             self.client.run('rm -f %s/*' % self._crash_log_dir)
@@ -292,13 +288,14 @@ class platform_KernelErrorPaths(test.test):
         # The final component is the crash report string to look for in the
         # crash dump after target restarts.
         kcrash_types = {
-            'BUG' : ('bug', 10, False, 'kernel BUG at'),
+            'BUG' : ('bug', 10, False, ('kernel BUG at', 'BUG: failure at')),
             'HUNG_TASK' : ('hungtask', 300, False, 'hung_task: blocked tasks'),
             'SOFTLOCKUP' : (None, 25, False, 'BUG: soft lockup'),
             'HARDLOCKUP' : ('nmiwatchdog', 50, False,
                             'Watchdog detected hard LOCKUP'),
             'SPINLOCKUP' : (None, 25, False, ('softlockup: hung tasks',
-                                              'BUG: scheduling while atomic')),
+                                             'BUG: scheduling while atomic',
+                                             'BUG: sleeping function called')),
             'EXCEPTION' : ('nullptr',     10, True,
              # x86 gives "BUG: unable to" while ARM gives "Unableto".
                            'nable to handle kernel NULL pointer '

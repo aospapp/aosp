@@ -205,7 +205,9 @@ typedef struct
      * profile stats
      */
     profile_database_t profile_hle;
-    profile_database_t profile_pre_enc[IHEVCE_MAX_NUM_RESOLUTIONS];
+    profile_database_t profile_pre_enc_l1l2[IHEVCE_MAX_NUM_RESOLUTIONS];
+    profile_database_t profile_pre_enc_l0ipe[IHEVCE_MAX_NUM_RESOLUTIONS];
+    profile_database_t profile_enc_me[IHEVCE_MAX_NUM_RESOLUTIONS];
     profile_database_t profile_enc[IHEVCE_MAX_NUM_RESOLUTIONS][IHEVCE_MAX_NUM_BITRATES];
     profile_database_t profile_entropy[IHEVCE_MAX_NUM_RESOLUTIONS][IHEVCE_MAX_NUM_BITRATES];
 

@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 #
 # Copyright (c) 2011-2015, Intel Corporation
 # All rights reserved.
@@ -28,10 +28,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import EddParser
-from PFWScriptGenerator import PfwScriptTranslator
-import hostConfig
-
 import argparse
 import re
 import sys
@@ -40,51 +36,57 @@ import os
 import logging
 import subprocess
 
+import EddParser
+from PFWScriptGenerator import PfwScriptTranslator
+import hostConfig
+
+
 def parseArgs():
     argparser = argparse.ArgumentParser(description="Parameter-Framework XML \
-        Settings file generator.\n\
-        Exit with the number of (recoverable or not) error that occured.")
+                                        Settings file generator.\n\
+                                        Exit with the number of (recoverable or not) \
+                                        error that occured.")
     argparser.add_argument('--toplevel-config',
-            help="Top-level parameter-framework configuration file. Mandatory.",
-            metavar="TOPLEVEL_CONFIG_FILE",
-            required=True)
+                           help="Top-level parameter-framework configuration file. Mandatory.",
+                           metavar="TOPLEVEL_CONFIG_FILE",
+                           required=True)
     argparser.add_argument('--criteria',
-            help="Criteria file, in '<type> <name> : <value> <value...>' \
-        format. Mandatory.",
-            metavar="CRITERIA_FILE",
-            type=argparse.FileType('r'),
-            required=True)
+                           help="Criteria file, in '<type> <name> : <value> <value...>' \
+                           format. Mandatory.",
+                           metavar="CRITERIA_FILE",
+                           type=argparse.FileType('r'),
+                           required=True)
     argparser.add_argument('--initial-settings',
-            help="Initial XML settings file (containing a \
-        <ConfigurableDomains>  tag",
-            nargs='?',
-            default=None,
-            metavar="XML_SETTINGS_FILE")
+                           help="Initial XML settings file (containing a \
+                           <ConfigurableDomains>  tag",
+                           nargs='?',
+                           default=None,
+                           metavar="XML_SETTINGS_FILE")
     argparser.add_argument('--add-domains',
-            help="List of single domain files (each containing a single \
-        <ConfigurableDomain> tag",
-            metavar="XML_DOMAIN_FILE",
-            nargs='*',
-            dest='xml_domain_files',
-            default=[])
+                           help="List of single domain files (each containing a single \
+                           <ConfigurableDomain> tag",
+                           metavar="XML_DOMAIN_FILE",
+                           nargs='*',
+                           dest='xml_domain_files',
+                           default=[])
     argparser.add_argument('--add-edds',
-            help="List of files in EDD syntax (aka \".pfw\" files)",
-            metavar="EDD_FILE",
-            type=argparse.FileType('r'),
-            nargs='*',
-            default=[],
-            dest='edd_files')
+                           help="List of files in EDD syntax (aka \".pfw\" files)",
+                           metavar="EDD_FILE",
+                           type=argparse.FileType('r'),
+                           nargs='*',
+                           default=[],
+                           dest='edd_files')
     argparser.add_argument('--schemas-dir',
-            help="Directory of parameter-framework XML Schemas for generation \
-        validation",
-            default=None)
+                           help="Directory of parameter-framework XML Schemas for generation \
+                           validation",
+                           default=None)
     argparser.add_argument('--target-schemas-dir',
-            help="Ignored. Kept for retro-compatibility")
+                           help="Ignored. Kept for retro-compatibility")
     argparser.add_argument('--validate',
-            help="Validate the settings against XML schemas",
-            action='store_true')
+                           help="Validate the settings against XML schemas",
+                           action='store_true')
     argparser.add_argument('--verbose',
-            action='store_true')
+                           action='store_true')
 
     return argparser.parse_args()
 
@@ -140,7 +142,7 @@ def parseEdd(EDDFiles):
 
         try:
             root.propagate()
-        except EddParser.MyPropagationError as ex :
+        except EddParser.MyPropagationError as ex:
             logging.critical(str(ex))
             logging.info("EXIT ON FAILURE")
             exit(1)
@@ -148,32 +150,32 @@ def parseEdd(EDDFiles):
         parsed_edds.append((edd_file.name, root))
     return parsed_edds
 
-def generateDomainCommands(logging, all_criteria, initial_settings, xml_domain_files, parsed_edds):
-        # create and inject all the criteria
-        logging.info("Creating all criteria")
-        for criterion in all_criteria:
-            yield ["createSelectionCriterion", criterion['inclusive'],
-                   criterion['name']] + criterion['values']
+def generateDomainCommands(logger, all_criteria, initial_settings, xml_domain_files, parsed_edds):
+    # create and inject all the criteria
+    logger.info("Creating all criteria")
+    for criterion in all_criteria:
+        yield ["createSelectionCriterion", criterion['inclusive'],
+               criterion['name']] + criterion['values']
 
-        yield ["start"]
+    yield ["start"]
 
-        # Import initial settings file
-        if initial_settings:
-            logging.info("Importing initial settings file {}".format(initial_settings))
-            yield ["importDomainsWithSettingsXML", initial_settings]
+    # Import initial settings file
+    if initial_settings:
+        logger.info("Importing initial settings file {}".format(initial_settings))
+        yield ["importDomainsWithSettingsXML", initial_settings]
 
-        # Import each standalone domain files
-        for domain_file in xml_domain_files:
-            logging.info("Importing single domain file {}".format(domain_file))
-            yield ["importDomainWithSettingsXML", domain_file]
+    # Import each standalone domain files
+    for domain_file in xml_domain_files:
+        logger.info("Importing single domain file {}".format(domain_file))
+        yield ["importDomainWithSettingsXML", domain_file]
 
-        # Generate the script for each EDD file
-        for filename, parsed_edd in parsed_edds:
-            logging.info("Translating and injecting EDD file {}".format(filename))
-            translator = PfwScriptTranslator()
-            parsed_edd.translate(translator)
-            for command in translator.getScript():
-                yield command
+    # Generate the script for each EDD file
+    for filename, parsed_edd in parsed_edds:
+        logger.info("Translating and injecting EDD file {}".format(filename))
+        translator = PfwScriptTranslator()
+        parsed_edd.translate(translator)
+        for command in translator.getScript():
+            yield command
 
 def main():
     logging.root.setLevel(logging.INFO)
@@ -193,28 +195,27 @@ def main():
                                                        prefix="TMPdomainGeneratorPFConfig_")
 
     install_path = os.path.dirname(os.path.realpath(args.toplevel_config))
-    hostConfig.configure(
-            infile=args.toplevel_config,
-            outfile=fake_toplevel_config,
-            structPath=install_path)
+    hostConfig.configure(infile=args.toplevel_config,
+                         outfile=fake_toplevel_config,
+                         structPath=install_path)
     fake_toplevel_config.close()
 
     # Create the connector. Pipe its input to us in order to write commands;
     # connect its output to stdout in order to have it dump the domains
     # there; connect its error output to stderr.
     connector = subprocess.Popen(["domainGeneratorConnector",
-                            fake_toplevel_config.name,
-                            'verbose' if args.verbose else 'no-verbose',
-                            'validate' if args.validate else 'no-validate',
-                            args.schemas_dir],
-                           stdout=sys.stdout, stdin=subprocess.PIPE, stderr=sys.stderr)
+                                  fake_toplevel_config.name,
+                                  'verbose' if args.verbose else 'no-verbose',
+                                  'validate' if args.validate else 'no-validate',
+                                  args.schemas_dir],
+                                 stdout=sys.stdout, stdin=subprocess.PIPE, stderr=sys.stderr)
 
     initial_settings = None
     if args.initial_settings:
         initial_settings = os.path.realpath(args.initial_settings)
 
     for command in generateDomainCommands(logging, all_criteria, initial_settings,
-                                       args.xml_domain_files, parsed_edds):
+                                          args.xml_domain_files, parsed_edds):
         connector.stdin.write('\0'.join(command))
         connector.stdin.write("\n")
 

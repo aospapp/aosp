@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ja{
-    Version{"2.1.44.91"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -45,6 +45,10 @@ ja{
                 dnam{"エーカー"}
                 other{"{0} エーカー"}
             }
+            dunam{
+                dnam{"ドゥナム"}
+                other{"{0} ドゥナム"}
+            }
             hectare{
                 dnam{"ヘクタール"}
                 other{"{0} ヘクタール"}
@@ -85,6 +89,7 @@ ja{
         }
         compound{
             per{"{0}毎{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -99,6 +104,10 @@ ja{
                 dnam{"ミリモル毎リットル"}
                 other{"{0} ミリモル毎リットル"}
             }
+            mole{
+                dnam{"モル"}
+                other{"{0} モル"}
+            }
             part-per-million{
                 dnam{"ppm"}
                 other{"{0} ppm"}
@@ -110,6 +119,10 @@ ja{
             permille{
                 dnam{"パーミル"}
                 other{"{0} パーミル"}
+            }
+            permyriad{
+                dnam{"パーミリアド"}
+                other{"{0} パーミリアド"}
             }
         }
         consumption{
@@ -193,6 +206,10 @@ ja{
                 other{"{0} 日"}
                 per{"{0}/日"}
             }
+            decade{
+                dnam{"十年"}
+                other{"{0} 十年"}
+            }
             hour{
                 dnam{"時間"}
                 other{"{0} 時間"}
@@ -255,9 +272,17 @@ ja{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英熱量"}
+                other{"{0} 英熱量"}
+            }
             calorie{
                 dnam{"カロリー"}
                 other{"{0} カロリー"}
+            }
+            electronvolt{
+                dnam{"電子ボルト"}
+                other{"{0} 電子ボルト"}
             }
             foodcalorie{
                 dnam{"カロリー"}
@@ -279,6 +304,20 @@ ja{
                 dnam{"キロワット時"}
                 other{"{0} キロワット時"}
             }
+            therm-us{
+                dnam{"米サーム"}
+                other{"{0} 米サーム"}
+            }
+        }
+        force{
+            newton{
+                dnam{"ニュートン"}
+                other{"{0} ニュートン"}
+            }
+            pound-force{
+                dnam{"重量ポンド"}
+                other{"{0} 重量ポンド"}
+            }
         }
         frequency{
             gigahertz{
@@ -296,6 +335,35 @@ ja{
             megahertz{
                 dnam{"メガヘルツ"}
                 other{"{0} メガヘルツ"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"ドット/cm"}
+                other{"{0} ドット/cm"}
+            }
+            dot-per-inch{
+                dnam{"ドット/インチ"}
+                other{"{0} ドット/インチ"}
+            }
+            em{
+                dnam{"フォントサイズ em"}
+            }
+            megapixel{
+                dnam{"メガピクセル"}
+                other{"{0} メガピクセル"}
+            }
+            pixel{
+                dnam{"ピクセル"}
+                other{"{0} ピクセル"}
+            }
+            pixel-per-centimeter{
+                dnam{"ピクセル/cm"}
+                other{"{0} ピクセル/cm"}
+            }
+            pixel-per-inch{
+                dnam{"ピクセル/インチ"}
+                other{"{0} ピクセル/インチ"}
             }
         }
         length{
@@ -380,6 +448,10 @@ ja{
                 dnam{"ポイント"}
                 other{"{0} ポイント"}
             }
+            solar-radius{
+                dnam{"太陽半径"}
+                other{"{0} 太陽半径"}
+            }
             yard{
                 dnam{"ヤード"}
                 other{"{0} ヤード"}
@@ -390,11 +462,23 @@ ja{
                 dnam{"ルクス"}
                 other{"{0} ルクス"}
             }
+            solar-luminosity{
+                dnam{"太陽光度"}
+                other{"{0} 太陽光度"}
+            }
         }
         mass{
             carat{
                 dnam{"カラット"}
                 other{"{0} カラット"}
+            }
+            dalton{
+                dnam{"ダルトン"}
+                other{"{0} ダルトン"}
+            }
+            earth-mass{
+                dnam{"地球質量"}
+                other{"{0} 地球質量"}
             }
             gram{
                 dnam{"グラム"}
@@ -431,6 +515,10 @@ ja{
                 dnam{"ポンド"}
                 other{"{0} ポンド"}
                 per{"{0}/ポンド"}
+            }
+            solar-mass{
+                dnam{"太陽質量"}
+                other{"{0} 太陽質量"}
             }
             stone{
                 dnam{"ストーン"}
@@ -472,6 +560,10 @@ ja{
                 dnam{"気圧"}
                 other{"{0} 気圧"}
             }
+            bar{
+                dnam{"バール"}
+                other{"{0} バール"}
+            }
             hectopascal{
                 dnam{"ヘクトパスカル"}
                 other{"{0} ヘクトパスカル"}
@@ -480,6 +572,14 @@ ja{
                 dnam{"水銀柱インチ"}
                 other{"{0} 水銀柱インチ"}
             }
+            kilopascal{
+                dnam{"キロパスカル"}
+                other{"{0} キロパスカル"}
+            }
+            megapascal{
+                dnam{"メガパスカル"}
+                other{"{0} メガパスカル"}
+            }
             millibar{
                 dnam{"ミリバール"}
                 other{"{0} ミリバール"}
@@ -487,6 +587,10 @@ ja{
             millimeter-of-mercury{
                 dnam{"水銀柱ミリメートル"}
                 other{"{0} 水銀柱ミリメートル"}
+            }
+            pascal{
+                dnam{"パスカル"}
+                other{"{0} パスカル"}
             }
             pound-per-square-inch{
                 dnam{"重量ポンド毎平方インチ"}
@@ -529,10 +633,24 @@ ja{
                 other{"{0} ケルビン"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ニュートンメートル"}
+                other{"{0} ニュートンメートル"}
+            }
+            pound-foot{
+                dnam{"ポンドフィート"}
+                other{"{0} ポンドフィート"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"エーカーフィート"}
                 other{"{0} エーカーフィート"}
+            }
+            barrel{
+                dnam{"バレル"}
+                other{"{0} バレル"}
             }
             bushel{
                 dnam{"ブッシェル"}
@@ -587,6 +705,10 @@ ja{
             fluid-ounce{
                 dnam{"液量オンス"}
                 other{"{0} 液量オンス"}
+            }
+            fluid-ounce-imperial{
+                dnam{"英液量オンス"}
+                other{"{0} 英液量オンス"}
             }
             gallon{
                 dnam{"ガロン"}
@@ -649,15 +771,6 @@ ja{
             }
         }
         angle{
-            arc-minute{
-                other{"{0}′"}
-            }
-            arc-second{
-                other{"{0}″"}
-            }
-            degree{
-                other{"{0}°"}
-            }
             radian{
                 other{"{0}rad"}
             }
@@ -693,6 +806,7 @@ ja{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -739,7 +853,7 @@ ja{
                 other{"{0}kb"}
             }
             kilobyte{
-                other{"{0}KB"}
+                other{"{0}kB"}
             }
             megabit{
                 other{"{0}Mb"}
@@ -788,7 +902,6 @@ ja{
                 per{"{0}/月"}
             }
             nanosecond{
-                dnam{"ns"}
                 other{"{0}ns"}
             }
             second{
@@ -870,7 +983,6 @@ ja{
                 other{"{0}dm"}
             }
             fathom{
-                dnam{"fm"}
                 other{"{0}fth"}
             }
             foot{
@@ -879,7 +991,6 @@ ja{
                 per{"{0}/ft"}
             }
             furlong{
-                dnam{"fur"}
                 other{"{0}fur"}
             }
             inch{
@@ -934,7 +1045,6 @@ ja{
                 other{"{0}pm"}
             }
             point{
-                dnam{"pt"}
                 other{"{0} pt"}
             }
             yard{
@@ -984,7 +1094,6 @@ ja{
                 per{"{0}/lb"}
             }
             stone{
-                dnam{"st"}
                 other{"{0}st"}
             }
             ton{
@@ -1074,7 +1183,6 @@ ja{
                 other{"{0}ac ft"}
             }
             bushel{
-                dnam{"bu"}
                 other{"{0}bu"}
             }
             centiliter{
@@ -1178,6 +1286,10 @@ ja{
                 dnam{"エーカー"}
                 other{"{0} ac"}
             }
+            dunam{
+                dnam{"ドゥナム"}
+                other{"{0}ドゥナム"}
+            }
             hectare{
                 dnam{"ヘクタール"}
                 other{"{0} ha"}
@@ -1218,6 +1330,7 @@ ja{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -1232,6 +1345,10 @@ ja{
                 dnam{"ミリモル毎リットル"}
                 other{"{0} mmol/L"}
             }
+            mole{
+                dnam{"モル"}
+                other{"{0} mol"}
+            }
             part-per-million{
                 dnam{"ppm"}
                 other{"{0} ppm"}
@@ -1243,6 +1360,10 @@ ja{
             permille{
                 dnam{"パーミル"}
                 other{"{0}‰"}
+            }
+            permyriad{
+                dnam{"パーミリアド"}
+                other{"{0}‱"}
             }
         }
         consumption{
@@ -1326,6 +1447,10 @@ ja{
                 other{"{0} 日"}
                 per{"{0}/日"}
             }
+            decade{
+                dnam{"十年"}
+                other{"{0} 十年"}
+            }
             hour{
                 dnam{"時間"}
                 other{"{0} 時間"}
@@ -1388,9 +1513,17 @@ ja{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"英熱量"}
+                other{"{0} BTU"}
+            }
             calorie{
                 dnam{"cal"}
                 other{"{0} cal"}
+            }
+            electronvolt{
+                dnam{"電子ボルト"}
+                other{"{0} eV"}
             }
             foodcalorie{
                 dnam{"cal"}
@@ -1412,6 +1545,20 @@ ja{
                 dnam{"キロワット時"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"米サーム"}
+                other{"{0} 米サーム"}
+            }
+        }
+        force{
+            newton{
+                dnam{"ニュートン"}
+                other{"{0} N"}
+            }
+            pound-force{
+                dnam{"重量ポンド"}
+                other{"{0} lbf"}
+            }
         }
         frequency{
             gigahertz{
@@ -1429,6 +1576,36 @@ ja{
             megahertz{
                 dnam{"MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                other{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                other{"{0} dpi"}
+            }
+            em{
+                dnam{"em"}
+                other{"{0} em"}
+            }
+            megapixel{
+                dnam{"メガピクセル"}
+                other{"{0} MP"}
+            }
+            pixel{
+                dnam{"ピクセル"}
+                other{"{0} px"}
+            }
+            pixel-per-centimeter{
+                dnam{"ppcm"}
+                other{"{0} ppcm"}
+            }
+            pixel-per-inch{
+                dnam{"ppi"}
+                other{"{0} ppi"}
             }
         }
         length{
@@ -1513,6 +1690,10 @@ ja{
                 dnam{"ポイント"}
                 other{"{0} pt"}
             }
+            solar-radius{
+                dnam{"太陽半径"}
+                other{"{0} R☉"}
+            }
             yard{
                 dnam{"ヤード"}
                 other{"{0} yd"}
@@ -1523,11 +1704,23 @@ ja{
                 dnam{"ルクス"}
                 other{"{0} lx"}
             }
+            solar-luminosity{
+                dnam{"太陽光度"}
+                other{"{0} L☉"}
+            }
         }
         mass{
             carat{
                 dnam{"カラット"}
                 other{"{0} ct"}
+            }
+            dalton{
+                dnam{"ダルトン"}
+                other{"{0} Da"}
+            }
+            earth-mass{
+                dnam{"地球質量"}
+                other{"{0} M⊕"}
             }
             gram{
                 dnam{"グラム"}
@@ -1564,6 +1757,10 @@ ja{
                 dnam{"ポンド"}
                 other{"{0} lb"}
                 per{"{0}/lb"}
+            }
+            solar-mass{
+                dnam{"太陽質量"}
+                other{"{0} M☉"}
             }
             stone{
                 dnam{"ストーン"}
@@ -1605,6 +1802,10 @@ ja{
                 dnam{"気圧"}
                 other{"{0} atm"}
             }
+            bar{
+                dnam{"バール"}
+                other{"{0} bar"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 other{"{0} hPa"}
@@ -1613,6 +1814,14 @@ ja{
                 dnam{"水銀柱インチ"}
                 other{"{0} inHg"}
             }
+            kilopascal{
+                dnam{"kPa"}
+                other{"{0} kPa"}
+            }
+            megapascal{
+                dnam{"MPa"}
+                other{"{0} MPa"}
+            }
             millibar{
                 dnam{"ミリバール"}
                 other{"{0} mb"}
@@ -1620,6 +1829,10 @@ ja{
             millimeter-of-mercury{
                 dnam{"水銀柱ミリメートル"}
                 other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"パスカル"}
+                other{"{0} Pa"}
             }
             pound-per-square-inch{
                 dnam{"重量ポンド毎平方インチ"}
@@ -1662,10 +1875,24 @@ ja{
                 other{"{0} K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ニュートンメートル"}
+                other{"{0} N⋅m"}
+            }
+            pound-foot{
+                dnam{"ポンドフィート"}
+                other{"{0} lbf⋅ft"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"エーカーフィート"}
                 other{"{0} ac ft"}
+            }
+            barrel{
+                dnam{"バレル"}
+                other{"{0} bbl"}
             }
             bushel{
                 dnam{"ブッシェル"}
@@ -1721,6 +1948,10 @@ ja{
                 dnam{"液量オンス"}
                 other{"{0} fl oz"}
             }
+            fluid-ounce-imperial{
+                dnam{"英液量オンス"}
+                other{"{0} fl oz Imp"}
+            }
             gallon{
                 dnam{"ガロン"}
                 other{"{0} gal"}
@@ -1738,7 +1969,7 @@ ja{
             liter{
                 dnam{"リットル"}
                 other{"{0} L"}
-                per{"{0}/l"}
+                per{"{0}/L"}
             }
             megaliter{
                 dnam{"メガリットル"}

@@ -211,7 +211,7 @@ class WifiProxy(shill_proxy.ShillProxy):
         result = self.wait_for_property_in(
                 service_object,
                 self.SERVICE_PROPERTY_STATE,
-                ('configuration', 'ready', 'portal', 'online'),
+                self.SERVICE_CONNECTED_STATES + ['configuration'],
                 association_timeout_seconds)
         (successful, _, association_time) = result
         if not successful:
@@ -224,7 +224,7 @@ class WifiProxy(shill_proxy.ShillProxy):
         result = self.wait_for_property_in(
                 service_object,
                 self.SERVICE_PROPERTY_STATE,
-                ('ready', 'portal', 'online'),
+                self.SERVICE_CONNECTED_STATES,
                 configuration_timeout_seconds)
         (successful, _, configuration_time) = result
         if not successful:
@@ -278,7 +278,7 @@ class WifiProxy(shill_proxy.ShillProxy):
 
     def configure_bgscan(self, interface, method=None, short_interval=None,
                          long_interval=None, signal=None):
-        """Configures bgscan parameters for wpa_supplicant.
+        """Configures bgscan parameters for shill and wpa_supplicant.
 
         @param interface string name of interface to configure (e.g. 'mlan0').
         @param method string bgscan method (e.g. 'none').

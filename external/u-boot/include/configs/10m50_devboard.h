@@ -22,7 +22,6 @@
  */
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	1024
-#define CONFIG_MTD_DEVICE
 
 /*
  * NET options
@@ -48,7 +47,6 @@
  */
 #define CONFIG_SYS_SDRAM_BASE		0xc8000000
 #define CONFIG_SYS_SDRAM_SIZE		0x08000000
-#define CONFIG_NR_DRAM_BANKS		1
 #define CONFIG_MONITOR_IS_IN_RAM
 #define CONFIG_SYS_MONITOR_LEN		0x80000	/* Reserve 512k */
 #define CONFIG_SYS_MONITOR_BASE	(CONFIG_SYS_SDRAM_BASE + \
@@ -64,9 +62,7 @@
  * (which is common practice).
  */
 
-#define CONFIG_ENV_SIZE			0x10000	/* 64k, 1 sector */
 #define CONFIG_ENV_OVERWRITE		/* Serial change Ok	*/
-#define CONFIG_ENV_ADDR			(0xf4000000 + CONFIG_SYS_MONITOR_LEN)
 
 /*
  * MISC

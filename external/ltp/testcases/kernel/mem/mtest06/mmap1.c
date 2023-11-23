@@ -11,6 +11,15 @@
  * hit SIGSEGV in between mmap/munmap it is a failure. If a read
  * between mmap/munmap worked, then its value must match expected
  * value.
+ *
+ * Can trigger panics/stalls since at least 4.14 on some arches:
+ *   fc8efd2ddfed ("mm/memory.c: do_fault: avoid usage of stale vm_area_struct")
+ * Can trigger user-space stalls on aarch64:
+ *   7a30df49f63a ("mm: mmu_gather: remove __tlb_reset_range() for force flush")
+ *   https://lore.kernel.org/linux-mm/1817839533.20996552.1557065445233.JavaMail.zimbra@redhat.com
+ * Can trigger "still mapped when deleted" BUG at mm/filemap.c:171, on aarch64 since 4.20
+ *   e1b98fa31664 ("locking/rwsem: Add missing ACQUIRE to read_slowpath exit when queue is empty")
+ *   99143f82a255 ("lcoking/rwsem: Add missing ACQUIRE to read_slowpath sleep loop")
  */
 #include <errno.h>
 #include <float.h>
@@ -19,10 +28,15 @@
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "lapi/abisize.h"
 #include "tst_test.h"
 #include "tst_safe_pthread.h"
 
-#define DISTANT_MMAP_SIZE (64*1024*1024)
+#ifdef TST_ABI32
+#  define DISTANT_MMAP_SIZE (256*1024*1024)
+#else
+#  define DISTANT_MMAP_SIZE (2L*1024*1024*1024)
+#endif
 #define TEST_FILENAME "ashfile"
 
 /* seconds remaining before reaching timeout */
@@ -208,9 +222,9 @@ static void setup(void)
 static void run(void)
 {
 	pthread_t thid[2];
-	int remaining = tst_timeout_remaining();
-	int elapsed = 0;
+	int start, last_update;
 
+	start = last_update = tst_timeout_remaining();
 	while (tst_timeout_remaining() > STOP_THRESHOLD) {
 		int fd = mkfile(file_size);
 
@@ -226,14 +240,15 @@ static void run(void)
 
 		close(fd);
 
-		if (remaining - tst_timeout_remaining() > PROGRESS_SEC) {
-			remaining = tst_timeout_remaining();
-			elapsed += PROGRESS_SEC;
-			tst_res(TINFO, "[%d] mapped: %lu, sigsegv hit: %lu, "
-				"threads spawned: %lu",	elapsed, map_count,
-				mapped_sigsegv_count, threads_spawned);
-			tst_res(TINFO, "[%d] repeated_reads: %ld, "
-				"data_matched: %lu", elapsed, repeated_reads,
+		if (last_update - tst_timeout_remaining() >= PROGRESS_SEC) {
+			last_update = tst_timeout_remaining();
+			tst_res(TINFO, "[%03d] mapped: %lu, sigsegv hit: %lu, "
+				"threads spawned: %lu",
+				start - tst_timeout_remaining(),
+				map_count, mapped_sigsegv_count,
+				threads_spawned);
+			tst_res(TINFO, "      repeated_reads: %ld, "
+				"data_matched: %lu", repeated_reads,
 				data_matched);
 		}
 	}

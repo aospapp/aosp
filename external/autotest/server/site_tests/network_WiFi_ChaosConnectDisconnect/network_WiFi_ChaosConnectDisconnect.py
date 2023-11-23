@@ -22,7 +22,7 @@ class network_WiFi_ChaosConnectDisconnect(test.test):
 
         @param capturer: a packet capture device
         @param capturer_frequency: integer channel frequency in MHz.
-        @param capturer_ht_type: string specifier of channel HT type.
+        @param capturer_ht_type: object specifier of channel HT type.
         @param host: an Autotest host object, DUT.
         @param assoc_params: an AssociationParameters object.
         @param client: WiFiClient object
@@ -38,7 +38,8 @@ class network_WiFi_ChaosConnectDisconnect(test.test):
             if not client.shill.init_test_network_state():
                 return 'Failed to set up isolated test context profile.'
 
-            capturer.start_capture(capturer_frequency, ht_type=capturer_ht_type)
+            capturer.start_capture(capturer_frequency,
+                    width_type=capturer_ht_type)
             try:
                 success = False
                 logging.info('Connection attempt %d', i)

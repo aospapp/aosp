@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import traceback
+import uuid
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.bin import utils
 from autotest_lib.server import test, autotest
@@ -19,6 +20,82 @@ class platform_BootPerfServer(test.test):
     """A test that reboots the client and collect boot perf data."""
     version = 1
 
+    def _is_rootfs_verification_enabled(self, host):
+        """Helper function to check whether rootfs verification is enabled"""
+        kernel_cmdline = host.run_output('cat /proc/cmdline')
+        return 'dm_verity.dev_wait=1' in kernel_cmdline
+
+    def _get_root_partition(self, host):
+        """Helper function for getting the partition index from the system. """
+        # Determine root partition
+        rootdev = host.run_output('rootdev -s')
+        # Sample value of rootdev: "/dev/mmcblk0p3" or "/dev/nvme0n1p3." For
+        # "/dev/mmcblk0p3", the target is partition 2. Extract the last digit
+        # to get the partition index.
+        logging.info('rootdev: %s', rootdev)
+        match = re.match(r'^/dev/.*\dp(\d+)$', rootdev)
+        if match:
+            return int(match.group(1)) - 1
+
+        return None
+
+    def _edit_kernel_args(self, host, gen_sed_command):
+        """Helper function for editing kernel args."""
+        partition = self._get_root_partition(host)
+        if partition is None:
+            logging.warn('Unable to get root partition index')
+            return
+
+        tmp_name = str(uuid.uuid4())
+
+        # Save the current boot config.
+        host.run(('/usr/share/vboot/bin/make_dev_ssd.sh --save_config /tmp/%s '
+                  '--partitions %d') % (tmp_name, partition))
+        # Add "cros_bootchart" to the boot config and then make it effective.
+        tmp_file = '/tmp/%s.%d' % (tmp_name, partition)
+        host.run(gen_sed_command(tmp_file))
+        host.run(('/usr/share/vboot/bin/make_dev_ssd.sh --set_config /tmp/%s '
+                '--partitions %d') % (tmp_name, partition))
+
+    def initialize(self, host):
+        """Initialization steps before running the test"""
+        # Some tests might disable rootfs verification and mount rootfs as rw.
+        # If we run after those tests, re-enable rootfs verification to get
+        # consistent boot perf metrics.
+        if not self._is_rootfs_verification_enabled(host):
+            logging.info('Reimage to enable rootfs verification.')
+            version = host.get_release_builder_path()
+            # Force reimage to the current version to enable rootfs
+            # verification.
+            self.job.run_test('provision_AutoUpdate', host=host, value=version,
+                              force_update_engine=True)
+
+        # Bootchart is shipped but disabled by default in the image. Before
+        # the test, enable by adding 'cros_bootchart' to the kernel arg list.
+        kernel_cmdline = host.run_output('cat /proc/cmdline')
+        if 'cros_bootchart' in kernel_cmdline:
+            logging.warn('cros_bootchart is enabled before the test.')
+            return
+
+        logging.info('Enable bootchart.')
+        self._edit_kernel_args(
+            host,
+            lambda tmp_file: 'sed -i "s/$/ cros_bootchart/g" %s' % tmp_file)
+
+    def cleanup(self, host):
+        """After running the test, disable cros_bootchart by removing
+        "cros_bootchart" from the kernel arg list.
+        """
+        kernel_cmdline = host.run_output('cat /proc/cmdline')
+        if 'cros_bootchart' not in kernel_cmdline:
+            logging.warn('Bootchart not enabled in the test.')
+            return
+
+        logging.info('Disable cros_bootchart and reboot.')
+        self._edit_kernel_args(
+            host,
+            lambda tmp_file: 'sed -i "s/ cros_bootchart//g" %s' % tmp_file)
+        host.reboot()
 
     def upload_perf_keyvals(self, keyvals):
         """Upload perf keyvals in dictionary |keyvals| to Chrome perf dashboard.
@@ -43,6 +120,7 @@ class platform_BootPerfServer(test.test):
 
 
     def run_once(self, host=None, upload_perf=False):
+        """Runs the test once: reboot and collect boot metrics from DUT."""
         self.client = host
         self.client_test = 'platform_BootPerf'
 

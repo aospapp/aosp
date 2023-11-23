@@ -6,13 +6,13 @@ third_party {
     value: "https://github.com/google/guava"
   }
   url {
-    type: ARCHIVE
-    value: "https://github.com/google/guava/archive/v18.0.tar.gz"
+    type: GIT
+    value: "https://github.com/google/guava.git"
   }
-  version: "18.0"
+  version: "27.1"
   last_upgrade_date {
-    year: 2015
-    month: 6
-    day: 11
+    year: 2019
+    month: 4
+    day: 10
   }
 }

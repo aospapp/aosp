@@ -385,19 +385,27 @@ static AvbSlotVerifyResult load_and_verify_hash_partition(
   if (ret != AVB_SLOT_VERIFY_RESULT_OK) {
     goto out;
   }
-
+  // Although only one of the type might be used, we have to defined the
+  // structure here so that they would live outside the 'if/else' scope to be
+  // used later.
+  AvbSHA256Ctx sha256_ctx;
+  AvbSHA512Ctx sha512_ctx;
+  size_t image_size_to_hash = hash_desc.image_size;
+  // If we allow verification error and the whole partition is smaller than
+  // image size in hash descriptor, we just hash the whole partition.
+  if (image_size_to_hash > image_size) {
+    image_size_to_hash = image_size;
+  }
   if (avb_strcmp((const char*)hash_desc.hash_algorithm, "sha256") == 0) {
-    AvbSHA256Ctx sha256_ctx;
     avb_sha256_init(&sha256_ctx);
     avb_sha256_update(&sha256_ctx, desc_salt, hash_desc.salt_len);
-    avb_sha256_update(&sha256_ctx, image_buf, hash_desc.image_size);
+    avb_sha256_update(&sha256_ctx, image_buf, image_size_to_hash);
     digest = avb_sha256_final(&sha256_ctx);
     digest_len = AVB_SHA256_DIGEST_SIZE;
   } else if (avb_strcmp((const char*)hash_desc.hash_algorithm, "sha512") == 0) {
-    AvbSHA512Ctx sha512_ctx;
     avb_sha512_init(&sha512_ctx);
     avb_sha512_update(&sha512_ctx, desc_salt, hash_desc.salt_len);
-    avb_sha512_update(&sha512_ctx, image_buf, hash_desc.image_size);
+    avb_sha512_update(&sha512_ctx, image_buf, image_size_to_hash);
     digest = avb_sha512_final(&sha512_ctx);
     digest_len = AVB_SHA512_DIGEST_SIZE;
   } else {
@@ -550,6 +558,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
     AvbOps* ops,
     const char* const* requested_partitions,
     const char* ab_suffix,
+    AvbSlotVerifyFlags flags,
     bool allow_verification_error,
     AvbVBMetaImageFlags toplevel_vbmeta_flags,
     int rollback_index_location,
@@ -563,7 +572,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
   char full_partition_name[AVB_PART_NAME_MAX_SIZE];
   AvbSlotVerifyResult ret;
   AvbIOResult io_ret;
-  size_t vbmeta_offset;
+  uint64_t vbmeta_offset;
   size_t vbmeta_size;
   uint8_t* vbmeta_buf = NULL;
   size_t vbmeta_num_read;
@@ -576,7 +585,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
   size_t num_descriptors;
   size_t n;
   bool is_main_vbmeta;
-  bool is_vbmeta_partition;
+  bool look_for_vbmeta_footer;
   AvbVBMetaData* vbmeta_image_data = NULL;
 
   ret = AVB_SLOT_VERIFY_RESULT_OK;
@@ -587,8 +596,20 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
    * rollback_index_location to determine whether we're the main
    * vbmeta struct.
    */
-  is_main_vbmeta = (rollback_index_location == 0);
-  is_vbmeta_partition = (avb_strcmp(partition_name, "vbmeta") == 0);
+  is_main_vbmeta = false;
+  if (rollback_index_location == 0) {
+    if ((flags & AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION) == 0) {
+      is_main_vbmeta = true;
+    }
+  }
+
+  /* Don't use footers for vbmeta partitions ('vbmeta' or
+   * 'vbmeta_<partition_name>').
+   */
+  look_for_vbmeta_footer = true;
+  if (avb_strncmp(partition_name, "vbmeta", avb_strlen("vbmeta")) == 0) {
+    look_for_vbmeta_footer = false;
+  }
 
   if (!avb_validate_utf8((const uint8_t*)partition_name, partition_name_len)) {
     avb_error("Partition name is not valid UTF-8.\n");
@@ -616,7 +637,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
    */
   vbmeta_offset = 0;
   vbmeta_size = VBMETA_MAX_SIZE;
-  if (!is_vbmeta_partition) {
+  if (look_for_vbmeta_footer) {
     uint8_t footer_buf[AVB_FOOTER_SIZE];
     size_t footer_num_read;
     AvbFooter footer;
@@ -684,13 +705,14 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
      * go try to get it from the boot partition instead.
      */
     if (is_main_vbmeta && io_ret == AVB_IO_RESULT_ERROR_NO_SUCH_PARTITION &&
-        is_vbmeta_partition) {
+        !look_for_vbmeta_footer) {
       avb_debugv(full_partition_name,
                  ": No such partition. Trying 'boot' instead.\n",
                  NULL);
       ret = load_and_verify_vbmeta(ops,
                                    requested_partitions,
                                    ab_suffix,
+                                   flags,
                                    allow_verification_error,
                                    0 /* toplevel_vbmeta_flags */,
                                    0 /* rollback_index_location */,
@@ -768,6 +790,8 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
     }
   }
 
+  uint32_t rollback_index_location_to_use = rollback_index_location;
+
   /* Check if key used to make signature matches what is expected. */
   if (pk_data != NULL) {
     if (expected_public_key != NULL) {
@@ -795,9 +819,27 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
         pk_metadata_len = vbmeta_header.public_key_metadata_size;
       }
 
-      avb_assert(is_main_vbmeta);
-      io_ret = ops->validate_vbmeta_public_key(
-          ops, pk_data, pk_len, pk_metadata, pk_metadata_len, &key_is_trusted);
+      // If we're not using a vbmeta partition, need to use another AvbOps...
+      if (flags & AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION) {
+        io_ret = ops->validate_public_key_for_partition(
+            ops,
+            full_partition_name,
+            pk_data,
+            pk_len,
+            pk_metadata,
+            pk_metadata_len,
+            &key_is_trusted,
+            &rollback_index_location_to_use);
+      } else {
+        avb_assert(is_main_vbmeta);
+        io_ret = ops->validate_vbmeta_public_key(ops,
+                                                 pk_data,
+                                                 pk_len,
+                                                 pk_metadata,
+                                                 pk_metadata_len,
+                                                 &key_is_trusted);
+      }
+
       if (io_ret == AVB_IO_RESULT_ERROR_OOM) {
         ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
         goto out;
@@ -822,7 +864,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
 
   /* Check rollback index. */
   io_ret = ops->read_rollback_index(
-      ops, rollback_index_location, &stored_rollback_index);
+      ops, rollback_index_location_to_use, &stored_rollback_index);
   if (io_ret == AVB_IO_RESULT_ERROR_OOM) {
     ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
     goto out;
@@ -848,7 +890,9 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
   if (is_main_vbmeta) {
     avb_assert(slot_data->num_vbmeta_images == 0);
   } else {
-    avb_assert(slot_data->num_vbmeta_images > 0);
+    if (!(flags & AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION)) {
+      avb_assert(slot_data->num_vbmeta_images > 0);
+    }
   }
   if (slot_data->num_vbmeta_images == MAX_NUMBER_OF_VBMETA_IMAGES) {
     avb_errorv(full_partition_name, ": Too many vbmeta images.\n", NULL);
@@ -972,6 +1016,7 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
             load_and_verify_vbmeta(ops,
                                    requested_partitions,
                                    ab_suffix,
+                                   flags,
                                    allow_verification_error,
                                    toplevel_vbmeta_flags,
                                    chain_desc.rollback_index_location,
@@ -1160,7 +1205,8 @@ static AvbSlotVerifyResult load_and_verify_vbmeta(
     }
   }
 
-  if (rollback_index_location >= AVB_MAX_NUMBER_OF_ROLLBACK_INDEX_LOCATIONS) {
+  if (rollback_index_location < 0 ||
+      rollback_index_location >= AVB_MAX_NUMBER_OF_ROLLBACK_INDEX_LOCATIONS) {
     avb_errorv(
         full_partition_name, ": Invalid rollback_index_location.\n", NULL);
     ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA;
@@ -1332,7 +1378,6 @@ AvbSlotVerifyResult avb_slot_verify(AvbOps* ops,
   avb_assert(ops->read_is_device_unlocked != NULL);
   avb_assert(ops->read_from_partition != NULL);
   avb_assert(ops->get_size_of_partition != NULL);
-  avb_assert(ops->validate_vbmeta_public_key != NULL);
   avb_assert(ops->read_rollback_index != NULL);
   avb_assert(ops->get_unique_guid_for_partition != NULL);
 
@@ -1365,6 +1410,21 @@ AvbSlotVerifyResult avb_slot_verify(AvbOps* ops,
     }
   }
 
+  /* Make sure passed-in AvbOps support verifying public keys and getting
+   * rollback index location if not using a vbmeta partition.
+   */
+  if (flags & AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION) {
+    if (ops->validate_public_key_for_partition == NULL) {
+      avb_error(
+          "AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION was passed but the "
+          "validate_public_key_for_partition() operation isn't implemented.\n");
+      ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+      goto fail;
+    }
+  } else {
+    avb_assert(ops->validate_vbmeta_public_key != NULL);
+  }
+
   slot_data = avb_calloc(sizeof(AvbSlotVerifyData));
   if (slot_data == NULL) {
     ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
@@ -1389,122 +1449,161 @@ AvbSlotVerifyResult avb_slot_verify(AvbOps* ops,
     goto fail;
   }
 
-  ret = load_and_verify_vbmeta(ops,
-                               requested_partitions,
-                               ab_suffix,
-                               allow_verification_error,
-                               0 /* toplevel_vbmeta_flags */,
-                               0 /* rollback_index_location */,
-                               "vbmeta",
-                               avb_strlen("vbmeta"),
-                               NULL /* expected_public_key */,
-                               0 /* expected_public_key_length */,
-                               slot_data,
-                               &algorithm_type,
-                               additional_cmdline_subst);
-  if (!allow_verification_error && ret != AVB_SLOT_VERIFY_RESULT_OK) {
+  if (flags & AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION) {
+    if (requested_partitions == NULL || requested_partitions[0] == NULL) {
+      avb_fatal(
+          "Requested partitions cannot be empty when using "
+          "AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION");
+      ret = AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT;
+      goto fail;
+    }
+
+    /* No vbmeta partition, go through each of the requested partitions... */
+    for (size_t n = 0; requested_partitions[n] != NULL; n++) {
+      ret = load_and_verify_vbmeta(ops,
+                                   requested_partitions,
+                                   ab_suffix,
+                                   flags,
+                                   allow_verification_error,
+                                   0 /* toplevel_vbmeta_flags */,
+                                   0 /* rollback_index_location */,
+                                   requested_partitions[n],
+                                   avb_strlen(requested_partitions[n]),
+                                   NULL /* expected_public_key */,
+                                   0 /* expected_public_key_length */,
+                                   slot_data,
+                                   &algorithm_type,
+                                   additional_cmdline_subst);
+      if (!allow_verification_error && ret != AVB_SLOT_VERIFY_RESULT_OK) {
+        goto fail;
+      }
+    }
+
+  } else {
+    /* Usual path, load "vbmeta"... */
+    ret = load_and_verify_vbmeta(ops,
+                                 requested_partitions,
+                                 ab_suffix,
+                                 flags,
+                                 allow_verification_error,
+                                 0 /* toplevel_vbmeta_flags */,
+                                 0 /* rollback_index_location */,
+                                 "vbmeta",
+                                 avb_strlen("vbmeta"),
+                                 NULL /* expected_public_key */,
+                                 0 /* expected_public_key_length */,
+                                 slot_data,
+                                 &algorithm_type,
+                                 additional_cmdline_subst);
+    if (!allow_verification_error && ret != AVB_SLOT_VERIFY_RESULT_OK) {
+      goto fail;
+    }
+  }
+
+  if (!result_should_continue(ret)) {
     goto fail;
   }
 
   /* If things check out, mangle the kernel command-line as needed. */
-  if (result_should_continue(ret)) {
+  if (!(flags & AVB_SLOT_VERIFY_FLAGS_NO_VBMETA_PARTITION)) {
     if (avb_strcmp(slot_data->vbmeta_images[0].partition_name, "vbmeta") != 0) {
       avb_assert(
           avb_strcmp(slot_data->vbmeta_images[0].partition_name, "boot") == 0);
       using_boot_for_vbmeta = true;
     }
+  }
 
-    /* Byteswap top-level vbmeta header since we'll need it below. */
-    avb_vbmeta_image_header_to_host_byte_order(
-        (const AvbVBMetaImageHeader*)slot_data->vbmeta_images[0].vbmeta_data,
-        &toplevel_vbmeta);
+  /* Byteswap top-level vbmeta header since we'll need it below. */
+  avb_vbmeta_image_header_to_host_byte_order(
+      (const AvbVBMetaImageHeader*)slot_data->vbmeta_images[0].vbmeta_data,
+      &toplevel_vbmeta);
 
-    /* Fill in |ab_suffix| field. */
-    slot_data->ab_suffix = avb_strdup(ab_suffix);
-    if (slot_data->ab_suffix == NULL) {
+  /* Fill in |ab_suffix| field. */
+  slot_data->ab_suffix = avb_strdup(ab_suffix);
+  if (slot_data->ab_suffix == NULL) {
+    ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+    goto fail;
+  }
+
+  /* If verification is disabled, we are done ... we specifically
+   * don't want to add any androidboot.* options since verification
+   * is disabled.
+   */
+  if (toplevel_vbmeta.flags & AVB_VBMETA_IMAGE_FLAGS_VERIFICATION_DISABLED) {
+    /* Since verification is disabled we didn't process any
+     * descriptors and thus there's no cmdline... so set root= such
+     * that the system partition is mounted.
+     */
+    avb_assert(slot_data->cmdline == NULL);
+    // Devices with dynamic partitions won't have system partition.
+    // Instead, it has a large super partition to accommodate *.img files.
+    // See b/119551429 for details.
+    if (has_system_partition(ops, ab_suffix)) {
+      slot_data->cmdline =
+          avb_strdup("root=PARTUUID=$(ANDROID_SYSTEM_PARTUUID)");
+    } else {
+      // The |cmdline| field should be a NUL-terminated string.
+      slot_data->cmdline = avb_strdup("");
+    }
+    if (slot_data->cmdline == NULL) {
       ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
       goto fail;
     }
-
-    /* If verification is disabled, we are done ... we specifically
-     * don't want to add any androidboot.* options since verification
-     * is disabled.
-     */
-    if (toplevel_vbmeta.flags & AVB_VBMETA_IMAGE_FLAGS_VERIFICATION_DISABLED) {
-      /* Since verification is disabled we didn't process any
-       * descriptors and thus there's no cmdline... so set root= such
-       * that the system partition is mounted.
-       */
-      avb_assert(slot_data->cmdline == NULL);
-      // Devices with dynamic partitions won't have system partition.
-      // Instead, it has a large super partition to accommodate *.img files.
-      // See b/119551429 for details.
-      if (has_system_partition(ops, ab_suffix)) {
-        slot_data->cmdline =
-            avb_strdup("root=PARTUUID=$(ANDROID_SYSTEM_PARTUUID)");
-      } else {
-        // The |cmdline| field should be a NUL-terminated string.
-        slot_data->cmdline = avb_strdup("");
+  } else {
+    /* If requested, manage dm-verity mode... */
+    AvbHashtreeErrorMode resolved_hashtree_error_mode = hashtree_error_mode;
+    if (hashtree_error_mode ==
+        AVB_HASHTREE_ERROR_MODE_MANAGED_RESTART_AND_EIO) {
+      AvbIOResult io_ret;
+      io_ret = avb_manage_hashtree_error_mode(
+          ops, flags, slot_data, &resolved_hashtree_error_mode);
+      if (io_ret != AVB_IO_RESULT_OK) {
+        ret = AVB_SLOT_VERIFY_RESULT_ERROR_IO;
+        if (io_ret == AVB_IO_RESULT_ERROR_OOM) {
+          ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
+        }
+        goto fail;
       }
-      if (slot_data->cmdline == NULL) {
+    }
+    slot_data->resolved_hashtree_error_mode = resolved_hashtree_error_mode;
+
+    /* Add options... */
+    AvbSlotVerifyResult sub_ret;
+    sub_ret = avb_append_options(ops,
+                                 flags,
+                                 slot_data,
+                                 &toplevel_vbmeta,
+                                 algorithm_type,
+                                 hashtree_error_mode,
+                                 resolved_hashtree_error_mode);
+    if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
+      ret = sub_ret;
+      goto fail;
+    }
+  }
+
+  /* Substitute $(ANDROID_SYSTEM_PARTUUID) and friends. */
+  if (slot_data->cmdline != NULL && avb_strlen(slot_data->cmdline) != 0) {
+    char* new_cmdline;
+    new_cmdline = avb_sub_cmdline(ops,
+                                  slot_data->cmdline,
+                                  ab_suffix,
+                                  using_boot_for_vbmeta,
+                                  additional_cmdline_subst);
+    if (new_cmdline != slot_data->cmdline) {
+      if (new_cmdline == NULL) {
         ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
         goto fail;
       }
-    } else {
-      /* If requested, manage dm-verity mode... */
-      AvbHashtreeErrorMode resolved_hashtree_error_mode = hashtree_error_mode;
-      if (hashtree_error_mode ==
-          AVB_HASHTREE_ERROR_MODE_MANAGED_RESTART_AND_EIO) {
-        AvbIOResult io_ret;
-        io_ret = avb_manage_hashtree_error_mode(
-            ops, flags, slot_data, &resolved_hashtree_error_mode);
-        if (io_ret != AVB_IO_RESULT_OK) {
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_IO;
-          if (io_ret == AVB_IO_RESULT_ERROR_OOM) {
-            ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
-          }
-          goto fail;
-        }
-      }
-      slot_data->resolved_hashtree_error_mode = resolved_hashtree_error_mode;
-
-      /* Add options... */
-      AvbSlotVerifyResult sub_ret;
-      sub_ret = avb_append_options(ops,
-                                   slot_data,
-                                   &toplevel_vbmeta,
-                                   algorithm_type,
-                                   hashtree_error_mode,
-                                   resolved_hashtree_error_mode);
-      if (sub_ret != AVB_SLOT_VERIFY_RESULT_OK) {
-        ret = sub_ret;
-        goto fail;
-      }
+      avb_free(slot_data->cmdline);
+      slot_data->cmdline = new_cmdline;
     }
+  }
 
-    /* Substitute $(ANDROID_SYSTEM_PARTUUID) and friends. */
-    if (slot_data->cmdline != NULL && avb_strlen(slot_data->cmdline) != 0) {
-      char* new_cmdline;
-      new_cmdline = avb_sub_cmdline(ops,
-                                    slot_data->cmdline,
-                                    ab_suffix,
-                                    using_boot_for_vbmeta,
-                                    additional_cmdline_subst);
-      if (new_cmdline != slot_data->cmdline) {
-        if (new_cmdline == NULL) {
-          ret = AVB_SLOT_VERIFY_RESULT_ERROR_OOM;
-          goto fail;
-        }
-        avb_free(slot_data->cmdline);
-        slot_data->cmdline = new_cmdline;
-      }
-    }
-
-    if (out_data != NULL) {
-      *out_data = slot_data;
-    } else {
-      avb_slot_verify_data_free(slot_data);
-    }
+  if (out_data != NULL) {
+    *out_data = slot_data;
+  } else {
+    avb_slot_verify_data_free(slot_data);
   }
 
   avb_free_cmdline_subst_list(additional_cmdline_subst);

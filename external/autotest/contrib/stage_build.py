@@ -1,4 +1,4 @@
-#!/usr/bin/python -t
+#!/usr/bin/python2 -t
 
 """
 Nice little script to quickly stage a build onto a devserver.

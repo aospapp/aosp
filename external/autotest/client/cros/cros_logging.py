@@ -67,21 +67,25 @@ class AbstractLogReader(object):
 
         @param index: line matching regexp to start at, earliest log at 0.
                 Negative numbers indicate matches since end of log.
+
+        @return True if a matching line was found, false otherwise
         """
         regexp_compiled = re.compile(regexp)
         starts = []
         line_number = 1
         self._start_line = 1
         for line in self.read_all_logs():
-            if regexp_compiled.match(line):
+            if regexp_compiled.search(line):
                 starts.append(line_number)
             line_number += 1
         if index < -len(starts):
             self._start_line = 1
+            return False
         elif index >= len(starts):
             self._start_line = line_number
         else:
             self._start_line = starts[index]
+        return True
 
 
     def set_start_by_reboot(self, index):
@@ -89,11 +93,13 @@ class AbstractLogReader(object):
 
         @param index: reboot to start at, earliest log at 0.  Negative
                 numbers indicate reboots since end of log.
+
+        @return True if the boot message line was found, False otherwise
         """
         # Include a 'kernel' tag to avoid matching boot messages logged by
         # crosvm: https://crbug.com/817946
         return self.set_start_by_regexp(index,
-                                        r'kernel:.*000\] Linux version \d')
+                                        r'kernel:(.*000\])? Linux version \d')
 
 
     def set_start_by_current(self, relative=0):

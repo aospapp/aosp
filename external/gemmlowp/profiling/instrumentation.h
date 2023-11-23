@@ -108,13 +108,14 @@ struct ScopedLock {
 // contains pointers to literal strings that were manually entered
 // in the instrumented code (see ScopedProfilingLabel).
 struct ProfilingStack {
-  static const std::size_t kMaxSize = 14;
+  static const std::size_t kMaxSize = 30;
   typedef const char* LabelsArrayType[kMaxSize];
   LabelsArrayType labels;
   std::size_t size;
   Mutex* lock;
 
   ProfilingStack() { memset(this, 0, sizeof(ProfilingStack)); }
+  ~ProfilingStack() { delete lock; }
 
   void Push(const char* label) {
     ScopedLock sl(lock);
@@ -171,8 +172,6 @@ struct ThreadInfo {
     ScopedLock sl(GlobalMutexes::Profiler());
     ThreadInfo* self = static_cast<ThreadInfo*>(ptr);
     ThreadsUnderProfiling().erase(self);
-    pthread_key_delete(self->key);
-    delete self->stack.lock;
   }
 };
 
@@ -185,7 +184,11 @@ inline ThreadInfo& ThreadLocalThreadInfo() {
     }
   };
 
-  static int key_result = pthread_key_create(&key, DeleteThreadInfo);
+  // key_result is unused. The purpose of this 'static' local object is
+  // to have its initializer (the pthread_key_create call) performed exactly
+  // once, in a way that is guaranteed (since C++11) to be reentrant.
+  static const int key_result = pthread_key_create(&key, DeleteThreadInfo);
+  (void)key_result;
 
   ThreadInfo* threadInfo = static_cast<ThreadInfo*>(pthread_getspecific(key));
   if (!threadInfo) {

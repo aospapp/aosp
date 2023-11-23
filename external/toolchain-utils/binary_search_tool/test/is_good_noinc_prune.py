@@ -1,4 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Check to see if the working set produces a good executable.
 
 This test script is made for the noincremental-prune test. This makes sure
@@ -12,16 +17,16 @@ from __future__ import print_function
 import os
 import sys
 
-import common
+from binary_search_tool.test import common
 
 
 def Main():
   working_set = common.ReadWorkingSet()
 
-  with open('noinc_prune_good', 'r') as good_args:
+  with open('noinc_prune_good', 'r', encoding='utf-8') as good_args:
     num_good_args = len(good_args.readlines())
 
-  with open('noinc_prune_bad', 'r') as bad_args:
+  with open('noinc_prune_bad', 'r', encoding='utf-8') as bad_args:
     num_bad_args = len(bad_args.readlines())
 
   num_args = num_good_args + num_bad_args

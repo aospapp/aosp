@@ -289,7 +289,8 @@ int hs20_anqp_send_req(struct wpa_supplicant *wpa_s, const u8 *dst, u32 stypes,
 	if (buf == NULL)
 		return -1;
 
-	res = gas_query_req(wpa_s->gas, dst, freq, 0, buf, anqp_resp_cb, wpa_s);
+	res = gas_query_req(wpa_s->gas, dst, freq, 0, 0, buf, anqp_resp_cb,
+			    wpa_s);
 	if (res < 0) {
 		wpa_printf(MSG_DEBUG, "ANQP: Failed to send Query Request");
 		wpabuf_free(buf);
@@ -341,7 +342,7 @@ int hs20_get_icon(struct wpa_supplicant *wpa_s, const u8 *bssid,
 {
 	struct icon_entry *icon;
 	size_t out_size;
-	unsigned char *b64;
+	char *b64;
 	size_t b64_size;
 	int reply_size;
 

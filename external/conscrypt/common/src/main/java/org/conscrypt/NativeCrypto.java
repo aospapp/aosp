@@ -321,6 +321,10 @@ public final class NativeCrypto {
 
     static native long EVP_aead_chacha20_poly1305();
 
+    static native long EVP_aead_aes_128_gcm_siv();
+
+    static native long EVP_aead_aes_256_gcm_siv();
+
     static native int EVP_AEAD_max_overhead(long evpAead);
 
     static native int EVP_AEAD_nonce_length(long evpAead);
@@ -522,7 +526,9 @@ public final class NativeCrypto {
 
     static native byte[] get_X509_CRL_signature(long x509ctx, OpenSSLX509CRL holder);
 
-    static native void X509_CRL_verify(long x509CrlCtx, OpenSSLX509CRL holder, NativeRef.EVP_PKEY pkeyCtx);
+    static native void X509_CRL_verify(long x509CrlCtx, OpenSSLX509CRL holder,
+        NativeRef.EVP_PKEY pkeyCtx) throws BadPaddingException, SignatureException,
+        NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException;
 
     static native byte[] get_X509_CRL_crl_enc(long x509CrlCtx, OpenSSLX509CRL holder);
 
@@ -962,7 +968,7 @@ public final class NativeCrypto {
             SUPPORTED_PROTOCOL_TLSV1_1,
             SUPPORTED_PROTOCOL_TLSV1_2,
             SUPPORTED_PROTOCOL_TLSV1_3,
-    };;
+    };
 
     static String[] getSupportedProtocols() {
         return SUPPORTED_PROTOCOLS.clone();
@@ -1218,10 +1224,18 @@ public final class NativeCrypto {
          * convertible to strings with #keyType
          * @param asn1DerEncodedX500Principals CAs known to the server
          */
-        @SuppressWarnings("unused")
-        void clientCertificateRequested(byte[] keyTypes, int[] signatureAlgs,
+        @SuppressWarnings("unused") void clientCertificateRequested(byte[] keyTypes, int[] signatureAlgs,
                 byte[][] asn1DerEncodedX500Principals)
                 throws CertificateEncodingException, SSLException;
+
+        /**
+         * Called when acting as a server during ClientHello processing before a decision
+         * to resume a session is made. This allows the selection of the correct server
+         * certificate based on things like Server Name Indication (SNI).
+         *
+         * @throws IOException if there was an error during certificate selection.
+         */
+        @SuppressWarnings("unused") void serverCertificateRequested() throws IOException;
 
         /**
          * Gets the key to be used in client mode for this connection in Pre-Shared Key (PSK) key
@@ -1255,15 +1269,13 @@ public final class NativeCrypto {
         /**
          * Called when SSL state changes. This could be handshake completion.
          */
-        @SuppressWarnings("unused")
-        void onSSLStateChange(int type, int val);
+        @SuppressWarnings("unused") void onSSLStateChange(int type, int val);
 
         /**
          * Called when a new session has been established and may be added to the session cache.
          * The callee is responsible for incrementing the reference count on the returned session.
          */
-        @SuppressWarnings("unused")
-        void onNewSessionEstablished(long sslSessionNativePtr);
+        @SuppressWarnings("unused") void onNewSessionEstablished(long sslSessionNativePtr);
 
         /**
          * Called for servers where TLS < 1.3 (TLS 1.3 uses session tickets rather than
@@ -1276,8 +1288,17 @@ public final class NativeCrypto {
          * @param id the ID of the session to find.
          * @return the cached session or {@code 0} if no session was found matching the given ID.
          */
-        @SuppressWarnings("unused")
-        long serverSessionRequested(byte[] id);
+        @SuppressWarnings("unused") long serverSessionRequested(byte[] id);
+
+        /**
+         * Called when acting as a server, the socket has an {@link
+         * ApplicationProtocolSelectorAdapter} associated with it,  and the application protocol
+         * needs to be selected.
+         *
+         * @param applicationProtocols list of application protocols in length-prefix format
+         * @return the index offset of the selected protocol
+         */
+        @SuppressWarnings("unused") int selectApplicationProtocol(byte[] applicationProtocols);
     }
 
     static native String SSL_CIPHER_get_kx_name(long cipherAddress);
@@ -1319,12 +1340,13 @@ public final class NativeCrypto {
             long ssl, NativeSsl ssl_holder, boolean client, byte[] protocols) throws IOException;
 
     /**
-     * Called for a server endpoint only. Enables ALPN and sets a BiFunction that will
-     * be called to delegate protocol selection to the application. Calling this method overrides
+     * Called for a server endpoint only. Enables ALPN and indicates that the {@link
+     * SSLHandshakeCallbacks#selectApplicationProtocol} will be called to select the
+     * correct protocol during a handshake. Calling this method overrides
      * {@link #setApplicationProtocols(long, NativeSsl, boolean, byte[])}.
      */
-    static native void setApplicationProtocolSelector(
-            long ssl, NativeSsl ssl_holder, ApplicationProtocolSelectorAdapter selector) throws IOException;
+    static native void setHasApplicationProtocolSelector(long ssl, NativeSsl ssl_holder, boolean hasSelector)
+            throws IOException;
 
     /**
      * Returns the selected ALPN protocol. If the server did not select a

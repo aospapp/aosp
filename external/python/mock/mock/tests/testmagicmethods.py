@@ -11,12 +11,13 @@ except NameError:
     unicode = str
     long = int
 
-import inspect
+import math
+import os
 import sys
 import textwrap
+import unittest
 
 import six
-import unittest2 as unittest
 
 from mock import Mock, MagicMock
 from mock.mock import _magics
@@ -302,7 +303,7 @@ class TestMockingMagicMethods(unittest.TestCase):
 
         for entry in _magics:
             self.assertTrue(hasattr(mock, entry))
-        self.assertFalse(hasattr(mock, '__imaginery__'))
+        self.assertFalse(hasattr(mock, '__imaginary__'))
 
 
     def test_magic_mock_equality(self):
@@ -330,6 +331,16 @@ class TestMockingMagicMethods(unittest.TestCase):
         self.assertEqual(unicode(mock), object.__str__(mock))
         self.assertIsInstance(unicode(mock), unicode)
         self.assertTrue(bool(mock))
+        self.assertEqual(math.trunc(mock), mock.__trunc__())
+        if six.PY2:
+            # These fall back to __float__ in Python 2:
+            self.assertEqual(round(mock), 1.0)
+            self.assertEqual(math.floor(mock), 1.0)
+            self.assertEqual(math.ceil(mock), 1.0)
+        else:
+            self.assertEqual(round(mock), mock.__round__())
+            self.assertEqual(math.floor(mock), mock.__floor__())
+            self.assertEqual(math.ceil(mock), mock.__ceil__())
         if six.PY2:
             self.assertEqual(oct(mock), '1')
         else:
@@ -351,10 +362,20 @@ class TestMockingMagicMethods(unittest.TestCase):
         self.assertEqual(mock, object())
 
 
+    def test_magic_methods_fspath(self):
+        mock = MagicMock()
+        if sys.version_info < (3, 6):
+            self.assertRaises(AttributeError, lambda: mock.__fspath__)
+        else:
+            expected_path = mock.__fspath__()
+            mock.reset_mock()
+            self.assertEqual(os.fspath(mock), expected_path)
+            mock.__fspath__.assert_called_once()
+
+
     def test_magic_methods_and_spec(self):
         class Iterable(object):
-            def __iter__(self):
-                pass
+            def __iter__(self): pass
 
         mock = Mock(spec=Iterable)
         self.assertRaises(AttributeError, lambda: mock.__iter__)
@@ -378,8 +399,7 @@ class TestMockingMagicMethods(unittest.TestCase):
 
     def test_magic_methods_and_spec_set(self):
         class Iterable(object):
-            def __iter__(self):
-                pass
+            def __iter__(self): pass
 
         mock = Mock(spec_set=Iterable)
         self.assertRaises(AttributeError, lambda: mock.__iter__)
@@ -405,7 +425,7 @@ class TestMockingMagicMethods(unittest.TestCase):
         mock = MagicMock()
         def set_setattr():
             mock.__setattr__ = lambda self, name: None
-        self.assertRaisesRegex(AttributeError,
+        self.assertRaisesRegexp(AttributeError,
             "Attempting to set unsupported magic method '__setattr__'.",
             set_setattr
         )
@@ -515,7 +535,7 @@ class TestMockingMagicMethods(unittest.TestCase):
         self.assertIsInstance(bar_direct, MagicMock)
 
     # http://bugs.python.org/issue23310
-    # Check if you can change behaviour of magic methds in MagicMock init
+    # Check if you can change behaviour of magic methods in MagicMock init
     def test_magic_in_initialization(self):
         m = MagicMock(**{'__str__.return_value': "12"})
         self.assertEqual(str(m), "12")

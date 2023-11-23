@@ -238,9 +238,6 @@ class _GTestTextTestResult(unittest._TextTestResult):
     unittest._TextTestResult.__init__(self, stream, descriptions, verbosity)
 
   def _GetTestURI(self, test):
-    if sys.version_info[:2] <= (2, 4):
-      return '%s.%s' % (unittest._strclass(test.__class__),
-                        test._TestCase__testMethodName)
     return '%s.%s' % (unittest._strclass(test.__class__), test._testMethodName)
 
   def getDescription(self, test):

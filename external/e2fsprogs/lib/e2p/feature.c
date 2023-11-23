@@ -45,6 +45,8 @@ static struct feature feature_list[] = {
 			"snapshot_bitmap" },
 	{	E2P_FEATURE_COMPAT, EXT4_FEATURE_COMPAT_SPARSE_SUPER2,
 			"sparse_super2" },
+	{	E2P_FEATURE_COMPAT, EXT4_FEATURE_COMPAT_STABLE_INODES,
+			"stable_inodes" },
 
 	{	E2P_FEATURE_RO_INCOMPAT, EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER,
 			"sparse_super" },
@@ -109,6 +111,10 @@ static struct feature feature_list[] = {
 			"inline_data"},
 	{       E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_ENCRYPT,
 			"encrypt"},
+	{       E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_CASEFOLD,
+			"casefold"},
+	{       E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_CASEFOLD,
+			"fname_encoding"},
 	{	0, 0, 0 },
 };
 

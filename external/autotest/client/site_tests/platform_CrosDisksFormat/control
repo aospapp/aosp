@@ -20,3 +20,7 @@ Calls cros-disks to format supported filesystems
 
 job.run_test('platform_CrosDisksFormat', timeout_s=10,
              config_file='vfat_tests', tag='vfat')
+job.run_test('platform_CrosDisksFormat', timeout_s=10,
+             config_file='exfat_tests', tag='exfat')
+job.run_test('platform_CrosDisksFormat', timeout_s=10,
+             config_file='ntfs_tests', tag='ntfs')

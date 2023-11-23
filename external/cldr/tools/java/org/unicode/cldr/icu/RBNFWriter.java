@@ -95,7 +95,7 @@ public class RBNFWriter {
         }
         out.println("<ldml>");
         out.println("    <identity>");
-        out.println("        <version number=\"$Revision: 13987 $\"/>");
+        out.println("        <version number=\"$Revision$\"/>");
         out.println("        <language type=\"" + language + "\"/>");
 
         if (pieces.length > 1)

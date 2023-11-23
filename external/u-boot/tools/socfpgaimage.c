@@ -55,6 +55,7 @@
 #include "pbl_crc32.h"
 #include "imagetool.h"
 #include "mkimage.h"
+#include <u-boot/crc.h>
 
 #include <image.h>
 
@@ -191,6 +192,7 @@ static int sfp_verify_header(const uint8_t *buf, uint8_t *ver)
 	if (hdr_csum != sfp_csum)
 		return -EINVAL;
 
+	*ver = header_v0.version;
 	return img_len;
 }
 

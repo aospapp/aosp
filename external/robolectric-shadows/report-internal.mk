@@ -7,13 +7,21 @@ my_coverage_output := $(my_report_dir)/coverage.xml
 $(my_coverage_output): PRIVATE_MODULE := $(LOCAL_MODULE)
 $(my_coverage_output): PRIVATE_COVERAGE_FILE := $(my_coverage_file)
 $(my_coverage_output): PRIVATE_COVERAGE_SRCS_JARS := $(my_coverage_srcs_jars)
-$(my_coverage_output): PRIVATE_INSTRUMENT_SOURCE_DIRS := $(my_instrument_source_dirs)
+ifdef my_instrument_srcjars
+  $(my_coverage_output): PRIVATE_SRC_ARGS := --srcjars $(call normalize-path-list,$(my_instrument_srcjars))
+  $(my_coverage_output): $(my_instrument_srcjars)
+else
+  $(my_coverage_output): PRIVATE_SRC_ARGS := --srcs $(call normalize-path-list,$(my_instrument_source_dirs))
+endif
 $(my_coverage_output): PRIVATE_COVERAGE_REPORT_CLASS := $(my_coverage_report_class)
 $(my_coverage_output): PRIVATE_COVERAGE_REPORT_JAR := $(my_coverage_report_jar)
 $(my_coverage_output): PRIVATE_REPORT_DIR := $(my_report_dir)
 
 # Generate the coverage report.
+# Touches the output file and continues on failure to avoid breaking the build when a test fails to
+# generate coverage data.
 $(my_coverage_output): $(my_collect_file) $(my_coverage_report_jar)
+	$(hide) rm -f $@
 	$(hide) rm -rf $(PRIVATE_REPORT_DIR)
 	$(hide) mkdir -p $(PRIVATE_REPORT_DIR)
 	$(hide) $(JAVA) \
@@ -23,8 +31,9 @@ $(my_coverage_output): $(my_collect_file) $(my_coverage_report_jar)
 			--exec-file $(PRIVATE_COVERAGE_FILE) \
 			--name $(PRIVATE_MODULE) \
 			--report-dir $(PRIVATE_REPORT_DIR)/ \
-			--srcs $(strip $(call normalize-path-list, $(PRIVATE_INSTRUMENT_SOURCE_DIRS))) \
-			>$(PRIVATE_REPORT_DIR)/reporter.txt 2>&1
+			$(PRIVATE_SRC_ARGS) \
+			>$(PRIVATE_REPORT_DIR)/reporter.txt 2>&1 \
+		|| touch $@
 	@echo "Coverage report: file://"$(realpath $(PRIVATE_REPORT_DIR))"/index.html"
 
 

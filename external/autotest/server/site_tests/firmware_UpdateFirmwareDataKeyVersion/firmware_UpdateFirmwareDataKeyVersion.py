@@ -20,6 +20,7 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
     version = 1
 
     def resign_datakey_version(self, host):
+        """Resigns the datakey version."""
         host.send_file(os.path.join(self.bindir,
                                     'files/common.sh'),
                        os.path.join(self.faft_client.updater.get_temp_path(),
@@ -36,6 +37,7 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
 
 
     def check_firmware_datakey_version(self, expected_ver):
+        """Checks the firmware datakey version."""
         actual_ver = self.faft_client.bios.get_datakey_version(
                 'b' if self.fw_vboot2 else 'a')
         actual_tpm_fwver = self.faft_client.tpm.get_firmware_datakey_version()
@@ -50,6 +52,7 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
 
 
     def initialize(self, host, cmdline_args):
+        """Setup the test"""
         dict_args = utils.args_to_dict(cmdline_args)
         shellball_path = dict_args.get('shellball', None)
         super(firmware_UpdateFirmwareDataKeyVersion, self).initialize(
@@ -65,7 +68,7 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
             self.switcher.mode_aware_reboot()
 
         self.setup_usbkey(usbkey=True)
-        self._fwid = self.faft_client.updater.get_fwid()
+        self._fwid = self.faft_client.updater.get_section_fwid()
 
         self.fw_ver_tpm = self.faft_client.tpm.get_firmware_datakey_version()
         actual_ver = self.faft_client.bios.get_datakey_version('a')
@@ -80,6 +83,7 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
 
 
     def cleanup(self):
+        """Cleanup after the test"""
         try:
             if (self.faft_client.tpm.get_firmware_datakey_version() !=
                                                        self.fw_ver_tpm):
@@ -92,6 +96,7 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
 
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Update firmware with new datakey version.")
         self.check_state((self.checkers.crossystem_checker, {
                           'fwid': self._fwid

@@ -19,7 +19,6 @@ package com.google.common.collect;
 import com.google.gwt.user.client.rpc.SerializationException;
 import com.google.gwt.user.client.rpc.SerializationStreamReader;
 import com.google.gwt.user.client.rpc.SerializationStreamWriter;
-
 import java.util.Comparator;
 
 /**
@@ -29,14 +28,13 @@ import java.util.Comparator;
  */
 public class ImmutableSetMultimap_CustomFieldSerializer {
 
-  public static void deserialize(SerializationStreamReader reader,
-      ImmutableSetMultimap<?, ?> instance) {
-  }
+  public static void deserialize(
+      SerializationStreamReader reader, ImmutableSetMultimap<?, ?> instance) {}
 
   // Serialization type safety is at the caller's mercy.
   @SuppressWarnings("unchecked")
-  public static ImmutableSetMultimap<Object, Object> instantiate(
-      SerializationStreamReader reader) throws SerializationException {
+  public static ImmutableSetMultimap<Object, Object> instantiate(SerializationStreamReader reader)
+      throws SerializationException {
     Comparator<Object> valueComparator = (Comparator<Object>) reader.readObject();
     ImmutableSetMultimap.Builder<Object, Object> builder = ImmutableSetMultimap.builder();
     if (valueComparator != null) {
@@ -46,8 +44,9 @@ public class ImmutableSetMultimap_CustomFieldSerializer {
         Multimap_CustomFieldSerializerBase.instantiate(reader, builder);
   }
 
-  public static void serialize(SerializationStreamWriter writer,
-      ImmutableSetMultimap<?, ?> instance) throws SerializationException {
+  public static void serialize(
+      SerializationStreamWriter writer, ImmutableSetMultimap<?, ?> instance)
+      throws SerializationException {
     writer.writeObject(instance.valueComparator());
     Multimap_CustomFieldSerializerBase.serialize(writer, instance);
   }

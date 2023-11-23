@@ -50,7 +50,7 @@ public class DigestInfo
         return null;
     }
 
-    @dalvik.annotation.compat.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage
     public DigestInfo(
         AlgorithmIdentifier  algId,
         byte[]               digest)

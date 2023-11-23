@@ -122,7 +122,7 @@ pb_cache_buffer_destroy(struct pb_buffer *_buf)
 
 static void *
 pb_cache_buffer_map(struct pb_buffer *_buf, 
-		    unsigned flags, void *flush_ctx)
+		    enum pb_usage_flags flags, void *flush_ctx)
 {
    struct pb_cache_buffer *buf = pb_cache_buffer(_buf);   
    return pb_map(buf->buffer, flags, flush_ctx);
@@ -140,7 +140,7 @@ pb_cache_buffer_unmap(struct pb_buffer *_buf)
 static enum pipe_error 
 pb_cache_buffer_validate(struct pb_buffer *_buf, 
                          struct pb_validate *vl,
-                         unsigned flags)
+                         enum pb_usage_flags flags)
 {
    struct pb_cache_buffer *buf = pb_cache_buffer(_buf);
    return pb_validate(buf->buffer, vl, flags);
@@ -304,7 +304,7 @@ pb_cache_manager_create(struct pb_manager *provider,
    mgr->base.create_buffer = pb_cache_manager_create_buffer;
    mgr->base.flush = pb_cache_manager_flush;
    mgr->provider = provider;
-   pb_cache_init(&mgr->cache, usecs, size_factor, bypass_usage,
+   pb_cache_init(&mgr->cache, 1, usecs, size_factor, bypass_usage,
                  maximum_cache_size,
                  _pb_cache_buffer_destroy,
                  pb_cache_can_reclaim_buffer);

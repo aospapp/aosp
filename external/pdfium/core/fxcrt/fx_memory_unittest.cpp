@@ -6,6 +6,7 @@
 
 #include <limits>
 
+#include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
@@ -17,6 +18,15 @@ const size_t kWidth = 640;
 const size_t kOverflowIntAlloc2D = kMaxIntAlloc / kWidth + 10;
 
 }  // namespace
+
+TEST(fxcrt, FX_AllocZero) {
+  uint8_t* ptr = FX_Alloc(uint8_t, 0);
+  uint8_t* ptr2 = FX_Alloc(uint8_t, 0);
+  EXPECT_TRUE(ptr);      // Malloc(0) is distinguishable from OOM.
+  EXPECT_NE(ptr, ptr2);  // Each malloc(0) is distinguishable.
+  FX_Free(ptr2);
+  FX_Free(ptr);
+}
 
 // TODO(tsepez): re-enable OOM tests if we can find a way to
 // prevent it from hosing the bots.
@@ -59,6 +69,7 @@ TEST(fxcrt, DISABLED_FX_TryAllocOOM) {
   FX_Free(ptr);
 }
 
+#if !defined(COMPILER_GCC)
 TEST(fxcrt, FX_TryAllocOverflow) {
   // |ptr| needs to be defined and used to avoid Clang optimizes away the
   // calloc() statement overzealously for optimized builds.
@@ -67,9 +78,12 @@ TEST(fxcrt, FX_TryAllocOverflow) {
 
   ptr = FX_Alloc(int, 1);
   EXPECT_TRUE(ptr);
+  *ptr = 1492;  // Arbitrary sentinel.
   EXPECT_FALSE(FX_TryRealloc(int, ptr, kOverflowIntAlloc));
+  EXPECT_EQ(1492, *ptr);
   FX_Free(ptr);
 }
+#endif
 
 TEST(fxcrt, DISABLED_FXMEM_DefaultOOM) {
   EXPECT_FALSE(FXMEM_DefaultAlloc(kMaxByteAlloc));
@@ -78,4 +92,27 @@ TEST(fxcrt, DISABLED_FXMEM_DefaultOOM) {
   EXPECT_TRUE(ptr);
   EXPECT_FALSE(FXMEM_DefaultRealloc(ptr, kMaxByteAlloc));
   FXMEM_DefaultFree(ptr);
+}
+
+TEST(fxcrt, FXAlign) {
+  static_assert(std::numeric_limits<size_t>::max() % 2 == 1,
+                "numeric limit must be odd for this test");
+
+  size_t s0 = 0;
+  size_t s1 = 1;
+  size_t s2 = 2;
+  size_t sbig = std::numeric_limits<size_t>::max() - 2;
+  EXPECT_EQ(0u, FxAlignToBoundary<2>(s0));
+  EXPECT_EQ(2u, FxAlignToBoundary<2>(s1));
+  EXPECT_EQ(2u, FxAlignToBoundary<2>(s2));
+  EXPECT_EQ(std::numeric_limits<size_t>::max() - 1, FxAlignToBoundary<2>(sbig));
+
+  int i0 = 0;
+  int i511 = 511;
+  int i512 = 512;
+  int ineg = -513;
+  EXPECT_EQ(0, FxAlignToBoundary<512>(i0));
+  EXPECT_EQ(512, FxAlignToBoundary<512>(i511));
+  EXPECT_EQ(512, FxAlignToBoundary<512>(i512));
+  EXPECT_EQ(-512, FxAlignToBoundary<512>(ineg));
 }

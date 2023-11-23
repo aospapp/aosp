@@ -6,20 +6,23 @@
 
 #include "xfa/fxfa/parser/cxfa_transform.h"
 
+#include "fxjs/xfa/cjx_node.h"
+#include "third_party/base/ptr_util.h"
+
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kTransformPropertyData[] = {
     {XFA_Element::Whitespace, 1, 0},  {XFA_Element::Rename, 1, 0},
     {XFA_Element::IfEmpty, 1, 0},     {XFA_Element::Presence, 1, 0},
     {XFA_Element::Picture, 1, 0},     {XFA_Element::NameAttr, 1, 0},
-    {XFA_Element::GroupParent, 1, 0}, {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+    {XFA_Element::GroupParent, 1, 0},
+};
+
+const CXFA_Node::AttributeData kTransformAttributeData[] = {
     {XFA_Attribute::Ref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Desc, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Lock, XFA_AttributeType::Integer, (void*)0},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"transform";
+};
 
 }  // namespace
 
@@ -29,8 +32,8 @@ CXFA_Transform::CXFA_Transform(CXFA_Document* doc, XFA_PacketType packet)
                 XFA_XDPPACKET_Config,
                 XFA_ObjectType::Node,
                 XFA_Element::Transform,
-                kPropertyData,
-                kAttributeData,
-                kName) {}
+                kTransformPropertyData,
+                kTransformAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Transform::~CXFA_Transform() {}
+CXFA_Transform::~CXFA_Transform() = default;

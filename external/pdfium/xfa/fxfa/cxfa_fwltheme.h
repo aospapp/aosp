@@ -29,19 +29,22 @@ class CXFA_FWLTheme final : public IFWL_ThemeProvider {
   explicit CXFA_FWLTheme(CXFA_FFApp* pApp);
   ~CXFA_FWLTheme() override;
 
+  bool LoadCalendarFont(CXFA_FFDoc* doc);
+
   // IFWL_ThemeProvider:
-  void DrawBackground(CFWL_ThemeBackground* pParams) override;
-  void DrawText(CFWL_ThemeText* pParams) override;
-  void CalcTextRect(CFWL_ThemeText* pParams, CFX_RectF& rect) override;
+  void DrawBackground(const CFWL_ThemeBackground& pParams) override;
+  void DrawText(const CFWL_ThemeText& pParams) override;
+  void CalcTextRect(const CFWL_ThemeText& pParams, CFX_RectF* pRect) override;
   float GetCXBorderSize() const override;
   float GetCYBorderSize() const override;
-  CFX_RectF GetUIMargin(CFWL_ThemePart* pThemePart) const override;
-  float GetFontSize(CFWL_ThemePart* pThemePart) const override;
-  RetainPtr<CFGAS_GEFont> GetFont(CFWL_ThemePart* pThemePart) const override;
-  float GetLineHeight(CFWL_ThemePart* pThemePart) const override;
+  CFX_RectF GetUIMargin(const CFWL_ThemePart& pThemePart) const override;
+  float GetFontSize(const CFWL_ThemePart& pThemePart) const override;
+  RetainPtr<CFGAS_GEFont> GetFont(
+      const CFWL_ThemePart& pThemePart) const override;
+  float GetLineHeight(const CFWL_ThemePart& pThemePart) const override;
   float GetScrollBarWidth() const override;
-  FX_COLORREF GetTextColor(CFWL_ThemePart* pThemePart) const override;
-  CFX_SizeF GetSpaceAboveBelow(CFWL_ThemePart* pThemePart) const override;
+  FX_COLORREF GetTextColor(const CFWL_ThemePart& pThemePart) const override;
+  CFX_SizeF GetSpaceAboveBelow(const CFWL_ThemePart& pThemePart) const override;
 
  private:
   CFWL_WidgetTP* GetTheme(CFWL_Widget* pWidget) const;
@@ -63,7 +66,5 @@ class CXFA_FWLTheme final : public IFWL_ThemeProvider {
   UnownedPtr<CXFA_FFApp> const m_pApp;
   CFX_RectF m_Rect;
 };
-
-CXFA_FFWidget* XFA_ThemeGetOuterWidget(CFWL_Widget* pWidget);
 
 #endif  // XFA_FXFA_CXFA_FWLTHEME_H_

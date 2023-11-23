@@ -77,6 +77,35 @@ files_libgallium = files(
   'draw/draw_vs_exec.c',
   'draw/draw_vs.h',
   'draw/draw_vs_variant.c',
+  'driver_ddebug/dd_context.c',
+  'driver_ddebug/dd_draw.c',
+  'driver_ddebug/dd_pipe.h',
+  'driver_ddebug/dd_public.h',
+  'driver_ddebug/dd_screen.c',
+  'driver_ddebug/dd_util.h',
+  'driver_noop/noop_pipe.c',
+  'driver_noop/noop_public.h',
+  'driver_noop/noop_state.c',
+  'driver_rbug/rbug_context.c',
+  'driver_rbug/rbug_context.h',
+  'driver_rbug/rbug_core.c',
+  'driver_rbug/rbug_objects.c',
+  'driver_rbug/rbug_objects.h',
+  'driver_rbug/rbug_public.h',
+  'driver_rbug/rbug_screen.c',
+  'driver_rbug/rbug_screen.h',
+  'driver_trace/tr_context.c',
+  'driver_trace/tr_context.h',
+  'driver_trace/tr_dump.c',
+  'driver_trace/tr_dump_defines.h',
+  'driver_trace/tr_dump.h',
+  'driver_trace/tr_dump_state.c',
+  'driver_trace/tr_dump_state.h',
+  'driver_trace/tr_public.h',
+  'driver_trace/tr_screen.c',
+  'driver_trace/tr_screen.h',
+  'driver_trace/tr_texture.c',
+  'driver_trace/tr_texture.h',
   'hud/font.c',
   'hud/font.h',
   'hud/hud_context.c',
@@ -93,12 +122,6 @@ files_libgallium = files(
   'indices/u_indices_priv.h',
   'indices/u_primconvert.c',
   'indices/u_primconvert.h',
-  'os/os_memory_aligned.h',
-  'os/os_memory_debug.h',
-  'os/os_memory_stdc.h',
-  'os/os_memory.h',
-  'os/os_misc.c',
-  'os/os_misc.h',
   'os/os_mman.h',
   'os/os_process.c',
   'os/os_process.h',
@@ -106,14 +129,10 @@ files_libgallium = files(
   'pipebuffer/pb_buffer_fenced.c',
   'pipebuffer/pb_buffer_fenced.h',
   'pipebuffer/pb_buffer.h',
-  'pipebuffer/pb_buffer_malloc.c',
-  'pipebuffer/pb_bufmgr_alt.c',
   'pipebuffer/pb_bufmgr_cache.c',
   'pipebuffer/pb_bufmgr_debug.c',
   'pipebuffer/pb_bufmgr.h',
   'pipebuffer/pb_bufmgr_mm.c',
-  'pipebuffer/pb_bufmgr_ondemand.c',
-  'pipebuffer/pb_bufmgr_pool.c',
   'pipebuffer/pb_bufmgr_slab.c',
   'pipebuffer/pb_cache.c',
   'pipebuffer/pb_cache.h',
@@ -215,10 +234,10 @@ files_libgallium = files(
   'util/u_box.h',
   'util/u_cache.c',
   'util/u_cache.h',
-  'util/u_cpu_detect.c',
-  'util/u_cpu_detect.h',
-  'util/u_debug.c',
-  'util/u_debug.h',
+  'util/u_compute.c',
+  'util/u_compute.h',
+  'util/u_debug_gallium.h',
+  'util/u_debug_gallium.c',
   'util/u_debug_describe.c',
   'util/u_debug_describe.h',
   'util/u_debug_flush.c',
@@ -247,6 +266,8 @@ files_libgallium = files(
   'util/u_fifo.h',
   'util/u_format.c',
   'util/u_format.h',
+  'util/u_format_bptc.c',
+  'util/u_format_bptc.h',
   'util/u_format_etc.c',
   'util/u_format_etc.h',
   'util/u_format_latc.c',
@@ -283,9 +304,6 @@ files_libgallium = files(
   'util/u_linear.h',
   'util/u_log.c',
   'util/u_log.h',
-  'util/u_math.c',
-  'util/u_math.h',
-  'util/u_memory.h',
   'util/u_mm.c',
   'util/u_mm.h',
   'util/u_network.c',
@@ -293,6 +311,7 @@ files_libgallium = files(
   'util/u_pack_color.h',
   'util/u_pointer.h',
   'util/u_prim.h',
+  'util/u_prim.c',
   'util/u_prim_restart.c',
   'util/u_prim_restart.h',
   'util/u_pstipple.c',
@@ -306,6 +325,8 @@ files_libgallium = files(
   'util/u_ringbuffer.h',
   'util/u_sampler.c',
   'util/u_sampler.h',
+  'util/u_screen.c',
+  'util/u_screen.h',
   'util/u_simple_shaders.c',
   'util/u_simple_shaders.h',
   'util/u_split_prim.h',
@@ -339,7 +360,7 @@ files_libgallium = files(
   'nir/tgsi_to_nir.h',
 )
 
-if dep_libdrm != [] and dep_libdrm.found()
+if dep_libdrm.found()
   files_libgallium += files(
     'renderonly/renderonly.c',
     'renderonly/renderonly.h',
@@ -366,8 +387,8 @@ if with_llvm
     'gallivm/lp_bld_flow.h',
     'gallivm/lp_bld_format_aos_array.c',
     'gallivm/lp_bld_format_aos.c',
-    'gallivm/lp_bld_format_cached.c',
     'gallivm/lp_bld_format_float.c',
+    'gallivm/lp_bld_format_s3tc.c',
     'gallivm/lp_bld_format.c',
     'gallivm/lp_bld_format.h',
     'gallivm/lp_bld_format_soa.c',
@@ -422,6 +443,10 @@ files_libgalliumvl = files(
   'vl/vl_bicubic_filter.h',
   'vl/vl_compositor.c',
   'vl/vl_compositor.h',
+  'vl/vl_compositor_gfx.c',
+  'vl/vl_compositor_gfx.h',
+  'vl/vl_compositor_cs.c',
+  'vl/vl_compositor_cs.h',
   'vl/vl_csc.c',
   'vl/vl_csc.h',
   'vl/vl_decoder.c',
@@ -450,11 +475,12 @@ files_libgalliumvl = files(
   'vl/vl_vlc.h',
   'vl/vl_zscan.c',
   'vl/vl_zscan.h',
+  'vl/vl_probs_table.h',
 )
 
 vlwinsys_deps = []
 files_libgalliumvlwinsys = files('vl/vl_winsys.h')
-if with_dri2
+if with_dri2 and with_platform_x11
   files_libgalliumvlwinsys += files('vl/vl_winsys_dri.c')
   if with_dri3
     vlwinsys_deps += [
@@ -472,7 +498,7 @@ u_indices_gen_c = custom_target(
   'u_indices_gen.c',
   input : 'indices/u_indices_gen.py',
   output : 'u_indices_gen.c',
-  command : [prog_python2, '@INPUT@'],
+  command : [prog_python, '@INPUT@'],
   capture : true,
 )
 
@@ -480,7 +506,7 @@ u_unfilled_gen_c = custom_target(
   'u_unfilled_gen.c',
   input : 'indices/u_unfilled_gen.py',
   output : 'u_unfilled_gen.c',
-  command : [prog_python2, '@INPUT@'],
+  command : [prog_python, '@INPUT@'],
   capture : true,
 )
 
@@ -488,7 +514,7 @@ u_format_table_c = custom_target(
   'u_format_table.c',
   input : ['util/u_format_table.py', 'util/u_format.csv'],
   output : 'u_format_table.c',
-  command : [prog_python2, '@INPUT@'],
+  command : [prog_python, '@INPUT@'],
   depend_files : files('util/u_format_pack.py', 'util/u_format_parse.py'),
   capture : true,
 )
@@ -506,6 +532,9 @@ libgallium = static_library(
     idep_nir_headers,
   ],
   build_by_default : false,
+  link_with: [
+    libglsl
+  ]
 )
 
 libgalliumvl_stub = static_library(

@@ -3,14 +3,13 @@
 # found in the LICENSE file.
 
 import ast
-import functools
 import logging
 import re
 import time
 
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import ec
+from autotest_lib.server.cros.servo import servo
 
 # Hostevent codes, copied from:
 #     ec/include/ec_commands.h
@@ -88,18 +87,32 @@ class ChromeConsole(object):
         if isinstance(commands, list):
             try:
                 self._servo.set_nocheck(self.uart_multicmd, ';'.join(commands))
-            except error.TestFail as e:
-                if 'No control named' in str(e):
-                    logging.warning(
-                            'The servod is too old that uart_multicmd '
-                            'not supported. Use uart_cmd instead.')
-                    for command in commands:
-                        self._servo.set_nocheck(self.uart_cmd, command)
-                else:
-                    raise
+            except servo.ControlUnavailableError:
+                logging.warning('The servod is too old that uart_multicmd not '
+                                'supported. Use uart_cmd instead.')
+                for command in commands:
+                    self._servo.set_nocheck(self.uart_cmd, command)
         else:
             self._servo.set_nocheck(self.uart_cmd, commands)
 
+    def has_command(self, command):
+        """Check whether EC console supports |command|.
+
+        Args:
+          command: Command to look for.
+
+        Returns:
+          True: If the |command| exist on the EC image of the device.
+          False: If the |command| does not exist on the EC image of the device.
+        """
+        result = None
+        try:
+            # Throws error.TestFail (on timeout) if it cannot find a line with
+            # 'command' in the output. Thus return False in that case.
+            result = self.send_command_get_output('help', [command])
+        except error.TestFail:
+            return False
+        return result is not None
 
     def send_command_get_output(self, command, regexp_list):
         """Send command through UART and wait for response.

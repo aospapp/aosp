@@ -20,8 +20,9 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <vector>
 
-#include "perfetto/base/scoped_file.h"
+#include "perfetto/ext/base/scoped_file.h"
 
 namespace perfetto {
 
@@ -73,7 +74,7 @@ class FtraceProcfs {
   // Disables tracing, does not clear the buffer.
   bool DisableTracing();
 
-  // Enabls/disables tracing, does not clear the buffer.
+  // Enables/disables tracing, does not clear the buffer.
   bool SetTracingOn(bool enable);
 
   // Returns true iff tracing is enabled.
@@ -88,8 +89,11 @@ class FtraceProcfs {
   // Get the currently set clock.
   std::string GetClock();
 
-  // Get all the avaiable clocks.
+  // Get all the available clocks.
   std::set<std::string> AvailableClocks();
+
+  // Get all the enabled events.
+  virtual std::vector<std::string> ReadEnabledEvents();
 
   // Open the raw pipe for |cpu|.
   virtual base::ScopedFile OpenPipeForCpu(size_t cpu);
@@ -98,7 +102,7 @@ class FtraceProcfs {
       const std::string& path) const;
 
  protected:
-  // virtual and public for testing.
+  // virtual and protected for testing.
   virtual bool WriteToFile(const std::string& path, const std::string& str);
   virtual bool AppendToFile(const std::string& path, const std::string& str);
   virtual bool ClearFile(const std::string& path);

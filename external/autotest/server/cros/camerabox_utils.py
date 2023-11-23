@@ -66,9 +66,6 @@ def get_chart_address(host_address, args):
 class DUTFixture:
     """Sets up camera filter for target camera facing on DUT."""
     TEST_CONFIG_PATH = '/var/cache/camera/test_config.json'
-    GENERATE_CAMERA_PROFILE = os.path.join('/usr', 'bin',
-                                           'generate_camera_profile')
-    GENERATE_CAMERA_PROFILE_BACKUP = GENERATE_CAMERA_PROFILE + '.bak'
     CAMERA_PROFILE_PATH = ('/mnt/stateful_partition/encrypted/var/cache/camera'
                            '/media_profiles.xml')
 
@@ -154,22 +151,7 @@ class DUTFixture:
                 owner='arc-camera')
         self.host.run('restart cros-camera')
 
-        # To replace camera profile in ARC++ container, arc_setup will run
-        # GENERATE_CAMERA_PROFILE and mount its generated profile under
-        # CAMERA_PROFILE_PATH into container.
         logging.info('Replace camera profile in ARC++ container')
-        self.host.run(
-                'mv',
-                args=(self.GENERATE_CAMERA_PROFILE,
-                      self.GENERATE_CAMERA_PROFILE_BACKUP))
-        self._write_file(
-                self.GENERATE_CAMERA_PROFILE,
-                '''\
-#!/bin/bash
-# Put this executable file to %r to make sure arc-setup knows
-# we're using dynamic media_profiles.xml copy from host path
-# %r''' % (self.GENERATE_CAMERA_PROFILE, self.CAMERA_PROFILE_PATH),
-                permission=0755)
         profile = self._read_file(self.CAMERA_PROFILE_PATH)
         new_profile = self._filter_camera_profile(profile, self.facing)
         self._write_file(self.CAMERA_PROFILE_PATH, new_profile)
@@ -181,11 +163,5 @@ class DUTFixture:
         self.host.run('rm', args=('-f', self.TEST_CONFIG_PATH))
         self.host.run('restart cros-camera')
 
-        # Restore GENERATE_CAMERA_PROFILE to regenerate camera profile on DUT.
         logging.info('Restore camera profile in ARC++ container')
-        self.host.run(
-                'mv',
-                args=(self.GENERATE_CAMERA_PROFILE_BACKUP,
-                      self.GENERATE_CAMERA_PROFILE),
-                ignore_status=True)
         self.host.run('restart ui')

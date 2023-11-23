@@ -1675,6 +1675,19 @@ IHEVCD_ERROR_T ihevcd_parse_sps(codec_t *ps_codec)
     {
         return IHEVCD_INVALID_PARAMETER;
     }
+    /* Check if CTB size is different in case of multiple SPS with same ID */
+    {
+        sps_t *ps_sps_old = (ps_codec->s_parse.ps_sps_base + sps_id);
+        if(ps_sps_old->i1_sps_valid && ps_sps_old->i1_log2_ctb_size != ctb_log2_size_y)
+        {
+            if(0 == ps_codec->i4_first_pic_done)
+            {
+                return IHEVCD_INVALID_PARAMETER;
+            }
+            ps_codec->i4_reset_flag = 1;
+            return (IHEVCD_ERROR_T)IVD_RES_CHANGED;
+        }
+    }
     ps_sps->i1_log2_ctb_size = ctb_log2_size_y;
 
     UEV_PARSE("log2_min_transform_block_size_minus2", value, ps_bitstrm);

@@ -69,7 +69,9 @@ public class CertInstallerHelper {
      * Unlock keystore and set password
      */
     public CertInstallerHelper() {
-        mKeyStore.reset();
+        for (String key : mKeyStore.list("")) {
+            mKeyStore.delete(key, KeyStore.UID_SELF);
+        }
         mKeyStore.onUserPasswordChanged(CERT_STORE_PASSWORD);
     }
 

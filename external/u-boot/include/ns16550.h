@@ -49,15 +49,21 @@
  * struct ns16550_platdata - information about a NS16550 port
  *
  * @base:		Base register address
+ * @reg_width:		IO accesses size of registers (in bytes)
  * @reg_shift:		Shift size of registers (0=byte, 1=16bit, 2=32bit...)
  * @clock:		UART base clock speed in Hz
+ * @bdf:		PCI slot/function (pci_dev_t)
  */
 struct ns16550_platdata {
 	unsigned long base;
+	int reg_width;
 	int reg_shift;
-	int clock;
 	int reg_offset;
+	int clock;
 	u32 fcr;
+#if defined(CONFIG_PCI) && defined(CONFIG_SPL)
+	int bdf;
+#endif
 };
 
 struct udevice;

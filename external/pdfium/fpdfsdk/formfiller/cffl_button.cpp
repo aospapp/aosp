@@ -6,23 +6,25 @@
 
 #include "fpdfsdk/formfiller/cffl_button.h"
 
-CFFL_Button::CFFL_Button(CPDFSDK_FormFillEnvironment* pApp,
+#include "core/fpdfdoc/cpdf_formcontrol.h"
+
+CFFL_Button::CFFL_Button(CPDFSDK_FormFillEnvironment* pFormFillEnv,
                          CPDFSDK_Widget* pWidget)
-    : CFFL_FormFiller(pApp, pWidget), m_bMouseIn(false), m_bMouseDown(false) {}
+    : CFFL_FormFiller(pFormFillEnv, pWidget),
+      m_bMouseIn(false),
+      m_bMouseDown(false) {}
 
 CFFL_Button::~CFFL_Button() {}
 
-void CFFL_Button::OnMouseEnter(CPDFSDK_PageView* pPageView,
-                               CPDFSDK_Annot* pAnnot) {
+void CFFL_Button::OnMouseEnter(CPDFSDK_PageView* pPageView) {
   m_bMouseIn = true;
-  InvalidateRect(GetViewBBox(pPageView, pAnnot));
+  InvalidateRect(GetViewBBox(pPageView));
 }
 
-void CFFL_Button::OnMouseExit(CPDFSDK_PageView* pPageView,
-                              CPDFSDK_Annot* pAnnot) {
+void CFFL_Button::OnMouseExit(CPDFSDK_PageView* pPageView) {
   m_bMouseIn = false;
-  InvalidateRect(GetViewBBox(pPageView, pAnnot));
-  EndTimer();
+  InvalidateRect(GetViewBBox(pPageView));
+  m_pTimer.reset();
   ASSERT(m_pWidget);
 }
 
@@ -35,7 +37,7 @@ bool CFFL_Button::OnLButtonDown(CPDFSDK_PageView* pPageView,
 
   m_bMouseDown = true;
   m_bValid = true;
-  InvalidateRect(GetViewBBox(pPageView, pAnnot));
+  InvalidateRect(GetViewBBox(pPageView));
   return true;
 }
 
@@ -48,12 +50,11 @@ bool CFFL_Button::OnLButtonUp(CPDFSDK_PageView* pPageView,
 
   m_bMouseDown = false;
   m_pWidget->GetPDFPage();
-  InvalidateRect(GetViewBBox(pPageView, pAnnot));
+  InvalidateRect(GetViewBBox(pPageView));
   return true;
 }
 
 bool CFFL_Button::OnMouseMove(CPDFSDK_PageView* pPageView,
-                              CPDFSDK_Annot* pAnnot,
                               uint32_t nFlags,
                               const CFX_PointF& point) {
   return true;
@@ -64,7 +65,7 @@ void CFFL_Button::OnDraw(CPDFSDK_PageView* pPageView,
                          CFX_RenderDevice* pDevice,
                          const CFX_Matrix& mtUser2Device) {
   ASSERT(pPageView);
-  CPDFSDK_Widget* pWidget = static_cast<CPDFSDK_Widget*>(pAnnot);
+  CPDFSDK_Widget* pWidget = ToCPDFSDKWidget(pAnnot);
   CPDF_FormControl* pCtrl = pWidget->GetFormControl();
   if (pCtrl->GetHighlightingMode() != CPDF_FormControl::Push) {
     pWidget->DrawAppearance(pDevice, mtUser2Device, CPDF_Annot::Normal,

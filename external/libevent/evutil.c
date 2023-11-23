@@ -29,6 +29,7 @@
 
 #ifdef _WIN32
 #include <winsock2.h>
+#include <winerror.h>
 #include <ws2tcpip.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -386,6 +387,17 @@ evutil_make_listen_socket_reuseable_port(evutil_socket_t sock)
 }
 
 int
+evutil_make_listen_socket_ipv6only(evutil_socket_t sock)
+{
+#if defined(IPV6_V6ONLY)
+	int one = 1;
+	return setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, (void*) &one,
+	    (ev_socklen_t)sizeof(one));
+#endif
+	return 0;
+}
+
+int
 evutil_make_tcp_listen_socket_deferred(evutil_socket_t sock)
 {
 #if defined(EVENT__HAVE_NETINET_TCP_H) && defined(TCP_DEFER_ACCEPT)
@@ -595,44 +607,56 @@ evutil_socket_finished_connecting_(evutil_socket_t fd)
    set by evutil_check_interfaces. */
 static int have_checked_interfaces, had_ipv4_address, had_ipv6_address;
 
-/* Macro: True iff the IPv4 address 'addr', in host order, is in 127.0.0.0/8
- */
-#define EVUTIL_V4ADDR_IS_LOCALHOST(addr) (((addr)>>24) == 127)
+/* True iff the IPv4 address 'addr', in host order, is in 127.0.0.0/8 */
+static inline int evutil_v4addr_is_localhost(ev_uint32_t addr)
+{ return addr>>24 == 127; }
 
-/* Macro: True iff the IPv4 address 'addr', in host order, is a class D
- * (multiclass) address.
- */
-#define EVUTIL_V4ADDR_IS_CLASSD(addr) ((((addr)>>24) & 0xf0) == 0xe0)
+/* True iff the IPv4 address 'addr', in host order, is link-local
+ * 169.254.0.0/16 (RFC3927) */
+static inline int evutil_v4addr_is_linklocal(ev_uint32_t addr)
+{ return ((addr & 0xffff0000U) == 0xa9fe0000U); }
+
+/* True iff the IPv4 address 'addr', in host order, is a class D
+ * (multiclass) address.  */
+static inline int evutil_v4addr_is_classd(ev_uint32_t addr)
+{ return ((addr>>24) & 0xf0) == 0xe0; }
+
+int
+evutil_v4addr_is_local_(const struct in_addr *in)
+{
+	const ev_uint32_t addr = ntohl(in->s_addr);
+	return addr == INADDR_ANY ||
+		evutil_v4addr_is_localhost(addr) ||
+		evutil_v4addr_is_linklocal(addr) ||
+		evutil_v4addr_is_classd(addr);
+}
+int
+evutil_v6addr_is_local_(const struct in6_addr *in)
+{
+	static const char ZEROES[] =
+		"\x00\x00\x00\x00\x00\x00\x00\x00"
+		"\x00\x00\x00\x00\x00\x00\x00\x00";
+
+	const unsigned char *addr = (const unsigned char *)in->s6_addr;
+	return !memcmp(addr, ZEROES, 8) ||
+		((addr[0] & 0xfe) == 0xfc) ||
+		(addr[0] == 0xfe && (addr[1] & 0xc0) == 0x80) ||
+		(addr[0] == 0xfe && (addr[1] & 0xc0) == 0xc0) ||
+		(addr[0] == 0xff);
+}
 
 static void
 evutil_found_ifaddr(const struct sockaddr *sa)
 {
-	const char ZEROES[] = "\x00\x00\x00\x00\x00\x00\x00\x00"
-	    "\x00\x00\x00\x00\x00\x00\x00\x00";
-
 	if (sa->sa_family == AF_INET) {
 		const struct sockaddr_in *sin = (struct sockaddr_in *)sa;
-		ev_uint32_t addr = ntohl(sin->sin_addr.s_addr);
-		if (addr == 0 ||
-		    EVUTIL_V4ADDR_IS_LOCALHOST(addr) ||
-		    EVUTIL_V4ADDR_IS_CLASSD(addr)) {
-			/* Not actually a usable external address. */
-		} else {
+		if (!evutil_v4addr_is_local_(&sin->sin_addr)) {
 			event_debug(("Detected an IPv4 interface"));
 			had_ipv4_address = 1;
 		}
 	} else if (sa->sa_family == AF_INET6) {
 		const struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sa;
-		const unsigned char *addr =
-		    (unsigned char*)sin6->sin6_addr.s6_addr;
-		if (!memcmp(addr, ZEROES, 8) ||
-		    ((addr[0] & 0xfe) == 0xfc) ||
-		    (addr[0] == 0xfe && (addr[1] & 0xc0) == 0x80) ||
-		    (addr[0] == 0xfe && (addr[1] & 0xc0) == 0xc0) ||
-		    (addr[0] == 0xff)) {
-			/* This is a reserved, ipv4compat, ipv4map, loopback,
-			 * link-local, multicast, or unspecified address. */
-		} else {
+		if (!evutil_v6addr_is_local_(&sin6->sin6_addr)) {
 			event_debug(("Detected an IPv6 interface"));
 			had_ipv6_address = 1;
 		}
@@ -727,7 +751,7 @@ done:
 /* Test whether we have an ipv4 interface and an ipv6 interface.  Return 0 if
  * the test seemed successful. */
 static int
-evutil_check_interfaces(int force_recheck)
+evutil_check_interfaces(void)
 {
 	evutil_socket_t fd = -1;
 	struct sockaddr_in sin, sin_out;
@@ -735,8 +759,11 @@ evutil_check_interfaces(int force_recheck)
 	ev_socklen_t sin_out_len = sizeof(sin_out);
 	ev_socklen_t sin6_out_len = sizeof(sin6_out);
 	int r;
-	if (have_checked_interfaces && !force_recheck)
+	if (have_checked_interfaces)
 		return 0;
+
+	/* From this point on we have done the ipv4/ipv6 interface check */
+	have_checked_interfaces = 1;
 
 	if (evutil_check_ifaddrs() == 0) {
 		/* Use a nice sane interface, if this system has one. */
@@ -1053,7 +1080,7 @@ evutil_getaddrinfo_common_(const char *nodename, const char *servname,
 		struct sockaddr_in sin;
 		memset(&sin, 0, sizeof(sin));
 		if (1==evutil_inet_pton(AF_INET, nodename, &sin.sin_addr)) {
-			/* Got an ipv6 address. */
+			/* Got an ipv4 address. */
 			sin.sin_family = AF_INET;
 			sin.sin_port = htons(port);
 			*res = evutil_new_addrinfo_((struct sockaddr*)&sin,
@@ -1205,8 +1232,7 @@ evutil_adjust_hints_for_addrconfig_(struct evutil_addrinfo *hints)
 		return;
 	if (hints->ai_family != PF_UNSPEC)
 		return;
-	if (!have_checked_interfaces)
-		evutil_check_interfaces(0);
+	evutil_check_interfaces();
 	if (had_ipv4_address && !had_ipv6_address) {
 		hints->ai_family = PF_INET;
 	} else if (!had_ipv4_address && had_ipv6_address) {
@@ -2593,7 +2619,7 @@ evutil_accept4_(evutil_socket_t sockfd, struct sockaddr *addr,
 }
 
 /* Internal function: Set fd[0] and fd[1] to a pair of fds such that writes on
- * fd[0] get read from fd[1].  Make both fds nonblocking and close-on-exec.
+ * fd[1] get read from fd[0].  Make both fds nonblocking and close-on-exec.
  * Return 0 on success, -1 on failure.
  */
 int

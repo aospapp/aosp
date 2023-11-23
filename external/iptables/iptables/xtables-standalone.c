@@ -66,7 +66,6 @@ xtables_main(int family, const char *progname, int argc, char *argv[])
 				xtables_globals.program_name,
 				xtables_globals.program_version,
 				strerror(errno));
-		nft_fini(&h);
 		exit(EXIT_FAILURE);
 	}
 
@@ -85,9 +84,8 @@ xtables_main(int family, const char *progname, int argc, char *argv[])
 			fprintf(stderr, "iptables: %s.\n",
 				nft_strerror(errno));
 		}
-		if (errno == EAGAIN) {
+		if (errno == EAGAIN)
 			exit(RESOURCE_PROBLEM);
-		}
 	}
 
 	exit(!ret);

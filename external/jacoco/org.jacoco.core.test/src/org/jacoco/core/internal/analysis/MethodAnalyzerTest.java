@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2019 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -14,11 +14,15 @@ package org.jacoco.core.internal.analysis;
 import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.jacoco.core.analysis.ILine;
 import org.jacoco.core.analysis.IMethodCoverage;
+import org.jacoco.core.internal.analysis.filter.FilterContextMock;
 import org.jacoco.core.internal.analysis.filter.Filters;
 import org.jacoco.core.internal.analysis.filter.IFilter;
+import org.jacoco.core.internal.analysis.filter.IFilterContext;
 import org.jacoco.core.internal.analysis.filter.IFilterOutput;
 import org.jacoco.core.internal.flow.IProbeIdGenerator;
 import org.jacoco.core.internal.flow.LabelFlowAnalyzer;
@@ -109,8 +113,8 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 
 	/** Filters the NOP instructions as ignored */
 	private static final IFilter NOP_FILTER = new IFilter() {
-		public void filter(final String className, final String superClassName,
-				final MethodNode methodNode, final IFilterOutput output) {
+		public void filter(final MethodNode methodNode,
+				final IFilterContext context, final IFilterOutput output) {
 			final AbstractInsnNode i1 = methodNode.instructions.get(2);
 			final AbstractInsnNode i2 = methodNode.instructions.get(3);
 			assertEquals(Opcodes.NOP, i1.getOpcode());
@@ -124,6 +128,9 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 		createLinearSequence();
 		probes[0] = true;
 		runMethodAnalzer(NOP_FILTER);
+
+		assertEquals(1002, result.getFirstLine());
+		assertEquals(1002, result.getLastLine());
 
 		assertLine(1001, 0, 0, 0, 0);
 		assertLine(1002, 0, 1, 0, 0);
@@ -318,22 +325,24 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 	public void if_branch_merge_should_show_partial_branch_coverage_when_probe_for_first_branch_is_executed() {
 		createIfBranchMerge();
 		probes[0] = true;
+		probes[2] = true;
 		runMethodAnalzer();
 
 		assertLine(1001, 0, 2, 1, 1);
 		assertLine(1002, 1, 0, 0, 0);
-		assertLine(1003, 1, 0, 0, 0);
+		assertLine(1003, 0, 1, 0, 0);
 	}
 
 	@Test
 	public void if_branch_merge_should_show_partial_branch_coverage_when_probe_for_second_branch_is_executed() {
 		createIfBranchMerge();
 		probes[1] = true;
+		probes[2] = true;
 		runMethodAnalzer();
 
 		assertLine(1001, 0, 2, 1, 1);
 		assertLine(1002, 0, 1, 0, 0);
-		assertLine(1003, 1, 0, 0, 0);
+		assertLine(1003, 0, 1, 0, 0);
 	}
 
 	@Test
@@ -447,7 +456,7 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 		assertLine(1002, 0, 1, 0, 0);
 	}
 
-	// === Scenario: table switch ===
+	// === Scenario: table switch with and without replace filtering ===
 
 	private void createTableSwitch() {
 		final Label l0 = new Label();
@@ -490,6 +499,41 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 		createTableSwitch();
 		runMethodAnalzer();
 		assertEquals(4, nextProbeId);
+	}
+
+	private static final IFilter SWITCH_FILTER = new IFilter() {
+		public void filter(final MethodNode methodNode,
+				final IFilterContext context, final IFilterOutput output) {
+			final AbstractInsnNode i = methodNode.instructions.get(3);
+			assertEquals(Opcodes.TABLESWITCH, i.getOpcode());
+			final AbstractInsnNode t1 = methodNode.instructions.get(6);
+			assertEquals(Opcodes.BIPUSH, t1.getOpcode());
+			final AbstractInsnNode t2 = methodNode.instructions.get(13);
+			assertEquals(Opcodes.BIPUSH, t2.getOpcode());
+
+			final Set<AbstractInsnNode> newTargets = new HashSet<AbstractInsnNode>();
+			newTargets.add(t1);
+			newTargets.add(t2);
+			output.replaceBranches(i, newTargets);
+		}
+	};
+
+	@Test
+	public void table_switch_with_filter_should_show_2_branches_when_original_replaced() {
+		createTableSwitch();
+		runMethodAnalzer(SWITCH_FILTER);
+
+		assertLine(1001, 2, 0, 2, 0);
+	}
+
+	@Test
+	public void table_switch_with_filter_should_show_full_branch_coverage_when_new_targets_covered() {
+		createTableSwitch();
+		probes[0] = true;
+		probes[1] = true;
+		runMethodAnalzer(SWITCH_FILTER);
+
+		assertLine(1001, 0, 2, 0, 2);
 	}
 
 	@Test
@@ -708,13 +752,12 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 	public void try_catch_should_show_exception_handler_missed_when_probe_is_not_executed() {
 		createTryCatchBlock();
 		probes[0] = true;
-		probes[1] = true;
-		probes[0] = true;
+		probes[2] = true;
 		runMethodAnalzer();
 
 		assertLine(1001, 0, 3, 0, 0);
-		assertLine(1002, 0, 1, 0, 0);
-		assertLine(1003, 1, 0, 0, 0);
+		assertLine(1002, 1, 0, 0, 0);
+		assertLine(1003, 0, 1, 0, 0);
 	}
 
 	@Test
@@ -777,8 +820,8 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 	}
 
 	private static final IFilter TRY_FINALLY_FILTER = new IFilter() {
-		public void filter(final String className, final String superClassName,
-				final MethodNode methodNode, final IFilterOutput output) {
+		public void filter(final MethodNode methodNode,
+				final IFilterContext context, final IFilterOutput output) {
 			final AbstractInsnNode i1 = methodNode.instructions.get(2);
 			final AbstractInsnNode i2 = methodNode.instructions.get(7);
 			assertEquals(Opcodes.IFEQ, i1.getOpcode());
@@ -845,14 +888,21 @@ public class MethodAnalyzerTest implements IProbeIdGenerator {
 
 	private void runMethodAnalzer(IFilter filter) {
 		LabelFlowAnalyzer.markLabels(method);
-		final MethodAnalyzer analyzer = new MethodAnalyzer("Foo",
-				"java/lang/Object", "doit", "()V", null, probes, filter);
+		InstructionsBuilder builder = new InstructionsBuilder(probes);
+		final MethodAnalyzer analyzer = new MethodAnalyzer(builder);
+
 		final MethodProbesAdapter probesAdapter = new MethodProbesAdapter(
 				analyzer, this);
 		// note that CheckMethodAdapter verifies that this test does not violate
 		// contracts of ASM API
 		analyzer.accept(method, new CheckMethodAdapter(probesAdapter));
-		result = analyzer.getCoverage();
+
+		MethodCoverageImpl mc = new MethodCoverageImpl("doit", "V()", null);
+		MethodCoverageCalculator mcc = new MethodCoverageCalculator(
+				builder.getInstructions());
+		filter.filter(method, new FilterContextMock(), mcc);
+		mcc.calculate(mc);
+		result = mc;
 	}
 
 	private void assertLine(int nr, int insnMissed, int insnCovered,

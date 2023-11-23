@@ -8,7 +8,6 @@
 
 #include <time.h>
 
-
 /* Hold information to calculate linear least square from
  * several (x, y) samples.
  */

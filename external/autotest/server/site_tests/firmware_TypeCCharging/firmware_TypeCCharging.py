@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""This is a USB type C charging test using Plankton board."""
+"""This is a USB type C charging test using PDTester board."""
 
 import logging
 import math
@@ -25,27 +25,27 @@ class firmware_TypeCCharging(FirmwareTest):
     def run_once(self):
         """Compares VBUS voltage and current with charging setting.
 
-        When charging voltage == 0, Plankton will act as a power sink and draws
+        When charging voltage == 0, PDTester will act as a power sink and draws
         5 volts from DUT. Other charging voltage should be seen on USB type C
         VBUS INA meter in a 12% range.
 
-        When charging voltage == 5, Plankton INA current should be seen around
+        When charging voltage == 5, PDTester INA current should be seen around
         3 Amps (we set the range among 2 ~ 3.4 Amps just as in factory testing).
         Other positive charging votage should not be less than 0 Amp.
 
         @raise TestFail: If VBUS voltage or current is not in range.
         """
-        self.pd_console_utils = pd_console.PDConsoleUtils(self.plankton)
+        self.pd_console_utils = pd_console.PDConsoleUtils(self.pdtester)
 
-        for charging_voltage in self.plankton.get_charging_voltages():
-            self.plankton.charge(charging_voltage)
+        for charging_voltage in self.pdtester.get_charging_voltages():
+            self.pdtester.charge(charging_voltage)
             time.sleep(self.VBUS_CHANGE_DELAY)
             pd_state = self.pd_console_utils.get_pd_state(0)
             if charging_voltage > 0:
                  expected_state = self.pd_console_utils.SRC_CONNECT
             else:
                  expected_state = self.pd_console_utils.SNK_CONNECT
-            logging.info('Plankton state = %s', pd_state)
+            logging.info('PDTester state = %s', pd_state)
             if pd_state != expected_state:
                 raise error.TestFail('PD state != expected state, (%s != %s)' %
                                      (pd_state, expected_state))
@@ -53,8 +53,8 @@ class firmware_TypeCCharging(FirmwareTest):
                     charging_voltage if charging_voltage > 0 else
                     self.USBC_SINK_VOLTAGE)
             tolerance = self.VBUS_TOLERANCE * expected_vbus_voltage
-            vbus_voltage = self.plankton.vbus_voltage
-            vbus_current = self.plankton.vbus_current
+            vbus_voltage = self.pdtester.vbus_voltage
+            vbus_current = self.pdtester.vbus_current
             logging.info('Charging %dV: VBUS V=%f I=%f', charging_voltage,
                          vbus_voltage, vbus_current)
 

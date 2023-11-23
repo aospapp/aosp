@@ -24,6 +24,7 @@
 #include "vktSynchronizationSmokeTests.hpp"
 
 #include "vktTestCaseUtil.hpp"
+#include "vktCustomInstancesDevices.hpp"
 
 #include "vkPlatform.hpp"
 #include "vkStrUtil.hpp"
@@ -34,6 +35,7 @@
 
 #include "tcuTestLog.hpp"
 #include "tcuFormatUtil.hpp"
+#include "tcuCommandLine.hpp"
 
 #include "deUniquePtr.hpp"
 #include "deThread.hpp"
@@ -87,7 +89,7 @@ void buildShaders (SourceCollections& shaderCollection)
 				"}\n");
 }
 
-Move<VkDevice> createTestDevice (const PlatformInterface& vkp, VkInstance instance, const InstanceInterface& vki, VkPhysicalDevice physicalDevice, deUint32 *outQueueFamilyIndex)
+Move<VkDevice> createTestDevice (const PlatformInterface& vkp, VkInstance instance, const InstanceInterface& vki, VkPhysicalDevice physicalDevice, bool validationEnabled, deUint32 *outQueueFamilyIndex)
 {
 	VkDeviceQueueCreateInfo		queueInfo;
 	VkDeviceCreateInfo			deviceInfo;
@@ -138,7 +140,7 @@ Move<VkDevice> createTestDevice (const PlatformInterface& vkp, VkInstance instan
 
 	*outQueueFamilyIndex					= queueInfo.queueFamilyIndex;
 
-	return createDevice(vkp, instance, vki, physicalDevice, &deviceInfo);
+	return createCustomDevice(validationEnabled, vkp, instance, vki, physicalDevice, &deviceInfo);
 };
 
 struct BufferParameters
@@ -971,6 +973,19 @@ static void initSubmitInfo (VkSubmitInfo* submitInfo, deUint32 submitInfoCount)
 	}
 }
 
+static void initTimelineSemaphoreSubmitInfo (VkTimelineSemaphoreSubmitInfo* submitInfo, deUint32 submitInfoCount)
+{
+	for (deUint32 ndx = 0; ndx < submitInfoCount; ndx++)
+	{
+		submitInfo[ndx].sType						= VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+		submitInfo[ndx].pNext						= DE_NULL;
+		submitInfo[ndx].waitSemaphoreValueCount		= 0;
+		submitInfo[ndx].pWaitSemaphoreValues		= DE_NULL;
+		submitInfo[ndx].signalSemaphoreValueCount	= 0;
+		submitInfo[ndx].pSignalSemaphoreValues		= DE_NULL;
+	}
+}
+
 tcu::TestStatus testFences (Context& context)
 {
 	TestLog&					log					= context.getTestContext().getLog();
@@ -1075,14 +1090,14 @@ tcu::TestStatus testFences (Context& context)
 	return TestStatus::pass("synchronization-fences passed");
 }
 
-tcu::TestStatus testSemaphores (Context& context)
+tcu::TestStatus testSemaphores (Context& context, VkSemaphoreType semaphoreType)
 {
 	TestLog&					log					= context.getTestContext().getLog();
 	const PlatformInterface&	platformInterface	= context.getPlatformInterface();
 	const InstanceInterface&	instanceInterface	= context.getInstanceInterface();
 	const VkPhysicalDevice		physicalDevice		= context.getPhysicalDevice();
 	deUint32					queueFamilyIdx;
-	vk::Move<VkDevice>			device				= createTestDevice(platformInterface, context.getInstance(), instanceInterface, physicalDevice, &queueFamilyIdx);
+	vk::Move<VkDevice>			device				= createTestDevice(platformInterface, context.getInstance(), instanceInterface, physicalDevice, context.getTestContext().getCommandLine().isValidationEnabled(), &queueFamilyIdx);
 	const DeviceDriver			deviceInterface		(platformInterface, context.getInstance(), *device);
 	SimpleAllocator				allocator			(deviceInterface,
 													 *device,
@@ -1092,11 +1107,14 @@ tcu::TestStatus testSemaphores (Context& context)
 		getDeviceQueue(deviceInterface, *device, queueFamilyIdx, 0),
 		getDeviceQueue(deviceInterface, *device, queueFamilyIdx, 1)
 	};
-	VkResult					testStatus;
-	TestContext					testContext1		(deviceInterface, device.get(), queueFamilyIdx, context.getBinaryCollection(), allocator);
-	TestContext					testContext2		(deviceInterface, device.get(), queueFamilyIdx, context.getBinaryCollection(), allocator);
-	Unique<VkSemaphore>			semaphore			(createSemaphore(deviceInterface, *device));
-	VkSubmitInfo				submitInfo[2];
+	VkResult							testStatus;
+	TestContext							testContext1			(deviceInterface, device.get(), queueFamilyIdx, context.getBinaryCollection(), allocator);
+	TestContext							testContext2			(deviceInterface, device.get(), queueFamilyIdx, context.getBinaryCollection(), allocator);
+	Unique<VkSemaphore>					semaphore				(createSemaphoreType(deviceInterface, *device, semaphoreType));
+	VkSubmitInfo						submitInfo[2];
+	VkTimelineSemaphoreSubmitInfo		timelineSubmitInfo[2];
+	const deUint64						timelineValue			= 1u;
+
 	void*						resultImage;
 	const VkPipelineStageFlags	waitDstStageMask	= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
@@ -1131,18 +1149,25 @@ tcu::TestStatus testSemaphores (Context& context)
 	generateWork(testContext2);
 
 	initSubmitInfo(submitInfo, DE_LENGTH_OF_ARRAY(submitInfo));
+	initTimelineSemaphoreSubmitInfo(timelineSubmitInfo, DE_LENGTH_OF_ARRAY(timelineSubmitInfo));
 
 	// The difference between the two submit infos is that each will use a unique cmd buffer,
 	// and one will signal a semaphore but not wait on a semaphore, the other will wait on the
 	// semaphore but not signal a semaphore
-	submitInfo[0].pCommandBuffers		= &testContext1.cmdBuffer.get();
-	submitInfo[1].pCommandBuffers		= &testContext2.cmdBuffer.get();
+	submitInfo[0].pCommandBuffers					= &testContext1.cmdBuffer.get();
+	submitInfo[1].pCommandBuffers					= &testContext2.cmdBuffer.get();
 
-	submitInfo[0].signalSemaphoreCount	= 1;
-	submitInfo[0].pSignalSemaphores		= &semaphore.get();
-	submitInfo[1].waitSemaphoreCount	= 1;
-	submitInfo[1].pWaitSemaphores		= &semaphore.get();
-	submitInfo[1].pWaitDstStageMask		= &waitDstStageMask;
+	submitInfo[0].signalSemaphoreCount				= 1;
+	submitInfo[0].pSignalSemaphores					= &semaphore.get();
+	timelineSubmitInfo[0].pSignalSemaphoreValues	= &timelineValue;
+	timelineSubmitInfo[0].signalSemaphoreValueCount	= 1;
+	submitInfo[0].pNext = (semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE ? &timelineSubmitInfo[0] : DE_NULL);
+	submitInfo[1].waitSemaphoreCount				= 1;
+	submitInfo[1].pWaitSemaphores					= &semaphore.get();
+	timelineSubmitInfo[1].pWaitSemaphoreValues		= &timelineValue;
+	timelineSubmitInfo[1].waitSemaphoreValueCount	= 1;
+	submitInfo[1].pNext = (semaphoreType == VK_SEMAPHORE_TYPE_TIMELINE ? &timelineSubmitInfo[1] : DE_NULL);
+	submitInfo[1].pWaitDstStageMask					= &waitDstStageMask;
 
 	VK_CHECK(deviceInterface.queueSubmit(queue[0], 1, &submitInfo[0], testContext1.fences[0]));
 
@@ -1189,89 +1214,14 @@ tcu::TestStatus testSemaphores (Context& context)
 	return tcu::TestStatus::pass("synchronization-semaphores passed");
 }
 
-tcu::TestStatus testEvents (Context& context)
+tcu::TestStatus testBinarySemaphores (Context& context)
 {
-	TestLog&					log					= context.getTestContext().getLog();
-	const DeviceInterface&		deviceInterface		= context.getDeviceInterface();
-	VkDevice					device				= context.getDevice();
-	const deUint32				queueFamilyIdx		= context.getUniversalQueueFamilyIndex();
-	Allocator&					allocator			= context.getDefaultAllocator();
-	VkQueue						queue				= context.getUniversalQueue();
-	VkResult					testStatus;
-	VkResult					eventStatus;
-	TestContext					testContext			(deviceInterface, device, queueFamilyIdx, context.getBinaryCollection(), allocator);
-	Unique<VkEvent>				event				(createEvent(deviceInterface, device));
-	VkSubmitInfo				submitInfo;
-	void*						resultImage;
+	return testSemaphores(context, VK_SEMAPHORE_TYPE_BINARY_KHR);
+}
 
-	const tcu::Vec4		vertices1[]			=
-	{
-		tcu::Vec4( 0.5f,  0.5f, 0.0f, 1.0f),
-		tcu::Vec4(-0.5f,  0.5f, 0.0f, 1.0f),
-		tcu::Vec4( 0.0f, -0.5f, 0.0f, 1.0f)
-	};
-
-	testContext.vertices = vertices1;
-	testContext.numVertices = DE_LENGTH_OF_ARRAY(vertices1);
-	testContext.renderDimension = tcu::IVec2(256, 256);
-	testContext.waitEvent = true;
-	testContext.event = event.get();
-	testContext.renderSize = sizeof(deUint32) * testContext.renderDimension.x() * testContext.renderDimension.y();
-
-	createCommandBuffer(deviceInterface, device, queueFamilyIdx, &testContext.cmdBuffer, &testContext.commandPool);
-	generateWork(testContext);
-
-	initSubmitInfo(&submitInfo, 1);
-	submitInfo.pCommandBuffers = &testContext.cmdBuffer.get();
-
-	// 6.3 An event is initially in the unsignaled state
-	eventStatus = deviceInterface.getEventStatus(device, event.get());
-	if (eventStatus != VK_EVENT_RESET)
-	{
-		log << TestLog::Message << "testSynchronizationPrimitives event should be reset but status is " << getResultName(eventStatus) << TestLog::EndMessage;
-		return tcu::TestStatus::fail("Event in incorrect status");
-	}
-
-	// The recorded command buffer should wait at the top of the graphics pipe for an event signaled by the host and so should not
-	// make forward progress as long as the event is not signaled
-	VK_CHECK(deviceInterface.queueSubmit(queue, 1, &submitInfo, testContext.fences[0]));
-
-	testStatus  = deviceInterface.waitForFences(device, 1, &testContext.fences[0], true, 10000000);
-	if (testStatus != VK_TIMEOUT)
-	{
-		log << TestLog::Message << "testSynchronizationPrimitives failed to wait for set event from host." << TestLog::EndMessage;
-		return tcu::TestStatus::fail("failed to wait for event set from host");
-	}
-
-	// Should allow the recorded command buffer to finally make progress
-	VK_CHECK(deviceInterface.setEvent(device, event.get()));
-	eventStatus = deviceInterface.getEventStatus(device, event.get());
-	if (eventStatus != VK_EVENT_SET)
-	{
-		log << TestLog::Message << "testEvents failed to transition event to signaled state via setEvent call from host" << TestLog::EndMessage;
-		return tcu::TestStatus::fail("failed to signal event from host");
-	}
-
-	testStatus  = deviceInterface.waitForFences(device, 1, &testContext.fences[0], true, ~(0ull));
-	if (testStatus != VK_SUCCESS)
-	{
-		log << TestLog::Message << "testSynchronizationPrimitives failed to proceed after set event from host." << TestLog::EndMessage;
-		return tcu::TestStatus::fail("failed to proceed after event set from host");
-	}
-
-	invalidateAlloc(deviceInterface, device, *testContext.renderReadBuffer);
-	resultImage = testContext.renderReadBuffer->getHostPtr();
-
-	log << TestLog::Image(	"result",
-							"result",
-							tcu::ConstPixelBufferAccess(tcu::TextureFormat(
-									tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8),
-									testContext.renderDimension.x(),
-									testContext.renderDimension.y(),
-									1,
-									resultImage));
-
-	return tcu::TestStatus::pass("synchronization-events passed");
+tcu::TestStatus testTimelineSemaphores (Context& context)
+{
+	return testSemaphores(context, VK_SEMAPHORE_TYPE_TIMELINE_KHR);
 }
 
 } // anonymous
@@ -1281,8 +1231,8 @@ tcu::TestCaseGroup* createSmokeTests (tcu::TestContext& textCtx)
 	de::MovePtr<tcu::TestCaseGroup> synchTests  (new tcu::TestCaseGroup(textCtx, "smoke", "Synchronization smoke tests"));
 
 	addFunctionCaseWithPrograms(synchTests.get(), "fences", "", buildShaders, testFences);
-	addFunctionCaseWithPrograms(synchTests.get(), "semaphores", "", buildShaders, testSemaphores);
-	addFunctionCaseWithPrograms(synchTests.get(), "events", "", buildShaders, testEvents);
+	addFunctionCaseWithPrograms(synchTests.get(), "binary_semaphores", "", buildShaders, testBinarySemaphores);
+	addFunctionCaseWithPrograms(synchTests.get(), "timeline_semaphores", "", buildShaders, testTimelineSemaphores);
 
 	return synchTests.release();
 }

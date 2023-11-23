@@ -1,4 +1,9 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Change portions of the object files to good.
 
 The "portion" is defined by the file (which is passed as the only argument to
@@ -10,7 +15,7 @@ from __future__ import print_function
 
 import sys
 
-import common
+from binary_search_tool.test import common
 
 
 def Main(argv):

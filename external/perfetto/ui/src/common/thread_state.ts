@@ -14,13 +14,14 @@
 
 const states: {[key: string]: string} = {
   'R': 'Runnable',
-  'S': 'Interruptible Sleep',
-  'D': 'Uninterruptible (Disk) Sleep',
+  'S': 'Sleeping',
+  'D': 'Uninterruptible Sleep',
   'T': 'Stopped',
   't': 'Traced',
   'X': 'Exit (Dead)',
   'Z': 'Exit (Zombie)',
   'x': 'Task Dead',
+  'I': 'Task Dead',
   'K': 'Wake Kill',
   'W': 'Waking',
   'P': 'Parked',
@@ -30,7 +31,7 @@ const states: {[key: string]: string} = {
 
 export function translateState(state: string|undefined) {
   if (state === undefined) return '';
-  if (state === 'Running' || state === 'Runnable' || state === 'Busy') {
+  if (state === 'Running' || state === 'Various states') {
     return state;
   }
   let result = states[state[0]];
@@ -38,5 +39,8 @@ export function translateState(state: string|undefined) {
     result += state[i] === '+' ? ' ' : ' + ';
     result += states[state[i]];
   }
+  // state is some string we don't know how to translate.
+  if (result === undefined) return state;
+
   return result;
 }

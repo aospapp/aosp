@@ -161,9 +161,8 @@ func (g *waylandGenModule) DepsMutator(ctx android.BottomUpMutatorContext) {
 	android.ExtractSourcesDeps(ctx, g.properties.Srcs)
 	if g, ok := ctx.Module().(*waylandGenModule); ok {
 		if len(g.properties.Tools) > 0 {
-			ctx.AddFarVariationDependencies([]blueprint.Variation{
-				{"arch", ctx.AConfig().BuildOsVariant},
-			}, hostToolDepTag, g.properties.Tools...)
+			ctx.AddFarVariationDependencies(ctx.Config().BuildOSTarget.Variations(),
+				hostToolDepTag, g.properties.Tools...)
 		}
 	}
 }
@@ -264,7 +263,7 @@ func (g *waylandGenModule) prepareTools(ctx android.ModuleContext) (tools map[st
 
 				if t, ok := module.(genrule.HostToolProvider); ok {
 					if !t.(android.Module).Enabled() {
-						if ctx.AConfig().AllowMissingDependencies() {
+						if ctx.Config().AllowMissingDependencies() {
 							ctx.AddMissingDependencies([]string{tool})
 						} else {
 							ctx.ModuleErrorf("depends on disabled module %q", tool)

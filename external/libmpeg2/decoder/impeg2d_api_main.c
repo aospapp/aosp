@@ -90,7 +90,7 @@
 #define CODEC_RELEASE_VER       "01.00"
 #define CODEC_VENDOR            "ITTIAM"
 
-#ifdef __ANDROID__
+#ifdef ANDROID
 #define VERSION(version_string, codec_name, codec_release_type, codec_release_ver, codec_vendor)    \
     strcpy(version_string,"@(#)Id:");                                                               \
     strcat(version_string,codec_name);                                                              \
@@ -1500,10 +1500,8 @@ UWORD32 impeg2d_get_outbuf_size(WORD32 pic_wd,UWORD32 pic_ht, WORD32 u1_chroma_f
     if(u1_chroma_format == IV_YUV_420P)
     {
         p_buf_size[0] = (pic_wd * pic_ht);
-        p_buf_size[1] = (pic_wd * pic_ht)
-                        >> 2;
-        p_buf_size[2] = (pic_wd * pic_ht)
-                        >> 2;
+        p_buf_size[1] = ((pic_wd + 1) >> 1) * ((pic_ht + 1) >> 1);
+        p_buf_size[2] = ((pic_wd + 1) >> 1) * ((pic_ht + 1) >> 1);
     }
     else if(u1_chroma_format == IV_YUV_422ILE)
     {
@@ -1523,11 +1521,9 @@ UWORD32 impeg2d_get_outbuf_size(WORD32 pic_wd,UWORD32 pic_ht, WORD32 u1_chroma_f
                     || (u1_chroma_format == IV_YUV_420SP_VU))
     {
         p_buf_size[0] = (pic_wd * pic_ht);
-        p_buf_size[1] = (pic_wd * pic_ht)
-                        >> 1;
+        p_buf_size[1] = ((pic_wd + 1) >> 1) * ((pic_ht + 1) >> 1) * 2;
         p_buf_size[2] = 0;
     }
-
     return u4_min_num_out_bufs;
 }
 
@@ -3330,20 +3326,20 @@ IV_API_CALL_STATUS_T impeg2d_api_entity(iv_obj_t *ps_dechdl,
                 ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_y_strd = ps_dec_state->u4_frm_buf_stride;
                 ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_y_ht = ps_dec_state->u2_vertical_size;
 
-                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = ps_dec_state->u2_horizontal_size >> 1;
-                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_strd = ps_dec_state->u4_frm_buf_stride >> 1;
-                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_ht = ps_dec_state->u2_vertical_size >> 1;
+                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = (ps_dec_state->u2_horizontal_size + 1) >> 1;
+                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_strd = (ps_dec_state->u4_frm_buf_stride + 1) >> 1;
+                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_ht = (ps_dec_state->u2_vertical_size + 1) >> 1;
 
-                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_wd = ps_dec_state->u2_horizontal_size >> 1;
-                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_strd = ps_dec_state->u4_frm_buf_stride >> 1;
-                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_ht = ps_dec_state->u2_vertical_size >> 1;
+                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_wd = (ps_dec_state->u2_horizontal_size + 1) >> 1;
+                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_strd = (ps_dec_state->u4_frm_buf_stride + 1) >> 1;
+                ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_ht = (ps_dec_state->u2_vertical_size + 1) >> 1;
                 ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_size = sizeof(ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf);
 
                 switch(ps_dec_state->i4_chromaFormat)
                 {
                     case IV_YUV_420SP_UV:
                     case IV_YUV_420SP_VU:
-                        ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = ps_dec_state->u2_horizontal_size;
+                        ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = (((ps_dec_state->u2_horizontal_size + 1) >> 1) << 1);
                         ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_strd = ps_dec_state->u4_frm_buf_stride;
                     break;
                     case IV_YUV_422ILE:
@@ -3418,20 +3414,20 @@ IV_API_CALL_STATUS_T impeg2d_api_entity(iv_obj_t *ps_dechdl,
             ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_y_strd = ps_dec_state->u4_frm_buf_stride;
             ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_y_ht = ps_dec_state->u2_vertical_size;
 
-            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = ps_dec_state->u2_horizontal_size >> 1;
-            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_strd = ps_dec_state->u4_frm_buf_stride >> 1;
-            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_ht = ps_dec_state->u2_vertical_size >> 1;
+            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = (ps_dec_state->u2_horizontal_size + 1) >> 1;
+            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_strd = (ps_dec_state->u4_frm_buf_stride + 1) >> 1;
+            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_ht = (ps_dec_state->u2_vertical_size + 1) >> 1;
 
-            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_wd = ps_dec_state->u2_horizontal_size >> 1;
-            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_strd = ps_dec_state->u4_frm_buf_stride >> 1;
-            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_ht = ps_dec_state->u2_vertical_size >> 1;
+            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_wd = (ps_dec_state->u2_horizontal_size + 1) >> 1;
+            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_strd = (ps_dec_state->u4_frm_buf_stride + 1) >> 1;
+            ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_v_ht = (ps_dec_state->u2_vertical_size + 1) >> 1;
             ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_size = sizeof(ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf);
 
             switch(ps_dec_state->i4_chromaFormat)
             {
                 case IV_YUV_420SP_UV:
                 case IV_YUV_420SP_VU:
-                    ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = ps_dec_state->u2_horizontal_size;
+                    ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_wd = (((ps_dec_state->u2_horizontal_size + 1) >> 1) << 1);
                     ps_dec_op->s_ivd_video_decode_op_t.s_disp_frm_buf.u4_u_strd = ps_dec_state->u4_frm_buf_stride;
                 break;
                 case IV_YUV_422ILE:

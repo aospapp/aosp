@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 """
 This is not meant to be executed unless copied into a
 scenario package and renamed with a _unittest suffix.

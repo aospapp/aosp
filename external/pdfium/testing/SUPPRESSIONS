@@ -299,7 +299,6 @@ FRC_8.5_PO_GoToE_T_R&N.pdf * * *
 
 Choose.pdf * * *
 data_binding.pdf * * *
-Date_FormCale.pdf * * *
 # TODO(npm): Add proper evt for MouseEvents.
 MouseEvents_enter.pdf * * *
 MouseEvents_exit.pdf * * *
@@ -316,8 +315,43 @@ bug_679642.in * * noxfa
 bug_679643.in * * noxfa
 bug_735912.in * * noxfa
 
+# xfa_specific
+
+# TODO(pdfium:1106): Remove after associated bug is fixed
+resolve_nodes_1.pdf * * *
+
 #
 # Pixel tests
 #
 bug_492.in * nov8 *
 
+# TODO(pdfium:304): Remove after associated bug is fixed
+bug_304.pdf * * *
+
+# TODO(pdfium:1331): Remove after associated bug is fixed
+bug_1331.in * * *
+
+# TODO(pdfium:1461): Remove after associated bug is fixed
+bug_1402.in win * *
+
+# TODO(pdfium:1457): Remove after associated bug is fixed
+bug_1457.in * * *
+
+# TODO(chromium:451366): Remove after associated bug is fixed
+bug_451366.in * * *
+
+# TODO(chromium:1012369): Remove after associated bug is fixed
+bug_1012369.in * * *
+
+# xfa_specific
+
+# TODO(pdfium:1107): Remove after associated bug is fixed
+standard_symbols.pdf * * *
+# TODO(pdfium:1168): Remove after associated bug is fixed
+xfa_bmp_image.in * * *
+# TODO(pdfium:1095): Remove after associated bug is fixed
+xfa_example.in win * *
+# TODO(pdfium:1167): Remove after associated bug is fixed
+xfa_gif_image.in * * *
+# TODO(pdfium:1095): Remove after associated bug is fixed
+xfa_textfield.in win * *

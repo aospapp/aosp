@@ -16,15 +16,24 @@ group("all") {
     deps += [ ":puffin_test" ]
   }
   if (use.fuzzer) {
-    deps += [ ":puffin_fuzzer" ]
+    deps += [
+      ":puffin_huff_fuzzer",
+      ":puffin_puff_fuzzer",
+      ":puffin_puffpatch_fuzzer",
+    ]
   }
 }
 
 pkg_config("target_defaults") {
   pkg_deps = [
     "libchrome-${libbase_ver}",
-    "protobuf-lite",
   ]
+  if (use.fuzzer) {
+    # Link against protobuf for fuzzers so we can use libprotobuf-mutator.
+    pkg_deps += [ "protobuf" ]
+  } else {
+    pkg_deps += [ "protobuf-lite" ]
+  }
   cflags = [ "-Wextra" ]
   cflags_cc = [ "-Wnon-virtual-dtor" ]
   include_dirs = [ "src/include" ]
@@ -138,7 +147,33 @@ if (use.test) {
 }
 
 if (use.fuzzer) {
-  executable("puffin_fuzzer") {
+  executable("puffin_huff_fuzzer") {
+    configs += [
+      "//common-mk/common_fuzzer",
+      ":libbrillo",
+      ":target_defaults",
+    ]
+    deps = [
+      ":libpuffpatch",
+    ]
+    sources = [
+      "src/fuzzer_huff.cc",
+    ]
+  }
+  executable("puffin_puff_fuzzer") {
+    configs += [
+      "//common-mk/common_fuzzer",
+      ":libbrillo",
+      ":target_defaults",
+    ]
+    deps = [
+      ":libpuffpatch",
+    ]
+    sources = [
+      "src/fuzzer_puff.cc",
+    ]
+  }
+  executable("puffin_puffpatch_fuzzer") {
     configs += [
       "//common-mk/common_fuzzer",
       ":libbrillo",
@@ -148,7 +183,7 @@ if (use.fuzzer) {
       ":libpuffdiff",
     ]
     sources = [
-      "src/fuzzer.cc",
+      "src/fuzzer_puffpatch.cc",
     ]
   }
 }

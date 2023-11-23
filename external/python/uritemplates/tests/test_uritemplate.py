@@ -464,6 +464,52 @@ class TestURITemplate(RFCTemplateExamples('RFCMeta', (TestCase,), {})):
             None
         )
 
+    def test_label_path_expansion_explode_slash(self):
+        t = URITemplate('{/foo*}')
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', [], True, '/'), None
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', [None], True, '/'), None
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', [None, None], True, '/'), None
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', ['one'], True, '/'), 'one'
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', ['one', 'two'], True, '/'), 'one/two'
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', ['one', None, 'two'], True, '/'), 'one/two'
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', [''], True, '/'), ''
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', ['', ''], True, '/'), '/'
+        )
+
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', {}, True, '/'), None
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', {'one': ''}, True, '/'), 'one='
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', {'one': '', 'two': ''}, True, '/'), 'one=/two='
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', {'one': None}, True, '/'), None
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', {'one': None, 'two': 'two'}, True, '/'), 'two=two'
+        )
+        self.assertEqual(t.variables[0]._label_path_expansion(
+            'foo', {'one': None, 'two': None}, True, '/'), None
+        )
+
     def test_semi_path_expansion(self):
         t = URITemplate('{foo}')
         v = t.variables[0]
@@ -544,24 +590,24 @@ class TestURIVariable(TestCase):
 
 class TestVariableModule(TestCase):
     def test_is_list_of_tuples(self):
-        l = [(1, 2), (3, 4)]
-        self.assertEqual(variable.is_list_of_tuples(l), (True, l))
+        a_list = [(1, 2), (3, 4)]
+        self.assertEqual(variable.is_list_of_tuples(a_list), (True, a_list))
 
-        l = [1, 2, 3, 4]
-        self.assertEqual(variable.is_list_of_tuples(l), (False, None))
+        a_list = [1, 2, 3, 4]
+        self.assertEqual(variable.is_list_of_tuples(a_list), (False, None))
 
     def test_list_test(self):
-        l = [1, 2, 3, 4]
-        self.assertEqual(variable.list_test(l), True)
+        a_list = [1, 2, 3, 4]
+        self.assertEqual(variable.list_test(a_list), True)
 
-        l = str([1, 2, 3, 4])
-        self.assertEqual(variable.list_test(l), False)
+        a_list = str([1, 2, 3, 4])
+        self.assertEqual(variable.list_test(a_list), False)
 
     def test_list_of_tuples_test(self):
-        l = [(1, 2), (3, 4)]
-        self.assertEqual(variable.dict_test(l), False)
+        a_list = [(1, 2), (3, 4)]
+        self.assertEqual(variable.dict_test(a_list), False)
 
-        d = dict(l)
+        d = dict(a_list)
         self.assertEqual(variable.dict_test(d), True)
 
 

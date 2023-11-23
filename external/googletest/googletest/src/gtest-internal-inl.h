@@ -42,6 +42,7 @@
 #include <string.h>  // For memmove.
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -99,14 +100,14 @@ const char kFlagfileFlag[] = "flagfile";
 // A valid random seed must be in [1, kMaxRandomSeed].
 const int kMaxRandomSeed = 99999;
 
-// g_help_flag is true iff the --help flag or an equivalent form is
-// specified on the command line.
+// g_help_flag is true if and only if the --help flag or an equivalent form
+// is specified on the command line.
 GTEST_API_ extern bool g_help_flag;
 
 // Returns the current time in milliseconds.
 GTEST_API_ TimeInMillis GetTimeInMillis();
 
-// Returns true iff Google Test should use colors in the output.
+// Returns true if and only if Google Test should use colors in the output.
 GTEST_API_ bool ShouldUseColor(bool stdout_is_tty);
 
 // Formats the given time in milliseconds as seconds.
@@ -123,11 +124,11 @@ GTEST_API_ std::string FormatEpochTimeInMillisAsIso8601(TimeInMillis ms);
 // On success, stores the value of the flag in *value, and returns
 // true.  On failure, returns false without changing *value.
 GTEST_API_ bool ParseInt32Flag(
-    const char* str, const char* flag, Int32* value);
+    const char* str, const char* flag, int32_t* value);
 
 // Returns a random seed in range [1, kMaxRandomSeed] based on the
 // given --gtest_random_seed flag value.
-inline int GetRandomSeedFromFlag(Int32 random_seed_flag) {
+inline int GetRandomSeedFromFlag(int32_t random_seed_flag) {
   const unsigned int raw_seed = (random_seed_flag == 0) ?
       static_cast<unsigned int>(GetTimeInMillis()) :
       static_cast<unsigned int>(random_seed_flag);
@@ -213,10 +214,10 @@ class GTestFlagSaver {
   std::string output_;
   bool print_time_;
   bool print_utf8_;
-  internal::Int32 random_seed_;
-  internal::Int32 repeat_;
+  int32_t random_seed_;
+  int32_t repeat_;
   bool shuffle_;
-  internal::Int32 stack_trace_depth_;
+  int32_t stack_trace_depth_;
   std::string stream_result_to_;
   bool throw_on_failure_;
 } GTEST_ATTRIBUTE_UNUSED_;
@@ -227,7 +228,7 @@ class GTestFlagSaver {
 // If the code_point is not a valid Unicode code point
 // (i.e. outside of Unicode range U+0 to U+10FFFF) it will be converted
 // to "(Invalid Unicode 0xXXXXXXXX)".
-GTEST_API_ std::string CodePointToUtf8(UInt32 code_point);
+GTEST_API_ std::string CodePointToUtf8(uint32_t code_point);
 
 // Converts a wide string to a narrow string in UTF-8 encoding.
 // The wide string is assumed to have the following encoding:
@@ -260,14 +261,14 @@ GTEST_API_ bool ShouldShard(const char* total_shards_str,
                             const char* shard_index_str,
                             bool in_subprocess_for_death_test);
 
-// Parses the environment variable var as an Int32. If it is unset,
-// returns default_val. If it is not an Int32, prints an error and
+// Parses the environment variable var as a 32-bit integer. If it is unset,
+// returns default_val. If it is not a 32-bit integer, prints an error and
 // and aborts.
-GTEST_API_ Int32 Int32FromEnvOrDie(const char* env_var, Int32 default_val);
+GTEST_API_ int32_t Int32FromEnvOrDie(const char* env_var, int32_t default_val);
 
 // Given the total number of shards, the shard index, and the test id,
-// returns true iff the test should be run on this shard. The test id is
-// some arbitrary but unique non-negative integer assigned to each test
+// returns true if and only if the test should be run on this shard. The test id
+// is some arbitrary but unique non-negative integer assigned to each test
 // method. Assumes that 0 <= shard_index < total_shards.
 GTEST_API_ bool ShouldRunTestOnShard(
     int total_shards, int shard_index, int test_id);
@@ -298,7 +299,8 @@ void ForEach(const Container& c, Functor functor) {
 // in range [0, v.size()).
 template <typename E>
 inline E GetElementOr(const std::vector<E>& v, int i, E default_value) {
-  return (i < 0 || i >= static_cast<int>(v.size())) ? default_value : v[i];
+  return (i < 0 || i >= static_cast<int>(v.size())) ? default_value
+                                                    : v[static_cast<size_t>(i)];
 }
 
 // Performs an in-place shuffle of a range of the vector's elements.
@@ -320,8 +322,11 @@ void ShuffleRange(internal::Random* random, int begin, int end,
   // http://en.wikipedia.org/wiki/Fisher-Yates_shuffle
   for (int range_width = end - begin; range_width >= 2; range_width--) {
     const int last_in_range = begin + range_width - 1;
-    const int selected = begin + random->Generate(range_width);
-    std::swap((*v)[selected], (*v)[last_in_range]);
+    const int selected =
+        begin +
+        static_cast<int>(random->Generate(static_cast<uint32_t>(range_width)));
+    std::swap((*v)[static_cast<size_t>(selected)],
+              (*v)[static_cast<size_t>(last_in_range)]);
   }
 }
 
@@ -348,7 +353,7 @@ class TestPropertyKeyIs {
   // TestPropertyKeyIs has NO default constructor.
   explicit TestPropertyKeyIs(const std::string& key) : key_(key) {}
 
-  // Returns true iff the test name of test property matches on key_.
+  // Returns true if and only if the test name of test property matches on key_.
   bool operator()(const TestProperty& test_property) const {
     return test_property.key() == key_;
   }
@@ -381,15 +386,15 @@ class GTEST_API_ UnitTestOptions {
 
   // Functions for processing the gtest_filter flag.
 
-  // Returns true iff the wildcard pattern matches the string.  The
-  // first ':' or '\0' character in pattern marks the end of it.
+  // Returns true if and only if the wildcard pattern matches the string.
+  // The first ':' or '\0' character in pattern marks the end of it.
   //
   // This recursive algorithm isn't very efficient, but is clear and
   // works well enough for matching test names, which are short.
   static bool PatternMatchesString(const char *pattern, const char *str);
 
-  // Returns true iff the user-specified filter matches the test suite
-  // name and the test name.
+  // Returns true if and only if the user-specified filter matches the test
+  // suite name and the test name.
   static bool FilterMatchesTest(const std::string& test_suite_name,
                                 const std::string& test_name);
 
@@ -573,11 +578,12 @@ class GTEST_API_ UnitTestImpl {
   // Gets the elapsed time, in milliseconds.
   TimeInMillis elapsed_time() const { return elapsed_time_; }
 
-  // Returns true iff the unit test passed (i.e. all test suites passed).
+  // Returns true if and only if the unit test passed (i.e. all test suites
+  // passed).
   bool Passed() const { return !Failed(); }
 
-  // Returns true iff the unit test failed (i.e. some test suite failed
-  // or something outside of all tests failed).
+  // Returns true if and only if the unit test failed (i.e. some test suite
+  // failed or something outside of all tests failed).
   bool Failed() const {
     return failed_test_suite_count() > 0 || ad_hoc_test_result()->Failed();
   }
@@ -586,7 +592,7 @@ class GTEST_API_ UnitTestImpl {
   // total_test_suite_count() - 1. If i is not in that range, returns NULL.
   const TestSuite* GetTestSuite(int i) const {
     const int index = GetElementOr(test_suite_indices_, i, -1);
-    return index < 0 ? nullptr : test_suites_[i];
+    return index < 0 ? nullptr : test_suites_[static_cast<size_t>(i)];
   }
 
   //  Legacy API is deprecated but still available
@@ -598,7 +604,7 @@ class GTEST_API_ UnitTestImpl {
   // total_test_suite_count() - 1. If i is not in that range, returns NULL.
   TestSuite* GetMutableSuiteCase(int i) {
     const int index = GetElementOr(test_suite_indices_, i, -1);
-    return index < 0 ? nullptr : test_suites_[index];
+    return index < 0 ? nullptr : test_suites_[static_cast<size_t>(index)];
   }
 
   // Provides access to the event listener list.
@@ -690,6 +696,13 @@ class GTEST_API_ UnitTestImpl {
   // value-parameterized tests and instantiate and register them.
   internal::ParameterizedTestSuiteRegistry& parameterized_test_registry() {
     return parameterized_test_registry_;
+  }
+
+  // Returns TypeParameterizedTestSuiteRegistry object used to keep track of
+  // type-parameterized tests and instantiations of them.
+  internal::TypeParameterizedTestSuiteRegistry&
+  type_parameterized_test_registry() {
+    return type_parameterized_test_registry_;
   }
 
   // Sets the TestSuite object for the test that's currently running.
@@ -868,6 +881,8 @@ class GTEST_API_ UnitTestImpl {
   // ParameterizedTestRegistry object used to register value-parameterized
   // tests.
   internal::ParameterizedTestSuiteRegistry parameterized_test_registry_;
+  internal::TypeParameterizedTestSuiteRegistry
+      type_parameterized_test_registry_;
 
   // Indicates whether RegisterParameterizedTests() has been called already.
   bool parameterized_tests_registered_;
@@ -907,7 +922,7 @@ class GTEST_API_ UnitTestImpl {
   // desired.
   OsStackTraceGetterInterface* os_stack_trace_getter_;
 
-  // True iff PostFlagParsingInit() has been called.
+  // True if and only if PostFlagParsingInit() has been called.
   bool post_flag_parse_init_performed_;
 
   // The random number seed used at the beginning of the test run.
@@ -994,20 +1009,9 @@ bool ParseNaturalNumber(const ::std::string& str, Integer* number) {
   char* end;
   // BiggestConvertible is the largest integer type that system-provided
   // string-to-number conversion routines can return.
+  using BiggestConvertible = unsigned long long;  // NOLINT
 
-# if GTEST_OS_WINDOWS && !defined(__GNUC__)
-
-  // MSVC and C++ Builder define __int64 instead of the standard long long.
-  typedef unsigned __int64 BiggestConvertible;
-  const BiggestConvertible parsed = _strtoui64(str.c_str(), &end, 10);
-
-# else
-
-  typedef unsigned long long BiggestConvertible;  // NOLINT
-  const BiggestConvertible parsed = strtoull(str.c_str(), &end, 10);
-
-# endif  // GTEST_OS_WINDOWS && !defined(__GNUC__)
-
+  const BiggestConvertible parsed = strtoull(str.c_str(), &end, 10);  // NOLINT
   const bool parse_success = *end == '\0' && errno == 0;
 
   GTEST_CHECK_(sizeof(Integer) <= sizeof(parsed));
@@ -1083,8 +1087,8 @@ class StreamingListener : public EmptyTestEventListener {
       GTEST_CHECK_(sockfd_ != -1)
           << "Send() can be called only when there is a connection.";
 
-      const int len = static_cast<int>(message.length());
-      if (write(sockfd_, message.c_str(), len) != len) {
+      const auto len = static_cast<size_t>(message.length());
+      if (write(sockfd_, message.c_str(), len) != static_cast<ssize_t>(len)) {
         GTEST_LOG_(WARNING)
             << "stream_result_to: failed to stream to "
             << host_name_ << ":" << port_num_;

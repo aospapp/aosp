@@ -42,7 +42,7 @@ static void display_sha1_digest(unsigned char *pcr)
 {
 	int i;
 
-	for (i = 0; i < 20; i++)
+	for (i = 0; i < SHA_DIGEST_LENGTH; i++)
 		printf("%02x", *(pcr + i) & 0xff);
 	printf("\n");
 }
@@ -53,10 +53,10 @@ int main(int argc, char *argv[])
 	struct {
 		struct {
 			u_int32_t pcr;
-			int type;
-			unsigned char digest[SHA_DIGEST_LENGTH];
-			u_int16_t len;
-		} header;
+			u_int32_t type;
+			u_int8_t digest[SHA_DIGEST_LENGTH];
+			u_int32_t len;
+		} header __attribute__ ((packed));
 		char *data;
 	} event;
 	struct {
@@ -93,10 +93,16 @@ int main(int argc, char *argv[])
 			printf("%03u ", event.header.pcr);
 			display_sha1_digest(event.header.digest);
 		}
-		SHA1_Init(&c);
-		SHA1_Update(&c, pcr[event.header.pcr].digest, 20);
-		SHA1_Update(&c, event.header.digest, 20);
-		SHA1_Final(pcr[event.header.pcr].digest, &c);
+
+		if (event.header.pcr < NUM_PCRS) {
+			SHA1_Init(&c);
+			SHA1_Update(&c, pcr[event.header.pcr].digest,
+				    SHA_DIGEST_LENGTH);
+			SHA1_Update(&c, event.header.digest,
+				    SHA_DIGEST_LENGTH);
+			SHA1_Final(pcr[event.header.pcr].digest, &c);
+		}
+
 #if MAX_EVENT_DATA_SIZE < USHRT_MAX
 		if (event.header.len > MAX_EVENT_DATA_SIZE) {
 			printf("Error event too long\n");
@@ -116,7 +122,7 @@ int main(int argc, char *argv[])
 			printf("PCR-%2.2x: ", i);
 			display_sha1_digest(pcr[i].digest);
 		}
-		SHA1_Update(&c, pcr[i].digest, 20);
+		SHA1_Update(&c, pcr[i].digest, SHA_DIGEST_LENGTH);
 	}
 	SHA1_Final(boot_aggregate, &c);
 

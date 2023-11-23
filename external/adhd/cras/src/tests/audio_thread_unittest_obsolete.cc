@@ -6,21 +6,21 @@ extern "C" {
 #include "audio_thread.c"
 }
 
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include <sys/select.h>
-#include <gtest/gtest.h>
 
 extern "C" {
 
 struct dev_stream_capture_call {
-  struct dev_stream *dev_stream;
-  const struct cras_audio_area *area;
+  struct dev_stream* dev_stream;
+  const struct cras_audio_area* area;
   unsigned int dev_index;
   unsigned int num_called;
 };
 
 struct cap_sleep_frames_call {
-  struct dev_stream *dev_stream;
+  struct dev_stream* dev_stream;
   unsigned int written;
   unsigned int num_called;
 };
@@ -31,19 +31,19 @@ static unsigned int cras_mix_mute_count;
 static unsigned int dev_stream_request_playback_samples_called;
 static unsigned int cras_rstream_destroy_called;
 static unsigned int cras_metrics_log_histogram_called;
-static const char *cras_metrics_log_histogram_name;
+static const char* cras_metrics_log_histogram_name;
 static unsigned int cras_metrics_log_histogram_sample;
 static unsigned int cras_metrics_log_event_called;
 
-static void (*cras_system_add_select_fd_callback)(void *data);
-static void *cras_system_add_select_fd_callback_data;
+static void (*cras_system_add_select_fd_callback)(void* data);
+static void* cras_system_add_select_fd_callback_data;
 
 static int select_return_value;
 static struct timeval select_timeval;
 static int select_max_fd;
 static fd_set select_in_fds;
 static fd_set select_out_fds;
-static uint32_t *select_write_ptr;
+static uint32_t* select_write_ptr;
 static uint32_t select_write_value;
 static unsigned int cras_iodev_set_format_called;
 static unsigned int dev_stream_set_delay_called;
@@ -52,8 +52,8 @@ static unsigned int dev_stream_mix_called;
 
 static struct timespec time_now;
 static int cras_fmt_conversion_needed_return_val;
-static struct cras_audio_area *dummy_audio_area1;
-static struct cras_audio_area *dummy_audio_area2;
+static struct cras_audio_area* dummy_audio_area1;
+static struct cras_audio_area* dummy_audio_area2;
 static struct cras_audio_format cras_iodev_set_format_val;
 
 static struct dev_stream_capture_call dev_stream_capture_call;
@@ -66,146 +66,135 @@ static const int CAP_EXTRA_SLEEP_FRAMES = 16;
 
 //  Test the audio capture path.
 class ReadStreamSuite : public testing::Test {
-  protected:
-    virtual void SetUp() {
-      memset(&cras_iodev_set_format_val, 0, sizeof(cras_iodev_set_format_val));
-      cras_iodev_set_format_val.frame_rate = 44100;
-      cras_iodev_set_format_val.num_channels = 2;
-      cras_iodev_set_format_val.format = SND_PCM_FORMAT_S16_LE;
+ protected:
+  virtual void SetUp() {
+    memset(&cras_iodev_set_format_val, 0, sizeof(cras_iodev_set_format_val));
+    cras_iodev_set_format_val.frame_rate = 44100;
+    cras_iodev_set_format_val.num_channels = 2;
+    cras_iodev_set_format_val.format = SND_PCM_FORMAT_S16_LE;
 
-      memset(&iodev_, 0, sizeof(iodev_));
-      iodev_.buffer_size = 16384;
-      cb_threshold_ = 480;
-      iodev_.direction = CRAS_STREAM_INPUT;
+    memset(&iodev_, 0, sizeof(iodev_));
+    iodev_.buffer_size = 16384;
+    cb_threshold_ = 480;
+    iodev_.direction = CRAS_STREAM_INPUT;
 
-      iodev_.frames_queued = frames_queued;
-      iodev_.delay_frames = delay_frames;
-      iodev_.get_buffer = get_buffer;
-      iodev_.put_buffer = put_buffer;
-      iodev_.is_open = is_open;
-      iodev_.open_dev = open_dev;
-      iodev_.close_dev = close_dev;
-      iodev_.dev_running = dev_running;
+    iodev_.frames_queued = frames_queued;
+    iodev_.delay_frames = delay_frames;
+    iodev_.get_buffer = get_buffer;
+    iodev_.put_buffer = put_buffer;
+    iodev_.is_open = is_open;
+    iodev_.open_dev = open_dev;
+    iodev_.close_dev = close_dev;
+    iodev_.dev_running = dev_running;
 
-      memcpy(&output_dev_, &iodev_, sizeof(output_dev_));
-      output_dev_.direction = CRAS_STREAM_OUTPUT;
+    memcpy(&output_dev_, &iodev_, sizeof(output_dev_));
+    output_dev_.direction = CRAS_STREAM_OUTPUT;
 
-      SetupRstream(&rstream_, 1);
-      shm_ = cras_rstream_input_shm(rstream_);
-      SetupRstream(&rstream2_, 2);
-      shm2_ = cras_rstream_input_shm(rstream2_);
+    SetupRstream(&rstream_, 1);
+    shm_ = cras_rstream_input_shm(rstream_);
+    SetupRstream(&rstream2_, 2);
+    shm2_ = cras_rstream_input_shm(rstream2_);
 
-      dummy_audio_area1 = (cras_audio_area*)calloc(1,
-          sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-      dummy_audio_area1->num_channels = 2;
-      channel_area_set_channel(&dummy_audio_area1->channels[0], CRAS_CH_FL);
-      channel_area_set_channel(&dummy_audio_area1->channels[1], CRAS_CH_FR);
-      rstream_->input_audio_area = dummy_audio_area1;
-      dummy_audio_area2 = (cras_audio_area*)calloc(1,
-          sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-      dummy_audio_area2->num_channels = 2;
-      channel_area_set_channel(&dummy_audio_area2->channels[0], CRAS_CH_FL);
-      channel_area_set_channel(&dummy_audio_area2->channels[1], CRAS_CH_FR);
-      rstream2_->input_audio_area = dummy_audio_area2;
+    dummy_audio_area1 = (cras_audio_area*)calloc(
+        1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
+    dummy_audio_area1->num_channels = 2;
+    channel_area_set_channel(&dummy_audio_area1->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&dummy_audio_area1->channels[1], CRAS_CH_FR);
+    rstream_->input_audio_area = dummy_audio_area1;
+    dummy_audio_area2 = (cras_audio_area*)calloc(
+        1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
+    dummy_audio_area2->num_channels = 2;
+    channel_area_set_channel(&dummy_audio_area2->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&dummy_audio_area2->channels[1], CRAS_CH_FR);
+    rstream2_->input_audio_area = dummy_audio_area2;
 
-      dev_stream_mix_dont_fill_next = 0;
-      dev_stream_mix_count = 0;
-      dev_running_called_ = 0;
-      is_open_ = 0;
-      close_dev_called_ = 0;
+    dev_stream_mix_dont_fill_next = 0;
+    dev_stream_mix_count = 0;
+    dev_running_called_ = 0;
+    is_open_ = 0;
+    close_dev_called_ = 0;
 
-      cras_iodev_set_format_called = 0;
-      dev_stream_set_delay_called = 0;
-    }
+    cras_iodev_set_format_called = 0;
+    dev_stream_set_delay_called = 0;
+  }
 
-    virtual void TearDown() {
-      free(shm_->area);
-      free(rstream_);
-      free(shm2_->area);
-      free(rstream2_);
-      free(dummy_audio_area1);
-      free(dummy_audio_area2);
-    }
+  virtual void TearDown() {
+    free(shm_->area);
+    free(rstream_);
+    free(shm2_->area);
+    free(rstream2_);
+    free(dummy_audio_area1);
+    free(dummy_audio_area2);
+  }
 
-    void SetupRstream(struct cras_rstream **rstream, int fd) {
-      struct cras_audio_shm *shm;
+  void SetupRstream(struct cras_rstream** rstream, int fd) {
+    struct cras_audio_shm* shm;
 
-      *rstream = (struct cras_rstream *)calloc(1, sizeof(**rstream));
-      memcpy(&(*rstream)->format, &cras_iodev_set_format_val,
-             sizeof(cras_iodev_set_format_val));
-      (*rstream)->direction = CRAS_STREAM_INPUT;
-      (*rstream)->cb_threshold = cb_threshold_;
-      (*rstream)->client = (struct cras_rclient *)this;
+    *rstream = (struct cras_rstream*)calloc(1, sizeof(**rstream));
+    memcpy(&(*rstream)->format, &cras_iodev_set_format_val,
+           sizeof(cras_iodev_set_format_val));
+    (*rstream)->direction = CRAS_STREAM_INPUT;
+    (*rstream)->cb_threshold = cb_threshold_;
+    (*rstream)->client = (struct cras_rclient*)this;
 
-      shm = cras_rstream_input_shm(*rstream);
-      shm->area = (struct cras_audio_shm_area *)calloc(1,
-          sizeof(*shm->area) + cb_threshold_ * 8);
-      cras_shm_set_frame_bytes(shm, 4);
-      cras_shm_set_used_size(
-          shm, cb_threshold_ * cras_shm_frame_bytes(shm));
-    }
+    shm = cras_rstream_input_shm(*rstream);
+    shm->header = (struct cras_audio_shm_header*)calloc(
+        1, sizeof(*shm->header) + cb_threshold_ * 8);
+    cras_shm_set_frame_bytes(shm, 4);
+    cras_shm_set_used_size(shm, cb_threshold_ * cras_shm_frame_bytes(shm));
+  }
 
-    unsigned int GetCaptureSleepFrames() {
-      // Account for padding the sleep interval to ensure the wake up happens
-      // after the last desired frame is received.
-      return cb_threshold_ + 16;
-    }
+  unsigned int GetCaptureSleepFrames() {
+    // Account for padding the sleep interval to ensure the wake up happens
+    // after the last desired frame is received.
+    return cb_threshold_ + 16;
+  }
 
-    // Stub functions for the iodev structure.
-    static int frames_queued(const cras_iodev* iodev) {
-      return frames_queued_;
-    }
+  // Stub functions for the iodev structure.
+  static int frames_queued(const cras_iodev* iodev) { return frames_queued_; }
 
-    static int delay_frames(const cras_iodev* iodev) {
-      return delay_frames_;
-    }
+  static int delay_frames(const cras_iodev* iodev) { return delay_frames_; }
 
-    static int get_buffer(cras_iodev* iodev,
-                          struct cras_audio_area** area,
-                          unsigned int* num) {
-      size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
+  static int get_buffer(cras_iodev* iodev,
+                        struct cras_audio_area** area,
+                        unsigned int* num) {
+    size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
 
-      if (audio_buffer_size_ < *num)
-	      *num = audio_buffer_size_;
+    if (audio_buffer_size_ < *num)
+      *num = audio_buffer_size_;
 
-      area_ = (cras_audio_area*)calloc(1, sz);
-      area_->frames = *num;
-      area_->num_channels = 2;
-      area_->channels[0].buf = audio_buffer_;
-      channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
-      area_->channels[0].step_bytes = 4;
-      area_->channels[1].buf = audio_buffer_ + 2;
-      channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
-      area_->channels[1].step_bytes = 4;
+    area_ = (cras_audio_area*)calloc(1, sz);
+    area_->frames = *num;
+    area_->num_channels = 2;
+    area_->channels[0].buf = audio_buffer_;
+    channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
+    area_->channels[0].step_bytes = 4;
+    area_->channels[1].buf = audio_buffer_ + 2;
+    channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
+    area_->channels[1].step_bytes = 4;
 
-      *area = area_;
-      return 0;
-    }
+    *area = area_;
+    return 0;
+  }
 
-    static int put_buffer(cras_iodev* iodev,
-                          unsigned int num) {
-      free(area_);
-      return 0;
-    }
+  static int put_buffer(cras_iodev* iodev, unsigned int num) {
+    free(area_);
+    return 0;
+  }
 
-    static int is_open(const cras_iodev* iodev) {
-      return is_open_;
-    }
+  static int is_open(const cras_iodev* iodev) { return is_open_; }
 
-    static int open_dev(cras_iodev* iodev) {
-      return 0;
-    }
+  static int open_dev(cras_iodev* iodev) { return 0; }
 
-    static int close_dev(cras_iodev* iodev) {
-      close_dev_called_++;
-      return 0;
-    }
+  static int close_dev(cras_iodev* iodev) {
+    close_dev_called_++;
+    return 0;
+  }
 
-    static int dev_running(const cras_iodev* iodev) {
-      dev_running_called_++;
-      return 1;
-    }
-
+  static int dev_running(const cras_iodev* iodev) {
+    dev_running_called_++;
+    return 1;
+  }
 
   struct cras_iodev iodev_;
   struct cras_iodev output_dev_;
@@ -214,14 +203,14 @@ class ReadStreamSuite : public testing::Test {
   static int delay_frames_;
   static unsigned int cb_threshold_;
   static uint8_t audio_buffer_[8192];
-  static struct cras_audio_area *area_;
+  static struct cras_audio_area* area_;
   static unsigned int audio_buffer_size_;
   static unsigned int dev_running_called_;
   static unsigned int close_dev_called_;
-  struct cras_rstream *rstream_;
-  struct cras_rstream *rstream2_;
-  struct cras_audio_shm *shm_;
-  struct cras_audio_shm *shm2_;
+  struct cras_rstream* rstream_;
+  struct cras_rstream* rstream2_;
+  struct cras_audio_shm* shm_;
+  struct cras_audio_shm* shm2_;
 };
 
 int ReadStreamSuite::is_open_ = 0;
@@ -232,12 +221,12 @@ uint8_t ReadStreamSuite::audio_buffer_[8192];
 unsigned int ReadStreamSuite::audio_buffer_size_ = 0;
 unsigned int ReadStreamSuite::dev_running_called_ = 0;
 unsigned int ReadStreamSuite::cb_threshold_ = 0;
-struct cras_audio_area *ReadStreamSuite::area_;
+struct cras_audio_area* ReadStreamSuite::area_;
 
 TEST_F(ReadStreamSuite, PossiblyReadGetAvailError) {
   struct timespec ts;
   int rc;
-  struct audio_thread *thread;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
   ASSERT_TRUE(thread);
@@ -262,7 +251,7 @@ TEST_F(ReadStreamSuite, PossiblyReadEmpty) {
   struct timespec ts;
   int rc;
   uint64_t nsec_expected;
-  struct audio_thread *thread;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
   ASSERT_TRUE(thread);
@@ -293,7 +282,7 @@ TEST_F(ReadStreamSuite, PossiblyReadTooLittleData) {
   int rc;
   uint64_t nsec_expected;
   static const uint64_t num_frames_short = 40;
-  struct audio_thread *thread;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
   ASSERT_TRUE(thread);
@@ -325,7 +314,7 @@ TEST_F(ReadStreamSuite, PossiblyReadHasDataWriteStream) {
   struct timespec ts;
   int rc;
   uint64_t nsec_expected;
-  struct audio_thread *thread;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
   ASSERT_TRUE(thread);
@@ -338,7 +327,7 @@ TEST_F(ReadStreamSuite, PossiblyReadHasDataWriteStream) {
   audio_buffer_size_ = frames_queued_;
 
   for (unsigned int i = 0; i < sizeof(audio_buffer_); i++)
-	  audio_buffer_[i] = i;
+    audio_buffer_[i] = i;
 
   uint64_t sleep_frames = GetCaptureSleepFrames() - 4;
   nsec_expected = (uint64_t)sleep_frames * 1000000000ULL /
@@ -363,7 +352,7 @@ TEST_F(ReadStreamSuite, PossiblyReadHasDataWriteTwoStreams) {
   struct timespec ts;
   int rc;
   uint64_t nsec_expected;
-  struct audio_thread *thread;
+  struct audio_thread* thread;
 
   dev_stream_capture_call.num_called = 0;
   cap_sleep_frames_call.num_called = 0;
@@ -382,7 +371,7 @@ TEST_F(ReadStreamSuite, PossiblyReadHasDataWriteTwoStreams) {
   audio_buffer_size_ = frames_queued_;
 
   for (unsigned int i = 0; i < sizeof(audio_buffer_); i++)
-	  audio_buffer_[i] = i;
+    audio_buffer_[i] = i;
 
   uint64_t sleep_frames = GetCaptureSleepFrames() - 4;
   nsec_expected = (uint64_t)sleep_frames * 1000000000ULL /
@@ -404,7 +393,7 @@ TEST_F(ReadStreamSuite, PossiblyReadHasDataWriteTwoDifferentStreams) {
   struct timespec ts;
   int rc;
   uint64_t nsec_expected;
-  struct audio_thread *thread;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
   ASSERT_TRUE(thread);
@@ -452,7 +441,7 @@ TEST_F(ReadStreamSuite, PossiblyReadHasDataWriteTwoDifferentStreams) {
 TEST_F(ReadStreamSuite, PossiblyReadWriteThreeBuffers) {
   struct timespec ts;
   int rc;
-  struct audio_thread *thread;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
   ASSERT_TRUE(thread);
@@ -496,147 +485,141 @@ TEST_F(ReadStreamSuite, PossiblyReadWriteThreeBuffers) {
 
 //  Test the audio playback path.
 class WriteStreamSuite : public testing::Test {
-  protected:
-    virtual void SetUp() {
-      memset(&fmt_, 0, sizeof(fmt_));
-      fmt_.frame_rate = 44100;
-      fmt_.num_channels = 2;
-      fmt_.format = SND_PCM_FORMAT_S16_LE;
+ protected:
+  virtual void SetUp() {
+    memset(&fmt_, 0, sizeof(fmt_));
+    fmt_.frame_rate = 44100;
+    fmt_.num_channels = 2;
+    fmt_.format = SND_PCM_FORMAT_S16_LE;
 
-      memset(&iodev_, 0, sizeof(iodev_));
-      iodev_.format = &fmt_;
-      iodev_.buffer_size = 16384;
-      iodev_.direction = CRAS_STREAM_OUTPUT;
+    memset(&iodev_, 0, sizeof(iodev_));
+    iodev_.format = &fmt_;
+    iodev_.buffer_size = 16384;
+    iodev_.direction = CRAS_STREAM_OUTPUT;
 
-      iodev_.frames_queued = frames_queued;
-      iodev_.delay_frames = delay_frames;
-      iodev_.get_buffer = get_buffer;
-      iodev_.put_buffer = put_buffer;
-      iodev_.dev_running = dev_running;
-      iodev_.is_open = is_open;
-      iodev_.open_dev = open_dev;
-      iodev_.close_dev = close_dev;
-      iodev_.buffer_size = 480;
+    iodev_.frames_queued = frames_queued;
+    iodev_.delay_frames = delay_frames;
+    iodev_.get_buffer = get_buffer;
+    iodev_.put_buffer = put_buffer;
+    iodev_.dev_running = dev_running;
+    iodev_.is_open = is_open;
+    iodev_.open_dev = open_dev;
+    iodev_.close_dev = close_dev;
+    iodev_.buffer_size = 480;
 
-      buffer_frames_ = iodev_.buffer_size;
-      cb_threshold_ = 96;
-      SetupRstream(&rstream_, 1);
-      shm_ = cras_rstream_output_shm(rstream_);
-      SetupRstream(&rstream2_, 2);
-      shm2_ = cras_rstream_output_shm(rstream2_);
+    buffer_frames_ = iodev_.buffer_size;
+    cb_threshold_ = 96;
+    SetupRstream(&rstream_, 1);
+    shm_ = cras_rstream_output_shm(rstream_);
+    SetupRstream(&rstream2_, 2);
+    shm2_ = cras_rstream_output_shm(rstream2_);
 
-      thread_ = audio_thread_create();
-      ASSERT_TRUE(thread_);
-      thread_set_active_dev(thread_, &iodev_);
+    thread_ = audio_thread_create();
+    ASSERT_TRUE(thread_);
+    thread_set_active_dev(thread_, &iodev_);
 
-      dev_stream_mix_dont_fill_next = 0;
-      dev_stream_mix_count = 0;
-      select_max_fd = -1;
-      select_write_ptr = NULL;
-      cras_metrics_log_event_called = 0;
-      dev_stream_request_playback_samples_called = 0;
-      cras_rstream_destroy_called = 0;
-      dev_stream_mix_called = 0;
-      is_open_ = 0;
-      close_dev_called_ = 0;
+    dev_stream_mix_dont_fill_next = 0;
+    dev_stream_mix_count = 0;
+    select_max_fd = -1;
+    select_write_ptr = NULL;
+    cras_metrics_log_event_called = 0;
+    dev_stream_request_playback_samples_called = 0;
+    cras_rstream_destroy_called = 0;
+    dev_stream_mix_called = 0;
+    is_open_ = 0;
+    close_dev_called_ = 0;
 
-      dev_running_called_ = 0;
+    dev_running_called_ = 0;
 
-      audio_buffer_size_ = 8196;
-      thread_add_stream(thread_, rstream_);
-      frames_written_ = 0;
-    }
+    audio_buffer_size_ = 8196;
+    thread_add_stream(thread_, rstream_);
+    frames_written_ = 0;
+  }
 
-    virtual void TearDown() {
-      free(shm_->area);
-      free(rstream_);
-      free(shm2_->area);
-      free(rstream2_);
-      audio_thread_destroy(thread_);
-    }
+  virtual void TearDown() {
+    free(shm_->area);
+    free(rstream_);
+    free(shm2_->area);
+    free(rstream2_);
+    audio_thread_destroy(thread_);
+  }
 
-    void SetupRstream(struct cras_rstream **rstream, int fd) {
-      struct cras_audio_shm *shm;
+  void SetupRstream(struct cras_rstream** rstream, int fd) {
+    struct cras_audio_shm* shm;
 
-      *rstream = (struct cras_rstream *)calloc(1, sizeof(**rstream));
-      memcpy(&(*rstream)->format, &fmt_, sizeof(fmt_));
-      (*rstream)->fd = fd;
-      (*rstream)->buffer_frames = buffer_frames_;
-      (*rstream)->cb_threshold = cb_threshold_;
-      (*rstream)->client = (struct cras_rclient *)this;
+    *rstream = (struct cras_rstream*)calloc(1, sizeof(**rstream));
+    memcpy(&(*rstream)->format, &fmt_, sizeof(fmt_));
+    (*rstream)->fd = fd;
+    (*rstream)->buffer_frames = buffer_frames_;
+    (*rstream)->cb_threshold = cb_threshold_;
+    (*rstream)->client = (struct cras_rclient*)this;
 
-      shm = cras_rstream_output_shm(*rstream);
-      shm->area = (struct cras_audio_shm_area *)calloc(1,
-          sizeof(*shm->area) + cb_threshold_ * 8);
-      cras_shm_set_frame_bytes(shm, 4);
-      cras_shm_set_used_size(
-          shm, buffer_frames_ * cras_shm_frame_bytes(shm));
-    }
+    shm = cras_rstream_output_shm(*rstream);
+    shm->header = (struct cras_audio_shm_header*)calloc(
+        1, sizeof(*shm->header) + cb_threshold_ * 8);
+    cras_shm_set_frame_bytes(shm, 4);
+    cras_shm_set_used_size(shm, buffer_frames_ * cras_shm_frame_bytes(shm));
+  }
 
-    uint64_t GetCaptureSleepFrames() {
-      // Account for padding the sleep interval to ensure the wake up happens
-      // after the last desired frame is received.
-      return cb_threshold_ + CAP_EXTRA_SLEEP_FRAMES;
-    }
+  uint64_t GetCaptureSleepFrames() {
+    // Account for padding the sleep interval to ensure the wake up happens
+    // after the last desired frame is received.
+    return cb_threshold_ + CAP_EXTRA_SLEEP_FRAMES;
+  }
 
-    // Stub functions for the iodev structure.
-    static int frames_queued(const cras_iodev* iodev) {
-      return frames_queued_ + frames_written_;
-    }
+  // Stub functions for the iodev structure.
+  static int frames_queued(const cras_iodev* iodev) {
+    return frames_queued_ + frames_written_;
+  }
 
-    static int delay_frames(const cras_iodev* iodev) {
-      return delay_frames_;
-    }
+  static int delay_frames(const cras_iodev* iodev) { return delay_frames_; }
 
-    static int get_buffer(cras_iodev* iodev,
-                          struct cras_audio_area** area,
-                          unsigned int* num) {
-      size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
+  static int get_buffer(cras_iodev* iodev,
+                        struct cras_audio_area** area,
+                        unsigned int* num) {
+    size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
 
-      if (audio_buffer_size_ < *num)
-	      *num = audio_buffer_size_;
+    if (audio_buffer_size_ < *num)
+      *num = audio_buffer_size_;
 
-      area_ = (cras_audio_area*)calloc(1, sz);
-      area_->frames = *num;
-      area_->num_channels = 2;
-      area_->channels[0].buf = audio_buffer_;
-      channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
-      area_->channels[0].step_bytes = 4;
-      area_->channels[1].buf = audio_buffer_ + 2;
-      channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
-      area_->channels[1].step_bytes = 4;
+    area_ = (cras_audio_area*)calloc(1, sz);
+    area_->frames = *num;
+    area_->num_channels = 2;
+    area_->channels[0].buf = audio_buffer_;
+    channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
+    area_->channels[0].step_bytes = 4;
+    area_->channels[1].buf = audio_buffer_ + 2;
+    channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
+    area_->channels[1].step_bytes = 4;
 
-      *area = area_;
-      return 0;
-    }
+    *area = area_;
+    return 0;
+  }
 
-    static int put_buffer(cras_iodev* iodev,
-                          unsigned int num) {
-      free(area_);
-      frames_written_ += num;
-      return 0;
-    }
+  static int put_buffer(cras_iodev* iodev, unsigned int num) {
+    free(area_);
+    frames_written_ += num;
+    return 0;
+  }
 
-    static int dev_running(const cras_iodev* iodev) {
-      dev_running_called_++;
-      return dev_running_;
-    }
+  static int dev_running(const cras_iodev* iodev) {
+    dev_running_called_++;
+    return dev_running_;
+  }
 
-    static int is_open(const cras_iodev* iodev) {
-      return is_open_;
-    }
+  static int is_open(const cras_iodev* iodev) { return is_open_; }
 
-    static int open_dev(cras_iodev* iodev) {
-      is_open_ = 1;
-      open_dev_called_++;
-      return 0;
-    }
+  static int open_dev(cras_iodev* iodev) {
+    is_open_ = 1;
+    open_dev_called_++;
+    return 0;
+  }
 
-    static int close_dev(cras_iodev* iodev) {
-      close_dev_called_++;
-      is_open_ = 0;
-      return 0;
-    }
+  static int close_dev(cras_iodev* iodev) {
+    close_dev_called_++;
+    is_open_ = 0;
+    return 0;
+  }
 
   struct cras_iodev iodev_;
   static int is_open_;
@@ -651,13 +634,13 @@ class WriteStreamSuite : public testing::Test {
   static unsigned int dev_running_called_;
   static unsigned int close_dev_called_;
   static unsigned int open_dev_called_;
-  static struct cras_audio_area *area_;
+  static struct cras_audio_area* area_;
   struct cras_audio_format fmt_;
   struct cras_rstream* rstream_;
   struct cras_rstream* rstream2_;
   struct cras_audio_shm* shm_;
   struct cras_audio_shm* shm2_;
-  struct audio_thread *thread_;
+  struct audio_thread* thread_;
 };
 
 int WriteStreamSuite::is_open_ = 0;
@@ -672,7 +655,7 @@ int WriteStreamSuite::dev_running_ = 1;
 unsigned int WriteStreamSuite::dev_running_called_ = 0;
 unsigned int WriteStreamSuite::close_dev_called_ = 0;
 unsigned int WriteStreamSuite::open_dev_called_ = 0;
-struct cras_audio_area *WriteStreamSuite::area_;
+struct cras_audio_area* WriteStreamSuite::area_;
 
 TEST_F(WriteStreamSuite, PossiblyFillGetAvailError) {
   struct timespec ts;
@@ -711,8 +694,8 @@ TEST_F(WriteStreamSuite, PossiblyFillGetFromStreamFull) {
   // Have cb_threshold samples left.
   frames_queued_ = cb_threshold_;
   audio_buffer_size_ = buffer_frames_ - frames_queued_;
-  nsec_expected = (uint64_t)cb_threshold_ *
-      1000000000ULL / (uint64_t)fmt_.frame_rate;
+  nsec_expected =
+      (uint64_t)cb_threshold_ * 1000000000ULL / (uint64_t)fmt_.frame_rate;
 
   // shm has plenty of data in it.
   shm_->area->write_offset[0] = cb_threshold_ * 4;
@@ -758,8 +741,8 @@ TEST_F(WriteStreamSuite, PossiblyFillGetFromStreamMinSet) {
   // cb_thresh x 2 data in the hardware (frames_queued_) = 3 cb_thresh total.
   // It should sleep until there is a total of cb_threshold + min_buffer_level
   // left,  or 3 - 2 = 1 cb_thresh worth of delay.
-  nsec_expected = (uint64_t)cb_threshold_ *
-      1000000000ULL / (uint64_t)fmt_.frame_rate;
+  nsec_expected =
+      (uint64_t)cb_threshold_ * 1000000000ULL / (uint64_t)fmt_.frame_rate;
 
   rc = unified_io(thread_, &ts);
   EXPECT_EQ(0, rc);
@@ -835,8 +818,8 @@ TEST_F(WriteStreamSuite, PossiblyFillGetFromStreamNeedFill) {
   select_write_ptr = &shm_->area->write_offset[0];
   select_write_value = (buffer_frames_ - cb_threshold_) * 4;
 
-  nsec_expected = (buffer_frames_ - cb_threshold_) *
-      1000000000ULL / (uint64_t)fmt_.frame_rate;
+  nsec_expected = (buffer_frames_ - cb_threshold_) * 1000000000ULL /
+                  (uint64_t)fmt_.frame_rate;
 
   is_open_ = 1;
   rc = unified_io(thread_, &ts);
@@ -860,7 +843,7 @@ TEST_F(WriteStreamSuite, PossiblyFillGetFromTwoStreamsFull) {
   frames_queued_ = cras_rstream_get_cb_threshold(rstream_);
   audio_buffer_size_ = buffer_frames_ - frames_queued_;
   nsec_expected = (uint64_t)cras_rstream_get_cb_threshold(rstream_) *
-      1000000000ULL / (uint64_t)fmt_.frame_rate;
+                  1000000000ULL / (uint64_t)fmt_.frame_rate;
 
   //  shm has plenty of data in it.
   shm_->area->write_offset[0] = cras_rstream_get_cb_threshold(rstream_) * 4;
@@ -875,8 +858,7 @@ TEST_F(WriteStreamSuite, PossiblyFillGetFromTwoStreamsFull) {
   EXPECT_EQ(0, ts.tv_sec);
   EXPECT_GE(ts.tv_nsec, nsec_expected - 1000);
   EXPECT_LE(ts.tv_nsec, nsec_expected + 1000);
-  EXPECT_EQ(cras_rstream_get_cb_threshold(rstream_),
-            dev_stream_mix_count);
+  EXPECT_EQ(cras_rstream_get_cb_threshold(rstream_), dev_stream_mix_count);
   EXPECT_EQ(0, dev_stream_request_playback_samples_called);
   EXPECT_EQ(-1, select_max_fd);
 }
@@ -980,8 +962,8 @@ TEST_F(WriteStreamSuite, PossiblyFillGetFromTwoStreamsOneLimited) {
   //  Have cb_threshold samples left.
   frames_queued_ = cb_threshold_;
   audio_buffer_size_ = buffer_frames_ - frames_queued_;
-  nsec_expected = (uint64_t)smaller_frames *
-                  (1000000000ULL / (uint64_t)fmt_.frame_rate);
+  nsec_expected =
+      (uint64_t)smaller_frames * (1000000000ULL / (uint64_t)fmt_.frame_rate);
 
   //  One has too little the other is full.
   shm_->area->write_offset[0] = smaller_frames * 4;
@@ -1014,7 +996,6 @@ TEST_F(WriteStreamSuite, DrainOutputBufferCompelete) {
   drain_output_buffer(thread_, &iodev_);
   EXPECT_EQ(1, close_dev_called_);
 }
-
 
 TEST_F(WriteStreamSuite, DrainOutputBufferWaitForPlayback) {
   // Hardware buffer is full.
@@ -1101,179 +1082,179 @@ TEST_F(WriteStreamSuite, DrainOutputStream) {
 
 //  Test adding and removing streams.
 class AddStreamSuite : public testing::Test {
-  protected:
-    virtual void SetUp() {
-      memset(&cras_iodev_set_format_val, 0, sizeof(cras_iodev_set_format_val));
-      cras_iodev_set_format_val.frame_rate = 44100;
-      cras_iodev_set_format_val.num_channels = 2;
-      cras_iodev_set_format_val.format = SND_PCM_FORMAT_S16_LE;
+ protected:
+  virtual void SetUp() {
+    memset(&cras_iodev_set_format_val, 0, sizeof(cras_iodev_set_format_val));
+    cras_iodev_set_format_val.frame_rate = 44100;
+    cras_iodev_set_format_val.num_channels = 2;
+    cras_iodev_set_format_val.format = SND_PCM_FORMAT_S16_LE;
 
-      memset(&iodev_, 0, sizeof(iodev_));
-      iodev_.buffer_size = 16384;
-      used_size_ = 480;
-      cb_threshold_ = 96;
-      iodev_.direction = CRAS_STREAM_OUTPUT;
+    memset(&iodev_, 0, sizeof(iodev_));
+    iodev_.buffer_size = 16384;
+    used_size_ = 480;
+    cb_threshold_ = 96;
+    iodev_.direction = CRAS_STREAM_OUTPUT;
 
-      iodev_.is_open = is_open;
-      iodev_.open_dev = open_dev;
-      iodev_.close_dev = close_dev;
-      iodev_.get_buffer = get_buffer;
-      iodev_.put_buffer = put_buffer;
+    iodev_.is_open = is_open;
+    iodev_.open_dev = open_dev;
+    iodev_.close_dev = close_dev;
+    iodev_.get_buffer = get_buffer;
+    iodev_.put_buffer = put_buffer;
 
-      is_open_ = 0;
-      is_open_called_ = 0;
-      open_dev_called_ = 0;
-      close_dev_called_ = 0;
-      open_dev_return_val_ = 0;
+    is_open_ = 0;
+    is_open_called_ = 0;
+    open_dev_called_ = 0;
+    close_dev_called_ = 0;
+    open_dev_return_val_ = 0;
 
-      cras_iodev_set_format_called = 0;
-      cras_rstream_destroy_called = 0;
-      cras_metrics_log_histogram_called = 0;
-      cras_metrics_log_histogram_name = NULL;
-      cras_metrics_log_histogram_sample = 0;
+    cras_iodev_set_format_called = 0;
+    cras_rstream_destroy_called = 0;
+    cras_metrics_log_histogram_called = 0;
+    cras_metrics_log_histogram_name = NULL;
+    cras_metrics_log_histogram_sample = 0;
 
-      audio_buffer_size_ = 8196;
+    audio_buffer_size_ = 8196;
+  }
+
+  virtual void TearDown() {}
+
+  unsigned int GetCaptureSleepFrames() {
+    // Account for padding the sleep interval to ensure the wake up happens
+    // after the last desired frame is received.
+    return cb_threshold_ + 16;
+  }
+
+  // Stub functions for the iodev structure.
+  static int get_buffer(cras_iodev* iodev,
+                        struct cras_audio_area** area,
+                        unsigned int* num) {
+    size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
+
+    if (audio_buffer_size_ < *num)
+      *num = audio_buffer_size_;
+
+    area_ = (cras_audio_area*)calloc(1, sz);
+    area_->frames = *num;
+    area_->num_channels = 2;
+    area_->channels[0].buf = audio_buffer_;
+    channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
+    area_->channels[0].step_bytes = 4;
+    area_->channels[1].buf = audio_buffer_ + 2;
+    channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
+    area_->channels[1].step_bytes = 4;
+
+    *area = area_;
+    return 0;
+  }
+
+  static int put_buffer(cras_iodev* iodev, unsigned int num) {
+    free(area_);
+    return 0;
+  }
+
+  static int is_open(const cras_iodev* iodev) {
+    is_open_called_++;
+    return is_open_;
+  }
+
+  static int open_dev(cras_iodev* iodev) {
+    open_dev_called_++;
+    is_open_ = true;
+    return open_dev_return_val_;
+  }
+
+  static int close_dev(cras_iodev* iodev) {
+    close_dev_called_++;
+    is_open_ = false;
+    return 0;
+  }
+
+  void add_rm_two_streams(CRAS_STREAM_DIRECTION direction) {
+    int rc;
+    struct cras_rstream *new_stream, *second_stream;
+    cras_audio_shm* shm;
+    struct cras_audio_format* fmt;
+    struct audio_thread* thread;
+
+    thread = audio_thread_create();
+
+    fmt = (struct cras_audio_format*)malloc(sizeof(*fmt));
+    memcpy(fmt, &cras_iodev_set_format_val, sizeof(*fmt));
+    iodev_.direction = direction;
+    new_stream = (struct cras_rstream*)calloc(1, sizeof(*new_stream));
+    new_stream->fd = 55;
+    new_stream->buffer_frames = 65;
+    new_stream->cb_threshold = 80;
+    new_stream->direction = direction;
+    memcpy(&new_stream->format, fmt, sizeof(*fmt));
+    shm = cras_rstream_output_shm(new_stream);
+    shm->header =
+        (struct cras_audio_shm_header*)calloc(1, sizeof(*shm->header));
+
+    if (direction == CRAS_STREAM_INPUT)
+      thread_set_active_dev(thread, &iodev_);
+    else
+      thread_set_active_dev(thread, &iodev_);
+
+    thread_add_stream(thread, new_stream);
+    EXPECT_EQ(1, thread->devs_open[direction]);
+    EXPECT_EQ(1, open_dev_called_);
+    EXPECT_EQ(65, thread->buffer_frames[direction]);
+    if (direction == CRAS_STREAM_OUTPUT)
+      EXPECT_EQ(32, thread->cb_threshold[direction]);
+    else
+      EXPECT_EQ(80, thread->cb_threshold[direction]);
+
+    is_open_ = 1;
+
+    second_stream = (struct cras_rstream*)calloc(1, sizeof(*second_stream));
+    second_stream->fd = 56;
+    second_stream->buffer_frames = 25;
+    second_stream->cb_threshold = 12;
+    second_stream->direction = direction;
+    memcpy(&second_stream->format, fmt, sizeof(*fmt));
+    shm = cras_rstream_output_shm(second_stream);
+    shm->header =
+        (struct cras_audio_shm_header*)calloc(1, sizeof(*shm->header));
+
+    is_open_called_ = 0;
+    thread_add_stream(thread, second_stream);
+    EXPECT_EQ(1, thread->devs_open[direction]);
+    EXPECT_EQ(1, open_dev_called_);
+    EXPECT_EQ(25, thread->buffer_frames[direction]);
+    EXPECT_EQ(12, thread->cb_threshold[direction]);
+
+    //  Remove the streams.
+    rc = thread_remove_stream(thread, second_stream);
+    EXPECT_EQ(1, rc);
+    EXPECT_EQ(0, close_dev_called_);
+    if (direction == CRAS_STREAM_OUTPUT)
+      EXPECT_EQ(32, thread->cb_threshold[direction]);
+    else
+      EXPECT_EQ(80, thread->cb_threshold[direction]);
+
+    rc = thread_remove_stream(thread, new_stream);
+    EXPECT_EQ(0, rc);
+
+    // For output stream, we enter the draining mode;
+    // for input stream, we close the device directly.
+    if (direction == CRAS_STREAM_INPUT) {
+      EXPECT_EQ(0, thread->devs_open[direction]);
+      EXPECT_EQ(0, thread->buffer_frames[direction]);
+      EXPECT_EQ(0, thread->cb_threshold[direction]);
+    } else {
+      EXPECT_EQ(1, iodev_.is_draining);
     }
 
-    virtual void TearDown() {
-    }
-
-    unsigned int GetCaptureSleepFrames() {
-      // Account for padding the sleep interval to ensure the wake up happens
-      // after the last desired frame is received.
-      return cb_threshold_ + 16;
-    }
-
-    // Stub functions for the iodev structure.
-    static int get_buffer(cras_iodev* iodev,
-                          struct cras_audio_area** area,
-                          unsigned int* num) {
-      size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
-
-      if (audio_buffer_size_ < *num)
-	      *num = audio_buffer_size_;
-
-      area_ = (cras_audio_area*)calloc(1, sz);
-      area_->frames = *num;
-      area_->num_channels = 2;
-      area_->channels[0].buf = audio_buffer_;
-      channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
-      area_->channels[0].step_bytes = 4;
-      area_->channels[1].buf = audio_buffer_ + 2;
-      channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
-      area_->channels[1].step_bytes = 4;
-
-      *area = area_;
-      return 0;
-    }
-
-    static int put_buffer(cras_iodev* iodev,
-                          unsigned int num) {
-      free(area_);
-      return 0;
-    }
-
-    static int is_open(const cras_iodev* iodev) {
-      is_open_called_++;
-      return is_open_;
-    }
-
-    static int open_dev(cras_iodev* iodev) {
-      open_dev_called_++;
-      is_open_ = true;
-      return open_dev_return_val_;
-    }
-
-    static int close_dev(cras_iodev* iodev) {
-      close_dev_called_++;
-      is_open_ = false;
-      return 0;
-    }
-
-    void add_rm_two_streams(CRAS_STREAM_DIRECTION direction) {
-      int rc;
-      struct cras_rstream *new_stream, *second_stream;
-      cras_audio_shm *shm;
-      struct cras_audio_format *fmt;
-      struct audio_thread *thread;
-
-      thread = audio_thread_create();
-
-      fmt = (struct cras_audio_format *)malloc(sizeof(*fmt));
-      memcpy(fmt, &cras_iodev_set_format_val, sizeof(*fmt));
-      iodev_.direction = direction;
-      new_stream = (struct cras_rstream *)calloc(1, sizeof(*new_stream));
-      new_stream->fd = 55;
-      new_stream->buffer_frames = 65;
-      new_stream->cb_threshold = 80;
-      new_stream->direction = direction;
-      memcpy(&new_stream->format, fmt, sizeof(*fmt));
-      shm = cras_rstream_output_shm(new_stream);
-      shm->area = (struct cras_audio_shm_area *)calloc(1, sizeof(*shm->area));
-
-      if (direction == CRAS_STREAM_INPUT)
-        thread_set_active_dev(thread, &iodev_);
-      else
-        thread_set_active_dev(thread, &iodev_);
-
-      thread_add_stream(thread, new_stream);
-      EXPECT_EQ(1, thread->devs_open[direction]);
-      EXPECT_EQ(1, open_dev_called_);
-      EXPECT_EQ(65, thread->buffer_frames[direction]);
-      if (direction == CRAS_STREAM_OUTPUT)
-          EXPECT_EQ(32, thread->cb_threshold[direction]);
-      else
-	  EXPECT_EQ(80, thread->cb_threshold[direction]);
-
-      is_open_ = 1;
-
-      second_stream = (struct cras_rstream *)calloc(1, sizeof(*second_stream));
-      second_stream->fd = 56;
-      second_stream->buffer_frames = 25;
-      second_stream->cb_threshold = 12;
-      second_stream->direction = direction;
-      memcpy(&second_stream->format, fmt, sizeof(*fmt));
-      shm = cras_rstream_output_shm(second_stream);
-      shm->area = (struct cras_audio_shm_area *)calloc(1, sizeof(*shm->area));
-
-      is_open_called_ = 0;
-      thread_add_stream(thread, second_stream);
-      EXPECT_EQ(1, thread->devs_open[direction]);
-      EXPECT_EQ(1, open_dev_called_);
-      EXPECT_EQ(25, thread->buffer_frames[direction]);
-      EXPECT_EQ(12, thread->cb_threshold[direction]);
-
-      //  Remove the streams.
-      rc = thread_remove_stream(thread, second_stream);
-      EXPECT_EQ(1, rc);
-      EXPECT_EQ(0, close_dev_called_);
-      if (direction == CRAS_STREAM_OUTPUT)
-          EXPECT_EQ(32, thread->cb_threshold[direction]);
-      else
-          EXPECT_EQ(80, thread->cb_threshold[direction]);
-
-      rc = thread_remove_stream(thread, new_stream);
-      EXPECT_EQ(0, rc);
-
-      // For output stream, we enter the draining mode;
-      // for input stream, we close the device directly.
-      if (direction == CRAS_STREAM_INPUT) {
-        EXPECT_EQ(0, thread->devs_open[direction]);
-        EXPECT_EQ(0, thread->buffer_frames[direction]);
-        EXPECT_EQ(0, thread->cb_threshold[direction]);
-      } else {
-        EXPECT_EQ(1, iodev_.is_draining);
-      }
-
-      free(fmt);
-      shm = cras_rstream_output_shm(new_stream);
-      audio_thread_destroy(thread);
-      free(shm->area);
-      free(new_stream);
-      shm = cras_rstream_output_shm(second_stream);
-      free(shm->area);
-      free(second_stream);
-    }
+    free(fmt);
+    shm = cras_rstream_output_shm(new_stream);
+    audio_thread_destroy(thread);
+    free(shm->header);
+    free(new_stream);
+    shm = cras_rstream_output_shm(second_stream);
+    free(shm->header);
+    free(second_stream);
+  }
 
   struct cras_iodev iodev_;
   static int is_open_;
@@ -1284,7 +1265,7 @@ class AddStreamSuite : public testing::Test {
   static int used_size_;
   static int cb_threshold_;
   struct cras_audio_format fmt_;
-  static struct cras_audio_area *area_;
+  static struct cras_audio_area* area_;
   static uint8_t audio_buffer_[8192];
   static unsigned int audio_buffer_size_;
 };
@@ -1296,20 +1277,20 @@ int AddStreamSuite::open_dev_return_val_ = 0;
 int AddStreamSuite::close_dev_called_ = 0;
 int AddStreamSuite::used_size_ = 0;
 int AddStreamSuite::cb_threshold_ = 0;
-struct cras_audio_area *AddStreamSuite::area_;
+struct cras_audio_area* AddStreamSuite::area_;
 uint8_t AddStreamSuite::audio_buffer_[8192];
 unsigned int AddStreamSuite::audio_buffer_size_ = 0;
 
 TEST_F(AddStreamSuite, SimpleAddOutputStream) {
   int rc;
   cras_rstream* new_stream;
-  cras_audio_shm *shm;
-  struct audio_thread *thread;
+  cras_audio_shm* shm;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
 
-  new_stream = (struct cras_rstream *)calloc(1, sizeof(*new_stream));
-  new_stream->client = (struct cras_rclient* )this;
+  new_stream = (struct cras_rstream*)calloc(1, sizeof(*new_stream));
+  new_stream->client = (struct cras_rclient*)this;
   new_stream->fd = 55;
   new_stream->buffer_frames = 65;
   new_stream->cb_threshold = 80;
@@ -1317,7 +1298,7 @@ TEST_F(AddStreamSuite, SimpleAddOutputStream) {
          sizeof(cras_iodev_set_format_val));
 
   shm = cras_rstream_output_shm(new_stream);
-  shm->area = (struct cras_audio_shm_area *)calloc(1, sizeof(*shm->area));
+  shm->header = (struct cras_audio_shm_header*)calloc(1, sizeof(*shm->header));
 
   thread_set_active_dev(thread, &iodev_);
 
@@ -1340,16 +1321,15 @@ TEST_F(AddStreamSuite, SimpleAddOutputStream) {
   rc = thread_disconnect_stream(thread, new_stream);
   EXPECT_EQ(1, cras_rstream_destroy_called);
 
-  free(shm->area);
+  free(shm->header);
   audio_thread_destroy(thread);
   free(new_stream);
 }
 
-
 TEST_F(AddStreamSuite, AddStreamOpenFail) {
-  struct audio_thread *thread;
+  struct audio_thread* thread;
   cras_rstream new_stream;
-  cras_audio_shm *shm;
+  cras_audio_shm* shm;
 
   thread = audio_thread_create();
   ASSERT_TRUE(thread);
@@ -1357,7 +1337,7 @@ TEST_F(AddStreamSuite, AddStreamOpenFail) {
   printf("1\n");
 
   shm = cras_rstream_output_shm(&new_stream);
-  shm->area = (struct cras_audio_shm_area *)calloc(1, sizeof(*shm->area));
+  shm->header = (struct cras_audio_shm_header*)calloc(1, sizeof(*shm->header));
 
   open_dev_return_val_ = -1;
   new_stream.direction = CRAS_STREAM_OUTPUT;
@@ -1368,7 +1348,7 @@ TEST_F(AddStreamSuite, AddStreamOpenFail) {
   EXPECT_EQ(1, cras_iodev_set_format_called);
   audio_thread_destroy(thread);
   printf("3\n");
-  free(shm->area);
+  free(shm->header);
 }
 
 TEST_F(AddStreamSuite, AddRmTwoOutputStreams) {
@@ -1382,12 +1362,12 @@ TEST_F(AddStreamSuite, AddRmTwoInputStreams) {
 TEST_F(AddStreamSuite, RmStreamLogLongestTimeout) {
   int rc;
   cras_rstream* new_stream;
-  cras_audio_shm *shm;
-  struct audio_thread *thread;
+  cras_audio_shm* shm;
+  struct audio_thread* thread;
 
   thread = audio_thread_create();
 
-  new_stream = (struct cras_rstream *)calloc(1, sizeof(*new_stream));
+  new_stream = (struct cras_rstream*)calloc(1, sizeof(*new_stream));
   new_stream->fd = 55;
   new_stream->buffer_frames = 65;
   new_stream->cb_threshold = 80;
@@ -1395,7 +1375,7 @@ TEST_F(AddStreamSuite, RmStreamLogLongestTimeout) {
          sizeof(cras_iodev_set_format_val));
 
   shm = cras_rstream_output_shm(new_stream);
-  shm->area = (struct cras_audio_shm_area *)calloc(1, sizeof(*shm->area));
+  shm->header = (struct cras_audio_shm_header*)calloc(1, sizeof(*shm->header));
 
   thread_set_active_dev(thread, &iodev_);
   rc = thread_add_stream(thread, new_stream);
@@ -1419,176 +1399,169 @@ TEST_F(AddStreamSuite, RmStreamLogLongestTimeout) {
   EXPECT_STREQ(kStreamTimeoutMilliSeconds, cras_metrics_log_histogram_name);
   EXPECT_EQ(90, cras_metrics_log_histogram_sample);
 
-  free(shm->area);
+  free(shm->header);
   free(new_stream);
   audio_thread_destroy(thread);
 }
 
 class ActiveDevicesSuite : public testing::Test {
-  protected:
-    virtual void SetUp() {
-      memset(&cras_iodev_set_format_val, 0, sizeof(cras_iodev_set_format_val));
-      cras_iodev_set_format_val.frame_rate = 44100;
-      cras_iodev_set_format_val.num_channels = 2;
-      cras_iodev_set_format_val.format = SND_PCM_FORMAT_S16_LE;
+ protected:
+  virtual void SetUp() {
+    memset(&cras_iodev_set_format_val, 0, sizeof(cras_iodev_set_format_val));
+    cras_iodev_set_format_val.frame_rate = 44100;
+    cras_iodev_set_format_val.num_channels = 2;
+    cras_iodev_set_format_val.format = SND_PCM_FORMAT_S16_LE;
 
-      memset(&iodev_, 0, sizeof(iodev_));
-      memset(&iodev2_, 0, sizeof(iodev2_));
-      iodev_.close_dev = close_dev;
-      iodev_.is_open = is_open;
-      iodev_.open_dev = open_dev;
-      iodev_.delay_frames = delay_frames;
-      iodev_.get_buffer = get_buffer;
-      iodev_.put_buffer = put_buffer;
-      iodev_.frames_queued = frames_queued;
-      iodev_.delay_frames = delay_frames;
-      iodev_.dev_running = dev_running;
-      iodev_.buffer_size = 2048;
-      iodev2_.close_dev = close_dev;
-      iodev2_.is_open = is_open;
-      iodev2_.open_dev = open_dev;
-      iodev2_.delay_frames = delay_frames;
-      iodev2_.get_buffer = get_buffer;
-      iodev2_.put_buffer = put_buffer;
-      iodev2_.frames_queued = frames_queued;
-      iodev2_.delay_frames = delay_frames;
-      iodev2_.dev_running = dev_running;
-      iodev2_.buffer_size = 2048;
-      thread_ = audio_thread_create();
-      ASSERT_TRUE(thread_);
+    memset(&iodev_, 0, sizeof(iodev_));
+    memset(&iodev2_, 0, sizeof(iodev2_));
+    iodev_.close_dev = close_dev;
+    iodev_.is_open = is_open;
+    iodev_.open_dev = open_dev;
+    iodev_.delay_frames = delay_frames;
+    iodev_.get_buffer = get_buffer;
+    iodev_.put_buffer = put_buffer;
+    iodev_.frames_queued = frames_queued;
+    iodev_.delay_frames = delay_frames;
+    iodev_.dev_running = dev_running;
+    iodev_.buffer_size = 2048;
+    iodev2_.close_dev = close_dev;
+    iodev2_.is_open = is_open;
+    iodev2_.open_dev = open_dev;
+    iodev2_.delay_frames = delay_frames;
+    iodev2_.get_buffer = get_buffer;
+    iodev2_.put_buffer = put_buffer;
+    iodev2_.frames_queued = frames_queued;
+    iodev2_.delay_frames = delay_frames;
+    iodev2_.dev_running = dev_running;
+    iodev2_.buffer_size = 2048;
+    thread_ = audio_thread_create();
+    ASSERT_TRUE(thread_);
 
-      buffer_frames_ = 500;
-      cb_threshold_ = 250;
-      SetupRstream(&rstream_);
-      SetupRstream(&rstream2_);
-      rstream2_->buffer_frames -= 50;
-      rstream2_->cb_threshold -= 50;
+    buffer_frames_ = 500;
+    cb_threshold_ = 250;
+    SetupRstream(&rstream_);
+    SetupRstream(&rstream2_);
+    rstream2_->buffer_frames -= 50;
+    rstream2_->cb_threshold -= 50;
 
-      dummy_audio_area1 = (cras_audio_area*)calloc(1,
-          sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-      dummy_audio_area1->num_channels = 2;
-      channel_area_set_channel(&dummy_audio_area1->channels[0], CRAS_CH_FL);
-      channel_area_set_channel(&dummy_audio_area1->channels[1], CRAS_CH_FR);
-      rstream_->input_audio_area = dummy_audio_area1;
-      dummy_audio_area2 = (cras_audio_area*)calloc(1,
-          sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
-      dummy_audio_area2->num_channels = 2;
-      channel_area_set_channel(&dummy_audio_area2->channels[0], CRAS_CH_FL);
-      channel_area_set_channel(&dummy_audio_area2->channels[1], CRAS_CH_FR);
-      rstream2_->input_audio_area = dummy_audio_area2;
+    dummy_audio_area1 = (cras_audio_area*)calloc(
+        1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
+    dummy_audio_area1->num_channels = 2;
+    channel_area_set_channel(&dummy_audio_area1->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&dummy_audio_area1->channels[1], CRAS_CH_FR);
+    rstream_->input_audio_area = dummy_audio_area1;
+    dummy_audio_area2 = (cras_audio_area*)calloc(
+        1, sizeof(cras_audio_area) + 2 * sizeof(cras_channel_area));
+    dummy_audio_area2->num_channels = 2;
+    channel_area_set_channel(&dummy_audio_area2->channels[0], CRAS_CH_FL);
+    channel_area_set_channel(&dummy_audio_area2->channels[1], CRAS_CH_FR);
+    rstream2_->input_audio_area = dummy_audio_area2;
 
-      cras_iodev_set_format_called = 0;
-      close_dev_called_ = 0;
-      is_open_ = 0;
-      cras_fmt_conversion_needed_return_val = 0;
-      open_dev_val_idx_ = 0;
-      delay_frames_val_idx_ = 0;
-      frames_queued_val_idx_ = 0;
-      frames_queued_[0] = 250;
-      frames_queued_[1] = 250;
-      get_buffer_val_idx_ = 0;
-      put_buffer_val_idx_ = 0;
-      for (int i = 0; i < 8; i++) {
-        open_dev_val_[i] = 0;
-        delay_frames_[i] = 0;
-        audio_buffer_size_[i] = 250;
-        get_buffer_rc_[i] = 0;
-        put_buffer_rc_[i] = 0;
-      }
+    cras_iodev_set_format_called = 0;
+    close_dev_called_ = 0;
+    is_open_ = 0;
+    cras_fmt_conversion_needed_return_val = 0;
+    open_dev_val_idx_ = 0;
+    delay_frames_val_idx_ = 0;
+    frames_queued_val_idx_ = 0;
+    frames_queued_[0] = 250;
+    frames_queued_[1] = 250;
+    get_buffer_val_idx_ = 0;
+    put_buffer_val_idx_ = 0;
+    for (int i = 0; i < 8; i++) {
+      open_dev_val_[i] = 0;
+      delay_frames_[i] = 0;
+      audio_buffer_size_[i] = 250;
+      get_buffer_rc_[i] = 0;
+      put_buffer_rc_[i] = 0;
     }
+  }
 
-    virtual void TearDown() {
-      struct cras_audio_shm *shm;
-      audio_thread_destroy(thread_);
-      shm = cras_rstream_output_shm(rstream_);
-      free(shm->area);
-      free(rstream_);
-      free(dummy_audio_area1);
-      free(dummy_audio_area2);
-    }
+  virtual void TearDown() {
+    struct cras_audio_shm* shm;
+    audio_thread_destroy(thread_);
+    shm = cras_rstream_output_shm(rstream_);
+    free(shm->header);
+    free(rstream_);
+    free(dummy_audio_area1);
+    free(dummy_audio_area2);
+  }
 
-    void SetupRstream(struct cras_rstream **rstream) {
-      struct cras_audio_shm *shm;
-      *rstream = (struct cras_rstream *)calloc(1, sizeof(**rstream));
-      memcpy(&(*rstream)->format, &cras_iodev_set_format_val,
-             sizeof(cras_iodev_set_format_val));
-      (*rstream)->direction = CRAS_STREAM_OUTPUT;
-      (*rstream)->buffer_frames = buffer_frames_;
-      (*rstream)->cb_threshold = cb_threshold_;
-      shm = cras_rstream_output_shm(*rstream);
-      shm->area = (struct cras_audio_shm_area *)calloc(1,
-          sizeof(*shm->area) + cb_threshold_ * 8);
-      cras_shm_set_frame_bytes(shm, 4);
-      cras_shm_set_used_size(
-          shm, buffer_frames_ * cras_shm_frame_bytes(shm));
-      shm = cras_rstream_input_shm(*rstream);
-      shm->area = (struct cras_audio_shm_area *)calloc(1,
-	  sizeof(*shm->area) + buffer_frames_ * 8);
-      cras_shm_set_frame_bytes(shm, 4);
-      cras_shm_set_used_size(
-          shm, cb_threshold_* cras_shm_frame_bytes(shm));
-    }
+  void SetupRstream(struct cras_rstream** rstream) {
+    struct cras_audio_shm* shm;
+    *rstream = (struct cras_rstream*)calloc(1, sizeof(**rstream));
+    memcpy(&(*rstream)->format, &cras_iodev_set_format_val,
+           sizeof(cras_iodev_set_format_val));
+    (*rstream)->direction = CRAS_STREAM_OUTPUT;
+    (*rstream)->buffer_frames = buffer_frames_;
+    (*rstream)->cb_threshold = cb_threshold_;
+    shm = cras_rstream_output_shm(*rstream);
+    shm->header = (struct cras_audio_shm_header*)calloc(
+        1, sizeof(*shm->header) + cb_threshold_ * 8);
+    cras_shm_set_frame_bytes(shm, 4);
+    cras_shm_set_used_size(shm, buffer_frames_ * cras_shm_frame_bytes(shm));
+    shm = cras_rstream_input_shm(*rstream);
+    shm->header = (struct cras_audio_shm_header*)calloc(
+        1, sizeof(*shm->header) + buffer_frames_ * 8);
+    cras_shm_set_frame_bytes(shm, 4);
+    cras_shm_set_used_size(shm, cb_threshold_ * cras_shm_frame_bytes(shm));
+  }
 
-    static int close_dev(struct cras_iodev *iodev) {
-      close_dev_called_++;
-      return 0;
-    }
+  static int close_dev(struct cras_iodev* iodev) {
+    close_dev_called_++;
+    return 0;
+  }
 
-    static int is_open(const cras_iodev *iodev) {
-      return is_open_;
-    }
+  static int is_open(const cras_iodev* iodev) { return is_open_; }
 
-    static int open_dev(struct cras_iodev *iodev) {
-      open_dev_val_idx_ %= 8;
-      is_open_ = 1;
-      return open_dev_val_[open_dev_val_idx_++];
-    }
+  static int open_dev(struct cras_iodev* iodev) {
+    open_dev_val_idx_ %= 8;
+    is_open_ = 1;
+    return open_dev_val_[open_dev_val_idx_++];
+  }
 
-    static int delay_frames(const cras_iodev* iodev) {
-      delay_frames_val_idx_ %= 8;
-      return delay_frames_[delay_frames_val_idx_++];
-    }
+  static int delay_frames(const cras_iodev* iodev) {
+    delay_frames_val_idx_ %= 8;
+    return delay_frames_[delay_frames_val_idx_++];
+  }
 
-    static int dev_running(const cras_iodev* iodev) {
-      return 1;
-    }
+  static int dev_running(const cras_iodev* iodev) { return 1; }
 
-    static int frames_queued(const cras_iodev* iodev) {
-      frames_queued_val_idx_ %= 2;
-      return frames_queued_[frames_queued_val_idx_++];
-    }
+  static int frames_queued(const cras_iodev* iodev) {
+    frames_queued_val_idx_ %= 2;
+    return frames_queued_[frames_queued_val_idx_++];
+  }
 
-    static int get_buffer(cras_iodev* iodev,
-                          struct cras_audio_area** area,
-                          unsigned int* num) {
-      size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
+  static int get_buffer(cras_iodev* iodev,
+                        struct cras_audio_area** area,
+                        unsigned int* num) {
+    size_t sz = sizeof(*area_) + sizeof(struct cras_channel_area) * 2;
 
-      get_buffer_val_idx_ %= 8;
-      if (audio_buffer_size_[get_buffer_val_idx_] < *num)
-	      *num = audio_buffer_size_[get_buffer_val_idx_];
+    get_buffer_val_idx_ %= 8;
+    if (audio_buffer_size_[get_buffer_val_idx_] < *num)
+      *num = audio_buffer_size_[get_buffer_val_idx_];
 
-      area_ = (cras_audio_area*)calloc(1, sz);
-      area_->frames = *num;
-      area_->num_channels = 2;
-      area_->channels[0].buf = audio_buffer_[get_buffer_val_idx_];
-      channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
-      area_->channels[0].step_bytes = 4;
-      area_->channels[1].buf = audio_buffer_[get_buffer_val_idx_] + 2;
-      channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
-      area_->channels[1].step_bytes = 4;
+    area_ = (cras_audio_area*)calloc(1, sz);
+    area_->frames = *num;
+    area_->num_channels = 2;
+    area_->channels[0].buf = audio_buffer_[get_buffer_val_idx_];
+    channel_area_set_channel(&area_->channels[0], CRAS_CH_FL);
+    area_->channels[0].step_bytes = 4;
+    area_->channels[1].buf = audio_buffer_[get_buffer_val_idx_] + 2;
+    channel_area_set_channel(&area_->channels[1], CRAS_CH_FR);
+    area_->channels[1].step_bytes = 4;
 
-      *area = area_;
+    *area = area_;
 
-      get_buffer_val_idx_++;
-      return 0;
-    }
+    get_buffer_val_idx_++;
+    return 0;
+  }
 
-    static int put_buffer(cras_iodev* iodev,
-		          unsigned int num) {
-      free(area_);
-      put_buffer_val_idx_ %= 8;
-      return put_buffer_rc_[put_buffer_val_idx_++];
-    }
+  static int put_buffer(cras_iodev* iodev, unsigned int num) {
+    free(area_);
+    put_buffer_val_idx_ %= 8;
+    return put_buffer_rc_[put_buffer_val_idx_++];
+  }
 
   static int is_open_;
   static int open_dev_val_[8];
@@ -1606,10 +1579,10 @@ class ActiveDevicesSuite : public testing::Test {
   static int put_buffer_val_idx_;
   struct cras_iodev iodev_;
   struct cras_iodev iodev2_;
-  struct cras_rstream *rstream_;
-  struct cras_rstream *rstream2_;
-  struct audio_thread *thread_;
-  static struct cras_audio_area *area_;
+  struct cras_rstream* rstream_;
+  struct cras_rstream* rstream2_;
+  struct audio_thread* thread_;
+  static struct cras_audio_area* area_;
   static int delay_frames_val_idx_;
   static int delay_frames_[8];
 };
@@ -1630,10 +1603,10 @@ int ActiveDevicesSuite::get_buffer_val_idx_ = 0;
 int ActiveDevicesSuite::put_buffer_val_idx_ = 0;
 int ActiveDevicesSuite::get_buffer_rc_[8];
 int ActiveDevicesSuite::put_buffer_rc_[8];
-struct cras_audio_area *ActiveDevicesSuite::area_;
+struct cras_audio_area* ActiveDevicesSuite::area_;
 
 TEST_F(ActiveDevicesSuite, SetActiveDevRemoveOld) {
-  struct active_dev *adevs;
+  struct active_dev* adevs;
   struct cras_iodev iodev3_;
 
   iodev_.direction = CRAS_STREAM_INPUT;
@@ -1642,7 +1615,7 @@ TEST_F(ActiveDevicesSuite, SetActiveDevRemoveOld) {
 
   thread_set_active_dev(thread_, &iodev_);
   adevs = thread_->active_devs[CRAS_STREAM_INPUT];
-  EXPECT_NE((void *)NULL, adevs);
+  EXPECT_NE((void*)NULL, adevs);
   EXPECT_EQ(adevs->dev, &iodev_);
   EXPECT_EQ(1, iodev_.is_active);
 
@@ -1659,7 +1632,7 @@ TEST_F(ActiveDevicesSuite, SetActiveDevRemoveOld) {
 }
 
 TEST_F(ActiveDevicesSuite, SetActiveDevAlreadyInList) {
-  struct active_dev *adevs;
+  struct active_dev* adevs;
   iodev_.direction = CRAS_STREAM_INPUT;
   iodev2_.direction = CRAS_STREAM_INPUT;
 
@@ -1678,30 +1651,30 @@ TEST_F(ActiveDevicesSuite, SetActiveDevAlreadyInList) {
 }
 
 TEST_F(ActiveDevicesSuite, AddRemoveActiveDevice) {
-  struct active_dev *adevs;
+  struct active_dev* adevs;
   iodev_.direction = CRAS_STREAM_INPUT;
   iodev2_.direction = CRAS_STREAM_INPUT;
 
   thread_set_active_dev(thread_, &iodev_);
   adevs = thread_->active_devs[CRAS_STREAM_INPUT];
-  EXPECT_NE((void *)NULL, adevs);
+  EXPECT_NE((void*)NULL, adevs);
   EXPECT_EQ(adevs->dev, &iodev_);
   EXPECT_EQ(1, iodev_.is_active);
 
   thread_add_active_dev(thread_, &iodev2_);
-  EXPECT_NE((void *)NULL, adevs->next);
+  EXPECT_NE((void*)NULL, adevs->next);
   EXPECT_EQ(adevs->next->dev, &iodev2_);
   EXPECT_EQ(1, iodev2_.is_active);
 
   thread_rm_active_dev(thread_, &iodev_);
   adevs = thread_->active_devs[CRAS_STREAM_INPUT];
-  EXPECT_EQ((void *)NULL, adevs->next);
+  EXPECT_EQ((void*)NULL, adevs->next);
   EXPECT_EQ(adevs->dev, &iodev2_);
   EXPECT_EQ(0, iodev_.is_active);
 
   iodev_.direction = CRAS_STREAM_POST_MIX_PRE_DSP;
   thread_add_active_dev(thread_, &iodev_);
-  EXPECT_NE((void *)NULL, thread_->active_devs[CRAS_STREAM_POST_MIX_PRE_DSP]);
+  EXPECT_NE((void*)NULL, thread_->active_devs[CRAS_STREAM_POST_MIX_PRE_DSP]);
   EXPECT_EQ(1, iodev_.is_active);
 }
 
@@ -1711,12 +1684,12 @@ TEST_F(ActiveDevicesSuite, ClearActiveDevices) {
 
   thread_set_active_dev(thread_, &iodev_);
   thread_add_active_dev(thread_, &iodev2_);
-  EXPECT_NE((void *)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]);
+  EXPECT_NE((void*)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]);
   EXPECT_EQ(1, iodev_.is_active);
   EXPECT_EQ(1, iodev2_.is_active);
 
   thread_clear_active_devs(thread_, CRAS_STREAM_OUTPUT);
-  EXPECT_EQ((void *)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]);
+  EXPECT_EQ((void*)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]);
   EXPECT_EQ(0, iodev_.is_active);
   EXPECT_EQ(0, iodev2_.is_active);
 }
@@ -1765,7 +1738,7 @@ TEST_F(ActiveDevicesSuite, OpenSecondActiveDeviceFail) {
   EXPECT_EQ(500, thread_->buffer_frames[CRAS_STREAM_OUTPUT]);
   EXPECT_EQ(250, thread_->cb_threshold[CRAS_STREAM_OUTPUT]);
   EXPECT_EQ(0, close_dev_called_);
-  EXPECT_EQ((void *)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]->next);
+  EXPECT_EQ((void*)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]->next);
 }
 
 TEST_F(ActiveDevicesSuite, OpenSecondActiveDeviceFormatIncompatible) {
@@ -1783,7 +1756,7 @@ TEST_F(ActiveDevicesSuite, OpenSecondActiveDeviceFormatIncompatible) {
   EXPECT_EQ(500, thread_->buffer_frames[CRAS_STREAM_OUTPUT]);
   EXPECT_EQ(250, thread_->cb_threshold[CRAS_STREAM_OUTPUT]);
   EXPECT_EQ(1, close_dev_called_);
-  EXPECT_EQ((void *)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]->next);
+  EXPECT_EQ((void*)NULL, thread_->active_devs[CRAS_STREAM_OUTPUT]->next);
 }
 
 TEST_F(ActiveDevicesSuite, CloseActiveDevices) {
@@ -1857,7 +1830,7 @@ TEST_F(ActiveDevicesSuite, MixMultipleInputs) {
   rstream2_->direction = CRAS_STREAM_INPUT;
 
   for (unsigned int dev = 0; dev < 8; dev++) {
-    int16_t *buff = (int16_t*)audio_buffer_[dev];
+    int16_t* buff = (int16_t*)audio_buffer_[dev];
     for (unsigned int i = 0; i < 250; i++)
       buff[i] = i;
   }
@@ -1879,66 +1852,64 @@ extern "C" {
 const char kNoCodecsFoundMetric[] = "Cras.NoCodecsFoundAtBoot";
 const char kStreamTimeoutMilliSeconds[] = "Cras.StreamTimeoutMilliSeconds";
 
-int cras_iodev_get_thread_poll_fd(const struct cras_iodev *iodev) {
+int cras_iodev_get_thread_poll_fd(const struct cras_iodev* iodev) {
   return 0;
 }
 
-int cras_iodev_read_thread_command(struct cras_iodev *iodev,
-				   uint8_t *buf,
-				   size_t max_len) {
+int cras_iodev_read_thread_command(struct cras_iodev* iodev,
+                                   uint8_t* buf,
+                                   size_t max_len) {
   return 0;
 }
 
-int cras_iodev_send_command_response(struct cras_iodev *iodev, int rc) {
+int cras_iodev_send_command_response(struct cras_iodev* iodev, int rc) {
   return 0;
 }
 
 void cras_iodev_fill_time_from_frames(size_t frames,
                                       size_t frame_rate,
-                                      struct timespec *ts) {
-	uint64_t to_play_usec;
+                                      struct timespec* ts) {
+  uint64_t to_play_usec;
 
-	ts->tv_sec = 0;
-	/* adjust sleep time to target our callback threshold */
-	to_play_usec = (uint64_t)frames * 1000000L / (uint64_t)frame_rate;
+  ts->tv_sec = 0;
+  /* adjust sleep time to target our callback threshold */
+  to_play_usec = (uint64_t)frames * 1000000L / (uint64_t)frame_rate;
 
-	while (to_play_usec > 1000000) {
-		ts->tv_sec++;
-		to_play_usec -= 1000000;
-	}
-	ts->tv_nsec = to_play_usec * 1000;
+  while (to_play_usec > 1000000) {
+    ts->tv_sec++;
+    to_play_usec -= 1000000;
+  }
+  ts->tv_nsec = to_play_usec * 1000;
 }
 
-void dev_stream_set_delay(const struct dev_stream *dev_stream,
+void dev_stream_set_delay(const struct dev_stream* dev_stream,
                           unsigned int delay_frames) {
   dev_stream_set_delay_called++;
 }
 
 void cras_set_capture_timestamp(size_t frame_rate,
-                                      size_t frames,
-                                      struct cras_timespec *ts) {
-}
+                                size_t frames,
+                                struct cras_timespec* ts) {}
 
-int cras_iodev_set_format(struct cras_iodev *iodev,
-                          struct cras_audio_format *fmt)
-{
+int cras_iodev_set_format(struct cras_iodev* iodev,
+                          struct cras_audio_format* fmt) {
   cras_iodev_set_format_called++;
   iodev->format = &cras_iodev_set_format_val;
   return 0;
 }
 
 //  From mixer.
-unsigned int dev_stream_mix(struct dev_stream *dev_stream,
+unsigned int dev_stream_mix(struct dev_stream* dev_stream,
                             size_t num_channels,
-                            uint8_t *dst,
-                            size_t *count,
-                            size_t *index) {
-  int16_t *src;
-  int16_t *target = (int16_t *)dst;
+                            uint8_t* dst,
+                            size_t* count,
+                            size_t* index) {
+  int16_t* src;
+  int16_t* target = (int16_t*)dst;
   size_t fr_written, fr_in_buf;
   size_t num_samples;
   size_t frames = 0;
-  struct cras_audio_shm *shm;
+  struct cras_audio_shm* shm;
 
   if (dev_stream->stream->direction == CRAS_STREAM_OUTPUT) {
     shm = &dev_stream->stream->output_shm;
@@ -1963,8 +1934,7 @@ unsigned int dev_stream_mix(struct dev_stream *dev_stream,
 
   fr_written = 0;
   while (fr_written < *count) {
-    src = cras_shm_get_readable_frames(shm,
-                                       fr_written, &frames);
+    src = cras_shm_get_readable_frames(shm, fr_written, &frames);
     if (frames > *count - fr_written)
       frames = *count - fr_written;
     num_samples = frames * num_channels;
@@ -1978,17 +1948,14 @@ unsigned int dev_stream_mix(struct dev_stream *dev_stream,
   return *count;
 }
 
-void cras_scale_buffer(int16_t *buffer, unsigned int count, float scaler) {
-}
+void cras_scale_buffer(int16_t* buffer, unsigned int count, float scaler) {}
 
-size_t cras_mix_mute_buffer(uint8_t *dst,
-                            size_t frame_bytes,
-                            size_t count) {
+size_t cras_mix_mute_buffer(uint8_t* dst, size_t frame_bytes, size_t count) {
   cras_mix_mute_count = count;
   return count;
 }
 
-void cras_mix_add_clip(int16_t *dst, const int16_t *src, size_t count) {
+void cras_mix_add_clip(int16_t* dst, const int16_t* src, size_t count) {
   int32_t sum;
   unsigned int i;
 
@@ -2003,14 +1970,15 @@ void cras_mix_add_clip(int16_t *dst, const int16_t *src, size_t count) {
 }
 
 // From cras_metrics.c
-void cras_metrics_log_event(const char *event)
-{
+void cras_metrics_log_event(const char* event) {
   cras_metrics_log_event_called++;
 }
 
-void cras_metrics_log_histogram(const char *name, int sample, int min,
-				int max, int nbuckets)
-{
+void cras_metrics_log_histogram(const char* name,
+                                int sample,
+                                int min,
+                                int max,
+                                int nbuckets) {
   cras_metrics_log_histogram_called++;
   cras_metrics_log_histogram_name = name;
   cras_metrics_log_histogram_sample = sample;
@@ -2026,25 +1994,21 @@ int cras_set_thread_priority(int priority) {
 }
 
 //  From rstream.
-int cras_rstream_get_audio_request_reply(const struct cras_rstream *stream) {
+int cras_rstream_get_audio_request_reply(const struct cras_rstream* stream) {
   return 0;
 }
 
-void cras_rstream_log_overrun(const struct cras_rstream *stream) {
-}
+void cras_rstream_log_overrun(const struct cras_rstream* stream) {}
 
 int cras_system_add_select_fd(int fd,
-			      void (*callback)(void *data),
-			      void *callback_data)
-{
+                              void (*callback)(void* data),
+                              void* callback_data) {
   cras_system_add_select_fd_callback = callback;
   cras_system_add_select_fd_callback_data = callback_data;
   return 0;
 }
 
-void cras_system_rm_select_fd(int fd)
-{
-}
+void cras_system_rm_select_fd(int fd) {}
 
 size_t cras_system_get_volume() {
   return cras_system_get_volume_return;
@@ -2058,65 +2022,63 @@ int cras_system_get_capture_mute() {
   return 0;
 }
 
-void cras_rstream_destroy(struct cras_rstream *stream) {
+void cras_rstream_destroy(struct cras_rstream* stream) {
   cras_rstream_destroy_called++;
 }
 
-void loopback_iodev_set_format(struct cras_iodev *loopback_dev,
-                               const struct cras_audio_format *fmt) {
-}
+void loopback_iodev_set_format(struct cras_iodev* loopback_dev,
+                               const struct cras_audio_format* fmt) {}
 
-int loopback_iodev_add_audio(struct cras_iodev *loopback_dev,
-                             const uint8_t *audio,
+int loopback_iodev_add_audio(struct cras_iodev* loopback_dev,
+                             const uint8_t* audio,
                              unsigned int count) {
   return 0;
 }
 
-int loopback_iodev_add_zeros(struct cras_iodev *dev,
-                             unsigned int count) {
+int loopback_iodev_add_zeros(struct cras_iodev* dev, unsigned int count) {
   return 0;
 }
 
-int cras_fmt_conversion_needed(const struct cras_audio_format *a,
-			       const struct cras_audio_format *b)
-{
+int cras_fmt_conversion_needed(const struct cras_audio_format* a,
+                               const struct cras_audio_format* b) {
   return cras_fmt_conversion_needed_return_val;
 }
 
-void cras_audio_area_config_buf_pointers(struct cras_audio_area *area,
-                                         const struct cras_audio_format *fmt,
-                                         uint8_t *base_buffer) {
+void cras_audio_area_config_buf_pointers(struct cras_audio_area* area,
+                                         const struct cras_audio_format* fmt,
+                                         uint8_t* base_buffer) {
   unsigned int i;
   const int sample_size = snd_pcm_format_physical_width(fmt->format) / 8;
 
   /* TODO(dgreid) - assuming interleaved audio here for now. */
-  for (i = 0 ; i < area->num_channels; i++) {
+  for (i = 0; i < area->num_channels; i++) {
     area->channels[i].step_bytes = cras_get_format_bytes(fmt);
     area->channels[i].buf = base_buffer + i * sample_size;
   }
 }
 
-void cras_audio_area_copy(const struct cras_audio_area *dst,
-			  unsigned int dst_offset, unsigned int dst_format_bytes,
-			  const struct cras_audio_area *src, unsigned int src_index)
-{
+void cras_audio_area_copy(const struct cras_audio_area* dst,
+                          unsigned int dst_offset,
+                          unsigned int dst_format_bytes,
+                          const struct cras_audio_area* src,
+                          unsigned int src_index) {
   unsigned count, i;
   int16_t *dchan, *schan;
 
   if (src_index == 0)
     memset(dst->channels[0].buf, 0, src->frames * dst_format_bytes);
 
-  dchan = (int16_t *)(dst->channels[0].buf +
-                      dst_offset * dst->channels[0].step_bytes);
-  schan = (int16_t *)src->channels[0].buf;
+  dchan = (int16_t*)(dst->channels[0].buf +
+                     dst_offset * dst->channels[0].step_bytes);
+  schan = (int16_t*)src->channels[0].buf;
   count = src->frames * src->num_channels;
   for (i = 0; i < count; i++) {
     int32_t sum;
     sum = *dchan + *schan;
     if (sum > 0x7fff)
-        sum = 0x7fff;
+      sum = 0x7fff;
     else if (sum < -0x8000)
-        sum = -0x8000;
+      sum = -0x8000;
     *dchan = sum;
     dchan++;
     schan++;
@@ -2125,49 +2087,48 @@ void cras_audio_area_copy(const struct cras_audio_area *dst,
 
 //  Override select so it can be stubbed.
 int select(int nfds,
-           fd_set *readfds,
-           fd_set *writefds,
-           fd_set *exceptfds,
-           struct timeval *timeout) {
+           fd_set* readfds,
+           fd_set* writefds,
+           fd_set* exceptfds,
+           struct timeval* timeout) {
   select_max_fd = nfds;
   select_timeval.tv_sec = timeout->tv_sec;
   select_timeval.tv_usec = timeout->tv_usec;
   select_in_fds = *readfds;
   *readfds = select_out_fds;
   if (select_write_ptr)
-	  *select_write_ptr = select_write_value;
+    *select_write_ptr = select_write_value;
   return select_return_value;
 }
 
-int clock_gettime(clockid_t clk_id, struct timespec *tp) {
+int clock_gettime(clockid_t clk_id, struct timespec* tp) {
   *tp = time_now;
   return 0;
 }
 
-struct dev_stream *dev_stream_create(struct cras_rstream *stream,
-                                     const struct cras_audio_format *fmt) {
-  struct dev_stream *out = static_cast<dev_stream*>(calloc(1, sizeof(*out)));
+struct dev_stream* dev_stream_create(struct cras_rstream* stream,
+                                     const struct cras_audio_format* fmt) {
+  struct dev_stream* out = static_cast<dev_stream*>(calloc(1, sizeof(*out)));
   out->stream = stream;
 
   return out;
 }
 
-void dev_stream_destroy(struct dev_stream *dev_stream) {
+void dev_stream_destroy(struct dev_stream* dev_stream) {
   free(dev_stream);
 }
 
-void dev_stream_capture(struct dev_stream *dev_stream,
-                        const struct cras_audio_area *area,
-                        unsigned int dev_index)
-{
+void dev_stream_capture(struct dev_stream* dev_stream,
+                        const struct cras_audio_area* area,
+                        unsigned int dev_index) {
   dev_stream_capture_call.dev_stream = dev_stream;
   dev_stream_capture_call.area = area;
   dev_stream_capture_call.dev_index = dev_index;
   dev_stream_capture_call.num_called++;
 }
 
-int dev_stream_playback_frames(const struct dev_stream *dev_stream) {
-  struct cras_audio_shm *shm;
+int dev_stream_playback_frames(const struct dev_stream* dev_stream) {
+  struct cras_audio_shm* shm;
   int frames;
 
   shm = cras_rstream_output_shm(dev_stream->stream);
@@ -2182,10 +2143,9 @@ int dev_stream_playback_frames(const struct dev_stream *dev_stream) {
   return cras_fmt_conv_in_frames_to_out(dev_stream->conv, frames);
 }
 
-unsigned int dev_stream_capture_avail(const struct dev_stream *dev_stream)
-{
-  struct cras_audio_shm *shm;
-  struct cras_rstream *rstream = dev_stream->stream;
+unsigned int dev_stream_capture_avail(const struct dev_stream* dev_stream) {
+  struct cras_audio_shm* shm;
+  struct cras_rstream* rstream = dev_stream->stream;
   unsigned int cb_threshold = cras_rstream_get_cb_threshold(rstream);
   unsigned int frames_avail;
 
@@ -2196,7 +2156,7 @@ unsigned int dev_stream_capture_avail(const struct dev_stream *dev_stream)
   return frames_avail;
 }
 
-int dev_stream_capture_sleep_frames(struct dev_stream *dev_stream,
+int dev_stream_capture_sleep_frames(struct dev_stream* dev_stream,
                                     unsigned int written) {
   cap_sleep_frames_call.dev_stream = dev_stream;
   cap_sleep_frames_call.written = written;
@@ -2204,9 +2164,8 @@ int dev_stream_capture_sleep_frames(struct dev_stream *dev_stream,
   return 0;
 }
 
-int dev_stream_request_playback_samples(struct dev_stream *dev_stream)
-{
-  struct cras_rstream *rstream = dev_stream->stream;
+int dev_stream_request_playback_samples(struct dev_stream* dev_stream) {
+  struct cras_rstream* rstream = dev_stream->stream;
 
   dev_stream_request_playback_samples_called++;
 
@@ -2214,21 +2173,19 @@ int dev_stream_request_playback_samples(struct dev_stream *dev_stream)
   return 0;
 }
 
-size_t cras_fmt_conv_in_frames_to_out(struct cras_fmt_conv *conv,
-				      size_t in_frames)
-{
-	return in_frames;
+size_t cras_fmt_conv_in_frames_to_out(struct cras_fmt_conv* conv,
+                                      size_t in_frames) {
+  return in_frames;
 }
 
-size_t cras_fmt_conv_out_frames_to_in(struct cras_fmt_conv *conv,
-				      size_t out_frames)
-{
-	return out_frames;
+size_t cras_fmt_conv_out_frames_to_in(struct cras_fmt_conv* conv,
+                                      size_t out_frames) {
+  return out_frames;
 }
 
 }  // extern "C"
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -222,6 +222,8 @@ vc4_emit_gl_shader_state(struct vc4_context *vc4,
                         attr.coordinate_shader_vpm_offset = 0;
                         attr.vertex_shader_vpm_offset = 0;
                 }
+
+                vc4_bo_unreference(&bo);
         }
 
         cl_emit(&job->bcl, GL_SHADER_STATE, shader_state) {
@@ -341,6 +343,7 @@ vc4_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info)
         vc4_emit_state(pctx);
 
         bool needs_drawarrays_shader_state = false;
+
         if ((vc4->dirty & (VC4_DIRTY_VTXBUF |
                            VC4_DIRTY_VTXSTATE |
                            VC4_DIRTY_PRIM_MODE |

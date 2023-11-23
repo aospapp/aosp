@@ -26,7 +26,6 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.RealObject;
-import org.robolectric.fakes.RoboSharedPreferences;
 
 /**
  * Shadow class for end-to-end testing of {@link BackupAgentHelper} subclasses in unit tests.
@@ -141,8 +140,9 @@ public class BackupAgentHelperShadow {
     } else if (helperClass == FileBackupHelper.class) {
       simulator = FileBackupHelperSimulator.fromHelper(keyPrefix, (FileBackupHelper) helper);
     } else {
-      throw new UnsupportedOperationException(
-          "Unknown backup helper class for key prefix \"" + keyPrefix + "\": " + helperClass);
+      Log.w(
+          TAG, "Unknown backup helper class for key prefix \"" + keyPrefix + "\": " + helperClass);
+      simulator = new UnsupportedBackupHelperSimulator(keyPrefix, helper);
     }
     helperSimulators.put(keyPrefix, simulator);
   }

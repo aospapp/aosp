@@ -25,11 +25,11 @@ var tasks = [
     duration: minutes(60),
     focus: false,
     tabs: [
-     'https://www.google.com',
+     'https://www.google.com/search?q=google',
      'https://news.google.com',
-     'https://finance.yahoo.com',
-     'https://clothing.shop.ebay.com/Womens-Shoes-/63889/i.html',
-     'https://www.facebook.com'
+     'https://www.reddit.com',
+     'https://www.amazon.com',
+     'https://www.facebook.com/facebook'
     ]
   },
   {
@@ -82,8 +82,8 @@ var tasks = [
     timeout: seconds(30),
     focus: true,
     urls: [
-       ViewGDoc + '1CIvneyASuIHvxxN0WV22zikb08Us1nc93mkU0c5Azr4/edit',
-       ViewGDoc + '120TtfoHXCgRuaubGhra3X5tl0_pS7KX757wFigTFf0c/edit'
+       ViewGDoc + '1ywpQGu18T9e2lB_QVMlihDqiF0V5hsYkhlXCfu9B8jY',
+       ViewGDoc + '12qBD7L6n9hLW1OFgLgpurx7WSgDM3l01dU6YYU-xdXU'
     ],
   },
   {
@@ -100,58 +100,63 @@ var tasks = [
 ];
 
 
-// List of URLs to cycle through
+// Updated April 15, 2019.
+// 50 entries are determined by taking the top 50 websites from Alexa rankings,
+// https://www.alexa.com/topsites/countries/US.
+// Similar Web rankings are used to fill in the remainder after some of the
+// Alexa rankings are removed.
+// https://www.similarweb.com/top-websites/united-states
+// NSFW, effective duplicates, and mobile sites are
+// left out. Links are changed to focus on content instead of bare login/landing
+// pages (when possible).
 var u_index = 0;
-URLS[u_index++] = 'https://www.google.com';
-URLS[u_index++] = 'https://www.yahoo.com';
-URLS[u_index++] = 'https://www.facebook.com';
+URLS[u_index++] = 'https://www.google.com/search?q=google';
 URLS[u_index++] = 'https://www.youtube.com';
-URLS[u_index++] = 'https://www.wikipedia.org';
+URLS[u_index++] = 'https://www.facebook.com/facebook';
 URLS[u_index++] = 'https://www.amazon.com';
-URLS[u_index++] = 'https://www.msn.com';
-URLS[u_index++] = 'https://www.bing.com';
-URLS[u_index++] = 'https://www.blogspot.com';
-URLS[u_index++] = 'https://www.microsoft.com';
-URLS[u_index++] = 'https://www.myspace.com';
-URLS[u_index++] = 'http://www.go.com';
-URLS[u_index++] = 'https://www.walmart.com';
-URLS[u_index++] = 'https://www.about.com';
-URLS[u_index++] = 'https://www.target.com';
-URLS[u_index++] = 'https://www.aol.com';
-URLS[u_index++] = 'https://www.mapquest.com';
-URLS[u_index++] = 'https://www.ask.com';
-URLS[u_index++] = 'https://www.craigslist.org';
-URLS[u_index++] = 'https://www.wordpress.com';
-URLS[u_index++] = 'https://www.answers.com';
-URLS[u_index++] = 'https://www.paypal.com';
-URLS[u_index++] = 'https://www.imdb.com';
-URLS[u_index++] = 'https://www.bestbuy.com';
-URLS[u_index++] = 'https://www.ehow.com';
-URLS[u_index++] = 'http://www.photobucket.com';
-URLS[u_index++] = 'https://www.cnn.com';
-URLS[u_index++] = 'https://www.chase.com';
-URLS[u_index++] = 'https://www.att.com';
-URLS[u_index++] = 'https://www.sears.com';
-URLS[u_index++] = 'https://www.weather.com';
-URLS[u_index++] = 'https://www.apple.com';
-URLS[u_index++] = 'https://www.zynga.com';
-URLS[u_index++] = 'https://www.adobe.com';
-URLS[u_index++] = 'https://www.bankofamerica.com';
-URLS[u_index++] = 'https://www.zedo.com';
-URLS[u_index++] = 'https://www.flickr.com';
-URLS[u_index++] = 'https://www.shoplocal.com';
-URLS[u_index++] = 'https://www.twitter.com';
-URLS[u_index++] = 'https://www.cnet.com';
-URLS[u_index++] = 'https://www.verizonwireless.com';
-URLS[u_index++] = 'https://www.kohls.com';
-URLS[u_index++] = 'https://www.bizrate.com';
-URLS[u_index++] = 'https://www.jcpenney.com';
+URLS[u_index++] = 'https://www.wikipedia.org/wiki/Google';
+URLS[u_index++] = 'https://www.reddit.com';
+URLS[u_index++] = 'https://www.yahoo.com';
+URLS[u_index++] = 'https://www.twitter.com/google';
+URLS[u_index++] = 'https://www.linkedin.com/jobs/management-jobs';
+URLS[u_index++] = 'https://www.instagram.com/instagram';
+URLS[u_index++] = 'https://www.ebay.com';
 URLS[u_index++] = 'https://www.netflix.com';
-URLS[u_index++] = 'https://www.fastclick.net';
-URLS[u_index++] = 'https://www.windows.com';
-URLS[u_index++] = 'https://www.questionmarket.com';
+URLS[u_index++] = 'https://www.twitch.tv';
+URLS[u_index++] = 'https://www.espn.com';
+URLS[u_index++] = 'https://www.instructure.com';
+URLS[u_index++] = 'https://www.live.com';
+URLS[u_index++] = 'https://www.craigslist.org';
+URLS[u_index++] = 'https://www.imgur.com';
+URLS[u_index++] = 'https://www.chase.com';
+URLS[u_index++] = 'https://www.paypal.com';
+URLS[u_index++] = 'https://www.bing.com/search?q=google';
+URLS[u_index++] = 'https://www.cnn.com';
+URLS[u_index++] = 'https://www.fandom.com';
+URLS[u_index++] = 'https://www.imdb.com';
+URLS[u_index++] = 'https://www.pinterest.com';
+URLS[u_index++] = 'https://www.office.com';
 URLS[u_index++] = 'https://www.nytimes.com';
-URLS[u_index++] = 'https://www.toysrus.com';
-URLS[u_index++] = 'https://www.allrecipes.com';
-URLS[u_index++] = 'https://www.overstock.com';
-URLS[u_index++] = 'https://www.comcast.net';
+URLS[u_index++] = 'https://www.github.com/explore';
+URLS[u_index++] = 'https://www.hulu.com';
+URLS[u_index++] = 'https://www.zillow.com';
+URLS[u_index++] = 'https://www.microsoft.com';
+URLS[u_index++] = 'https://www.apple.com';
+URLS[u_index++] = 'https://www.intuit.com';
+URLS[u_index++] = 'https://www.salesforce.com';
+URLS[u_index++] = 'https://www.stackoverflow.com';
+URLS[u_index++] = 'https://www.yelp.com';
+URLS[u_index++] = 'https://www.walmart.com';
+URLS[u_index++] = 'https://www.bankofamerica.com';
+URLS[u_index++] = 'https://www.tumblr.com/explore';
+URLS[u_index++] = 'https://www.dropbox.com';
+URLS[u_index++] = 'https://www.wellsfargo.com';
+URLS[u_index++] = 'https://www.quora.com';
+URLS[u_index++] = 'https://www.quizlet.com';
+URLS[u_index++] = 'https://www.weather.com';
+URLS[u_index++] = 'https://www.accuweather.com';
+URLS[u_index++] = 'https://www.foxnews.com';
+URLS[u_index++] = 'https://www.msn.com';
+URLS[u_index++] = 'https://www.indeed.com/l-Mountain-View-jobs.html';
+URLS[u_index++] = 'https://duckduckgo.com/?q=google';
+URLS[u_index++] = 'https://www.accuweather.com';

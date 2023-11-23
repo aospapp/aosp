@@ -131,6 +131,7 @@ def show_diff(ltp_tests_1, ltp_tests_2):
         ltp_tests_1: dictionary of tests keyed by test suite names
         ltp_tests_2: dictionary of tests keyed by test suite names
     '''
+    DEFAULT_WIDTH = 8
     test_suites1 = set(sorted(ltp_tests_1.keys()))
     test_suites2 = set(sorted(ltp_tests_2.keys()))
 
@@ -155,8 +156,15 @@ def show_diff(ltp_tests_1, ltp_tests_2):
 
     # find the maximum width of a test suite name or test name
     # we have to print to decide the alignment.
-    width_suites = max([len(x) for x in deleted_test_suites])
-    width_tests = max([len(x) for x in deleted_tests])
+    if not deleted_test_suites:
+        width_suites = DEFAULT_WIDTH
+    else:
+        width_suites = max([len(x) for x in deleted_test_suites])
+
+    if not deleted_tests:
+        width_tests = DEFAULT_WIDTH
+    else:
+        width_tests = max([len(x) for x in deleted_tests])
     width = max(width_suites, width_tests);
 
     # total rows we have to print

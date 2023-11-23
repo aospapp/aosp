@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 hu{
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Abidjan"}
@@ -661,7 +661,7 @@ hu{
             ec{"Asgabat"}
         }
         "Asia:Atyrau"{
-            ec{"Atyrau"}
+            ec{"Atirau"}
         }
         "Asia:Baghdad"{
             ec{"Bagdad"}
@@ -810,6 +810,9 @@ hu{
         "Asia:Qatar"{
             ec{"Katar"}
         }
+        "Asia:Qostanay"{
+            ec{"Kosztanaj"}
+        }
         "Asia:Qyzylorda"{
             ec{"Kizilorda"}
         }
@@ -952,7 +955,7 @@ hu{
             ec{"Sydney"}
         }
         "Etc:UTC"{
-            ls{"egyezményes koordinált világidő"}
+            ls{"Koordinált világidő"}
         }
         "Etc:Unknown"{
             ec{"Ismeretlen város"}

@@ -9,13 +9,13 @@
 #include <algorithm>
 #include <memory>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "core/fpdfapi/font/cpdf_font.h"
 #include "core/fpdfdoc/cpvt_word.h"
+#include "core/fpdfdoc/ipvt_fontmap.h"
 #include "core/fxcrt/fx_safe_types.h"
-#include "core/fxcrt/xml/cxml_content.h"
-#include "core/fxcrt/xml/cxml_element.h"
 #include "core/fxge/cfx_graphstatedata.h"
 #include "core/fxge/cfx_pathdata.h"
 #include "core/fxge/cfx_renderdevice.h"
@@ -23,60 +23,21 @@
 #include "fpdfsdk/pwl/cpwl_caret.h"
 #include "fpdfsdk/pwl/cpwl_edit_ctrl.h"
 #include "fpdfsdk/pwl/cpwl_edit_impl.h"
-#include "fpdfsdk/pwl/cpwl_font_map.h"
 #include "fpdfsdk/pwl/cpwl_scroll_bar.h"
 #include "fpdfsdk/pwl/cpwl_wnd.h"
 #include "public/fpdf_fwlevent.h"
-#include "third_party/base/stl_util.h"
 
-CPWL_Edit::CPWL_Edit() : m_bFocus(false) {}
+CPWL_Edit::CPWL_Edit(
+    const CreateParams& cp,
+    std::unique_ptr<IPWL_SystemHandler::PerWindowData> pAttachedData)
+    : CPWL_EditCtrl(cp, std::move(pAttachedData)) {}
 
 CPWL_Edit::~CPWL_Edit() {
   ASSERT(!m_bFocus);
 }
 
-ByteString CPWL_Edit::GetClassName() const {
-  return PWL_CLASSNAME_EDIT;
-}
-
 void CPWL_Edit::SetText(const WideString& csText) {
-  WideString swText = csText;
-  if (!HasFlag(PES_RICH)) {
-    m_pEdit->SetText(swText);
-    return;
-  }
-
-  ByteString sValue = ByteString::FromUnicode(swText);
-  std::unique_ptr<CXML_Element> pXML(
-      CXML_Element::Parse(sValue.c_str(), sValue.GetLength()));
-  if (!pXML) {
-    m_pEdit->SetText(swText);
-    return;
-  }
-  swText.clear();
-
-  bool bFirst = true;
-  size_t nCount = pXML->CountChildren();
-  for (size_t i = 0; i < nCount; ++i) {
-    CXML_Element* pSubElement = ToElement(pXML->GetChild(i));
-    if (!pSubElement || !pSubElement->GetTagName().EqualNoCase("p"))
-      continue;
-
-    WideString swSection;
-    size_t nSubChild = pSubElement->CountChildren();
-    for (size_t j = 0; j < nSubChild; ++j) {
-      CXML_Content* pSubContent = ToContent(pSubElement->GetChild(j));
-      if (pSubContent)
-        swSection += pSubContent->m_Content;
-    }
-    if (bFirst)
-      bFirst = false;
-    else
-      swText += FWL_VKEY_Return;
-    swText += swSection;
-  }
-
-  m_pEdit->SetText(swText);
+  m_pEdit->SetText(csText);
 }
 
 bool CPWL_Edit::RePosChildWnd() {
@@ -86,8 +47,7 @@ bool CPWL_Edit::RePosChildWnd() {
         CFX_FloatRect(rcWindow.right, rcWindow.bottom,
                       rcWindow.right + PWL_SCROLLBAR_WIDTH, rcWindow.top);
 
-    ObservedPtr thisObserved(this);
-
+    ObservedPtr<CPWL_Edit> thisObserved(this);
     pVSB->Move(rcVScroll, true, false);
     if (!thisObserved)
       return false;
@@ -118,8 +78,8 @@ CFX_FloatRect CPWL_Edit::GetClientRect() const {
   return rcClient;
 }
 
-void CPWL_Edit::SetAlignFormatV(PWL_EDIT_ALIGNFORMAT_V nFormat, bool bPaint) {
-  m_pEdit->SetAlignmentV((int32_t)nFormat, bPaint);
+void CPWL_Edit::SetAlignFormatVerticalCenter() {
+  m_pEdit->SetAlignmentV(static_cast<int32_t>(PEAV_CENTER), true);
 }
 
 bool CPWL_Edit::CanSelectAll() const {
@@ -213,7 +173,7 @@ void CPWL_Edit::DrawThisAppearance(CFX_RenderDevice* pDevice,
     switch (GetBorderStyle()) {
       case BorderStyle::SOLID: {
         CFX_GraphStateData gsd;
-        gsd.m_LineWidth = (float)GetBorderWidth();
+        gsd.m_LineWidth = GetBorderWidth();
 
         CFX_PathData path;
 
@@ -239,12 +199,10 @@ void CPWL_Edit::DrawThisAppearance(CFX_RenderDevice* pDevice,
       }
       case BorderStyle::DASH: {
         CFX_GraphStateData gsd;
-        gsd.m_LineWidth = (float)GetBorderWidth();
-
-        gsd.SetDashCount(2);
-        gsd.m_DashArray[0] = (float)GetBorderDash().nDash;
-        gsd.m_DashArray[1] = (float)GetBorderDash().nGap;
-        gsd.m_DashPhase = (float)GetBorderDash().nPhase;
+        gsd.m_LineWidth = static_cast<float>(GetBorderWidth());
+        gsd.m_DashArray = {static_cast<float>(GetBorderDash().nDash),
+                           static_cast<float>(GetBorderDash().nGap)};
+        gsd.m_DashPhase = static_cast<float>(GetBorderDash().nPhase);
 
         CFX_PathData path;
         for (int32_t i = 0; i < nCharArray - 1; i++) {
@@ -280,10 +238,9 @@ void CPWL_Edit::DrawThisAppearance(CFX_RenderDevice* pDevice,
     pRange = &wrRange;
   }
 
-  CFX_SystemHandler* pSysHandler = GetSystemHandler();
   CPWL_EditImpl::DrawEdit(pDevice, mtUser2Device, m_pEdit.get(),
                           GetTextColor().ToFXColor(GetTransparency()), rcClip,
-                          CFX_PointF(), pRange, pSysHandler,
+                          CFX_PointF(), pRange, GetSystemHandler(),
                           m_pFormFiller.Get());
 }
 
@@ -322,17 +279,13 @@ bool CPWL_Edit::OnRButtonUp(const CFX_PointF& point, uint32_t nFlag) {
   if (!HasFlag(PES_TEXTOVERFLOW) && !ClientHitTest(point))
     return true;
 
-  CFX_SystemHandler* pSH = GetSystemHandler();
-  if (!pSH)
-    return false;
-
   SetFocus();
 
   return false;
 }
 
 void CPWL_Edit::OnSetFocus() {
-  ObservedPtr observed_ptr(this);
+  ObservedPtr<CPWL_Edit> observed_ptr(this);
   SetEditCaret(true);
   if (!observed_ptr)
     return;
@@ -348,8 +301,7 @@ void CPWL_Edit::OnSetFocus() {
 }
 
 void CPWL_Edit::OnKillFocus() {
-  ObservedPtr observed_ptr(this);
-
+  ObservedPtr<CPWL_Edit> observed_ptr(this);
   CPWL_ScrollBar* pScroll = GetVScrollBar();
   if (pScroll && pScroll->IsVisible()) {
     pScroll->SetVisible(false);
@@ -407,14 +359,13 @@ bool CPWL_Edit::IsTextFull() const {
   return m_pEdit->IsTextFull();
 }
 
-float CPWL_Edit::GetCharArrayAutoFontSize(CPDF_Font* pFont,
+float CPWL_Edit::GetCharArrayAutoFontSize(const CPDF_Font* pFont,
                                           const CFX_FloatRect& rcPlate,
                                           int32_t nCharArray) {
   if (!pFont || pFont->IsStandardFont())
     return 0.0f;
 
-  FX_RECT rcBBox;
-  pFont->GetFontBBox(rcBBox);
+  const FX_RECT& rcBBox = pFont->GetFontBBox();
 
   CFX_FloatRect rcCell = rcPlate;
   float xdiv = rcCell.Width() / nCharArray * 1000.0f / rcBBox.Width();
@@ -437,7 +388,7 @@ void CPWL_Edit::SetCharArray(int32_t nCharArray) {
   if (!pFontMap)
     return;
 
-  float fFontSize = GetCharArrayAutoFontSize(pFontMap->GetPDFFont(0),
+  float fFontSize = GetCharArrayAutoFontSize(pFontMap->GetPDFFont(0).Get(),
                                              GetClientRect(), nCharArray);
   if (fFontSize <= 0.0f)
     return;
@@ -448,11 +399,6 @@ void CPWL_Edit::SetCharArray(int32_t nCharArray) {
 
 void CPWL_Edit::SetLimitChar(int32_t nLimitChar) {
   m_pEdit->SetLimitChar(nLimitChar);
-}
-
-void CPWL_Edit::ReplaceSel(const WideString& wsText) {
-  m_pEdit->ClearSelection();
-  m_pEdit->InsertText(wsText, FX_CHARSET_Default);
 }
 
 CFX_FloatRect CPWL_Edit::GetFocusRect() const {
@@ -480,7 +426,7 @@ bool CPWL_Edit::OnKeyDown(uint16_t nChar, uint32_t nFlag) {
       if (nSelStart == nSelEnd)
         nSelEnd = nSelStart + 1;
 
-      CPWL_Wnd::ObservedPtr thisObserved(this);
+      ObservedPtr<CPWL_Wnd> thisObserved(this);
 
       bool bRC;
       bool bExit;
@@ -563,7 +509,7 @@ bool CPWL_Edit::OnChar(uint16_t nChar, uint32_t nFlag) {
           break;
       }
 
-      CPWL_Wnd::ObservedPtr thisObserved(this);
+      ObservedPtr<CPWL_Wnd> thisObserved(this);
 
       WideString strChangeEx;
       std::tie(bRC, bExit) = m_pFillerNotify->OnBeforeKeyStroke(
@@ -676,8 +622,6 @@ CPVT_WordRange CPWL_Edit::GetLatinWordsRange(
 CPVT_WordRange CPWL_Edit::GetSameWordsRange(const CPVT_WordPlace& place,
                                             bool bLatin,
                                             bool bArabic) const {
-  CPVT_WordRange range;
-
   CPWL_EditImpl_Iterator* pIterator = m_pEdit->GetIterator();
   CPVT_Word wordinfo;
   CPVT_WordPlace wpStart(place), wpEnd(place);
@@ -721,6 +665,5 @@ CPVT_WordRange CPWL_Edit::GetSameWordsRange(const CPVT_WordPlace& place,
     } while (pIterator->PrevWord());
   }
 
-  range.Set(wpStart, wpEnd);
-  return range;
+  return CPVT_WordRange(wpStart, wpEnd);
 }

@@ -225,7 +225,7 @@ public class ConvertLanguageData {
             Log.close();
             oldFile.close();
 
-            Log.setLog(CLDRPaths.GEN_DIRECTORY + "/supplemental", "language_script_raw.txt");
+            Log.setLogNoBOM(CLDRPaths.GEN_DIRECTORY + "/supplemental", "language_script_raw.txt");
             getLanguageScriptSpreadsheet(Log.getLog());
             Log.close();
         } catch (Exception e) {
@@ -256,7 +256,7 @@ public class ConvertLanguageData {
     }
 
     private static void getLanguageScriptSpreadsheet(PrintWriter out) {
-        out.println("#Lcode LanguageName  Status  Scode ScriptName  References");
+        out.println("#Lcode\tLanguageName\tStatus\tScode\tScriptName\tReferences");
         Pair<String, String> languageScript = new Pair<String, String>("", "");
         for (String language : language_status_scripts.keySet()) {
             Relation<BasicLanguageData.Type, String> status_scripts = language_status_scripts.get(language);
@@ -526,10 +526,10 @@ public class ConvertLanguageData {
             cldrFactory = Factory.make(CLDRPaths.MAIN_DIRECTORY, ".*");
             //Set<String> available = cldrFactory.getAvailable();
             CLDRFile supplemental = cldrFactory.make("supplementalData", true);
-            XPathParts parts = new XPathParts();
             for (Iterator<String> it = supplemental.iterator("//supplementalData/languageData/language"); it.hasNext();) {
                 String xpath = it.next();
-                Map<String, String> x = parts.set(xpath).getAttributes(-1);
+                XPathParts parts = XPathParts.getFrozenInstance(xpath);
+                Map<String, String> x = parts.getAttributes(-1);
                 boolean alt = x.containsKey("alt");
                 String lang = x.get("type");
                 List<String> scripts = getAttributeList(x, "scripts");
@@ -1294,81 +1294,6 @@ public class ConvertLanguageData {
         for (String failure : failures) {
             System.out.println(failure);
         }
-    }
-
-    private static void showContent(Set<String> available) {
-        System.out.println();
-        System.out.println("CLDR Content");
-        System.out.println();
-        Set<String> languagesLeft = new TreeSet<String>(defaultContent.keySet());
-        languagesLeft.remove("und");
-        for (String languageLeft : languagesLeft) {
-            Log.println("\t\t<defaultContent type=\"" + languageLeft + "\" content=\""
-                + defaultContent.get(languageLeft) + "\"/>");
-        }
-        // Set<String> warnings = new LinkedHashSet<String>();
-        //
-        // CLDRFile supplemental = cldrFactory.make("supplementalData", true);
-        // Comments tempComments = supplemental.getXpath_comments();
-        // PrintWriter pw = new PrintWriter(System.out);
-        // Comparator attributeOrdering = supplemental.getAttributeComparator();
-        // Map defaultSuppressionMap = supplemental.getDefaultSuppressionMap();
-        //
-        // XPathParts last = new XPathParts(attributeOrdering, defaultSuppressionMap);
-        // XPathParts current = new XPathParts(attributeOrdering, defaultSuppressionMap);
-        // XPathParts lastFiltered = new XPathParts(attributeOrdering, defaultSuppressionMap);
-        // XPathParts currentFiltered = new XPathParts(attributeOrdering, defaultSuppressionMap);
-        //
-        // Set orderedSet = new TreeSet(supplemental.ldmlComparator);
-        // CollectionUtilities.addAll(supplemental.iterator("//supplementalData/languageData/language"), orderedSet);
-        // Set<String> languagesLeft = new TreeSet<String>(defaultContent.keySet());
-        //
-        // for (Iterator it2 = orderedSet.iterator(); it2.hasNext();) {
-        // String xpath = (String)it2.next();
-        // currentFiltered.set(xpath);
-        // current.set(xpath);
-        //
-        // Map x = current.set(xpath).getAttributes(-1);
-        // boolean alt = x.containsKey("alt");
-        // String lang = (String) x.get("type");
-        // String defaultValue = defaultContent.get(lang);
-        // if (alt) {
-        // // skip
-        // } else if (defaultValue == null) {
-        // warnings.add("Missing default value for " + lang);
-        // } else if (!defaultValue.equals(lang)) {
-        // x.put("defaultContent", defaultValue);
-        // languagesLeft.remove(lang);
-        // }
-        //
-        // current.writeDifference(pw, currentFiltered, last, lastFiltered, "", tempComments);
-        // // exchange pairs of parts
-        // XPathParts temp = current;
-        // current = last;
-        // last = temp;
-        // temp = currentFiltered;
-        // currentFiltered = lastFiltered;
-        // lastFiltered = temp;
-        // }
-        // pw.flush();
-
-        // for (String warning : warnings) {
-        // System.out.println(warning);
-        // }
-
-        // for (String localeCode : available) {
-        // if (skipLocales.contains(localeCode)) continue;
-        // String resolvedLanguageCode = getFullyResolved(localeCode);
-        // // a locale will be empty if its parent has the same resolved code
-        // String parent = getProcessedParent(localeCode);
-        // String resolvedParent = getFullyResolved(parent);
-        // System.out.println(
-        // (resolvedLanguageCode.equals(resolvedParent) ? "empty" : "")
-        // + "\t" + localeCode
-        // + "\t" + resolvedLanguageCode
-        // + "\t" + parent
-        // + "\t" + ULocale.getDisplayName(localeCode, ULocale.ENGLISH));
-        // }
     }
 
     public static String getProcessedParent(String localeCode) {

@@ -75,7 +75,7 @@
 #include "brw_eu.h"
 #include "brw_shader.h"
 #include "brw_disasm_info.h"
-#include "common/gen_debug.h"
+#include "dev/gen_debug.h"
 
 static const uint32_t g45_control_index_table[32] = {
    0b00000000000000000,
@@ -109,7 +109,7 @@ static const uint32_t g45_control_index_table[32] = {
    0b00110000000000110,
    0b00000000000001010,
    0b01010000000101000,
-   0b01010000000100100
+   0b01010000000100100,
 };
 
 static const uint32_t g45_datatype_table[32] = {
@@ -144,7 +144,7 @@ static const uint32_t g45_datatype_table[32] = {
    0b101000001000101001,
    0b001011010110001100,
    0b001000000110100001,
-   0b001010010100001000
+   0b001010010100001000,
 };
 
 static const uint16_t g45_subreg_table[32] = {
@@ -179,7 +179,7 @@ static const uint16_t g45_subreg_table[32] = {
    0b000110010000100,
    0b001100000000110,
    0b000000010000110,
-   0b000001000110000
+   0b000001000110000,
 };
 
 static const uint16_t g45_src_index_table[32] = {
@@ -214,7 +214,7 @@ static const uint16_t g45_src_index_table[32] = {
    0b010000000100,
    0b010000111000,
    0b000101100000,
-   0b111101110100
+   0b111101110100,
 };
 
 static const uint32_t gen6_control_index_table[32] = {
@@ -249,7 +249,7 @@ static const uint32_t gen6_control_index_table[32] = {
    0b00110000000000011,
    0b00110000000000100,
    0b00110000100001000,
-   0b00100000000001001
+   0b00100000000001001,
 };
 
 static const uint32_t gen6_datatype_table[32] = {
@@ -389,7 +389,7 @@ static const uint32_t gen7_control_index_table[32] = {
    0b0011000000000000000,
    0b0011000000100000000,
    0b0101000000000000000,
-   0b0101000000100000000
+   0b0101000000100000000,
 };
 
 static const uint32_t gen7_datatype_table[32] = {
@@ -424,7 +424,7 @@ static const uint32_t gen7_datatype_table[32] = {
    0b001111111110111101,
    0b001011110110101100,
    0b001010010100101000,
-   0b001010110100101000
+   0b001010110100101000,
 };
 
 static const uint16_t gen7_subreg_table[32] = {
@@ -459,7 +459,7 @@ static const uint16_t gen7_subreg_table[32] = {
    0b101000000000000,
    0b110000000000000,
    0b111000000000000,
-   0b111000000011100
+   0b111000000011100,
 };
 
 static const uint16_t gen7_src_index_table[32] = {
@@ -494,7 +494,7 @@ static const uint16_t gen7_src_index_table[32] = {
    0b010001101000,
    0b010001101001,
    0b010001101010,
-   0b010110001000
+   0b010110001000,
 };
 
 static const uint32_t gen8_control_index_table[32] = {
@@ -529,7 +529,7 @@ static const uint32_t gen8_control_index_table[32] = {
    0b0011000000000000000,
    0b0011000000100000000,
    0b0101000000000000000,
-   0b0101000000100000000
+   0b0101000000100000000,
 };
 
 static const uint32_t gen8_datatype_table[32] = {
@@ -564,7 +564,7 @@ static const uint32_t gen8_datatype_table[32] = {
    0b001011111011101011101,
    0b001001111001101001100,
    0b001001001001001001000,
-   0b001001011001001001000
+   0b001001011001001001000,
 };
 
 static const uint16_t gen8_subreg_table[32] = {
@@ -599,7 +599,7 @@ static const uint16_t gen8_subreg_table[32] = {
    0b101000000000000,
    0b110000000000000,
    0b111000000000000,
-   0b111000000011100
+   0b111000000011100,
 };
 
 static const uint16_t gen8_src_index_table[32] = {
@@ -634,7 +634,42 @@ static const uint16_t gen8_src_index_table[32] = {
    0b010001101000,
    0b010001101001,
    0b010001101010,
-   0b010110001000
+   0b010110001000,
+};
+
+static const uint32_t gen11_datatype_table[32] = {
+   0b001000000000000000001,
+   0b001000000000001000000,
+   0b001000000000001000001,
+   0b001000000000011000001,
+   0b001000000000101100101,
+   0b001000000101111100101,
+   0b001000000100101000001,
+   0b001000000100101000101,
+   0b001000000100101100101,
+   0b001000001000001000001,
+   0b001000011000001000000,
+   0b001000011000001000001,
+   0b001000101000101000101,
+   0b001000111000101000100,
+   0b001000111000101000101,
+   0b001100100100101100101,
+   0b001100101100100100101,
+   0b001100101100101100100,
+   0b001100101100101100101,
+   0b001100111100101100100,
+   0b000000000010000001100,
+   0b001000000000001100101,
+   0b001000000000101000101,
+   0b001000001000001000000,
+   0b001000101000101000100,
+   0b001000111000100000100,
+   0b001001001001000001001,
+   0b001101111100101100101,
+   0b001100111100101100101,
+   0b001001111001101001100,
+   0b001001001001001001000,
+   0b001001011001001001000,
 };
 
 /* This is actually the control index table for Cherryview (26 bits), but the
@@ -647,7 +682,7 @@ static const uint32_t gen8_3src_control_index_table[4] = {
    0b00100000000110000000000001,
    0b00000000000110000000000001,
    0b00000000001000000000000001,
-   0b00000000001000000000100001
+   0b00000000001000000000100001,
 };
 
 /* This is actually the control index table for Cherryview (49 bits), but the
@@ -661,7 +696,7 @@ static const uint64_t gen8_3src_source_index_table[4] = {
    0b0000001110010011100100111001000001111000000000000,
    0b0000001110010011100100111001000001111000000000010,
    0b0000001110010011100100111001000001111000000001000,
-   0b0000001110010011100100111001000001111000000100000
+   0b0000001110010011100100111001000001111000000100000,
 };
 
 static const uint32_t *control_index_table;
@@ -893,8 +928,11 @@ has_3src_unmapped_bits(const struct gen_device_info *devinfo,
       assert(!brw_inst_bits(src, 127, 126) &&
              !brw_inst_bits(src, 105, 105) &&
              !brw_inst_bits(src, 84, 84) &&
-             !brw_inst_bits(src, 36, 35) &&
              !brw_inst_bits(src, 7,  7));
+
+      /* Src1Type and Src2Type, used for mixed-precision floating point */
+      if (brw_inst_bits(src, 36, 35))
+         return true;
    }
 
    return false;
@@ -1450,8 +1488,15 @@ brw_init_compaction_tables(const struct gen_device_info *devinfo)
    assert(gen8_datatype_table[ARRAY_SIZE(gen8_datatype_table) - 1] != 0);
    assert(gen8_subreg_table[ARRAY_SIZE(gen8_subreg_table) - 1] != 0);
    assert(gen8_src_index_table[ARRAY_SIZE(gen8_src_index_table) - 1] != 0);
+   assert(gen11_datatype_table[ARRAY_SIZE(gen11_datatype_table) - 1] != 0);
 
    switch (devinfo->gen) {
+   case 11:
+      control_index_table = gen8_control_index_table;
+      datatype_table = gen11_datatype_table;
+      subreg_table = gen8_subreg_table;
+      src_index_table = gen8_src_index_table;
+      break;
    case 10:
    case 9:
    case 8:

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -61,8 +61,6 @@ import tempfile
 import time
 import traceback
 
-from chromite.lib import gs
-
 import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import host_states
@@ -78,13 +76,14 @@ from autotest_lib.server.hosts import afe_store
 from autotest_lib.server.hosts import servo_host
 from autotest_lib.site_utils.deployment import cmdvalidate
 from autotest_lib.site_utils.deployment.prepare import dut as preparedut
-from autotest_lib.site_utils.stable_images import build_data
 from autotest_lib.utils import labellib
 
 
 _LOG_FORMAT = '%(asctime)s | %(levelname)-10s | %(message)s'
 
 _DEFAULT_POOL = constants.Labels.POOL_PREFIX + 'suites'
+
+_LABSTATION_DEFAULT_POOL = constants.Labels.POOL_PREFIX + 'labstation_main'
 
 _DIVIDER = '\n============\n'
 
@@ -140,8 +139,7 @@ def _upload_logs(dirpath, gspath):
     @param dirpath  Path to directory containing the logs.
     @param gspath   Path to GS bucket.
     """
-    ctx = gs.GSContext()
-    ctx.Copy(dirpath, gspath, recursive=True)
+    utils.run(['gsutil', 'cp', '-r', '--', dirpath, gspath])
 
 
 def _get_omaha_build(board):
@@ -158,8 +156,8 @@ def _get_omaha_build(board):
             R##-####.#.#.  Will return `None` if no Beta channel
             entry is found.
     """
-    ctx = gs.GSContext()
-    omaha_status = json.loads(ctx.Cat(_OMAHA_STATUS))
+    ret = utils.run(['gsutil', 'cat', '--', _OMAHA_STATUS])
+    omaha_status = json.loads(ret.stdout)
     omaha_board = board.replace('_', '-')
     for e in omaha_status['omaha_data']:
         if (e['channel'] == 'beta' and
@@ -171,87 +169,7 @@ def _get_omaha_build(board):
 
 
 def _update_build(afe, report_log, arguments):
-    """Update the stable_test_versions table.
-
-    This calls the `set_stable_version` RPC call to set the stable
-    repair version selected by this run of the command.  Additionally,
-    this updates the stable firmware for the board.  The repair version
-    is selected from three possible versions:
-      * The stable test version currently in the AFE database.
-      * The version Omaha is currently serving as the Beta channel
-        build.
-      * The version supplied by the user.
-    The actual version selected will be whichever of these three is
-    the most up-to-date version.
-
-    The stable firmware version will be set to whatever firmware is
-    bundled in the selected repair image. If the selected repair image bundles
-    firmware for more than one model, then the firmware for every model in the
-    build will be updated.
-
-    This function will log information about the available versions
-    prior to selection.  After selection the repair and firmware
-    versions slected will be logged.
-
-    @param afe          AFE object for RPC calls.
-    @param report_log   File-like object for logging report output.
-    @param arguments    Command line arguments with options.
-
-    @return Returns the version selected.
-    """
-    # Gather the current AFE and Omaha version settings, and report them
-    # to the user.
-    cros_version_map = afe.get_stable_version_map(afe.CROS_IMAGE_TYPE)
-    fw_version_map = afe.get_stable_version_map(afe.FIRMWARE_IMAGE_TYPE)
-    afe_cros = cros_version_map.get_version(arguments.board)
-    afe_fw = fw_version_map.get_version(arguments.board)
-    omaha_cros = _get_omaha_build(arguments.board)
-    report_log.write('AFE    version is %s.\n' % afe_cros)
-    report_log.write('Omaha  version is %s.\n' % omaha_cros)
-    report_log.write('AFE   firmware is %s.\n' % afe_fw)
-    cros_version = afe_cros
-
-    # Check whether we should upgrade the repair build to either
-    # the Omaha or the user's requested build.  If we do, we must
-    # also update the firmware version.
-    if (omaha_cros is not None
-            and (cros_version is None or
-                 utils.compare_versions(cros_version, omaha_cros) < 0)):
-        cros_version = omaha_cros
-    if arguments.build and arguments.build != cros_version:
-        if (cros_version is None
-                or utils.compare_versions(cros_version, arguments.build) < 0):
-            cros_version = arguments.build
-        else:
-            report_log.write('Selected version %s is too old; '
-                             'using version %s'
-                             % (arguments.build, cros_version))
-
-    afe_fw_versions = {arguments.board: afe_fw}
-    fw_versions = build_data.get_firmware_versions(
-        arguments.board, cros_version)
-    # At this point `cros_version` is our new repair build, and
-    # `fw_version` is our new target firmware.  Call the AFE back with
-    # updates as necessary.
-    if not arguments.dry_run:
-        if cros_version != afe_cros:
-            cros_version_map.set_version(arguments.board, cros_version)
-
-            if fw_versions != afe_fw_versions:
-                for model, fw_version in fw_versions.iteritems():
-                    if fw_version is not None:
-                        fw_version_map.set_version(model, fw_version)
-                    else:
-                        fw_version_map.delete_version(model)
-
-    # Report the new state of the world.
-    report_log.write(_DIVIDER)
-    report_log.write('Repair CrOS version for board %s is now %s.\n' %
-                     (arguments.board, cros_version))
-    for model, fw_version in fw_versions.iteritems():
-        report_log.write('Firmware version for model %s is now %s.\n' %
-                         (model, fw_version))
-    return cros_version
+    raise RuntimeError("site_utils.deployment::_update_build is intentionally deleted")
 
 
 def _create_host(hostname, afe, afe_host):
@@ -435,13 +353,15 @@ def _get_afe_host(afe, hostname, host_attrs, arguments):
         # This host was pre-existing; if the user didn't supply
         # attributes, don't update them, because the defaults may
         # not be correct.
-        if host_attrs:
+        if host_attrs and not arguments.labstation:
             _update_host_attributes(afe, hostname, host_attrs)
     else:
         afe_host = afe.create_host(hostname,
                                    locked=True,
                                    lock_reason=_LOCK_REASON_NEW_HOST)
-        _update_host_attributes(afe, hostname, host_attrs)
+
+        if not arguments.labstation:
+            _update_host_attributes(afe, hostname, host_attrs)
 
     # Correct board/model label is critical to installation. Always ensure user
     # supplied board/model matches the AFE information.
@@ -492,9 +412,9 @@ def _create_host_for_installation(host, arguments):
     info = host.host_info_store.get()
     s_host, s_port, s_serial = _extract_servo_attributes(host.hostname,
                                                          info.attributes)
-    return preparedut.create_host(host.hostname, arguments.board,
-                                  arguments.model, s_host, s_port, s_serial,
-                                  arguments.logdir)
+    return preparedut.create_cros_host(host.hostname, arguments.board,
+                                       arguments.model, s_host, s_port,
+                                       s_serial, arguments.logdir)
 
 
 def _install_test_image(host, arguments):
@@ -516,6 +436,12 @@ def _install_test_image(host, arguments):
         except Exception as e:
             logging.exception('Failed to stage image on USB: %s', e)
             raise Exception('USB staging failed')
+    if arguments.install_test_image:
+        try:
+            preparedut.install_test_image(host)
+        except error.AutoservRunError as e:
+            logging.exception('Failed to install: %s', e)
+            raise Exception('chromeos-install failed')
     if arguments.install_firmware:
         try:
             if arguments.using_servo:
@@ -523,19 +449,28 @@ def _install_test_image(host, arguments):
                 preparedut.flash_firmware_using_servo(host, repair_image)
             else:
                 logging.debug('Install FW by chromeos-firmwareupdate.')
-                preparedut.install_firmware(host, arguments.force_firmware)
+                preparedut.install_firmware(host)
         except error.AutoservRunError as e:
             logging.exception('Firmware update failed: %s', e)
             msg = '%s failed' % (
                     'Flashing firmware using servo' if arguments.using_servo
                     else 'chromeos-firmwareupdate')
             raise Exception(msg)
-    if arguments.install_test_image:
+    if arguments.reinstall_test_image:
         try:
-            preparedut.install_test_image(host)
+            preparedut.reinstall_test_image(host)
         except error.AutoservRunError as e:
             logging.exception('Failed to install: %s', e)
             raise Exception('chromeos-install failed')
+    if arguments.install_test_image and arguments.install_firmware:
+        # we need to verify that DUT can successfully boot in to recovery mode
+        # if it's initial deploy.
+        try:
+            preparedut.verify_boot_into_rec_mode(host)
+        except error.AutoservRunError as e:
+            logging.exception('Failed to validate DUT can boot from '
+                              'recovery mode: %s', e)
+            raise Exception('recovery mode validation failed')
 
 
 def _install_and_update_afe(afe, hostname, host_attrs, arguments):
@@ -560,10 +495,15 @@ def _install_and_update_afe(afe, hostname, host_attrs, arguments):
     host = None
     try:
         host = _create_host(hostname, afe, afe_host)
-        with _create_host_for_installation(host, arguments) as host_to_install:
-            _install_test_image(host_to_install, arguments)
+        if arguments.labstation:
+            _setup_labstation(host)
+        else:
+            with _create_host_for_installation(host, arguments) as target_host:
+                _install_test_image(target_host, arguments)
+                _update_servo_type_attribute(target_host, host)
 
-        if arguments.install_test_image and not arguments.dry_run:
+        if ((arguments.install_test_image or arguments.reinstall_test_image)
+            and not arguments.dry_run):
             host.labels.update_labels(host)
             platform_labels = afe.get_labels(
                     host__hostname=hostname, platform=True)
@@ -648,7 +588,7 @@ def _report_hosts(report_log, heading, host_results_list):
     report_log.write('\n')
 
 
-def _report_results(afe, report_log, hostnames, results):
+def _report_results(afe, report_log, hostnames, results, arguments):
     """Gather and report a summary of results from installation.
 
     Segregate results into successes and failures, reporting
@@ -661,6 +601,7 @@ def _report_results(afe, report_log, hostnames, results):
     @param results      List of error messages, in the same order
                         as the hostnames.  `None` means the
                         corresponding host succeeded.
+    @param arguments  Command line arguments with options.
     """
     successful_hosts = []
     success_reports = []
@@ -680,9 +621,13 @@ def _report_results(afe, report_log, hostnames, results):
                     success_reports.append(result)
                     break
             else:
-                h.add_labels([_DEFAULT_POOL])
+                if arguments.labstation:
+                    target_pool = _LABSTATION_DEFAULT_POOL
+                else:
+                    target_pool = _DEFAULT_POOL
+                h.add_labels([target_pool])
                 result = _ReportResult(h.hostname,
-                                       'Host added to %s' % _DEFAULT_POOL)
+                                       'Host added to %s' % target_pool)
                 success_reports.append(result)
     report_log.write(_DIVIDER)
     _report_hosts(report_log, 'Successes', success_reports)
@@ -840,7 +785,7 @@ def _get_cros_repair_image_name(host):
     info = host.host_info_store.get()
     if not info.board:
         raise InstallFailedError('Unknown board for given host')
-    return afe_utils.get_stable_cros_image_name(info.board)
+    return afe_utils.get_stable_cros_image_name_v2(info)
 
 
 def install_duts(arguments):
@@ -880,24 +825,73 @@ def install_duts(arguments):
         if arguments.dry_run:
             report_log.write('Dry run - installation and most testing '
                              'will be skipped.\n')
-        current_build = _update_build(afe, report_log, arguments)
         host_attr_dict = _get_host_attributes(arguments.host_info_list, afe)
         install_pool = multiprocessing.Pool(len(arguments.hostnames))
         install_function = functools.partial(_install_dut, arguments,
                                              host_attr_dict)
         results_list = install_pool.map(install_function, arguments.hostnames)
-        _report_results(afe, report_log, arguments.hostnames, results_list)
+        _report_results(afe, report_log, arguments.hostnames, results_list,
+                        arguments)
 
     if arguments.upload:
         try:
             gspath = _get_upload_log_path(arguments)
             sys.stderr.write('Logs will be uploaded to %s\n' % (gspath,))
             _upload_logs(arguments.logdir, gspath)
-        except Exception as e:
+        except Exception:
             upload_failure_log_path = os.path.join(arguments.logdir,
                                                    'gs_upload_failure.log')
-            with open(upload_failure_log_path, 'w') as file:
-                traceback.print_exc(limit=None, file=file)
+            with open(upload_failure_log_path, 'w') as file_:
+                traceback.print_exc(limit=None, file=file_)
             sys.stderr.write('Failed to upload logs;'
                              ' failure details are stored in {}.\n'
                              .format(upload_failure_log_path))
+
+
+def _update_servo_type_attribute(host, host_to_update):
+    """Update servo_type attribute for the DUT.
+
+    @param host              A CrOSHost with a initialized servo property.
+    @param host_to_update    A CrOSHost with AfeStore as its host_info_store.
+
+    """
+    info = host_to_update.host_info_store.get()
+    if 'servo_type' not in info.attributes:
+        logging.info("Collecting and adding servo_type attribute.")
+        info.attributes['servo_type'] = host.servo.get_servo_version()
+        host_to_update.host_info_store.commit(info)
+
+
+def _setup_labstation(host):
+    """Do initial setup for labstation host.
+
+    @param host    A LabstationHost object.
+
+    """
+    try:
+        if not host.is_labstation():
+            raise InstallFailedError('Current OS on host %s is not a labstation'
+                                     ' image.', host.hostname)
+    except AttributeError:
+        raise InstallFailedError('Unable to verify host has a labstation image,'
+                                 ' this can be caused by host is unsshable.')
+
+    try:
+        # TODO: we should setup hwid and serial number for DUT in deploy script
+        #  as well, which is currently obtained from repair job.
+        info = host.host_info_store.get()
+        hwid = host.run('crossystem hwid', ignore_status=True).stdout
+        if hwid:
+            info.attributes['HWID'] = hwid
+
+        serial_number = host.run('vpd -g serial_number',
+                                 ignore_status=True).stdout
+        if serial_number:
+            info.attributes['serial_number'] = serial_number
+        if info != host.host_info_store.get():
+            host.host_info_store.commit(info)
+    except Exception as e:
+        raise InstallFailedError('Failed to get HWID & Serial Number for host'
+                                 ' %s: %s' % (host.hostname, str(e)))
+
+    host.labels.update_labels(host)

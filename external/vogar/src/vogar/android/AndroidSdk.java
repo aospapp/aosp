@@ -47,7 +47,7 @@ import vogar.util.Strings;
  */
 public class AndroidSdk {
 
-    private static final String D8_COMMAND_NAME = "d8-compat-dx";
+    private static final String D8_COMMAND_NAME = "d8";
     private static final String DX_COMMAND_NAME = "dx";
     private static final String ARBITRARY_BUILD_TOOL_NAME = D8_COMMAND_NAME;
 
@@ -321,37 +321,51 @@ public class AndroidSdk {
         switch (dexer) {
             case DX:
                 builder.args(DX_COMMAND_NAME);
+                builder.args("-JXms16M").args("-JXmx1536M");
+                builder.args("--min-sdk-version=" + language.getMinApiLevel());
+                if (multidex) {
+                    builder.args("--multi-dex");
+                }
+                builder.args("--dex")
+                    .args("--output=" + output)
+                    .args("--core-library")
+                    .args(desugarOutputFilePaths);
+                builder.execute();
                 break;
             case D8:
+                List<String> sanitizedDesugarOutputFilePaths;
+                try {
+                    sanitizedDesugarOutputFilePaths = removeDexFilesForD8(desugarOutputFilePaths);
+                } catch (IOException e) {
+                    throw new RuntimeException("Error while removing dex files from archive", e);
+                }
                 builder.args(D8_COMMAND_NAME);
+                builder.args("-JXms16M").args("-JXmx1536M");
+                builder
+                    .args("--min-api").args(language.getMinApiLevel())
+                    .args("--output").args(output)
+                    .args(sanitizedDesugarOutputFilePaths);
+                builder.execute();
+                if (output.toString().endsWith(".jar")) {
+                    try {
+                        fixD8JarOutput(output, desugarOutputFilePaths);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error while fixing d8 output", e);
+                    }
+                }
                 break;
-        }
-        builder.args("-JXms16M")
-                .args("-JXmx1536M")
-                .args("--min-sdk-version=" + language.getMinApiLevel());
-        if (multidex) {
-            builder.args("--multi-dex");
-        }
-        builder.args("--dex")
-                .args("--output=" + output)
-                .args("--core-library")
-                .args(desugarOutputFilePaths);
-        builder.execute();
+            default:
+                throw new RuntimeException("Unsupported dexer: " + dexer);
 
-        if (dexer == Dexer.D8 && output.toString().endsWith(".jar")) {
-            try {
-                fixD8JarOutput(output, desugarOutputFilePaths);
-            } catch (IOException e) {
-                throw new RuntimeException("Error while fixing d8 output", e);
-            }
         }
+
         dexCache.insert(cacheKey, output);
     }
 
     /**
      * Produces an output file like dx does. dx generates jar files containing all resources present
      * in the input files.
-     * d8-compat-dx only produces a jar file containing dex and none of the input resources, and
+     * d8 only produces a jar file containing dex and none of the input resources, and
      * will produce no file at all if there are no .class files to process.
      */
     private static void fixD8JarOutput(File output, List<String> inputs) throws IOException {
@@ -378,14 +392,44 @@ public class AndroidSdk {
         }
     }
 
+    /**
+      * Removes DEX files from an archive and preserve the rest.
+      */
+    private List<String> removeDexFilesForD8(List<String> fileNames) throws IOException {
+        byte[] buffer = new byte[4096];
+        List<String> processedFiles = new ArrayList<>(fileNames.size());
+        for (String inputFileName : fileNames) {
+            String jarExtension = ".jar";
+            String outputFileName;
+            if (inputFileName.endsWith(jarExtension)) {
+                outputFileName =
+                    inputFileName.substring(0, inputFileName.length() - jarExtension.length())
+                    + "-d8" + jarExtension;
+            } else {
+              outputFileName = inputFileName + "-d8" + jarExtension;
+            }
+            try (JarOutputStream outputJar =
+                    new JarOutputStream(new FileOutputStream(outputFileName))) {
+                copyJarContentExcludingFiles(buffer, inputFileName, outputJar, ".dex");
+            }
+            processedFiles.add(outputFileName);
+        }
+        return processedFiles;
+    }
+
     private static void copyJarContentExcludingClassFiles(byte[] buffer, String inputJarName,
             JarOutputStream outputJar) throws IOException {
+        copyJarContentExcludingFiles(buffer, inputJarName, outputJar, ".class");
+    }
+
+    private static void copyJarContentExcludingFiles(byte[] buffer, String inputJarName,
+            JarOutputStream outputJar, String extensionToExclude) throws IOException {
 
         try (JarInputStream inputJar = new JarInputStream(new FileInputStream(inputJarName))) {
             for (JarEntry entry = inputJar.getNextJarEntry();
                     entry != null;
                     entry = inputJar.getNextJarEntry()) {
-                if (entry.getName().endsWith(".class")) {
+                if (entry.getName().endsWith(extensionToExclude)) {
                     continue;
                 }
 

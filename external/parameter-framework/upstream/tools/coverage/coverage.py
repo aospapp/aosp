@@ -99,21 +99,21 @@ class Element():
     def _getDescendants(self):
         for child in self.children:
             yield child
-            for descendant in child._getDescendants() :
+            for descendant in child._getDescendants():
                 yield descendant
 
     def getChildFromName(self, childName):
 
-        for child in self.children :
+        for child in self.children:
 
-            if child.getName() == childName :
+            if child.getName() == childName:
                 return child
 
         self.debug('Child "%s" not found' % childName, logging.ERROR)
 
         self.debug("Child list :")
 
-        for child in self.children :
+        for child in self.children:
             self.debug("  - %s" % child)
 
         raise ChildNotFoundError(self, childName)
@@ -134,10 +134,10 @@ class Element():
     def _description(self, withCoverage, withNbUse):
         description = self.name
 
-        if withNbUse or withCoverage :
+        if withNbUse or withCoverage:
             description += " has been used " + str(self.nbUse) + " time"
 
-        if withCoverage :
+        if withCoverage:
             description += self._coverageFormating(self._getCoverage())
 
         return description
@@ -159,7 +159,7 @@ class Element():
                 return 1
 
         coverageDependenceValues = (depElement._getCoverage()
-                for depElement in coverageDependanceElements)
+                                    for depElement in coverageDependanceElements)
 
         return sum(coverageDependenceValues) / nbcoverageDependence
 
@@ -168,7 +168,7 @@ class Element():
 
     def _coverageFormating(self, coverage):
         # If no coverage provided
-        if not coverage :
+        if not coverage:
             return ""
 
         # Calculate coverage
@@ -188,21 +188,20 @@ class Element():
         self.debug("yelding description")
         yield RankedLine(self._description(withCoverage, withNbUse), lineSuffix="")
 
-        for dumped in self._dumpPropagate(withCoverage, withNbUse) :
+        for dumped in self._dumpPropagate(withCoverage, withNbUse):
             yield dumped
 
     def _dumpPropagate(self, withCoverage, withNbUse):
 
-        for child in self.children :
-            for dumpedDescription in child._dumpDescription(withCoverage, withNbUse) :
+        for child in self.children:
+            for dumpedDescription in child._dumpDescription(withCoverage, withNbUse):
                 yield dumpedDescription.increasedRank()
 
 
     def dump(self, withCoverage=False, withNbUse=True):
 
-        return "\n".join(
-                str(dumpedDescription) for dumpedDescription in
-                        self._dumpDescription(withCoverage, withNbUse))
+        return "\n".join(str(dumpedDescription) for dumpedDescription in
+                         self._dumpDescription(withCoverage, withNbUse))
 
     def exportToXML(self, document, domElement=None):
         if domElement == None:
@@ -210,7 +209,7 @@ class Element():
 
         self._XMLaddAttributes(domElement)
 
-        for child in self.children :
+        for child in self.children:
             domElement.appendChild(child.exportToXML(document))
 
         return domElement
@@ -219,17 +218,16 @@ class Element():
         attributes = self._getXMLAttributes()
 
         coverage = self._getCoverage()
-        if coverage != None :
+        if coverage != None:
             attributes["Coverage"] = self._number2percent(coverage)
 
         for key, value in attributes.items():
             domElement.setAttribute(key, value)
 
     def _getXMLAttributes(self):
-        return {
-                "Name": self.name,
+        return {"Name": self.name,
                 "NbUse": str(self.nbUse)
-                }
+               }
 
     def _incNbUse(self):
         self.nbUse += 1
@@ -240,14 +238,14 @@ class Element():
         self._tellParentThatChildUsed()
 
     def _tellParentThatChildUsed(self):
-        if self.parent :
+        if self.parent:
             self.parent.childUsed(self)
 
 
     def parentUsed(self):
         self._incNbUse()
         # Propagate to children
-        for child in self.children :
+        for child in self.children:
             child.parentUsed()
 
     def hasBeenUsed(self):
@@ -257,7 +255,7 @@ class Element():
 
         if path:
             return self._operationPropagate(path, operation)
-        else :
+        else:
             self.debug("operating on self")
             return operation(self)
 
@@ -292,7 +290,7 @@ class Element():
 
         if self.parent:
             self.parent._logDebug(rankedLine.increasedRank(), level)
-        else :
+        else:
             logger.log(level, str(rankedLine))
 
 
@@ -312,9 +310,9 @@ class FromDomElement(Element):
 class DomElementLocation():
     def __init__(self, classConstructor, path=None):
         self.classConstructor = classConstructor
-        if path :
+        if path:
             self.path = path
-        else :
+        else:
             self.path = []
 
         self.path.append(classConstructor.tag)
@@ -330,12 +328,12 @@ class DomPopulatedElement(Element):
 
     def populate(self, dom):
 
-        for childDomElementLocation in self.childClasses :
+        for childDomElementLocation in self.childClasses:
 
             self.debug("Looking for child %s in path %s" % (
                 childDomElementLocation.path[-1], childDomElementLocation.path))
 
-            for childDomElement in self._findChildFromTagPath(dom, childDomElementLocation.path) :
+            for childDomElement in self._findChildFromTagPath(dom, childDomElementLocation.path):
 
                 childElement = childDomElementLocation.classConstructor(childDomElement)
                 self.addChild(childElement)
@@ -343,9 +341,9 @@ class DomPopulatedElement(Element):
                 childElement.populate(childDomElement)
 
     def _findChildFromTagPath(self, dom, path):
-        if not path :
+        if not path:
             yield dom
-        else :
+        else:
             # Copy list
             path = list(path)
 
@@ -355,15 +353,15 @@ class DomPopulatedElement(Element):
             self.debug("Going to find elements with tag %s in %s" % (tag, dom))
             self.debug(lambda: "Nb of solutions: %s" % len(dom.getElementsByTagName(tag)))
 
-            for elementByTag in dom.getElementsByTagName(tag) :
+            for elementByTag in dom.getElementsByTagName(tag):
 
                 self.debug("Found element: %s" % elementByTag)
 
                 # If the same tag is found
-                if elementByTag in dom.childNodes :
+                if elementByTag in dom.childNodes:
 
                     # Yield next level
-                    for element in self._findChildFromTagPath(elementByTag, path) :
+                    for element in self._findChildFromTagPath(elementByTag, path):
                         yield element
 
 
@@ -371,11 +369,11 @@ class Rule(Element):
 
     def usedIfApplicable(self, criteria):
         childApplicability = (child.usedIfApplicable(criteria)
-                for child in self.children)
+                              for child in self.children)
 
         isApplicable = self._isApplicable(criteria, childApplicability)
 
-        if isApplicable :
+        if isApplicable:
             self._incNbUse()
 
         self.debug("Rule applicability: %s" % isApplicable)
@@ -396,11 +394,11 @@ class CriterionRule(FromDomElement, DomPopulatedElement, Rule):
     tag = "SelectionCriterionRule"
     childClasses = []
     isApplicableOperations = {
-                "Includes" : lambda criterion, value:     criterion.stateIncludes(value),
-                "Excludes" : lambda criterion, value: not criterion.stateIncludes(value),
-                "Is"       : lambda criterion, value:     criterion.stateIs(value),
-                "IsNot"    : lambda criterion, value: not criterion.stateIs(value)
-            }
+        "Includes" : lambda criterion, value: criterion.stateIncludes(value),
+        "Excludes" : lambda criterion, value: not criterion.stateIncludes(value),
+        "Is"       : lambda criterion, value: criterion.stateIs(value),
+        "IsNot"    : lambda criterion, value: not criterion.stateIs(value)
+    }
 
     def _initFromDom(self, DomElement):
         self.selectionCriterion = DomElement.getAttribute("SelectionCriterion")
@@ -409,12 +407,12 @@ class CriterionRule(FromDomElement, DomPopulatedElement, Rule):
         self.name = "%s %s %s" % (self.selectionCriterion, self.matchesWhen, self.value)
 
         applicableOperationWithoutValue = self.isApplicableOperations[self.matchesWhen]
-        self.isApplicableOperation = lambda criterion: applicableOperationWithoutValue(criterion, self.value)
+        self.isApplicableOperation = lambda criterion: applicableOperationWithoutValue(criterion,
+                                                                                       self.value)
 
     def _isApplicable(self, criteria, childApplicability):
 
-        return criteria.operationOnChild([self.selectionCriterion],
-                self.isApplicableOperation)
+        return criteria.operationOnChild([self.selectionCriterion], self.isApplicableOperation)
 
 
 class CompoundRule(FromDomElement, DomPopulatedElement, Rule):
@@ -425,9 +423,9 @@ class CompoundRule(FromDomElement, DomPopulatedElement, Rule):
 
     def __init__(self, dom):
         # Define childClasses at first class instantiation
-        if self.childClasses == None :
+        if self.childClasses == None:
             self.childClasses = [DomElementLocation(CriterionRule),
-                    DomElementLocation(CompoundRule)]
+                                 DomElementLocation(CompoundRule)]
         super().__init__(dom)
 
     def _initFromDom(self, DomElement):
@@ -437,7 +435,7 @@ class CompoundRule(FromDomElement, DomPopulatedElement, Rule):
         self.name = type
 
     def _isApplicable(self, criteria, childApplicability):
-        if self.ofTypeAll :
+        if self.ofTypeAll:
             applicability = super()._isApplicable(criteria, childApplicability)
         else:
             # Lazy evaluation as in the PFW
@@ -471,10 +469,10 @@ class CriteronStates(Element):
 
         assert(len(matches) <= 1)
 
-        if matches :
+        if matches:
             self.debug("Criteria state has already been encounter")
             currentcriteria = matches[0]
-        else :
+        else:
             self.debug("Criteria state has never been encounter, saving it")
             currentcriteria = criteria
             self.addChild(criteria)
@@ -496,11 +494,11 @@ class Configuration(FromDomElement, DomPopulatedElement):
         def __str__(self):
 
             return ("Applying ineligible %s, "
-                "rule:\n%s\n"
-                "Criteria current state:\n%s" % (
-                    self.configuration,
-                    self.configuration.rootRule.dump(withCoverage=False, withNbUse=False),
-                    self.criteria.dump(withCoverage=False, withNbUse=False)
+                    "rule:\n%s\n"
+                    "Criteria current state:\n%s" % (
+                        self.configuration,
+                        self.configuration.rootRule.dump(withCoverage=False, withNbUse=False),
+                        self.criteria.dump(withCoverage=False, withNbUse=False)
                     ))
 
     def __init__(self, DomElement):
@@ -531,11 +529,11 @@ class Configuration(FromDomElement, DomPopulatedElement):
         self.criteronStates.parentUsed(criteria.export())
 
         # Propagate to rules
-        if not self.rootRule.usedIfApplicable(criteria) :
+        if not self.rootRule.usedIfApplicable(criteria):
 
             self.debug("Applied but rule does not match current "
                        "criteria (parent: %s) " % self.parent.name,
-                    logging.ERROR)
+                       logging.ERROR)
 
             raise self.IneligibleConfigurationAppliedError(self, criteria.export())
 
@@ -543,13 +541,13 @@ class Configuration(FromDomElement, DomPopulatedElement):
         self.debug("Going to ask %s for description" % self.rootRule)
         for dumpedDescription in self.rootRule._dumpDescription(
                 withCoverage=withCoverage,
-                withNbUse=withNbUse) :
+                withNbUse=withNbUse):
             yield dumpedDescription.increasedRank()
 
         self.debug("Going to ask %s for description" % self.criteronStates)
         for dumpedDescription in self.criteronStates._dumpDescription(
                 withCoverage=False,
-                withNbUse=withNbUse) :
+                withNbUse=withNbUse):
             yield dumpedDescription.increasedRank()
 
 
@@ -565,10 +563,10 @@ class Domains(DomPopulatedElement):
 
 class RankedLine():
     def __init__(self, string,
-                stringPrefix="|-- ",
-                rankString="|   ",
-                linePrefix="",
-                lineSuffix="\n"):
+                 stringPrefix="|-- ",
+                 rankString="|   ",
+                 linePrefix="",
+                 lineSuffix="\n"):
         self.string = string
         self.rank = 0
         self.stringPrefix = stringPrefix
@@ -591,10 +589,10 @@ class DebugRankedLine(RankedLine):
 
     def __init__(self, string, lineSuffix=""):
         super().__init__(string,
-                stringPrefix="",
-                rankString="   ",
-                linePrefix="",
-                lineSuffix=lineSuffix)
+                         stringPrefix="",
+                         rankString="   ",
+                         linePrefix="",
+                         lineSuffix=lineSuffix)
 
 
 class CriterionState(Element):
@@ -614,15 +612,15 @@ class Criterion(Element):
 
         def __str__(self):
             return ("Change request to non accessible state %s. Detail: %s" %
-                (self.requestedState, self.detail))
+                    (self.requestedState, self.detail))
 
     def __init__(self, name, isInclusif,
-                stateNamesList, currentStateNamesList,
-                ignoreIntegrity=False):
+                 stateNamesList, currentStateNamesList,
+                 ignoreIntegrity=False):
         super().__init__(name)
         self.isInclusif = isInclusif
 
-        for state in stateNamesList :
+        for state in stateNamesList:
             self.addChild(CriterionState(state))
 
         self.currentState = []
@@ -635,15 +633,16 @@ class Criterion(Element):
 
     def changeState(self, subStateNames, ignoreIntegrity=False):
         self.debug("Changing state from: %s to: %s" % (
-                    list(self._getElementNames(self.currentState)),
-                    subStateNames))
+            list(self._getElementNames(self.currentState)),
+            subStateNames))
 
         if not ignoreIntegrity and not self.isIntegre(subStateNames):
             raise self.ChangeRequestToNonAccessibleState(subStateNames,
-                "An exclusive criterion must have a non empty state")
+                                                         "An exclusive criterion must have a non \
+                                                         empty state")
 
         newCurrentState = []
-        for subStateName in subStateNames :
+        for subStateName in subStateNames:
             subState = self.getChildFromName(subStateName)
             subState.used()
             newCurrentState.append(subState)
@@ -663,7 +662,7 @@ class Criterion(Element):
     def export(self):
         subStateNames = self._getElementNames(self.currentState)
         return Criterion(self.name, self.isInclusif, subStateNames, subStateNames,
-            ignoreIntegrity=True)
+                         ignoreIntegrity=True)
 
     def stateIncludes(self, subStateName):
         subStateCurrentNames = list(self._getElementNames(self.currentState))
@@ -677,9 +676,9 @@ class Criterion(Element):
 
 
     def stateIs(self, subStateNames):
-        if len(self.currentState) != 1 :
+        if len(self.currentState) != 1:
             return False
-        else :
+        else:
             return self.stateIncludes(subStateNames)
 
     def _getXMLAttributes(self):
@@ -699,7 +698,7 @@ class Criteria(Element):
         assert(self.children)
 
         exported = Criteria(self.name)
-        for child in self.children :
+        for child in self.children:
             exported.addChild(child.export())
         return exported
 
@@ -726,40 +725,41 @@ class ParsePFWlog():
 
         def __str__(self):
             return ("Change request on an unknown criterion %s." %
-                self.criterion)
+                    self.criterion)
 
     def __init__(self, domains, criteria, ErrorsToIgnore=()):
 
-        self.domains = domains;
-        self.criteria = criteria;
+        self.domains = domains
+        self.criteria = criteria
         self.ErrorsToIgnore = ErrorsToIgnore
 
         configApplicationRegext = r""".*Applying configuration "(.*)" from domain "([^"]*)"""
         matchConfigApplicationLine = re.compile(configApplicationRegext).match
 
         criterionCreationRegext = ", ".join([
-                    r""".*Criterion name: (.*)""",
-                    r"""type kind: (.*)""",
-                    r"""current state: (.*)""",
-                    r"""states: {(.*)}"""
-                ])
+            r""".*Criterion name: (.*)""",
+            r"""type kind: (.*)""",
+            r"""current state: (.*)""",
+            r"""states: {(.*)}"""
+        ])
         matchCriterionCreationLine = re.compile(criterionCreationRegext).match
 
-        changingCriterionRegext = r""".*Selection criterion changed event: Criterion name: (.*), current state: ([^\n\r]*)"""
+        changingCriterionRegext = r""".*Selection criterion changed event: Criterion name: (.*), \
+            current state: ([^\n\r]*)"""
         matchChangingCriterionLine = re.compile(changingCriterionRegext).match
 
         self.lineLogTypes = [
-                    {
-                        self.MATCH: matchConfigApplicationLine,
-                        self.ACTION: self._configApplication
-                    }, {
-                        self.MATCH: matchCriterionCreationLine,
-                        self.ACTION: self._criterionCreation
-                    }, {
-                        self.MATCH: matchChangingCriterionLine,
-                        self.ACTION: self._changingCriterion
-                    }
-                ]
+            {
+                self.MATCH: matchConfigApplicationLine,
+                self.ACTION: self._configApplication
+            }, {
+                self.MATCH: matchCriterionCreationLine,
+                self.ACTION: self._criterionCreation
+            }, {
+                self.MATCH: matchChangingCriterionLine,
+                self.ACTION: self._changingCriterion
+            }
+        ]
 
     @staticmethod
     def _formatCriterionList(liststring, separator):
@@ -785,11 +785,11 @@ class ParsePFWlog():
 
         try:
             self.criteria.addChild(Criterion(
-                    criterionName,
-                    criterionIsInclusif,
-                    criterionStateList,
-                    currentcriterionStateList
-                ))
+                criterionName,
+                criterionIsInclusif,
+                criterionStateList,
+                currentcriterionStateList
+            ))
         except self.criteria.DuplicatedCriterionError as ex:
             logger.debug(ex)
             logger.warning("Reseting criterion %s. Did you reset the PFW ?" % criterionName)
@@ -806,10 +806,10 @@ class ParsePFWlog():
 
         newCriterionState = self._formatCriterionList(newCriterionSubStateNames, "|")
 
-        logger.info("Changing criterion %s to %s" % (criterionName , newCriterionState))
+        logger.info("Changing criterion %s to %s" % (criterionName, newCriterionState))
 
         path = [criterionName]
-        changeCriterionOperation = lambda criterion : criterion.changeState(newCriterionState)
+        changeCriterionOperation = lambda criterion: criterion.changeState(newCriterionState)
         try:
             self.criteria.operationOnChild(path, changeCriterionOperation)
         except ChildNotFoundError:
@@ -820,17 +820,17 @@ class ParsePFWlog():
         configurationName, domainName = matchConfig.group(1, 2)
 
         # Check that at least one criterion exist
-        if not self.criteria.hasChildren() :
+        if not self.criteria.hasChildren():
             logger.error("Applying configuration before declaring criteria")
             logger.info("Is the log starting at PFW boot ?")
             raise ConfigAppliedWithoutCriteriaError(configurationName, domainName)
 
         # Change criterion state
         path = [domainName, configurationName]
-        usedOperation = lambda element : element.used(self.criteria)
+        usedOperation = lambda element: element.used(self.criteria)
 
         logger.info("Applying configuration %s from domain %s" % (
-                configurationName, domainName))
+            configurationName, domainName))
 
         self.domains.operationOnChild(path, usedOperation)
 
@@ -838,7 +838,7 @@ class ParsePFWlog():
     def _digest(self, lineLogType, lineLog):
 
         match = lineLogType[self.MATCH](lineLog)
-        if match :
+        if match:
             lineLogType[self.ACTION](match)
             return True
         return False
@@ -850,7 +850,7 @@ class ParsePFWlog():
             logger.debug("Parsing line :%s" % lineLog.rstrip())
 
             digested = (self._digest(lineLogType, lineLog)
-                    for lineLogType in self.lineLogTypes)
+                        for lineLogType in self.lineLogTypes)
 
             try:
                 success = any(digested)
@@ -859,7 +859,7 @@ class ParsePFWlog():
             # then raise the exception again if not continue of error
             except CustomError as ex:
                 logger.error('Error raised while parsing line %s: "%s"' %
-                            (lineNb, repr(lineLog)))
+                             (lineNb, repr(lineLog)))
 
                 # If exception is a subclass of ErrorsToIgnore, log it and continue
                 # otherwise raise it again.
@@ -867,7 +867,7 @@ class ParsePFWlog():
                     raise ex
                 else:
                     logger.error('Ignoring exception:"%s", '
-                                'can not guarantee database integrity' % ex)
+                                 'can not guarantee database integrity' % ex)
             else:
                 if not success:
                     logger.debug("Line does not match, dropped")
@@ -936,69 +936,69 @@ class ArgumentParser:
 
             logger.warning(" - Debug level: error")
             self.debugLevel = logging.ERROR
-        else :
+        else:
 
             myArgParser = argparse.ArgumentParser(description='Generate PFW report')
 
             myArgParser.add_argument(
-                        'domainsFile',
-                        type=argparse.FileType('r'),
-                        help="the PFW domain XML file"
-                    )
+                'domainsFile',
+                type=argparse.FileType('r'),
+                help="the PFW domain XML file"
+            )
             myArgParser.add_argument(
-                        'pfwlog', nargs='?',
-                        type=argparse.FileType('r'), default=sys.stdin,
-                        help="the PFW log file, default stdin"
-                    )
+                'pfwlog', nargs='?',
+                type=argparse.FileType('r'), default=sys.stdin,
+                help="the PFW log file, default stdin"
+            )
             myArgParser.add_argument(
-                        '-o', '--output',
-                        dest="outputFile",
-                        type=argparse.FileType('w'), default=sys.stdout,
-                        help="the coverage report output file, default stdout"
-                    )
+                '-o', '--output',
+                dest="outputFile",
+                type=argparse.FileType('w'), default=sys.stdout,
+                help="the coverage report output file, default stdout"
+            )
             myArgParser.add_argument(
-                        '-v', '--verbose',
-                        dest="debugLevel", default=0,
-                        action='count',
-                        help="print debug warnings from warning (default) to debug (-vv)"
-                    )
+                '-v', '--verbose',
+                dest="debugLevel", default=0,
+                action='count',
+                help="print debug warnings from warning (default) to debug (-vv)"
+            )
 
             outputFormatGroupe = myArgParser.add_mutually_exclusive_group(required=False)
 
             outputFormatGroupe.add_argument(
-                        '--xml',
-                        dest="xmlFlag",
-                        action='store_true',
-                        help=" XML coverage output report"
-                    )
+                '--xml',
+                dest="xmlFlag",
+                action='store_true',
+                help=" XML coverage output report"
+            )
             outputFormatGroupe.add_argument(
-                        '--raw',
-                        dest="rawFlag",
-                        action='store_true',
-                        help="raw coverage output report"
-                    )
+                '--raw',
+                dest="rawFlag",
+                action='store_true',
+                help="raw coverage output report"
+            )
 
             myArgParser.add_argument(
-                        '--ignore-unknown-criterion',
-                        dest="unknwonCriterionFlag",
-                        action='store_true',
-                        help="ignore unknown criterion"
-                    )
+                '--ignore-unknown-criterion',
+                dest="unknwonCriterionFlag",
+                action='store_true',
+                help="ignore unknown criterion"
+            )
 
             myArgParser.add_argument(
-                        '--ignore-incoherent-criterion-state',
-                        dest="incoherentCriterionFlag",
-                        action='store_true',
-                        help="ignore criterion transition to incoherent state"
-                    )
+                '--ignore-incoherent-criterion-state',
+                dest="incoherentCriterionFlag",
+                action='store_true',
+                help="ignore criterion transition to incoherent state"
+            )
 
             myArgParser.add_argument(
-                        '--ignore-ineligible-configuration-application',
-                        dest="ineligibleConfigurationApplicationFlag",
-                        action='store_true',
-                        help="ignore application of configuration with a false rule "
-                        "(not applicable configuration)"
-                    )
+                '--ignore-ineligible-configuration-application',
+                dest="ineligibleConfigurationApplicationFlag",
+                action='store_true',
+                help="ignore application of configuration with a false rule "
+                "(not applicable configuration)"
+            )
 
             # Process command line arguments
             options = myArgParser.parse_args()
@@ -1017,7 +1017,7 @@ class ArgumentParser:
 
             # Setting ignore options
             errorToIgnore = []
-            if options.ineligibleConfigurationApplicationFlag :
+            if options.ineligibleConfigurationApplicationFlag:
                 errorToIgnore.append(Configuration.IneligibleConfigurationAppliedError)
 
             if options.incoherentCriterionFlag:
@@ -1045,7 +1045,7 @@ def main():
     # Setting logger level
     logger.setLevel(commandLineArguments.debugLevel)
     logger.info("Log level set to: %s" %
-            logging.getLevelName(commandLineArguments.debugLevel))
+                logging.getLevelName(commandLineArguments.debugLevel))
 
     # Create tree from XML
     dom = xml.dom.minidom.parse(commandLineArguments.domainsFile)
@@ -1060,19 +1060,19 @@ def main():
         parser.parsePFWlog(commandLineArguments.inputFile.readlines())
     except CustomError as ex:
         logger.fatal("Error during parsing log file %s: %s" %
-            (commandLineArguments.inputFile, ex))
+                     (commandLineArguments.inputFile, ex))
         sys.exit(errorDuringLogParsing)
 
     # Output report
     outputFile = commandLineArguments.outputFile
 
-    if not commandLineArguments.XMLreport :
+    if not commandLineArguments.XMLreport:
         outputFile.write("%s\n" % root.dump(withCoverage=True, withNbUse=True))
-    else :
+    else:
         outputFile.write(root.exportToXML().toprettyxml())
 
 
-if __name__ == "__main__" :
+if __name__ == "__main__":
     """ Execute main if the python interpreter is running this module as the main program """
     main()
 

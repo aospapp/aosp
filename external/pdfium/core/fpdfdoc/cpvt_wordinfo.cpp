@@ -5,8 +5,8 @@
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
 #include "core/fpdfdoc/cpvt_wordinfo.h"
+
 #include "core/fxcrt/fx_codepage.h"
-#include "third_party/base/ptr_util.h"
 
 CPVT_WordInfo::CPVT_WordInfo()
     : Word(0),
@@ -36,9 +36,9 @@ CPVT_WordInfo::CPVT_WordInfo(const CPVT_WordInfo& word)
 
 CPVT_WordInfo::~CPVT_WordInfo() {}
 
-void CPVT_WordInfo::operator=(const CPVT_WordInfo& word) {
+CPVT_WordInfo& CPVT_WordInfo::operator=(const CPVT_WordInfo& word) {
   if (this == &word)
-    return;
+    return *this;
 
   Word = word.Word;
   nCharset = word.nCharset;
@@ -46,4 +46,5 @@ void CPVT_WordInfo::operator=(const CPVT_WordInfo& word) {
   fWordX = word.fWordX;
   fWordY = word.fWordY;
   fWordTail = word.fWordTail;
+  return *this;
 }

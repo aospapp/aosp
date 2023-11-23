@@ -1,21 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2014-2016 Oracle and/or its affiliates. All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of
- * the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it would be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- *
  * Author: Alexey Kodanev <alexey.kodanev@oracle.com>
- *
  */
 
 #include <pthread.h>
@@ -84,11 +70,12 @@ static int server_max_requests	= 3;
 static int client_max_requests	= 10;
 static int clients_num;
 static char *tcp_port;
-static char *server_addr	= "localhost";
+static char *server_addr;
 static char *source_addr;
 static char *server_bg;
 static int busy_poll		= -1;
-static int max_etime_cnt = 12; /* ~30 sec max timeout if no connection */
+static int max_etime_cnt = 21; /* ~60 sec max timeout if no connection */
+static int max_eshutdown_cnt = 10;
 static int max_pmtu_err = 10;
 
 enum {
@@ -114,7 +101,7 @@ static int sfd;
 static int wait_timeout = 60000;
 
 /* in the end test will save time result in this file */
-static char *rpath = "tfo_result";
+static char *rpath;
 static char *port_path = "netstress_port";
 static char *log_path = "netstress.log";
 
@@ -142,11 +129,13 @@ struct sock_info {
 	socklen_t raddr_len;
 	int etime_cnt;
 	int pmtu_err_cnt;
+	int eshutdown_cnt;
 	int timeout;
 };
 
 static char *zcopy;
 static int send_flags = MSG_NOSIGNAL;
+static char *reuse_port;
 
 static void init_socket_opts(int sd)
 {
@@ -286,14 +275,22 @@ static int client_recv(char *buf, int srv_msg_len, struct sock_info *i)
 		return 0;
 	}
 
-	if (errno == ETIME && sock_type != SOCK_STREAM) {
-		if (++(i->etime_cnt) > max_etime_cnt)
-			tst_brk(TFAIL, "client requests timeout %d times, last timeout %dms",
-				i->etime_cnt, i->timeout);
-		/* Increase timeout in poll up to 3.2 sec */
-		if (i->timeout < 3000)
-			i->timeout <<= 1;
-		return 0;
+	if (sock_type != SOCK_STREAM) {
+		if (errno == ETIME) {
+			if (++(i->etime_cnt) > max_etime_cnt)
+				tst_brk(TFAIL, "client requests timeout %d times, last timeout %dms",
+					i->etime_cnt, i->timeout);
+			/* Increase timeout in poll up to 3.2 sec */
+			if (i->timeout < 3000)
+				i->timeout <<= 1;
+			return 0;
+		}
+		if (errno == ESHUTDOWN) {
+			if (++(i->eshutdown_cnt) > max_eshutdown_cnt)
+				tst_brk(TFAIL, "too many zero-length msgs");
+			tst_res(TINFO, "%d-length msg on sock %d", len, i->fd);
+			return 0;
+		}
 	}
 
 	SAFE_CLOSE(i->fd);
@@ -308,6 +305,8 @@ static void bind_before_connect(int sd)
 
 	if (bind_no_port)
 		SAFE_SETSOCKOPT_INT(sd, SOL_IP, IP_BIND_ADDRESS_NO_PORT, 1);
+	if (reuse_port)
+		SAFE_SETSOCKOPT_INT(sd, SOL_SOCKET, SO_REUSEPORT, 1);
 
 	SAFE_BIND(sd, local_addrinfo->ai_addr, local_addrinfo->ai_addrlen);
 
@@ -518,7 +517,8 @@ static void client_run(void)
 		SAFE_CLOSE(cfd);
 	}
 	/* the script tcp_fastopen_run.sh will remove it */
-	SAFE_FILE_PRINTF(rpath, "%ld", clnt_time);
+	if (rpath)
+		SAFE_FILE_PRINTF(rpath, "%ld", clnt_time);
 
 	tst_res(TPASS, "test completed");
 }
@@ -674,6 +674,8 @@ static void server_init(void)
 	/* IPv6 socket is also able to access IPv4 protocol stack */
 	sfd = SAFE_SOCKET(family, sock_type, protocol);
 	SAFE_SETSOCKOPT_INT(sfd, SOL_SOCKET, SO_REUSEADDR, 1);
+	if (reuse_port)
+		SAFE_SETSOCKOPT_INT(sfd, SOL_SOCKET, SO_REUSEPORT, 1);
 
 	tst_res(TINFO, "assigning a name to the server socket...");
 	SAFE_BIND(sfd, local_addrinfo->ai_addr, local_addrinfo->ai_addrlen);
@@ -866,6 +868,9 @@ static void setup(void)
 	if (tst_parse_int(Aarg, &max_rand_msg_len, 10, max_msg_len))
 		tst_brk(TBROK, "Invalid max random payload size '%s'", Aarg);
 
+	if (!server_addr)
+		server_addr = "localhost";
+
 	if (max_rand_msg_len) {
 		max_rand_msg_len -= min_msg_len;
 		unsigned int seed = max_rand_msg_len ^ client_max_requests;
@@ -937,13 +942,14 @@ static void setup(void)
 		}
 	}
 
+	if (zcopy)
+		send_flags |= MSG_ZEROCOPY;
+
 	switch (proto_type) {
 	case TYPE_TCP:
 		tst_res(TINFO, "TCP %s is using %s TCP API.",
 			(client_mode) ? "client" : "server",
 			(fastopen_api) ? "Fastopen" : "old");
-		if (zcopy)
-			send_flags |= MSG_ZEROCOPY;
 		check_tfo_value();
 	break;
 	case TYPE_UDP:
@@ -996,7 +1002,8 @@ static struct tst_option options[] = {
 	{"b:", &barg, "-b x     x - low latency busy poll timeout"},
 	{"T:", &type, "-T x     tcp (default), udp, udp_lite, dccp, sctp"},
 	{"z", &zcopy, "-z       enable SO_ZEROCOPY"},
-	{"D:", &dev, "-d x     bind to device x\n"},
+	{"P:", &reuse_port, "-P       enable SO_REUSEPORT"},
+	{"D:", &dev, "-D x     bind to device x\n"},
 
 	{"H:", &server_addr, "Client:\n-H x     Server name or IP address"},
 	{"l", &client_mode, "-l       Become client, default is server"},

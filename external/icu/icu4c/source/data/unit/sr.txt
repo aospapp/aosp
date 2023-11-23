@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sr{
-    Version{"2.1.43.94"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -61,6 +61,12 @@ sr{
                 one{"{0} акер"}
                 other{"{0} акера"}
             }
+            dunam{
+                dnam{"дунами"}
+                few{"{0} дунама"}
+                one{"{0} дунам"}
+                other{"{0} дунама"}
+            }
             hectare{
                 dnam{"хектари"}
                 few{"{0} хектара"}
@@ -117,6 +123,7 @@ sr{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -136,6 +143,12 @@ sr{
                 few{"{0} милимола по литри"}
                 one{"{0} милимол по литри"}
                 other{"{0} милимола по литри"}
+            }
+            mole{
+                dnam{"моли"}
+                few{"{0} мола"}
+                one{"{0} мол"}
+                other{"{0} мола"}
             }
             part-per-million{
                 dnam{"честица на милион"}
@@ -271,6 +284,12 @@ sr{
                 other{"{0} дана"}
                 per{"{0}/дневно"}
             }
+            decade{
+                dnam{"деценије"}
+                few{"{0} дец."}
+                one{"{0} деценија"}
+                other{"{0} деценија"}
+            }
             hour{
                 dnam{"сати"}
                 few{"{0} сата"}
@@ -359,11 +378,20 @@ sr{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"Британска термална јединица"}
+            }
             calorie{
                 dnam{"калорије"}
                 few{"{0} калорије"}
                 one{"{0} калорија"}
                 other{"{0} калорија"}
+            }
+            electronvolt{
+                dnam{"електронволти"}
+                few{"{0} електронволта"}
+                one{"{0} електронволт"}
+                other{"{0} електронволти"}
             }
             foodcalorie{
                 dnam{"Калорије"}
@@ -394,6 +422,26 @@ sr{
                 few{"{0} киловат-сата"}
                 one{"{0} киловат-сат"}
                 other{"{0} киловат-сати"}
+            }
+            therm-us{
+                dnam{"US therms"}
+                few{"{0} US therms"}
+                one{"{0} US therm"}
+                other{"{0} US therms"}
+            }
+        }
+        force{
+            newton{
+                dnam{"њутни"}
+                few{"{0} њутна"}
+                one{"{0} њутн"}
+                other{"{0} њутна"}
+            }
+            pound-force{
+                dnam{"фунти силе"}
+                few{"{0} фунте силе"}
+                one{"{0} фунта силе"}
+                other{"{0} фунти силе"}
             }
         }
         frequency{
@@ -530,6 +578,12 @@ sr{
                 one{"{0} pt"}
                 other{"{0} pt"}
             }
+            solar-radius{
+                dnam{"сунчеви полупречници"}
+                few{"{0} сунчева полупречника"}
+                one{"{0} сунчев полупречник"}
+                other{"{0} сунчевих полупречника"}
+            }
             yard{
                 dnam{"јарди"}
                 few{"{0} јарда"}
@@ -551,6 +605,18 @@ sr{
                 few{"{0} карата"}
                 one{"{0} карат"}
                 other{"{0} карата"}
+            }
+            dalton{
+                dnam{"далтони"}
+                few{"{0} далтона"}
+                one{"{0} далтон"}
+                other{"{0} далтона"}
+            }
+            earth-mass{
+                dnam{"масе земље"}
+                few{"{0} масе земље"}
+                one{"{0} маса земље"}
+                other{"{0} маса земље"}
             }
             gram{
                 dnam{"грами"}
@@ -604,6 +670,12 @@ sr{
                 other{"{0} фунти"}
                 per{"{0} по фунти"}
             }
+            solar-mass{
+                dnam{"масе сунца"}
+                few{"{0} масе сунца"}
+                one{"{0} маса сунца"}
+                other{"{0} маса сунца"}
+            }
             ton{
                 dnam{"тоне"}
                 few{"{0} тоне"}
@@ -656,6 +728,12 @@ sr{
                 one{"{0} атмосфера"}
                 other{"{0} атмосфера"}
             }
+            bar{
+                dnam{"бари"}
+                few{"{0} бара"}
+                one{"{0} бар"}
+                other{"{0} бара"}
+            }
             hectopascal{
                 dnam{"хектопаскали"}
                 few{"{0} хектопаскала"}
@@ -668,6 +746,18 @@ sr{
                 one{"{0} инч живиног стуба"}
                 other{"{0} инча живиног стуба"}
             }
+            kilopascal{
+                dnam{"килопаскали"}
+                few{"{0} килопаскала"}
+                one{"{0} килопаскал"}
+                other{"{0} килопаскала"}
+            }
+            megapascal{
+                dnam{"мегапаскали"}
+                few{"{0} мегапаскала"}
+                one{"{0} мегапаскал"}
+                other{"{0} мегапаскала"}
+            }
             millibar{
                 dnam{"милибари"}
                 few{"{0} милибара"}
@@ -679,6 +769,12 @@ sr{
                 few{"{0} милиметра живиног стуба"}
                 one{"{0} милиметар живиног стуба"}
                 other{"{0} милиметара живиног стуба"}
+            }
+            pascal{
+                dnam{"паскали"}
+                few{"{0} паскала"}
+                one{"{0} паскал"}
+                other{"{0} паскала"}
             }
             pound-per-square-inch{
                 dnam{"фунте по квадратном инчу"}
@@ -739,12 +835,32 @@ sr{
                 other{"{0} келвина"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"њутн-метри"}
+                few{"{0} њутн-метра"}
+                one{"{0} њутн-метар"}
+                other{"{0} њутн-метара"}
+            }
+            pound-foot{
+                dnam{"фунта-фити"}
+                few{"{0} фунта-фита"}
+                one{"{0} фунта-фит"}
+                other{"{0} фунта-фита"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"акер стопе"}
                 few{"{0} акер стопе"}
                 one{"{0} акер стопа"}
                 other{"{0} акер стопа"}
+            }
+            barrel{
+                dnam{"барели"}
+                few{"{0} барела"}
+                one{"{0} барел"}
+                other{"{0} барела"}
             }
             centiliter{
                 dnam{"центилитри"}
@@ -819,6 +935,12 @@ sr{
                 few{"{0} унце течности"}
                 one{"{0} унца течности"}
                 other{"{0} унци течности"}
+            }
+            fluid-ounce-imperial{
+                dnam{"империјске унце течности"}
+                few{"{0} империјске унце течности"}
+                one{"{0} империјска унца течности"}
+                other{"{0} империјских унци течности"}
             }
             gallon{
                 dnam{"галони"}
@@ -950,6 +1072,7 @@ sr{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             percent{
@@ -1243,6 +1366,12 @@ sr{
                 one{"{0} ac"}
                 other{"{0} ac"}
             }
+            dunam{
+                dnam{"дунами"}
+                few{"{0} дунама"}
+                one{"{0} дунам"}
+                other{"{0} дунама"}
+            }
             hectare{
                 dnam{"хектари"}
                 few{"{0} ha"}
@@ -1299,6 +1428,7 @@ sr{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -1453,6 +1583,12 @@ sr{
                 other{"{0} дана"}
                 per{"{0}/д"}
             }
+            decade{
+                dnam{"дец."}
+                few{"{0} дец."}
+                one{"{0} дец."}
+                other{"{0} дец."}
+            }
             hour{
                 dnam{"сати"}
                 few{"{0} сата"}
@@ -1547,6 +1683,12 @@ sr{
                 one{"{0} cal"}
                 other{"{0} cal"}
             }
+            electronvolt{
+                dnam{"електронволт"}
+                few{"{0} eV"}
+                one{"{0} eV"}
+                other{"{0} eV"}
+            }
             foodcalorie{
                 dnam{"Cal"}
                 few{"{0} Cal"}
@@ -1577,6 +1719,17 @@ sr{
                 one{"{0} kWh"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"US therm"}
+                few{"{0} US therms"}
+                one{"{0} US therm"}
+                other{"{0} US therms"}
+            }
+        }
+        force{
+            newton{
+                dnam{"њутн"}
+            }
         }
         frequency{
             gigahertz{
@@ -1602,6 +1755,50 @@ sr{
                 few{"{0} MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                few{"{0} dpcm"}
+                one{"{0} dpcm"}
+                other{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                few{"{0} dpi"}
+                one{"{0} dpi"}
+                other{"{0} dpi"}
+            }
+            em{
+                dnam{"em"}
+                few{"{0} em"}
+                one{"{0} em"}
+                other{"{0} em"}
+            }
+            megapixel{
+                dnam{"MP"}
+                few{"{0} MP"}
+                one{"{0} MP"}
+                other{"{0} MP"}
+            }
+            pixel{
+                dnam{"px"}
+                few{"{0} px"}
+                one{"{0} px"}
+                other{"{0} px"}
+            }
+            pixel-per-centimeter{
+                dnam{"ppcm"}
+                few{"{0} ppcm"}
+                one{"{0} ppcm"}
+                other{"{0} ppcm"}
+            }
+            pixel-per-inch{
+                dnam{"ppi"}
+                few{"{0} ppi"}
+                one{"{0} ppi"}
+                other{"{0} ppi"}
             }
         }
         length{
@@ -1838,6 +2035,12 @@ sr{
                 one{"{0} atm"}
                 other{"{0} atm"}
             }
+            bar{
+                dnam{"bar"}
+                few{"{0} bar"}
+                one{"{0} bar"}
+                other{"{0} bar"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 few{"{0} hPa"}
@@ -1861,6 +2064,12 @@ sr{
                 few{"{0} mm Hg"}
                 one{"{0} mm Hg"}
                 other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"Pa"}
+                few{"{0} Pa"}
+                one{"{0} Pa"}
+                other{"{0} Pa"}
             }
             pound-per-square-inch{
                 dnam{"psi"}

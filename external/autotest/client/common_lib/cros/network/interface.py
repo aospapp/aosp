@@ -33,23 +33,27 @@ NAME_ATHEROS_AR9280 = 'Atheros AR9280'
 NAME_ATHEROS_AR9382 = 'Atheros AR9382'
 NAME_ATHEROS_AR9462 = 'Atheros AR9462'
 NAME_QUALCOMM_ATHEROS_QCA6174 = 'Qualcomm Atheros QCA6174'
+NAME_QUALCOMM_ATHEROS_QCA6174_SDIO = 'Qualcomm Atheros QCA6174 SDIO'
 NAME_QUALCOMM_WCN3990 = 'Qualcomm WCN3990'
 NAME_INTEL_7260 = 'Intel 7260'
 NAME_INTEL_7265 = 'Intel 7265'
 NAME_INTEL_9000 = 'Intel 9000'
 NAME_INTEL_9260 = 'Intel 9260'
 NAME_INTEL_22260 = 'Intel 22260'
+NAME_INTEL_22560 = 'Intel 22560'
 NAME_BROADCOM_BCM4354_SDIO = 'Broadcom BCM4354 SDIO'
 NAME_BROADCOM_BCM4356_PCIE = 'Broadcom BCM4356 PCIE'
 NAME_BROADCOM_BCM4371_PCIE = 'Broadcom BCM4371 PCIE'
+NAME_REALTEK_8822C_PCIE = 'Realtek 8822C PCIE'
 NAME_UNKNOWN = 'Unknown WiFi Device'
 
 DEVICE_INFO_ROOT = '/sys/class/net'
 
 DeviceInfo = collections.namedtuple('DeviceInfo', ['vendor', 'device',
+                                                   'subsystem',
                                                    'compatible'])
 # Provide default values for parameters.
-DeviceInfo.__new__.__defaults__ = (None, None, None)
+DeviceInfo.__new__.__defaults__ = (None, None, None, None)
 
 DEVICE_NAME_LOOKUP = {
     DeviceInfo('0x02df', '0x9129'): NAME_MARVELL_88W8797_SDIO,
@@ -62,17 +66,27 @@ DEVICE_NAME_LOOKUP = {
     DeviceInfo('0x168c', '0x0034'): NAME_ATHEROS_AR9462,
     DeviceInfo('0x168c', '0x003e'): NAME_QUALCOMM_ATHEROS_QCA6174,
     DeviceInfo('0x105b', '0xe09d'): NAME_QUALCOMM_ATHEROS_QCA6174,
+    DeviceInfo('0x0271', '0x050a'): NAME_QUALCOMM_ATHEROS_QCA6174_SDIO,
     DeviceInfo('0x8086', '0x08b1'): NAME_INTEL_7260,
     DeviceInfo('0x8086', '0x08b2'): NAME_INTEL_7260,
     DeviceInfo('0x8086', '0x095a'): NAME_INTEL_7265,
     DeviceInfo('0x8086', '0x095b'): NAME_INTEL_7265,
+    # Note that Intel 9000 is also Intel 9560 aka Jefferson Peak 2
     DeviceInfo('0x8086', '0x9df0'): NAME_INTEL_9000,
     DeviceInfo('0x8086', '0x31dc'): NAME_INTEL_9000,
     DeviceInfo('0x8086', '0x2526'): NAME_INTEL_9260,
     DeviceInfo('0x8086', '0x2723'): NAME_INTEL_22260,
+    # For integrated wifi chips, use device_id and subsystem_id together
+    # as an identifier.
+    # 0x02f0 is for Quasar on CML, 0x4070 and 0x0074 is for HrP2
+    DeviceInfo('0x8086', '0x02f0', subsystem='0x4070'): NAME_INTEL_22560,
+    DeviceInfo('0x8086', '0x02f0', subsystem='0x0074'): NAME_INTEL_22560,
+    # With the same Quasar, subsystem_id 0x0034 is JfP2
+    DeviceInfo('0x8086', '0x02f0', subsystem='0x0034'): NAME_INTEL_9000,
     DeviceInfo('0x02d0', '0x4354'): NAME_BROADCOM_BCM4354_SDIO,
     DeviceInfo('0x14e4', '0x43ec'): NAME_BROADCOM_BCM4356_PCIE,
     DeviceInfo('0x14e4', '0x440d'): NAME_BROADCOM_BCM4371_PCIE,
+    DeviceInfo('0x10ec', '0xc822'): NAME_REALTEK_8822C_PCIE,
 
     DeviceInfo(compatible='qcom,wcn3990-wifi'): NAME_QUALCOMM_WCN3990,
 }
@@ -213,51 +227,65 @@ class Interface:
 
         return os.path.basename(path_readlink_result.stdout.strip())
 
-    @property
-    def device_description(self):
-        """@return DeviceDescription object for a WiFi interface, or None."""
-        read_file = (lambda path: self._run('cat "%s"' % path).stdout.rstrip()
-                     if self.host.path_exists(path) else None)
-        if not self.is_wifi_device():
-            logging.error('Device description not supported on non-wifi '
-                          'interface: %s.', self._name)
-            return None
-
+    def _get_wifi_device_name(self):
+        """Helper for device_description()."""
         device_path = self.device_path
         if not device_path:
-            logging.error('No device path found')
             return None
+
+        read_file = (lambda path: self._run('cat "%s"' % path).stdout.rstrip()
+                     if self.host.path_exists(path) else None)
 
         # Try to identify using either vendor/product ID, or using device tree
         # "OF_COMPATIBLE_x".
         vendor_id = read_file(os.path.join(device_path, 'vendor'))
         product_id = read_file(os.path.join(device_path, 'device'))
+        subsystem_id = read_file(os.path.join(device_path, 'subsystem_device'))
         uevent = read_file(os.path.join(device_path, 'uevent'))
 
-        # Vendor/product ID.
-        infos = [DeviceInfo(vendor_id, product_id)]
-
-        # Compatible value(s).
+        # Device tree "compatible".
         for line in uevent.splitlines():
             key, _, value = line.partition('=')
             if re.match('^OF_COMPATIBLE_[0-9]+$', key):
-                infos += [DeviceInfo(compatible=value)]
+                info = DeviceInfo(compatible=value)
+                if info in DEVICE_NAME_LOOKUP:
+                    return DEVICE_NAME_LOOKUP[info]
 
-        for info in infos:
+        # {Vendor, Product, Subsystem} ID.
+        if subsystem_id is not None:
+            info = DeviceInfo(vendor_id, product_id, subsystem=subsystem_id)
             if info in DEVICE_NAME_LOOKUP:
-                device_name = DEVICE_NAME_LOOKUP[info]
-                logging.debug('Device is %s',  device_name)
-                break
-        else:
-            logging.error('Device is unknown. Info: %r', infos)
+                return DEVICE_NAME_LOOKUP[info]
+
+
+        # {Vendor, Product} ID.
+        info = DeviceInfo(vendor_id, product_id)
+        if info in DEVICE_NAME_LOOKUP:
+            return DEVICE_NAME_LOOKUP[info]
+
+        return None
+
+    @property
+    def device_description(self):
+        """@return DeviceDescription object for a WiFi interface, or None."""
+        if not self.is_wifi_device():
+            logging.error('Device description not supported on non-wifi '
+                          'interface: %s.', self._name)
+            return None
+
+        device_name = self._get_wifi_device_name()
+        if not device_name:
             device_name = NAME_UNKNOWN
+            logging.error('Device is unknown.')
+        else:
+            logging.debug('Device is %s',  device_name)
+
         module_name = self.module_name
-        if module_name is not None:
-            kernel_release = self._run('uname -r').stdout.strip()
-            module_path = self._run('find '
-                                    '/lib/modules/%s/kernel/drivers/net '
-                                    '-name %s.ko -printf %%P' %
-                                    (kernel_release, module_name)).stdout
+        kernel_release = self._run('uname -r').stdout.strip()
+        net_drivers_path = '/lib/modules/%s/kernel/drivers/net' % kernel_release
+        if module_name is not None and self.host.path_exists(net_drivers_path):
+            module_path = self._run('find %s -name %s.ko -printf %%P' % (
+                net_drivers_path, module_name)).stdout
         else:
             module_path = 'Unknown (kernel might have modules disabled)'
         return DeviceDescription(device_name, module_path)
@@ -419,6 +447,62 @@ class Interface:
                 return int(match.group(1))
 
         logging.error('Failed to find signal level for %s.', self._name)
+        return None
+
+
+    @property
+    def signal_level_all_chains(self):
+        """Get the signal level for each chain of an interface.
+
+        This is only defined for WiFi interfaces.
+
+        localhost test # iw wlan0 station dump
+        Station 44:48:c1:af:d7:31 (on wlan0)
+            inactive time:  13180 ms
+            rx bytes:   46886
+            rx packets: 459
+            tx bytes:   103159
+            tx packets: 745
+            tx retries: 17
+            tx failed:  0
+            beacon loss:    0
+            beacon rx:  128
+            rx drop misc:   2
+            signal:     -52 [-52, -53] dBm
+            signal avg: 56 dBm
+            beacon signal avg:  -49 dBm
+            tx bitrate: 400.0 MBit/s VHT-MCS 9 40MHz short GI VHT-NSS 2
+            rx bitrate: 400.0 MBit/s VHT-MCS 9 40MHz short GI VHT-NSS 2
+            authorized: yes
+            authenticated:  yes
+            associated: yes
+            preamble:   long
+            WMM/WME:    yes
+            MFP:        no
+            TDLS peer:  no
+            DTIM period:    1
+            beacon interval:100
+            short slot time:yes
+            connected time: 6874 seconds
+
+        @return array of signal level information for each antenna in dBm
+            (an array of negative, integral numbers e.g. [-67, -60]) or None if
+            chain specific data is not provided by the device.
+
+        """
+        if not self.is_wifi_device():
+            return None
+
+        result_lines = self._run('iw %s station dump' %
+                                 self._name).stdout.splitlines()
+        signal_pattern = re.compile('signal:\s+([-0-9]+)\[')
+        for line in result_lines:
+            cleaned = line.strip().replace(' ', '').lower()
+            match = re.search(signal_pattern, cleaned)
+            if match is not None:
+                signal_levels = cleaned[cleaned.find('[') + 1 :
+                                    cleaned.find(']')].split(',')
+                return map(int, signal_levels)
         return None
 
 

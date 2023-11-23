@@ -558,6 +558,10 @@ is{
             "NGN",
             "nígerísk næra",
         }
+        NIC{
+            "NIC",
+            "Níkarögsk kordóva (1988–1991)",
+        }
         NIO{
             "NIO",
             "níkaraögsk kordóva",
@@ -908,44 +912,28 @@ is{
         }
     }
     Currencies%narrow{
-        AOA{"Kz"}
         ARS{"$"}
         AUD{"$"}
-        BAM{"KM"}
         BBD{"$"}
         BDT{"৳"}
         BMD{"$"}
         BND{"$"}
-        BOB{"Bs"}
         BRL{"R$"}
         BSD{"$"}
-        BWP{"P"}
-        BYN{"р."}
         BZD{"$"}
         CAD{"$"}
         CLP{"$"}
         CNY{"¥"}
         COP{"$"}
         CRC{"₡"}
-        CUC{"$"}
         CUP{"$"}
-        CZK{"Kč"}
-        DKK{"kr"}
         DOP{"$"}
-        EGP{"E£"}
         EUR{"€"}
         FJD{"$"}
-        FKP{"£"}
         GBP{"£"}
-        GEL{"₾"}
         GIP{"£"}
-        GNF{"FG"}
-        GTQ{"Q"}
         GYD{"$"}
         HKD{"$"}
-        HNL{"L"}
-        HRK{"kn"}
-        HUF{"Ft"}
         IDR{"Rp"}
         ILS{"₪"}
         INR{"₹"}
@@ -953,42 +941,22 @@ is{
         JMD{"$"}
         JPY{"¥"}
         KHR{"៛"}
-        KMF{"CF"}
-        KPW{"₩"}
         KRW{"₩"}
         KYD{"$"}
         KZT{"₸"}
         LAK{"₭"}
-        LBP{"L£"}
-        LKR{"Rs"}
         LRD{"$"}
-        MGA{"Ar"}
-        MMK{"K"}
         MNT{"₮"}
-        MUR{"Rs"}
         MXN{"$"}
-        MYR{"RM"}
         NAD{"$"}
         NGN{"₦"}
-        NIO{"C$"}
-        NOK{"kr"}
-        NPR{"Rs"}
         NZD{"$"}
         PHP{"₱"}
-        PKR{"Rs"}
-        PLN{"zł"}
         PYG{"₲"}
-        RON{"lei"}
-        RUB{"₽"}
-        RWF{"RF"}
         SBD{"$"}
-        SEK{"kr"}
         SGD{"$"}
-        SHP{"£"}
         SRD{"$"}
         SSP{"£"}
-        STN{"Db"}
-        SYP{"£"}
         THB{"฿"}
         TOP{"T$"}
         TRY{"₺"}
@@ -997,15 +965,10 @@ is{
         UAH{"₴"}
         USD{"$"}
         UYU{"$"}
-        VEF{"Bs"}
         VND{"₫"}
-        XCD{"$"}
-        ZAR{"R"}
-        ZMW{"ZK"}
     }
     Currencies%variant{
         GEL{"₾"}
-        TRY{"TL"}
     }
     CurrencyPlurals{
         AED{
@@ -1145,8 +1108,8 @@ is{
             other{"kostarísk kólon"}
         }
         CUC{
-            one{"kúbverskur skiptanlegur pesói"}
-            other{"kúbverskir skiptanlegir pesóar"}
+            one{"kúbverskur skiptanlegur pesi"}
+            other{"kúbverskir skiptanlegir pesar"}
         }
         CUP{
             one{"kúbverskur pesi"}
@@ -1424,6 +1387,10 @@ is{
             one{"nígerísk næra"}
             other{"nígerískar nærur"}
         }
+        NIC{
+            one{"Níkarögsk kordóva (1988–1991)"}
+            other{"Níkaragskar kordóvur (1988–1991)"}
+        }
         NIO{
             one{"níkarögsk kordóva"}
             other{"níkaragskar kordóvur"}
@@ -1677,5 +1644,5 @@ is{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.44.91"}
+    Version{"36.1"}
 }

@@ -67,7 +67,6 @@
 /* DDR Setup */
 #define CONFIG_SPD_EEPROM		/* Use SPD EEPROM for DDR setup*/
 #define CONFIG_DDR_SPD
-#undef CONFIG_FSL_DDR_INTERACTIVE
 
 #define CONFIG_MEM_INIT_VALUE		0xDeadBeef
 
@@ -114,8 +113,6 @@
 #undef  CONFIG_SYS_RAMBOOT
 #endif
 
-#define CONFIG_FLASH_CFI_DRIVER
-#define CONFIG_SYS_FLASH_CFI
 #define CONFIG_SYS_FLASH_EMPTY_INFO
 
 #undef CONFIG_CLOCKS_IN_MHZ
@@ -258,7 +255,6 @@
 
 #if defined(CONFIG_TSEC_ENET)
 
-#define CONFIG_MII		1	/* MII PHY management */
 #define CONFIG_TSEC1	1
 #define CONFIG_TSEC1_NAME	"TSEC0"
 #define CONFIG_TSEC2	1
@@ -286,14 +282,6 @@
 /*
  * Environment
  */
-#ifndef CONFIG_SYS_RAMBOOT
-  #define CONFIG_ENV_ADDR		(CONFIG_SYS_MONITOR_BASE + 0x40000)
-  #define CONFIG_ENV_SECT_SIZE	0x40000	/* 256K(one sector) for env */
-  #define CONFIG_ENV_SIZE		0x2000
-#else
-  #define CONFIG_ENV_ADDR		(CONFIG_SYS_MONITOR_BASE - 0x1000)
-  #define CONFIG_ENV_SIZE		0x2000
-#endif
 
 #define CONFIG_LOADS_ECHO	1	/* echo on for serial download */
 #define CONFIG_SYS_LOADS_BAUD_CHANGE	1	/* allow baudrate change */

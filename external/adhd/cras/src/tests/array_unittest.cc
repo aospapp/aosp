@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <gtest/gtest.h>
-
 #include "array.h"
+
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -20,7 +20,7 @@ TEST(ArrayTest, Basic) {
 
   /* create an array {1.0, 2.0} */
   ARRAY_APPEND(&a, 1.0);
-  double *p = ARRAY_APPEND_ZERO(&a);
+  double* p = ARRAY_APPEND_ZERO(&a);
   EXPECT_EQ(0.0, *p);
   *p = 2.0;
 
@@ -85,7 +85,7 @@ TEST(ArrayTest, AppendZeroStruct) {
 
 TEST(ArrayTest, ForLoop) {
   int i;
-  double *p;
+  double* p;
   double_array a = ARRAY_INIT;
 
   for (i = 0; i < 100; i++) {
@@ -94,7 +94,7 @@ TEST(ArrayTest, ForLoop) {
 
   int expectedIndex = 0;
   double expectedValue = 0;
-  FOR_ARRAY_ELEMENT(&a, i, p) {
+  ARRAY_ELEMENT_FOREACH (&a, i, p) {
     EXPECT_EQ(expectedIndex, i);
     EXPECT_EQ(expectedValue, *p);
     expectedIndex++;
@@ -110,7 +110,7 @@ TEST(ArrayTest, ForLoop) {
 
 }  //  namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

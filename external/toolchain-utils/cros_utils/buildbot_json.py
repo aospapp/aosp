@@ -1,5 +1,8 @@
-#!/usr/bin/env python2
-# Copyright (c) 2012 The Chromium Authors. All rights reserved.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2019 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -28,6 +31,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # NOTE: This file is NOT under GPL.  See above.
+
 """Queries buildbot through the json interface.
 """
 
@@ -50,9 +54,10 @@ import logging
 import optparse
 
 import time
-import urllib
-import urllib2
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 
 try:
   from natsort import natsorted
@@ -63,7 +68,7 @@ except ImportError:
 
 # These values are buildbot constants used for Build and BuildStep.
 # This line was copied from master/buildbot/status/builder.py.
-SUCCESS, WARNINGS, FAILURE, SKIPPED, EXCEPTION, RETRY = range(6)
+SUCCESS, WARNINGS, FAILURE, SKIPPED, EXCEPTION, RETRY = list(range(6))
 
 ## Generic node caching code.
 
@@ -182,7 +187,8 @@ class AddressableDataNode(AddressableBaseDataNode):  # pylint: disable=W0223
   """Automatically encodes the url."""
 
   def __init__(self, parent, url, data):
-    super(AddressableDataNode, self).__init__(parent, urllib.quote(url), data)
+    super(AddressableDataNode, self).__init__(parent, urllib.parse.quote(url),
+                                              data)
 
 
 class NonAddressableDataNode(Node):  # pylint: disable=W0223
@@ -316,7 +322,7 @@ class NonAddressableNodeList(VirtualNodeList):  # pylint: disable=W0223
   @property
   def cached_children(self):
     if self.parent.cached_data is not None:
-      for i in xrange(len(self.parent.cached_data[self.subkey])):
+      for i in range(len(self.parent.cached_data[self.subkey])):
         yield self[i]
 
   @property
@@ -329,7 +335,7 @@ class NonAddressableNodeList(VirtualNodeList):  # pylint: disable=W0223
   def cached_keys(self):
     if self.parent.cached_data is None:
       return None
-    return range(len(self.parent.data.get(self.subkey, [])))
+    return list(range(len(self.parent.data.get(self.subkey, []))))
 
   @property
   def data(self):
@@ -352,7 +358,7 @@ class NonAddressableNodeList(VirtualNodeList):  # pylint: disable=W0223
   def __iter__(self):
     """Enables 'for i in obj:'. It returns children."""
     if self.data:
-      for i in xrange(len(self.data)):
+      for i in range(len(self.data)):
         yield self[i]
 
   def __getitem__(self, key):
@@ -382,13 +388,13 @@ class AddressableNodeList(NodeList):
 
   @property
   def cached_children(self):
-    for item in self._cache.itervalues():
+    for item in self._cache.values():
       if item.cached_data is not None:
         yield item
 
   @property
   def cached_keys(self):
-    return self._cache.keys()
+    return list(self._cache.keys())
 
   def __getitem__(self, key):
     """Enables 'obj[i]'."""
@@ -419,14 +425,13 @@ class AddressableNodeList(NodeList):
     # pylint: disable=W0212
     if not self._is_cached:
       to_fetch = [
-          child
-          for child in children
+          child for child in children
           if not (child in self._cache and self._cache[child].cached_data)
       ]
       if to_fetch:
         # Similar to cache(). The only reason to sort is to simplify testing.
-        params = '&'.join('select=%s' % urllib.quote(str(v))
-                          for v in sorted(to_fetch))
+        params = '&'.join(
+            'select=%s' % urllib.parse.quote(str(v)) for v in sorted(to_fetch))
         data = self.read('?' + params)
         for key in sorted(data):
           self._create_obj(key, data[key])
@@ -440,7 +445,7 @@ class AddressableNodeList(NodeList):
   def discard(self):
     """Discards temporary children."""
     super(AddressableNodeList, self).discard()
-    for v in self._cache.itervalues():
+    for v in self._cache.values():
       v.discard()
 
   def read(self, suburl):
@@ -526,8 +531,8 @@ class SubViewNodeList(VirtualNodeList):  # pylint: disable=W0223
     self.cache()
     return super(SubViewNodeList, self).__iter__()
 
-###############################################################################
-## Buildbot-specific code
+
+# Buildbot-specific code
 
 
 class Slave(AddressableDataNode):
@@ -681,7 +686,7 @@ class BuildSteps(NonAddressableNodeList):
 
   def __getitem__(self, key):
     """Accept step name in addition to index number."""
-    if isinstance(key, basestring):
+    if isinstance(key, str):
       # It's a string, try to find the corresponding index.
       for i, step in enumerate(self.data):
         if step['name'] == key:
@@ -840,7 +845,7 @@ class Builds(AddressableNodeList):
       # highest key value and calculate from it.
       key = max(self._keys) + key + 1
 
-    if not key in self._cache:
+    if key not in self._cache:
       # Create an empty object.
       self._create_obj(key, None)
     return self._cache[key]
@@ -856,7 +861,7 @@ class Builds(AddressableNodeList):
     To access the older builds, use self.iterall() instead.
     """
     self.cache()
-    return reversed(self._cache.values())
+    return reversed(list(self._cache.values()))
 
   def iterall(self):
     """Returns Build objects in decreasing order unbounded up to build 0.
@@ -868,7 +873,7 @@ class Builds(AddressableNodeList):
     # Only cache keys here.
     self.cache_keys()
     if self._keys:
-      for i in xrange(max(self._keys), -1, -1):
+      for i in range(max(self._keys), -1, -1):
         yield self[i]
 
   def cache_keys(self):
@@ -970,22 +975,23 @@ class Buildbot(AddressableBaseDataNode):
     else:
       url += '?filter=1'
     logging.info('read(%s)', suburl)
-    channel = urllib.urlopen(url)
+    channel = urllib.request.urlopen(url)
     data = channel.read()
     try:
       return json.loads(data)
     except ValueError:
       if channel.getcode() >= 400:
         # Convert it into an HTTPError for easier processing.
-        raise urllib2.HTTPError(url, channel.getcode(), '%s:\n%s' % (url, data),
-                                channel.headers, None)
+        raise urllib.error.HTTPError(url, channel.getcode(),
+                                     '%s:\n%s' % (url, data), channel.headers,
+                                     None)
       raise
 
   def _readall(self):
     return self.read('project')
 
-###############################################################################
-## Controller code
+
+# Controller code
 
 
 def usage(more):
@@ -1026,12 +1032,13 @@ def need_buildbot(fn):
 @need_buildbot
 def CMDpending(parser, args):
   """Lists pending jobs."""
-  parser.add_option('-b',
-                    '--builder',
-                    dest='builders',
-                    action='append',
-                    default=[],
-                    help='Builders to filter on')
+  parser.add_option(
+      '-b',
+      '--builder',
+      dest='builders',
+      action='append',
+      default=[],
+      help='Builders to filter on')
   options, args, buildbot = parser.parse_args(args)
   if args:
     parser.error('Unrecognized parameters: %s' % ' '.join(args))
@@ -1049,7 +1056,7 @@ def CMDpending(parser, args):
           print('  revision: %s' % pending['source']['revision'])
         for change in pending['source']['changes']:
           print('  change:')
-          print('    comment: %r' % unicode(change['comments'][:50]))
+          print('    comment: %r' % change['comments'][:50])
           print('    who:     %s' % change['who'])
   return 0
 
@@ -1063,13 +1070,11 @@ def CMDrun(parser, args):
   was on its own line.
   """
   parser.add_option('-f', '--file', help='Read script from file')
-  parser.add_option('-i',
-                    dest='use_stdin',
-                    action='store_true',
-                    help='Read script on stdin')
+  parser.add_option(
+      '-i', dest='use_stdin', action='store_true', help='Read script on stdin')
   # Variable 'buildbot' is not used directly.
   # pylint: disable=W0612
-  options, args, buildbot = parser.parse_args(args)
+  options, args, _ = parser.parse_args(args)
   if (bool(args) + bool(options.use_stdin) + bool(options.file)) != 1:
     parser.error('Need to pass only one of: <commands>, -f <file> or -i')
   if options.use_stdin:
@@ -1090,10 +1095,9 @@ def CMDinteractive(parser, args):
   _, args, buildbot = parser.parse_args(args)
   if args:
     parser.error('Unrecognized parameters: %s' % ' '.join(args))
-  prompt = (
-      'Buildbot interactive console for "%s".\n'
-      'Hint: Start with typing: \'buildbot.printable_attributes\' or '
-      '\'print str(buildbot)\' to explore.') % buildbot.url[:-len('/json')]
+  prompt = ('Buildbot interactive console for "%s".\n'
+            "Hint: Start with typing: 'buildbot.printable_attributes' or "
+            "'print str(buildbot)' to explore.") % buildbot.url[:-len('/json')]
   local_vars = {'buildbot': buildbot, 'b': buildbot}
   code.interact(prompt, None, local_vars)
 
@@ -1123,18 +1127,20 @@ def CMDdisconnected(parser, args):
 
 
 def find_idle_busy_slaves(parser, args, show_idle):
-  parser.add_option('-b',
-                    '--builder',
-                    dest='builders',
-                    action='append',
-                    default=[],
-                    help='Builders to filter on')
-  parser.add_option('-s',
-                    '--slave',
-                    dest='slaves',
-                    action='append',
-                    default=[],
-                    help='Slaves to filter on')
+  parser.add_option(
+      '-b',
+      '--builder',
+      dest='builders',
+      action='append',
+      default=[],
+      help='Builders to filter on')
+  parser.add_option(
+      '-s',
+      '--slave',
+      dest='slaves',
+      action='append',
+      default=[],
+      help='Slaves to filter on')
   options, args, buildbot = parser.parse_args(args)
   if args:
     parser.error('Unrecognized parameters: %s' % ' '.join(args))
@@ -1212,8 +1218,9 @@ def last_failure(buildbot,
 def CMDlast_failure(parser, args):
   """Lists all slaves that failed on that step on their last build.
 
-  Example: to find all slaves where their last build was a compile failure,
-  run with --step compile
+  Examples:
+    To find all slaves where their last build was a compile failure,
+    run with --step compile
   """
   parser.add_option(
       '-S',
@@ -1222,32 +1229,36 @@ def CMDlast_failure(parser, args):
       action='append',
       default=[],
       help='List all slaves that failed on that step on their last build')
-  parser.add_option('-b',
-                    '--builder',
-                    dest='builders',
-                    action='append',
-                    default=[],
-                    help='Builders to filter on')
-  parser.add_option('-s',
-                    '--slave',
-                    dest='slaves',
-                    action='append',
-                    default=[],
-                    help='Slaves to filter on')
-  parser.add_option('-n',
-                    '--no_cache',
-                    action='store_true',
-                    help='Don\'t load all builds at once')
+  parser.add_option(
+      '-b',
+      '--builder',
+      dest='builders',
+      action='append',
+      default=[],
+      help='Builders to filter on')
+  parser.add_option(
+      '-s',
+      '--slave',
+      dest='slaves',
+      action='append',
+      default=[],
+      help='Slaves to filter on')
+  parser.add_option(
+      '-n',
+      '--no_cache',
+      action='store_true',
+      help="Don't load all builds at once")
   options, args, buildbot = parser.parse_args(args)
   if args:
     parser.error('Unrecognized parameters: %s' % ' '.join(args))
   print_builders = not options.quiet and len(options.builders) != 1
   last_builder = None
-  for build in last_failure(buildbot,
-                            builders=options.builders,
-                            slaves=options.slaves,
-                            steps=options.steps,
-                            no_cache=options.no_cache):
+  for build in last_failure(
+      buildbot,
+      builders=options.builders,
+      slaves=options.slaves,
+      steps=options.steps,
+      no_cache=options.no_cache):
 
     if print_builders and last_builder != build.builder:
       print(build.builder.name)
@@ -1259,8 +1270,8 @@ def CMDlast_failure(parser, args):
       else:
         print(build.slave.name)
     else:
-      out = '%d on %s: blame:%s' % (build.number, build.slave.name,
-                                    ', '.join(build.blame))
+      out = '%d on %s: blame:%s' % (build.number, build.slave.name, ', '.join(
+          build.blame))
       if print_builders:
         out = '  ' + out
       print(out)
@@ -1280,15 +1291,15 @@ def CMDlast_failure(parser, args):
 @need_buildbot
 def CMDcurrent(parser, args):
   """Lists current jobs."""
-  parser.add_option('-b',
-                    '--builder',
-                    dest='builders',
-                    action='append',
-                    default=[],
-                    help='Builders to filter on')
-  parser.add_option('--blame',
-                    action='store_true',
-                    help='Only print the blame list')
+  parser.add_option(
+      '-b',
+      '--builder',
+      dest='builders',
+      action='append',
+      default=[],
+      help='Builders to filter on')
+  parser.add_option(
+      '--blame', action='store_true', help='Only print the blame list')
   options, args, buildbot = parser.parse_args(args)
   if args:
     parser.error('Unrecognized parameters: %s' % ' '.join(args))
@@ -1330,28 +1341,30 @@ def CMDcurrent(parser, args):
 def CMDbuilds(parser, args):
   """Lists all builds.
 
-  Example: to find all builds on a single slave, run with -b bar -s foo
+  Examples:
+    To find all builds on a single slave, run with -b bar -s foo.
   """
-  parser.add_option('-r',
-                    '--result',
-                    type='int',
-                    help='Build result to filter on')
-  parser.add_option('-b',
-                    '--builder',
-                    dest='builders',
-                    action='append',
-                    default=[],
-                    help='Builders to filter on')
-  parser.add_option('-s',
-                    '--slave',
-                    dest='slaves',
-                    action='append',
-                    default=[],
-                    help='Slaves to filter on')
-  parser.add_option('-n',
-                    '--no_cache',
-                    action='store_true',
-                    help='Don\'t load all builds at once')
+  parser.add_option(
+      '-r', '--result', type='int', help='Build result to filter on')
+  parser.add_option(
+      '-b',
+      '--builder',
+      dest='builders',
+      action='append',
+      default=[],
+      help='Builders to filter on')
+  parser.add_option(
+      '-s',
+      '--slave',
+      dest='slaves',
+      action='append',
+      default=[],
+      help='Slaves to filter on')
+  parser.add_option(
+      '-n',
+      '--no_cache',
+      action='store_true',
+      help="Don't load all builds at once")
   options, args, buildbot = parser.parse_args(args)
   if args:
     parser.error('Unrecognized parameters: %s' % ' '.join(args))
@@ -1377,16 +1390,15 @@ def CMDbuilds(parser, args):
 @need_buildbot
 def CMDcount(parser, args):
   """Count the number of builds that occured during a specific period."""
-  parser.add_option('-o',
-                    '--over',
-                    type='int',
-                    help='Number of seconds to look for')
-  parser.add_option('-b',
-                    '--builder',
-                    dest='builders',
-                    action='append',
-                    default=[],
-                    help='Builders to filter on')
+  parser.add_option(
+      '-o', '--over', type='int', help='Number of seconds to look for')
+  parser.add_option(
+      '-b',
+      '--builder',
+      dest='builders',
+      action='append',
+      default=[],
+      help='Builders to filter on')
   options, args, buildbot = parser.parse_args(args)
   if args:
     parser.error('Unrecognized parameters: %s' % ' '.join(args))
@@ -1405,10 +1417,11 @@ def CMDcount(parser, args):
     for build in builder.builds.iterall():
       try:
         start_time = build.start_time
-      except urllib2.HTTPError:
+      except urllib.error.HTTPError:
         # The build was probably trimmed.
-        print('Failed to fetch build %s/%d' % (builder.name, build.number),
-              file=sys.stderr)
+        print(
+            'Failed to fetch build %s/%d' % (builder.name, build.number),
+            file=sys.stderr)
         continue
       if start_time >= since:
         counts[builder.name] += 1
@@ -1418,10 +1431,10 @@ def CMDcount(parser, args):
       print('.. %d' % counts[builder.name])
 
   align_name = max(len(b) for b in counts)
-  align_number = max(len(str(c)) for c in counts.itervalues())
+  align_number = max(len(str(c)) for c in counts.values())
   for builder in sorted(counts):
     print('%*s: %*d' % (align_name, builder, align_number, counts[builder]))
-  print('Total: %d' % sum(counts.itervalues()))
+  print('Total: %d' % sum(counts.values()))
   return 0
 
 
@@ -1448,22 +1461,24 @@ def gen_parser():
 
   parser.parse_args = Parse
 
-  parser.add_option('-v',
-                    '--verbose',
-                    action='count',
-                    help='Use multiple times to increase logging leve')
+  parser.add_option(
+      '-v',
+      '--verbose',
+      action='count',
+      help='Use multiple times to increase logging leve')
   parser.add_option(
       '-q',
       '--quiet',
       action='store_true',
       help='Reduces the output to be parsed by scripts, independent of -v')
-  parser.add_option('--throttle',
-                    type='float',
-                    help='Minimum delay to sleep between requests')
+  parser.add_option(
+      '--throttle',
+      type='float',
+      help='Minimum delay to sleep between requests')
   return parser
 
-###############################################################################
-## Generic subcommand handling code
+
+# Generic subcommand handling code
 
 
 def Command(name):
@@ -1497,7 +1512,8 @@ def main(args=None):
   # pylint: disable=E1101
   CMDhelp.__doc__ += '\n\nCommands are:\n' + '\n'.join(
       '  %-12s %s' % (fn[3:], Command(fn[3:]).__doc__.split('\n', 1)[0])
-      for fn in dir(sys.modules[__name__]) if fn.startswith('CMD'))
+      for fn in dir(sys.modules[__name__])
+      if fn.startswith('CMD'))
 
   parser = gen_parser()
   if args is None:

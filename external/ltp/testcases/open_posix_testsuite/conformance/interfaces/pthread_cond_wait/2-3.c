@@ -90,7 +90,7 @@ struct {
 /****  First handler that will be poped
  *  This one works only with recursive mutexes
  */
-void clnp1(void *arg)
+void clnp1(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	int ret;
 	if (data.type == PTHREAD_MUTEX_RECURSIVE) {
@@ -111,7 +111,7 @@ void clnp1(void *arg)
 /**** Second handler
  *  This one will trigger an action in main thread, while we are owning the mutex
  */
-void clnp2(void *arg)
+void clnp2(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	int ret;
 	do {
@@ -134,7 +134,7 @@ void clnp2(void *arg)
 /**** Third handler
  *  Will actually unlock the mutex, then try to unlock second time to check an error is returned
  */
-void clnp3(void *arg)
+void clnp3(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	int ret;
 
@@ -159,7 +159,7 @@ void clnp3(void *arg)
  * This function will lock the mutex, then install the cleanup handlers
  * and wait for the cond. At this point it will be canceled.
  */
-void *threaded(void *arg)
+void *threaded(void *arg LTP_ATTRIBUTE_UNUSED)
 {
 	int ret;
 
@@ -251,6 +251,8 @@ int main(void)
 #endif
 	};
 
+#define NSCENAR (sizeof(scenar) / sizeof(scenar[0]))
+
 	output_init();
 
 	/* Initialize the constants */
@@ -283,7 +285,8 @@ int main(void)
 		UNRESOLVED(errno, "Unable to init sem B");
 	}
 
-	for (i = 0; i < (sizeof(scenar) / sizeof(scenar[0])); i++) {
+	struct timespec wait_ts = {0, 100000};
+	for (i = 0; i < (int)NSCENAR; i++) {
 #if VERBOSE > 1
 		output("Starting test for %s\n", scenar[i].descr);
 #endif
@@ -382,9 +385,7 @@ int main(void)
 		}
 
 		sched_yield();
-#ifndef WITHOUT_XOPEN
-		usleep(100);
-#endif
+		nanosleep(&wait_ts, NULL);
 
 		ret = pthread_mutex_unlock(&(data.mtx));
 		if (ret != 0) {

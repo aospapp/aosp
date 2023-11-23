@@ -6,10 +6,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -24,34 +24,35 @@ import org.unicode.cldr.tool.Option.Options;
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRPaths;
+import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.LanguageTagParser;
+import org.unicode.cldr.util.Pair;
 import org.unicode.cldr.util.PatternCache;
 import org.unicode.cldr.util.SimpleFactory;
 import org.unicode.cldr.util.StringId;
 
+import com.google.common.base.Objects;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row;
 import com.ibm.icu.impl.Row.R3;
 import com.ibm.icu.lang.CharSequences;
+import com.ibm.icu.util.ICUException;
 
 public class GenerateBirth {
     private static boolean DEBUG = false;
 
-    public enum Versions {
-        trunk, v31_0, v30_0, v29_0, v28_0, v27_0, v26_0, v25_0, v24_0, v23_1, v22_1, v21_0, v2_0_1, v1_9_1, v1_8_1, v1_7_2, v1_6_1, v1_5_1, v1_4_1, v1_3_0, v1_2_0, v1_1_1;
-        public String toString() {
-            return this == Versions.trunk ? name() : name().substring(1).replace('_', '.');
-        };
-    }
+    private static final List<CldrVersion> VERSIONS_WITH_TRUNK_DESCENDING = CldrVersion.CLDR_VERSIONS_DESCENDING;
 
-    static final Versions[] VERSIONS = Versions.values();
-    static final Factory[] factories = new Factory[VERSIONS.length];
+    static final CldrVersion[] VERSIONS = VERSIONS_WITH_TRUNK_DESCENDING.toArray(
+        new CldrVersion[VERSIONS_WITH_TRUNK_DESCENDING.size()]); // hack for now; should change to list
+
+    static final Factory[] factories = new Factory[VERSIONS.length - 1]; // hack for now; should change to list
 
     final static Options myOptions = new Options()
         .add("target", ".*", CLDRPaths.BIRTH_DATA_DIR,
             "The target directory for building the text files that show the results.")
-        .add("log", ".*", CLDRPaths.TMP_DIRECTORY + "dropbox/births/",
+        .add("log", ".*", CLDRPaths.AUX_DIRECTORY + "births/" + CldrVersion.trunk.getVersionInfo().getVersionString(2, 4),
             "The target directory for building the text files that show the results.")
         .add(
             "file",
@@ -62,7 +63,13 @@ public class GenerateBirth {
         .add("debug", "Debug");
 
     public static void main(String[] args) throws IOException {
+        System.out.println("Run TestOutdatedPaths.java -v to see a listing of changes.");
         myOptions.parse(args, true);
+        try {
+            CldrVersion.checkVersions(); // verify versions up to date
+        } catch (Exception e) {
+            throw new ICUException("This tool can only be run if the archive of released versions matching CldrVersion is available.", e);
+        }
 
         // set up the CLDR Factories
 
@@ -73,41 +80,67 @@ public class GenerateBirth {
         String filePattern = myOptions.get("file").getValue();
 
         ArrayList<Factory> list = new ArrayList<Factory>();
-        for (Versions version : VERSIONS) {
-            String base = version == Versions.trunk
-                ? CLDRPaths.BASE_DIRECTORY
-                : CLDRPaths.ARCHIVE_DIRECTORY + "cldr-" + version + "/";
-            File[] paths = version.compareTo(Versions.v27_0) > 0 // warning, order is reversed
-                ? new File[] { new File(base + "common/main/") }
-                : new File[] { new File(base + "common/main/"), new File(base + "common/annotations/") };
-            System.out.println(version + ", " + Arrays.asList(paths));
-            Factory aFactory = SimpleFactory.make(paths, filePattern);
+        for (CldrVersion version : VERSIONS) {
+            if (version == CldrVersion.unknown) {
+                continue;
+            }
+            List<File> paths = version.getPathsForFactory();
+//            String base = version.getBaseDirectory();
+//            File[] paths = version.compareTo(CldrVersion.v27_0) > 0 ? // warning, order is reversed
+//                new File[] { new File(base + "common/main/") } : 
+//                    new File[] { new File(base + "common/main/"), new File(base + "common/annotations/") };
+
+            System.out.println(version + ", " + paths);
+            Factory aFactory = SimpleFactory.make(paths.toArray(new File[paths.size()]), filePattern);
             list.add(aFactory);
         }
         list.toArray(factories);
 
         final String dataDirectory = myOptions.get("target").getValue();
+        File dataDir = new File(dataDirectory);
+        if (!dataDir.isDirectory()) {
+            throw new IllegalArgumentException("-t value is not directory: " + dataDir);
+        }
 
         // load and process English
 
-        String outputDirectory = myOptions.get("log").getValue();
+        String logDirectory = myOptions.get("log").getValue();
 
         System.out.println("en");
         Births english = new Births("en");
-        english.writeBirth(outputDirectory, "en", null);
+        english.writeBirth(logDirectory, "en", null);
         english.writeBirthValues(dataDirectory + "/" + OutdatedPaths.OUTDATED_ENGLISH_DATA);
 
-        // if (!myOptions.get("file").doesOccur()) {
-        // OutdatedPaths outdatedPaths = new OutdatedPaths(dataDirectory);
-        //
-        // return;
-        // }
-        // Set up the binary data file
+        Map<Long, Pair<CldrVersion, String>> pathToPrevious = new HashMap<>();
+
+        // Verify that the write of English worked
+
+        OutdatedPaths.readBirthValues(dataDirectory, null, pathToPrevious);
+        for (Entry<String, R3<CldrVersion, String, String>> entry : english.pathToBirthCurrentPrevious.entrySet()) {
+            String path = entry.getKey();
+            String previous = entry.getValue().get2();
+            CldrVersion birth = entry.getValue().get0();
+            if (previous == null) {
+                previous = OutdatedPaths.NO_VALUE;
+            }
+            long id = StringId.getId(path);
+            Pair<CldrVersion, String> readValue = pathToPrevious.get(id);
+            CldrVersion birthRead = readValue == null ? null : readValue.getFirst();
+            String previousRead = readValue == null ? null : readValue.getSecond();
+            if (!Objects.equal(previous, previousRead) || !Objects.equal(birth, birthRead)) {
+                throw new IllegalArgumentException("path: " + path
+                    + "\tprevious: " + previous + "\tread: " + readValue
+                    + "\tbirth: " + birth + "\tread: " + birthRead);
+            }
+        }
+
+        // Set up the binary data files for all others
 
         File file = new File(dataDirectory + "/" + OutdatedPaths.OUTDATED_DATA);
         final String outputDataFile = file.getCanonicalPath();
         System.out.println("Writing data: " + outputDataFile);
         DataOutputStream dataOut = new DataOutputStream(new FileOutputStream(file));
+        dataOut.writeUTF(OutdatedPaths.FORMAT_KEY);
 
         // Load and process all the locales
 
@@ -123,7 +156,7 @@ public class GenerateBirth {
             // TODO skip default content locales
             System.out.println(fileName);
             Births other = new Births(fileName);
-            Set<String> newer = other.writeBirth(outputDirectory, fileName, english);
+            Set<String> newer = other.writeBirth(logDirectory, fileName, english);
 
             dataOut.writeUTF(fileName);
             dataOut.writeInt(newer.size());
@@ -162,7 +195,7 @@ public class GenerateBirth {
                 }
                 String previous = outdatedPaths.getPreviousEnglish(xpath);
                 if (previous.isEmpty() != english.emptyPrevious.contains(xpath)) {
-                    System.out.println("previous.isEmpty() != original" + locale + "\t" + StringId.getId(xpath) + "\t"
+                    System.out.println("previous.isEmpty() != original " + locale + "\t" + StringId.getId(xpath) + "\t"
                         + xpath);
                     needPrevious.add(xpath);
                     ++errorCount;
@@ -177,8 +210,8 @@ public class GenerateBirth {
     }
 
     static class Births {
-        final Relation<Versions, String> birthToPaths;
-        final Map<String, Row.R3<Versions, String, String>> pathToBirthCurrentPrevious;
+        final Relation<CldrVersion, String> birthToPaths;
+        final Map<String, Row.R3<CldrVersion, String, String>> pathToBirthCurrentPrevious;
         final String locale;
         static final Pattern TYPE = PatternCache.get("\\[@type=\"([^\"]*)\"");
         final Matcher typeMatcher = TYPE.matcher("");
@@ -191,22 +224,27 @@ public class GenerateBirth {
                 try {
                     files[i] = factories[i].make(file, false);
                 } catch (Exception e) {
+                    // stop when we fail to find
+                    System.out.println("Stopped at " + file + ", " + CldrVersion.CLDR_VERSIONS_DESCENDING.get(i));
                     //e.printStackTrace();
                     break;
                 }
             }
-            birthToPaths = Relation.of(new TreeMap<Versions, Set<String>>(), TreeSet.class);
-            pathToBirthCurrentPrevious = new HashMap<String, Row.R3<Versions, String, String>>();
+            birthToPaths = Relation.of(new TreeMap<CldrVersion, Set<String>>(), TreeSet.class);
+            pathToBirthCurrentPrevious = new HashMap<String, Row.R3<CldrVersion, String, String>>();
             for (String xpath : files[0]) {
-
                 xpath = xpath.intern();
+                if (xpath.contains("[@type=\"ar\"]")) {
+                    int debug = 0;
+                }
                 String base = files[0].getStringValue(xpath);
                 String previousValue = null;
                 int i;
+                CLDRFile lastFile = files[0];
                 for (i = 1; i < files.length && files[i] != null; ++i) {
                     String previous = files[i].getStringValue(xpath);
                     if (previous == null) {
-                        previous = fixNullPrevious(xpath);
+                        previous = OutdatedPaths.NO_VALUE; // fixNullPrevious(xpath);
                     }
                     if (!CharSequences.equals(base, previous)) {
                         if (previous != null) {
@@ -214,8 +252,9 @@ public class GenerateBirth {
                         }
                         break;
                     }
+                    lastFile = files[i];
                 }
-                Versions version = VERSIONS[i - 1];
+                CldrVersion version = CldrVersion.from(lastFile.getDtdVersionInfo());
                 birthToPaths.put(version, xpath);
                 pathToBirthCurrentPrevious.put(xpath, Row.of(version, base, previousValue));
             }
@@ -237,25 +276,29 @@ public class GenerateBirth {
 
         public void writeBirthValues(String file) throws IOException {
             DataOutputStream dataOut = new DataOutputStream(new FileOutputStream(file));
+            dataOut.writeUTF(OutdatedPaths.FORMAT_KEY);
             System.out.println("Writing data: " + new File(file).getCanonicalPath());
             dataOut.writeInt(pathToBirthCurrentPrevious.size());
 
             // Load and process all the locales
 
             //TreeMap<String, Set<String>> localeToNewer = new TreeMap<String, Set<String>>();
-            for (Entry<String, R3<Versions, String, String>> entry : pathToBirthCurrentPrevious.entrySet()) {
+            for (Entry<String, R3<CldrVersion, String, String>> entry : pathToBirthCurrentPrevious.entrySet()) {
                 String path = entry.getKey();
-                R3<Versions, String, String> birthCurrentPrevious = entry.getValue();
+                R3<CldrVersion, String, String> birthCurrentPrevious = entry.getValue();
+                CldrVersion birth = birthCurrentPrevious.get0();
+                String current = birthCurrentPrevious.get1();
                 String previous = birthCurrentPrevious.get2();
                 long id = StringId.getId(path);
                 dataOut.writeLong(id);
-                final String previousString = previous == null ? "" : previous;
+                final String previousString = previous == null ? OutdatedPaths.NO_VALUE : previous;
                 dataOut.writeUTF(previousString);
-                if (previousString.isEmpty()) {
+                if (previous == null) {
                     emptyPrevious.add(path);
                 }
-                if (DEBUG) {
-                    System.out.println(id + "\t" + previous);
+                dataOut.writeUTF(birth.toString());
+                if (true) {
+                    System.out.println(id + "\t" + birth + "\t«" + current + "⇐" + previous + "»");
                 }
             }
             dataOut.writeUTF("$END$");
@@ -264,13 +307,16 @@ public class GenerateBirth {
         }
 
         Set<String> writeBirth(PrintWriter out, Births onlyNewer) {
+
+            out.println("Loc\tVersion\tValue\tPrevValue\tEVersion\tEValue\tEPrevValue\tPath");
+
             Set<String> newer = new HashSet<String>();
             HashMap<Long, String> sanityCheck = new HashMap<Long, String>();
-            Versions onlyNewerVersion = Versions.trunk;
-            String otherValue = "";
-            String olderOtherValue = "";
-            for (Entry<Versions, Set<String>> entry2 : birthToPaths.keyValuesSet()) {
-                Versions version = entry2.getKey();
+            CldrVersion onlyNewerVersion = null;
+            String otherValue = "n/a";
+            String olderOtherValue = "n/a";
+            for (Entry<CldrVersion, Set<String>> entry2 : birthToPaths.keyValuesSet()) {
+                CldrVersion version = entry2.getKey();
                 for (String xpath : entry2.getValue()) {
                     long id = StringId.getId(xpath);
                     String old = sanityCheck.get(id);
@@ -279,16 +325,16 @@ public class GenerateBirth {
                     } else {
                         sanityCheck.put(id, xpath);
                     }
-                    R3<Versions, String, String> info = pathToBirthCurrentPrevious.get(xpath);
+                    R3<CldrVersion, String, String> info = pathToBirthCurrentPrevious.get(xpath);
                     if (onlyNewer != null) {
 
-                        R3<Versions, String, String> otherInfo = onlyNewer.pathToBirthCurrentPrevious.get(xpath);
+                        R3<CldrVersion, String, String> otherInfo = onlyNewer.pathToBirthCurrentPrevious.get(xpath);
                         if (otherInfo == null) {
                             continue;
                         }
-                        // skip if older or same
+                        // skip if not older than "comparison version"
                         onlyNewerVersion = otherInfo.get0();
-                        if (version.compareTo(onlyNewerVersion) <= 0) {
+                        if (!version.isOlderThan(onlyNewerVersion)) {
                             continue;
                         }
                         otherValue = fixNull(otherInfo.get1());
@@ -302,7 +348,7 @@ public class GenerateBirth {
                         + "\t" + version
                         + "\t" + value
                         + "\t" + olderValue
-                        + "\t" + onlyNewerVersion
+                        + "\t" + CldrUtility.ifNull(onlyNewerVersion, "n/a")
                         + "\t" + otherValue
                         + "\t" + olderOtherValue
                         + "\t" + xpath);
@@ -314,7 +360,7 @@ public class GenerateBirth {
 
         private String fixNull(String value) {
             if (value == null) {
-                value = "∅";
+                value = OutdatedPaths.NO_VALUE;
             }
             return value;
         }

@@ -14,6 +14,7 @@ import utils_lib
 UNSHRINKABLE_EXTENSIONS = set([
         '.bin',
         '.data',
+        '.devcore',
         '.dmp',
         '.gz',
         '.htm',
@@ -22,16 +23,29 @@ UNSHRINKABLE_EXTENSIONS = set([
         '.journal',
         '.jpg',
         '.json',
+        '.pcap',
         '.png',
         '.tar',
         '.tgz',
+        '.trc', # TODO: unify with .pcap?
         '.xml',
         '.xz',
         '.zip',
         ])
 
-# Regex for files that should not be shrunk.
-UNSHRINKABLE_FILE_PATTERNS = [
+# Regex for paths that should not be shrunk.
+UNSHRINKABLE_PATH_PATTERNS = [
+        # Files in a log_diff/ directory should already be relatively small,
+        # and trimming them further would be detrimental to debugging. If
+        # they're too large, let other throttlers (e.g., zip_file_ or
+        # delete_file_) deal with them.
+        # Only blacklist a few known-useful log_diff's.
+        '/log_diff/messages$',
+        '/log_diff/net\.log$',
+        # Ramoops files are small but relatively important.
+        # The name of this file has changed starting with linux-3.19.
+        # Use a glob to match all existing records.
+        '/console-ramoops.*',
         ]
 
 TRIMMED_FILE_HEADER = '!!! This file is trimmed !!!\n'
@@ -122,8 +136,8 @@ def _get_shrinkable_files(file_infos, file_size_limit_byte):
             continue
 
         match_found = False
-        for pattern in UNSHRINKABLE_FILE_PATTERNS:
-            if re.match(pattern, info.name):
+        for pattern in UNSHRINKABLE_PATH_PATTERNS:
+            if re.search(pattern, info.path):
                 match_found = True
                 break
         if match_found:

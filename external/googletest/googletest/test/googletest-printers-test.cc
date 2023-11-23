@@ -33,11 +33,12 @@
 // This file tests the universal value printer.
 
 #include <ctype.h>
-#include <limits.h>
 #include <string.h>
 #include <algorithm>
+#include <cstdint>
 #include <deque>
 #include <forward_list>
+#include <limits>
 #include <list>
 #include <map>
 #include <set>
@@ -219,7 +220,6 @@ using ::testing::PrintToString;
 using ::testing::internal::FormatForComparisonFailureMessage;
 using ::testing::internal::ImplicitCast_;
 using ::testing::internal::NativeArray;
-using ::testing::internal::RE;
 using ::testing::internal::RelationToSourceReference;
 using ::testing::internal::Strings;
 using ::testing::internal::UniversalPrint;
@@ -340,23 +340,25 @@ TEST(PrintBuiltInTypeTest, Wchar_t) {
   EXPECT_EQ("L'\\xC74D' (51021)", Print(static_cast<wchar_t>(0xC74D)));
 }
 
-// Test that Int64 provides more storage than wchar_t.
+// Test that int64_t provides more storage than wchar_t.
 TEST(PrintTypeSizeTest, Wchar_t) {
-  EXPECT_LT(sizeof(wchar_t), sizeof(testing::internal::Int64));
+  EXPECT_LT(sizeof(wchar_t), sizeof(int64_t));
 }
 
 // Various integer types.
 TEST(PrintBuiltInTypeTest, Integer) {
   EXPECT_EQ("'\\xFF' (255)", Print(static_cast<unsigned char>(255)));  // uint8
   EXPECT_EQ("'\\x80' (-128)", Print(static_cast<signed char>(-128)));  // int8
-  EXPECT_EQ("65535", Print(USHRT_MAX));  // uint16
-  EXPECT_EQ("-32768", Print(SHRT_MIN));  // int16
-  EXPECT_EQ("4294967295", Print(UINT_MAX));  // uint32
-  EXPECT_EQ("-2147483648", Print(INT_MIN));  // int32
+  EXPECT_EQ("65535", Print(std::numeric_limits<uint16_t>::max()));  // uint16
+  EXPECT_EQ("-32768", Print(std::numeric_limits<int16_t>::min()));  // int16
+  EXPECT_EQ("4294967295",
+            Print(std::numeric_limits<uint32_t>::max()));  // uint32
+  EXPECT_EQ("-2147483648",
+            Print(std::numeric_limits<int32_t>::min()));  // int32
   EXPECT_EQ("18446744073709551615",
-            Print(static_cast<testing::internal::UInt64>(-1)));  // uint64
+            Print(std::numeric_limits<uint64_t>::max()));  // uint64
   EXPECT_EQ("-9223372036854775808",
-            Print(static_cast<testing::internal::Int64>(1) << 63));  // int64
+            Print(std::numeric_limits<int64_t>::min()));  // int64
 }
 
 // Size types.
@@ -656,16 +658,6 @@ TEST(PrintArrayTest, BigArray) {
 
 // Tests printing ::string and ::std::string.
 
-#if GTEST_HAS_GLOBAL_STRING
-// ::string.
-TEST(PrintStringTest, StringInGlobalNamespace) {
-  const char s[] = "'\"?\\\a\b\f\n\0\r\t\v\x7F\xFF a";
-  const ::string str(s, sizeof(s));
-  EXPECT_EQ("\"'\\\"?\\\\\\a\\b\\f\\n\\0\\r\\t\\v\\x7F\\xFF a\\0\"",
-            Print(str));
-}
-#endif  // GTEST_HAS_GLOBAL_STRING
-
 // ::std::string.
 TEST(PrintStringTest, StringInStdNamespace) {
   const char s[] = "'\"?\\\a\b\f\n\0\r\t\v\x7F\xFF a";
@@ -688,19 +680,7 @@ TEST(PrintStringTest, StringAmbiguousHex) {
   EXPECT_EQ("\"!\\x5-!\"", Print(::std::string("!\x5-!")));
 }
 
-// Tests printing ::wstring and ::std::wstring.
-
-#if GTEST_HAS_GLOBAL_WSTRING
-// ::wstring.
-TEST(PrintWideStringTest, StringInGlobalNamespace) {
-  const wchar_t s[] = L"'\"?\\\a\b\f\n\0\r\t\v\xD3\x576\x8D3\xC74D a";
-  const ::wstring str(s, sizeof(s)/sizeof(wchar_t));
-  EXPECT_EQ("L\"'\\\"?\\\\\\a\\b\\f\\n\\0\\r\\t\\v"
-            "\\xD3\\x576\\x8D3\\xC74D a\\0\"",
-            Print(str));
-}
-#endif  // GTEST_HAS_GLOBAL_WSTRING
-
+// Tests printing ::std::wstring.
 #if GTEST_HAS_STD_WSTRING
 // ::std::wstring.
 TEST(PrintWideStringTest, StringInStdNamespace) {
@@ -1000,9 +980,8 @@ TEST(PrintStdTupleTest, VariousSizes) {
   EXPECT_EQ("(false, 2, 3, 4)", Print(t4));
 
   const char* const str = "8";
-  ::std::tuple<bool, char, short, testing::internal::Int32,  // NOLINT
-               testing::internal::Int64, float, double, const char*, void*,
-               std::string>
+  ::std::tuple<bool, char, short, int32_t, int64_t, float, double,  // NOLINT
+               const char*, void*, std::string>
       t10(false, 'a', static_cast<short>(3), 4, 5, 1.5F, -2.5, str,  // NOLINT
           nullptr, "10");
   EXPECT_EQ("(false, 'a' (97, 0x61), 3, 4, 5, 1.5, -2.5, " + PrintPointer(str) +
@@ -1243,21 +1222,6 @@ TEST(FormatForComparisonFailureMessageTest, WorksForWCharPointerVsPointer) {
 // Tests formatting a char pointer when it's compared to a string object.
 // In this case we want to print the char pointer as a C string.
 
-#if GTEST_HAS_GLOBAL_STRING
-// char pointer vs ::string
-TEST(FormatForComparisonFailureMessageTest, WorksForCharPointerVsString) {
-  const char* s = "hello \"world";
-  EXPECT_STREQ("\"hello \\\"world\"",  // The string content should be escaped.
-               FormatForComparisonFailureMessage(s, ::string()).c_str());
-
-  // char*
-  char str[] = "hi\1";
-  char* p = str;
-  EXPECT_STREQ("\"hi\\x1\"",  // The string content should be escaped.
-               FormatForComparisonFailureMessage(p, ::string()).c_str());
-}
-#endif
-
 // char pointer vs std::string
 TEST(FormatForComparisonFailureMessageTest, WorksForCharPointerVsStdString) {
   const char* s = "hello \"world";
@@ -1270,21 +1234,6 @@ TEST(FormatForComparisonFailureMessageTest, WorksForCharPointerVsStdString) {
   EXPECT_STREQ("\"hi\\x1\"",  // The string content should be escaped.
                FormatForComparisonFailureMessage(p, ::std::string()).c_str());
 }
-
-#if GTEST_HAS_GLOBAL_WSTRING
-// wchar_t pointer vs ::wstring
-TEST(FormatForComparisonFailureMessageTest, WorksForWCharPointerVsWString) {
-  const wchar_t* s = L"hi \"world";
-  EXPECT_STREQ("L\"hi \\\"world\"",  // The string content should be escaped.
-               FormatForComparisonFailureMessage(s, ::wstring()).c_str());
-
-  // wchar_t*
-  wchar_t str[] = L"hi\1";
-  wchar_t* p = str;
-  EXPECT_STREQ("L\"hi\\x1\"",  // The string content should be escaped.
-               FormatForComparisonFailureMessage(p, ::wstring()).c_str());
-}
-#endif
 
 #if GTEST_HAS_STD_WSTRING
 // wchar_t pointer vs std::wstring
@@ -1338,31 +1287,12 @@ TEST(FormatForComparisonFailureMessageTest, WorksForWCharArrayVsWCharArray) {
 // Tests formatting a char array when it's compared with a string object.
 // In this case we want to print the array as a C string.
 
-#if GTEST_HAS_GLOBAL_STRING
-// char array vs string
-TEST(FormatForComparisonFailureMessageTest, WorksForCharArrayVsString) {
-  const char str[] = "hi \"w\0rld\"";
-  EXPECT_STREQ("\"hi \\\"w\"",  // The content should be escaped.
-                                // Embedded NUL terminates the string.
-               FormatForComparisonFailureMessage(str, ::string()).c_str());
-}
-#endif
-
 // char array vs std::string
 TEST(FormatForComparisonFailureMessageTest, WorksForCharArrayVsStdString) {
   const char str[] = "hi \"world\"";
   EXPECT_STREQ("\"hi \\\"world\\\"\"",  // The content should be escaped.
                FormatForComparisonFailureMessage(str, ::std::string()).c_str());
 }
-
-#if GTEST_HAS_GLOBAL_WSTRING
-// wchar_t array vs wstring
-TEST(FormatForComparisonFailureMessageTest, WorksForWCharArrayVsWString) {
-  const wchar_t str[] = L"hi \"world\"";
-  EXPECT_STREQ("L\"hi \\\"world\\\"\"",  // The content should be escaped.
-               FormatForComparisonFailureMessage(str, ::wstring()).c_str());
-}
-#endif
 
 #if GTEST_HAS_STD_WSTRING
 // wchar_t array vs std::wstring
@@ -1627,6 +1557,65 @@ TEST(PrintOneofTest, Basic) {
       PrintToString(Type(NonPrintable{})));
 }
 #endif  // GTEST_HAS_ABSL
+namespace {
+class string_ref;
+
+/**
+ * This is a synthetic pointer to a fixed size string.
+ */
+class string_ptr {
+ public:
+  string_ptr(const char* data, size_t size) : data_(data), size_(size) {}
+
+  string_ptr& operator++() noexcept {
+    data_ += size_;
+    return *this;
+  }
+
+  string_ref operator*() const noexcept;
+
+ private:
+  const char* data_;
+  size_t size_;
+};
+
+/**
+ * This is a synthetic reference of a fixed size string.
+ */
+class string_ref {
+ public:
+  string_ref(const char* data, size_t size) : data_(data), size_(size) {}
+
+  string_ptr operator&() const noexcept { return {data_, size_}; }  // NOLINT
+
+  bool operator==(const char* s) const noexcept {
+    if (size_ > 0 && data_[size_ - 1] != 0) {
+      return std::string(data_, size_) == std::string(s);
+    } else {
+      return std::string(data_) == std::string(s);
+    }
+  }
+
+ private:
+  const char* data_;
+  size_t size_;
+};
+
+string_ref string_ptr::operator*() const noexcept { return {data_, size_}; }
+
+TEST(string_ref, compare) {
+  const char* s = "alex\0davidjohn\0";
+  string_ptr ptr(s, 5);
+  EXPECT_EQ(*ptr, "alex");
+  EXPECT_TRUE(*ptr == "alex");
+  ++ptr;
+  EXPECT_EQ(*ptr, "david");
+  EXPECT_TRUE(*ptr == "david");
+  ++ptr;
+  EXPECT_EQ(*ptr, "john");
+}
+
+}  // namespace
 
 }  // namespace gtest_printers_test
 }  // namespace testing

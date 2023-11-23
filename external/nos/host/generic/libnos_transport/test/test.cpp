@@ -361,7 +361,9 @@ TEST_F(TransportTest, StatusCrcError) {
   const uint16_t param = 192;
 
   InSequence please;
-  // Try 3 times
+  // Try 5 times
+  EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
+  EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
   EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
   EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
   EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
@@ -392,7 +394,9 @@ TEST_F(TransportTest, FailToClearStatusAfterStatusCrcError) {
   const uint16_t param = 192;
 
   InSequence please;
-  // Try 3 times
+  // Try 5 times
+  EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
+  EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
   EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
   EXPECT_GET_STATUS_IDLE_WITH_BAD_CRC(app_id);
   EXPECT_GET_STATUS_BAD_CRC(app_id);
@@ -412,7 +416,17 @@ TEST_F(TransportTest, RequestCrcError) {
   const uint16_t args_len = 5;
 
   InSequence please;
-  // Should try 3 times
+  // Should try 5 times
+  EXPECT_GET_STATUS_IDLE(app_id);
+  EXPECT_SEND_DATA(app_id, args, args_len);
+  EXPECT_GO_COMMAND(app_id, param, args, args_len, 0);
+  EXPECT_GET_STATUS_BAD_CRC(app_id);
+  // 4 more
+  EXPECT_GET_STATUS_IDLE(app_id);
+  EXPECT_SEND_DATA(app_id, args, args_len);
+  EXPECT_GO_COMMAND(app_id, param, args, args_len, 0);
+  EXPECT_GET_STATUS_BAD_CRC(app_id);
+  // 3 more
   EXPECT_GET_STATUS_IDLE(app_id);
   EXPECT_SEND_DATA(app_id, args, args_len);
   EXPECT_GO_COMMAND(app_id, param, args, args_len, 0);
@@ -554,7 +568,9 @@ TEST_F(TransportTest, ReplyCrcError) {
   EXPECT_SEND_DATA(app_id, nullptr, 0);
   EXPECT_GO_COMMAND(app_id, param, nullptr, 0, reply_len);
   EXPECT_GET_STATUS_DONE_WITH_DATA(app_id, data, sizeof(data));
-  // Try 3 times to read data
+  // Try 5 times to read data
+  EXPECT_RECV_DATA(app_id, reply_len, wrong_data, sizeof(wrong_data));
+  EXPECT_RECV_DATA(app_id, reply_len, wrong_data, sizeof(wrong_data));
   EXPECT_RECV_DATA(app_id, reply_len, wrong_data, sizeof(wrong_data));
   EXPECT_RECV_DATA(app_id, reply_len, wrong_data, sizeof(wrong_data));
   EXPECT_RECV_DATA(app_id, reply_len, wrong_data, sizeof(wrong_data));

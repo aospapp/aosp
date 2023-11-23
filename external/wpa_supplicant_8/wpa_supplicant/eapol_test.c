@@ -15,6 +15,7 @@
 #include "common.h"
 #include "utils/ext_password.h"
 #include "common/version.h"
+#include "crypto/tls.h"
 #include "config.h"
 #include "eapol_supp/eapol_supp_sm.h"
 #include "eap_peer/eap.h"
@@ -438,7 +439,7 @@ static void eapol_sm_cb(struct eapol_sm *eapol, enum eapol_supp_result result,
 static void eapol_test_write_cert(FILE *f, const char *subject,
 				  const struct wpabuf *cert)
 {
-	unsigned char *encoded;
+	char *encoded;
 
 	encoded = base64_encode(wpabuf_head(cert), wpabuf_len(cert), NULL);
 	if (encoded == NULL)
@@ -497,45 +498,40 @@ static void eapol_test_eap_param_needed(void *ctx, enum wpa_ctrl_req_type field,
 #endif /* CONFIG_CTRL_IFACE || !CONFIG_NO_STDOUT_DEBUG */
 
 
-static void eapol_test_cert_cb(void *ctx, int depth, const char *subject,
-			       const char *altsubject[], int num_altsubject,
-			       const char *cert_hash,
-			       const struct wpabuf *cert)
+static void eapol_test_cert_cb(void *ctx, struct tls_cert_data *cert,
+			       const char *cert_hash)
 {
 	struct eapol_test_data *e = ctx;
+	int i;
 
 	wpa_msg(e->wpa_s, MSG_INFO, WPA_EVENT_EAP_PEER_CERT
 		"depth=%d subject='%s'%s%s",
-		depth, subject,
+		cert->depth, cert->subject,
 		cert_hash ? " hash=" : "",
 		cert_hash ? cert_hash : "");
 
-	if (cert) {
+	if (cert->cert) {
 		char *cert_hex;
-		size_t len = wpabuf_len(cert) * 2 + 1;
+		size_t len = wpabuf_len(cert->cert) * 2 + 1;
 		cert_hex = os_malloc(len);
 		if (cert_hex) {
-			wpa_snprintf_hex(cert_hex, len, wpabuf_head(cert),
-					 wpabuf_len(cert));
+			wpa_snprintf_hex(cert_hex, len, wpabuf_head(cert->cert),
+					 wpabuf_len(cert->cert));
 			wpa_msg_ctrl(e->wpa_s, MSG_INFO,
 				     WPA_EVENT_EAP_PEER_CERT
 				     "depth=%d subject='%s' cert=%s",
-				     depth, subject, cert_hex);
+				     cert->depth, cert->subject, cert_hex);
 			os_free(cert_hex);
 		}
 
 		if (e->server_cert_file)
 			eapol_test_write_cert(e->server_cert_file,
-					      subject, cert);
+					      cert->subject, cert->cert);
 	}
 
-	if (altsubject) {
-		int i;
-
-		for (i = 0; i < num_altsubject; i++)
-			wpa_msg(e->wpa_s, MSG_INFO, WPA_EVENT_EAP_PEER_ALT
-				"depth=%d %s", depth, altsubject[i]);
-	}
+	for (i = 0; i < cert->num_altsubject; i++)
+		wpa_msg(e->wpa_s, MSG_INFO, WPA_EVENT_EAP_PEER_ALT
+			"depth=%d %s", cert->depth, cert->altsubject[i]);
 }
 
 
@@ -648,9 +644,9 @@ static int test_eapol(struct eapol_test_data *e, struct wpa_supplicant *wpa_s,
 	eapol_sm_register_scard_ctx(wpa_s->eapol, wpa_s->scard);
 
 
-	eapol_sm_notify_portValid(wpa_s->eapol, FALSE);
+	eapol_sm_notify_portValid(wpa_s->eapol, false);
 	/* 802.1X::portControl = Auto */
-	eapol_sm_notify_portEnabled(wpa_s->eapol, TRUE);
+	eapol_sm_notify_portEnabled(wpa_s->eapol, true);
 
 	return 0;
 }
@@ -1394,7 +1390,7 @@ int main(int argc, char *argv[])
 			eapol_test.ctrl_iface = 1;
 			break;
 		case 'v':
-			printf("eapol_test v" VERSION_STR "\n");
+			printf("eapol_test v%s\n", VERSION_STR);
 			return 0;
 		case 'W':
 			wait_for_monitor++;

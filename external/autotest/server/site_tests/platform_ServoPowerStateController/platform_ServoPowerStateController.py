@@ -114,11 +114,12 @@ class platform_ServoPowerStateController(test.test):
 
     def cleanup(self):
         """Clean up DUT after servo actions."""
-        if not self.host.ssh_ping():
+        if not self.host.is_up():
             # Power off, then power on DUT from internal storage.
             self.controller.power_off()
             self.host.servo.switch_usbkey('off')
             self.controller.power_on(self.controller.REC_OFF)
+            self.host.wait_up(timeout=300)
 
 
     def assert_dut_on(self, rec_on=False):

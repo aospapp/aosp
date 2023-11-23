@@ -30,17 +30,18 @@ import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
-import org.junit.Test;
+import com.github.javaparser.symbolsolver.utils.LeanParserConfiguration;
+import org.junit.jupiter.api.Test;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class VariadicResolutionTest extends AbstractResolutionTest {
+class VariadicResolutionTest extends AbstractResolutionTest {
 
 	@Test
-    public void issue7() {
+    void issue7() {
         CompilationUnit cu = parseSample("Generics_issue7");
         ClassOrInterfaceDeclaration clazz = Navigator.demandClass(cu, "SomeCollection");
 
@@ -56,7 +57,7 @@ public class VariadicResolutionTest extends AbstractResolutionTest {
     }
 	
 	@Test
-    public void methodCallWithReferenceTypeAsVaridicArgumentIsSolved() {
+    void methodCallWithReferenceTypeAsVaridicArgumentIsSolved() {
         CompilationUnit cu = parseSample("MethodCalls");
         ClassOrInterfaceDeclaration clazz = Navigator.demandClass(cu, "MethodCalls");
 
@@ -70,7 +71,7 @@ public class VariadicResolutionTest extends AbstractResolutionTest {
     }
 
     @Test
-    public void resolveVariadicMethodWithGenericArgument() {
+    void resolveVariadicMethodWithGenericArgument() {
         CompilationUnit cu = parseSample("MethodCalls");
         ClassOrInterfaceDeclaration clazz = Navigator.demandClass(cu, "MethodCalls");
 
@@ -84,15 +85,15 @@ public class VariadicResolutionTest extends AbstractResolutionTest {
     }
 
     @Test
-    public void selectMostSpecificVariadic() {
+    void selectMostSpecificVariadic() {
         CompilationUnit cu = parseSample("MethodCalls");
         ClassOrInterfaceDeclaration clazz = Navigator.demandClass(cu, "MethodCalls");
 
         MethodDeclaration method = Navigator.demandMethod(clazz, "variadicTest");
         List<MethodCallExpr> calls = method.findAll(MethodCallExpr.class);
 
-        File src = adaptPath(new File("src/test/resources"));
-        TypeSolver typeSolver = new CombinedTypeSolver(new ReflectionTypeSolver(), new JavaParserTypeSolver(src));
+        Path src = adaptPath("src/test/resources");
+        TypeSolver typeSolver = new CombinedTypeSolver(new ReflectionTypeSolver(), new JavaParserTypeSolver(src, new LeanParserConfiguration()));
 
         JavaParserFacade javaParserFacade = JavaParserFacade.get(typeSolver);
         MethodUsage call1 = javaParserFacade.solveMethodAsUsage(calls.get(0));

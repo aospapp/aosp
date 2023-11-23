@@ -37,6 +37,7 @@
 #include "st_atom.h"
 #include "st_debug.h"
 #include "st_program.h"
+#include "st_util.h"
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
 #include "cso_cache/cso_context.h"
@@ -294,9 +295,27 @@ st_update_rasterizer(struct st_context *st)
    }
 
    /* _NEW_TRANSFORM */
-   raster->depth_clip = !ctx->Transform.DepthClamp;
+   raster->depth_clip_near = !ctx->Transform.DepthClampNear;
+   raster->depth_clip_far = !ctx->Transform.DepthClampFar;
    raster->clip_plane_enable = ctx->Transform.ClipPlanesEnabled;
    raster->clip_halfz = (ctx->Transform.ClipDepthMode == GL_ZERO_TO_ONE);
+
+    /* ST_NEW_RASTERIZER */
+   if (ctx->ConservativeRasterization) {
+      if (ctx->ConservativeRasterMode == GL_CONSERVATIVE_RASTER_MODE_POST_SNAP_NV)
+         raster->conservative_raster_mode = PIPE_CONSERVATIVE_RASTER_POST_SNAP;
+      else
+         raster->conservative_raster_mode = PIPE_CONSERVATIVE_RASTER_PRE_SNAP;
+   } else if (ctx->IntelConservativeRasterization) {
+      raster->conservative_raster_mode = PIPE_CONSERVATIVE_RASTER_POST_SNAP;
+   } else {
+      raster->conservative_raster_mode = PIPE_CONSERVATIVE_RASTER_OFF;
+   }
+
+   raster->conservative_raster_dilate = ctx->ConservativeRasterDilate;
+
+   raster->subpixel_precision_x = ctx->SubpixelPrecisionBias[0];
+   raster->subpixel_precision_y = ctx->SubpixelPrecisionBias[1];
 
    cso_set_rasterizer(st->cso_context, raster);
 }

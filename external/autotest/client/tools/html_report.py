@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 """
 Module used to parse the autotest job results and generate an HTML report.
 

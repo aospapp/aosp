@@ -11,8 +11,8 @@ import com.ibm.icu.impl.CalType;
 import com.ibm.icu.impl.EraRules;
 import com.ibm.icu.util.Calendar;
 import com.ibm.icu.util.JapaneseCalendar;
-import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.TimeZone;
+import com.ibm.icu.util.ULocale;
 
 /**
  * Tests for EraRules class
@@ -45,7 +45,6 @@ public class EraRulesTest extends TestFmwk {
                         + calId);
             }
 
-            // Android-changed: EraRules.getCurrentEraIndex() uses UTC time. http://b/131766004
             Calendar cal = Calendar.getInstance(TimeZone.GMT_ZONE, new ULocale("en"));
             int currentIdx = rules1.getCurrentEraIndex();
             int currentYear = cal.get(Calendar.YEAR);

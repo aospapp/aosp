@@ -10,8 +10,7 @@
 #include "cras_alsa_mixer_name.h"
 #include "utlist.h"
 
-struct mixer_name *mixer_name_add(struct mixer_name *names,
-				  const char *name,
+struct mixer_name *mixer_name_add(struct mixer_name *names, const char *name,
 				  enum CRAS_STREAM_DIRECTION dir,
 				  mixer_name_type type)
 {
@@ -37,7 +36,7 @@ struct mixer_name *mixer_name_add(struct mixer_name *names,
 }
 
 struct mixer_name *mixer_name_add_array(struct mixer_name *names,
-					const char * const *name_array,
+					const char *const *name_array,
 					size_t name_array_size,
 					enum CRAS_STREAM_DIRECTION dir,
 					mixer_name_type type)
@@ -51,15 +50,14 @@ struct mixer_name *mixer_name_add_array(struct mixer_name *names,
 void mixer_name_free(struct mixer_name *names)
 {
 	struct mixer_name *m_name;
-	DL_FOREACH(names, m_name) {
+	DL_FOREACH (names, m_name) {
 		DL_DELETE(names, m_name);
-		free((void*)m_name->name);
+		free((void *)m_name->name);
 		free(m_name);
 	}
 }
 
-struct mixer_name *mixer_name_find(struct mixer_name *names,
-				   const char *name,
+struct mixer_name *mixer_name_find(struct mixer_name *names, const char *name,
 				   enum CRAS_STREAM_DIRECTION dir,
 				   mixer_name_type type)
 {
@@ -67,13 +65,12 @@ struct mixer_name *mixer_name_find(struct mixer_name *names,
 		return NULL;
 
 	struct mixer_name *m_name;
-	DL_FOREACH(names, m_name) {
+	DL_FOREACH (names, m_name) {
 		/* Match the direction. */
 		if (dir != m_name->dir)
 			continue;
 		/* Match the type unless the type is UNDEFINED. */
-		if (type != MIXER_NAME_UNDEFINED &&
-		    type != m_name->type)
+		if (type != MIXER_NAME_UNDEFINED && type != m_name->type)
 			continue;
 		/* Match the name if it is non-NULL, or return the first
 		 * item with the correct type when the name is not defined. */
@@ -126,7 +123,7 @@ void mixer_name_dump(struct mixer_name *names, const char *message)
 	}
 
 	syslog(LOG_DEBUG, "%s:", message);
-	DL_FOREACH(names, m_name) {
+	DL_FOREACH (names, m_name) {
 		const char *type_str =
 			mixer_name_type_str(m_name->dir, m_name->type);
 		syslog(LOG_DEBUG, "    %s %s", m_name->name, type_str);

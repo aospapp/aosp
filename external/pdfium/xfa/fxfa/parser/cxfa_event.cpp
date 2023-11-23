@@ -6,33 +6,32 @@
 
 #include "xfa/fxfa/parser/cxfa_event.h"
 
-#include "fxjs/xfa/cjx_event.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fxfa/parser/cxfa_script.h"
 #include "xfa/fxfa/parser/cxfa_submit.h"
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kEventPropertyData[] = {
     {XFA_Element::Execute, 1, XFA_PROPERTYFLAG_OneOf},
     {XFA_Element::Script, 1, XFA_PROPERTYFLAG_OneOf},
     {XFA_Element::SignData, 1, XFA_PROPERTYFLAG_OneOf},
     {XFA_Element::Extras, 1, 0},
     {XFA_Element::Submit, 1, XFA_PROPERTYFLAG_OneOf},
-    {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+};
+
+const CXFA_Node::AttributeData kEventAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Ref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Listen, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::RefOnly},
+     (void*)XFA_AttributeValue::RefOnly},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Activity, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::Click},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"event";
+     (void*)XFA_AttributeValue::Click},
+};
 
 }  // namespace
 
@@ -42,14 +41,13 @@ CXFA_Event::CXFA_Event(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Event,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Event>(this)) {}
+                kEventPropertyData,
+                kEventAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Event::~CXFA_Event() {}
+CXFA_Event::~CXFA_Event() = default;
 
-XFA_AttributeEnum CXFA_Event::GetActivity() {
+XFA_AttributeValue CXFA_Event::GetActivity() {
   return JSObject()->GetEnum(XFA_Attribute::Activity);
 }
 
@@ -73,6 +71,8 @@ CXFA_Script* CXFA_Event::GetScriptIfExists() {
   return GetChild<CXFA_Script>(0, XFA_Element::Script, false);
 }
 
+#ifdef PDF_XFA_ELEMENT_SUBMIT_ENABLED
 CXFA_Submit* CXFA_Event::GetSubmitIfExists() {
   return GetChild<CXFA_Submit>(0, XFA_Element::Submit, false);
 }
+#endif  // PDF_XFA_ELEMENT_SUBMIT_ENABLED

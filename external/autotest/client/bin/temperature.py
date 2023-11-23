@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import argparse
 
@@ -13,12 +13,6 @@ group.add_argument("-m", "--maximum",
                    dest="temperature_type",
                    help="Get the highest reported board temperature "
                         "from all sensors in Celsius.")
-group.add_argument("-c", "--critical",
-                   action="store_const",
-                   const="Critical",
-                   dest="temperature_type",
-                   help="Get the critical temperature from all "
-                        "sensors in Celsius.")
 args = argparser.add_argument("-v", "--verbose",
                               action="store_true",
                               help="Show temperature type and value.")
@@ -29,7 +23,6 @@ import common
 from autotest_lib.client.bin import utils
 
 TEMPERATURE_TYPE = {
-    'Critical': utils.get_temperature_critical,
     'Maximum': utils.get_current_temperature_max,
 }
 

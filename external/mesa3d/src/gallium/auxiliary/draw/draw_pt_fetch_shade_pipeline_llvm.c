@@ -355,9 +355,9 @@ llvm_pipeline_generic(struct draw_pt_middle_end *middle,
    struct llvm_middle_end *fpme = llvm_middle_end(middle);
    struct draw_context *draw = fpme->draw;
    struct draw_geometry_shader *gshader = draw->gs.geometry_shader;
-   struct draw_prim_info gs_prim_info;
+   struct draw_prim_info gs_prim_info[TGSI_MAX_VERTEX_STREAMS];
    struct draw_vertex_info llvm_vert_info;
-   struct draw_vertex_info gs_vert_info;
+   struct draw_vertex_info gs_vert_info[TGSI_MAX_VERTEX_STREAMS];
    struct draw_vertex_info *vert_info;
    struct draw_prim_info ia_prim_info;
    struct draw_vertex_info ia_vert_info;
@@ -422,12 +422,21 @@ llvm_pipeline_generic(struct draw_pt_middle_end *middle,
                                vert_info,
                                prim_info,
                                &vshader->info,
-                               &gs_vert_info,
-                               &gs_prim_info);
+                               gs_vert_info,
+                               gs_prim_info);
 
       FREE(vert_info->verts);
-      vert_info = &gs_vert_info;
-      prim_info = &gs_prim_info;
+      vert_info = &gs_vert_info[0];
+      prim_info = &gs_prim_info[0];
+      /*
+       * pt emit can only handle ushort number of vertices (see
+       * render->allocate_vertices).
+       * vsplit guarantees there's never more than 4096, however GS can
+       * easily blow this up (by a factor of 256 (or even 1024) max).
+       */
+      if (vert_info->count > 65535) {
+         opt |= PT_PIPELINE;
+      }
    } else {
       if (draw_prim_assembler_is_required(draw, prim_info, vert_info)) {
          draw_prim_assembler_run(draw, prim_info, vert_info,
@@ -452,7 +461,7 @@ llvm_pipeline_generic(struct draw_pt_middle_end *middle,
    }
 
    /* stream output needs to be done before clipping */
-   draw_pt_so_emit( fpme->so_emit, vert_info, prim_info );
+   draw_pt_so_emit( fpme->so_emit, 1, vert_info, prim_info );
 
    draw_stats_clipper_primitives(draw, prim_info);
 

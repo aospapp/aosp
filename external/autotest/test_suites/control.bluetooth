@@ -12,15 +12,16 @@ TEST_CLASS = "suite"
 TEST_TYPE = "Server"
 
 DOC = """
-This suite runs the complete set of Bluetooth tests for our hardware and
-software, including the general Sanity tests, and the Bluetooth Qualification
-tests.
+This suite runs the complete set of stable Bluetooth functional tests for our hardware and
+software.
+
+suite:bluetooth is a combination of suite:bluetooth_standalone and suite:bluetooth_e2e
 """
 
 import common
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
-args_dict['name'] = 'bluetooth'
+args_dict['name'] = NAME
 args_dict['add_experimental'] = True
 args_dict['job'] = job
 

@@ -8,7 +8,7 @@ PURPOSE = "Basic sanity test for Bluetooth adapter."
 CRITERIA = """
 This test will fail if there are any basic problems with the Bluetooth adapter.
 """
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild, suite:bluetooth_flaky"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

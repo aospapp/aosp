@@ -6,13 +6,13 @@
 #ifndef CRAS_DBUS_TEST_H_
 #define CRAS_DBUS_TEST_H_
 
-#include <string>
-#include <vector>
-
-#include <stdint.h>
 #include <dbus/dbus.h>
 #include <gtest/gtest.h>
 #include <pthread.h>
+#include <stdint.h>
+
+#include <string>
+#include <vector>
 
 /* DBusTest, and the related DBusMatch class, are used to provide a
  * GMock-like experience for testing D-Bus code within cras.
@@ -187,31 +187,34 @@ class DBusMatch {
 
   // Methods used by DBusTest after constructing the DBusMatch instance
   // to set the type of match.
-  void ExpectMethodCall(std::string path, std::string interface,
+  void ExpectMethodCall(std::string path,
+                        std::string interface,
                         std::string method);
 
-  void CreateSignal(DBusConnection *conn,
-                    std::string path, std::string interface,
+  void CreateSignal(DBusConnection* conn,
+                    std::string path,
+                    std::string interface,
                     std::string signal_name);
 
-  void CreateMessageCall(DBusConnection *conn,
-                         std::string path, std::string interface,
+  void CreateMessageCall(DBusConnection* conn,
+                         std::string path,
+                         std::string interface,
                          std::string signal_name);
 
   // Determine whether a message matches a set of arguments.
-  bool MatchMessageArgs(DBusMessage *message, std::vector<Arg> *args);
+  bool MatchMessageArgs(DBusMessage* message, std::vector<Arg>* args);
 
   // Append a set of arguments to a message.
-  void AppendArgsToMessage(DBusMessage *message, std::vector<Arg> *args);
+  void AppendArgsToMessage(DBusMessage* message, std::vector<Arg>* args);
 
   // Send a message on a connection.
-  void SendMessage(DBusConnection *conn, DBusMessage *message);
+  void SendMessage(DBusConnection* conn, DBusMessage* message);
 
   // Handle a message received by the server connection.
-  bool HandleServerMessage(DBusConnection *conn, DBusMessage *message);
+  bool HandleServerMessage(DBusConnection* conn, DBusMessage* message);
 
   // Handle a message received by the client connection.
-  bool HandleClientMessage(DBusConnection *conn, DBusMessage *message);
+  bool HandleClientMessage(DBusConnection* conn, DBusMessage* message);
 
   // Verify whether the match is complete.
   bool Complete();
@@ -224,7 +227,7 @@ class DBusMatch {
   bool as_property_dictionary_;
   std::vector<Arg> args_;
 
-  DBusConnection *conn_;
+  DBusConnection* conn_;
 
   bool send_reply_;
   std::vector<Arg> reply_args_;
@@ -247,18 +250,21 @@ class DBusTest : public ::testing::Test {
  protected:
   // Connection to the D-Bus server, this may be used during tests as the
   // "bus" connection, all messages go to and from the internal D-Bus server.
-  DBusConnection *conn_;
+  DBusConnection* conn_;
 
   // Expect a method call to be received by the server.
-  DBusMatch& ExpectMethodCall(std::string path, std::string interface,
+  DBusMatch& ExpectMethodCall(std::string path,
+                              std::string interface,
                               std::string method);
 
   // Send a signal from the client to the server.
-  DBusMatch& CreateSignal(std::string path, std::string interface,
+  DBusMatch& CreateSignal(std::string path,
+                          std::string interface,
                           std::string signal_name);
 
   // Send a message from the client to the server.
-  DBusMatch& CreateMessageCall(std::string path, std::string interface,
+  DBusMatch& CreateMessageCall(std::string path,
+                               std::string interface,
                                std::string signal_name);
 
   // Wait for all matches created by Expect*() or Create*() methods to
@@ -271,11 +277,11 @@ class DBusTest : public ::testing::Test {
   virtual void TearDown();
 
  private:
-  DBusServer *server_;
-  DBusConnection *server_conn_;
+  DBusServer* server_;
+  DBusConnection* server_conn_;
 
-  std::vector<DBusWatch *> watches_;
-  std::vector<DBusTimeout *> timeouts_;
+  std::vector<DBusWatch*> watches_;
+  std::vector<DBusTimeout*> timeouts_;
 
   pthread_t thread_id_;
   pthread_mutex_t mutex_;
@@ -283,36 +289,37 @@ class DBusTest : public ::testing::Test {
 
   std::vector<DBusMatch> matches_;
 
-  static void NewConnectionThunk(DBusServer *server, DBusConnection *conn,
-                                 void *data);
-  void NewConnection(DBusServer *server, DBusConnection *conn);
+  static void NewConnectionThunk(DBusServer* server,
+                                 DBusConnection* conn,
+                                 void* data);
+  void NewConnection(DBusServer* server, DBusConnection* conn);
 
-  static dbus_bool_t AddWatchThunk(DBusWatch *watch, void *data);
-  dbus_bool_t AddWatch(DBusWatch *watch);
+  static dbus_bool_t AddWatchThunk(DBusWatch* watch, void* data);
+  dbus_bool_t AddWatch(DBusWatch* watch);
 
-  static void RemoveWatchThunk(DBusWatch *watch, void *data);
-  void RemoveWatch(DBusWatch *watch);
+  static void RemoveWatchThunk(DBusWatch* watch, void* data);
+  void RemoveWatch(DBusWatch* watch);
 
-  static void WatchToggledThunk(DBusWatch *watch, void *data);
-  void WatchToggled(DBusWatch *watch);
+  static void WatchToggledThunk(DBusWatch* watch, void* data);
+  void WatchToggled(DBusWatch* watch);
 
-  static dbus_bool_t AddTimeoutThunk(DBusTimeout *timeout, void *data);
-  dbus_bool_t AddTimeout(DBusTimeout *timeout);
+  static dbus_bool_t AddTimeoutThunk(DBusTimeout* timeout, void* data);
+  dbus_bool_t AddTimeout(DBusTimeout* timeout);
 
-  static void RemoveTimeoutThunk(DBusTimeout *timeout, void *data);
-  void RemoveTimeout(DBusTimeout *timeout);
+  static void RemoveTimeoutThunk(DBusTimeout* timeout, void* data);
+  void RemoveTimeout(DBusTimeout* timeout);
 
-  static void TimeoutToggledThunk(DBusTimeout *timeout, void *data);
-  void TimeoutToggled(DBusTimeout *timeout);
+  static void TimeoutToggledThunk(DBusTimeout* timeout, void* data);
+  void TimeoutToggled(DBusTimeout* timeout);
 
-  static DBusHandlerResult HandleMessageThunk(DBusConnection *conn,
-                                              DBusMessage *message, void *data);
-  DBusHandlerResult HandleMessage(DBusConnection *conn, DBusMessage *message);
+  static DBusHandlerResult HandleMessageThunk(DBusConnection* conn,
+                                              DBusMessage* message,
+                                              void* data);
+  DBusHandlerResult HandleMessage(DBusConnection* conn, DBusMessage* message);
 
-  static void *DispatchLoopThunk(void *ptr);
-  void *DispatchLoop();
+  static void* DispatchLoopThunk(void* ptr);
+  void* DispatchLoop();
   void DispatchOnce();
 };
-
 
 #endif /* CRAS_DBUS_TEST_H_ */

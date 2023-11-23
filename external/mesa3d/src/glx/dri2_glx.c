@@ -263,6 +263,10 @@ dri2_create_context_attribs(struct glx_screen *base,
                                  &api, &reset, &release, error))
       goto error_exit;
 
+   if (!dri2_check_no_error(flags, shareList, major_ver, error)) {
+      goto error_exit;
+   }
+
    /* Check the renderType value */
    if (!validate_renderType_against_config(config_base, renderType))
        goto error_exit;
@@ -313,6 +317,9 @@ dri2_create_context_attribs(struct glx_screen *base,
     *  of GLX_RGBA_TYPE.
     */
    pcp->base.renderType = renderType;
+
+   if (flags & __DRI_CTX_FLAG_NO_ERROR)
+      pcp->base.noError = GL_TRUE;
 
    pcp->driContext =
       (*psc->dri2->createContextAttribs) (psc->driScreen,
@@ -1102,7 +1109,6 @@ dri2BindExtensions(struct dri2_screen *psc, struct glx_display * priv,
 
    extensions = psc->core->getExtensions(psc->driScreen);
 
-   __glXEnableDirectExtension(&psc->base, "GLX_SGI_video_sync");
    __glXEnableDirectExtension(&psc->base, "GLX_SGI_swap_control");
    __glXEnableDirectExtension(&psc->base, "GLX_MESA_swap_control");
    __glXEnableDirectExtension(&psc->base, "GLX_SGI_make_current_read");
@@ -1165,6 +1171,14 @@ dri2BindExtensions(struct dri2_screen *psc, struct glx_display * priv,
          __glXEnableDirectExtension(&psc->base,
                                     "GLX_ARB_create_context_robustness");
 
+      /* DRI2 version 3 is also required because
+       * GLX_ARB_create_context_no_error requires GLX_ARB_create_context.
+       */
+      if (psc->dri2->base.version >= 3
+          && strcmp(extensions[i]->name, __DRI2_NO_ERROR) == 0)
+         __glXEnableDirectExtension(&psc->base,
+                                    "GLX_ARB_create_context_no_error");
+
       /* DRI2 version 3 is also required because GLX_MESA_query_renderer
        * requires GLX_ARB_create_context_profile.
        */
@@ -1207,6 +1221,7 @@ dri2CreateScreen(int screen, struct glx_display * priv)
    char *driverName = NULL, *loader_driverName, *deviceName, *tmp;
    drm_magic_t magic;
    int i;
+   unsigned char disable;
 
    psc = calloc(1, sizeof *psc);
    if (psc == NULL)
@@ -1252,13 +1267,7 @@ dri2CreateScreen(int screen, struct glx_display * priv)
       driverName = loader_driverName;
    }
 
-   psc->driver = driOpenDriver(driverName);
-   if (psc->driver == NULL) {
-      ErrorMessageF("driver pointer missing\n");
-      goto handle_error;
-   }
-
-   extensions = driGetDriverExtensions(psc->driver, driverName);
+   extensions = driOpenDriver(driverName, &psc->driver);
    if (extensions == NULL)
       goto handle_error;
 
@@ -1325,8 +1334,6 @@ dri2CreateScreen(int screen, struct glx_display * priv)
    psp->getBufferAge = NULL;
 
    if (pdp->driMinor >= 2) {
-      unsigned char disable;
-
       psp->getDrawableMSC = dri2DrawableGetMSC;
       psp->waitForMSC = dri2WaitForMSC;
       psp->waitForSBC = dri2WaitForSBC;
@@ -1337,6 +1344,11 @@ dri2CreateScreen(int screen, struct glx_display * priv)
                                     &disable) || !disable)
          __glXEnableDirectExtension(&psc->base, "GLX_OML_sync_control");
    }
+
+   if (psc->config->configQueryb(psc->driScreen,
+                                 "glx_disable_sgi_video_sync",
+                                 &disable) || !disable)
+      __glXEnableDirectExtension(&psc->base, "GLX_SGI_video_sync");
 
    /* DRI2 supports SubBuffer through DRI2CopyRegion, so it's always
     * available.*/

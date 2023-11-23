@@ -17,7 +17,8 @@
 
 package com.squareup.okhttp;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.net.Proxy;
 import java.util.Collections;
 import java.util.List;

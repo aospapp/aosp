@@ -23,6 +23,10 @@ import static android.system.OsConstants.SO_SNDTIMEO;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.StructTimeval;
+import com.android.org.conscrypt.ct.CTLogStore;
+import com.android.org.conscrypt.ct.CTLogStoreImpl;
+import com.android.org.conscrypt.ct.CTPolicy;
+import com.android.org.conscrypt.ct.CTPolicyImpl;
 import dalvik.system.BlockGuard;
 import dalvik.system.CloseGuard;
 import java.io.FileDescriptor;
@@ -45,10 +49,12 @@ import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.InvalidParameterSpecException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.net.ssl.SNIHostName;
+import javax.net.ssl.SNIMatcher;
 import javax.net.ssl.SNIServerName;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
@@ -58,10 +64,6 @@ import javax.net.ssl.StandardConstants;
 import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
 import libcore.net.NetworkSecurityPolicy;
-import com.android.org.conscrypt.ct.CTLogStore;
-import com.android.org.conscrypt.ct.CTLogStoreImpl;
-import com.android.org.conscrypt.ct.CTPolicy;
-import com.android.org.conscrypt.ct.CTPolicyImpl;
 import sun.security.x509.AlgorithmId;
 
 final class Platform {
@@ -512,5 +514,21 @@ final class Platform {
 
     static CTPolicy newDefaultPolicy(CTLogStore logStore) {
         return new CTPolicyImpl(logStore, 2);
+    }
+
+    static boolean serverNamePermitted(SSLParametersImpl parameters, String serverName) {
+        Collection<SNIMatcher> sniMatchers = parameters.getSNIMatchers();
+        if (sniMatchers == null || sniMatchers.isEmpty()) {
+            return true;
+        }
+
+        SNIHostName hostname = new SNIHostName(serverName);
+        for (SNIMatcher m : sniMatchers) {
+            boolean match = m.matches(hostname);
+            if (match) {
+                return true;
+            }
+        }
+        return false;
     }
 }

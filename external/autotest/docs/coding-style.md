@@ -115,8 +115,8 @@ incredibly helpful in understanding code.
 
 ## Hardcoded String Formatting
 
-Strings should use only single quotes for hardcoded strings in the code. Double
-quotes are acceptable when single quote is used as part of the string.
+Strings should use only single quotes for hardcoded strings in the code.
+Double quotes are acceptable when single quote is used as part of the string.
 Multiline strings should not use '\' but wrap the string using parentheseses.
 
 ```
@@ -137,43 +137,46 @@ capitalize and punctuate accordingly the sentences. If the description has
 multiple lines, put two levels of indentation before proceeding with text. An
 example docstring:
 
-```
+```python
 def foo(param1, param2):
     """
     Summary line.
 
     Long description of method foo.
 
-    @param param1: A thing called param1 that is used for a bunch of stuff
-            that has methods bar() and baz() which raise SpamError if
-            something goes awry.
+    @param param1: A Spam object that has methods bar() and baz()
+            which raise SpamError if something goes awry.
+    @type param1: Spam
 
-    @returns a list of integers describing changes in a source tree
+    @return: a list of integers describing changes in a source tree
+    @rtype: list
 
-    @raises exception that could be raised if a certain condition occurs.
+    @raise SpamError: when some stated condition occurs.
 
     """
 ```
 
 The tags that you can put inside your docstring are tags recognized by systems
-like doxygen. Not all places need all tags defined, so choose them wisely while
-writing code. Generally (if applicable) always list parameters, return value
-(if there is one), and exceptions that can be raised to each docstring.
+like epydoc. Not all places need all tags defined, so choose them wisely while
+writing code. Generally always list any parameters, the return value (if there
+is one), and exceptions that can be raised.
 
-|   Tag    | Description                                                                              |
-|----------|------------------------------------------------------------------------------------------|
-| @author  | Code author                                                                              |
-| @param   | Parameter description                                                                    |
-| @raise   | If the function can throw an exception, this tag documents the possible exception types. |
-| @raises  | Same as @raise.                                                                          |
-| @return  | Return value description                                                                 |
-| @returns | Same as @return                                                                          |
-| @see     | Reference to other parts of the codebase.                                                |
-| @warning | Call attention to potential problems with the code                                       |
-| @var     | Documentation for a variable or enum value (either global or as a member of a class)     |
-| @version | Version string                                                                           |
+|   Tag    | Description
+|----------|-------------------------------------------------------------------
+| @author  | Code author
+| @cvar    | Class variable (defined on `self.__class__.`)
+| @ivar    | Instance variable for a class (defined on `self.`)
+| @param   | Parameter description
+| @raise   | Exception type the function can throw, and the conditions for it
+| @return  | Return value description
+| @rtype   | The type the method returns
+| @see     | Reference to other parts of the codebase
+| @type    | The type of a given parameter or variable
+| @warning | Call attention to potential problems with the code
+| @version | Version string
 
-When in doubt refer to: http://doxygen.nl/commands.html
+For additional information and fields, refer to the epydoc manual:
+http://epydoc.sourceforge.net/manual-fields.html
 
 ## Simple code
 

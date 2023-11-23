@@ -46,10 +46,11 @@ static void handle_non_empty_audio_message(struct cras_main_message *msg,
 					   void *arg)
 {
 	struct non_empty_audio_msg *audio_msg =
-			(struct non_empty_audio_msg *)msg;
+		(struct non_empty_audio_msg *)msg;
 
 	cras_system_state_set_non_empty_status(audio_msg->non_empty);
-	cras_observer_notify_non_empty_audio_state_changed(audio_msg->non_empty);
+	cras_observer_notify_non_empty_audio_state_changed(
+		audio_msg->non_empty);
 }
 
 int cras_non_empty_audio_handler_init()

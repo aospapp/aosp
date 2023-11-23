@@ -192,23 +192,6 @@ deUint32 getLayerDimensions (const ImageType imageType)
 	}
 }
 
-VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			bufferSize,
-										 const VkBufferUsageFlags	usage)
-{
-	const VkBufferCreateInfo bufferCreateInfo =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
-		DE_NULL,								// const void*			pNext;
-		0u,										// VkBufferCreateFlags	flags;
-		bufferSize,								// VkDeviceSize			size;
-		usage,									// VkBufferUsageFlags	usage;
-		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
-		0u,										// deUint32				queueFamilyIndexCount;
-		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
-	};
-	return bufferCreateInfo;
-}
-
 VkBufferImageCopy makeBufferImageCopy (const VkExtent3D extent,
 									   const deUint32	arraySize)
 {
@@ -222,23 +205,6 @@ VkBufferImageCopy makeBufferImageCopy (const VkExtent3D extent,
 		extent,																		//	VkExtent3D					imageExtent;
 	};
 	return copyParams;
-}
-
-Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
-										   const VkDevice				device,
-										   const VkDescriptorSetLayout	descriptorSetLayout)
-{
-	const VkPipelineLayoutCreateInfo pipelineLayoutParams =
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType					sType;
-		DE_NULL,											// const void*						pNext;
-		0u,													// VkPipelineLayoutCreateFlags		flags;
-		1u,													// deUint32							setLayoutCount;
-		&descriptorSetLayout,								// const VkDescriptorSetLayout*		pSetLayouts;
-		0u,													// deUint32							pushConstantRangeCount;
-		DE_NULL,											// const VkPushConstantRange*		pPushConstantRanges;
-	};
-	return createPipelineLayout(vk, device, &pipelineLayoutParams);
 }
 
 Move<VkPipeline> makeComputePipeline (const DeviceInterface&	vk,
@@ -446,98 +412,6 @@ Move<VkRenderPass> makeRenderPass (const DeviceInterface&	vk,
 	return createRenderPass(vk, device, &renderPassInfo);
 }
 
-//! A single-subpass render pass.
-Move<VkRenderPass> makeRenderPass (const DeviceInterface&	vk,
-								   const VkDevice			device)
-{
-	const VkSubpassDescription		subpassDescription			=
-	{
-		(VkSubpassDescriptionFlags)0,								// VkSubpassDescriptionFlags		flags;
-		VK_PIPELINE_BIND_POINT_GRAPHICS,							// VkPipelineBindPoint				pipelineBindPoint;
-		0u,															// deUint32							inputAttachmentCount;
-		DE_NULL,													// const VkAttachmentReference*		pInputAttachments;
-		0u,															// deUint32							colorAttachmentCount;
-		DE_NULL,													// const VkAttachmentReference*		pColorAttachments;
-		DE_NULL,													// const VkAttachmentReference*		pResolveAttachments;
-		DE_NULL,													// const VkAttachmentReference*		pDepthStencilAttachment;
-		0u,															// deUint32							preserveAttachmentCount;
-		DE_NULL														// const deUint32*					pPreserveAttachments;
-	};
-
-	const VkRenderPassCreateInfo	renderPassInfo				=
-	{
-		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,					// VkStructureType					sType;
-		DE_NULL,													// const void*						pNext;
-		(VkRenderPassCreateFlags)0,									// VkRenderPassCreateFlags			flags;
-		0,															// deUint32							attachmentCount;
-		DE_NULL,													// const VkAttachmentDescription*	pAttachments;
-		1u,															// deUint32							subpassCount;
-		&subpassDescription,										// const VkSubpassDescription*		pSubpasses;
-		0u,															// deUint32							dependencyCount;
-		DE_NULL														// const VkSubpassDependency*		pDependencies;
-	};
-
-	return createRenderPass(vk, device, &renderPassInfo);
-}
-
-Move<VkBufferView> makeBufferView (const DeviceInterface&	vk,
-								   const VkDevice			vkDevice,
-								   const VkBuffer			buffer,
-								   const VkFormat			format,
-								   const VkDeviceSize		offset,
-								   const VkDeviceSize		size)
-{
-	const VkBufferViewCreateInfo bufferViewParams =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,	// VkStructureType			sType;
-		DE_NULL,									// const void*				pNext;
-		0u,											// VkBufferViewCreateFlags	flags;
-		buffer,										// VkBuffer					buffer;
-		format,										// VkFormat					format;
-		offset,										// VkDeviceSize				offset;
-		size,										// VkDeviceSize				range;
-	};
-	return createBufferView(vk, vkDevice, &bufferViewParams);
-}
-
-Move<VkImageView> makeImageView (const DeviceInterface&					vk,
-								 const VkDevice							vkDevice,
-								 const VkImage							image,
-								 const VkImageViewType					imageViewType,
-								 const VkFormat							format,
-								 const VkImageSubresourceRange			subresourceRange,
-								 const VkImageViewUsageCreateInfo*		ImageUsageCreateInfo)
-{
-	const VkImageViewCreateInfo imageViewParams =
-	{
-		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,		// VkStructureType			sType;
-		ImageUsageCreateInfo,							// const void*				pNext;
-		0u,												// VkImageViewCreateFlags	flags;
-		image,											// VkImage					image;
-		imageViewType,									// VkImageViewType			viewType;
-		format,											// VkFormat					format;
-		makeComponentMappingRGBA(),						// VkComponentMapping		components;
-		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
-	};
-	return createImageView(vk, vkDevice, &imageViewParams);
-}
-
-Move<VkDescriptorSet> makeDescriptorSet (const DeviceInterface&			vk,
-										 const VkDevice					device,
-										 const VkDescriptorPool			descriptorPool,
-										 const VkDescriptorSetLayout	setLayout)
-{
-	const VkDescriptorSetAllocateInfo allocateParams =
-	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,		// VkStructureType				sType;
-		DE_NULL,											// const void*					pNext;
-		descriptorPool,										// VkDescriptorPool				descriptorPool;
-		1u,													// deUint32						setLayoutCount;
-		&setLayout,											// const VkDescriptorSetLayout*	pSetLayouts;
-	};
-	return allocateDescriptorSet(vk, device, &allocateParams);
-}
-
 VkImageViewUsageCreateInfo makeImageViewUsageCreateInfo (const VkImageUsageFlags imageUsageFlags)
 {
 	VkImageViewUsageCreateInfo imageViewUsageCreateInfo =
@@ -683,10 +557,15 @@ std::string getImageTypeName (const ImageType imageType)
 	}
 }
 
+std::string getFormatPrefix (const tcu::TextureFormat& format)
+{
+	return tcu::getTextureChannelClass(format.type) == tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER ? "u" :
+		   tcu::getTextureChannelClass(format.type) == tcu::TEXTURECHANNELCLASS_SIGNED_INTEGER   ? "i" : "";
+}
+
 std::string getShaderImageType (const tcu::TextureFormat& format, const ImageType imageType, const bool multisample)
 {
-	std::string formatPart = tcu::getTextureChannelClass(format.type) == tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER ? "u" :
-							 tcu::getTextureChannelClass(format.type) == tcu::TEXTURECHANNELCLASS_SIGNED_INTEGER   ? "i" : "";
+	std::string formatPart = getFormatPrefix(format);
 
 	std::string imageTypePart;
 	if (multisample)
@@ -723,47 +602,67 @@ std::string getShaderImageType (const tcu::TextureFormat& format, const ImageTyp
 
 std::string getShaderImageFormatQualifier (const tcu::TextureFormat& format)
 {
-	const char* orderPart;
-	const char* typePart;
-
-	switch (format.order)
+	if (!isPackedType(mapTextureFormat(format)))
 	{
-		case tcu::TextureFormat::R:		orderPart = "r";	break;
-		case tcu::TextureFormat::RG:	orderPart = "rg";	break;
-		case tcu::TextureFormat::RGB:	orderPart = "rgb";	break;
-		case tcu::TextureFormat::RGBA:	orderPart = "rgba";	break;
-		case tcu::TextureFormat::sRGBA:	orderPart = "rgba";	break;
+		const char* orderPart;
+		const char* typePart;
 
-		default:
-			DE_ASSERT(false);
-			orderPart = DE_NULL;
+		switch (format.order)
+		{
+			case tcu::TextureFormat::R:		orderPart = "r";	break;
+			case tcu::TextureFormat::RG:	orderPart = "rg";	break;
+			case tcu::TextureFormat::RGB:	orderPart = "rgb";	break;
+			case tcu::TextureFormat::RGBA:	orderPart = "rgba";	break;
+			case tcu::TextureFormat::sRGBA:	orderPart = "rgba";	break;
+
+			default:
+				DE_FATAL("Order not found");
+				orderPart = DE_NULL;
+		}
+
+		switch (format.type)
+		{
+			case tcu::TextureFormat::FLOAT:				typePart = "32f";		break;
+			case tcu::TextureFormat::HALF_FLOAT:		typePart = "16f";		break;
+
+			case tcu::TextureFormat::UNSIGNED_INT32:	typePart = "32ui";		break;
+			case tcu::TextureFormat::USCALED_INT16:
+			case tcu::TextureFormat::UNSIGNED_INT16:	typePart = "16ui";		break;
+			case tcu::TextureFormat::USCALED_INT8:
+			case tcu::TextureFormat::UNSIGNED_INT8:		typePart = "8ui";		break;
+
+			case tcu::TextureFormat::SIGNED_INT32:		typePart = "32i";		break;
+			case tcu::TextureFormat::SSCALED_INT16:
+			case tcu::TextureFormat::SIGNED_INT16:		typePart = "16i";		break;
+			case tcu::TextureFormat::SSCALED_INT8:
+			case tcu::TextureFormat::SIGNED_INT8:		typePart = "8i";		break;
+
+			case tcu::TextureFormat::UNORM_INT16:		typePart = "16";		break;
+			case tcu::TextureFormat::UNORM_INT8:		typePart = "8";			break;
+
+			case tcu::TextureFormat::SNORM_INT16:		typePart = "16_snorm";	break;
+			case tcu::TextureFormat::SNORM_INT8:		typePart = "8_snorm";	break;
+
+			default:
+				DE_FATAL("Type not found");
+				typePart = DE_NULL;
+		}
+
+		return std::string() + orderPart + typePart;
 	}
-
-	switch (format.type)
+	else
 	{
-		case tcu::TextureFormat::FLOAT:				typePart = "32f";		break;
-		case tcu::TextureFormat::HALF_FLOAT:		typePart = "16f";		break;
+		switch (mapTextureFormat(format))
+		{
+			case VK_FORMAT_B10G11R11_UFLOAT_PACK32:		return "r11f_g11f_b10f";
+			case VK_FORMAT_A2B10G10R10_UNORM_PACK32:	return "rgb10_a2";
+			case VK_FORMAT_A2B10G10R10_UINT_PACK32:		return "rgb10_a2ui";
 
-		case tcu::TextureFormat::UNSIGNED_INT32:	typePart = "32ui";		break;
-		case tcu::TextureFormat::UNSIGNED_INT16:	typePart = "16ui";		break;
-		case tcu::TextureFormat::UNSIGNED_INT8:		typePart = "8ui";		break;
-
-		case tcu::TextureFormat::SIGNED_INT32:		typePart = "32i";		break;
-		case tcu::TextureFormat::SIGNED_INT16:		typePart = "16i";		break;
-		case tcu::TextureFormat::SIGNED_INT8:		typePart = "8i";		break;
-
-		case tcu::TextureFormat::UNORM_INT16:		typePart = "16";		break;
-		case tcu::TextureFormat::UNORM_INT8:		typePart = "8";			break;
-
-		case tcu::TextureFormat::SNORM_INT16:		typePart = "16_snorm";	break;
-		case tcu::TextureFormat::SNORM_INT8:		typePart = "8_snorm";	break;
-
-		default:
-			DE_ASSERT(false);
-			typePart = DE_NULL;
+			default:
+				DE_FATAL("Qualifier not found");
+				return "";
+		}
 	}
-
-	return std::string() + orderPart + typePart;
 }
 
 std::string getGlslSamplerType (const tcu::TextureFormat& format, VkImageViewType type)
@@ -905,7 +804,7 @@ bool isPackedType (const vk::VkFormat format)
 {
 	const tcu::TextureFormat	textureFormat	= mapVkFormat(format);
 
-	DE_STATIC_ASSERT(tcu::TextureFormat::CHANNELTYPE_LAST == 40);
+	DE_STATIC_ASSERT(tcu::TextureFormat::CHANNELTYPE_LAST == 48);
 
 	switch (textureFormat.type)
 	{
@@ -929,6 +828,8 @@ bool isPackedType (const vk::VkFormat format)
 		case tcu::TextureFormat::UNSIGNED_INT_16_8_8:
 		case tcu::TextureFormat::UNSIGNED_INT_24_8:
 		case tcu::TextureFormat::UNSIGNED_INT_24_8_REV:
+		case tcu::TextureFormat::SSCALED_INT_1010102_REV:
+		case tcu::TextureFormat::USCALED_INT_1010102_REV:
 			return true;
 
 		default:
@@ -1108,30 +1009,6 @@ void beginRenderPass (const DeviceInterface&	vk,
 	};
 
 	beginRenderPass(vk, commandBuffer, renderPass, framebuffer, renderArea, tcu::Vec4(0.0f), 0.0f, 0u);
-}
-
-Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&	vk,
-									 const VkDevice			device,
-									 const VkRenderPass		renderPass,
-									 const deUint32			attachmentCount,
-									 const VkImageView*		pAttachments,
-									 const VkExtent2D&		size,
-									 const deUint32			layersCount)
-{
-	const vk::VkFramebufferCreateInfo framebufferInfo =
-	{
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,		// VkStructureType			sType;
-		DE_NULL,										// const void*				pNext;
-		(VkFramebufferCreateFlags)0,					// VkFramebufferCreateFlags	flags;
-		renderPass,										// VkRenderPass				renderPass;
-		attachmentCount,								// uint32_t					attachmentCount;
-		pAttachments,									// const VkImageView*		pAttachments;
-		static_cast<deUint32>(size.width),				// uint32_t					width;
-		static_cast<deUint32>(size.height),				// uint32_t					height;
-		layersCount,									// uint32_t					layers;
-	};
-
-	return createFramebuffer(vk, device, &framebufferInfo);
 }
 
 } // image

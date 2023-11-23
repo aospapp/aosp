@@ -19,6 +19,7 @@ namespace dynamic_depth {
 
 int32_t ValidateAndroidDynamicDepthBuffer(const char* buffer, size_t buffer_length) {
   XmpData xmp_data;
+  std::string itemMime("image/jpeg");
   const string image_data(buffer, buffer_length);
   ReadXmpFromMemory(image_data, /*XmpSkipExtended*/ false, &xmp_data);
 
@@ -29,6 +30,18 @@ int32_t ValidateAndroidDynamicDepthBuffer(const char* buffer, size_t buffer_leng
     return -1;
   }
 
+  // Check the container items mime type
+  if ((device->GetContainer() == nullptr) || (device->GetContainer()->GetItems().empty())) {
+    LOG(ERROR) << "No container or container items found!";
+    return -1;
+  }
+  auto items = device->GetContainer()->GetItems();
+  for (const auto& item : items) {
+    if (item->GetMime() != itemMime) {
+      LOG(ERROR) << "Item MIME type doesn't match the expected value: " << itemMime;
+      return -1;
+    }
+  }
   // Check profiles
   const Profiles* profiles = device->GetProfiles();
   if (profiles == nullptr) {

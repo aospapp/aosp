@@ -43,6 +43,8 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_FOOTER_BUTTON_RADIUS,
   PartnerConfigKey.KEY_FOOTER_BUTTON_RIPPLE_ALPHA,
   PartnerConfigKey.KEY_FOOTER_BUTTON_TEXT_SIZE,
+  PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_ALPHA,
+  PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_TEXT_COLOR,
   PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_BG_COLOR,
@@ -57,6 +59,16 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_DESCRIPTION_TEXT_COLOR,
   PartnerConfigKey.KEY_DESCRIPTION_LINK_TEXT_COLOR,
   PartnerConfigKey.KEY_DESCRIPTION_FONT_FAMILY,
+  PartnerConfigKey.KEY_CONTENT_TEXT_SIZE,
+  PartnerConfigKey.KEY_CONTENT_TEXT_COLOR,
+  PartnerConfigKey.KEY_CONTENT_LINK_TEXT_COLOR,
+  PartnerConfigKey.KEY_CONTENT_FONT_FAMILY,
+  PartnerConfigKey.KEY_CONTENT_LAYOUT_GRAVITY,
+  PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_DEFAULT,
+  PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_ACCOUNT,
+  PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_CONNECTION,
+  PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_UPDATE,
+  PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_DISPLAY_MINIMUM_MS,
 })
 // TODO: can be removed and always reference PartnerConfig.getResourceName()?
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
@@ -121,6 +133,12 @@ public @interface PartnerConfigKey {
   // Text size of the footer button
   String KEY_FOOTER_BUTTON_TEXT_SIZE = "setup_compat_footer_button_text_size";
 
+  // Disabled background alpha of the footer buttons
+  String KEY_FOOTER_BUTTON_DISABLED_ALPHA = "setup_compat_footer_button_disabled_alpha";
+
+  // Disabled background color of the footer buttons
+  String KEY_FOOTER_BUTTON_DISABLED_BG_COLOR = "setup_compat_footer_button_disabled_bg_color";
+
   // Background color of the primary footer button
   String KEY_FOOTER_PRIMARY_BUTTON_BG_COLOR = "setup_compat_footer_primary_button_bg_color";
 
@@ -162,4 +180,38 @@ public @interface PartnerConfigKey {
 
   // Font family of the description
   String KEY_DESCRIPTION_FONT_FAMILY = "setup_design_description_font_family";
+
+  // Text size of the body content text
+  String KEY_CONTENT_TEXT_SIZE = "setup_design_content_text_size";
+
+  // Text color of the body content text
+  String KEY_CONTENT_TEXT_COLOR = "setup_design_content_text_color";
+
+  // Link text color of the body content text
+  String KEY_CONTENT_LINK_TEXT_COLOR = "setup_design_content_link_text_color";
+
+  // Font family of the body content text
+  String KEY_CONTENT_FONT_FAMILY = "setup_design_content_font_family";
+
+  // Gravity of the body content text
+  String KEY_CONTENT_LAYOUT_GRAVITY = "setup_design_content_layout_gravity";
+
+  // The animation of loading screen used in those activities which is non of below type.
+  String KEY_PROGRESS_ILLUSTRATION_DEFAULT = "progress_illustration_custom_default";
+
+  // The animation of loading screen used in those activity which is processing account info or
+  // related functions.
+  // For example:com.google.android.setupwizard.LOAD_ADD_ACCOUNT_INTENT
+  String KEY_PROGRESS_ILLUSTRATION_ACCOUNT = "progress_illustration_custom_account";
+
+  // The animation of loading screen used in those activity which is processing data connection.
+  // For example:com.android.setupwizard.CAPTIVE_PORTAL
+  String KEY_PROGRESS_ILLUSTRATION_CONNECTION = "progress_illustration_custom_connection";
+
+  // The animation of loading screen used in those activities which is updating device.
+  // For example:com.google.android.setupwizard.COMPAT_EARLY_UPDATE
+  String KEY_PROGRESS_ILLUSTRATION_UPDATE = "progress_illustration_custom_update";
+
+  // The minimum illustration display time, set to 0 may cause the illustration stuck
+  String KEY_PROGRESS_ILLUSTRATION_DISPLAY_MINIMUM_MS = "progress_illustration_display_minimum_ms";
 }

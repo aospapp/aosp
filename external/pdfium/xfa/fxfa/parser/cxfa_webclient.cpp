@@ -6,18 +6,21 @@
 
 #include "xfa/fxfa/parser/cxfa_webclient.h"
 
+#include "fxjs/xfa/cjx_node.h"
+#include "third_party/base/ptr_util.h"
+
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {{XFA_Element::FontInfo, 1, 0},
-                                                 {XFA_Element::Xdc, 1, 0},
-                                                 {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+const CXFA_Node::PropertyData kWebClientPropertyData[] = {
+    {XFA_Element::FontInfo, 1, 0},
+    {XFA_Element::Xdc, 1, 0},
+};
+
+const CXFA_Node::AttributeData kWebClientAttributeData[] = {
     {XFA_Attribute::Name, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Desc, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Lock, XFA_AttributeType::Integer, (void*)0},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"webClient";
+};
 
 }  // namespace
 
@@ -27,8 +30,8 @@ CXFA_WebClient::CXFA_WebClient(CXFA_Document* doc, XFA_PacketType packet)
                 XFA_XDPPACKET_Config,
                 XFA_ObjectType::Node,
                 XFA_Element::WebClient,
-                kPropertyData,
-                kAttributeData,
-                kName) {}
+                kWebClientPropertyData,
+                kWebClientAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_WebClient::~CXFA_WebClient() {}
+CXFA_WebClient::~CXFA_WebClient() = default;

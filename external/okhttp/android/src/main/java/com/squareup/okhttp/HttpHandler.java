@@ -17,9 +17,12 @@
 
 package com.squareup.okhttp;
 
-import com.squareup.okhttp.internal.URLFilter;
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import libcore.net.NetworkSecurityPolicy;
+
+import com.squareup.okhttp.internal.URLFilter;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.Proxy;

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 #
 # Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -706,7 +706,7 @@ class MoblabRpcInterfaceTest(mox.MoxTestBase,
     def testDutSshConnection(self):
         good_ip = '192.168.0.20'
         bad_ip = '192.168.0.30'
-        cmd = ('ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no '
+        cmd = ('ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=no '
                 "root@%s 'timeout 2 cat /etc/lsb-release'")
 
         self.mox.StubOutWithMock(moblab_rpc_interface.subprocess,

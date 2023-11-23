@@ -105,7 +105,7 @@ class camera_HAL3(test.test):
         with service_stopper.ServiceStopper([self.cros_camera_service]), \
                 self.set_test_config(test_config):
             has_facing_option = False
-            cmd = [binary_path]
+            cmd = ['sudo', '--user=arc-camera', binary_path]
             for option in options:
                 if 'gtest_filter' in option:
                     filters = option.split('=')[1]

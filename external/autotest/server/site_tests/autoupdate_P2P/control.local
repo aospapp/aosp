@@ -18,14 +18,19 @@ Use this control file to debug the test at your desk. The test requires the
 lab to schedule and provision two DUTs before the test begins. We will need
 to do that setup manually before running the test.
 
-Steps:
-1. Lock two DUTs in the lab. They need to be the same make/model.
-2. Ssh into both and make sure they can ping each other.
-3. Provision both DUTs to the same build. You can use provision_AutoUpdate or
-   cros flash to do this.
+Steps to run from your desk:
+1. Lease two DUTs in the lab. They need to be the same make/model.
+2. ssh into both and make sure they can ping each other.
+3. Provision both DUTs to the same build. You can use cros flash to do this.
 4. Pass two args to test_that: host2, job_repo_url.
 
-test_that <hostname>.cros autoupdate_P2P.local args="host2=<hostname>.cros job_repo_url=<job_repo_url>"
+A job_repo_url is a URL passed to each test that points to the autotest
+packages. The AU tests use that url to figure out the devserver to use for the
+test. When you are running locally you need to pass in a job_repo_url. An
+example is:
+http://100.115.245.194:8082/static/caroline-release/R82-12887.0.0/autotest/packages
+
+test_that <hostname>.cros autoupdate_P2P.local --args="host2=<hostname>.cros job_repo_url=<job_repo_url>"
 
 """
 

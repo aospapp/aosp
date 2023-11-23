@@ -1,40 +1,55 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- *  Copyright (c) International Business Machines  Corp., 2002
+ * Copyright (c) International Business Machines  Corp., 2002
+ * Copyright (c) Linux Test Project, 2009-2019
  *
  * AUTHORS
- *	Paul Larson
- *	Matthias Maennich
+ * Paul Larson
+ * Matthias Maennich
  *
  * DESCRIPTION
- *	Test to assert basic functionality of sigpending. All the tests can also be
- *	compiled to use the rt_sigpending syscall instead. To simplify the
- *	documentation, only sigpending() is usually mentioned below.
- *
- *	Test 1:
- *		Suppress handling SIGUSR1 and SIGUSR1, raise them and assert their
- *		signal pending.
- *
- *	Test 2:
- *		Call sigpending(sigset_t*=-1), it should return -1 with errno EFAULT
+ * Test 1: Suppress handling SIGUSR1 and SIGUSR1, raise them and assert their
+ * signal pending.
+ * Test 2: Call sigpending(sigset_t*=-1), it should return -1 with errno EFAULT.
  */
 
-#include <errno.h>
-#include <signal.h>
-#include <sys/types.h>
-
+#include "config.h"
 #include "tst_test.h"
 #include "ltp_signal.h"
 #include "lapi/syscalls.h"
 
-#if defined(TEST_SIGPENDING)
-#define tested_sigpending(sigset) TEST(tst_syscall(__NR_sigpending, sigset))
-#elif defined(TEST_RT_SIGPENDING)
-#define tested_sigpending(sigset)                                              \
-	TEST(tst_syscall(__NR_rt_sigpending, sigset, SIGSETSIZE))
+static void sigpending_info(void)
+{
+	switch (tst_variant) {
+	case 0:
+		tst_res(TINFO, "Testing libc sigpending()");
+	break;
+	case 1:
+		tst_res(TINFO, "Testing __NR_sigpending syscall");
+	break;
+	case 2:
+		tst_res(TINFO, "Testing __NR_rt_sigpending syscall");
+	break;
+	}
+}
+
+static int tested_sigpending(sigset_t *sigset)
+{
+	switch (tst_variant) {
+	case 0:
+#ifndef HAVE_SIGPENDING
+		tst_brk(TCONF, "libc sigpending() is not implemented");
 #else
-#error Neither TEST_SIGPENDING nor TEST_RT_SIGPENDING is defined!
+		return sigpending(sigset);
 #endif
+	break;
+	case 1:
+		return tst_syscall(__NR_sigpending, sigset);
+	case 2:
+		return tst_syscall(__NR_rt_sigpending, sigset, SIGSETSIZE);
+	}
+	return -1;
+}
 
 static int sighandler_counter;
 static void sighandler(int signum LTP_ATTRIBUTE_UNUSED)
@@ -47,6 +62,8 @@ static void test_sigpending(void)
 	int SIGMAX = MIN(sizeof(sigset_t) * 8, (size_t)_NSIG);
 
 	int i; /* loop index */
+
+	sighandler_counter = 0;
 
 	/* set up signal mask and handler */
 	sigset_t only_SIGUSR, old_mask;
@@ -62,7 +79,7 @@ static void test_sigpending(void)
 	/* Initially no signal should be pending */
 	sigset_t pending;
 	sigemptyset(&pending);
-	tested_sigpending(&pending);
+	TEST(tested_sigpending(&pending));
 
 	for (i = 1; i < SIGMAX; ++i)
 		if (sigismember(&pending, i))
@@ -78,7 +95,7 @@ static void test_sigpending(void)
 
 	/* now we should have exactly one pending signal (SIGUSR1) */
 	sigemptyset(&pending);
-	tested_sigpending(&pending);
+	TEST(tested_sigpending(&pending));
 	for (i = 1; i < SIGMAX; ++i)
 		if ((i == SIGUSR1) != sigismember(&pending, i))
 			tst_brk(TFAIL, "only SIGUSR1 should be pending by now");
@@ -92,7 +109,7 @@ static void test_sigpending(void)
 
 	/* now we should have exactly two pending signals (SIGUSR1, SIGUSR2) */
 	sigemptyset(&pending);
-	tested_sigpending(&pending);
+	TEST(tested_sigpending(&pending));
 	for (i = 1; i < SIGMAX; ++i)
 		if ((i == SIGUSR1 || i == SIGUSR2) != sigismember(&pending, i))
 			tst_brk(TFAIL,
@@ -119,7 +136,7 @@ static void test_efault_on_invalid_sigset(void)
 	/* set sigset to point to an invalid location */
 	sigset_t *sigset = tst_get_bad_addr(NULL);
 
-	tested_sigpending(sigset);
+	TEST(tested_sigpending(sigset));
 
 	/* check return code */
 	if (TST_RET == -1) {
@@ -139,10 +156,12 @@ static void test_efault_on_invalid_sigset(void)
 
 static void run(void)
 {
+	sigpending_info();
 	test_sigpending();
 	test_efault_on_invalid_sigset();
 }
 
 static struct tst_test test = {
-	.test_all = run
+	.test_all = run,
+	.test_variants = 3,
 };

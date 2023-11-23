@@ -16,6 +16,7 @@
 
 package com.github.javaparser.symbolsolver.javaparsermodel.contexts;
 
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.Expression;
@@ -30,6 +31,7 @@ import com.github.javaparser.symbolsolver.javaparsermodel.declarations.JavaParse
 import com.github.javaparser.symbolsolver.model.resolution.SymbolReference;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 
+import java.util.LinkedList;
 import java.util.List;
 
 import static com.github.javaparser.symbolsolver.javaparser.Navigator.requireParentNode;
@@ -41,7 +43,7 @@ public class ForStatementContext extends AbstractJavaParserContext<ForStmt> {
     }
 
     @Override
-    public SymbolReference<? extends ResolvedValueDeclaration> solveSymbol(String name, TypeSolver typeSolver) {
+    public SymbolReference<? extends ResolvedValueDeclaration> solveSymbol(String name) {
         for (Expression expression : wrappedNode.getInitialization()) {
             if (expression instanceof VariableDeclarationExpr) {
                 VariableDeclarationExpr variableDeclarationExpr = (VariableDeclarationExpr) expression;
@@ -58,13 +60,25 @@ public class ForStatementContext extends AbstractJavaParserContext<ForStmt> {
         if (requireParentNode(wrappedNode) instanceof NodeWithStatements) {
             return StatementContext.solveInBlock(name, typeSolver, wrappedNode);
         } else {
-            return getParent().solveSymbol(name, typeSolver);
+            return getParent().solveSymbol(name);
         }
     }
 
     @Override
     public SymbolReference<ResolvedMethodDeclaration> solveMethod(String name, List<ResolvedType> argumentsTypes,
-                                                                  boolean staticOnly, TypeSolver typeSolver) {
-        return getParent().solveMethod(name, argumentsTypes, false, typeSolver);
+                                                                  boolean staticOnly) {
+        return getParent().solveMethod(name, argumentsTypes, false);
+    }
+
+    @Override
+    public List<VariableDeclarator> localVariablesExposedToChild(Node child) {
+        List<VariableDeclarator> res = new LinkedList<>();
+        for (Expression expression : wrappedNode.getInitialization()) {
+            if (expression instanceof VariableDeclarationExpr) {
+                VariableDeclarationExpr variableDeclarationExpr = (VariableDeclarationExpr) expression;
+                res.addAll(variableDeclarationExpr.getVariables());
+            }
+        }
+        return res;
     }
 }

@@ -13,6 +13,6 @@ DOC = """
 Suspend the system with the camera device open.
 """
 
-capability='usb_camera'
+capability='builtin_usb_camera'
 job.add_sysinfo_logfile('/sys/kernel/debug/suspend_stats', on_every_test=True)
 job.run_test('power_CameraSuspend', save_images=False, capability=capability)

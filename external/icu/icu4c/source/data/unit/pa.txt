@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 pa{
-    Version{"2.1.43.65"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -52,6 +52,11 @@ pa{
                 dnam{"ਏਕੜ"}
                 one{"{0} ਏਕੜ"}
                 other{"{0} ਏਕੜ"}
+            }
+            dunam{
+                dnam{"ਦੁਨਮ"}
+                one{"{0} ਦੁਨਮ"}
+                other{"{0} ਦੁਨਮ"}
             }
             hectare{
                 dnam{"ਹੈਕਟੇਅਰ"}
@@ -118,6 +123,11 @@ pa{
                 one{"{0} ਮਿਲੀਮੋਲ ਪ੍ਰਤੀ ਲਿਟਰ"}
                 other{"{0} ਮਿਲੀਮੋਲ ਪ੍ਰਤੀ ਲਿਟਰ"}
             }
+            mole{
+                dnam{"ਮੋਲ"}
+                one{"{0} ਮੋਲ"}
+                other{"{0} ਮੋਲ"}
+            }
             part-per-million{
                 dnam{"ਹਿੱਸੇ ਪ੍ਰਤੀ ਮਿਲੀਅਨ"}
                 one{"{0} ਹਿੱਸਾ ਪ੍ਰਤੀ ਮਿਲੀਅਨ"}
@@ -132,6 +142,11 @@ pa{
                 dnam{"ਪਰਮਾਈਲ"}
                 one{"{0} ਪਰਮਾਈਲ"}
                 other{"{0} ਪਰਮਾਈਲ"}
+            }
+            permyriad{
+                dnam{"ਪ੍ਰਤੀ ਦਸ ਹਜ਼ਾਰ"}
+                one{"{0} ਪ੍ਰਤੀ ਦਸ ਹਜ਼ਾਰ"}
+                other{"{0} ਪ੍ਰਤੀ ਦਸ ਹਜ਼ਾਰ"}
             }
         }
         consumption{
@@ -158,10 +173,10 @@ pa{
         }
         coordinate{
             dnam{"ਮੁੱਖ ਦਿਸ਼ਾ"}
-            east{"{0}ਪੂ"}
-            north{"{0}ਉ"}
-            south{"{0}ਦੱ"}
-            west{"{0}ਪੱ"}
+            east{"{0} ਪੂਰਬ"}
+            north{"{0} ਉੱਤਰ"}
+            south{"{0} ਦੱਖਣ"}
+            west{"{0} ਪੱਛਮ"}
         }
         digital{
             bit{
@@ -231,6 +246,11 @@ pa{
                 one{"{0} ਦਿਨ"}
                 other{"{0} ਦਿਨ"}
                 per{"{0} ਪ੍ਰਤੀ ਦਿਨ"}
+            }
+            decade{
+                dnam{"ਦਹਾਕੇ"}
+                one{"{0} ਦਹਾਕਾ"}
+                other{"{0} ਦਹਾਕੇ"}
             }
             hour{
                 dnam{"ਘੰਟੇ"}
@@ -307,10 +327,20 @@ pa{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"ਬਰਤਾਨਵੀ ਤਾਪ ਇਕਾਈ"}
+                one{"{0} ਬਰਤਾਨਵੀ ਤਾਪ ਇਕਾਈ"}
+                other{"{0} ਬਰਤਾਨਵੀ ਤਾਪ ਇਕਾਈ"}
+            }
             calorie{
                 dnam{"ਕੈਲੋਰੀਆਂ"}
                 one{"{0} ਕੈਲੋਰੀ"}
                 other{"{0} ਕੈਲੋਰੀਆਂ"}
+            }
+            electronvolt{
+                dnam{"ਇਲੈਕਟ੍ਰਾਨਵੋਲਟ"}
+                one{"{0} ਇਲੈਕਟ੍ਰਾਨਵੋਲਟ"}
+                other{"{0} ਇਲੈਕਟ੍ਰਾਨਵੋਲਟ"}
             }
             foodcalorie{
                 dnam{"ਕੈਲੋਰੀਆਂ"}
@@ -337,6 +367,21 @@ pa{
                 one{"{0} ਕਿਲੋਵਾਟ ਘੰਟਾ"}
                 other{"{0} ਕਿਲੋਵਾਟ ਘੰਟੇ"}
             }
+            therm-us{
+                dnam{"US therms"}
+            }
+        }
+        force{
+            newton{
+                dnam{"ਨਿਊਟਨ"}
+                one{"{0} ਨਿਊਟਨ"}
+                other{"{0} ਨਿਊਟਨ"}
+            }
+            pound-force{
+                dnam{"ਪੌਂਡ ਬਲ"}
+                one{"{0} ਪੌਂਡ ਬਲ"}
+                other{"{0} ਪੌਂਡ ਬਲ"}
+            }
         }
         frequency{
             gigahertz{
@@ -358,6 +403,43 @@ pa{
                 dnam{"ਮੈਗਾਹਰਟਜ਼"}
                 one{"{0} ਮੈਗਾਹਰਟਜ਼"}
                 other{"{0} ਮੈਗਾਹਰਟਜ਼"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"ਡਾਟ ਪ੍ਰਤੀ ਸੈਂਟੀਮੀਟਰ"}
+                one{"{0} ਡਾਟ ਪ੍ਰਤੀ ਸੈਂਟੀਮੀਟਰ"}
+                other{"{0} ਡਾਟ ਪ੍ਰਤੀ ਸੈਂਟੀਮੀਟਰ"}
+            }
+            dot-per-inch{
+                dnam{"ਡਾਟ ਪ੍ਰਤੀ ਇੰਚ"}
+                one{"{0} ਡਾਟ ਪ੍ਰਤੀ ਇੰਚ"}
+                other{"{0} ਡਾਟ ਪ੍ਰਤੀ ਇੰਚ"}
+            }
+            em{
+                dnam{"ਟਾਈਪੋਗ੍ਰਾਫ਼ਿਕ ਐਮ"}
+                one{"{0} ਟਾਈਪੋਗ੍ਰਾਫ਼ਿਕ ਐਮ"}
+                other{"{0} ਟਾਈਪੋਗ੍ਰਾਫ਼ਿਕ ਐਮ"}
+            }
+            megapixel{
+                dnam{"ਮੈਗਾਪਿਕਸਲ"}
+                one{"{0} ਮੈਗਾਪਿਕਸਲ"}
+                other{"{0} ਮੈਗਾਪਿਕਸਲ"}
+            }
+            pixel{
+                dnam{"ਪਿਕਸਲ"}
+                one{"{0} ਪਿਕਸਲ"}
+                other{"{0} ਪਿਕਸਲ"}
+            }
+            pixel-per-centimeter{
+                dnam{"ਪਿਕਸਲ ਪ੍ਰਤੀ ਸੈਂਟੀਮੀਟਰ"}
+                one{"{0} ਪਿਕਸਲ ਪ੍ਰਤੀ ਸੈਂਟੀਮੀਟਰ"}
+                other{"{0} ਪਿਕਸਲ ਪ੍ਰਤੀ ਸੈਂਟੀਮੀਟਰ"}
+            }
+            pixel-per-inch{
+                dnam{"ਪਿਕਸਲ ਪ੍ਰਤੀ ਇੰਚ"}
+                one{"{0} ਪਿਕਸਲ ਪ੍ਰਤੀ ਇੰਚ"}
+                other{"{0} ਪਿਕਸਲ ਪ੍ਰਤੀ ਇੰਚ"}
             }
         }
         length{
@@ -461,6 +543,11 @@ pa{
                 one{"{0} ਪੁਆਇੰਟ"}
                 other{"{0} ਪੁਆਇੰਟ"}
             }
+            solar-radius{
+                dnam{"ਸੋਲਰ ਰੇਡੀਅਸ"}
+                one{"{0} ਸੋਲਰ ਰੇਡੀਅਸ"}
+                other{"{0} ਸੋਲਰ ਰੇਡੀਅਸ"}
+            }
             yard{
                 dnam{"ਗਜ਼"}
                 one{"{0} ਗਜ਼"}
@@ -473,12 +560,27 @@ pa{
                 one{"{0} ਲਕਸ"}
                 other{"{0} ਲਕਸ"}
             }
+            solar-luminosity{
+                dnam{"ਸੋਲਰ ਲੂਮਨਾਸਿਟੀ"}
+                one{"{0} ਸੋਲਰ ਲੂਮਨਾਸਿਟੀ"}
+                other{"{0} ਸੋਲਰ ਲੂਮਨਾਸਿਟੀ"}
+            }
         }
         mass{
             carat{
                 dnam{"ਕੈਰਟ"}
                 one{"{0} ਕੈਰਟ"}
                 other{"{0} ਕੈਰਟ"}
+            }
+            dalton{
+                dnam{"ਡਾਲਟਨ"}
+                one{"{0} ਡਾਲਟਨ"}
+                other{"{0} ਡਾਲਟਨ"}
+            }
+            earth-mass{
+                dnam{"ਅਰਥ ਮਾਸ"}
+                one{"{0} ਅਰਥ ਮਾਸ"}
+                other{"{0} ਅਰਥ ਮਾਸ"}
             }
             gram{
                 dnam{"ਗ੍ਰਾਮ"}
@@ -523,6 +625,11 @@ pa{
                 one{"{0} ਪੌਂਡ"}
                 other{"{0} ਪੌਂਡ"}
                 per{"{0} ਪ੍ਰਤੀ ਪੌਂਡ"}
+            }
+            solar-mass{
+                dnam{"ਸੋਲਰ ਮਾਸ"}
+                one{"{0} ਸੋਲਰ ਮਾਸ"}
+                other{"{0} ਸੋਲਰ ਮਾਸ"}
             }
             stone{
                 dnam{"ਸਟੋਨ"}
@@ -573,6 +680,11 @@ pa{
                 one{"{0} ਵਾਯੂਮੰਡਲ"}
                 other{"{0} ਵਾਯੂਮੰਡਲ"}
             }
+            bar{
+                dnam{"ਬਾਰ"}
+                one{"{0} ਬਾਰ"}
+                other{"{0} ਬਾਰ"}
+            }
             hectopascal{
                 dnam{"ਹੈਕਟੋਪਾਸਕਲ"}
                 one{"{0} ਹੈਕਟੋਪਾਸਕਲ"}
@@ -583,6 +695,16 @@ pa{
                 one{"{0} ਇੰਚ ਪਾਰਾ"}
                 other{"{0} ਇੰਚ ਪਾਰਾ"}
             }
+            kilopascal{
+                dnam{"ਕਿੱਲੋਪਾਸਕਲ"}
+                one{"{0} ਕਿੱਲੋਪਾਸਕਲ"}
+                other{"{0} ਕਿੱਲੋਪਾਸਕਲ"}
+            }
+            megapascal{
+                dnam{"ਮੈਗਾਪਾਸਕਲ"}
+                one{"{0} ਮੈਗਾਪਾਸਕਲ"}
+                other{"{0} ਮੈਗਾਪਾਸਕਲ"}
+            }
             millibar{
                 dnam{"ਮਿਲੀਬਾਰ"}
                 one{"{0} ਮਿਲੀਬਾਰ"}
@@ -592,6 +714,11 @@ pa{
                 dnam{"ਮਿਲੀਮੀਟਰ ਪਾਰਾ"}
                 one{"{0} ਮਿਲੀਮੀਟਰ ਪਾਰਾ"}
                 other{"{0} ਮਿਲੀਮੀਟਰ ਪਾਰਾ"}
+            }
+            pascal{
+                dnam{"ਪੈਸਕਲ"}
+                one{"{0} ਪੈਸਕਲ"}
+                other{"{0} ਪੈਸਕਲ"}
             }
             pound-per-square-inch{
                 dnam{"ਪੌਂਡ ਪ੍ਰਤੀ ਵਰਗ ਇੰਚ"}
@@ -643,11 +770,28 @@ pa{
                 other{"{0} ਕੈਲਵਿਨ"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ਨਿਊਟਨ-ਮੀਟਰ"}
+                one{"{0} ਨਿਊਟਨ-ਮੀਟਰ"}
+                other{"{0} ਨਿਊਟਨ-ਮੀਟਰ"}
+            }
+            pound-foot{
+                dnam{"ਪੌਂਡ-ਫੁੱਟ"}
+                one{"{0} ਪੌਂਡ-ਫੁੱਟ"}
+                other{"{0} ਪੌਂਡ-ਫੁੱਟ"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ਏਕੜ ਫੁੱਟ"}
                 one{"{0} ਏਕੜ ਫੁੱਟ"}
                 other{"{0} ਏਕੜ ਫੁੱਟ"}
+            }
+            barrel{
+                dnam{"ਬੈਰਲ"}
+                one{"{0} ਬੈਰਲ"}
+                other{"{0} ਬੈਰਲ"}
             }
             bushel{
                 dnam{"ਬੁਸ਼ਲ"}
@@ -715,6 +859,11 @@ pa{
                 dnam{"ਤਰਲ ਔਂਸ"}
                 one{"{0} ਤਰਲ ਔਂਸ"}
                 other{"{0} ਤਰਲ ਔਂਸ"}
+            }
+            fluid-ounce-imperial{
+                dnam{"ਇੰਪੀਰੀਅਲ ਫਲੁਡ ਔਂਸ"}
+                one{"{0} ਇੰਪੀਰੀਅਲ ਫਲੁਡ ਔਂਸ"}
+                other{"{0} ਇੰਪੀਰੀਅਲ ਫਲੁਡ ਔਂਸ"}
             }
             gallon{
                 dnam{"ਗੈਲਨ"}
@@ -860,8 +1009,6 @@ pa{
         consumption{
             liter-per-100kilometers{
                 dnam{"ਲਿ./100ਕਿ.ਮੀ."}
-                one{"{0} L/100km"}
-                other{"{0} L/100km"}
             }
             liter-per-kilometer{
                 one{"{0}ਲਿ./ਕਿ.ਮੀ."}
@@ -940,8 +1087,6 @@ pa{
             }
             millisecond{
                 dnam{"ਮਿਲੀਸਕਿੰਟ"}
-                one{"{0} ms"}
-                other{"{0} ms"}
             }
             minute{
                 dnam{"ਮਿੰਟ"}
@@ -1252,7 +1397,6 @@ pa{
                 other{"{0}°C"}
             }
             fahrenheit{
-                dnam{"°F"}
                 one{"{0}°"}
                 other{"{0}°"}
             }
@@ -1398,6 +1542,11 @@ pa{
                 one{"{0} ਏਕੜ"}
                 other{"{0} ਏਕੜ"}
             }
+            dunam{
+                dnam{"ਦੁਨਮ"}
+                one{"{0} ਦੁਨਮ"}
+                other{"{0} ਦੁਨਮ"}
+            }
             hectare{
                 dnam{"ਹੈਕਟੇਅਰ"}
                 one{"{0} ਹੈਕਟੇਅਰ"}
@@ -1446,6 +1595,7 @@ pa{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -1463,6 +1613,11 @@ pa{
                 one{"{0} ਮਿ.ਮੋ./ਲਿ."}
                 other{"{0} ਮਿ.ਮੋ./ਲਿ."}
             }
+            mole{
+                dnam{"ਮੋਲ"}
+                one{"{0} ਮੋਲ"}
+                other{"{0} ਮੋਲ"}
+            }
             part-per-million{
                 dnam{"ਹਿੱਸੇ/ਮਿਲੀਅਨ"}
                 one{"{0} ppm"}
@@ -1477,6 +1632,9 @@ pa{
                 dnam{"ਪਰਮਾਈਲ"}
                 one{"{0}‰"}
                 other{"{0}‰"}
+            }
+            permyriad{
+                dnam{"ਪ੍ਰਤੀ ਦਸ ਹਜ਼ਾਰ"}
             }
         }
         consumption{
@@ -1577,6 +1735,11 @@ pa{
                 other{"{0} ਦਿਨ"}
                 per{"{0}/ਦਿਨ"}
             }
+            decade{
+                dnam{"ਦਹਾ"}
+                one{"{0} ਦਹਾ"}
+                other{"{0} ਦਹਾ"}
+            }
             hour{
                 dnam{"ਘੰਟੇ"}
                 one{"{0} ਘੰਟਾ"}
@@ -1652,10 +1815,16 @@ pa{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+            }
             calorie{
                 dnam{"ਕੈਲੋਰੀ"}
                 one{"{0} ਕੈਲੋਰੀ"}
                 other{"{0} ਕੈਲੋਰੀਆਂ"}
+            }
+            electronvolt{
+                dnam{"ਇਲੈਕਟ੍ਰਾਨਵੋਲਟ"}
             }
             foodcalorie{
                 dnam{"ਕੈਲੋਰੀ"}
@@ -1682,6 +1851,21 @@ pa{
                 one{"{0} ਕਿ.ਵਾ.ਘੰ."}
                 other{"{0} ਕਿ.ਵਾ.ਘੰ."}
             }
+            therm-us{
+                dnam{"US therm"}
+                one{"{0} US therm"}
+                other{"{0} US therm"}
+            }
+        }
+        force{
+            newton{
+                dnam{"ਨਿਊਟਨ"}
+                one{"{0} ਨਿ"}
+                other{"{0} ਨਿ"}
+            }
+            pound-force{
+                dnam{"ਪੌਂਡ-ਬਲ"}
+            }
         }
         frequency{
             gigahertz{
@@ -1703,6 +1887,43 @@ pa{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                one{"{0} dpcm"}
+                other{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                one{"{0} dpi"}
+                other{"{0} dpi"}
+            }
+            em{
+                dnam{"em"}
+                one{"{0} em"}
+                other{"{0} em"}
+            }
+            megapixel{
+                dnam{"MP"}
+                one{"{0} MP"}
+                other{"{0} MP"}
+            }
+            pixel{
+                dnam{"px"}
+                one{"{0} px"}
+                other{"{0} px"}
+            }
+            pixel-per-centimeter{
+                dnam{"ppcm"}
+                one{"{0} ppcm"}
+                other{"{0} ppcm"}
+            }
+            pixel-per-inch{
+                dnam{"ppi"}
+                one{"{0} ppi"}
+                other{"{0} ppi"}
             }
         }
         length{
@@ -1806,6 +2027,9 @@ pa{
                 one{"{0} pt"}
                 other{"{0} pt"}
             }
+            solar-radius{
+                dnam{"ਸੋਲਰ ਰੇਡੀਅਸ"}
+            }
             yard{
                 dnam{"ਗਜ਼"}
                 one{"{0} ਗਜ਼"}
@@ -1818,12 +2042,23 @@ pa{
                 one{"{0} ਲਕਸ"}
                 other{"{0} ਲਕਸ"}
             }
+            solar-luminosity{
+                dnam{"ਸੋਲਰ ਲੂਮਨਾਸਿਟੀ"}
+            }
         }
         mass{
             carat{
                 dnam{"ਕੈਰਟ"}
                 one{"{0} ਕੈਰਟ"}
                 other{"{0} ਕੈਰਟ"}
+            }
+            dalton{
+                dnam{"ਡਾਲਟਨ"}
+                one{"{0} ਡਾ"}
+                other{"{0} ਡਾ"}
+            }
+            earth-mass{
+                dnam{"ਅਰਥ ਮਾਸ"}
             }
             gram{
                 dnam{"ਗ੍ਰਾਮ"}
@@ -1868,6 +2103,9 @@ pa{
                 one{"{0} ਪੌਂਡ"}
                 other{"{0} ਪੌਂਡ"}
                 per{"{0}/ਪੌਂਡ"}
+            }
+            solar-mass{
+                dnam{"ਸੋਲਰ ਮਾਸ"}
             }
             stone{
                 dnam{"ਸਟੋਨ"}
@@ -1918,6 +2156,11 @@ pa{
                 one{"{0} ਵਾ. ਮੰ."}
                 other{"{0} ਵਾ. ਮੰ."}
             }
+            bar{
+                dnam{"ਬਾਰ"}
+                one{"{0} ਬਾਰ"}
+                other{"{0} ਬਾਰ"}
+            }
             hectopascal{
                 dnam{"ਹੈ.ਪਾ."}
                 one{"{0} ਹੈ.ਪਾ."}
@@ -1928,6 +2171,16 @@ pa{
                 one{"{0} ਇੰਚ ਪਾਰਾ"}
                 other{"{0} ਇੰਚ ਪਾਰਾ"}
             }
+            kilopascal{
+                dnam{"ਕਿ.ਪਾ"}
+                one{"{0} ਕਿ.ਪਾ"}
+                other{"{0} ਕਿ.ਪਾ"}
+            }
+            megapascal{
+                dnam{"ਮੈ.ਪਾ"}
+                one{"{0} ਮੈ.ਪਾ"}
+                other{"{0} ਮੈ.ਪਾ"}
+            }
             millibar{
                 dnam{"ਮਿਲੀਬਾਰ"}
                 one{"{0} ਮਿਲੀਬਾਰ"}
@@ -1937,6 +2190,11 @@ pa{
                 dnam{"ਮਿ.ਮੀ. ਪਾਰਾ"}
                 one{"{0} ਮਿ.ਮੀ. ਪਾਰਾ"}
                 other{"{0} ਮਿ.ਮੀ. ਪਾਰਾ"}
+            }
+            pascal{
+                dnam{"Pa"}
+                one{"{0} Pa"}
+                other{"{0} Pa"}
             }
             pound-per-square-inch{
                 dnam{"ਪੌਂ.ਵ.ਇੰਚ"}
@@ -1988,11 +2246,23 @@ pa{
                 other{"{0} K"}
             }
         }
+        torque{
+            newton-meter{
+                dnam{"ਨਿ⋅ਮੀ"}
+                one{"{0} ਨਿ⋅ਮੀ"}
+                other{"{0} ਨਿ⋅ਮੀ"}
+            }
+        }
         volume{
             acre-foot{
                 dnam{"ਏਕੜ ਫੁੱਟ"}
                 one{"{0} ਏਕੜ ਫੁੱਟ"}
                 other{"{0} ਏਕੜ ਫੁੱਟ"}
+            }
+            barrel{
+                dnam{"ਬੈਰਲ"}
+                one{"{0} ਬੈਰਲ"}
+                other{"{0} ਬੈਰਲ"}
             }
             bushel{
                 dnam{"ਬੁਸ਼ਲ"}

@@ -17,7 +17,7 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -52,7 +52,6 @@
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
 #include "MagickCore/fourier.h"
-#include "MagickCore/fx.h"
 #include "MagickCore/gem.h"
 #include "MagickCore/geometry.h"
 #include "MagickCore/image.h"
@@ -78,6 +77,7 @@
 #include "MagickCore/threshold.h"
 #include "MagickCore/token.h"
 #include "MagickCore/utility.h"
+#include "MagickCore/visual-effects.h"
 
 /*
   ImageMagick options.
@@ -330,6 +330,7 @@ static const OptionInfo
     { "  gaussian-blur", 0, UndefinedOptionFlag, MagickFalse },
     { "  grayscale", 0, UndefinedOptionFlag, MagickFalse },
     { "  implode", 0, UndefinedOptionFlag, MagickFalse },
+    { "  kmeans", 0, UndefinedOptionFlag, MagickFalse },
     { "  lat", 0, UndefinedOptionFlag, MagickFalse },
     { "  level", 0, UndefinedOptionFlag, MagickFalse },
     { "  map", 0, UndefinedOptionFlag, MagickFalse },
@@ -815,6 +816,7 @@ static const OptionInfo
     { "-interword-spacing", 1L, ImageInfoOptionFlag | DrawInfoOptionFlag, MagickFalse },
     { "+kerning", 0L, ImageInfoOptionFlag | DrawInfoOptionFlag, MagickFalse },
     { "-kerning", 1L, ImageInfoOptionFlag | DrawInfoOptionFlag, MagickFalse },
+    { "-kmeans", 1L, SimpleOperatorFlag, MagickFalse },
     { "+kuwahara", 0L, DeprecateOptionFlag, MagickTrue },
     { "-kuwahara", 1L, SimpleOperatorFlag, MagickFalse },
     { "+label", 0L, ImageInfoOptionFlag | NeverInterpretArgsFlag, MagickFalse },
@@ -1225,6 +1227,8 @@ static const OptionInfo
     { "B44A", B44ACompression, UndefinedOptionFlag, MagickFalse },
     { "B44", B44Compression, UndefinedOptionFlag, MagickFalse },
     { "BZip", BZipCompression, UndefinedOptionFlag, MagickFalse },
+    { "DWAA", DWAACompression, UndefinedOptionFlag, MagickFalse },
+    { "DWAB", DWABCompression, UndefinedOptionFlag, MagickFalse },
     { "DXT1", DXT1Compression, UndefinedOptionFlag, MagickFalse },
     { "DXT3", DXT3Compression, UndefinedOptionFlag, MagickFalse },
     { "DXT5", DXT5Compression, UndefinedOptionFlag, MagickFalse },
@@ -1479,7 +1483,6 @@ static const OptionInfo
     { "Nearest", NearestInterpolatePixel, UndefinedOptionFlag, MagickFalse },
     { "NearestNeighbor", NearestInterpolatePixel, UndefinedOptionFlag, MagickTrue },
     { "Spline", SplineInterpolatePixel, UndefinedOptionFlag, MagickFalse },
-/*  { "Filter", FilterInterpolatePixel, UndefinedOptionFlag, MagickFalse }, */
     { (char *) NULL, UndefinedInterpolatePixel, UndefinedOptionFlag, MagickFalse }
   },
   KernelOptions[] =
@@ -2849,6 +2852,9 @@ MagickExport ssize_t ParseChannelOption(const char *channels)
   register ssize_t
     i;
 
+  size_t
+    length;
+
   ssize_t
     channel;
 
@@ -2856,7 +2862,8 @@ MagickExport ssize_t ParseChannelOption(const char *channels)
   if (channel >= 0)
     return(channel);
   channel=0;
-  for (i=0; i < (ssize_t) strlen(channels); i++)
+  length=strlen(channels);
+  for (i=0; i < (ssize_t) length; i++)
   {
     switch (channels[i])
     {
@@ -3079,7 +3086,7 @@ MagickExport ssize_t ParsePixelChannelOption(const char *channels)
   ssize_t
     channel;
 
-  GetNextToken(channels,(const char **) NULL,MagickPathExtent,token);
+  (void) GetNextToken(channels,(const char **) NULL,MagickPathExtent,token);
   if ((*token == ';') || (*token == '|'))
     return(RedPixelChannel);
   channel=ParseCommandOption(MagickPixelChannelOptions,MagickTrue,token);

@@ -14,7 +14,6 @@
 
 #define CONFIG_CMDLINE_TAG		/* enable passing of ATAGs  */
 #define CONFIG_SETUP_MEMORY_TAGS
-#define CONFIG_MISC_INIT_R		/* call misc_init_r during start up */
 
 /*
  * There are various dependencies on the core module (CM) fitted
@@ -64,7 +63,6 @@
 /*
  * Physical Memory Map
  */
-#define CONFIG_NR_DRAM_BANKS	1		/* we have 1 bank of DRAM */
 #define PHYS_SDRAM_1		0x00000000	/* SDRAM Bank #1 */
 #define PHYS_SDRAM_1_SIZE	0x08000000	/* 128 MB */
 #define CONFIG_SYS_SDRAM_BASE	PHYS_SDRAM_1
@@ -83,13 +81,10 @@
  * - SIB block
  * - U-Boot environment
  */
-#define CONFIG_SYS_FLASH_CFI		1
-#define CONFIG_FLASH_CFI_DRIVER		1
 #define CONFIG_SYS_FLASH_BASE		0x24000000
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 
 /* Timeout values in ticks */
 #define CONFIG_SYS_FLASH_ERASE_TOUT	(2 * CONFIG_SYS_HZ) /* Erase Timeout */
 #define CONFIG_SYS_FLASH_WRITE_TOUT	(2 * CONFIG_SYS_HZ) /* Write Timeout */
-#define CONFIG_SYS_FLASH_PROTECTION	/* The devices have real protection */
 #define CONFIG_SYS_FLASH_EMPTY_INFO	/* flinfo indicates empty blocks */

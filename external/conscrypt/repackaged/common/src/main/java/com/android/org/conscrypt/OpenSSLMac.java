@@ -30,7 +30,6 @@ import javax.crypto.SecretKey;
  * An implementation of {@link javax.crypto.Mac} which uses BoringSSL to perform all the operations.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.IntraCoreApi
 @Internal
 public abstract class OpenSSLMac extends MacSpi {
     private NativeRef.HMAC_CTX ctx;
@@ -161,9 +160,7 @@ public abstract class OpenSSLMac extends MacSpi {
     /**
      * @hide This class is not part of the Android public SDK API
      */
-    @libcore.api.IntraCoreApi
     public static final class HmacMD5 extends OpenSSLMac {
-        @libcore.api.IntraCoreApi
         public HmacMD5() {
             super(EvpMdRef.MD5.EVP_MD, EvpMdRef.MD5.SIZE_BYTES);
         }
@@ -172,9 +169,7 @@ public abstract class OpenSSLMac extends MacSpi {
     /**
      * @hide This class is not part of the Android public SDK API
      */
-    @libcore.api.IntraCoreApi
     public static final class HmacSHA1 extends OpenSSLMac {
-        @libcore.api.IntraCoreApi
         public HmacSHA1() {
             super(EvpMdRef.SHA1.EVP_MD, EvpMdRef.SHA1.SIZE_BYTES);
         }
@@ -183,9 +178,7 @@ public abstract class OpenSSLMac extends MacSpi {
     /**
      * @hide This class is not part of the Android public SDK API
      */
-    @libcore.api.IntraCoreApi
     public static final class HmacSHA224 extends OpenSSLMac {
-        @libcore.api.IntraCoreApi
         public HmacSHA224() throws NoSuchAlgorithmException {
             super(EvpMdRef.SHA224.EVP_MD, EvpMdRef.SHA224.SIZE_BYTES);
         }
@@ -194,9 +187,7 @@ public abstract class OpenSSLMac extends MacSpi {
     /**
      * @hide This class is not part of the Android public SDK API
      */
-    @libcore.api.IntraCoreApi
     public static final class HmacSHA256 extends OpenSSLMac {
-        @libcore.api.IntraCoreApi
         public HmacSHA256() throws NoSuchAlgorithmException {
             super(EvpMdRef.SHA256.EVP_MD, EvpMdRef.SHA256.SIZE_BYTES);
         }
@@ -205,9 +196,7 @@ public abstract class OpenSSLMac extends MacSpi {
     /**
      * @hide This class is not part of the Android public SDK API
      */
-    @libcore.api.IntraCoreApi
     public static final class HmacSHA384 extends OpenSSLMac {
-        @libcore.api.IntraCoreApi
         public HmacSHA384() throws NoSuchAlgorithmException {
             super(EvpMdRef.SHA384.EVP_MD, EvpMdRef.SHA384.SIZE_BYTES);
         }
@@ -216,9 +205,7 @@ public abstract class OpenSSLMac extends MacSpi {
     /**
      * @hide This class is not part of the Android public SDK API
      */
-    @libcore.api.IntraCoreApi
     public static final class HmacSHA512 extends OpenSSLMac {
-        @libcore.api.IntraCoreApi
         public HmacSHA512() {
             super(EvpMdRef.SHA512.EVP_MD, EvpMdRef.SHA512.SIZE_BYTES);
         }

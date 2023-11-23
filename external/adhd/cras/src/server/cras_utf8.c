@@ -24,79 +24,62 @@ typedef struct u8range {
 static const u8range_t kUTF8TwoByteSeq[] = {
 	{ 0xc2, 0xdf },
 	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0, 0 },
 };
 
 static const u8range_t kUTF8ByteSeqE0[] = {
 	{ 0xe0, 0xe0 },
 	{ 0xa0, 0xbf },
 	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0, 0 },
 };
 
 static const u8range_t kUTF8ByteSeqE1EC[] = {
 	{ 0xe1, 0xec },
 	{ 0x80, 0xbf },
 	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0, 0 },
 };
 
 static const u8range_t kUTF8ByteSeqED[] = {
 	{ 0xed, 0xed },
 	{ 0x80, 0x9f },
 	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0, 0 },
 };
 
 static const u8range_t kUTF8ByteSeqEEEF[] = {
 	{ 0xee, 0xef },
 	{ 0x80, 0xbf },
 	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0, 0 },
 };
 
 static const u8range_t kUTF8ByteSeqF0[] = {
-	{ 0xf0, 0xf0 },
-	{ 0x90, 0xbf },
-	{ 0x80, 0xbf },
-	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0xf0, 0xf0 }, { 0x90, 0xbf }, { 0x80, 0xbf },
+	{ 0x80, 0xbf }, { 0, 0 },
 };
 
 static const u8range_t kUTF8ByteSeqF1F3[] = {
-	{ 0xf1, 0xf3 },
-	{ 0x80, 0xbf },
-	{ 0x80, 0xbf },
-	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0xf1, 0xf3 }, { 0x80, 0xbf }, { 0x80, 0xbf },
+	{ 0x80, 0xbf }, { 0, 0 },
 };
 
 static const u8range_t kUTF8ByteSeqF4[] = {
-	{ 0xf4, 0xf4 },
-	{ 0x80, 0x8f },
-	{ 0x80, 0xbf },
-	{ 0x80, 0xbf },
-	{ 0, 0 }
+	{ 0xf4, 0xf4 }, { 0x80, 0x8f }, { 0x80, 0xbf },
+	{ 0x80, 0xbf }, { 0, 0 },
 };
 
-static const u8range_t kUTF8NullRange[] = {
-	{ 0, 0 }
-};
+static const u8range_t kUTF8NullRange[] = { { 0, 0 } };
 
 typedef struct utf8seq {
 	const u8range_t *ranges;
 } utf8seq_t;
 
 static const utf8seq_t kUTF8Sequences[] = {
-	{ kUTF8TwoByteSeq },
-	{ kUTF8ByteSeqE0 },
-	{ kUTF8ByteSeqE1EC },
-	{ kUTF8ByteSeqED },
-	{ kUTF8ByteSeqEEEF },
-	{ kUTF8ByteSeqF0 },
-	{ kUTF8ByteSeqF1F3 },
-	{ kUTF8ByteSeqF4 },
-	{ kUTF8NullRange }
+	{ kUTF8TwoByteSeq },  { kUTF8ByteSeqE0 },   { kUTF8ByteSeqE1EC },
+	{ kUTF8ByteSeqED },   { kUTF8ByteSeqEEEF }, { kUTF8ByteSeqF0 },
+	{ kUTF8ByteSeqF1F3 }, { kUTF8ByteSeqF4 },   { kUTF8NullRange }
 };
 
 int valid_utf8_string(const char *string, size_t *bad_pos)
@@ -113,7 +96,7 @@ int valid_utf8_string(const char *string, size_t *bad_pos)
 		goto error;
 	}
 
-	while ((byte = (uint8_t)*(pos++))) {
+	while ((byte = (uint8_t) * (pos++))) {
 		if (!range || range->min == 0) {
 			if (byte < 128) {
 				/* Ascii character. */
@@ -129,8 +112,8 @@ int valid_utf8_string(const char *string, size_t *bad_pos)
 					 * Rewind and assume that there is
 					 * no BOM. */
 					bom_chars =
-					        ARRAY_SIZE(kUTF8ByteOrderMask);
-                                        pos = string;
+						ARRAY_SIZE(kUTF8ByteOrderMask);
+					pos = string;
 					continue;
 				}
 			}
@@ -170,8 +153,8 @@ int valid_utf8_string(const char *string, size_t *bad_pos)
 	}
 
 	if (range && range->min != 0) {
-	        /* Stopped in the middle of a sequence. */
-	        ret = 0;
+		/* Stopped in the middle of a sequence. */
+		ret = 0;
 	}
 
 error:
@@ -191,7 +174,8 @@ int is_utf8_string(const char *string)
 
 #else
 
-int is_utf8_string (const char *string) {
+int is_utf8_string(const char *string)
+{
 	return valid_utf8_string(string, NULL);
 }
 

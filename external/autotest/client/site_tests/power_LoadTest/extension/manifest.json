@@ -10,7 +10,7 @@
   "icons": { "48": "skin/chrome_bug.png",
           "128": "skin/chrome_bug.png" },
   "permissions": [
-    "webRequest", "http://*/", "https://*/", "tabs"
+    "webRequest", "http://*/", "https://*/", "tabs", "processes"
   ],
   "background": {
     "persistent": true,

@@ -416,8 +416,14 @@ class ConvolveTest : public ::testing::TestWithParam<ConvolveParam> {
     for (int i = 0; i < kOutputBufferSize; ++i) {
       if (IsIndexInBorder(i)) {
         output_[i] = 255;
+#if CONFIG_VP9_HIGHBITDEPTH
+        output16_[i] = mask_;
+#endif
       } else {
         output_[i] = 0;
+#if CONFIG_VP9_HIGHBITDEPTH
+        output16_[i] = 0;
+#endif
       }
     }
 
@@ -1127,7 +1133,7 @@ using std::make_tuple;
                       x0_q4, x_step_q4, y0_q4, y_step_q4, w, h, bd);         \
   }
 
-#if HAVE_SSE2 && ARCH_X86_64
+#if HAVE_SSE2 && VPX_ARCH_X86_64
 WRAP(convolve_copy_sse2, 8)
 WRAP(convolve_avg_sse2, 8)
 WRAP(convolve_copy_sse2, 10)
@@ -1152,7 +1158,7 @@ WRAP(convolve8_vert_sse2, 12)
 WRAP(convolve8_avg_vert_sse2, 12)
 WRAP(convolve8_sse2, 12)
 WRAP(convolve8_avg_sse2, 12)
-#endif  // HAVE_SSE2 && ARCH_X86_64
+#endif  // HAVE_SSE2 && VPX_ARCH_X86_64
 
 #if HAVE_AVX2
 WRAP(convolve_copy_avx2, 8)
@@ -1257,9 +1263,9 @@ const ConvolveFunctions convolve12_c(
     wrap_convolve8_horiz_c_12, wrap_convolve8_avg_horiz_c_12,
     wrap_convolve8_vert_c_12, wrap_convolve8_avg_vert_c_12, wrap_convolve8_c_12,
     wrap_convolve8_avg_c_12, 12);
-const ConvolveParam kArrayConvolve_c[] = {
-  ALL_SIZES(convolve8_c), ALL_SIZES(convolve10_c), ALL_SIZES(convolve12_c)
-};
+const ConvolveParam kArrayConvolve_c[] = { ALL_SIZES(convolve8_c),
+                                           ALL_SIZES(convolve10_c),
+                                           ALL_SIZES(convolve12_c) };
 
 #else
 const ConvolveFunctions convolve8_c(
@@ -1272,7 +1278,7 @@ const ConvolveParam kArrayConvolve_c[] = { ALL_SIZES(convolve8_c) };
 #endif
 INSTANTIATE_TEST_CASE_P(C, ConvolveTest, ::testing::ValuesIn(kArrayConvolve_c));
 
-#if HAVE_SSE2 && ARCH_X86_64
+#if HAVE_SSE2 && VPX_ARCH_X86_64
 #if CONFIG_VP9_HIGHBITDEPTH
 const ConvolveFunctions convolve8_sse2(
     wrap_convolve_copy_sse2_8, wrap_convolve_avg_sse2_8,

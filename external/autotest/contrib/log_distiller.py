@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 """
 Usage: ./cron_scripts/log_distiller.py job_id path_to_logfile
     If the job_id is a suite it will find all subjobs.

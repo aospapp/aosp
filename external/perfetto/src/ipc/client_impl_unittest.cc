@@ -21,24 +21,26 @@
 
 #include <string>
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-#include "perfetto/base/file_utils.h"
-#include "perfetto/base/temp_file.h"
-#include "perfetto/base/unix_socket.h"
-#include "perfetto/base/utils.h"
-#include "perfetto/ipc/service_descriptor.h"
-#include "perfetto/ipc/service_proxy.h"
+#include "perfetto/ext/base/file_utils.h"
+#include "perfetto/ext/base/temp_file.h"
+#include "perfetto/ext/base/unix_socket.h"
+#include "perfetto/ext/base/utils.h"
+#include "perfetto/ext/ipc/service_descriptor.h"
+#include "perfetto/ext/ipc/service_proxy.h"
 #include "src/base/test/test_task_runner.h"
 #include "src/ipc/buffered_frame_deserializer.h"
 #include "src/ipc/test/test_socket.h"
+#include "test/gtest_and_gmock.h"
 
-#include "src/ipc/test/client_unittest_messages.pb.h"
+#include "protos/perfetto/ipc/wire_protocol.gen.h"
+#include "src/ipc/test/client_unittest_messages.gen.h"
 
 namespace perfetto {
 namespace ipc {
 namespace {
 
+using ::perfetto::ipc::gen::ReplyProto;
+using ::perfetto::ipc::gen::RequestProto;
 using ::testing::_;
 using ::testing::InSequence;
 using ::testing::Invoke;
@@ -104,7 +106,9 @@ class FakeHost : public base::UnixSocket::EventListener {
 
   explicit FakeHost(base::TaskRunner* task_runner) {
     DESTROY_TEST_SOCK(kSockName);
-    listening_sock = base::UnixSocket::Listen(kSockName, this, task_runner);
+    listening_sock = base::UnixSocket::Listen(kSockName, this, task_runner,
+                                              base::SockFamily::kUnix,
+                                              base::SockType::kStream);
     EXPECT_TRUE(listening_sock->is_listening());
   }
   ~FakeHost() override { DESTROY_TEST_SOCK(kSockName); }
@@ -140,7 +144,7 @@ class FakeHost : public base::UnixSocket::EventListener {
   }
 
   void OnFrameReceived(const Frame& req) {
-    if (req.msg_case() == Frame::kMsgBindService) {
+    if (req.has_msg_bind_service()) {
       auto svc_it = services.find(req.msg_bind_service().service_name());
       ASSERT_NE(services.end(), svc_it);
       const FakeService& svc = *svc_it->second;
@@ -154,7 +158,7 @@ class FakeHost : public base::UnixSocket::EventListener {
         method->set_id(method_it.second->id);
       }
       Reply(reply);
-    } else if (req.msg_case() == Frame::kMsgInvokeMethod) {
+    } else if (req.has_msg_invoke_method()) {
       // Lookup the service and method.
       bool has_more = false;
       do {
@@ -183,8 +187,7 @@ class FakeHost : public base::UnixSocket::EventListener {
   void Reply(const Frame& frame) {
     auto buf = BufferedFrameDeserializer::Serialize(frame);
     ASSERT_TRUE(client_sock->is_connected());
-    EXPECT_TRUE(client_sock->Send(buf.data(), buf.size(), next_reply_fd,
-                                  base::UnixSocket::BlockingMode::kBlocking));
+    EXPECT_TRUE(client_sock->Send(buf.data(), buf.size(), next_reply_fd));
     next_reply_fd = -1;
   }
 

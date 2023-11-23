@@ -78,7 +78,7 @@ class network_WiFi_DarkResumeActiveScans(
                 # are launched on the way to suspend.
                 self.context.capture_host.start_capture(
                         ap_config.frequency,
-                        ht_type=ap_config.ht_packet_capture_mode)
+                        width_type=ap_config.packet_capture_mode)
 
                 # Send the DUT a packet from the router to wake it up.
                 router.send_magic_packet(dut_ip, dut_mac)
@@ -117,7 +117,7 @@ class network_WiFi_DarkResumeActiveScans(
                 # are launched on the way to suspend.
                 self.context.capture_host.start_capture(
                         ap_config.frequency,
-                        ht_type=ap_config.ht_packet_capture_mode)
+                        width_type=ap_config.packet_capture_mode)
 
                 # Wait for the DUT to wake to scan and suspend again.
                 time.sleep(wifi_client.WAKE_TO_SCAN_PERIOD_SECONDS +

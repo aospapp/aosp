@@ -17,7 +17,7 @@
 %                               September 2014                                %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2019 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -185,8 +185,7 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
   assert(exception->signature == MagickCoreSignature);
   if (objects != (CCObjectInfo **) NULL)
     *objects=(CCObjectInfo *) NULL;
-  component_image=CloneImage(image,0,0,MagickTrue,
-    exception);
+  component_image=CloneImage(image,0,0,MagickTrue,exception);
   if (component_image == (Image *) NULL)
     return((Image *) NULL);
   component_image->depth=MAGICKCORE_QUANTUM_DEPTH;
@@ -418,9 +417,6 @@ MagickExport Image *ConnectedComponentsImage(const Image *image,
         MagickBooleanType
           proceed;
 
-#if defined(MAGICKCORE_OPENMP_SUPPORT)
-        #pragma omp atomic
-#endif
         progress++;
         proceed=SetImageProgress(image,ConnectedComponentsImageTag,progress,
           image->rows);

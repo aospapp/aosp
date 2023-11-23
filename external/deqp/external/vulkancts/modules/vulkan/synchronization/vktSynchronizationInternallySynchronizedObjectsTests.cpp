@@ -24,6 +24,7 @@
 #include "vktSynchronizationInternallySynchronizedObjectsTests.hpp"
 #include "vktTestCaseUtil.hpp"
 #include "vktSynchronizationUtil.hpp"
+#include "vktCustomInstancesDevices.hpp"
 
 #include "vkRef.hpp"
 #include "tcuDefs.hpp"
@@ -36,6 +37,7 @@
 #include "vkObjUtil.hpp"
 
 #include "tcuResultCollector.hpp"
+#include "tcuCommandLine.hpp"
 
 #include "deThread.hpp"
 #include "deMutex.hpp"
@@ -258,7 +260,7 @@ MovePtr<MultiQueues> createQueues (const Context& context, const VkQueueFlags& q
 	deviceInfo.queueCreateInfoCount		= static_cast<deUint32>(queues.countQueueFamilyIndex());
 	deviceInfo.pQueueCreateInfos		= &queueInfos[0];
 
-	queues.setDevice(createDevice(context.getPlatformInterface(), context.getInstance(), instance, physicalDevice, &deviceInfo));
+	queues.setDevice(createCustomDevice(context.getTestContext().getCommandLine().isValidationEnabled(), context.getPlatformInterface(), context.getInstance(), instance, physicalDevice, &deviceInfo));
 
 	for (deUint32 queueFamilyIndex = 0; queueFamilyIndex < queues.countQueueFamilyIndex(); ++queueFamilyIndex)
 	{
@@ -371,7 +373,7 @@ TestStatus executeGraphicPipeline (const Context& context, const VkPipeline& pip
 																		makeImageCreateInfo(VK_IMAGE_TYPE_2D, colorImageExtent, colorFormat, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT),
 																		MemoryRequirement::Any));
 		Move<VkImageView>				colorAttachmentView			= makeImageView(vk, device, **colorAttachmentImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, colorImageSubresourceRange);
-		Move<VkFramebuffer>				framebuffer					= makeFramebuffer(vk, device, renderPass, *colorAttachmentView, colorImageExtent.width, colorImageExtent.height, 1u);
+		Move<VkFramebuffer>				framebuffer					= makeFramebuffer(vk, device, renderPass, *colorAttachmentView, colorImageExtent.width, colorImageExtent.height);
 		const Unique<VkCommandPool>		cmdPool						(createCommandPool(vk, device, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, queueFamilyIndex));
 		const Unique<VkCommandBuffer>	cmdBuffer					(makeCommandBuffer(vk, device, *cmdPool));
 		const VkDescriptorBufferInfo	outputBufferDescriptorInfo	= makeDescriptorBufferInfo(*resultBuffer, 0ull, BUFFER_SIZE);

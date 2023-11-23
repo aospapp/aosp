@@ -6,13 +6,14 @@
 
 #include "xfa/fxfa/parser/cxfa_currencysymbols.h"
 
+#include "fxjs/xfa/cjx_node.h"
+#include "third_party/base/ptr_util.h"
+
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kCurrencySymbolsPropertyData[] = {
     {XFA_Element::CurrencySymbol, 3, 0},
-    {XFA_Element::Unknown, 0, 0}};
-
-constexpr wchar_t kName[] = L"currencySymbols";
+};
 
 }  // namespace
 
@@ -23,8 +24,8 @@ CXFA_CurrencySymbols::CXFA_CurrencySymbols(CXFA_Document* doc,
                 XFA_XDPPACKET_LocaleSet,
                 XFA_ObjectType::Node,
                 XFA_Element::CurrencySymbols,
-                kPropertyData,
-                nullptr,
-                kName) {}
+                kCurrencySymbolsPropertyData,
+                {},
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_CurrencySymbols::~CXFA_CurrencySymbols() {}
+CXFA_CurrencySymbols::~CXFA_CurrencySymbols() = default;

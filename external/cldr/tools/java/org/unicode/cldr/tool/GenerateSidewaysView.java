@@ -144,7 +144,6 @@ public class GenerateSidewaysView {
     }
 
     private static Map<PathHeader, Map<String, Set<String>>> path_value_locales = new TreeMap<PathHeader, Map<String, Set<String>>>();
-    private static XPathParts parts = new XPathParts(null, null);
     private static long startTime = System.currentTimeMillis();
 
     static RuleBasedCollator standardCollation = (RuleBasedCollator) Collator.getInstance(ULocale.ENGLISH);
@@ -177,6 +176,7 @@ public class GenerateSidewaysView {
 
         FileCopier.ensureDirectoryExists(options[DESTDIR].value);
         FileCopier.copy(GenerateSidewaysView.class, "bytype-index.css", options[DESTDIR].value, "index.css");
+        FormattedFileWriter.copyIncludeHtmls(options[DESTDIR].value);
 
         // now get the info
 
@@ -198,6 +198,7 @@ public class GenerateSidewaysView {
             ImmutableMap.of(
                 "%header%", headerString,
                 "%version%", ToolConstants.CHART_DISPLAY_VERSION,
+                "%index%", "../index.html",
                 "%index-title%", "Main Charts Index",
                 "%date%", CldrUtility.isoFormatDateOnly(new Date())));
 //        FileUtilities.copyFile(GenerateSidewaysView.class, "bytype-index.html", options[DESTDIR].value, "index.html",
@@ -651,7 +652,7 @@ public class GenerateSidewaysView {
                 }
                 String fullPath = cldrFile.getFullXPath(path);
                 String value = getValue(cldrFile, path, fullPath);
-                if (value == null) {
+                if (value == null || CldrUtility.INHERITANCE_MARKER.equals(value)) {
                     continue;
                 }
                 if (fullPath.indexOf("[@draft=\"unconfirmed\"]") >= 0
@@ -659,9 +660,14 @@ public class GenerateSidewaysView {
                     postFix[0] = "*";
                 }
                 if (path.equals("//ldml/characters/exemplarCharacters")) {
-                    UnicodeSet exemplars = new UnicodeSet(value);
-                    String script = UScript.getName(getFirstScript(exemplars));
-                    LOCALE_TO_SCRIPT.put(localeID, script);
+                    UnicodeSet exemplars;
+                    try {
+                        exemplars = new UnicodeSet(value);
+                        String script = UScript.getName(getFirstScript(exemplars));
+                        LOCALE_TO_SCRIPT.put(localeID, script);
+                    } catch (Exception e) {
+                        int debug = 0;
+                    }
                 }
                 Map<String, Set<String>> value_locales = path_value_locales.get(cleanPath);
                 if (value_locales == null) {
@@ -686,28 +692,29 @@ public class GenerateSidewaysView {
 
     static PathHeader.Factory pathHeaderFactory;
 
-    // static org.unicode.cldr.util.PrettyPath prettyPath = new org.unicode.cldr.util.PrettyPath();
     /**
-     *
+     * 
+     * @param path
+     * @param localePrefix
+     * @return
      */
     private static PathHeader fixPath(String path, String[] localePrefix) {
-        if (localePrefix != null) localePrefix[0] = "";
-        //        if (path.indexOf("[@alt=") >= 0 || path.indexOf("[@draft=") >= 0) {
-        //            if (localePrefix != null) localePrefix[0] = "*";
-        //            path = removeAttributes(path, skipSet);
-        //        }
-        // if (usePrettyPath) path = prettyPath.getPrettyPath(path);
+        if (localePrefix != null) {
+            localePrefix[0] = "";
+        }
         return pathHeaderFactory.fromPath(path);
     }
 
     private static String removeAttributes(String xpath, Set<String> skipAttributes) {
-        XPathParts parts = new XPathParts(null, null).set(xpath);
+        XPathParts parts = XPathParts.getInstance(xpath); // not frozen, for removeAttributes
         removeAttributes(parts, skipAttributes);
         return parts.toString();
     }
 
     /**
-     *
+     * 
+     * @param parts
+     * @param skipAttributes
      */
     private static void removeAttributes(XPathParts parts, Set<String> skipAttributes) {
         for (int i = 0; i < parts.size(); ++i) {
@@ -740,7 +747,7 @@ public class GenerateSidewaysView {
             return value;
         }
         if (value.length() == 0) {
-            parts.set(fullPath);
+            XPathParts parts = XPathParts.getInstance(fullPath); // not frozen, for removeAttributes
             removeAttributes(parts, skipSet);
             int limit = parts.size();
             value = parts.toString(limit - 1, limit);

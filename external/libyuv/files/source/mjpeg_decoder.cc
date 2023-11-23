@@ -25,7 +25,8 @@
 #endif
 
 #endif
-struct FILE;  // For jpeglib.h.
+
+#include <stdio.h>  // For jpeglib.h.
 
 // C++ build requires extern C for jpeg internals.
 #ifdef __cplusplus
@@ -102,7 +103,7 @@ MJpegDecoder::~MJpegDecoder() {
   DestroyOutputBuffers();
 }
 
-LIBYUV_BOOL MJpegDecoder::LoadFrame(const uint8* src, size_t src_len) {
+LIBYUV_BOOL MJpegDecoder::LoadFrame(const uint8_t* src, size_t src_len) {
   if (!ValidateJpeg(src, src_len)) {
     return LIBYUV_FALSE;
   }
@@ -129,7 +130,7 @@ LIBYUV_BOOL MJpegDecoder::LoadFrame(const uint8* src, size_t src_len) {
       if (scanlines_[i]) {
         delete scanlines_[i];
       }
-      scanlines_[i] = new uint8*[scanlines_size];
+      scanlines_[i] = new uint8_t*[scanlines_size];
       scanlines_sizes_[i] = scanlines_size;
     }
 
@@ -145,7 +146,7 @@ LIBYUV_BOOL MJpegDecoder::LoadFrame(const uint8* src, size_t src_len) {
       if (databuf_[i]) {
         delete databuf_[i];
       }
-      databuf_[i] = new uint8[databuf_size];
+      databuf_[i] = new uint8_t[databuf_size];
       databuf_strides_[i] = databuf_stride;
     }
 
@@ -243,7 +244,7 @@ LIBYUV_BOOL MJpegDecoder::UnloadFrame() {
 }
 
 // TODO(fbarchard): Allow rectangle to be specified: x, y, width, height.
-LIBYUV_BOOL MJpegDecoder::DecodeToBuffers(uint8** planes,
+LIBYUV_BOOL MJpegDecoder::DecodeToBuffers(uint8_t** planes,
                                           int dst_width,
                                           int dst_height) {
   if (dst_width != GetWidth() || dst_height > GetHeight()) {
@@ -427,7 +428,15 @@ boolean fill_input_buffer(j_decompress_ptr cinfo) {
 }
 
 void skip_input_data(j_decompress_ptr cinfo, long num_bytes) {  // NOLINT
-  cinfo->src->next_input_byte += num_bytes;
+  jpeg_source_mgr* src = cinfo->src;
+  size_t bytes = static_cast<size_t>(num_bytes);
+  if(bytes > src->bytes_in_buffer) {
+    src->next_input_byte = nullptr;
+    src->bytes_in_buffer = 0;
+  } else {
+    src->next_input_byte += bytes;
+    src->bytes_in_buffer -= bytes;
+  }
 }
 
 void term_source(j_decompress_ptr cinfo) {
@@ -469,9 +478,9 @@ void MJpegDecoder::AllocOutputBuffers(int num_outbufs) {
     // it.
     DestroyOutputBuffers();
 
-    scanlines_ = new uint8**[num_outbufs];
+    scanlines_ = new uint8_t**[num_outbufs];
     scanlines_sizes_ = new int[num_outbufs];
-    databuf_ = new uint8*[num_outbufs];
+    databuf_ = new uint8_t*[num_outbufs];
     databuf_strides_ = new int[num_outbufs];
 
     for (int i = 0; i < num_outbufs; ++i) {
@@ -527,9 +536,9 @@ LIBYUV_BOOL MJpegDecoder::FinishDecode() {
   return LIBYUV_TRUE;
 }
 
-void MJpegDecoder::SetScanlinePointers(uint8** data) {
+void MJpegDecoder::SetScanlinePointers(uint8_t** data) {
   for (int i = 0; i < num_outbufs_; ++i) {
-    uint8* data_i = data[i];
+    uint8_t* data_i = data[i];
     for (int j = 0; j < scanlines_sizes_[i]; ++j) {
       scanlines_[i][j] = data_i;
       data_i += GetComponentStride(i);
@@ -552,13 +561,13 @@ JpegSubsamplingType MJpegDecoder::JpegSubsamplingTypeHelper(
     if (subsample_x[0] == 1 && subsample_y[0] == 1 && subsample_x[1] == 2 &&
         subsample_y[1] == 2 && subsample_x[2] == 2 && subsample_y[2] == 2) {
       return kJpegYuv420;
-    } else if (subsample_x[0] == 1 && subsample_y[0] == 1 &&
-               subsample_x[1] == 2 && subsample_y[1] == 1 &&
-               subsample_x[2] == 2 && subsample_y[2] == 1) {
+    }
+    if (subsample_x[0] == 1 && subsample_y[0] == 1 && subsample_x[1] == 2 &&
+        subsample_y[1] == 1 && subsample_x[2] == 2 && subsample_y[2] == 1) {
       return kJpegYuv422;
-    } else if (subsample_x[0] == 1 && subsample_y[0] == 1 &&
-               subsample_x[1] == 1 && subsample_y[1] == 1 &&
-               subsample_x[2] == 1 && subsample_y[2] == 1) {
+    }
+    if (subsample_x[0] == 1 && subsample_y[0] == 1 && subsample_x[1] == 1 &&
+        subsample_y[1] == 1 && subsample_x[2] == 1 && subsample_y[2] == 1) {
       return kJpegYuv444;
     }
   } else if (number_of_components == 1) {  // Grey-scale images.

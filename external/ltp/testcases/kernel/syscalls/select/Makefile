@@ -18,29 +18,7 @@
 
 top_srcdir		?= ../../../..
 
-%_SYS__newselect: %_SYS__newselect.o
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
-%_SYS_select: %_SYS_select.o
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
-%_SYS_pselect6: %_SYS_pselect6.o
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
-%_SYS__newselect.o: %.c select.h
-	$(COMPILE.c) -DSYSCALL_SELECT__NEWSELECT $(OUTPUT_OPTION) $<
-%_SYS_select.o: %.c select.h
-	$(COMPILE.c) -DSYSCALL_SELECT_SELECT $(OUTPUT_OPTION) $<
-%_SYS_pselect6.o: %.c select.h
-	$(COMPILE.c) -DSYSCALL_SELECT_PSELECT6 $(OUTPUT_OPTION) $<
-
-select01 select02 select03 select04: select.h
-select01 select02 select03 select04: CFLAGS+=-DSYSCALL_SELECT_LIBC
 select04: LDLIBS+=-lrt
-select04_SYS_%: LDLIBS+=-lrt
-
-MAKE_TARGETS := $(notdir $(patsubst %.c,%,$(wildcard $(abs_srcdir:%=%/)*.c))) \
- $(notdir $(patsubst %.c,%_SYS__newselect,$(wildcard $(abs_srcdir:%=%/)*.c))) \
- $(notdir $(patsubst %.c,%_SYS_select,$(wildcard $(abs_srcdir:%=%/)*.c)))     \
- $(notdir $(patsubst %.c,%_SYS_pselect6,$(wildcard $(abs_srcdir:%=%/)*.c)))
 
 include $(top_srcdir)/include/mk/testcases.mk
 

@@ -19,6 +19,7 @@ class firmware_UpdateKernelDataKeyVersion(FirmwareTest):
     version = 1
 
     def check_kernel_datakey_version(self, expected_ver):
+        """Checks the kernel datakey version."""
         actual_ver = self.faft_client.kernel.get_datakey_version('b')
         if actual_ver != expected_ver:
             raise error.TestFail(
@@ -30,6 +31,7 @@ class firmware_UpdateKernelDataKeyVersion(FirmwareTest):
                 actual_ver)
 
     def resign_kernel_datakey_version(self, host):
+        """Resings the kernel datakey version."""
         host.send_file(os.path.join(self.bindir,
                                     'files/common.sh'),
                        os.path.join(self.faft_client.updater.get_temp_path(),
@@ -45,6 +47,7 @@ class firmware_UpdateKernelDataKeyVersion(FirmwareTest):
             self._update_version))
 
     def modify_kernel_b_and_set_cgpt_priority(self, delta, target_dev):
+        """Modifies kernel b and sets CGPT priority."""
         if delta == 1:
             self.faft_client.kernel.resign_with_keys(
                 'b', self.faft_client.updater.get_keys_path())
@@ -73,6 +76,7 @@ class firmware_UpdateKernelDataKeyVersion(FirmwareTest):
         self.resign_kernel_datakey_version(host)
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         logging.info("Update Kernel Data Key Version.")
         self.check_state((self.check_root_part_on_non_recovery, 'a'))
         self.modify_kernel_b_and_set_cgpt_priority(1, 'b')

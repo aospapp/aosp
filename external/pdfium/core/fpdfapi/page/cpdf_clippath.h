@@ -15,13 +15,13 @@
 #include "core/fxcrt/fx_coordinates.h"
 #include "core/fxcrt/shared_copy_on_write.h"
 
-class CPDF_Path;
 class CPDF_TextObject;
 
 class CPDF_ClipPath {
  public:
   CPDF_ClipPath();
   CPDF_ClipPath(const CPDF_ClipPath& that);
+  CPDF_ClipPath& operator=(const CPDF_ClipPath& that);
   ~CPDF_ClipPath();
 
   void Emplace() { m_Ref.Emplace(); }
@@ -41,19 +41,26 @@ class CPDF_ClipPath {
   CFX_FloatRect GetClipBox() const;
   void AppendPath(CPDF_Path path, uint8_t type, bool bAutoMerge);
   void AppendTexts(std::vector<std::unique_ptr<CPDF_TextObject>>* pTexts);
+  void CopyClipPath(const CPDF_ClipPath& that);
   void Transform(const CFX_Matrix& matrix);
 
  private:
-  class PathData : public Retainable {
+  class PathData final : public Retainable {
    public:
-    using PathAndTypeData = std::pair<CPDF_Path, uint8_t>;
+    template <typename T, typename... Args>
+    friend RetainPtr<T> pdfium::MakeRetain(Args&&... args);
 
-    PathData();
-    PathData(const PathData& that);
-    ~PathData() override;
+    RetainPtr<PathData> Clone() const;
+
+    using PathAndTypeData = std::pair<CPDF_Path, uint8_t>;
 
     std::vector<PathAndTypeData> m_PathAndTypeList;
     std::vector<std::unique_ptr<CPDF_TextObject>> m_TextList;
+
+   private:
+    PathData();
+    PathData(const PathData& that);
+    ~PathData() override;
   };
 
   SharedCopyOnWrite<PathData> m_Ref;

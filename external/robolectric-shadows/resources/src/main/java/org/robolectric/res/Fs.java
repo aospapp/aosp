@@ -111,6 +111,18 @@ abstract public class Fs {
         Enumeration<JarEntry> entries = jarFile.entries();
         while (entries.hasMoreElements()) {
           JarEntry jarEntry = entries.nextElement();
+
+          // Add entries for any parent directories that did not have
+          // a JarEntry in the jar file.
+          String name = jarEntry.getName();
+          int index = name.length();
+          while ((index = name.lastIndexOf('/', index - 1)) != -1) {
+            String dir = name.substring(0, index+1);
+            if (!cachedMap.containsKey(dir)) {
+              cachedMap.put(dir, new JarEntry(dir));
+            }
+          }
+
           cachedMap.put(jarEntry.getName(), jarEntry);
         }
         synchronized (CACHE) {

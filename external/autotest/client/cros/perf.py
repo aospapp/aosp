@@ -32,7 +32,7 @@ class PerfControl(object):
         self._service_stopper = None
         # Keep a copy of the current state for cleanup.
         self._temperature_init = utils.get_current_temperature_max()
-        self._temperature_critical = utils.get_temperature_critical()
+        self._throttle_count = 0
         self._original_governors = utils.set_high_performance_mode()
         self._error_reason = None
         if not utils.wait_for_idle_cpu(60.0, 0.1):
@@ -70,17 +70,16 @@ class PerfControl(object):
         """
         For now we declare performance results as valid if
         - we did not have an error before.
-        - the monitoring thread never saw temperatures too close to critical.
+        - the monitoring thread never saw temperatures a throttle
 
         TODO(ihf): Search log files for thermal throttling messages like in
                    src/build/android/pylib/perf/thermal_throttle.py
         """
         if self._error_reason:
             return False
-        temperature_bad = self._temperature_critical - 1.0
-        logging.info("Max observed temperature = %.1f'C (bad limit = %.1f'C)",
-                     self._temperature_max, temperature_bad)
-        if (self._temperature_max > temperature_bad):
+        logging.info("Max observed temperature = %.1f'C (throttle_count=%d)",
+                     self._temperature_max, self._throttle_count)
+        if (self._throttle_count):
             self._error_reason = 'Machine got hot during testing.'
             return False
         return True
@@ -97,9 +96,13 @@ class PerfControl(object):
             current_temperature = utils.get_current_temperature_max()
             self._temperature_max = max(self._temperature_max,
                                         current_temperature)
+            is_throttled = utils.is_system_thermally_throttled()
+            if is_throttled:
+                self._throttle_count += 1
+
             # TODO(ihf): Remove this spew once PerfControl is stable.
-            logging.info('PerfControl CPU temperature = %.1f',
-                          current_temperature)
+            logging.info('PerfControl system temperature = %.1f, throttled=%s',
+                          current_temperature, is_throttled)
 
 
     def _stop_thermal_throttling(self):

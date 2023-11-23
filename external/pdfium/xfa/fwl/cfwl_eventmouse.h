@@ -8,14 +8,15 @@
 #define XFA_FWL_CFWL_EVENTMOUSE_H_
 
 #include "xfa/fwl/cfwl_event.h"
+#include "xfa/fwl/cfwl_messagemouse.h"
 
-class CFWL_EventMouse : public CFWL_Event {
+class CFWL_EventMouse final : public CFWL_Event {
  public:
   explicit CFWL_EventMouse(CFWL_Widget* pSrcTarget);
   CFWL_EventMouse(CFWL_Widget* pSrcTarget, CFWL_Widget* pDstTarget);
   ~CFWL_EventMouse() override;
 
-  FWL_MouseCommand m_dwCmd;
+  FWL_MouseCommand m_dwCmd = FWL_MouseCommand::LeftButtonDown;
 };
 
 #endif  // XFA_FWL_CFWL_EVENTMOUSE_H_

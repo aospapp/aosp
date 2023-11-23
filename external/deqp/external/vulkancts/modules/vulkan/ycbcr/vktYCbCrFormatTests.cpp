@@ -23,6 +23,7 @@
 
 #include "vktYCbCrFormatTests.hpp"
 #include "vktTestCaseUtil.hpp"
+#include "vktCustomInstancesDevices.hpp"
 #include "vktTestGroupUtil.hpp"
 #include "vktShaderExecutor.hpp"
 #include "vktYCbCrUtil.hpp"
@@ -53,10 +54,6 @@ namespace ycbcr
 namespace
 {
 
-// \todo [2017-05-24 pyry] Extend:
-// * VK_IMAGE_TILING_LINEAR
-// * Other shader types
-
 using namespace vk;
 using namespace shaderexecutor;
 
@@ -69,16 +66,14 @@ using de::UniquePtr;
 using std::vector;
 using std::string;
 
-typedef de::SharedPtr<Allocation>				AllocationSp;
-typedef de::SharedPtr<vk::Unique<VkBuffer> >	VkBufferSp;
-
 Move<VkImage> createTestImage (const DeviceInterface&	vkd,
 							   VkDevice					device,
 							   VkFormat					format,
 							   const UVec2&				size,
 							   VkImageCreateFlags		createFlags,
 							   VkImageTiling			tiling,
-							   VkImageLayout			layout)
+							   VkImageLayout			layout,
+							   deUint32					arrayLayers)
 {
 	const VkImageCreateInfo		createInfo	=
 	{
@@ -88,8 +83,8 @@ Move<VkImage> createTestImage (const DeviceInterface&	vkd,
 		VK_IMAGE_TYPE_2D,
 		format,
 		makeExtent3D(size.x(), size.y(), 1u),
-		1u,		// mipLevels
-		1u,		// arrayLayers
+		1u,				// mipLevels
+		arrayLayers,	// arrayLayers
 		VK_SAMPLE_COUNT_1_BIT,
 		tiling,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -106,7 +101,8 @@ Move<VkImageView> createImageView (const DeviceInterface&		vkd,
 								   VkDevice						device,
 								   VkImage						image,
 								   VkFormat						format,
-								   VkSamplerYcbcrConversion		conversion)
+								   VkSamplerYcbcrConversion		conversion,
+								   deUint32						layerCount)
 {
 	const VkSamplerYcbcrConversionInfo		conversionInfo	=
 	{
@@ -120,7 +116,7 @@ Move<VkImageView> createImageView (const DeviceInterface&		vkd,
 		&conversionInfo,
 		(VkImageViewCreateFlags)0,
 		image,
-		VK_IMAGE_VIEW_TYPE_2D,
+		(layerCount > 1) ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D,
 		format,
 		{
 			VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -128,7 +124,7 @@ Move<VkImageView> createImageView (const DeviceInterface&		vkd,
 			VK_COMPONENT_SWIZZLE_IDENTITY,
 			VK_COMPONENT_SWIZZLE_IDENTITY,
 		},
-		{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u },
+		{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, layerCount },
 	};
 
 	return createImageView(vkd, device, &viewInfo);
@@ -179,8 +175,7 @@ Move<VkDescriptorSet> createDescriptorSet (const DeviceInterface&	vkd,
 										   VkDevice					device,
 										   VkDescriptorPool			descPool,
 										   VkDescriptorSetLayout	descLayout,
-										   VkImageView				imageView,
-										   VkSampler				sampler)
+										   VkImageView				imageView)
 {
 	Move<VkDescriptorSet>					descSet;
 
@@ -200,7 +195,7 @@ Move<VkDescriptorSet> createDescriptorSet (const DeviceInterface&	vkd,
 	{
 		const VkDescriptorImageInfo			imageInfo			=
 		{
-			sampler,
+			0xdeadbeef,    // Not required to be valid. Use something invalid and not NULL
 			imageView,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		};
@@ -232,19 +227,22 @@ struct TestParameters
 	VkImageTiling		tiling;
 	glu::ShaderType		shaderType;
 	bool				useMappedMemory;
+	bool				useArrayLayers;
 
 	TestParameters (VkFormat			format_,
 					const UVec2&		size_,
 					VkImageCreateFlags	flags_,
 					VkImageTiling		tiling_,
 					glu::ShaderType		shaderType_,
-					bool				useMappedMemory_)
+					bool				useMappedMemory_,
+					bool				useArrayLayers_)
 		: format			(format_)
 		, size				(size_)
 		, flags				(flags_)
 		, tiling			(tiling_)
 		, shaderType		(shaderType_)
 		, useMappedMemory	(useMappedMemory_)
+		, useArrayLayers	(useArrayLayers_)
 	{
 	}
 
@@ -254,22 +252,32 @@ struct TestParameters
 		, tiling			(VK_IMAGE_TILING_OPTIMAL)
 		, shaderType		(glu::SHADERTYPE_LAST)
 		, useMappedMemory	(false)
+		, useArrayLayers	(false)
 	{
 	}
 };
 
-ShaderSpec getShaderSpec (const TestParameters&)
+ShaderSpec getShaderSpec (const TestParameters& params)
 {
 	ShaderSpec spec;
 
 	spec.inputs.push_back(Symbol("texCoord", glu::VarType(glu::TYPE_FLOAT_VEC2, glu::PRECISION_HIGHP)));
 	spec.outputs.push_back(Symbol("result", glu::VarType(glu::TYPE_FLOAT_VEC4, glu::PRECISION_HIGHP)));
 
-	spec.globalDeclarations =
-		"layout(binding = 0, set = 1) uniform highp sampler2D u_image;\n";
-
-	spec.source =
-		"result = texture(u_image, texCoord);\n";
+	if (params.useArrayLayers)
+	{
+		spec.globalDeclarations =
+			"layout(binding = 0, set = 1) uniform highp sampler2DArray u_image;\n";
+		spec.source =
+			"result = texture(u_image, vec3(texCoord, 1u));\n";
+	}
+	else
+	{
+		spec.globalDeclarations =
+			"layout(binding = 0, set = 1) uniform highp sampler2D u_image;\n";
+		spec.source =
+			"result = texture(u_image, texCoord);\n";
+	}
 
 	return spec;
 }
@@ -277,6 +285,17 @@ ShaderSpec getShaderSpec (const TestParameters&)
 void checkSupport (Context& context, const TestParameters params)
 {
 	checkImageSupport(context, params.format, params.flags, params.tiling);
+
+	if (params.useArrayLayers)
+	{
+		if (!context.isDeviceFunctionalitySupported("VK_EXT_ycbcr_image_arrays"))
+			TCU_THROW(NotSupportedError, "VK_EXT_ycbcr_image_arrays is not supported");
+
+		VkImageFormatProperties properties = getPhysicalDeviceImageFormatProperties(context.getInstanceInterface(), context.getPhysicalDevice(),
+			params.format, VK_IMAGE_TYPE_2D, params.tiling, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, params.flags);
+		if (properties.maxArrayLayers < 2)
+			TCU_THROW(NotSupportedError, "Image format does not support more than 1 maxArrayLayers");
+	}
 }
 
 void generateLookupCoordinates (const UVec2& imageSize, vector<Vec2>* dst)
@@ -304,8 +323,10 @@ tcu::TestStatus testFormat (Context& context, TestParameters params)
 	const VkImageCreateFlags				createFlags				= params.flags;
 	const VkImageTiling						tiling					= params.tiling;
 	const bool								mappedMemory			= params.useMappedMemory;
+	const deUint32							arrayLayers				= (params.useArrayLayers) ? 2u : 1u;
+	const deUint32							arrayLayer				= arrayLayers - 1u;
 
-	const Unique<VkImage>					image					(createTestImage(vkd, device, format, size, createFlags, tiling, mappedMemory ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED));
+	const Unique<VkImage>					image					(createTestImage(vkd, device, format, size, createFlags, tiling, mappedMemory ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED, arrayLayers));
 	const vector<AllocationSp>				allocations				(allocateAndBindImageMemory(vkd, device, context.getDefaultAllocator(), *image, format, createFlags, mappedMemory ? MemoryRequirement::HostVisible : MemoryRequirement::Any));
 
 	const VkSamplerYcbcrConversionCreateInfo
@@ -328,7 +349,7 @@ tcu::TestStatus testFormat (Context& context, TestParameters params)
 		VK_FALSE,									// forceExplicitReconstruction
 	};
 	const Unique<VkSamplerYcbcrConversion>	conversion				(createSamplerYcbcrConversion(vkd, device, &conversionInfo));
-	const Unique<VkImageView>				imageView				(createImageView(vkd, device, *image, format, *conversion));
+	const Unique<VkImageView>				imageView				(createImageView(vkd, device, *image, format, *conversion, arrayLayers));
 
 	const VkSamplerYcbcrConversionInfo		samplerConversionInfo	=
 	{
@@ -363,7 +384,7 @@ tcu::TestStatus testFormat (Context& context, TestParameters params)
 
 	const Unique<VkDescriptorSetLayout>		descLayout				(createDescriptorSetLayout(vkd, device, *sampler));
 	const Unique<VkDescriptorPool>			descPool				(createDescriptorPool(vkd, device));
-	const Unique<VkDescriptorSet>			descSet					(createDescriptorSet(vkd, device, *descPool, *descLayout, *imageView, *sampler));
+	const Unique<VkDescriptorSet>			descSet					(createDescriptorSet(vkd, device, *descPool, *descLayout, *imageView));
 
 	MultiPlaneImageData						imageData				(format, size);
 
@@ -400,15 +421,45 @@ tcu::TestStatus testFormat (Context& context, TestParameters params)
 		},
 	};
 	VkResult				propsResult;
-	const PlatformInterface&		vkp			= context.getPlatformInterface();
-	const Unique<VkInstance>		instance		(createInstanceWithExtension(vkp, context.getUsedApiVersion(), "VK_KHR_get_physical_device_properties2"));
-	const InstanceDriver			vki			(vkp, *instance);
+	const CustomInstance			instance	(createCustomInstanceWithExtension(context, "VK_KHR_get_physical_device_properties2"));
+	const InstanceDriver&			vki			(instance.getDriver());
 
 	// Verify that a yuv image consumes at least one descriptor
 	propsResult = vki.getPhysicalDeviceImageFormatProperties2(context.getPhysicalDevice(), &imageFormatInfo, &extProperties);
 
 	TCU_CHECK(propsResult == VK_SUCCESS);
 	TCU_CHECK(ycbcrProperties.combinedImageSamplerDescriptorCount >= 1);
+
+	// Zero fill unused layer
+	if (params.useArrayLayers)
+	{
+		fillZero(&imageData);
+
+		if (mappedMemory)
+		{
+			fillImageMemory(vkd,
+							device,
+							context.getUniversalQueueFamilyIndex(),
+							*image,
+							allocations,
+							imageData,
+							(VkAccessFlags)VK_ACCESS_SHADER_READ_BIT,
+							VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+							0);
+		}
+		else
+		{
+			uploadImage(vkd,
+						device,
+						context.getUniversalQueueFamilyIndex(),
+						context.getDefaultAllocator(),
+						*image,
+						imageData,
+						(VkAccessFlags)VK_ACCESS_SHADER_READ_BIT,
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						0);
+		}
+	}
 
 	// Prepare texture data
 	fillGradient(&imageData, Vec4(0.0f), Vec4(1.0f));
@@ -423,7 +474,8 @@ tcu::TestStatus testFormat (Context& context, TestParameters params)
 						allocations,
 						imageData,
 						(VkAccessFlags)VK_ACCESS_SHADER_READ_BIT,
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						arrayLayer);
 	}
 	else
 	{
@@ -435,7 +487,8 @@ tcu::TestStatus testFormat (Context& context, TestParameters params)
 					*image,
 					imageData,
 					(VkAccessFlags)VK_ACCESS_SHADER_READ_BIT,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					arrayLayer);
 	}
 
 	{
@@ -521,19 +574,15 @@ void initPrograms (SourceCollections& dst, TestParameters params)
 
 void populatePerFormatGroup (tcu::TestCaseGroup* group, VkFormat format)
 {
-	const UVec2	size	(66, 32);
-	const struct
+	const UVec2				size			(66, 32);
+	const glu::ShaderType	shaderTypes[]	=
 	{
-		const char*		name;
-		glu::ShaderType	value;
-	} shaderTypes[] =
-	{
-		{ "vertex",			glu::SHADERTYPE_VERTEX },
-		{ "fragment",		glu::SHADERTYPE_FRAGMENT },
-		{ "geometry",		glu::SHADERTYPE_GEOMETRY },
-		{ "tess_control",	glu::SHADERTYPE_TESSELLATION_CONTROL },
-		{ "tess_eval",		glu::SHADERTYPE_TESSELLATION_EVALUATION },
-		{ "compute",		glu::SHADERTYPE_COMPUTE }
+		glu::SHADERTYPE_VERTEX,
+		glu::SHADERTYPE_FRAGMENT,
+		glu::SHADERTYPE_GEOMETRY,
+		glu::SHADERTYPE_TESSELLATION_CONTROL,
+		glu::SHADERTYPE_TESSELLATION_EVALUATION,
+		glu::SHADERTYPE_COMPUTE
 	};
 	const struct
 	{
@@ -545,26 +594,26 @@ void populatePerFormatGroup (tcu::TestCaseGroup* group, VkFormat format)
 		{ "linear",		VK_IMAGE_TILING_LINEAR }
 	};
 
-	for (int shaderTypeNdx = 0; shaderTypeNdx < DE_LENGTH_OF_ARRAY(shaderTypes); shaderTypeNdx++)
+	for (glu::ShaderType shaderType : shaderTypes)
 	for (int tilingNdx = 0; tilingNdx < DE_LENGTH_OF_ARRAY(tilings); tilingNdx++)
+	for (int useArrayLayers = 0; useArrayLayers < 2; useArrayLayers++)
 	{
 		const VkImageTiling		tiling			= tilings[tilingNdx].value;
 		const char* const		tilingName		= tilings[tilingNdx].name;
-		const glu::ShaderType	shaderType		= shaderTypes[shaderTypeNdx].value;
-		const char* const		shaderTypeName	= shaderTypes[shaderTypeNdx].name;
-		const string			name			= string(shaderTypeName) + "_" + tilingName;
+		const char* const		shaderTypeName	= glu::getShaderTypeName(shaderType);
+		const string			name			= string(shaderTypeName) + "_" + tilingName + ((useArrayLayers) ? "_array" : "");
 
-		addFunctionCaseWithPrograms(group, name, "", checkSupport, initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, false));
+		addFunctionCaseWithPrograms(group, name, "", checkSupport, initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, false, useArrayLayers));
 
 		if (getPlaneCount(format) > 1)
-			addFunctionCaseWithPrograms(group, name + "_disjoint", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, false));
+			addFunctionCaseWithPrograms(group, name + "_disjoint", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, false, useArrayLayers));
 
 		if (tiling == VK_IMAGE_TILING_LINEAR)
 		{
-			addFunctionCaseWithPrograms(group, name + "_mapped", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, true));
+			addFunctionCaseWithPrograms(group, name + "_mapped", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, 0u, tiling, shaderType, true, useArrayLayers));
 
 			if (getPlaneCount(format) > 1)
-				addFunctionCaseWithPrograms(group, name + "_disjoint_mapped", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, true));
+				addFunctionCaseWithPrograms(group, name + "_disjoint_mapped", "", checkSupport, initPrograms, testFormat, TestParameters(format, size, (VkImageCreateFlags)VK_IMAGE_CREATE_DISJOINT_BIT, tiling, shaderType, true, useArrayLayers));
 		}
 	}
 }

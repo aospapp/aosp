@@ -87,15 +87,20 @@ enum SpirVFunction
 };
 
 std::string getOpTypeImageComponent			(const tcu::TextureFormat& format);
+std::string getOpTypeImageComponent			(const vk::PlanarFormatDescription& description);
 std::string getImageComponentTypeName		(const tcu::TextureFormat& format);
+std::string getImageComponentTypeName		(const vk::PlanarFormatDescription& description);
 std::string getImageComponentVec4TypeName	(const tcu::TextureFormat& format);
-
-std::string getOpTypeImageSparse	(const ImageType			imageType,
-									 const tcu::TextureFormat&	format,
-									 const std::string&			componentType,
-									 const bool					requiresSampler);
-
-std::string getOpTypeImageResidency	(const ImageType imageType);
+std::string getImageComponentVec4TypeName	(const vk::PlanarFormatDescription& description);
+std::string getOpTypeImageSparse			(const ImageType			imageType,
+											 const tcu::TextureFormat&	format,
+											 const std::string&			componentType,
+											 const bool					requiresSampler);
+std::string getOpTypeImageSparse			(const ImageType			imageType,
+											 const vk::VkFormat			format,
+											 const std::string&			componentType,
+											 const bool					requiresSampler);
+std::string getOpTypeImageResidency			(const ImageType imageType);
 
 class SparseShaderIntrinsicsCaseBase : public TestCase
 {
@@ -105,7 +110,7 @@ public:
 											 const SpirVFunction		function,
 											 const ImageType			imageType,
 											 const tcu::UVec3&			imageSize,
-											 const tcu::TextureFormat&	format)
+											 const vk::VkFormat			format)
 		: TestCase(testCtx, name, "")
 		, m_function(function)
 		, m_imageType(imageType)
@@ -114,11 +119,27 @@ public:
 	{
 	}
 
+	virtual void	checkSupport					(Context&	context) const
+	{
+		const vk::InstanceInterface&	instance		= context.getInstanceInterface();
+		const vk::VkPhysicalDevice		physicalDevice	= context.getPhysicalDevice();
+
+		context.requireDeviceCoreFeature(DEVICE_CORE_FEATURE_SHADER_RESOURCE_RESIDENCY);
+
+		// Check if image size does not exceed device limits
+		if (!isImageSizeSupported(instance, physicalDevice, m_imageType, m_imageSize))
+			TCU_THROW(NotSupportedError, "Image size not supported for device");
+
+		// Check if device supports sparse operations for image type
+		if (!checkSparseSupportForImageType(instance, physicalDevice, m_imageType))
+			TCU_THROW(NotSupportedError, "Sparse residency for image type is not supported");
+	}
+
 protected:
 	const SpirVFunction			m_function;
 	const ImageType				m_imageType;
 	const tcu::UVec3			m_imageSize;
-	const tcu::TextureFormat	m_format;
+	const vk::VkFormat			m_format;
 };
 
 class SparseShaderIntrinsicsInstanceBase : public SparseResourcesBaseInstance
@@ -128,7 +149,7 @@ public:
 											 const SpirVFunction		function,
 											 const ImageType			imageType,
 											 const tcu::UVec3&			imageSize,
-											 const tcu::TextureFormat&	format)
+											 const vk::VkFormat			format)
 		: SparseResourcesBaseInstance(context)
 		, m_function(function)
 		, m_imageType(imageType)
@@ -154,7 +175,7 @@ protected:
 	const SpirVFunction			m_function;
 	const ImageType				m_imageType;
 	const tcu::UVec3			m_imageSize;
-	const tcu::TextureFormat	m_format;
+	const vk::VkFormat			m_format;
 	const tcu::TextureFormat	m_residencyFormat;
 
 	typedef de::SharedPtr< vk::Unique<vk::VkPipeline> >			SharedVkPipeline;

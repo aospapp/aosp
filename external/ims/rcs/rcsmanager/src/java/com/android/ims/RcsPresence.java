@@ -29,13 +29,10 @@
 package com.android.ims;
 
 import java.util.List;
-import java.util.ArrayList;
-import android.content.Intent;
 import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.ims.internal.IRcsPresence;
-import com.android.ims.RcsManager.ResultCode;
 
 /**
  *
@@ -192,7 +189,7 @@ public class RcsPresence {
      * @return the request ID if it is >0. Or it is RcsManager.ResultCode for error.
      *
      * @see IRcsPresenceListener
-     * @see RcsManager.ResultCode
+     * @see ResultCode
      */
     public int requestCapability(List<String> contactsNumber,
             IRcsPresenceListener listener) throws RcsException {
@@ -237,7 +234,7 @@ public class RcsPresence {
      * @return the request ID if it is >0. Or it is RcsManager.ResultCode for error.
      *
      * @see IRcsPresenceListener
-     * @see RcsManager.ResultCode
+     * @see ResultCode
      * @see RcsPresence.ACTION_PRESENCE_CHANGED
      */
     public int requestAvailability(String contactNumber, IRcsPresenceListener listener)
@@ -264,7 +261,7 @@ public class RcsPresence {
      * But for this funcation it will always send the request to network.
      *
      * @see IRcsPresenceListener
-     * @see RcsManager.ResultCode
+     * @see ResultCode
      * @see RcsPresence.ACTION_PRESENCE_CHANGED
      * @see ResultCode.SUBSCRIBE_TOO_FREQUENTLY
      */

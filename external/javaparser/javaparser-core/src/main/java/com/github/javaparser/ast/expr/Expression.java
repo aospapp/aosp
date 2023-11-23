@@ -25,9 +25,9 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.visitor.CloneVisitor;
 import com.github.javaparser.metamodel.ExpressionMetaModel;
 import com.github.javaparser.metamodel.JavaParserMetaModel;
-import javax.annotation.Generated;
 import com.github.javaparser.TokenRange;
 import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.ast.Generated;
 import java.util.function.Consumer;
 import static com.github.javaparser.utils.CodeGenerationUtils.f;
 import java.util.Optional;
@@ -557,6 +557,9 @@ public abstract class Expression extends Node {
     public void ifVariableDeclarationExpr(Consumer<VariableDeclarationExpr> action) {
     }
 
+    /**
+     * This constructor is used by the parser and is considered private.
+     */
     public ResolvedType calculateResolvedType() {
         return getSymbolResolver().calculateType(this);
     }
@@ -729,5 +732,24 @@ public abstract class Expression extends Node {
     @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
     public Optional<VariableDeclarationExpr> toVariableDeclarationExpr() {
         return Optional.empty();
+    }
+
+    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
+    public boolean isSwitchExpr() {
+        return false;
+    }
+
+    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
+    public SwitchExpr asSwitchExpr() {
+        throw new IllegalStateException(f("%s is not an SwitchExpr", this));
+    }
+
+    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
+    public Optional<SwitchExpr> toSwitchExpr() {
+        return Optional.empty();
+    }
+
+    @Generated("com.github.javaparser.generator.core.node.TypeCastingGenerator")
+    public void ifSwitchExpr(Consumer<SwitchExpr> action) {
     }
 }

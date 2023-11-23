@@ -1,5 +1,5 @@
 diff --git a/third_party/libtiff/tif_dirread.c b/third_party/libtiff/tif_dirread.c
-index 772ebaf7d..ab938eac9 100644
+index 5e62e8131..521dbf0a4 100644
 --- a/third_party/libtiff/tif_dirread.c
 +++ b/third_party/libtiff/tif_dirread.c
 @@ -41,6 +41,7 @@
@@ -7,10 +7,10 @@ index 772ebaf7d..ab938eac9 100644
  #include "tiffiop.h"
  #include <float.h>
 +#include <limits.h>
+ #include <stdlib.h>
  
  #define IGNORE 0          /* tag placeholder used below */
- #define FAILED_FII    ((uint32) -1)
-@@ -3638,6 +3639,13 @@ TIFFReadDirectory(TIFF* tif)
+@@ -3743,6 +3744,13 @@ TIFFReadDirectory(TIFF* tif)
  		    isTiled(tif) ? "tiles" : "strips");
  		goto bad;
  	}

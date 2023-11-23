@@ -82,10 +82,8 @@ static int snd_pcm_cras_close(snd_pcm_ioplug_t *io)
 
 /* Poll callback used to wait for data ready (playback) or space available
  * (capture). */
-static int snd_pcm_cras_poll_revents(snd_pcm_ioplug_t *io,
-				     struct pollfd *pfds,
-				     unsigned int nfds,
-				     unsigned short *revents)
+static int snd_pcm_cras_poll_revents(snd_pcm_ioplug_t *io, struct pollfd *pfds,
+				     unsigned int nfds, unsigned short *revents)
 {
 	static char buf[1];
 	int rc;
@@ -99,8 +97,8 @@ static int snd_pcm_cras_poll_revents(snd_pcm_ioplug_t *io,
 	}
 	*revents = pfds[0].revents & ~(POLLIN | POLLOUT);
 	if (pfds[0].revents & POLLIN)
-		*revents |= (io->stream == SND_PCM_STREAM_PLAYBACK) ? POLLOUT
-								    : POLLIN;
+		*revents |= (io->stream == SND_PCM_STREAM_PLAYBACK) ? POLLOUT :
+								      POLLIN;
 	return 0;
 }
 
@@ -118,11 +116,9 @@ static snd_pcm_sframes_t snd_pcm_cras_pointer(snd_pcm_ioplug_t *io)
 static int pcm_cras_process_cb(struct cras_client *client,
 			       cras_stream_id_t stream_id,
 			       uint8_t *capture_samples,
-			       uint8_t *playback_samples,
-			       unsigned int nframes,
+			       uint8_t *playback_samples, unsigned int nframes,
 			       const struct timespec *capture_ts,
-			       const struct timespec *playback_ts,
-			       void *arg)
+			       const struct timespec *playback_ts, void *arg)
 {
 	snd_pcm_ioplug_t *io;
 	struct snd_pcm_cras *pcm_cras;
@@ -134,8 +130,8 @@ static int pcm_cras_process_cb(struct cras_client *client,
 	uint8_t *samples;
 	const struct timespec *sample_time;
 
-	samples = capture_samples ? : playback_samples;
-	sample_time = capture_ts ? : playback_ts;
+	samples = capture_samples ?: playback_samples;
+	sample_time = capture_ts ?: playback_ts;
 
 	io = (snd_pcm_ioplug_t *)arg;
 	pcm_cras = (struct snd_pcm_cras *)io->private_data;
@@ -185,17 +181,14 @@ static int pcm_cras_process_cb(struct cras_client *client,
 		for (chan = 0; chan < io->channels; chan++)
 			if (io->stream == SND_PCM_STREAM_PLAYBACK)
 				snd_pcm_area_copy(&pcm_cras->areas[chan],
-						  copied_frames,
-						  &areas[chan],
-						  pcm_cras->hw_ptr,
-						  frames,
+						  copied_frames, &areas[chan],
+						  pcm_cras->hw_ptr, frames,
 						  io->format);
 			else
 				snd_pcm_area_copy(&areas[chan],
 						  pcm_cras->hw_ptr,
 						  &pcm_cras->areas[chan],
-						  copied_frames,
-						  frames,
+						  copied_frames, frames,
 						  io->format);
 
 		pcm_cras->hw_ptr += frames;
@@ -212,9 +205,7 @@ static int pcm_cras_process_cb(struct cras_client *client,
 
 /* Callback from CRAS for stream errors. */
 static int pcm_cras_error_cb(struct cras_client *client,
-			     cras_stream_id_t stream_id,
-			     int err,
-			     void *arg)
+			     cras_stream_id_t stream_id, int err, void *arg)
 {
 	fprintf(stderr, "Stream error %d\n", err);
 	return 0;
@@ -237,24 +228,20 @@ static int snd_pcm_cras_start(snd_pcm_ioplug_t *io)
 	struct cras_audio_format *audio_format;
 	int rc;
 
-	audio_format = cras_audio_format_create(io->format, io->rate,
-						io->channels);
+	audio_format =
+		cras_audio_format_create(io->format, io->rate, io->channels);
 	if (audio_format == NULL)
 		return -ENOMEM;
 
 	params = cras_client_unified_params_create(
-			pcm_cras->direction,
-			io->period_size,
-			0,
-			0,
-			io,
-			pcm_cras_process_cb,
-			pcm_cras_error_cb,
-			audio_format);
+		pcm_cras->direction, io->period_size, 0, 0, io,
+		pcm_cras_process_cb, pcm_cras_error_cb, audio_format);
 	if (params == NULL) {
 		rc = -ENOMEM;
 		goto error_out;
 	}
+
+	cras_client_stream_params_set_client_type(params, CRAS_CLIENT_TYPE_PCM);
 
 	rc = cras_client_run_thread(pcm_cras->client);
 	if (rc < 0)
@@ -263,8 +250,7 @@ static int snd_pcm_cras_start(snd_pcm_ioplug_t *io)
 	pcm_cras->bytes_per_frame =
 		cras_client_format_bytes_per_frame(audio_format);
 
-	rc = cras_client_add_stream(pcm_cras->client,
-				    &pcm_cras->stream_id,
+	rc = cras_client_add_stream(pcm_cras->client, &pcm_cras->stream_id,
 				    params);
 	if (rc < 0) {
 		fprintf(stderr, "CRAS add failed\n");
@@ -292,6 +278,7 @@ static snd_pcm_ioplug_callback_t cras_pcm_callback = {
  * snd_pcm_set_params(). */
 static int set_hw_constraints(struct snd_pcm_cras *pcm_cras)
 {
+	// clang-format off
 	static const unsigned int access_list[] = {
 		SND_PCM_ACCESS_MMAP_INTERLEAVED,
 		SND_PCM_ACCESS_MMAP_NONINTERLEAVED,
@@ -305,6 +292,7 @@ static int set_hw_constraints(struct snd_pcm_cras *pcm_cras)
 		SND_PCM_FORMAT_S32_LE,
 		SND_PCM_FORMAT_S24_3LE,
 	};
+	// clang-format on
 	int rc;
 
 	rc = snd_pcm_ioplug_set_param_list(&pcm_cras->io,
@@ -320,33 +308,26 @@ static int set_hw_constraints(struct snd_pcm_cras *pcm_cras)
 	if (rc < 0)
 		return rc;
 	rc = snd_pcm_ioplug_set_param_minmax(&pcm_cras->io,
-					     SND_PCM_IOPLUG_HW_CHANNELS,
-					     1,
+					     SND_PCM_IOPLUG_HW_CHANNELS, 1,
 					     pcm_cras->channels);
 	if (rc < 0)
 		return rc;
-	rc = snd_pcm_ioplug_set_param_minmax(&pcm_cras->io,
-					    SND_PCM_IOPLUG_HW_RATE,
-					    8000,
-					    48000);
+	rc = snd_pcm_ioplug_set_param_minmax(
+		&pcm_cras->io, SND_PCM_IOPLUG_HW_RATE, 8000, 48000);
 	if (rc < 0)
 		return rc;
 	rc = snd_pcm_ioplug_set_param_minmax(&pcm_cras->io,
-					     SND_PCM_IOPLUG_HW_BUFFER_BYTES,
-					     64,
+					     SND_PCM_IOPLUG_HW_BUFFER_BYTES, 64,
 					     2 * 1024 * 1024);
 	if (rc < 0)
 		return rc;
 	rc = snd_pcm_ioplug_set_param_minmax(&pcm_cras->io,
-					     SND_PCM_IOPLUG_HW_PERIOD_BYTES,
-					     64,
+					     SND_PCM_IOPLUG_HW_PERIOD_BYTES, 64,
 					     2 * 1024 * 1024);
 	if (rc < 0)
 		return rc;
-	rc = snd_pcm_ioplug_set_param_minmax(&pcm_cras->io,
-					     SND_PCM_IOPLUG_HW_PERIODS,
-					     1,
-					     2048);
+	rc = snd_pcm_ioplug_set_param_minmax(
+		&pcm_cras->io, SND_PCM_IOPLUG_HW_PERIODS, 1, 2048);
 	return rc;
 }
 
@@ -366,8 +347,9 @@ static int snd_pcm_cras_open(snd_pcm_t **pcmp, const char *name,
 	pcm_cras->fd = -1;
 	pcm_cras->io.poll_fd = -1;
 	pcm_cras->channels = 2;
-	pcm_cras->direction = (stream == SND_PCM_STREAM_PLAYBACK)
-				? CRAS_STREAM_OUTPUT : CRAS_STREAM_INPUT;
+	pcm_cras->direction = (stream == SND_PCM_STREAM_PLAYBACK) ?
+				      CRAS_STREAM_OUTPUT :
+				      CRAS_STREAM_INPUT;
 
 	rc = cras_client_create(&pcm_cras->client);
 	if (rc != 0 || pcm_cras->client == NULL) {
@@ -376,8 +358,8 @@ static int snd_pcm_cras_open(snd_pcm_t **pcmp, const char *name,
 		return rc;
 	}
 
-	pcm_cras->areas = calloc(pcm_cras->channels,
-				 sizeof(snd_pcm_channel_area_t));
+	pcm_cras->areas =
+		calloc(pcm_cras->channels, sizeof(snd_pcm_channel_area_t));
 	if (pcm_cras->areas == NULL) {
 		snd_pcm_cras_free(pcm_cras);
 		return -ENOMEM;
@@ -414,7 +396,6 @@ static int snd_pcm_cras_open(snd_pcm_t **pcmp, const char *name,
 
 	return 0;
 }
-
 
 SND_PCM_PLUGIN_DEFINE_FUNC(cras)
 {

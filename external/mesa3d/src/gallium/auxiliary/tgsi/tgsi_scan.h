@@ -118,6 +118,7 @@ struct tgsi_shader_info
    boolean uses_vertexid;
    boolean uses_vertexid_nobase;
    boolean uses_basevertex;
+   boolean uses_drawid;
    boolean uses_primid;
    boolean uses_frontface;
    boolean uses_invocationid;
@@ -132,7 +133,6 @@ struct tgsi_shader_info
    boolean writes_viewport_index;
    boolean writes_layer;
    boolean writes_memory; /**< contains stores or atomics to buffers or images */
-   boolean is_msaa_sampler[PIPE_MAX_SAMPLERS];
    boolean uses_doubles; /**< uses any of the double instructions */
    boolean uses_derivatives;
    boolean uses_bindless_samplers;
@@ -154,6 +154,13 @@ struct tgsi_shader_info
    unsigned shader_buffers_load; /**< bitmask of shader buffers using loads */
    unsigned shader_buffers_store; /**< bitmask of shader buffers using stores */
    unsigned shader_buffers_atomic; /**< bitmask of shader buffers using atomics */
+   bool uses_bindless_buffer_load;
+   bool uses_bindless_buffer_store;
+   bool uses_bindless_buffer_atomic;
+   bool uses_bindless_image_load;
+   bool uses_bindless_image_store;
+   bool uses_bindless_image_atomic;
+
    /**
     * Bitmask indicating which register files are accessed with
     * indirect addressing.  The bits are (1 << TGSI_FILE_x), etc.
@@ -214,7 +221,9 @@ tgsi_is_bindless_image_file(unsigned file)
 {
    return file != TGSI_FILE_IMAGE &&
           file != TGSI_FILE_MEMORY &&
-          file != TGSI_FILE_BUFFER;
+          file != TGSI_FILE_BUFFER &&
+          file != TGSI_FILE_CONSTBUF &&
+          file != TGSI_FILE_HW_ATOMIC;
 }
 
 #ifdef __cplusplus

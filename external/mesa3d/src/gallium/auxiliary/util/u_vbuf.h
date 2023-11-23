@@ -61,8 +61,7 @@ boolean u_vbuf_get_caps(struct pipe_screen *screen, struct u_vbuf_caps *caps,
                         unsigned flags);
 
 struct u_vbuf *
-u_vbuf_create(struct pipe_context *pipe,
-              struct u_vbuf_caps *caps, unsigned aux_vertex_buffer_index);
+u_vbuf_create(struct pipe_context *pipe, struct u_vbuf_caps *caps);
 
 void u_vbuf_destroy(struct u_vbuf *mgr);
 
@@ -73,11 +72,14 @@ void u_vbuf_set_vertex_buffers(struct u_vbuf *mgr,
                                unsigned start_slot, unsigned count,
                                const struct pipe_vertex_buffer *bufs);
 void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info);
+void u_vbuf_get_minmax_index(struct pipe_context *pipe,
+                             const struct pipe_draw_info *info,
+                             unsigned *out_min_index, unsigned *out_max_index);
 
 /* Save/restore functionality. */
 void u_vbuf_save_vertex_elements(struct u_vbuf *mgr);
 void u_vbuf_restore_vertex_elements(struct u_vbuf *mgr);
-void u_vbuf_save_aux_vertex_buffer_slot(struct u_vbuf *mgr);
-void u_vbuf_restore_aux_vertex_buffer_slot(struct u_vbuf *mgr);
+void u_vbuf_save_vertex_buffer0(struct u_vbuf *mgr);
+void u_vbuf_restore_vertex_buffer0(struct u_vbuf *mgr);
 
 #endif

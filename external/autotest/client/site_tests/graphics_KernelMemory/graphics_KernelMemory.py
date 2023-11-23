@@ -28,4 +28,4 @@ class graphics_KernelMemory(graphics_utils.GraphicsTest):
         # We should still be in the login screen and memory use > 0.
         if self._GSC.get_memory_access_errors() > 0:
             raise error.TestFail('Failed: Detected %d errors accessing graphics'
-                                 ' memory.' % self.GKM.num_errors)
+                                 ' memory.' % self._GSC.get_memory_access_errors())

@@ -677,11 +677,6 @@ const UWORD32 gau4_nbr_flags_8x8_4x4blks[64] = {
     0x11180, 0x10180, 0x11180, 0x10180
 };
 
-/**
-* @brief subset of intra modes to be evaluated during pre enc intra process
-*/
-const UWORD8 gau1_modes_to_eval[11] = { 0, 1, 26, 2, 6, 10, 14, 18, 22, 30, 34 };
-
 const float gad_look_up_activity[TOT_QP_MOD_OFFSET] = { 0.314980262f, 0.353553391f, 0.396850263f,
                                                         0.445449359f, 0.5f,         0.561231024f,
                                                         0.629960525f, 0.707106781f, 0.793700526f,

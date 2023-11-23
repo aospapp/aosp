@@ -21,7 +21,10 @@ class bluetooth_AdapterSanity(
 
         """
         fail_terms = ['[^a-z]err[^a-z]']
-        ignore_terms = ['RFKILL control', '"Service Changed" characteristic']
+        ignore_terms = ['RFKILL control',
+                        '"Service Changed" characteristic',
+                        'Unknown Evt ID: 19',
+                        'Failed to set privacy: Rejected']
 
         log_cmd = 'grep -i bluetooth /var/log/messages'
         for term in ignore_terms:
@@ -31,10 +34,20 @@ class bluetooth_AdapterSanity(
             search_cmd = '%s | grep -i \'%s\'' % (log_cmd, term)
             log_entries = utils.run(search_cmd, ignore_status=True).stdout
             if len(log_entries) > 0:
-                log_entries.split('\n')
+                log_entries = [l for l in log_entries.split('\n') if l != '']
                 logging.info(log_entries)
                 self.collect_logs('Bluetooth kernel error')
-                raise error.TestFail('Bluetooth kernel error found!')
+
+                # Add snippet of the log to the error message
+                # unless there are many errors (>5)
+                # This is helpful when looking at stainless results
+                error_str = 'Bluetooth kernel error found!'
+                if len(log_entries) <= 5:
+                    error_str = error_str + ' | '
+                    for l in log_entries:
+                        error_str = error_str +  l.split('ERR')[1] + ' | '
+
+                raise error.TestFail(error_str)
 
     def warmup(self):
         """Overwrite parent warmup; no need to log in."""

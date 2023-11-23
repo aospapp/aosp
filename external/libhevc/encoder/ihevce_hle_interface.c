@@ -319,23 +319,6 @@ IV_API_CALL_STATUS_T ihevce_hle_interface_create(ihevce_hle_ctxt_t *ps_hle_ctxt)
         /*store num bit-rate instances in the encoder context */
         ps_enc_ctxt->i4_num_bitrates =
             ps_enc_static_cfg_params->s_tgt_lyr_prms.as_tgt_params[ctr].i4_num_bitrate_instances;
-
-        if(1 == ps_enc_static_cfg_params->s_config_prms.i4_rate_control_mode)
-        {
-            LWORD64 i8_peak_bitrate;
-            for(i4_br_id = 0; i4_br_id < ps_enc_ctxt->i4_num_bitrates; i4_br_id++)
-            {
-                i8_peak_bitrate =
-                    (ULWORD64)(ps_enc_static_cfg_params->s_tgt_lyr_prms.as_tgt_params[ctr]
-                                   .ai4_peak_bitrate[i4_br_id]);
-
-                ps_enc_static_cfg_params->s_tgt_lyr_prms.as_tgt_params[ctr]
-                    .ai4_tgt_bitrate[i4_br_id] = (WORD32)(
-                    (i8_peak_bitrate * ps_enc_static_cfg_params->s_config_prms.i4_rate_factor) /
-                    1000);
-            }
-        }
-
         if(BLU_RAY_SUPPORT == ps_enc_static_cfg_params->s_out_strm_prms.i4_interop_flags)
         {
             ps_enc_ctxt->i4_blu_ray_spec = 1;
@@ -443,7 +426,9 @@ IV_API_CALL_STATUS_T ihevce_hle_interface_create(ihevce_hle_ctxt_t *ps_hle_ctxt)
     {
         WORD32 i4_br_id;
 
-        PROFILE_INIT(&ps_hle_ctxt->profile_pre_enc[ctr]);
+        PROFILE_INIT(&ps_hle_ctxt->profile_enc_me[ctr]);
+        PROFILE_INIT(&ps_hle_ctxt->profile_pre_enc_l1l2[ctr]);
+        PROFILE_INIT(&ps_hle_ctxt->profile_pre_enc_l0ipe[ctr]);
         for(i4_br_id = 0; i4_br_id < ps_enc_ctxt->i4_num_bitrates; i4_br_id++)
         {
             PROFILE_INIT(&ps_hle_ctxt->profile_enc[ctr][i4_br_id]);
@@ -1071,8 +1056,6 @@ WORD32 ihevce_hle_interface_thrd(void *pv_proc_intf_ctxt)
 
         /*initialize multi-thread context for enc group*/
         ps_enc_ctxt->s_multi_thrd.i4_is_recon_free_done = 0;
-        ps_enc_ctxt->s_multi_thrd.me_end_flag = 0;
-        ps_enc_ctxt->s_multi_thrd.enc_end_flag = 0;
         ps_enc_ctxt->s_multi_thrd.i4_idx_dvsr_p = 0;
         ps_enc_ctxt->s_multi_thrd.i4_last_inp_buf = 0;
 
@@ -1128,17 +1111,10 @@ WORD32 ihevce_hle_interface_thrd(void *pv_proc_intf_ctxt)
                 ps_enc_ctxt->s_multi_thrd.apv_dep_mngr_prev_frame_me_done[i]);
         }
 
-        /* reset the completed status & start proc flags of slave encode frame processing threads */
-        for(ctr = 0; ctr < ps_enc_ctxt->s_multi_thrd.i4_num_enc_proc_thrds; ctr++)
-        {
-            ps_enc_ctxt->s_multi_thrd.ai4_enc_frm_proc_start[ctr] = 0;
-        }
-
         /* initialize multi-thread context for pre enc group */
 
         ps_enc_ctxt->s_multi_thrd.i4_ctrl_blocking_mode = BUFF_QUE_BLOCKING_MODE;
 
-        //for (ctr=0; ctr< PING_PONG_BUF; ctr++)
         for(ctr = 0; ctr < MAX_PRE_ENC_STAGGER + NUM_BUFS_DECOMP_HME; ctr++)
         {
             ps_enc_ctxt->s_multi_thrd.ai4_pre_enc_init_done[ctr] = 0;
@@ -1167,10 +1143,11 @@ WORD32 ihevce_hle_interface_thrd(void *pv_proc_intf_ctxt)
             /**init idx for handling delay between pre-me and l0-ipe*/
             ps_enc_ctxt->s_multi_thrd.i4_delay_pre_me_btw_l0_ipe = 0;
             ps_enc_ctxt->s_multi_thrd.i4_max_delay_pre_me_btw_l0_ipe =
-                MAX_PRE_ENC_STAGGER + NUM_BUFS_DECOMP_HME - 1;
+                MIN_L1_L0_STAGGER_NON_SEQ +
+                ps_enc_ctxt->s_lap_stat_prms.s_lap_params.i4_rc_look_ahead_pics + 1;
             if(ps_enc_ctxt->s_lap_stat_prms.s_lap_params.i4_rc_look_ahead_pics)
             {
-                ps_enc_ctxt->s_multi_thrd.i4_delay_pre_me_btw_l0_ipe +=
+                ps_enc_ctxt->s_multi_thrd.i4_delay_pre_me_btw_l0_ipe =
                     MIN_L1_L0_STAGGER_NON_SEQ +
                     ps_enc_ctxt->s_lap_stat_prms.s_lap_params.i4_rc_look_ahead_pics;
             }
@@ -2251,10 +2228,12 @@ IV_API_CALL_STATUS_T ihevce_hle_interface_delete(ihevce_hle_ctxt_t *ps_hle_ctxt)
     {
         WORD32 i4_br_id;
 
-        PROFILE_END(&ps_hle_ctxt->profile_pre_enc[res_ctr], "pre enc process");
+        PROFILE_END(&ps_hle_ctxt->profile_pre_enc_l1l2[res_ctr], "pre enc l1l2 process");
+        PROFILE_END(&ps_hle_ctxt->profile_pre_enc_l0ipe[res_ctr], "pre enc l0 ipe process");
+        PROFILE_END(&ps_hle_ctxt->profile_enc_me[res_ctr], "enc me process");
         for(i4_br_id = 0; i4_br_id < ai4_num_bitrate_instances[res_ctr]; i4_br_id++)
         {
-            PROFILE_END(&ps_hle_ctxt->profile_enc[res_ctr][i4_br_id], "enc process");
+            PROFILE_END(&ps_hle_ctxt->profile_enc[res_ctr][i4_br_id], "enc loop process");
             PROFILE_END(&ps_hle_ctxt->profile_entropy[res_ctr][i4_br_id], "entropy process");
         }
     }

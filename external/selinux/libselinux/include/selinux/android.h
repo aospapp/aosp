@@ -13,8 +13,6 @@ extern "C" {
 
 extern struct selabel_handle* selinux_android_file_context_handle(void);
 
-extern struct selabel_handle* selinux_android_prop_context_handle(void);
-
 extern struct selabel_handle* selinux_android_service_context_handle(void);
 
 extern struct selabel_handle* selinux_android_hw_service_context_handle(void);
@@ -33,11 +31,6 @@ extern int selinux_android_setcontext(uid_t uid,
 				      bool isSystemServer,
 				      const char *seinfo,
 				      const char *name);
-
-extern int selinux_android_setfilecon(const char *pkgdir,
-				       const char *pkgname,
-				       const char *seinfo,
-				       uid_t uid);
 
 extern int selinux_log_callback(int type, const char *fmt, ...)
     __attribute__ ((format(printf, 2, 3)));

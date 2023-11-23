@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Chromium Authors. All rights reserved.
+/* Copyright 2016 The Chromium OS Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -14,7 +14,6 @@
 #include "utlist.h"
 
 #define CRAS_DEFAULT_PLAYER "/org/chromium/Cras/Bluetooth/DefaultPlayer"
-
 
 static void cras_bt_on_player_registered(DBusPendingCall *pending_call,
 					 void *data)
@@ -44,35 +43,29 @@ static int cras_bt_add_player(DBusConnection *conn,
 	DBusPendingCall *pending_call;
 
 	adapter_path = cras_bt_adapter_object_path(adapter);
-	method_call = dbus_message_new_method_call(BLUEZ_SERVICE,
-						   adapter_path,
+	method_call = dbus_message_new_method_call(BLUEZ_SERVICE, adapter_path,
 						   BLUEZ_INTERFACE_MEDIA,
 						   "RegisterPlayer");
 	if (!method_call)
 		return -ENOMEM;
 
 	dbus_message_iter_init_append(method_call, &message_iter);
-	dbus_message_iter_append_basic(&message_iter,
-				       DBUS_TYPE_OBJECT_PATH,
+	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
 				       &player->object_path);
 
-	dbus_message_iter_open_container(&message_iter,
-					 DBUS_TYPE_ARRAY,
-					 DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
-					 DBUS_TYPE_STRING_AS_STRING
-					 DBUS_TYPE_VARIANT_AS_STRING
-					 DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
-					 &dict);
+	dbus_message_iter_open_container(
+		&message_iter, DBUS_TYPE_ARRAY,
+		DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING DBUS_TYPE_STRING_AS_STRING
+			DBUS_TYPE_VARIANT_AS_STRING
+				DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+		&dict);
 
 	append_key_value(&dict, "PlaybackStatus", DBUS_TYPE_STRING,
-			 DBUS_TYPE_STRING_AS_STRING,
-			 &player->playback_status);
+			 DBUS_TYPE_STRING_AS_STRING, &player->playback_status);
 	append_key_value(&dict, "Identity", DBUS_TYPE_STRING,
-			 DBUS_TYPE_STRING_AS_STRING,
-			 &player->identity);
+			 DBUS_TYPE_STRING_AS_STRING, &player->identity);
 	append_key_value(&dict, "LoopStatus", DBUS_TYPE_STRING,
-			 DBUS_TYPE_STRING_AS_STRING,
-			 &player->loop_status);
+			 DBUS_TYPE_STRING_AS_STRING, &player->loop_status);
 	append_key_value(&dict, "Position", DBUS_TYPE_INT64,
 			 DBUS_TYPE_INT64_AS_STRING, &player->position);
 	append_key_value(&dict, "Shuffle", DBUS_TYPE_BOOLEAN,
@@ -100,16 +93,14 @@ static int cras_bt_add_player(DBusConnection *conn,
 	if (!pending_call)
 		return -EIO;
 
-	if (!dbus_pending_call_set_notify(pending_call,
-					  cras_bt_on_player_registered,
-					  player, NULL)) {
+	if (!dbus_pending_call_set_notify(
+		    pending_call, cras_bt_on_player_registered, player, NULL)) {
 		dbus_pending_call_cancel(pending_call);
 		dbus_pending_call_unref(pending_call);
 		return -ENOMEM;
 	}
 	return 0;
 }
-
 
 /* Note that player properties will be used mostly for AVRCP qualification and
  * not for normal use cases. The corresponding media events won't be routed by
@@ -146,7 +137,7 @@ static DBusHandlerResult cras_bt_player_handle_message(DBusConnection *conn,
 int cras_bt_player_create(DBusConnection *conn)
 {
 	static const DBusObjectPathVTable player_vtable = {
-	        .message_function = cras_bt_player_handle_message
+		.message_function = cras_bt_player_handle_message
 	};
 
 	DBusError dbus_error;
@@ -155,10 +146,8 @@ int cras_bt_player_create(DBusConnection *conn)
 
 	dbus_error_init(&dbus_error);
 
-	if (!dbus_connection_register_object_path(conn,
-						  player.object_path,
-						  &player_vtable,
-						  &dbus_error)) {
+	if (!dbus_connection_register_object_path(
+		    conn, player.object_path, &player_vtable, &dbus_error)) {
 		syslog(LOG_ERR, "Cannot register player %s",
 		       player.object_path);
 		dbus_error_free(&dbus_error);

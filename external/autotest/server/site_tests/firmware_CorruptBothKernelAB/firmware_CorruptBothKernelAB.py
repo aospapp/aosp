@@ -56,11 +56,13 @@ class firmware_CorruptBothKernelAB(FirmwareTest):
     def run_once(self, dev_mode=False):
         """Main test logic"""
         recovery_reason = (vboot.RECOVERY_REASON['DEP_RW_NO_DISK'],
-                           vboot.RECOVERY_REASON['RW_NO_KERNEL'])
+                           vboot.RECOVERY_REASON['RW_NO_KERNEL'],
+                           vboot.RECOVERY_REASON['RW_INVALID_OS'])
 
         logging.info("Corrupt kernel A and B.")
         self.check_state((self.check_root_part_on_non_recovery, 'a'))
-        self.faft_client.kernel.corrupt_sig(('a', 'b'))
+        self.faft_client.kernel.corrupt_sig('a')
+        self.faft_client.kernel.corrupt_sig('b')
 
         # Older devices (without BROKEN screen) didn't wait for removal in
         # dev mode. Make sure the USB key is not plugged in so they won't
@@ -75,7 +77,8 @@ class firmware_CorruptBothKernelAB(FirmwareTest):
                               'mainfw_type': 'recovery',
                               'recovery_reason': recovery_reason,
                               }))
-        self.faft_client.kernel.restore_sig(('a', 'b'))
+        self.faft_client.kernel.restore_sig('a')
+        self.faft_client.kernel.restore_sig('b')
         self.switcher.mode_aware_reboot()
 
         logging.info("Expected kernel A normal/dev boot.")

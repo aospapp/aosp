@@ -109,11 +109,7 @@ void calc_l1_level_hme_intra_sad_different_qp(
 
 WORD32 ihevce_pre_enc_process_frame_thrd(void *pv_hle_ctxt);
 
-WORD32 ihevce_enc_process_frame_thrd(void *pv_hle_ctxt);
-
 WORD32 ihevce_enc_frm_proc_slave_thrd(void *pv_frm_proc_thrd_ctxt);
-
-WORD32 ihevce_pre_enc_frm_proc_slave_thrd(void *pv_frm_proc_thrd_ctxt);
 
 void ihevce_set_pre_enc_prms(enc_ctxt_t *ps_enc_ctxt);
 

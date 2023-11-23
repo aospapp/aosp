@@ -21,24 +21,18 @@
 #include <string>
 #include <vector>
 
-#include "perfetto/base/scoped_file.h"
+#include "perfetto/ext/base/scoped_file.h"
 
 namespace perfetto {
 
 class AtraceHalWrapper {
  public:
   AtraceHalWrapper();
-  ~AtraceHalWrapper();
+  virtual ~AtraceHalWrapper();
 
-  struct TracingVendorCategory {
-    // The name identifying the category.
-    std::string name;
-
-    // A longer description of the category.
-    std::string description;
-  };
-
-  std::vector<TracingVendorCategory> GetAvailableCategories();
+  virtual std::vector<std::string> ListCategories();
+  virtual bool EnableCategories(const std::vector<std::string>& categories);
+  virtual bool DisableAllCategories();
 
  private:
   struct DynamicLibLoader;

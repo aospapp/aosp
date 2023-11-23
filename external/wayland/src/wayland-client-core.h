@@ -260,6 +260,9 @@ wl_display_read_events(struct wl_display *display);
 void
 wl_log_set_handler_client(wl_log_func_t handler);
 
+void
+wl_set_debug_client_flag(int value);
+
 #ifdef  __cplusplus
 }
 #endif

@@ -6,8 +6,6 @@ NAME = "graphics_KernelConfig"
 AUTHOR = "The Chromium OS Authors"
 PURPOSE = "Verify various graphics kernel flags."
 CRITERIA = "Fails if kernel configuration is unexpected."
-# TODO(pwang): uncomment this once the flags are ready
-# ATTRIBUTES = "suite:bvt-inline, suite:smoke"
 ATTRIBUTES = 'suite:graphics_per-day, suite:graphics_system'
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"

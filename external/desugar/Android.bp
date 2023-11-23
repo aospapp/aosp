@@ -22,11 +22,6 @@ java_library_host {
         "jsr305-3.0.1",
     ],
 
-    openjdk9: {
-        // Required for use of javax.annotation.Generated per http://b/62050818
-        javacflags: ["-J--add-modules=java.xml.ws.annotation"],
-    },
-
     // Use Dagger2 annotation processor
     plugins: ["dagger2-auto-value"],
     libs: ["dagger2-auto-value"],

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_visibility: ["//visibility:private"],
+}
+
 // build the android_icu4j srcgen jar
 // ============================================================
 
@@ -35,5 +39,6 @@ java_binary_host {
 
 filegroup {
     name: "generate_android_icu4j_script",
+    visibility: ["//external/icu/icu4j"],
     srcs: ["generate_android_icu4j.sh"],
 }

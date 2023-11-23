@@ -136,7 +136,6 @@ static int atibios_debug_mode(BE_VGAInfo *vga_info, RMREGS *regs,
 		bool linear_ok;
 		int attr;
 
-		break;
 		debug("Mode %x: ", mode);
 		memset(buffer, '\0', sizeof(struct vbe_mode_info));
 		regs->e.eax = VESA_GET_MODE_INFO;
@@ -606,7 +605,6 @@ int biosemu_run(pci_dev_t pcidev, uchar *bios_rom, int bios_len,
 		    (ulong)(vga_info->BIOSImage) != 0xc0000)
 			free(vga_info->BIOSImage);
 		free(vga_info);
-		vga_info = NULL;
 	}
 
 	return 0;

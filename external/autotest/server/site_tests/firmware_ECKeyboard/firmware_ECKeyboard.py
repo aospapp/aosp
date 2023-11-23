@@ -49,6 +49,7 @@ class firmware_ECKeyboard(FirmwareTest):
         self.ec.send_key_string('reboot<enter>')
 
     def run_once(self):
+        """Runs a single iteration of the test."""
         if not self.check_ec_capability(['keyboard']):
             raise error.TestNAError("Nothing needs to be tested on this device")
 

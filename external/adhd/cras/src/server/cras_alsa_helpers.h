@@ -16,7 +16,6 @@
 
 struct cras_audio_format;
 
-
 /* Sets the channel layout from given format to the pcm handle.
  * Args:
  *    handle - Pointer to the opened pcm to set channel map to.
@@ -24,8 +23,7 @@ struct cras_audio_format;
  * Returns:
  *    0 if a matched channel map is set to HW, -1 otherwise.
  */
-int cras_alsa_set_channel_map(snd_pcm_t *handle,
-			      struct cras_audio_format *fmt);
+int cras_alsa_set_channel_map(snd_pcm_t *handle, struct cras_audio_format *fmt);
 
 /*  Gets the supported channel mapping of the pcm handle which matches
  *  the channel layout in the format.
@@ -35,8 +33,7 @@ int cras_alsa_set_channel_map(snd_pcm_t *handle,
  *  Returns:
  *     0 if an exactly matched channel map is found, -1 otherwise.
  */
-int cras_alsa_get_channel_map(snd_pcm_t *handle,
-			      struct cras_audio_format *fmt);
+int cras_alsa_get_channel_map(snd_pcm_t *handle, struct cras_audio_format *fmt);
 
 /* Opens an alsa device, thin wrapper to snd_pcm_open.
  * Args:
@@ -115,8 +112,8 @@ int cras_alsa_resume_appl_ptr(snd_pcm_t *handle, snd_pcm_uframes_t ahead);
  * Returns:
  *   0 on success.  On failure an error code from alsa or -ENOMEM.
  */
-int cras_alsa_fill_properties(snd_pcm_t *handle,
-			      size_t **rates, size_t **channel_counts,
+int cras_alsa_fill_properties(snd_pcm_t *handle, size_t **rates,
+			      size_t **channel_counts,
 			      snd_pcm_format_t **formats);
 
 /* Sets up the hwparams to alsa.
@@ -167,8 +164,7 @@ int cras_alsa_set_swparams(snd_pcm_t *handle, int *enable_htimestamp);
  */
 int cras_alsa_get_avail_frames(snd_pcm_t *handle, snd_pcm_uframes_t buf_size,
 			       snd_pcm_uframes_t severe_underrun_frames,
-			       const char *dev_name,
-			       snd_pcm_uframes_t *avail,
+			       const char *dev_name, snd_pcm_uframes_t *avail,
 			       struct timespec *tstamp);
 
 /* Get the current alsa delay, make sure it's no bigger than the buffer size.

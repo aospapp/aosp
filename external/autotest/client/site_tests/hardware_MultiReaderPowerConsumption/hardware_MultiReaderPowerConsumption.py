@@ -113,14 +113,14 @@ class hardware_MultiReaderPowerConsumption(storage_mod.StorageTester):
 
         # Read current charge, as well as maximum charge.
         self.status.refresh()
-        max_charge = self.status.battery[0].charge_full_design
-        initial_charge = self.status.battery[0].charge_now
+        max_charge = self.status.battery.charge_full_design
+        initial_charge = self.status.battery.charge_now
 
         logging.debug('STEP 3: perform heavy-duty read-write test on ramdisk')
         self.readwrite_test(self._ramdisk_path.name, file_size)
         # Read current charge (reading A)
         self.status.refresh()
-        charge_A = self.status.battery[0].charge_now
+        charge_A = self.status.battery.charge_now
 
         logging.debug('STEP 4: unmount ramdisk')
         umount_ramdisk(self._ramdisk_path.name)
@@ -130,7 +130,7 @@ class hardware_MultiReaderPowerConsumption(storage_mod.StorageTester):
                             delete_file=True)
         # Read current charge (reading B)
         self.status.refresh()
-        charge_B = self.status.battery[0].charge_now
+        charge_B = self.status.battery.charge_now
 
         logging.debug('STEP 6: unmount card')
         self.scanner.umount_volume(storage_dict=self._storage, args='-f -l')
@@ -140,7 +140,7 @@ class hardware_MultiReaderPowerConsumption(storage_mod.StorageTester):
         self.readwrite_test(self._ramdisk_path.name, file_size)
         # Read current charge (reading C)
         self.status.refresh()
-        charge_C = self.status.battery[0].charge_now
+        charge_C = self.status.battery.charge_now
 
         # Compute the results
         ramdisk_plus = initial_charge - charge_A

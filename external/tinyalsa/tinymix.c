@@ -125,6 +125,16 @@ int main(int argc, char **argv)
     return ret;
 }
 
+static int isnumber(const char *str) {
+    char *end;
+
+    if (str == NULL || strlen(str) == 0)
+        return 0;
+
+    strtol(str, &end, 0);
+    return strlen(end) == 0;
+}
+
 static void tinymix_list_controls(struct mixer *mixer)
 {
     struct mixer_ctl *ctl;
@@ -195,7 +205,7 @@ static int tinymix_detail_control(struct mixer *mixer, const char *control,
     unsigned int tlv_header_size = 0;
     const char *space = g_tabs_only ? "\t" : " ";
 
-    if (isdigit(control[0]))
+    if (isnumber(control))
         ctl = mixer_get_ctl(mixer, atoi(control));
     else
         ctl = mixer_get_ctl_by_name(mixer, control);
@@ -339,7 +349,7 @@ static int tinymix_set_value(struct mixer *mixer, const char *control,
     unsigned int num_ctl_values;
     unsigned int i;
 
-    if (isdigit(control[0]))
+    if (isnumber(control))
         ctl = mixer_get_ctl(mixer, atoi(control));
     else
         ctl = mixer_get_ctl_by_name(mixer, control);
@@ -357,7 +367,7 @@ static int tinymix_set_value(struct mixer *mixer, const char *control,
         return ENOENT;
     }
 
-    if (isdigit(values[0][0])) {
+    if (isnumber(values[0])) {
         if (num_values == 1) {
             /* Set all values the same */
             int value = atoi(values[0]);

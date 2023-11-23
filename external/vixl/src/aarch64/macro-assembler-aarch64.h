@@ -109,7 +109,7 @@ class Pool {
 class LiteralPool : public Pool {
  public:
   explicit LiteralPool(MacroAssembler* masm);
-  ~LiteralPool();
+  ~LiteralPool() VIXL_NEGATIVE_TESTING_ALLOW_EXCEPTION;
   void Reset();
 
   void AddEntry(RawLiteral* literal);
@@ -644,7 +644,7 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
                                  uint64_t imm);
   static bool OneInstrMoveImmediateHelper(MacroAssembler* masm,
                                           const Register& dst,
-                                          int64_t imm);
+                                          uint64_t imm);
 
 
   // Logical macros.
@@ -697,6 +697,10 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
                             FlagsUpdate S,
                             AddSubWithCarryOp op);
 
+  void Rmif(const Register& xn, unsigned shift, StatusFlags flags);
+  void Setf8(const Register& wn);
+  void Setf16(const Register& wn);
+
   // Move macros.
   void Mov(const Register& rd, uint64_t imm);
   void Mov(const Register& rd,
@@ -710,7 +714,7 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   // Try to move an immediate into the destination register in a single
   // instruction. Returns true for success, and updates the contents of dst.
   // Returns false, otherwise.
-  bool TryOneInstrMoveImmediate(const Register& dst, int64_t imm);
+  bool TryOneInstrMoveImmediate(const Register& dst, uint64_t imm);
 
   // Move an immediate into register dst, and return an Operand object for
   // use with a subsequent instruction that accepts a shift. The value moved
@@ -718,7 +722,7 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   // operation applied to it that will be subsequently undone by the shift
   // applied in the Operand.
   Operand MoveImmediateForShiftedOp(const Register& dst,
-                                    int64_t imm,
+                                    uint64_t imm,
                                     PreShiftImmMode mode);
 
   void Move(const GenericOperand& dst, const GenericOperand& src);
@@ -1051,7 +1055,7 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     SingleEmissionCheckScope guard(this);
     bfxil(rd, rn, lsb, width);
   }
-  void Bind(Label* label);
+  void Bind(Label* label, BranchTargetIdentifier id = EmitBTI_none);
   // Bind a label to a specified offset from the start of the buffer.
   void BindToOffset(Label* label, ptrdiff_t offset);
   void Bl(Label* label) {
@@ -1269,8 +1273,6 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
              Condition cond) {
     VIXL_ASSERT(allow_macro_instructions_);
     VIXL_ASSERT(!rd.IsZero());
-    VIXL_ASSERT(!rn.IsZero());
-    VIXL_ASSERT(!rm.IsZero());
     VIXL_ASSERT((cond != al) && (cond != nv));
     SingleEmissionCheckScope guard(this);
     csinc(rd, rn, rm, cond);
@@ -1281,8 +1283,6 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
              Condition cond) {
     VIXL_ASSERT(allow_macro_instructions_);
     VIXL_ASSERT(!rd.IsZero());
-    VIXL_ASSERT(!rn.IsZero());
-    VIXL_ASSERT(!rm.IsZero());
     VIXL_ASSERT((cond != al) && (cond != nv));
     SingleEmissionCheckScope guard(this);
     csinv(rd, rn, rm, cond);
@@ -1293,8 +1293,6 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
              Condition cond) {
     VIXL_ASSERT(allow_macro_instructions_);
     VIXL_ASSERT(!rd.IsZero());
-    VIXL_ASSERT(!rn.IsZero());
-    VIXL_ASSERT(!rm.IsZero());
     VIXL_ASSERT((cond != al) && (cond != nv));
     SingleEmissionCheckScope guard(this);
     csneg(rd, rn, rm, cond);
@@ -1514,12 +1512,20 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   void Fmov(const VRegister& vd, int index, const Register& rn) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    fmov(vd, index, rn);
+    if (vd.Is1D() && (index == 0)) {
+      mov(vd, index, rn);
+    } else {
+      fmov(vd, index, rn);
+    }
   }
   void Fmov(const Register& rd, const VRegister& vn, int index) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    fmov(rd, vn, index);
+    if (vn.Is1D() && (index == 0)) {
+      mov(rd, vn, index);
+    } else {
+      fmov(rd, vn, index);
+    }
   }
 
   // Provide explicit double and float interfaces for FP immediate moves, rather
@@ -1777,19 +1783,52 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   void Ldaprb(const Register& rt, const MemOperand& src) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    ldaprb(rt, src);
+    VIXL_ASSERT(src.IsImmediateOffset());
+    if (src.GetOffset() == 0) {
+      ldaprb(rt, src);
+    } else {
+      ldapurb(rt, src);
+    }
+  }
+
+  void Ldapursb(const Register& rt, const MemOperand& src) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldapursb(rt, src);
   }
 
   void Ldaprh(const Register& rt, const MemOperand& src) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    ldaprh(rt, src);
+    VIXL_ASSERT(src.IsImmediateOffset());
+    if (src.GetOffset() == 0) {
+      ldaprh(rt, src);
+    } else {
+      ldapurh(rt, src);
+    }
+  }
+
+  void Ldapursh(const Register& rt, const MemOperand& src) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldapursh(rt, src);
   }
 
   void Ldapr(const Register& rt, const MemOperand& src) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    ldapr(rt, src);
+    VIXL_ASSERT(src.IsImmediateOffset());
+    if (src.GetOffset() == 0) {
+      ldapr(rt, src);
+    } else {
+      ldapur(rt, src);
+    }
+  }
+
+  void Ldapursw(const Register& rt, const MemOperand& src) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldapursw(rt, src);
   }
 
   void Ldnp(const CPURegister& rt,
@@ -1931,6 +1970,16 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     SingleEmissionCheckScope guard(this);
     lsrv(rd, rn, rm);
   }
+  void Ldraa(const Register& xt, const MemOperand& src) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldraa(xt, src);
+  }
+  void Ldrab(const Register& xt, const MemOperand& src) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldrab(xt, src);
+  }
   void Madd(const Register& rd,
             const Register& rn,
             const Register& rm,
@@ -1987,6 +2036,21 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     VIXL_ASSERT(!rt.IsZero());
     SingleEmissionCheckScope guard(this);
     msr(sysreg, rt);
+  }
+  void Cfinv() {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    cfinv();
+  }
+  void Axflag() {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    axflag();
+  }
+  void Xaflag() {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    xaflag();
   }
   void Sys(int op1, int crn, int crm, int op2, const Register& rt = xzr) {
     VIXL_ASSERT(allow_macro_instructions_);
@@ -2220,17 +2284,32 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   void Stlr(const Register& rt, const MemOperand& dst) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    stlr(rt, dst);
+    VIXL_ASSERT(dst.IsImmediateOffset());
+    if (dst.GetOffset() == 0) {
+      stlr(rt, dst);
+    } else {
+      stlur(rt, dst);
+    }
   }
   void Stlrb(const Register& rt, const MemOperand& dst) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    stlrb(rt, dst);
+    VIXL_ASSERT(dst.IsImmediateOffset());
+    if (dst.GetOffset() == 0) {
+      stlrb(rt, dst);
+    } else {
+      stlurb(rt, dst);
+    }
   }
   void Stlrh(const Register& rt, const MemOperand& dst) {
     VIXL_ASSERT(allow_macro_instructions_);
     SingleEmissionCheckScope guard(this);
-    stlrh(rt, dst);
+    VIXL_ASSERT(dst.IsImmediateOffset());
+    if (dst.GetOffset() == 0) {
+      stlrh(rt, dst);
+    } else {
+      stlurh(rt, dst);
+    }
   }
   void Stllr(const Register& rt, const MemOperand& dst) {
     VIXL_ASSERT(allow_macro_instructions_);
@@ -2500,9 +2579,9 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     if (generate_simulator_code_) {
       hlt(kUnreachableOpcode);
     } else {
-      // Branch to 0 to generate a segfault.
-      // lr - kInstructionSize is the address of the offending instruction.
-      blr(xzr);
+      // Use the architecturally-defined UDF instruction to abort on hardware,
+      // because using HLT and BRK tends to make the process difficult to debug.
+      udf(kUnreachableOpcode);
     }
   }
   void Uxtb(const Register& rd, const Register& rn) {
@@ -2557,7 +2636,11 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   V(fminnmp, Fminnmp)            \
   V(fminp, Fminp)                \
   V(fmla, Fmla)                  \
+  V(fmlal, Fmlal)                \
+  V(fmlal2, Fmlal2)              \
   V(fmls, Fmls)                  \
+  V(fmlsl, Fmlsl)                \
+  V(fmlsl2, Fmlsl2)              \
   V(fmulx, Fmulx)                \
   V(frecps, Frecps)              \
   V(frsqrts, Frsqrts)            \
@@ -2699,6 +2782,10 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   V(fneg, Fneg)                  \
   V(frecpe, Frecpe)              \
   V(frecpx, Frecpx)              \
+  V(frint32x, Frint32x)          \
+  V(frint32z, Frint32z)          \
+  V(frint64x, Frint64x)          \
+  V(frint64z, Frint64z)          \
   V(frinta, Frinta)              \
   V(frinti, Frinti)              \
   V(frintm, Frintm)              \
@@ -2775,7 +2862,11 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
 #define NEON_BYELEMENT_MACRO_LIST(V) \
   V(fmul, Fmul)                      \
   V(fmla, Fmla)                      \
+  V(fmlal, Fmlal)                    \
+  V(fmlal2, Fmlal2)                  \
   V(fmls, Fmls)                      \
+  V(fmlsl, Fmlsl)                    \
+  V(fmlsl2, Fmlsl2)                  \
   V(fmulx, Fmulx)                    \
   V(mul, Mul)                        \
   V(mla, Mla)                        \
@@ -2839,8 +2930,6 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   V(sri, Sri)                          \
   V(srshr, Srshr)                      \
   V(srsra, Srsra)                      \
-  V(sshll, Sshll)                      \
-  V(sshll2, Sshll2)                    \
   V(sshr, Sshr)                        \
   V(ssra, Ssra)                        \
   V(uqrshrn, Uqrshrn)                  \
@@ -2850,8 +2939,6 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   V(uqshrn2, Uqshrn2)                  \
   V(urshr, Urshr)                      \
   V(ursra, Ursra)                      \
-  V(ushll, Ushll)                      \
-  V(ushll2, Ushll2)                    \
   V(ushr, Ushr)                        \
   V(usra, Usra)
 
@@ -2862,6 +2949,25 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     ASM(vd, vn, shift);                                            \
   }
   NEON_2VREG_SHIFT_MACRO_LIST(DEFINE_MACRO_ASM_FUNC)
+#undef DEFINE_MACRO_ASM_FUNC
+
+#define NEON_2VREG_SHIFT_LONG_MACRO_LIST(V) \
+  V(shll, sshll, Sshll)                     \
+  V(shll, ushll, Ushll)                     \
+  V(shll2, sshll2, Sshll2)                  \
+  V(shll2, ushll2, Ushll2)
+
+#define DEFINE_MACRO_ASM_FUNC(ASM1, ASM2, MASM)                    \
+  void MASM(const VRegister& vd, const VRegister& vn, int shift) { \
+    VIXL_ASSERT(allow_macro_instructions_);                        \
+    SingleEmissionCheckScope guard(this);                          \
+    if (vn.GetLaneSizeInBits() == static_cast<unsigned>(shift)) {  \
+      ASM1(vd, vn, shift);                                         \
+    } else {                                                       \
+      ASM2(vd, vn, shift);                                         \
+    }                                                              \
+  }
+  NEON_2VREG_SHIFT_LONG_MACRO_LIST(DEFINE_MACRO_ASM_FUNC)
 #undef DEFINE_MACRO_ASM_FUNC
 
   void Bic(const VRegister& vd, const int imm8, const int left_shift = 0) {
@@ -3374,9 +3480,9 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     return GetScratchRegisterList();
   }
 
-  CPURegList* GetScratchFPRegisterList() { return &fptmp_list_; }
-  VIXL_DEPRECATED("GetScratchFPRegisterList", CPURegList* FPTmpList()) {
-    return GetScratchFPRegisterList();
+  CPURegList* GetScratchVRegisterList() { return &fptmp_list_; }
+  VIXL_DEPRECATED("GetScratchVRegisterList", CPURegList* FPTmpList()) {
+    return GetScratchVRegisterList();
   }
 
   // Get or set the current (most-deeply-nested) UseScratchRegisterScope.
@@ -3701,7 +3807,7 @@ class BlockPoolsScope {
 
 
 // This scope utility allows scratch registers to be managed safely. The
-// MacroAssembler's GetScratchRegisterList() (and GetScratchFPRegisterList()) is
+// MacroAssembler's GetScratchRegisterList() (and GetScratchVRegisterList()) is
 // used as a pool of scratch registers. These registers can be allocated on
 // demand, and will be returned at the end of the scope.
 //
@@ -3713,14 +3819,14 @@ class UseScratchRegisterScope {
   // must not be `NULL`), so it is ready to use immediately after it has been
   // constructed.
   explicit UseScratchRegisterScope(MacroAssembler* masm)
-      : masm_(NULL), parent_(NULL), old_available_(0), old_availablefp_(0) {
+      : masm_(NULL), parent_(NULL), old_available_(0), old_available_v_(0) {
     Open(masm);
   }
   // This constructor does not implicitly initialise the scope. Instead, the
   // user is required to explicitly call the `Open` function before using the
   // scope.
   UseScratchRegisterScope()
-      : masm_(NULL), parent_(NULL), old_available_(0), old_availablefp_(0) {}
+      : masm_(NULL), parent_(NULL), old_available_(0), old_available_v_(0) {}
 
   // This function performs the actual initialisation work.
   void Open(MacroAssembler* masm);
@@ -3745,13 +3851,13 @@ class UseScratchRegisterScope {
     return AcquireNextAvailable(masm_->GetScratchRegisterList()).X();
   }
   VRegister AcquireH() {
-    return AcquireNextAvailable(masm_->GetScratchFPRegisterList()).H();
+    return AcquireNextAvailable(masm_->GetScratchVRegisterList()).H();
   }
   VRegister AcquireS() {
-    return AcquireNextAvailable(masm_->GetScratchFPRegisterList()).S();
+    return AcquireNextAvailable(masm_->GetScratchVRegisterList()).S();
   }
   VRegister AcquireD() {
-    return AcquireNextAvailable(masm_->GetScratchFPRegisterList()).D();
+    return AcquireNextAvailable(masm_->GetScratchVRegisterList()).D();
   }
 
 
@@ -3828,13 +3934,14 @@ class UseScratchRegisterScope {
 
   // The state of the available lists at the start of this scope.
   RegList old_available_;    // kRegister
-  RegList old_availablefp_;  // kVRegister
+  RegList old_available_v_;  // kVRegister
 
   // Disallow copy constructor and operator=.
-  VIXL_DEBUG_NO_RETURN UseScratchRegisterScope(const UseScratchRegisterScope&) {
+  VIXL_NO_RETURN_IN_DEBUG_MODE UseScratchRegisterScope(
+      const UseScratchRegisterScope&) {
     VIXL_UNREACHABLE();
   }
-  VIXL_DEBUG_NO_RETURN void operator=(const UseScratchRegisterScope&) {
+  VIXL_NO_RETURN_IN_DEBUG_MODE void operator=(const UseScratchRegisterScope&) {
     VIXL_UNREACHABLE();
   }
 };

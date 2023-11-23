@@ -140,6 +140,25 @@ void CPUFeaturesAuditor::VisitAddSubWithCarry(const Instruction* instr) {
   USE(instr);
 }
 
+void CPUFeaturesAuditor::VisitRotateRightIntoFlags(const Instruction* instr) {
+  RecordInstructionFeaturesScope scope(this);
+  switch (instr->Mask(RotateRightIntoFlagsMask)) {
+    case RMIF:
+      scope.Record(CPUFeatures::kFlagM);
+      return;
+  }
+}
+
+void CPUFeaturesAuditor::VisitEvaluateIntoFlags(const Instruction* instr) {
+  RecordInstructionFeaturesScope scope(this);
+  switch (instr->Mask(EvaluateIntoFlagsMask)) {
+    case SETF8:
+    case SETF16:
+      scope.Record(CPUFeatures::kFlagM);
+      return;
+  }
+}
+
 void CPUFeaturesAuditor::VisitAtomicMemory(const Instruction* instr) {
   RecordInstructionFeaturesScope scope(this);
   switch (instr->Mask(AtomicMemoryMask)) {
@@ -254,6 +273,37 @@ void CPUFeaturesAuditor::VisitDataProcessing2Source(const Instruction* instr) {
   }
 }
 
+void CPUFeaturesAuditor::VisitLoadStoreRCpcUnscaledOffset(
+    const Instruction* instr) {
+  RecordInstructionFeaturesScope scope(this);
+  switch (instr->Mask(LoadStoreRCpcUnscaledOffsetMask)) {
+    case LDAPURB:
+    case LDAPURSB_w:
+    case LDAPURSB_x:
+    case LDAPURH:
+    case LDAPURSH_w:
+    case LDAPURSH_x:
+    case LDAPUR_w:
+    case LDAPURSW:
+    case LDAPUR_x:
+
+    // These stores don't actually have RCpc semantics but they're included with
+    // the RCpc extensions.
+    case STLURB:
+    case STLURH:
+    case STLUR_w:
+    case STLUR_x:
+      scope.Record(CPUFeatures::kRCpc, CPUFeatures::kRCpcImm);
+      return;
+  }
+}
+
+void CPUFeaturesAuditor::VisitLoadStorePAC(const Instruction* instr) {
+  RecordInstructionFeaturesScope scope(this);
+  USE(instr);
+  scope.Record(CPUFeatures::kPAuth);
+}
+
 void CPUFeaturesAuditor::VisitDataProcessing3Source(const Instruction* instr) {
   RecordInstructionFeaturesScope scope(this);
   USE(instr);
@@ -328,6 +378,16 @@ void CPUFeaturesAuditor::VisitFPDataProcessing1Source(
     case FRINTX_h:
     case FRINTI_h:
       scope.Record(CPUFeatures::kFPHalf);
+      return;
+    case FRINT32X_s:
+    case FRINT32X_d:
+    case FRINT32Z_s:
+    case FRINT32Z_d:
+    case FRINT64X_s:
+    case FRINT64X_d:
+    case FRINT64Z_s:
+    case FRINT64Z_d:
+      scope.Record(CPUFeatures::kFrintToFixedSizedInt);
       return;
     default:
       // No special CPU features.
@@ -611,6 +671,12 @@ void CPUFeaturesAuditor::VisitNEON2RegMisc(const Instruction* instr) {
     case NEON_FCMLT_zero:
       scope.Record(CPUFeatures::kFP);
       return;
+    case NEON_FRINT32X:
+    case NEON_FRINT32Z:
+    case NEON_FRINT64X:
+    case NEON_FRINT64Z:
+      scope.Record(CPUFeatures::kFP, CPUFeatures::kFrintToFixedSizedInt);
+      return;
     default:
       // No additional features.
       return;
@@ -637,6 +703,17 @@ void CPUFeaturesAuditor::VisitNEON3Same(const Instruction* instr) {
   scope.Record(CPUFeatures::kNEON);
   if (instr->Mask(NEON3SameFPFMask) == NEON3SameFPFixed) {
     scope.Record(CPUFeatures::kFP);
+  }
+  switch (instr->Mask(NEON3SameFHMMask)) {
+    case NEON_FMLAL:
+    case NEON_FMLAL2:
+    case NEON_FMLSL:
+    case NEON_FMLSL2:
+      scope.Record(CPUFeatures::kFP, CPUFeatures::kNEONHalf, CPUFeatures::kFHM);
+      return;
+    default:
+      // No additional features.
+      return;
   }
 }
 
@@ -699,7 +776,18 @@ void CPUFeaturesAuditor::VisitNEONByIndexedElement(const Instruction* instr) {
       scope.Record(CPUFeatures::kRDM);
       return;
     default:
-      // Fall through to check other FP instructions.
+      // Fall through to check other instructions.
+      break;
+  }
+  switch (instr->Mask(NEONByIndexedElementFPLongMask)) {
+    case NEON_FMLAL_H_byelement:
+    case NEON_FMLAL2_H_byelement:
+    case NEON_FMLSL_H_byelement:
+    case NEON_FMLSL2_H_byelement:
+      scope.Record(CPUFeatures::kFP, CPUFeatures::kNEONHalf, CPUFeatures::kFHM);
+      return;
+    default:
+      // Fall through to check other instructions.
       break;
   }
   switch (instr->Mask(NEONByIndexedElementFPMask)) {
@@ -1001,7 +1089,19 @@ void CPUFeaturesAuditor::VisitSystem(const Instruction* instr) {
         required.Combine(CPUFeatures::kPAuth);
         break;
       default:
-        if (instr->GetImmHint() == ESB) required.Combine(CPUFeatures::kRAS);
+        switch (instr->GetImmHint()) {
+          case ESB:
+            required.Combine(CPUFeatures::kRAS);
+            break;
+          case BTI:
+          case BTI_j:
+          case BTI_c:
+          case BTI_jc:
+            required.Combine(CPUFeatures::kBTI);
+            break;
+          default:
+            break;
+        }
         break;
     }
 
@@ -1009,6 +1109,41 @@ void CPUFeaturesAuditor::VisitSystem(const Instruction* instr) {
     // features are not implemented, so we record the corresponding features
     // only if they are available.
     if (available_.Has(required)) scope.Record(required);
+  } else if (instr->Mask(SystemSysMask) == SYS) {
+    switch (instr->GetSysOp()) {
+      // DC instruction variants.
+      case CVAP:
+        scope.Record(CPUFeatures::kDCPoP);
+        break;
+      case CVADP:
+        scope.Record(CPUFeatures::kDCCVADP);
+        break;
+      case IVAU:
+      case CVAC:
+      case CVAU:
+      case CIVAC:
+        // No special CPU features.
+        break;
+    }
+  } else if (instr->Mask(SystemPStateFMask) == SystemPStateFixed) {
+    switch (instr->Mask(SystemPStateMask)) {
+      case CFINV:
+        scope.Record(CPUFeatures::kFlagM);
+        break;
+      case AXFLAG:
+      case XAFLAG:
+        scope.Record(CPUFeatures::kAXFlag);
+        break;
+    }
+  } else if (instr->Mask(SystemSysRegFMask) == SystemSysRegFixed) {
+    if (instr->Mask(SystemSysRegMask) == MRS) {
+      switch (instr->GetImmSystemRegister()) {
+        case RNDR:
+        case RNDRRS:
+          scope.Record(CPUFeatures::kRNG);
+          break;
+      }
+    }
   }
 }
 
@@ -1047,6 +1182,11 @@ void CPUFeaturesAuditor::VisitUnconditionalBranchToRegister(
       // No additional features.
       return;
   }
+}
+
+void CPUFeaturesAuditor::VisitReserved(const Instruction* instr) {
+  RecordInstructionFeaturesScope scope(this);
+  USE(instr);
 }
 
 void CPUFeaturesAuditor::VisitUnimplemented(const Instruction* instr) {

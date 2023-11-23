@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -33,9 +33,9 @@ class TestPushUnittests(mox.MoxTestBase):
         super(TestPushUnittests, self).setUp()
         # Overwrite expected test results.
         test_push.EXPECTED_TEST_RESULTS = {
-            '^SERVER_JOB$':                  'GOOD',
-            '.*control.dependency$':         'TEST_NA',
-            '.*dummy_Fail.RetryFail$':       'FAIL',
+            '^SERVER_JOB$':                  ['GOOD'],
+            '.*control.dependency$':         ['TEST_NA'],
+            '.*dummy_Fail.RetryFail$':       ['FAIL', 'FAIL'],
             }
         test_push.TKO = None
 
@@ -66,9 +66,9 @@ class TestPushUnittests(mox.MoxTestBase):
 
     def test_suite_success(self):
         """Test test_suite method with matching results."""
-        test_views = {'SERVER_JOB':                        'GOOD',
-                      'dummy_fail/control.dependency':     'TEST_NA',
-                      'dummy_Fail.RetryFail':              'FAIL'
+        test_views = {'SERVER_JOB':                        ['GOOD'],
+                      'dummy_fail/control.dependency':     ['TEST_NA'],
+                      'dummy_Fail.RetryFail':              ['FAIL', 'FAIL'],
                       }
 
         self.stub_out_methods(test_views)
@@ -80,8 +80,8 @@ class TestPushUnittests(mox.MoxTestBase):
 
     def test_suite_fail_with_missing_test(self):
         """Test test_suite method that should fail with missing test."""
-        test_views = {'SERVER_JOB':                        'GOOD',
-                      'dummy_fail/control.dependency':     'TEST_NA',
+        test_views = {'SERVER_JOB':                        ['GOOD'],
+                      'dummy_fail/control.dependency':     ['TEST_NA'],
                       }
 
         self.stub_out_methods(test_views)
@@ -94,9 +94,9 @@ class TestPushUnittests(mox.MoxTestBase):
     def test_suite_fail_with_unexpected_test_results(self):
         """Test test_suite method that should fail with unexpected test results.
         """
-        test_views = {'SERVER_JOB':                        'FAIL',
-                      'dummy_fail/control.dependency':     'TEST_NA',
-                      'dummy_Fail.RetryFail':              'FAIL',
+        test_views = {'SERVER_JOB':                        ['FAIL'],
+                      'dummy_fail/control.dependency':     ['TEST_NA'],
+                      'dummy_Fail.RetryFail':              ['FAIL', 'FAIL'],
                       }
 
         self.stub_out_methods(test_views)
@@ -108,10 +108,10 @@ class TestPushUnittests(mox.MoxTestBase):
 
     def test_suite_fail_with_extra_test(self):
         """Test test_suite method that should fail with extra test."""
-        test_views = {'SERVER_JOB':                        'GOOD',
-                      'dummy_fail/control.dependency':     'TEST_NA',
-                      'dummy_Fail.RetryFail':              'FAIL',
-                      'dummy_Fail.ExtraTest':              'GOOD',
+        test_views = {'SERVER_JOB':                        ['GOOD'],
+                      'dummy_fail/control.dependency':     ['TEST_NA'],
+                      'dummy_Fail.RetryFail':              ['FAIL', 'FAIL'],
+                      'dummy_Fail.ExtraTest':              ['GOOD'],
                       }
 
         self.stub_out_methods(test_views)

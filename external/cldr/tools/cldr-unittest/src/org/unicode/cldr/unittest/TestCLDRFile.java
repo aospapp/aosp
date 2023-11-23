@@ -186,6 +186,7 @@ public class TestCLDRFile extends TestFmwk {
                         || path.contains("/relative[@type=\"2\"]")
                         || path.startsWith("//ldml/contextTransforms/contextTransformUsage")
                         || path.contains("[@alt=\"variant\"]")
+                        || path.contains("[@alt=\"formal\"]")
                         || (path.contains("dayPeriod[@type=")
                             && (path.endsWith("1\"]") || path.endsWith("\"am\"]") || path.endsWith("\"pm\"]") || path.endsWith("\"midnight\"]"))) // morning1, afternoon1, ...
                         || (path.startsWith("//ldml/characters/exemplarCharacters[@type=\"index\"]")
@@ -443,30 +444,27 @@ public class TestCLDRFile extends TestFmwk {
 
                 // if there is a value, then either it is at the top level or it
                 // is the bailey value.
+                // OR it is INHERITANCE_MARKER
 
                 if (resolvedValue != null) {
-                    if (topValue != null) {
+                    if (topValue != null && !CldrUtility.INHERITANCE_MARKER.equals(topValue)) {
                         assertEquals(
-                            "top≠resolved\t" + locale + "\t"
-                                + phf.fromPath(path),
+                            "top≠resolved\t" + locale + "\t" + phf.fromPath(path),
                                 topValue,
                                 resolvedValue);
                     } else {
                         String locale2 = cldrFile.getSourceLocaleID(path,
                             status);
                         assertEquals(
-                            "bailey value≠\t" + locale + "\t"
-                                + phf.fromPath(path),
+                            "bailey value≠\t" + locale + "\t" + phf.fromPath(path),
                                 resolvedValue,
                                 baileyValue);
                         assertEquals(
-                            "bailey locale≠\t" + locale + "\t"
-                                + phf.fromPath(path),
+                            "bailey locale≠\t" + locale + "\t" + phf.fromPath(path),
                                 locale2,
                                 localeWhereFound.value);
                         assertEquals(
-                            "bailey path≠\t" + locale + "\t"
-                                + phf.fromPath(path),
+                            "bailey path≠\t" + locale + "\t" + phf.fromPath(path),
                                 status.pathWhereFound, pathWhereFound.value);
                     }
                 }

@@ -27,13 +27,17 @@ import android.graphics.drawable.Drawable;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import androidx.annotation.AnyRes;
+import androidx.annotation.ArrayRes;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import android.util.Log;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Utilities to discover and interact with partner customizations. An overlay package is one that
@@ -55,10 +59,20 @@ public class Partner {
   @Nullable private static Partner partner;
 
   /**
+   * Gets the string-array from partner overlay. If not available, an empty array will be returned.
+   *
+   * @see #getResourceEntry(Context, int)
+   */
+  public static Set<String> getStringArray(Context context, @ArrayRes int res) {
+    ResourceEntry resourceEntry = Partner.getResourceEntry(context, res);
+    return new HashSet<>(Arrays.asList(resourceEntry.resources.getStringArray(resourceEntry.id)));
+  }
+
+  /**
    * Gets a drawable from partner overlay, or if not available, the drawable from the original
    * context.
    *
-   * @see #getResourceEntry(android.content.Context, int)
+   * @see #getResourceEntry(Context, int)
    */
   public static Drawable getDrawable(Context context, @DrawableRes int id) {
     final ResourceEntry entry = getResourceEntry(context, id);
@@ -68,7 +82,7 @@ public class Partner {
   /**
    * Gets a string from partner overlay, or if not available, the string from the original context.
    *
-   * @see #getResourceEntry(android.content.Context, int)
+   * @see #getResourceEntry(Context, int)
    */
   public static String getString(Context context, @StringRes int id) {
     final ResourceEntry entry = getResourceEntry(context, id);

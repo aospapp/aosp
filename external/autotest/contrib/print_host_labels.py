@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 """
 Usage: ./print_host_labels.py <IP.or.hostname>

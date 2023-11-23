@@ -4,6 +4,7 @@ import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR2;
 import static android.os.Build.VERSION_CODES.KITKAT;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
+import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.N;
 import static android.os.Build.VERSION_CODES.O;
 import static org.robolectric.shadow.api.Shadow.directlyOn;
@@ -179,6 +180,52 @@ public class ShadowContextImpl {
             realContextImpl);
   }
 
+  /** Behaves as {@link #sendOrderedBroadcast} and currently ignores userHandle. */
+  @Implementation(minSdk = KITKAT)
+  protected void sendOrderedBroadcastAsUser(
+          Intent intent,
+          UserHandle userHandle,
+          String receiverPermission,
+          BroadcastReceiver resultReceiver,
+          Handler scheduler,
+          int initialCode,
+          String initialData,
+          Bundle initialExtras) {
+    sendOrderedBroadcast(
+            intent,
+            receiverPermission,
+            resultReceiver,
+            scheduler,
+            initialCode,
+            initialData,
+            initialExtras
+    );
+  }
+
+  /** Behaves as {@link #sendOrderedBroadcast}. Currently ignores userHandle, appOp, and options. */
+  @Implementation(minSdk = M)
+  protected void sendOrderedBroadcastAsUser(
+          Intent intent,
+          UserHandle userHandle,
+          String receiverPermission,
+          int appOp,
+          Bundle options,
+          BroadcastReceiver resultReceiver,
+          Handler scheduler,
+          int initialCode,
+          String initialData,
+          Bundle initialExtras) {
+    sendOrderedBroadcast(
+            intent,
+            receiverPermission,
+            resultReceiver,
+            scheduler,
+            initialCode,
+            initialData,
+            initialExtras
+    );
+  }
+
   @Implementation
   protected void sendStickyBroadcast(Intent intent) {
     getShadowInstrumentation().sendStickyBroadcast(intent, realContextImpl);
@@ -251,6 +298,22 @@ public class ShadowContextImpl {
   @Implementation
   protected void unbindService(final ServiceConnection serviceConnection) {
     getShadowInstrumentation().unbindService(serviceConnection);
+  }
+
+  /**
+   * Behaves as {@link #startActivity}. The user parameter is ignored.
+   */
+  @Implementation(minSdk = LOLLIPOP)
+  protected void startActivityAsUser(Intent intent, Bundle options, UserHandle user) {
+    // TODO: Remove this once {@link com.android.server.wmActivityTaskManagerService} is
+    // properly shadowed.
+    directlyOn(
+        realContextImpl,
+        ShadowContextImpl.CLASS_NAME,
+        "startActivity",
+        ClassParameter.from(Intent.class, intent),
+        ClassParameter.from(Bundle.class, options)
+    );
   }
 
   @Implementation(minSdk = JELLY_BEAN_MR1)

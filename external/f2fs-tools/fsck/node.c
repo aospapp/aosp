@@ -16,11 +16,10 @@
 #include "fsck.h"
 #include "node.h"
 
-void f2fs_alloc_nid(struct f2fs_sb_info *sbi, nid_t *nid, int inode)
+void f2fs_alloc_nid(struct f2fs_sb_info *sbi, nid_t *nid)
 {
 	struct f2fs_nm_info *nm_i = NM_I(sbi);
-	struct f2fs_checkpoint *cp = F2FS_CKPT(sbi);
-	nid_t i, inode_cnt, node_cnt;
+	nid_t i;
 
 	for (i = 0; i < nm_i->max_nid; i++)
 		if(f2fs_test_bit(i, nm_i->nid_bitmap) == 0)
@@ -29,12 +28,16 @@ void f2fs_alloc_nid(struct f2fs_sb_info *sbi, nid_t *nid, int inode)
 	ASSERT(i < nm_i->max_nid);
 	f2fs_set_bit(i, nm_i->nid_bitmap);
 	*nid = i;
+}
 
-	inode_cnt = get_cp(valid_inode_count);
-	node_cnt = get_cp(valid_node_count);
-	if (inode)
-		set_cp(valid_inode_count, inode_cnt + 1);
-	set_cp(valid_node_count, node_cnt + 1);
+void f2fs_release_nid(struct f2fs_sb_info *sbi, nid_t nid)
+{
+	struct f2fs_nm_info *nm_i = NM_I(sbi);
+
+	ASSERT(nid < nm_i->max_nid);
+	ASSERT(f2fs_test_bit(nid, nm_i->nid_bitmap));
+
+	f2fs_clear_bit(nid, nm_i->nid_bitmap);
 }
 
 void set_data_blkaddr(struct dnode_of_data *dn)
@@ -65,6 +68,7 @@ block_t new_node_block(struct f2fs_sb_info *sbi,
 	struct node_info ni;
 	block_t blkaddr = NULL_ADDR;
 	int type;
+	int ret;
 
 	f2fs_inode = dn->inode_blk;
 
@@ -86,7 +90,11 @@ block_t new_node_block(struct f2fs_sb_info *sbi,
 
 	get_node_info(sbi, dn->nid, &ni);
 	set_summary(&sum, dn->nid, 0, ni.version);
-	reserve_new_block(sbi, &blkaddr, &sum, type);
+	ret = reserve_new_block(sbi, &blkaddr, &sum, type, !ofs);
+	if (ret) {
+		free(node_blk);
+		return 0;
+	}
 
 	/* update nat info */
 	update_nat_blkaddr(sbi, le32_to_cpu(f2fs_inode->footer.ino),
@@ -109,9 +117,9 @@ static int get_node_path(struct f2fs_node *node, long block,
 				int offset[4], unsigned int noffset[4])
 {
 	const long direct_index = ADDRS_PER_INODE(&node->i);
-	const long direct_blks = ADDRS_PER_BLOCK;
+	const long direct_blks = ADDRS_PER_BLOCK(&node->i);
 	const long dptrs_per_blk = NIDS_PER_BLOCK;
-	const long indirect_blks = ADDRS_PER_BLOCK * NIDS_PER_BLOCK;
+	const long indirect_blks = ADDRS_PER_BLOCK(&node->i) * NIDS_PER_BLOCK;
 	const long dindirect_blks = indirect_blks * NIDS_PER_BLOCK;
 	int n = 0;
 	int level = 0;
@@ -205,20 +213,18 @@ int get_dnode_of_data(struct f2fs_sb_info *sbi, struct dnode_of_data *dn,
 
 	for (i = 1; i <= level; i++) {
 		if (!nids[i] && mode == ALLOC_NODE) {
-			struct f2fs_checkpoint *cp = F2FS_CKPT(sbi);
-
-			if (!is_set_ckpt_flags(cp, CP_UMOUNT_FLAG)) {
-				c.alloc_failed = 1;
-				return -EINVAL;
-			}
-			f2fs_alloc_nid(sbi, &nids[i], 0);
+			f2fs_alloc_nid(sbi, &nids[i]);
 
 			dn->nid = nids[i];
 
 			/* Function new_node_blk get a new f2fs_node blk and update*/
 			/* We should make sure that dn->node_blk == NULL*/
 			nblk[i] = new_node_block(sbi, dn, noffset[i]);
-			ASSERT(nblk[i]);
+			if (!nblk[i]) {
+				f2fs_release_nid(sbi, nids[i]);
+				c.alloc_failed = 1;
+				return -EINVAL;
+			}
 
 			set_nid(parent, offset[i - 1], nids[i], i == 1);
 		} else {

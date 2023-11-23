@@ -219,21 +219,7 @@ public final class Command {
 
     private void sendQuitSignal(Process process) {
         // TODO: 'adb shell kill' to kill on processes running on Androids
-        new Command(log, "kill", "-3", Integer.toString(getPid(process))).execute();
-    }
-
-    /**
-     * Return the PID of this command's process.
-     */
-    private int getPid(Process process) {
-        try {
-            // See org.openqa.selenium.ProcessUtils.getProcessId()
-            Field field = process.getClass().getDeclaredField("pid");
-            field.setAccessible(true);
-            return (Integer) field.get(process);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        new Command(log, "kill", "-3", Long.toString(process.pid())).execute();
     }
 
     public boolean timedOut() {

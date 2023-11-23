@@ -3,6 +3,8 @@
 <keywords>
 HTTP
 HTTP GET
+proxy
+haproxy
 </keywords>
 </info>
 
@@ -37,6 +39,9 @@ HTTP GET when PROXY Protocol enabled
 <command>
 http://%HOSTIP:%HTTPPORT/1455 --haproxy-protocol
 </command>
+<features>
+proxy
+</features>
 </client>
 
 #

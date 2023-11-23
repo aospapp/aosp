@@ -17,81 +17,22 @@
  * from the RW images.
  */
 
-/* Flash is directly addressable */
-#if defined(CHIP_H1D1)
-#define CHIP_FLASH_BASE              0x80000
-#define CHIP_FLASH_SIZE              (1024 * 1024)
-#else
-#define CHIP_FLASH_BASE              0x40000
-#define CHIP_FLASH_SIZE              (512 * 1024)
-#endif
-#define CHIP_FLASH_HALF              (CHIP_FLASH_SIZE >> 1)
+#define CITADEL_FLASH_BASE     0x40000
+#define CITADEL_FLASH_SIZE     (512 * 1024)
+#define CITADEL_FLASH_HALF     (CITADEL_FLASH_SIZE >> 1)
+#define CITADEL_RO_SIZE        0x4000
+#define CITADEL_RO_A_MEM_OFF   0
+#define CITADEL_RO_B_MEM_OFF   CITADEL_FLASH_HALF
+#define CITADEL_RW_A_MEM_OFF   CITADEL_RO_SIZE
+#define CITADEL_RW_B_MEM_OFF   (CITADEL_FLASH_HALF + CITADEL_RW_A_MEM_OFF)
 
-/* Each half has to leave room for the image's signed header */
-#define CHIP_SIG_HEADER_SIZE	     1024
-
-/* This isn't optional, since the bootrom will always look for both */
-#define CHIP_HAS_RO_B
-
-/* The RO images start at the very beginning of each flash half */
-#define CHIP_RO_A_MEM_OFF 0
-#define CHIP_RO_B_MEM_OFF CHIP_FLASH_HALF
-
-/* Size reserved for each RO image */
-#define CHIP_RO_SIZE 0x4000
-
-/*
- * RW images start right after the reserved-for-RO areas in each half, but only
- * because that's where the RO images look for them. It's not a HW constraint.
- */
-#define CHIP_RW_A_MEM_OFF CHIP_RO_SIZE
-#define CHIP_RW_B_MEM_OFF (CHIP_FLASH_HALF + CHIP_RW_A_MEM_OFF)
-
-/*
- * Any reserved flash storage is placed after the RW image. It makes A/B
- * updates MUCH simpler if both RW images are the same size, so we reserve the
- * same amount in each half.
- */
-#define CHIP_RW_SIZE							\
-	(CHIP_FLASH_HALF - CHIP_RW_A_MEM_OFF - CONFIG_FLASH_TOP_SIZE)
-
-/* Reserved flash offset starts here. */
-#define CHIP_FLASH_TOP_A_OFF (CHIP_FLASH_HALF - CONFIG_FLASH_TOP_SIZE)
-#define CHIP_FLASH_TOP_B_OFF (CHIP_FLASH_SIZE - CONFIG_FLASH_TOP_SIZE)
-
-
-/* Internal flash specifics */
-#define CHIP_FLASH_BANK_SIZE         0x800	/* protect bank size */
-#define CHIP_FLASH_ERASE_SIZE        0x800	/* erase bank size */
-
-/* This flash can only be written as 4-byte words (aligned properly, too). */
-#define CHIP_FLASH_ERASED_VALUE32    0xffffffff
-#define CHIP_FLASH_WRITE_SIZE        4	/* min write size (bytes) */
-
-/* But we have a 32-word buffer for writing multiple adjacent cells */
-#define CHIP_FLASH_WRITE_IDEAL_SIZE  128	/* best write size (bytes) */
-
-/* The flash controller prevents bulk writes that cross row boundaries */
-#define CHIP_FLASH_ROW_SIZE          256	/* row size */
-
-/* Manufacturing related data. */
-/* Certs in the RO region are written as 4-kB + 3-kB blocks to the A &
- * B banks respectively.
- */
-#define RO_CERTS_A_OFF                     (CHIP_RO_A_MEM_OFF + 0x2800)
-#define RO_CERTS_B_OFF                     (CHIP_RO_B_MEM_OFF + 0x2800)
-#define RO_CERTS_A_SIZE                     0x01000
-#define RO_CERTS_B_SIZE                     0x00c00
-/*
- * Flash erases must be multiples of CHIP_FLASH_ERASE_SIZE, so in
- * order to rewrite CERTS_B, we need wipe RO_CERTS_ERASE_SIZE rather
- * than CERTS_B_SIZE.
- */
-#define RO_CERTS_ERASE_SIZE                 0x01000
-/* We have an unused 3-kB region in the B bank, for future proofing. */
-#define RO_CERTS_PAD_B_SIZE                 0x00c00
-/* Factory provision data is written as a 2-kB block to the A bank. */
-#define RO_PROVISION_DATA_A_OFF             0x3800
-#define RO_PROVISION_DATA_A_SIZE            0x0800
+#define DAUNTLESS_FLASH_BASE   0x80000
+#define DAUNTLESS_FLASH_SIZE   (1024 * 1024)
+#define DAUNTLESS_FLASH_HALF   (DAUNTLESS_FLASH_SIZE >> 1)
+#define DAUNTLESS_RO_SIZE      0x4000
+#define DAUNTLESS_RO_A_MEM_OFF 0
+#define DAUNTLESS_RO_B_MEM_OFF DAUNTLESS_FLASH_HALF
+#define DAUNTLESS_RW_A_MEM_OFF DAUNTLESS_RO_SIZE
+#define DAUNTLESS_RW_B_MEM_OFF (DAUNTLESS_FLASH_HALF + DAUNTLESS_RW_A_MEM_OFF)
 
 #endif	/* __CROS_EC_FLASH_LAYOUT_H */

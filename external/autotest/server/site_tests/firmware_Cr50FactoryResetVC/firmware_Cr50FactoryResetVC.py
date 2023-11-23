@@ -24,40 +24,38 @@ class firmware_Cr50FactoryResetVC(Cr50Test):
         """Initialize servo check if cr50 exists."""
         super(firmware_Cr50FactoryResetVC, self).initialize(host, cmdline_args,
                 full_args)
-        self.host = host
+        if not self.cr50.has_command('bpforce'):
+            raise error.TestNAError('Cannot run test without bpforce')
         self.fast_open(enable_testlab=True)
-        # Run factory mode disable to make sure everything is reset.
-        self.host.run('gsctool -a -F disable', ignore_status=True)
+        # Reset ccd completely.
+        self.cr50.send_command('ccd reset')
 
-        # If we can set wp to off and on, then we can control write protect
+        # If we can fake battery connect/disconnect, then we can test the vendor
+        # command.
         try:
-            self.set_wp(True)
-            self.set_wp(False)
-        except:
+            self.bp_override(True)
+            self.bp_override(False)
+        except Exception, e:
+            logging.info(e)
             raise error.TestNAError('Cannot fully test factory mode vendor '
-                    'command without control of write protect')
+                    'command without the ability to fake battery presence')
+
+    def cleanup(self):
+        """Clear the FWMP and ccd state"""
+        try:
+            self.clear_state()
+        finally:
+            super(firmware_Cr50FactoryResetVC, self).cleanup()
 
 
-    def wp_enabled(self):
-        """Returns True if write protect is enabled."""
-        rv = self.cr50.send_command_get_output('gpioget',
-                ['(0|1)..BATT_PRES_L'])
-        logging.info(rv)
-        return not int(rv[0][1])
-
-
-    def set_wp(self, enable):
+    def bp_override(self, connect):
         """Deassert BATT_PRES signal, so cr50 will think wp is off."""
         self.cr50.send_command('ccd testlab open')
-        # TODO(mruthven): come up with servo rework, so we can control batt_pres
-        # directly.
-        #
-        # for now build a dbg image and connect BATT_PRES_L to DOIM4 and set it
-        # as an output
-        self.cr50.send_command('gpioset BATT_PRES_L %d' % (0 if enable else 1))
-        if (not self.wp_enabled()) != (not enable):
-            raise error.TestError('Could not %s write protect' %
-                    ('set' if enable else 'clear'))
+        self.cr50.set_batt_pres_state('connect' if connect else 'disconnect',
+                                      False)
+        if self.cr50.get_batt_pres_state()[1] != connect:
+            raise error.TestError('Could not fake battery %sconnect' %
+                    ('' if connect else 'dis'))
         self.cr50.set_ccd_level('lock')
 
 
@@ -84,11 +82,6 @@ class firmware_Cr50FactoryResetVC(Cr50Test):
                     ('set' if enable else 'clear'))
 
 
-    def has_ccd_password(self):
-        """Returns True if the ccd password is set."""
-        return 'set' in self.cr50.get_ccd_info()['Password']
-
-
     def setup_ccd_password(self, set_password):
         """Set the Cr50 CCD password.
 
@@ -100,7 +93,7 @@ class firmware_Cr50FactoryResetVC(Cr50Test):
             self.cr50.send_command('ccd testlab open')
             # Set the ccd password
             self.set_ccd_password('ccd_dummy_pw')
-        if self.has_ccd_password() != set_password:
+        if self.cr50.password_is_reset() == set_password:
             raise error.TestError('Could not %s password' %
                     ('set' if set_password else 'clear'))
 
@@ -113,23 +106,27 @@ class firmware_Cr50FactoryResetVC(Cr50Test):
 
 
     def get_relevant_state(self):
-        """Returns cr50 factory mode check state.
+        """Returns cr50 state that can lock out factory mode.
 
-        If any item in state is True, that means ccd factory mode should be
-        locked out.
+        FWMP, battery presence, or a password can all lock out enabling factory
+        mode using the vendor command. If any item in state is True, factory
+        mode should be locked out.
         """
         state = []
         state.append(self.fwmp_ccd_lockout())
-        state.append(self.wp_enabled())
-        state.append(self.has_ccd_password())
+        state.append(self.cr50.get_batt_pres_state()[1])
+        state.append(not self.cr50.password_is_reset())
         return state
+
 
     def get_state_message(self):
         """Convert relevant state into a useful log message."""
-        fwmp, wp, password = self.get_relevant_state()
-        return 'fwmp %s wp %s password %s' % ('set' if fwmp else 'cleared',
-                'enabled' if wp else 'disabled',
-                'set' if password else 'cleared')
+        fwmp, bp, password = self.get_relevant_state()
+        return ('fwmp %s bp %sconnected password %s' %
+                ('set' if fwmp else 'cleared',
+                 '' if bp else 'dis',
+                 'set' if password else 'cleared'))
+
 
     def factory_locked_out(self):
         """Returns True if any state preventing factory mode is True."""
@@ -154,9 +151,27 @@ class firmware_Cr50FactoryResetVC(Cr50Test):
         logging.debug(result)
         expect_enabled = enable and not enable_fail
 
-        time.sleep(self.SLEEP)
+        if expect_enabled:
+            # Cr50 will reboot after it enables factory mode.
+            self.cr50.wait_for_reboot(timeout=10)
+        else:
+            # Wait long enoug for cr50 to udpate the ccd state.
+            time.sleep(self.SLEEP)
         if self.factory_mode_enabled() != expect_enabled:
             raise error.TestFail('Unexpected factory mode %s result' % cmd)
+
+
+    def clear_state(self):
+        """Clear the FWMP and reset CCD"""
+        # Clear the FWMP
+        self.clear_fwmp()
+        # make sure all of the ccd stuff is reset
+        self.cr50.send_command('ccd testlab open')
+        # Run ccd reset to make sure all ccd state is cleared
+        self.cr50.send_command('ccd reset')
+        # Clear the TPM owner, so we can set the ccd password and
+        # create the FWMP
+        tpm_utils.ClearTPMOwnerRequest(self.host, wait_for_ready=True)
 
 
     def run_once(self):
@@ -166,19 +181,16 @@ class firmware_Cr50FactoryResetVC(Cr50Test):
         # protect, password, and fwmp before allowing fwmp to be enabled.
         for lockout_ccd_with_fwmp in self.BOOL_VALUES:
             for set_password in self.BOOL_VALUES:
-                for enable_wp in self.BOOL_VALUES:
-                    # make sure all of the ccd stuff is reset
-                    self.cr50.send_command('ccd testlab open')
-                    # Run ccd reset to make sure all ccd state is cleared
-                    self.cr50.send_command('ccd reset')
-                    # Clear the TPM owner, so we can set the ccd password and
-                    # create the FWMP
-                    tpm_utils.ClearTPMOwnerRequest(self.host,
-                            wait_for_ready=True)
+                for connect in self.BOOL_VALUES:
+                    # Clear relevant state, so we can set the fwmp and password
+                    self.clear_state()
+
+                    # Setup the cr50 state
                     self.setup_ccd_password(set_password)
-                    self.set_wp(enable_wp)
+                    self.bp_override(connect)
                     self.set_fwmp_lockout(lockout_ccd_with_fwmp)
                     self.cr50.set_ccd_level('lock')
+
                     logging.info('RUN: %s', self.get_state_message())
 
                     try:

@@ -34,6 +34,7 @@ class firmware_CorruptKernelB(FirmwareTest):
         super(firmware_CorruptKernelB, self).cleanup()
 
     def run_once(self, dev_mode=False):
+        """Runs a single iteration of the test."""
         logging.info("Prioritize kernel B.")
         self.check_state((self.checkers.root_part_checker, 'a'))
         self.reset_and_prioritize_kernel('b')

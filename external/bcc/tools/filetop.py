@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # @lint-avoid-python-3-compatibility-imports
 #
 # filetop  file reads and writes by process.
@@ -60,7 +60,7 @@ debug = 0
 loadavg = "/proc/loadavg"
 
 # signal handler
-def signal_ignore(signal, frame):
+def signal_ignore(signal_value, frame):
     print()
 
 # define BPF program

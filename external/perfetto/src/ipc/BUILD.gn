@@ -12,63 +12,88 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import("../../gn/perfetto.gni")
 import("../../gn/fuzzer.gni")
-import("../../gn/ipc_library.gni")
+import("../../gn/perfetto.gni")
 import("../../gn/proto_library.gni")
-
-# For use_libfuzzer.
-if (perfetto_build_standalone || perfetto_build_with_android) {
-  import("//gn/standalone/sanitizers/vars.gni")
-} else {
-  import("//build/config/sanitizers/sanitizers.gni")
-}
+import("../../gn/test.gni")
 
 # This build file should not be leaked into all embedders. Only select
 # projects should be depending on our IPC layer.
-assert(perfetto_build_with_ipc_layer)
+assert(enable_perfetto_ipc)
 
-source_set("ipc") {
-  public_configs = [ "../../gn:default_config" ]
+source_set("client") {
   public_deps = [
-    "../../include/perfetto/ipc",
+    "../../include/perfetto/ext/ipc",
     "../base:unix_socket",
   ]
   deps = [
-    ":wire_protocol",
+    ":common",
+    "../../gn:default_deps",
+    "../../protos/perfetto/ipc:wire_protocol_cpp",
+    "../base",
+  ]
+  sources = [
+    "client_impl.cc",
+    "client_impl.h",
+    "service_proxy.cc",
+  ]
+}
+
+source_set("host") {
+  public_deps = [
+    "../../include/perfetto/ext/ipc",
+    "../base:unix_socket",
+  ]
+  deps = [
+    ":common",
+    "../../gn:default_deps",
+    "../../protos/perfetto/ipc:wire_protocol_cpp",
+    "../base",
+  ]
+  sources = [
+    "host_impl.cc",
+    "host_impl.h",
+  ]
+}
+
+source_set("common") {
+  public_deps = [
+    "../../include/perfetto/ext/ipc",
+    "../../protos/perfetto/ipc:wire_protocol_cpp",
+  ]
+  deps = [
     "../../gn:default_deps",
     "../base",
   ]
   sources = [
     "buffered_frame_deserializer.cc",
-    "client_impl.cc",
+    "buffered_frame_deserializer.h",
     "deferred.cc",
-    "host_impl.cc",
-    "host_impl.h",
-    "service_proxy.cc",
     "virtual_destructors.cc",
   ]
 }
 
 perfetto_fuzzer_test("buffered_frame_deserializer_fuzzer") {
-  sources = [
-    "buffered_frame_deserializer_fuzzer.cc",
-  ]
+  sources = [ "buffered_frame_deserializer_fuzzer.cc" ]
   deps = [
-    ":ipc",
-    ":wire_protocol",
+    ":common",
     "../../gn:default_deps",
+    "../../protos/perfetto/ipc:wire_protocol_cpp",
+    "../base",
   ]
 }
 
-source_set("unittests") {
+perfetto_unittest_source_set("unittests") {
   testonly = true
   deps = [
-    ":ipc",
-    ":test_messages",
-    ":wire_protocol",
+    ":client",
+    ":common",
+    ":host",
+    ":test_messages_cpp",
+    ":test_messages_ipc",
     "../../gn:default_deps",
-    "../../gn:gtest_deps",
+    "../../gn:gtest_and_gmock",
+    "../../protos/perfetto/ipc:wire_protocol_cpp",
     "../base",
     "../base:test_support",
   ]
@@ -81,21 +106,25 @@ source_set("unittests") {
   ]
 }
 
-proto_library("wire_protocol") {
-  generate_python = false
-  sources = [
-    "wire_protocol.proto",
+perfetto_proto_library("test_messages_@TYPE@") {
+  proto_generators = [
+    "ipc",
+    "zero",
+    "cpp",
   ]
-  proto_in_dir = perfetto_root_path
-  proto_out_dir = perfetto_root_path
-}
-
-ipc_library("test_messages") {
   sources = [
     "test/client_unittest_messages.proto",
     "test/deferred_unittest_messages.proto",
     "test/greeter_service.proto",
   ]
-  proto_in_dir = perfetto_root_path
-  proto_out_dir = perfetto_root_path
+}
+
+# This is used by Bazel BUILD rules.
+static_library("perfetto_ipc") {
+  complete_static_lib = true
+  deps = [
+    ":client",
+    ":host",
+    "../../gn:default_deps",
+  ]
 }

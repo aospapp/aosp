@@ -6,24 +6,24 @@
 
 #include "xfa/fxfa/parser/cxfa_signature.h"
 
-#include "fxjs/xfa/cjx_signature.h"
+#include "fxjs/xfa/cjx_node.h"
 #include "third_party/base/ptr_util.h"
 
 namespace {
 
-const CXFA_Node::PropertyData kPropertyData[] = {
+const CXFA_Node::PropertyData kSignaturePropertyData[] = {
     {XFA_Element::Margin, 1, 0}, {XFA_Element::Filter, 1, 0},
     {XFA_Element::Border, 1, 0}, {XFA_Element::Manifest, 1, 0},
-    {XFA_Element::Extras, 1, 0}, {XFA_Element::Unknown, 0, 0}};
-const CXFA_Node::AttributeData kAttributeData[] = {
+    {XFA_Element::Extras, 1, 0},
+};
+
+const CXFA_Node::AttributeData kSignatureAttributeData[] = {
     {XFA_Attribute::Id, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Use, XFA_AttributeType::CData, nullptr},
     {XFA_Attribute::Type, XFA_AttributeType::Enum,
-     (void*)XFA_AttributeEnum::PDF1_3},
+     (void*)XFA_AttributeValue::PDF1_3},
     {XFA_Attribute::Usehref, XFA_AttributeType::CData, nullptr},
-    {XFA_Attribute::Unknown, XFA_AttributeType::Integer, nullptr}};
-
-constexpr wchar_t kName[] = L"signature";
+};
 
 }  // namespace
 
@@ -33,9 +33,12 @@ CXFA_Signature::CXFA_Signature(CXFA_Document* doc, XFA_PacketType packet)
                 (XFA_XDPPACKET_Template | XFA_XDPPACKET_Form),
                 XFA_ObjectType::Node,
                 XFA_Element::Signature,
-                kPropertyData,
-                kAttributeData,
-                kName,
-                pdfium::MakeUnique<CJX_Signature>(this)) {}
+                kSignaturePropertyData,
+                kSignatureAttributeData,
+                pdfium::MakeUnique<CJX_Node>(this)) {}
 
-CXFA_Signature::~CXFA_Signature() {}
+CXFA_Signature::~CXFA_Signature() = default;
+
+XFA_FFWidgetType CXFA_Signature::GetDefaultFFWidgetType() const {
+  return XFA_FFWidgetType::kSignature;
+}

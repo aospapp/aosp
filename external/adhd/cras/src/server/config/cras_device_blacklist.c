@@ -19,8 +19,8 @@ struct cras_device_blacklist {
  * Exported Interface
  */
 
-struct cras_device_blacklist *cras_device_blacklist_create(
-		const char *config_path)
+struct cras_device_blacklist *
+cras_device_blacklist_create(const char *config_path)
 {
 	struct cras_device_blacklist *blacklist;
 	char ini_name[MAX_INI_NAME_LEN + 1];
@@ -29,8 +29,8 @@ struct cras_device_blacklist *cras_device_blacklist_create(
 	if (!blacklist)
 		return NULL;
 
-	snprintf(ini_name, MAX_INI_NAME_LEN, "%s/%s",
-		 config_path, "device_blacklist");
+	snprintf(ini_name, MAX_INI_NAME_LEN, "%s/%s", config_path,
+		 "device_blacklist");
 	ini_name[MAX_INI_NAME_LEN] = '\0';
 	blacklist->ini = iniparser_load_wrapper(ini_name);
 
@@ -45,10 +45,8 @@ void cras_device_blacklist_destroy(struct cras_device_blacklist *blacklist)
 }
 
 int cras_device_blacklist_check(struct cras_device_blacklist *blacklist,
-				unsigned vendor_id,
-				unsigned product_id,
-				unsigned desc_checksum,
-				unsigned device_index)
+				unsigned vendor_id, unsigned product_id,
+				unsigned desc_checksum, unsigned device_index)
 {
 	char ini_key[MAX_KEY_LEN + 1];
 

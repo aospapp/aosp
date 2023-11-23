@@ -32,10 +32,11 @@
 #include <stdbool.h>
 #include <string.h>
 #include "main/mtypes.h"
+#include "main/errors.h"
 
-#include <drm.h>
+#include "drm-uapi/drm.h"
 #include <intel_bufmgr.h>
-#include <i915_drm.h>
+#include "drm-uapi/i915_drm.h"
 
 #include "intel_screen.h"
 #include "intel_tex_obj.h"
@@ -158,7 +159,6 @@ struct intel_context
     */
    int gen;
    bool is_945;
-   bool has_swizzling;
 
    struct intel_batchbuffer batch;
 
@@ -237,8 +237,6 @@ struct intel_context
     */
    bool front_buffer_dirty;
 
-   bool use_early_z;
-
    __DRIcontext *driContext;
    struct intel_screen *intelScreen;
 
@@ -283,7 +281,11 @@ extern int INTEL_DEBUG;
 
 #ifdef HAVE_ANDROID_PLATFORM
 #define LOG_TAG "INTEL-MESA"
+#if ANDROID_API_LEVEL >= 26
+#include <log/log.h>
+#else
 #include <cutils/log.h>
+#endif /* use log/log.h start from android 8 major version */
 #ifndef ALOGW
 #define ALOGW LOGW
 #endif
@@ -302,11 +304,11 @@ extern int INTEL_DEBUG;
    if (unlikely(INTEL_DEBUG & DEBUG_PERF))                      \
       dbg_printf(__VA_ARGS__);                                  \
    if (intel->perf_debug)                                       \
-      _mesa_gl_debug(&intel->ctx, &msg_id,                      \
-                     MESA_DEBUG_SOURCE_API,                     \
-                     MESA_DEBUG_TYPE_PERFORMANCE,               \
-                     MESA_DEBUG_SEVERITY_MEDIUM,                \
-                     __VA_ARGS__);                              \
+      _mesa_gl_debugf(&intel->ctx, &msg_id,                     \
+                      MESA_DEBUG_SOURCE_API,                    \
+                      MESA_DEBUG_TYPE_PERFORMANCE,              \
+                      MESA_DEBUG_SEVERITY_MEDIUM,               \
+                      __VA_ARGS__);                             \
 } while(0)
 
 #define WARN_ONCE(cond, fmt...) do {                            \
@@ -318,10 +320,10 @@ extern int INTEL_DEBUG;
          fprintf(stderr, fmt);                                  \
          _warned = true;                                        \
                                                                 \
-         _mesa_gl_debug(ctx, &msg_id,                           \
-                        MESA_DEBUG_SOURCE_API,                  \
-                        MESA_DEBUG_TYPE_OTHER,                  \
-                        MESA_DEBUG_SEVERITY_HIGH, fmt);         \
+         _mesa_gl_debugf(ctx, &msg_id,                          \
+                         MESA_DEBUG_SOURCE_API,                 \
+                         MESA_DEBUG_TYPE_OTHER,                 \
+                         MESA_DEBUG_SEVERITY_HIGH, fmt);        \
       }                                                         \
    }                                                            \
 } while (0)
@@ -421,7 +423,6 @@ extern int intel_translate_shadow_compare_func(GLenum func);
 extern int intel_translate_compare_func(GLenum func);
 extern int intel_translate_stencil_op(GLenum op);
 extern int intel_translate_blend_factor(GLenum factor);
-extern int intel_translate_logic_op(GLenum opcode);
 
 void intel_update_renderbuffers(__DRIcontext *context,
 				__DRIdrawable *drawable);

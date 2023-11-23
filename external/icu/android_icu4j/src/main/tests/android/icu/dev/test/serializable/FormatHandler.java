@@ -35,6 +35,7 @@ import android.icu.text.MessageFormat;
 import android.icu.text.NumberFormat;
 import android.icu.text.PluralFormat;
 import android.icu.text.PluralRules;
+import android.icu.text.RelativeDateTimeFormatter;
 import android.icu.text.RuleBasedNumberFormat;
 import android.icu.text.SelectFormat;
 import android.icu.text.SimpleDateFormat;
@@ -1794,6 +1795,36 @@ public class FormatHandler
         public Object[] getTestObjects()
         {
             return new Object[] {MessageFormat.Field.ARGUMENT};
+        }
+
+        @Override
+        public boolean hasSameBehavior(Object a, Object b)
+        {
+            return (a == b);
+        }
+    }
+
+    public static class RelativeDateTimeFormatterFieldHandler implements SerializableTestUtility.Handler
+    {
+        @Override
+        public Object[] getTestObjects()
+        {
+            return new Object[] {RelativeDateTimeFormatter.Field.LITERAL};
+        }
+
+        @Override
+        public boolean hasSameBehavior(Object a, Object b)
+        {
+            return (a == b);
+        }
+    }
+
+    public static class DateIntervalSpanFieldHandler implements SerializableTestUtility.Handler
+    {
+        @Override
+        public Object[] getTestObjects()
+        {
+            return new Object[] {DateIntervalFormat.SpanField.DATE_INTERVAL_SPAN};
         }
 
         @Override

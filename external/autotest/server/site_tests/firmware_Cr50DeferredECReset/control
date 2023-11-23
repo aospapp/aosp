@@ -7,7 +7,11 @@ from autotest_lib.server import utils
 AUTHOR = "Chrome OS Team"
 NAME = "firmware_Cr50DeferredECReset"
 PURPOSE = "Verify Deferred EC Reset."
-ATTRIBUTES = "suite:faft_cr50_prepvt, suite:faft_cr50_pvt"
+# TODO(b/139537748): should verify this test running on varius platforms
+# including coral, atlas, octopus, grunt, scarlet, fizz, nami, nocturne,
+# soraka, rammus. After verification, this test should join
+# suite:faft_cr50_pvt, suite:faft_cr50_prepvt
+ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo"

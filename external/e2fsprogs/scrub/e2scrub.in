@@ -18,10 +18,17 @@
 #  along with this program; if not, write the Free Software Foundation,
 #  Inc.,  51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA.
 
-# Automatically check a LVM-managed filesystem online.
+# Automatically check an LVM-managed filesystem online.
 # We use lvm snapshots to do this, which means that we can only
 # check filesystems in VGs that have at least 256MB (or so) of
 # free space.
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+if (( $EUID != 0 )); then
+    echo "e2scrub must be run as root"
+    exit 1
+fi
 
 snap_size_mb=256
 fstrim=0
@@ -34,7 +41,8 @@ test -f "${conffile}" && . "${conffile}"
 print_help() {
 	echo "Usage: $0 [OPTIONS] mountpoint | device"
 	echo
-	echo "mountpoint must be on a LVM-managed block device"
+	echo "mountpoint must be on an LVM-managed block device"
+	echo "-n: Show what commands e2scrub would execute."
 	echo "-r: Remove e2scrub snapshot and exit, do not check anything."
 	echo "-t: Run fstrim if successful."
 	echo "-V: Print version information and exit."
@@ -66,8 +74,9 @@ exitcode() {
 	exit "${ret}"
 }
 
-while getopts "rtV" opt; do
-	case "${opt}" in
+while getopts "nrtV" opt; do
+    case "${opt}" in
+	"n") DBG="echo Would execute: " ;;
 	"r") reap=1;;
 	"t") fstrim=1;;
 	"V") print_version; exitcode 0;;
@@ -81,6 +90,19 @@ if [ -z "${arg}" ]; then
 	print_help
 	exitcode 1
 fi
+
+if ! type lsblk >& /dev/null ; then
+    echo "e2scrub: can't find lsblk --- is util-linux installed?"
+    exitcode 1
+fi
+
+if ! type lvcreate >& /dev/null ; then
+    echo "e2scrub: can't find lvcreate --- is lvm2 installed?"
+    exitcode 1
+fi
+
+# close file descriptor 3 (from cron) since it causes lvm to kvetch
+exec 3<&-
 
 # Find the device for a given mountpoint
 dev_from_mount() {
@@ -142,7 +164,7 @@ lvm_vars="$(lvs --nameprefixes -o name,vgname,lv_role --noheadings "${dev}" 2> /
 eval "${lvm_vars}"
 if [ -z "${LVM2_VG_NAME}" ] || [ -z "${LVM2_LV_NAME}" ] ||
    echo "${LVM2_LV_ROLE}" | grep -q "snapshot"; then
-	echo "${arg}: Not connnected to a LVM logical volume."
+	echo "${arg}: Not connnected to an LVM logical volume."
 	print_help
 	exitcode 16
 fi
@@ -152,10 +174,10 @@ snap_dev="/dev/${LVM2_VG_NAME}/${snap}"
 
 teardown() {
 	# Remove and wait for removal to succeed.
-	${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}" 3>&-
+	${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}"
 	while [ -e "${snap_dev}" ] && [ "$?" -eq "5" ]; do
 		sleep 0.5
-		${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}" 3>&-
+		${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}"
 	done
 }
 
@@ -180,18 +202,18 @@ mark_corrupt() {
 setup() {
 	# Try to remove snapshot for 30s, bail out if we can't remove it.
 	lveremove_deadline="$(( $(date "+%s") + 30))"
-	${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}" 3>&- 2>/dev/null
+	${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}" 2>/dev/null
 	while [ -e "${snap_dev}" ] && [ "$?" -eq "5" ] &&
 	      [ "$(date "+%s")" -lt "${lvremove_deadline}" ]; do
 		sleep 0.5
-		${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}" 3>&-
+		${DBG} lvremove -f "${LVM2_VG_NAME}/${snap}"
 	done
 	if [ -e "${snap_dev}" ]; then
 		echo "${arg}: e2scrub snapshot is in use, cannot check!"
 		return 1
 	fi
 	# Create the snapshot, wait for device to appear.
-	${DBG} lvcreate -s -L "${snap_size_mb}m" -n "${snap}" "${LVM2_VG_NAME}/${LVM2_LV_NAME}" 3>&-
+	${DBG} lvcreate -s -L "${snap_size_mb}m" -n "${snap}" "${LVM2_VG_NAME}/${LVM2_LV_NAME}"
 	if [ $? -ne 0 ]; then
 		echo "${arg}: e2scrub snapshot FAILED, will not check!"
 		return 1

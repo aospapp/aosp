@@ -42,7 +42,10 @@ import android.net.RouteInfo;
 import android.net.Uri;
 import android.net.wifi.RttManager.RttCapabilities;
 import android.net.wifi.ScanResult;
-import android.net.wifi.WifiActivityEnergyInfo;
+import android.net.wifi.SoftApCapability;
+import android.net.wifi.SoftApConfiguration;
+import android.net.wifi.SoftApInfo;
+import android.net.wifi.WifiClient;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiInfo;
@@ -54,6 +57,7 @@ import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.os.Bundle;
 import android.os.ParcelUuid;
+import android.os.connectivity.WifiActivityEnergyInfo;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.telecom.PhoneAccount;
@@ -79,6 +83,7 @@ import android.telephony.CellSignalStrengthLte;
 import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
 import android.telephony.ModemActivityInfo;
+import android.telephony.ModemActivityInfo.TransmitPower;
 import android.telephony.NeighboringCellInfo;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
@@ -278,8 +283,14 @@ public class JsonBuilder {
         if (data instanceof WifiActivityEnergyInfo) {
             return buildWifiActivityEnergyInfo((WifiActivityEnergyInfo) data);
         }
+        if (data instanceof SoftApConfiguration) {
+            return buildSoftApConfiguration((SoftApConfiguration) data);
+        }
         if (data instanceof WifiConfiguration) {
             return buildWifiConfiguration((WifiConfiguration) data);
+        }
+        if (data instanceof WifiClient) {
+            return buildWifiClient((WifiClient) data);
         }
         if (data instanceof WifiP2pConfig) {
             return buildWifiP2pConfig((WifiP2pConfig) data);
@@ -292,6 +303,12 @@ public class JsonBuilder {
         }
         if (data instanceof WifiP2pGroup) {
             return buildWifiP2pGroup((WifiP2pGroup) data);
+        }
+        if (data instanceof SoftApCapability) {
+            return buildSoftApCapability((SoftApCapability) data);
+        }
+        if (data instanceof SoftApInfo) {
+            return buildSoftApInfo((SoftApInfo) data);
         }
         if (data instanceof LinkProperties) {
             return buildLinkProperties((LinkProperties) data);
@@ -755,6 +772,7 @@ public class JsonBuilder {
         }
         result.put("supplicant_state", build(supplicantState));
         result.put("is_5ghz", data.is5GHz());
+        result.put("is_6ghz", data.is6GHz());
         result.put("is_24ghz", data.is24GHz());
         return result;
     }
@@ -995,6 +1013,8 @@ public class JsonBuilder {
         msg.put("dataRoaming", data.getDataRoaming());
         msg.put("mcc", data.getMcc());
         msg.put("mnc", data.getMnc());
+        msg.put("carrierId", data.getCarrierId());
+        msg.put("isOpportunistic", data.isOpportunistic());
         return msg;
     }
 
@@ -1027,14 +1047,49 @@ public class JsonBuilder {
     private static JSONObject buildWifiActivityEnergyInfo(
             WifiActivityEnergyInfo data) throws JSONException {
         JSONObject result = new JSONObject();
-        result.put("ControllerEnergyUsed", data.getControllerEnergyUsed());
-        result.put("ControllerIdleTimeMillis",
-                data.getControllerIdleTimeMillis());
-        result.put("ControllerRxTimeMillis", data.getControllerRxTimeMillis());
-        result.put("ControllerTxTimeMillis", data.getControllerTxTimeMillis());
+        result.put("ControllerEnergyUsed", data.getControllerEnergyUsedMicroJoules());
+        result.put("ControllerIdleTimeMillis", data.getControllerIdleDurationMillis());
+        result.put("ControllerRxTimeMillis", data.getControllerRxDurationMillis());
+        result.put("ControllerTxTimeMillis", data.getControllerTxDurationMillis());
         result.put("StackState", data.getStackState());
-        result.put("TimeStamp", data.getTimeStamp());
+        result.put("TimeStamp", data.getTimeSinceBootMillis());
         return result;
+    }
+
+    private static Object buildSoftApConfiguration(SoftApConfiguration data)
+            throws JSONException {
+        JSONObject config = new JSONObject();
+        config.put("SSID", data.getSsid());
+        config.put("BSSID", data.getBssid());
+        config.put("hiddenSSID", data.isHiddenSsid());
+        int securityType = data.getSecurityType();
+        if (securityType == SoftApConfiguration.SECURITY_TYPE_OPEN) {
+            config.put("security", "NONE");
+        } else if (securityType == SoftApConfiguration.SECURITY_TYPE_WPA2_PSK) {
+            config.put("security", "WPA2_PSK");
+        } else if (securityType == SoftApConfiguration.SECURITY_TYPE_WPA3_SAE_TRANSITION) {
+            config.put("security", "WPA3_SAE_TRANSITION");
+        } else if (securityType == SoftApConfiguration.SECURITY_TYPE_WPA3_SAE) {
+            config.put("security", "WPA3_SAE");
+        }
+        if (data.getPassphrase() != null) {
+            config.put("password", data.getPassphrase());
+        }
+        config.put("apBand", data.getBand());
+        config.put("apChannel", data.getChannel());
+        config.put("MaxNumberOfClients", data.getMaxNumberOfClients());
+        config.put("ShutdownTimeoutMillis", data.getShutdownTimeoutMillis());
+        config.put("AutoShutdownEnabled", data.isAutoShutdownEnabled());
+        config.put("ClientControlByUserEnabled", data.isClientControlByUserEnabled());
+        config.put("AllowedClientList", build(data.getAllowedClientList()));
+        config.put("BlockedClientList", build(data.getBlockedClientList()));
+        return config;
+    }
+
+    private static Object buildWifiClient(WifiClient data) throws JSONException {
+        JSONObject config = new JSONObject();
+        config.put("MacAddress", data.getMacAddress().toString());
+        return config;
     }
 
     private static Object buildWifiConfiguration(WifiConfiguration data)
@@ -1055,6 +1110,7 @@ public class JsonBuilder {
         config.put("providerFriendlyName", data.providerFriendlyName);
         config.put("isPasspoint", data.isPasspoint());
         config.put("hiddenSSID", data.hiddenSSID);
+        config.put("carrierId", data.carrierId);
         if (data.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.SAE)) {
             config.put("security", "SAE");
         } else if (data.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
@@ -1099,6 +1155,7 @@ public class JsonBuilder {
         String privateKeyString = Base64.encodeToString(pk.getEncoded(), Base64.DEFAULT);
         config.put(WifiEnterpriseConfig.PRIVATE_KEY_ID_KEY, privateKeyString);
         config.put(WifiEnterpriseConfig.PASSWORD_KEY, data.getPassword());
+        config.put(WifiEnterpriseConfig.OCSP, data.getOcsp());
         return config;
     }
 
@@ -1150,6 +1207,29 @@ public class JsonBuilder {
         info.put("groupFormed", data.groupFormed);
         info.put("isGroupOwner", data.isGroupOwner);
         info.put("groupOwnerAddress", data.groupOwnerAddress);
+        return info;
+    }
+
+    private static JSONObject buildSoftApCapability(SoftApCapability data)
+            throws JSONException {
+        JSONObject info = new JSONObject();
+        Log.d("build softAp capability info.");
+        info.put("maxSupportedClients", data.getMaxSupportedClients());
+        info.put("acsOffloadSupported", data.areFeaturesSupported(
+                SoftApCapability.SOFTAP_FEATURE_ACS_OFFLOAD));
+        info.put("clientForceDisconnectSupported", data.areFeaturesSupported(
+                SoftApCapability.SOFTAP_FEATURE_CLIENT_FORCE_DISCONNECT));
+        info.put("wpa3SaeSupported", data.areFeaturesSupported(
+                SoftApCapability.SOFTAP_FEATURE_WPA3_SAE));
+        return info;
+    }
+
+    private static JSONObject buildSoftApInfo(SoftApInfo data)
+            throws JSONException {
+        JSONObject info = new JSONObject();
+        Log.d("build softAp info.");
+        info.put("frequency", data.getFrequency());
+        info.put("bandwidth", data.getBandwidth());
         return info;
     }
 
@@ -1334,14 +1414,13 @@ public class JsonBuilder {
         info.put("SleepTimeMs", modemInfo.getSleepTimeMillis());
         info.put("IdleTimeMs", modemInfo.getIdleTimeMillis());
         // convert from int[] to List<Integer> for proper JSON translation
-        int[] txTimes = modemInfo.getTxTimeMillis();
-        List<Integer> tmp = new ArrayList<Integer>(txTimes.length);
-        for (int val : txTimes) {
-            tmp.add(val);
+        List<TransmitPower> txPowerIno = modemInfo.getTransmitPowerInfo();
+        List<Integer> tmp = new ArrayList<Integer>(txPowerIno.size());
+        for (TransmitPower val : txPowerIno) {
+            tmp.add(val.getTimeInMillis());
         }
         info.put("TxTimeMs", build(tmp));
-        info.put("RxTimeMs", modemInfo.getRxTimeMillis());
-        info.put("EnergyUsedMw", modemInfo.getEnergyUsed());
+        info.put("RxTimeMs", modemInfo.getReceiveTimeMillis());
         return info;
     }
 
@@ -1405,62 +1484,62 @@ public class JsonBuilder {
     public static JSONObject buildServiceState(ServiceState ss) throws JSONException {
         JSONObject info = new JSONObject();
 
-    info.put(TelephonyConstants.ServiceStateContainer.VOICE_REG_STATE,
-            TelephonyUtils.getNetworkStateString(ss.getVoiceRegState()));
-    info.put(TelephonyConstants.ServiceStateContainer.VOICE_NETWORK_TYPE,
-            TelephonyUtils.getNetworkTypeString(ss.getVoiceNetworkType()));
-    info.put(TelephonyConstants.ServiceStateContainer.DATA_REG_STATE,
-            TelephonyUtils.getNetworkStateString(ss.getDataRegState()));
-    info.put(TelephonyConstants.ServiceStateContainer.DATA_NETWORK_TYPE,
-            TelephonyUtils.getNetworkTypeString(ss.getDataNetworkType()));
-    info.put(TelephonyConstants.ServiceStateContainer.OPERATOR_NAME, ss.getOperatorAlphaLong());
-    info.put(TelephonyConstants.ServiceStateContainer.OPERATOR_ID, ss.getOperatorNumeric());
-    info.put(TelephonyConstants.ServiceStateContainer.IS_MANUAL_NW_SELECTION,
-            ss.getIsManualSelection());
-    info.put(TelephonyConstants.ServiceStateContainer.ROAMING, ss.getRoaming());
-    info.put(TelephonyConstants.ServiceStateContainer.IS_EMERGENCY_ONLY, ss.isEmergencyOnly());
-    info.put(TelephonyConstants.ServiceStateContainer.NETWORK_ID, ss.getCdmaNetworkId());
-    info.put(TelephonyConstants.ServiceStateContainer.SYSTEM_ID, ss.getCdmaSystemId());
-    info.put(TelephonyConstants.ServiceStateContainer.SERVICE_STATE,
-            TelephonyUtils.getNetworkStateString(ss.getState()));
-    info.put(TelephonyConstants.ServiceStateContainer.CHANNEL_NUMBER, ss.getChannelNumber());
-    info.put(TelephonyConstants.ServiceStateContainer.CELL_BANDWIDTHS,
-            ss.getCellBandwidths() != null
-                    ? new JSONArray(ss.getCellBandwidths())
-                    : JSONObject.NULL);
-    info.put(TelephonyConstants.ServiceStateContainer.DUPLEX_MODE, ss.getDuplexMode());
-    info.put(TelephonyConstants.ServiceStateContainer.VOICE_ROAMING_TYPE,
-            ss.getVoiceRoamingType());
-    info.put(TelephonyConstants.ServiceStateContainer.DATA_ROAMING_TYPE,
-            ss.getDataRoamingType());
-    info.put(TelephonyConstants.ServiceStateContainer.VOICE_OPERATOR_ALPHA_LONG,
-            ss.getVoiceOperatorAlphaLong());
-    info.put(TelephonyConstants.ServiceStateContainer.VOICE_OPERATOR_ALPHA_SHORT,
-            ss.getVoiceOperatorAlphaShort());
-    info.put(TelephonyConstants.ServiceStateContainer.VOICE_OPERATOR_NUMERIC,
-            ss.getVoiceOperatorNumeric());
-    info.put(TelephonyConstants.ServiceStateContainer.DATA_OPERATOR_ALPHA_LONG,
-            ss.getDataOperatorAlphaLong());
-    info.put(TelephonyConstants.ServiceStateContainer.DATA_OPERATOR_ALPHA_SHORT,
-            ss.getDataOperatorAlphaShort());
-    info.put(TelephonyConstants.ServiceStateContainer.DATA_OPERATOR_NUMERIC,
-            ss.getDataOperatorNumeric());
-    info.put(TelephonyConstants.ServiceStateContainer.VOICE_RADIO_TECHNOLOGY,
-            ss.getRilVoiceRadioTechnology());
-    info.put(TelephonyConstants.ServiceStateContainer.DATA_RADIO_TECHNOLOGY,
-            ss.getRilDataRadioTechnology());
-    info.put(TelephonyConstants.ServiceStateContainer.CSS_INDICATOR, ss.getCssIndicator());
-    info.put(TelephonyConstants.ServiceStateContainer.CDMA_ROAMING_INDICATOR,
-            ss.getCdmaRoamingIndicator());
-    info.put(TelephonyConstants.ServiceStateContainer.CDMA_DEFAULT_ROAMING_INDICATOR,
-            ss.getCdmaDefaultRoamingIndicator());
-    info.put(TelephonyConstants.ServiceStateContainer.IS_DATA_ROAMING_FROM_REGISTRATION,
-            ss.getDataRoamingFromRegistration());
-    info.put(TelephonyConstants.ServiceStateContainer.IS_USING_CARRIER_AGGREGATION,
-            ss.isUsingCarrierAggregation());
-    info.put(TelephonyConstants.ServiceStateContainer.LTE_EARFCN_RSRP_BOOST,
-            ss.getLteEarfcnRsrpBoost());
-    return info;
+        info.put(TelephonyConstants.ServiceStateContainer.VOICE_REG_STATE,
+                TelephonyUtils.getNetworkStateString(ss.getState()));
+        info.put(TelephonyConstants.ServiceStateContainer.VOICE_NETWORK_TYPE,
+                TelephonyUtils.getNetworkTypeString(ss.getVoiceNetworkType()));
+        info.put(TelephonyConstants.ServiceStateContainer.DATA_REG_STATE,
+                TelephonyUtils.getNetworkStateString(ss.getDataRegistrationState()));
+        info.put(TelephonyConstants.ServiceStateContainer.DATA_NETWORK_TYPE,
+                TelephonyUtils.getNetworkTypeString(ss.getDataNetworkType()));
+        info.put(TelephonyConstants.ServiceStateContainer.OPERATOR_NAME, ss.getOperatorAlphaLong());
+        info.put(TelephonyConstants.ServiceStateContainer.OPERATOR_ID, ss.getOperatorNumeric());
+        info.put(TelephonyConstants.ServiceStateContainer.IS_MANUAL_NW_SELECTION,
+                ss.getIsManualSelection());
+        info.put(TelephonyConstants.ServiceStateContainer.ROAMING, ss.getRoaming());
+        info.put(TelephonyConstants.ServiceStateContainer.IS_EMERGENCY_ONLY, ss.isEmergencyOnly());
+        info.put(TelephonyConstants.ServiceStateContainer.NETWORK_ID, ss.getCdmaNetworkId());
+        info.put(TelephonyConstants.ServiceStateContainer.SYSTEM_ID, ss.getCdmaSystemId());
+        info.put(TelephonyConstants.ServiceStateContainer.SERVICE_STATE,
+                TelephonyUtils.getNetworkStateString(ss.getState()));
+        info.put(TelephonyConstants.ServiceStateContainer.CHANNEL_NUMBER, ss.getChannelNumber());
+        info.put(TelephonyConstants.ServiceStateContainer.CELL_BANDWIDTHS,
+                ss.getCellBandwidths() != null
+                        ? new JSONArray(ss.getCellBandwidths())
+                        : JSONObject.NULL);
+        info.put(TelephonyConstants.ServiceStateContainer.DUPLEX_MODE, ss.getDuplexMode());
+        info.put(TelephonyConstants.ServiceStateContainer.VOICE_ROAMING_TYPE,
+                ss.getVoiceRoamingType());
+        info.put(TelephonyConstants.ServiceStateContainer.DATA_ROAMING_TYPE,
+                ss.getDataRoamingType());
+        info.put(TelephonyConstants.ServiceStateContainer.VOICE_OPERATOR_ALPHA_LONG,
+                ss.getOperatorAlphaLong());
+        info.put(TelephonyConstants.ServiceStateContainer.VOICE_OPERATOR_ALPHA_SHORT,
+                ss.getOperatorAlphaShort());
+        info.put(TelephonyConstants.ServiceStateContainer.VOICE_OPERATOR_NUMERIC,
+                ss.getOperatorNumeric());
+        info.put(TelephonyConstants.ServiceStateContainer.DATA_OPERATOR_ALPHA_LONG,
+                ss.getOperatorAlphaLong());
+        info.put(TelephonyConstants.ServiceStateContainer.DATA_OPERATOR_ALPHA_SHORT,
+                ss.getOperatorAlphaShort());
+        info.put(TelephonyConstants.ServiceStateContainer.DATA_OPERATOR_NUMERIC,
+                ss.getOperatorNumeric());
+        info.put(TelephonyConstants.ServiceStateContainer.VOICE_RADIO_TECHNOLOGY,
+                ss.getRilVoiceRadioTechnology());
+        info.put(TelephonyConstants.ServiceStateContainer.DATA_RADIO_TECHNOLOGY,
+                ss.getRilDataRadioTechnology());
+        info.put(TelephonyConstants.ServiceStateContainer.CSS_INDICATOR, ss.getCssIndicator());
+        info.put(TelephonyConstants.ServiceStateContainer.CDMA_ROAMING_INDICATOR,
+                ss.getCdmaRoamingIndicator());
+        info.put(TelephonyConstants.ServiceStateContainer.CDMA_DEFAULT_ROAMING_INDICATOR,
+                ss.getCdmaDefaultRoamingIndicator());
+        info.put(TelephonyConstants.ServiceStateContainer.IS_DATA_ROAMING_FROM_REGISTRATION,
+                ss.getDataRoamingFromRegistration());
+        info.put(TelephonyConstants.ServiceStateContainer.IS_USING_CARRIER_AGGREGATION,
+                ss.isUsingCarrierAggregation());
+        info.put(TelephonyConstants.ServiceStateContainer.LTE_EARFCN_RSRP_BOOST,
+                ss.getLteEarfcnRsrpBoost());
+        return info;
     }
 
     private JsonBuilder() {

@@ -1,0 +1,8 @@
+{
+  "presubmit": [
+    {
+      "name": "audio_streams_tests_audio_streams",
+      "host": true
+    }
+  ]
+}

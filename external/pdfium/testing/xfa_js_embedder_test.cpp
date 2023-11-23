@@ -6,15 +6,17 @@
 
 #include <string>
 
+#include "fpdfsdk/cpdfsdk_helpers.h"
 #include "fpdfsdk/fpdfxfa/cpdfxfa_context.h"
-#include "fpdfsdk/fsdk_define.h"
-#include "fxjs/cfxjse_engine.h"
+#include "fxjs/xfa/cfxjse_engine.h"
+#include "fxjs/xfa/cfxjse_value.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/base/ptr_util.h"
+#include "xfa/fxfa/cxfa_ffapp.h"
 
 XFAJSEmbedderTest::XFAJSEmbedderTest()
-    : array_buffer_allocator_(pdfium::MakeUnique<FXJS_ArrayBufferAllocator>()) {
-}
+    : array_buffer_allocator_(
+          pdfium::MakeUnique<CFX_V8ArrayBufferAllocator>()) {}
 
 XFAJSEmbedderTest::~XFAJSEmbedderTest() {}
 
@@ -26,9 +28,13 @@ void XFAJSEmbedderTest::SetUp() {
 
   EmbedderTest::SetExternalIsolate(isolate_);
   EmbedderTest::SetUp();
+
+  CXFA_FFApp::SkipFontLoadForTesting(true);
 }
 
 void XFAJSEmbedderTest::TearDown() {
+  CXFA_FFApp::SkipFontLoadForTesting(false);
+
   value_.reset();
   script_context_ = nullptr;
 
@@ -38,29 +44,40 @@ void XFAJSEmbedderTest::TearDown() {
   isolate_ = nullptr;
 }
 
-CXFA_Document* XFAJSEmbedderTest::GetXFADocument() {
-  return UnderlyingFromFPDFDocument(document())->GetXFADoc()->GetXFADoc();
+CXFA_Document* XFAJSEmbedderTest::GetXFADocument() const {
+  auto* pDoc = CPDFDocumentFromFPDFDocument(document());
+  if (!pDoc)
+    return nullptr;
+
+  auto* pContext = static_cast<CPDFXFA_Context*>(pDoc->GetExtension());
+  if (!pContext)
+    return nullptr;
+
+  return pContext->GetXFADoc()->GetXFADoc();
 }
 
-bool XFAJSEmbedderTest::OpenDocumentWithOptions(const std::string& filename,
-                                                const char* password,
-                                                bool must_linearize) {
-  if (!EmbedderTest::OpenDocumentWithOptions(filename, password,
-                                             must_linearize))
+bool XFAJSEmbedderTest::OpenDocumentWithOptions(
+    const std::string& filename,
+    const char* password,
+    LinearizeOption linearize_option,
+    JavaScriptOption javascript_option) {
+  // JS required for XFA.
+  ASSERT(javascript_option == JavaScriptOption::kEnableJavaScript);
+  if (!EmbedderTest::OpenDocumentWithOptions(
+          filename, password, linearize_option, javascript_option)) {
     return false;
-
+  }
   script_context_ = GetXFADocument()->GetScriptContext();
   return true;
 }
 
-bool XFAJSEmbedderTest::Execute(const ByteStringView& input) {
-  if (ExecuteHelper(input)) {
+bool XFAJSEmbedderTest::Execute(ByteStringView input) {
+  if (ExecuteHelper(input))
     return true;
-  }
 
   CFXJSE_Value msg(GetIsolate());
   value_->GetObjectPropertyByIdx(1, &msg);
-  fprintf(stderr, "JS: %.*s\n", static_cast<int>(input.GetLength()),
+  fprintf(stderr, "FormCalc: %.*s\n", static_cast<int>(input.GetLength()),
           input.unterminated_c_str());
   // If the parsing of the input fails, then v8 will not run, so there will be
   // no value here to print.
@@ -69,11 +86,11 @@ bool XFAJSEmbedderTest::Execute(const ByteStringView& input) {
   return false;
 }
 
-bool XFAJSEmbedderTest::ExecuteSilenceFailure(const ByteStringView& input) {
+bool XFAJSEmbedderTest::ExecuteSilenceFailure(ByteStringView input) {
   return ExecuteHelper(input);
 }
 
-bool XFAJSEmbedderTest::ExecuteHelper(const ByteStringView& input) {
+bool XFAJSEmbedderTest::ExecuteHelper(ByteStringView input) {
   value_ = pdfium::MakeUnique<CFXJSE_Value>(GetIsolate());
   return script_context_->RunScript(CXFA_Script::Type::Formcalc,
                                     WideString::FromUTF8(input).AsStringView(),

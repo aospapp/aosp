@@ -51,21 +51,20 @@ def main():
 
   # This is the location of the original CLDR source tree (not the temporary
   # copy of the tools source code) from where the data files are to be read:
-  os.environ['CLDR_DIR'] = cldr_dir
+  os.environ['CLDR_DIR'] = os.path.join(os.getcwd(), 'cldr')
 
   print('Copying CLDR source code ...')
-  shutil.copytree(os.path.join(cldr_dir, 'tools/java'), 'cldr-tools-java', True)
+  shutil.copytree(cldr_dir, 'cldr', True)
   print('Building CLDR tools ...')
   subprocess.check_call([
       'ant',
-      '-f', 'cldr-tools-java/build.xml',
-      'tool',
+      '-f', os.path.join('cldr', 'tools', 'java', 'build.xml'),
+      'jar',
       'AddPseudolocales',
   ])
 
   # This is the temporary directory in which the CLDR tools have been built:
-  os.environ['CLDR_CLASSES'] = os.path.join(
-      os.getcwd(), 'cldr-tools-java/classes')
+  os.environ['CLDR_CLASSES'] = os.path.join(os.getcwd(), 'cldr', 'tools', 'java', 'classes')
 
   # It's essential to set CLDR_DTD_CACHE for otherwise the repeated requests for
   # the same file will cause the unicode.org web server to block this machine:

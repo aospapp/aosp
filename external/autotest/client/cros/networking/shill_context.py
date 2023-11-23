@@ -4,17 +4,14 @@
 
 """A collection of context managers for working with shill objects."""
 
-import errno
+import dbus
 import logging
-import os
 
 from contextlib import contextmanager
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.networking import shill_proxy
-
-SHILL_START_LOCK_PATH = '/run/lock/shill-start.lock'
+from autotest_lib.client.cros.power import sys_power
 
 class ContextError(Exception):
     """An error raised by a context managers dealing with shill objects."""
@@ -193,8 +190,9 @@ def stopped_shill():
 
     This context stops shill on entry to the context, and starts shill
     before exit from the context. This context further guarantees that
-    shill will be not restarted by recover_duts, while this context is
-    active.
+    shill will be not restarted by recover_duts and that recover_duts
+    will not otherwise try to run its network connectivity checks, while
+    this context is active.
 
     Note that the no-restart guarantee applies only if the user of
     this context completes with a 'reasonable' amount of time. In
@@ -202,30 +200,38 @@ def stopped_shill():
     recover_duts will reboot the DUT.
 
     """
-    def get_lock_holder(lock_path):
-        lock_holder = os.readlink(lock_path)
-        try:
-            os.stat(lock_holder)
-            return lock_holder  # stat() success -> valid link -> locker alive
-        except OSError as e:
-            if e.errno == errno.ENOENT:  # dangling link -> locker is gone
-                return None
-            else:
-                raise
-
-    our_proc_dir = '/proc/%d/' % os.getpid()
-    try:
-        os.symlink(our_proc_dir, SHILL_START_LOCK_PATH)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-        lock_holder = get_lock_holder(SHILL_START_LOCK_PATH)
-        if lock_holder is not None:
-            raise error.TestError('Shill start lock held by %s' % lock_holder)
-        os.remove(SHILL_START_LOCK_PATH)
-        os.symlink(our_proc_dir, SHILL_START_LOCK_PATH)
-
+    sys_power.pause_check_network_hook()
     utils.stop_service('shill')
     yield
     utils.start_service('shill')
-    os.remove(SHILL_START_LOCK_PATH)
+    sys_power.resume_check_network_hook()
+
+
+class StaticIPContext(object):
+    """StaticIPConfig context manager class.
+
+    Set a StaticIPConfig to the given service.
+
+    """
+    def __init__(self, service, config):
+        self._service = service
+        self._config = config
+
+
+    def __enter__(self):
+        """Configure the StaticIP parameters for the Service and apply those
+        parameters to the interface by forcing a re-connect."""
+        self._service.SetProperty(
+            shill_proxy.ShillProxy.SERVICE_PROPERTY_STATIC_IP_CONFIG,
+            dbus.Dictionary(self._config, signature='sv'))
+        self._service.Disconnect()
+        self._service.Connect()
+
+
+    def __exit__(self, exception, value, traceback):
+        """Clear configuration of StaticIP parameters for the Service and force
+        a re-connect."""
+        self._service.ClearProperty(
+            shill_proxy.ShillProxy.SERVICE_PROPERTY_STATIC_IP_CONFIG)
+        self._service.Disconnect()
+        self._service.Connect()

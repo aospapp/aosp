@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -205,6 +205,13 @@ class PseudoNetworkInterface(object):
     network device normally associated with a modem.
     """
 
+    # Any interface that shill manages will get its own routing
+    # table. Routes added to the main routing table with RTPROT_BOOT (the
+    # default proto value) will be sent to the corresponding interface's
+    # routing table. We want to prevent that in this case, so we use
+    # proto 5, as shill currently ignores proto values greater than 4.
+    ROUTE_PROTO = 'proto 5'
+
     def __init__(self, interface, base):
         self.interface = interface
         self.peer = self.interface + 'p'
@@ -236,7 +243,8 @@ class PseudoNetworkInterface(object):
         os.system('ifconfig %s up' % self.peer)
 
         os.system('ifconfig %s up' % self.interface)
-        os.system('route add -host 255.255.255.255 dev %s' % self.peer)
+        os.system('ip route add 255.255.255.255 dev %s %s' %
+                  (self.peer, self.ROUTE_PROTO))
         os.close(os.open(self.lease_file, os.O_CREAT | os.O_TRUNC))
         self.dnsmasq = subprocess.Popen(
             ['/usr/local/sbin/dnsmasq',
@@ -248,7 +256,9 @@ class PseudoNetworkInterface(object):
              '--interface=%s' % self.peer,
              '--bind-interfaces'
             ])
-        # iptables rejects packets on a newly defined interface.  Fix that.
+        # iptables default policy is to reject packets. Add ACCEPT as the
+        # target for the virtual and peer interfaces. Note that this currently
+        # only accepts v4 traffic.
         os.system('iptables -I INPUT -i %s -j ACCEPT' % self.peer)
         os.system('iptables -I INPUT -i %s -j ACCEPT' % self.interface)
 
@@ -260,7 +270,7 @@ class PseudoNetworkInterface(object):
         if self.dnsmasq:
             self.dnsmasq.terminate()
         try:
-            os.system('route del -host 255.255.255.255')
+            os.system('ip route del 255.255.255.255 %s' % self.ROUTE_PROTO)
         except:
             pass
         try:

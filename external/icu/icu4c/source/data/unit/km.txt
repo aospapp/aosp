@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 km{
-    Version{"2.1.44.88"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -44,6 +44,9 @@ km{
             acre{
                 dnam{"អា"}
                 other{"{0} អា"}
+            }
+            dunam{
+                other{"{0} dunams"}
             }
             hectare{
                 dnam{"ហិកតា"}
@@ -192,6 +195,10 @@ km{
                 dnam{"ថ្ងៃ"}
                 other{"{0} ថ្ងៃ"}
                 per{"{0} ក្នុងមួយថ្ងៃ"}
+            }
+            decade{
+                dnam{"ទសវត្សរ៍"}
+                other{"{0} ទសវត្សរ៍"}
             }
             hour{
                 dnam{"ម៉ោង"}
@@ -399,8 +406,8 @@ km{
                 per{"{0} ក្នុងមួយគីឡូក្រាម"}
             }
             metric-ton{
-                dnam{"រង្វាស់​តោន"}
-                other{"{0} រង្វាស់​តោន"}
+                dnam{"តោនម៉ែត្រ"}
+                other{"{0} តោនម៉ែត្រ"}
             }
             microgram{
                 dnam{"មីក្រូក្រាម"}
@@ -860,6 +867,9 @@ km{
                 dnam{"អា"}
                 other{"{0} ac"}
             }
+            dunam{
+                dnam{"dunams"}
+            }
             hectare{
                 dnam{"ហិកតា"}
                 other{"{0} ha"}
@@ -1008,6 +1018,10 @@ km{
                 other{"{0} ថ្ងៃ"}
                 per{"{0}/ថ្ងៃ"}
             }
+            decade{
+                dnam{"ទសវត្សរ៍"}
+                other{"{0} ទសវត្សរ៍"}
+            }
             hour{
                 dnam{"ម៉ោង"}
                 other{"{0} ម៉ោង"}
@@ -1070,6 +1084,9 @@ km{
             }
         }
         energy{
+            british-thermal-unit{
+                dnam{"BTU"}
+            }
             calorie{
                 dnam{"cal"}
                 other{"{0} cal"}

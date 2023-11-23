@@ -36,7 +36,7 @@
 
 int handler_count = 0;
 
-void handler(int signo)
+void handler(int signo LTP_ATTRIBUTE_UNUSED)
 {
 	static int inside_handler = 0;
 

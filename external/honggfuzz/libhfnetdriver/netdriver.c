@@ -44,11 +44,7 @@ static struct {
     .sa_family = AF_UNSPEC,
 };
 
-__attribute__((weak)) int HonggfuzzNetDriver_main(
-    int argc HF_ATTR_UNUSED, char **argv HF_ATTR_UNUSED) {
-    LOG_F("The HonggfuzzNetDriver_main function was not defined in your code");
-    return EXIT_FAILURE;
-}
+extern int HonggfuzzNetDriver_main(int argc, char **argv);
 
 static void *netDriver_mainProgram(void *unused HF_ATTR_UNUSED) {
     int ret = HonggfuzzNetDriver_main(hfnd_globals.argc_server, hfnd_globals.argv_server);
@@ -131,14 +127,18 @@ static int netDriver_sockConnAddr(const struct sockaddr *addr, socklen_t socklen
     }
     int val = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, (socklen_t)sizeof(val)) == -1) {
-        PLOG_W("setsockopt(sock=%d, SOL_SOCKET, SO_REUSEADDR, 1)", sock);
+        PLOG_W("setsockopt(sock=%d, SOL_SOCKET, SO_REUSEADDR, %d)", sock, val);
     }
 #if defined(SOL_TCP) && defined(TCP_NODELAY)
     val = 1;
     if (setsockopt(sock, SOL_TCP, TCP_NODELAY, &val, (socklen_t)sizeof(val)) == -1) {
-        PLOG_W("setsockopt(sock=%d, SOL_TCP, TCP_NODELAY, 1)", sock);
+        PLOG_W("setsockopt(sock=%d, SOL_TCP, TCP_NODELAY, %d)", sock, val);
     }
-#endif /* defined(SOL_TCP) && defined(TCP_NODELAY) */
+#endif                         /* defined(SOL_TCP) && defined(TCP_NODELAY) */
+    val = (1024ULL * 1024ULL); /* 1MiB */
+    if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &val, (socklen_t)sizeof(val)) == -1) {
+        PLOG_D("setsockopt(sock=%d, SOL_SOCKET, SO_SNDBUF, %d)", sock, val);
+    }
 
     netDriver_bindToRndLoopback(sock, addr->sa_family);
 
@@ -252,7 +252,8 @@ static void netDriver_waitForServerReady(uint16_t portno) {
             "connections at TCP4:127.0.0.1:%" PRIu16 " or at TCP6:[::1]:%" PRIu16
             ". Sleeping for 0.5 seconds ...",
             (int)getpid(), portno, portno);
-        usleep(500000U);
+
+        util_sleepForMSec(500);
     }
 }
 
@@ -283,11 +284,6 @@ __attribute__((weak)) int LLVMFuzzerInitialize(int *argc, char ***argv) {
         LOG_I(
             "Honggfuzz Net Driver (pid=%d): '%s' is set, skipping fuzzing, calling main() directly",
             getpid(), HFND_SKIP_FUZZING_ENV);
-        if (!HonggfuzzNetDriver_main) {
-            LOG_F("Honggfuzz Net Driver (pid=%d): HonggfuzzNetDriver_main was not defined in your "
-                  "code",
-                getpid());
-        }
         exit(HonggfuzzNetDriver_main(*argc, *argv));
     }
 
@@ -321,7 +317,7 @@ __attribute__((weak)) int LLVMFuzzerTestOneInput(const uint8_t *buf, size_t len)
         LOG_F("Couldn't connect to the server TCP port");
     }
     if (!files_sendToSocket(sock, buf, len)) {
-        PLOG_E("files_sendToSocket(sock=%d, len=%zu) failed", sock, len);
+        PLOG_W("files_sendToSocket(sock=%d, len=%zu) failed", sock, len);
         close(sock);
         return 0;
     }

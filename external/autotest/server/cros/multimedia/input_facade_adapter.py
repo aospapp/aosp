@@ -14,6 +14,7 @@ class InputFacadeRemoteAdapter(object):
     class on initialization, can be accessed from its _client property.
 
     """
+
     def __init__(self, remote_facade_proxy):
         """Constructs an InputFacadeRemoteAdapter.
 
@@ -21,7 +22,6 @@ class InputFacadeRemoteAdapter(object):
 
         """
         self._proxy = remote_facade_proxy
-
 
     @property
     def _input_proxy(self):
@@ -32,6 +32,22 @@ class InputFacadeRemoteAdapter(object):
         """
         return self._proxy.input
 
+    def initialize_input_playback(self, input_type, property_file=None):
+        """Initialize for input events simulation.
+
+        @param input_type: input device either 'keyboard' or 'touchpad' etc.
+        @param property_file: Property file of device to be emulated.
+        """
+        self._input_proxy.initialize_input_playback(input_type, property_file)
+
+    def blocking_playback_of_default_file(self, input_type, filename):
+        """Simulate event
+
+        @param input_type: input device either 'keyboard' or 'touchpad' etc.
+        @param filename: input events.
+        """
+        self._input_proxy.blocking_playback_of_default_file(input_type,
+                                                            filename)
 
     def initialize_input_recorder(self, device_name):
         """Initialize an input event recorder object.
@@ -40,7 +56,6 @@ class InputFacadeRemoteAdapter(object):
 
         """
         self._input_proxy.initialize_input_recorder(device_name)
-
 
     def clear_input_events(self):
         """Clear the event list."""

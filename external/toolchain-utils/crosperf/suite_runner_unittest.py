@@ -1,36 +1,41 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 #
-# Copyright 2014 Google Inc. All Rights Reserved.
+# Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 """Unittest for suite_runner."""
 
 from __future__ import print_function
 
-import os.path
-import time
+import json
 
-import mock
 import unittest
+import unittest.mock as mock
 
 import suite_runner
 import label
-import test_flag
 
 from benchmark import Benchmark
 
 from cros_utils import command_executer
 from cros_utils import logger
+from machine_manager import MockCrosMachine
 
 
 class SuiteRunnerTest(unittest.TestCase):
   """Class of SuiteRunner test."""
   real_logger = logger.GetLogger()
 
+  mock_json = mock.Mock(spec=json)
   mock_cmd_exec = mock.Mock(spec=command_executer.CommandExecuter)
   mock_cmd_term = mock.Mock(spec=command_executer.CommandTerminator)
   mock_logger = mock.Mock(spec=logger.Logger)
-  mock_label = label.MockLabel(
-      'lumpy', 'lumpy_chromeos_image', '', '/tmp/chromeos', 'lumpy',
-      ['lumpy1.cros', 'lumpy.cros2'], '', '', False, 'average', 'gcc', '')
+  mock_label = label.MockLabel('lumpy', 'build', 'lumpy_chromeos_image', '', '',
+                               '/tmp/chromeos', 'lumpy',
+                               ['lumpy1.cros', 'lumpy.cros2'], '', '', False,
+                               'average', 'gcc', False, '')
   telemetry_crosperf_bench = Benchmark(
       'b1_test',  # name
       'octane',  # test_name
@@ -41,75 +46,57 @@ class SuiteRunnerTest(unittest.TestCase):
       'telemetry_Crosperf',  # suite
       True)  # show_all_results
 
-  test_that_bench = Benchmark(
+  crosperf_wrapper_bench = Benchmark(
       'b2_test',  # name
-      'octane',  # test_name
+      'webgl',  # test_name
       '',  # test_args
       3,  # iterations
       False,  # rm_chroot_tmp
-      'record -e cycles')  # perf_args
-
-  telemetry_bench = Benchmark(
-      'b3_test',  # name
-      'octane',  # test_name
-      '',  # test_args
-      3,  # iterations
-      False,  # rm_chroot_tmp
-      'record -e cycles',  # perf_args
-      'telemetry',  # suite
-      False)  # show_all_results
+      '',  # perf_args
+      'crosperf_Wrapper')  # suite
 
   def __init__(self, *args, **kwargs):
     super(SuiteRunnerTest, self).__init__(*args, **kwargs)
-    self.call_test_that_run = False
-    self.pin_governor_args = []
+    self.skylab_run_args = []
     self.test_that_args = []
-    self.telemetry_run_args = []
-    self.telemetry_crosperf_args = []
-    self.call_telemetry_crosperf_run = False
-    self.call_pin_governor = False
-    self.call_telemetry_run = False
+    self.call_skylab_run = False
+    self.call_test_that_run = False
 
   def setUp(self):
     self.runner = suite_runner.SuiteRunner(
-        self.mock_logger, 'verbose', self.mock_cmd_exec, self.mock_cmd_term)
+        {}, self.mock_logger, 'verbose', self.mock_cmd_exec, self.mock_cmd_term)
 
   def test_get_profiler_args(self):
-    input_str = ('--profiler=custom_perf --profiler_args=\'perf_options'
+    input_str = ("--profiler=custom_perf --profiler_args='perf_options"
                  '="record -a -e cycles,instructions"\'')
     output_str = ("profiler=custom_perf profiler_args='record -a -e "
                   "cycles,instructions'")
     res = suite_runner.GetProfilerArgs(input_str)
     self.assertEqual(res, output_str)
 
+  def test_get_dut_config_args(self):
+    dut_config = {'enable_aslr': False, 'top_interval': 1.0}
+    output_str = ('dut_config='
+                  "'"
+                  '{"enable_aslr": '
+                  'false, "top_interval": 1.0}'
+                  "'"
+                  '')
+    res = suite_runner.GetDutConfigArgs(dut_config)
+    self.assertEqual(res, output_str)
+
   def test_run(self):
 
     def reset():
-      self.call_pin_governor = False
-      self.call_test_that_run = False
-      self.call_telemetry_run = False
-      self.call_telemetry_crosperf_run = False
-      self.pin_governor_args = []
       self.test_that_args = []
-      self.telemetry_run_args = []
-      self.telemetry_crosperf_args = []
+      self.skylab_run_args = []
+      self.call_test_that_run = False
+      self.call_skylab_run = False
 
-    def FakePinGovernor(machine, chroot):
-      self.call_pin_governor = True
-      self.pin_governor_args = [machine, chroot]
-
-    def FakeTelemetryRun(machine, test_label, benchmark, profiler_args):
-      self.telemetry_run_args = [machine, test_label, benchmark, profiler_args]
-      self.call_telemetry_run = True
-      return 'Ran FakeTelemetryRun'
-
-    def FakeTelemetryCrosperfRun(machine, test_label, benchmark, test_args,
-                                 profiler_args):
-      self.telemetry_crosperf_args = [
-          machine, test_label, benchmark, test_args, profiler_args
-      ]
-      self.call_telemetry_crosperf_run = True
-      return 'Ran FakeTelemetryCrosperfRun'
+    def FakeSkylabRun(test_label, benchmark, test_args, profiler_args):
+      self.skylab_run_args = [test_label, benchmark, test_args, profiler_args]
+      self.call_skylab_run = True
+      return 'Ran FakeSkylabRun'
 
     def FakeTestThatRun(machine, test_label, benchmark, test_args,
                         profiler_args):
@@ -119,94 +106,81 @@ class SuiteRunnerTest(unittest.TestCase):
       self.call_test_that_run = True
       return 'Ran FakeTestThatRun'
 
-    self.runner.PinGovernorExecutionFrequencies = FakePinGovernor
-    self.runner.Telemetry_Run = FakeTelemetryRun
-    self.runner.Telemetry_Crosperf_Run = FakeTelemetryCrosperfRun
+    self.runner.Skylab_Run = FakeSkylabRun
     self.runner.Test_That_Run = FakeTestThatRun
 
+    self.runner.dut_config['enable_aslr'] = False
+    self.runner.dut_config['cooldown_time'] = 0
+    self.runner.dut_config['governor'] = 'fake_governor'
+    self.runner.dut_config['cpu_freq_pct'] = 65
+    self.runner.dut_config['intel_pstate'] = 'no_hwp'
     machine = 'fake_machine'
+    cros_machine = MockCrosMachine(machine, self.mock_label.chromeos_root,
+                                   self.mock_logger)
     test_args = ''
     profiler_args = ''
+
+    # Test skylab run for telemetry_Crosperf and crosperf_Wrapper benchmarks.
+    self.mock_label.skylab = True
     reset()
-    self.runner.Run(machine, self.mock_label, self.telemetry_bench, test_args,
-                    profiler_args)
-    self.assertTrue(self.call_pin_governor)
-    self.assertTrue(self.call_telemetry_run)
+    self.runner.Run(cros_machine, self.mock_label, self.crosperf_wrapper_bench,
+                    test_args, profiler_args)
+    self.assertTrue(self.call_skylab_run)
     self.assertFalse(self.call_test_that_run)
-    self.assertFalse(self.call_telemetry_crosperf_run)
-    self.assertEqual(
-        self.telemetry_run_args,
-        ['fake_machine', self.mock_label, self.telemetry_bench, ''])
+    self.assertEqual(self.skylab_run_args,
+                     [self.mock_label, self.crosperf_wrapper_bench, '', ''])
 
     reset()
-    self.runner.Run(machine, self.mock_label, self.test_that_bench, test_args,
-                    profiler_args)
-    self.assertTrue(self.call_pin_governor)
-    self.assertFalse(self.call_telemetry_run)
+    self.runner.Run(cros_machine, self.mock_label,
+                    self.telemetry_crosperf_bench, test_args, profiler_args)
+    self.assertTrue(self.call_skylab_run)
+    self.assertFalse(self.call_test_that_run)
+    self.assertEqual(self.skylab_run_args,
+                     [self.mock_label, self.telemetry_crosperf_bench, '', ''])
+
+    # Test test_that run for telemetry_Crosperf and crosperf_Wrapper benchmarks.
+    self.mock_label.skylab = False
+    reset()
+    self.runner.Run(cros_machine, self.mock_label, self.crosperf_wrapper_bench,
+                    test_args, profiler_args)
     self.assertTrue(self.call_test_that_run)
-    self.assertFalse(self.call_telemetry_crosperf_run)
+    self.assertFalse(self.call_skylab_run)
     self.assertEqual(
         self.test_that_args,
-        ['fake_machine', self.mock_label, self.test_that_bench, '', ''])
+        ['fake_machine', self.mock_label, self.crosperf_wrapper_bench, '', ''])
 
     reset()
-    self.runner.Run(machine, self.mock_label, self.telemetry_crosperf_bench,
-                    test_args, profiler_args)
-    self.assertTrue(self.call_pin_governor)
-    self.assertFalse(self.call_telemetry_run)
-    self.assertFalse(self.call_test_that_run)
-    self.assertTrue(self.call_telemetry_crosperf_run)
-    self.assertEqual(self.telemetry_crosperf_args, [
+    self.runner.Run(cros_machine, self.mock_label,
+                    self.telemetry_crosperf_bench, test_args, profiler_args)
+    self.assertTrue(self.call_test_that_run)
+    self.assertFalse(self.call_skylab_run)
+    self.assertEqual(self.test_that_args, [
         'fake_machine', self.mock_label, self.telemetry_crosperf_bench, '', ''
     ])
 
-  @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommand')
-  def test_pin_governor_execution_frequencies(self, mock_cros_runcmd):
-    self.mock_cmd_exec.CrosRunCommand = mock_cros_runcmd
-    self.runner.PinGovernorExecutionFrequencies('lumpy1.cros', '/tmp/chromeos')
-    self.assertEqual(mock_cros_runcmd.call_count, 1)
-    cmd = mock_cros_runcmd.call_args_list[0][0]
-    # pyformat: disable
-    set_cpu_cmd = (
-        'set -e && '
-        # Disable Turbo in Intel pstate driver
-        'if [[ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]]; then '
-        '  if grep -q 0 /sys/devices/system/cpu/intel_pstate/no_turbo;  then '
-        '    echo -n 1 > /sys/devices/system/cpu/intel_pstate/no_turbo; '
-        '  fi; '
-        'fi; '
-        # Set governor to performance for each cpu
-        'for f in /sys/devices/system/cpu/cpu*/cpufreq; do '
-        'cd $f; '
-        'echo performance > scaling_governor; '
-        'done'
-    )
-    # pyformat: enable
-    self.assertEqual(cmd, (set_cpu_cmd,))
+  def test_gen_test_args(self):
+    test_args = '--iterations=2'
+    perf_args = 'record -a -e cycles'
 
-  @mock.patch.object(time, 'sleep')
-  @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommand')
-  def test_reboot_machine(self, mock_cros_runcmd, mock_sleep):
+    # Test crosperf_Wrapper benchmarks arg list generation
+    args_list = ["test_args='--iterations=2'", "dut_config='{}'", 'test=webgl']
+    res = self.runner.GenTestArgs(self.crosperf_wrapper_bench, test_args, '')
+    self.assertCountEqual(res, args_list)
 
-    def FakePinGovernor(machine_name, chromeos_root):
-      if machine_name or chromeos_root:
-        pass
-
-    self.mock_cmd_exec.CrosRunCommand = mock_cros_runcmd
-    self.runner.PinGovernorExecutionFrequencies = FakePinGovernor
-    self.runner.RestartUI('lumpy1.cros', '/tmp/chromeos')
-    self.assertEqual(mock_cros_runcmd.call_count, 1)
-    self.assertEqual(mock_cros_runcmd.call_args_list[0][0],
-                     ('stop ui; sleep 5; start ui',))
+    # Test telemetry_Crosperf benchmarks arg list generation
+    args_list = [
+        "test_args='--iterations=2'", "dut_config='{}'", 'test=octane',
+        'run_local=False'
+    ]
+    args_list.append(suite_runner.GetProfilerArgs(perf_args))
+    res = self.runner.GenTestArgs(self.telemetry_crosperf_bench, test_args,
+                                  perf_args)
+    self.assertCountEqual(res, args_list)
 
   @mock.patch.object(command_executer.CommandExecuter, 'CrosRunCommand')
   @mock.patch.object(command_executer.CommandExecuter,
                      'ChrootRunCommandWOutput')
   def test_test_that_run(self, mock_chroot_runcmd, mock_cros_runcmd):
-
-    def FakeRebootMachine(machine, chroot):
-      if machine or chroot:
-        pass
 
     def FakeLogMsg(fd, termfd, msg, flush=True):
       if fd or termfd or msg or flush:
@@ -215,12 +189,13 @@ class SuiteRunnerTest(unittest.TestCase):
     save_log_msg = self.real_logger.LogMsg
     self.real_logger.LogMsg = FakeLogMsg
     self.runner.logger = self.real_logger
-    self.runner.RebootMachine = FakeRebootMachine
 
+    # Test crosperf_Wrapper benchmarks cannot take perf_args
     raised_exception = False
     try:
       self.runner.Test_That_Run('lumpy1.cros', self.mock_label,
-                                self.test_that_bench, '', 'record -a -e cycles')
+                                self.crosperf_wrapper_bench, '',
+                                'record -a -e cycles')
     except SystemExit:
       raised_exception = True
     self.assertTrue(raised_exception)
@@ -229,8 +204,9 @@ class SuiteRunnerTest(unittest.TestCase):
     self.mock_cmd_exec.ChrootRunCommandWOutput = mock_chroot_runcmd
     self.mock_cmd_exec.CrosRunCommand = mock_cros_runcmd
     res = self.runner.Test_That_Run('lumpy1.cros', self.mock_label,
-                                    self.test_that_bench, '--iterations=2', '')
-    self.assertEqual(mock_cros_runcmd.call_count, 2)
+                                    self.crosperf_wrapper_bench,
+                                    '--iterations=2', '')
+    self.assertEqual(mock_cros_runcmd.call_count, 1)
     self.assertEqual(mock_chroot_runcmd.call_count, 1)
     self.assertEqual(res, 0)
     self.assertEqual(mock_cros_runcmd.call_args_list[0][0],
@@ -238,105 +214,49 @@ class SuiteRunnerTest(unittest.TestCase):
     args_list = mock_chroot_runcmd.call_args_list[0][0]
     args_dict = mock_chroot_runcmd.call_args_list[0][1]
     self.assertEqual(len(args_list), 2)
-    self.assertEqual(args_list[0], '/tmp/chromeos')
-    self.assertEqual(args_list[1], ('/usr/bin/test_that  '
-                                    '--fast  --board=lumpy '
-                                    '--iterations=2 lumpy1.cros octane'))
     self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
     self.real_logger.LogMsg = save_log_msg
 
-  @mock.patch.object(os.path, 'isdir')
-  @mock.patch.object(command_executer.CommandExecuter,
-                     'ChrootRunCommandWOutput')
-  def test_telemetry_crosperf_run(self, mock_chroot_runcmd, mock_isdir):
-
-    mock_isdir.return_value = True
-    mock_chroot_runcmd.return_value = 0
-    self.mock_cmd_exec.ChrootRunCommandWOutput = mock_chroot_runcmd
-    profiler_args = ('--profiler=custom_perf --profiler_args=\'perf_options'
-                     '="record -a -e cycles,instructions"\'')
-    res = self.runner.Telemetry_Crosperf_Run('lumpy1.cros', self.mock_label,
-                                             self.telemetry_crosperf_bench, '',
-                                             profiler_args)
-    self.assertEqual(res, 0)
-    self.assertEqual(mock_chroot_runcmd.call_count, 1)
-    args_list = mock_chroot_runcmd.call_args_list[0][0]
-    args_dict = mock_chroot_runcmd.call_args_list[0][1]
-    self.assertEqual(args_list[0], '/tmp/chromeos')
-    self.assertEqual(args_list[1],
-                     ('/usr/bin/test_that --autotest_dir '
-                      '~/trunk/src/third_party/autotest/files '
-                      ' --board=lumpy --args=" run_local=False test=octane '
-                      'profiler=custom_perf profiler_args=\'record -a -e '
-                      'cycles,instructions\'" lumpy1.cros telemetry_Crosperf'))
-    self.assertEqual(args_dict['cros_sdk_options'],
-                     ('--no-ns-pid --chrome_root= '
-                      '--chrome_root_mount=/tmp/chrome_root '
-                      'FEATURES="-usersandbox" CHROME_ROOT=/tmp/chrome_root'))
-    self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
-    self.assertEqual(len(args_dict), 2)
-
-  @mock.patch.object(os.path, 'isdir')
-  @mock.patch.object(os.path, 'exists')
   @mock.patch.object(command_executer.CommandExecuter, 'RunCommandWOutput')
-  def test_telemetry_run(self, mock_runcmd, mock_exists, mock_isdir):
+  @mock.patch.object(json, 'loads')
+  def test_skylab_run_client(self, mock_json_loads, mock_runcmd):
 
-    def FakeLogMsg(fd, termfd, msg, flush=True):
-      if fd or termfd or msg or flush:
-        pass
+    def FakeDownloadResult(l, task_id):
+      if l and task_id:
+        self.assertEqual(task_id, '12345')
+        return 0
 
-    save_log_msg = self.real_logger.LogMsg
-    self.real_logger.LogMsg = FakeLogMsg
-    mock_runcmd.return_value = 0
-
+    mock_runcmd.return_value = (
+        0,
+        'Created Swarming task https://swarming/task/b12345',
+        '',
+    )
     self.mock_cmd_exec.RunCommandWOutput = mock_runcmd
-    self.runner.logger = self.real_logger
 
-    profiler_args = ('--profiler=custom_perf --profiler_args=\'perf_options'
-                     '="record -a -e cycles,instructions"\'')
+    mock_json_loads.return_value = {
+        'child-results': [{
+            'success': True,
+            'task-run-url': 'https://swarming/task?id=12345'
+        }]
+    }
+    self.mock_json.loads = mock_json_loads
 
-    raises_exception = False
-    mock_isdir.return_value = False
-    try:
-      self.runner.Telemetry_Run('lumpy1.cros', self.mock_label,
-                                self.telemetry_bench, '')
-    except SystemExit:
-      raises_exception = True
-    self.assertTrue(raises_exception)
+    self.mock_label.skylab = True
+    self.runner.DownloadResult = FakeDownloadResult
+    res = self.runner.Skylab_Run(self.mock_label, self.crosperf_wrapper_bench,
+                                 '', '')
+    ret_tup = (0, '\nResults placed in tmp/swarming-12345\n', '')
+    self.assertEqual(res, ret_tup)
+    self.assertEqual(mock_runcmd.call_count, 2)
 
-    raises_exception = False
-    mock_isdir.return_value = True
-    mock_exists.return_value = False
-    try:
-      self.runner.Telemetry_Run('lumpy1.cros', self.mock_label,
-                                self.telemetry_bench, '')
-    except SystemExit:
-      raises_exception = True
-    self.assertTrue(raises_exception)
+    args_list = mock_runcmd.call_args_list[0][0]
+    args_dict = mock_runcmd.call_args_list[0][1]
+    self.assertEqual(len(args_list), 1)
+    self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
 
-    raises_exception = False
-    mock_isdir.return_value = True
-    mock_exists.return_value = True
-    try:
-      self.runner.Telemetry_Run('lumpy1.cros', self.mock_label,
-                                self.telemetry_bench, profiler_args)
-    except SystemExit:
-      raises_exception = True
-    self.assertTrue(raises_exception)
-
-    test_flag.SetTestMode(True)
-    res = self.runner.Telemetry_Run('lumpy1.cros', self.mock_label,
-                                    self.telemetry_bench, '')
-    self.assertEqual(res, 0)
-    self.assertEqual(mock_runcmd.call_count, 1)
-    self.assertEqual(
-        mock_runcmd.call_args_list[0][0],
-        (('cd src/tools/perf && ./run_measurement '
-          '--browser=cros-chrome --output-format=csv '
-          '--remote=lumpy1.cros --identity /tmp/chromeos/src/scripts'
-          '/mod_for_test_scripts/ssh_keys/testing_rsa octane '),))
-
-    self.real_logger.LogMsg = save_log_msg
+    args_list = mock_runcmd.call_args_list[1][0]
+    self.assertEqual(args_list[0], ('skylab wait-task 12345'))
+    self.assertEqual(args_dict['command_terminator'], self.mock_cmd_term)
 
 
 if __name__ == '__main__':

@@ -31,7 +31,9 @@
 #include "tcuStringTemplate.hpp"
 #include "deUniquePtr.hpp"
 #include "deFloat16.h"
+#include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
+#include <cstring>
 #include <vector>
 #include <limits>
 #include <fenv.h>
@@ -54,12 +56,47 @@ enum FloatType
 	FP64
 };
 
+enum FloatUsage
+{
+	// If the float type is 16bit, then the use of the type is supported by
+	// VK_KHR_16bit_storage.
+	FLOAT_STORAGE_ONLY = 0,
+	// Use of the float type goes beyond VK_KHR_16bit_storage.
+	FLOAT_ARITHMETIC
+};
+
+enum FloatStatementUsageBits
+{
+	B_STATEMENT_USAGE_ARGS_CONST_FLOAT		= (1<<0 ),
+	B_STATEMENT_USAGE_ARGS_CONST_FP16		= (1<<1 ),
+	B_STATEMENT_USAGE_ARGS_CONST_FP32		= (1<<2 ),
+	B_STATEMENT_USAGE_ARGS_CONST_FP64		= (1<<3 ),
+	B_STATEMENT_USAGE_TYPES_TYPE_FLOAT		= (1<<4 ),
+	B_STATEMENT_USAGE_TYPES_TYPE_FP16		= (1<<5 ),
+	B_STATEMENT_USAGE_TYPES_TYPE_FP32		= (1<<6 ),
+	B_STATEMENT_USAGE_TYPES_TYPE_FP64		= (1<<7 ),
+	B_STATEMENT_USAGE_CONSTS_TYPE_FLOAT		= (1<<8 ),
+	B_STATEMENT_USAGE_CONSTS_TYPE_FP16		= (1<<9 ),
+	B_STATEMENT_USAGE_CONSTS_TYPE_FP32		= (1<<10),
+	B_STATEMENT_USAGE_CONSTS_TYPE_FP64		= (1<<11),
+	B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT	= (1<<12),
+	B_STATEMENT_USAGE_COMMANDS_CONST_FP16	= (1<<13),
+	B_STATEMENT_USAGE_COMMANDS_CONST_FP32	= (1<<14),
+	B_STATEMENT_USAGE_COMMANDS_CONST_FP64	= (1<<15),
+	B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT	= (1<<16),
+	B_STATEMENT_USAGE_COMMANDS_TYPE_FP16	= (1<<17),
+	B_STATEMENT_USAGE_COMMANDS_TYPE_FP32	= (1<<18),
+	B_STATEMENT_USAGE_COMMANDS_TYPE_FP64	= (1<<19),
+};
+
+typedef deUint32 FloatStatementUsageFlags;
+
 // Enum containing float behaviors that its possible to test.
 enum BehaviorFlagBits
 {
-	B_DENORM_PERSERVE	= 0x00000001,		// DenormPreserve
+	B_DENORM_PRESERVE	= 0x00000001,		// DenormPreserve
 	B_DENORM_FLUSH		= 0x00000002,		// DenormFlushToZero
-	B_ZIN_PERSERVE		= 0x00000004,		// SignedZeroInfNanPreserve
+	B_ZIN_PRESERVE		= 0x00000004,		// SignedZeroInfNanPreserve
 	B_RTE_ROUNDING		= 0x00000008,		// RoundingModeRTE
 	B_RTZ_ROUNDING		= 0x00000010		// RoundingModeRTZ
 };
@@ -110,12 +147,17 @@ enum ValueId
 	V_MINUS_ONE_OR_CLOSE,			// value used only fur fp16 subtraction result of preserved denorm and one
 	V_PI_DIV_2,
 	V_ZERO_OR_MINUS_ZERO,			// both +0 and -0 are accepted
+	V_ZERO_OR_ONE,					// both +0 and 1 are accepted
 	V_ZERO_OR_FP16_DENORM_TO_FP32,	// both 0 and fp32 representation of fp16 denorm are accepted
 	V_ZERO_OR_FP16_DENORM_TO_FP64,
 	V_ZERO_OR_FP32_DENORM_TO_FP64,
 	V_DENORM_TIMES_TWO,
 	V_DEGREES_DENORM,
 	V_TRIG_ONE,						// 1.0 trigonometric operations, including precision margin
+	V_MINUS_INF_OR_LOG_DENORM,
+	V_MINUS_INF_OR_LOG2_DENORM,
+	V_ZERO_OR_SQRT_DENORM,
+	V_INF_OR_INV_SQRT_DENORM,
 
 	//results of conversion operations
 	V_CONV_TO_FP16_RTZ_RESULT,
@@ -312,10 +354,11 @@ class TypeValuesBase
 {
 public:
 	TypeValuesBase();
-	virtual ~TypeValuesBase()	{}
+	virtual ~TypeValuesBase() = default;
 
-	virtual BufferSp	constructInputBuffer(const ValueId* twoArguments) const = 0;
-	virtual BufferSp	constructOutputBuffer(ValueId result) const = 0;
+	virtual BufferSp	constructInputBuffer	(const ValueId* twoArguments) const = 0;
+	virtual BufferSp	constructOutputBuffer	(ValueId result) const = 0;
+	virtual void		fillInputData			(const ValueId* twoArguments, vector<deUint8>& bufferData, deUint32& offset) const = 0;
 
 protected:
 	const double	pi;
@@ -334,8 +377,9 @@ class TypeValues: public TypeValuesBase
 public:
 	TypeValues();
 
-	BufferSp constructInputBuffer(const ValueId* twoArguments) const;
-	BufferSp constructOutputBuffer(ValueId result) const;
+	BufferSp	constructInputBuffer	(const ValueId* twoArguments) const override;
+	BufferSp	constructOutputBuffer	(ValueId result) const override;
+	void		fillInputData			(const ValueId* twoArguments, vector<deUint8>& bufferData, deUint32& offset) const override;
 
 	FLOAT_TYPE getValue(ValueId id) const;
 
@@ -367,6 +411,20 @@ BufferSp TypeValues<FLOAT_TYPE>::constructOutputBuffer(ValueId result) const
 
 	std::vector<FLOAT_TYPE> outputData(1, exactByteEquivalent<uint_t>(value));
 	return BufferSp(new Buffer<FLOAT_TYPE>(outputData));
+}
+
+template <typename FLOAT_TYPE>
+void TypeValues<FLOAT_TYPE>::fillInputData(const ValueId* twoArguments, vector<deUint8>& bufferData, deUint32& offset) const
+{
+	deUint32 typeSize = sizeof(FLOAT_TYPE);
+
+	FLOAT_TYPE argA = getValue(twoArguments[0]);
+	deMemcpy(&bufferData[offset], &argA, typeSize);
+	offset += typeSize;
+
+	FLOAT_TYPE argB = getValue(twoArguments[1]);
+	deMemcpy(&bufferData[offset], &argB, typeSize);
+	offset += typeSize;
 }
 
 template <typename FLOAT_TYPE>
@@ -556,7 +614,7 @@ TypeValues<double>::TypeValues()
 class TypeSnippetsBase
 {
 public:
-	virtual ~TypeSnippetsBase() {}
+	virtual ~TypeSnippetsBase() = default;
 
 protected:
 	void updateSpirvSnippets();
@@ -583,13 +641,18 @@ public: // Type specific data:
 	string extensions;
 	string arrayStride;
 
+	bool loadStoreRequiresShaderFloat16;
+
 public: // Type specific spir-v snippets:
 
 	// Common annotations
 	string typeAnnotationsSnippet;
 
-	// Definitions of all types commonly used by tests
+	// Definitions of all types commonly used by operation tests
 	string typeDefinitionsSnippet;
+
+	// Definitions of all types commonly used by settings tests
+	string minTypeDefinitionsSnippet;
 
 	// Definitions of all constants commonly used by tests
 	string constantsDefinitionsSnippet;
@@ -599,14 +662,17 @@ public: // Type specific spir-v snippets:
 	typedef map<ValueId, string> SnippetMap;
 	SnippetMap valueIdToSnippetArgMap;
 
-	// Spir-v snippet that reads argument from SSBO
+	// Spir-v snippets that read argument from SSBO
 	string argumentsFromInputSnippet;
+	string multiArgumentsFromInputSnippet;
 
 	// SSBO with stage input/output definitions
 	string inputAnnotationsSnippet;
 	string inputDefinitionsSnippet;
 	string outputAnnotationsSnippet;
+	string multiOutputAnnotationsSnippet;
 	string outputDefinitionsSnippet;
+	string multiOutputDefinitionsSnippet;
 
 	// Varying is required to pass result from vertex stage to fragment stage,
 	// one of requirements was to not use SSBO writes in vertex stage so we
@@ -619,6 +685,7 @@ public: // Type specific spir-v snippets:
 	string loadVertexResultSnippet;
 
 	string storeResultsSnippet;
+	string multiStoreResultsSnippet;
 };
 
 void TypeSnippetsBase::updateSpirvSnippets()
@@ -642,7 +709,13 @@ void TypeSnippetsBase::updateSpirvSnippets()
 		"%type_float_arr_1       = OpTypeArray %type_float %c_i32_1\n"
 		"%type_float_arr_2       = OpTypeArray %type_float %c_i32_2\n";
 
-	// definition off all constans that are used by tests
+	// minimal type definition set that is used by settings tests
+	const string minTypeDefinitionsTemplate =
+		"%type_float             = OpTypeFloat " + bitWidth + "\n"
+		"%type_float_uptr        = OpTypePointer Uniform %type_float\n"
+		"%type_float_arr_2       = OpTypeArray %type_float %c_i32_2\n";
+
+	// definition off all constants that are used by tests
 	const string constantsDefinitionsTemplate =
 		"%c_float_n1             = OpConstant %type_float -1\n"
 		"%c_float_0              = OpConstant %type_float 0.0\n"
@@ -663,6 +736,12 @@ void TypeSnippetsBase::updateSpirvSnippets()
 		"%arg2loc                = OpAccessChain %type_float_uptr %ssbo_in %c_i32_0 %c_i32_1\n"
 		"%arg2                   = OpLoad %type_float %arg2loc\n";
 
+	const string multiArgumentsFromInputTemplate =
+		"%arg1_float_loc         = OpAccessChain %type_float_uptr %ssbo_in %c_i32_${attr} %c_i32_0\n"
+		"%arg2_float_loc         = OpAccessChain %type_float_uptr %ssbo_in %c_i32_${attr} %c_i32_1\n"
+		"%arg1_float             = OpLoad %type_float %arg1_float_loc\n"
+		"%arg2_float             = OpLoad %type_float %arg2_float_loc\n";
+
 	// when tested shader stage reads from SSBO it has to have this snippet
 	inputAnnotationsSnippet =
 		"OpMemberDecorate %SSBO_in 0 Offset 0\n"
@@ -682,26 +761,46 @@ void TypeSnippetsBase::updateSpirvSnippets()
 		"OpDecorate %ssbo_out DescriptorSet 0\n"
 		"OpDecorate %ssbo_out Binding 1\n";
 
+	const string multiOutputAnnotationsTemplate =
+		"OpMemberDecorate %SSBO_float_out 0 Offset 0\n"
+		"OpDecorate %type_float_arr_2 ArrayStride "+ arrayStride + "\n"
+		"OpDecorate %SSBO_float_out BufferBlock\n"
+		"OpDecorate %ssbo_float_out DescriptorSet 0\n";
+
 	const string outputDefinitionsTemplate =
 		"%SSBO_out             = OpTypeStruct %type_float_arr_1\n"
 		"%up_SSBO_out          = OpTypePointer Uniform %SSBO_out\n"
 		"%ssbo_out             = OpVariable %up_SSBO_out Uniform\n";
+
+	const string multiOutputDefinitionsTemplate =
+		"%SSBO_float_out         = OpTypeStruct %type_float\n"
+		"%up_SSBO_float_out      = OpTypePointer Uniform %SSBO_float_out\n"
+		"%ssbo_float_out         = OpVariable %up_SSBO_float_out Uniform\n";
 
 	// this snippet is used by compute and fragment stage but not by vertex stage
 	const string storeResultsTemplate =
 		"%outloc               = OpAccessChain %type_float_uptr %ssbo_out %c_i32_0 %c_i32_0\n"
 		"OpStore %outloc %result\n";
 
+	const string multiStoreResultsTemplate =
+		"%outloc" + bitWidth + "             = OpAccessChain %type_float_uptr %ssbo_float_out %c_i32_0\n"
+		"                        OpStore %outloc" + bitWidth + " %result" + bitWidth + "\n";
+
 	const string typeToken	= "_float";
 	const string typeName	= "_f" + bitWidth;
 
-	typeAnnotationsSnippet		= replace(typeAnnotationsTemplate, typeToken, typeName);
-	typeDefinitionsSnippet		= replace(typeDefinitionsTemplate, typeToken, typeName);
-	constantsDefinitionsSnippet	= replace(constantsDefinitionsTemplate, typeToken, typeName);
-	argumentsFromInputSnippet	= replace(argumentsFromInputTemplate, typeToken, typeName);
-	inputDefinitionsSnippet		= replace(inputDefinitionsTemplate, typeToken, typeName);
-	outputDefinitionsSnippet	= replace(outputDefinitionsTemplate, typeToken, typeName);
-	storeResultsSnippet			= replace(storeResultsTemplate, typeToken, typeName);
+	typeAnnotationsSnippet			= replace(typeAnnotationsTemplate, typeToken, typeName);
+	typeDefinitionsSnippet			= replace(typeDefinitionsTemplate, typeToken, typeName);
+	minTypeDefinitionsSnippet		= replace(minTypeDefinitionsTemplate, typeToken, typeName);
+	constantsDefinitionsSnippet		= replace(constantsDefinitionsTemplate, typeToken, typeName);
+	argumentsFromInputSnippet		= replace(argumentsFromInputTemplate, typeToken, typeName);
+	multiArgumentsFromInputSnippet	= replace(multiArgumentsFromInputTemplate, typeToken, typeName);
+	inputDefinitionsSnippet			= replace(inputDefinitionsTemplate, typeToken, typeName);
+	multiOutputAnnotationsSnippet	= replace(multiOutputAnnotationsTemplate, typeToken, typeName);
+	outputDefinitionsSnippet		= replace(outputDefinitionsTemplate, typeToken, typeName);
+	multiOutputDefinitionsSnippet	= replace(multiOutputDefinitionsTemplate, typeToken, typeName);
+	storeResultsSnippet				= replace(storeResultsTemplate, typeToken, typeName);
+	multiStoreResultsSnippet		= replace(multiStoreResultsTemplate, typeToken, typeName);
 
 	// NOTE: only values used as _generated_ arguments in test operations
 	// need to be in this map, arguments that are only used by tests,
@@ -764,6 +863,8 @@ TypeSnippets<deFloat16>::TypeSnippets()
 					"%tmp_vec2            = OpBitcast %type_f16_vec2 %packed_result\n"
 					"%result              = OpCompositeExtract %type_f16 %tmp_vec2 0\n";
 
+	loadStoreRequiresShaderFloat16 = true;
+
 	updateSpirvSnippets();
 }
 
@@ -791,6 +892,8 @@ TypeSnippets<float>::TypeSnippets()
 					"%packed_result       = OpLoad %type_u32 %BP_vertex_result\n"
 					"%result              = OpBitcast %type_f32 %packed_result\n";
 
+	loadStoreRequiresShaderFloat16 = false;
+
 	updateSpirvSnippets();
 }
 
@@ -817,6 +920,8 @@ TypeSnippets<double>::TypeSnippets()
 	loadVertexResultSnippet =
 					"%packed_result        = OpLoad %type_u32_vec2 %BP_vertex_result\n"
 					"%result               = OpBitcast %type_f64 %packed_result\n";
+
+	loadStoreRequiresShaderFloat16 = false;
 
 	updateSpirvSnippets();
 }
@@ -900,7 +1005,7 @@ TypeTestResults<deFloat16>::TypeTestResults()
 		{ O_TRUNC,			V_ZERO },
 		{ O_ABS,			V_ZERO },
 		{ O_FLOOR,			V_ZERO },
-		{ O_CEIL,			V_ZERO },
+		{ O_CEIL,			V_ZERO_OR_ONE },
 		{ O_FRACT,			V_ZERO },
 		{ O_RADIANS,		V_ZERO },
 		{ O_DEGREES,		V_ZERO },
@@ -917,11 +1022,11 @@ TypeTestResults<deFloat16>::TypeTestResults()
 		{ O_ACOSH,			V_UNUSED },
 		{ O_ATANH,			V_ZERO },
 		{ O_EXP,			V_ONE },
-		{ O_LOG,			V_MINUS_INF },
+		{ O_LOG,			V_MINUS_INF_OR_LOG_DENORM },
 		{ O_EXP2,			V_ONE },
-		{ O_LOG2,			V_MINUS_INF },
-		{ O_SQRT,			V_ZERO },
-		{ O_INV_SQRT,		V_INF },
+		{ O_LOG2,			V_MINUS_INF_OR_LOG2_DENORM },
+		{ O_SQRT,			V_ZERO_OR_SQRT_DENORM },
+		{ O_INV_SQRT,		V_INF_OR_INV_SQRT_DENORM },
 		{ O_MAT_DET,		V_ZERO },
 		{ O_MAT_INV,		V_ZERO_OR_MINUS_ZERO },
 		{ O_MODF,			V_ZERO },
@@ -1028,7 +1133,7 @@ TypeTestResults<float>::TypeTestResults()
 		{ O_TRUNC,			V_ZERO },
 		{ O_ABS,			V_ZERO },
 		{ O_FLOOR,			V_ZERO },
-		{ O_CEIL,			V_ZERO },
+		{ O_CEIL,			V_ZERO_OR_ONE },
 		{ O_FRACT,			V_ZERO },
 		{ O_RADIANS,		V_ZERO },
 		{ O_DEGREES,		V_ZERO },
@@ -1045,11 +1150,11 @@ TypeTestResults<float>::TypeTestResults()
 		{ O_ACOSH,			V_UNUSED },
 		{ O_ATANH,			V_ZERO },
 		{ O_EXP,			V_ONE },
-		{ O_LOG,			V_MINUS_INF },
+		{ O_LOG,			V_MINUS_INF_OR_LOG_DENORM },
 		{ O_EXP2,			V_ONE },
-		{ O_LOG2,			V_MINUS_INF },
-		{ O_SQRT,			V_ZERO },
-		{ O_INV_SQRT,		V_INF },
+		{ O_LOG2,			V_MINUS_INF_OR_LOG2_DENORM },
+		{ O_SQRT,			V_ZERO_OR_SQRT_DENORM },
+		{ O_INV_SQRT,		V_INF_OR_INV_SQRT_DENORM },
 		{ O_MAT_DET,		V_ZERO },
 		{ O_MAT_INV,		V_ZERO_OR_MINUS_ZERO },
 		{ O_MODF,			V_ZERO },
@@ -1156,10 +1261,10 @@ TypeTestResults<double>::TypeTestResults()
 		{ O_TRUNC,			V_ZERO },
 		{ O_ABS,			V_ZERO },
 		{ O_FLOOR,			V_ZERO },
-		{ O_CEIL,			V_ZERO },
+		{ O_CEIL,			V_ZERO_OR_ONE },
 		{ O_FRACT,			V_ZERO },
-		{ O_SQRT,			V_ZERO },
-		{ O_INV_SQRT,		V_INF },
+		{ O_SQRT,			V_ZERO_OR_SQRT_DENORM },
+		{ O_INV_SQRT,		V_INF_OR_INV_SQRT_DENORM },
 		{ O_MAT_DET,		V_ZERO },
 		{ O_MAT_INV,		V_ZERO_OR_MINUS_ZERO },
 		{ O_MODF,			V_ZERO },
@@ -1230,17 +1335,21 @@ struct Operation
 	// operation name is included in test case name
 	const char*	name;
 
+	// How extensively is the floating point type used?
+	FloatUsage floatUsage;
+
 	// operation specific spir-v snippets that will be
 	// placed in proper places in final test shader
 	const char*	annotations;
 	const char*	types;
 	const char*	constants;
 	const char*	variables;
+	const char*	functions;
 	const char*	commands;
 
 	// conversion operations operate on one float type and produce float
 	// type with different bit width; restrictedInputType is used only when
-	// isInputTypeRestricted is set to true and it restricts usega of this
+	// isInputTypeRestricted is set to true and it restricts usage of this
 	// operation to specified input type
 	bool		isInputTypeRestricted;
 	FloatType	restrictedInputType;
@@ -1248,72 +1357,94 @@ struct Operation
 	// arguments for OpSpecConstant need to be specified also as constant
 	bool		isSpecConstant;
 
+	// set if c_float* constant is used in operation
+	FloatStatementUsageFlags	statementUsageFlags;
+
 	Operation()		{}
 
 	// Minimal constructor - used by most of operations
-	Operation(const char* _name, const char* _commands)
+	Operation(const char* _name, FloatUsage _floatUsage, const char* _commands, const FloatStatementUsageFlags _statementUsageFlags = 0)
 		: name(_name)
+		, floatUsage(_floatUsage)
 		, annotations("")
 		, types("")
 		, constants("")
 		, variables("")
+		, functions("")
 		, commands(_commands)
 		, isInputTypeRestricted(false)
 		, restrictedInputType(FP16)		// not used as isInputTypeRestricted is false
 		, isSpecConstant(false)
+		, statementUsageFlags(_statementUsageFlags)
 	{}
 
 	// Conversion operations constructor (used also by conversions done in SpecConstantOp)
 	Operation(const char* _name,
+			  FloatUsage _floatUsage,
 			  bool specConstant,
 			  FloatType _inputType,
 			  const char* _constants,
-			  const char* _commands)
+			  const char* _commands,
+			  const FloatStatementUsageFlags _statementUsageFlags = 0)
 		: name(_name)
+		, floatUsage(_floatUsage)
 		, annotations("")
 		, types("")
 		, constants(_constants)
 		, variables("")
+		, functions("")
 		, commands(_commands)
 		, isInputTypeRestricted(true)
 		, restrictedInputType(_inputType)
 		, isSpecConstant(specConstant)
+		, statementUsageFlags(_statementUsageFlags)
 	{}
 
 	// Full constructor - used by few operations, that are more complex to test
 	Operation(const char* _name,
+			  FloatUsage _floatUsage,
 			  const char* _annotations,
 			  const char* _types,
 			  const char* _constants,
 			  const char* _variables,
-			  const char* _commands)
+			  const char* _functions,
+			  const char* _commands,
+			  const FloatStatementUsageFlags _statementUsageFlags = 0)
 		: name(_name)
+		, floatUsage(_floatUsage)
 		, annotations(_annotations)
 		, types(_types)
 		, constants(_constants)
 		, variables(_variables)
+		, functions(_functions)
 		, commands(_commands)
 		, isInputTypeRestricted(false)
 		, restrictedInputType(FP16)		// not used as isInputTypeRestricted is false
 		, isSpecConstant(false)
+		, statementUsageFlags(_statementUsageFlags)
 	{}
 
 	// Full constructor - used by rounding override cases
 	Operation(const char* _name,
+			  FloatUsage _floatUsage,
 			  FloatType _inputType,
 			  const char* _annotations,
 			  const char* _types,
 			  const char* _constants,
-			  const char* _commands)
+			  const char* _commands,
+			  const FloatStatementUsageFlags _statementUsageFlags = 0)
 		: name(_name)
+		, floatUsage(_floatUsage)
 		, annotations(_annotations)
 		, types(_types)
 		, constants(_constants)
 		, variables("")
+		, functions("")
 		, commands(_commands)
 		, isInputTypeRestricted(true)
 		, restrictedInputType(_inputType)
 		, isSpecConstant(false)
+		, statementUsageFlags(_statementUsageFlags)
 	{}
 };
 
@@ -1353,16 +1484,18 @@ public:
 // data. This data is ready to be used during shader assembly.
 struct SpecializedOperation
 {
-	string constans;
+	string constants;
 	string annotations;
 	string types;
 	string arguments;
 	string variables;
+	string functions;
 	string commands;
 
-	FloatType		inFloatType;
-	TypeSnippetsSP	inTypeSnippets;
-	TypeSnippetsSP	outTypeSnippets;
+	FloatType					inFloatType;
+	TypeSnippetsSP				inTypeSnippets;
+	TypeSnippetsSP				outTypeSnippets;
+	FloatStatementUsageFlags	argumentsUsesFloatConstant;
 };
 
 // Class responsible for constructing list of test cases for specified
@@ -1404,69 +1537,92 @@ void TestCasesBuilder::init()
 	// m_operations contains generic operation definitions that can be
 	// used for all float types
 
-	mo[O_NEGATE]		= Op("negate",		"%result             = OpFNegate %type_float %arg1\n");
-	mo[O_COMPOSITE]		= Op("composite",	"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
-											"%result             = OpCompositeExtract %type_float %vec1 0\n");
-	mo[O_COMPOSITE_INS]	= Op("comp_ins",	"%vec1               = OpCompositeConstruct %type_float_vec2 %c_float_0 %c_float_0\n"
+	mo[O_NEGATE]		= Op("negate",		FLOAT_ARITHMETIC,
+											"%result             = OpFNegate %type_float %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_COMPOSITE]		= Op("composite",	FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %vec1 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_COMPOSITE_INS]	= Op("comp_ins",	FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %c_float_0 %c_float_0\n"
 											"%vec2               = OpCompositeInsert %type_float_vec2 %arg1 %vec1 0\n"
-											"%result             = OpCompositeExtract %type_float %vec2 0\n");
-	mo[O_COPY]			= Op("copy",		"%result             = OpCopyObject %type_float %arg1\n");
-	mo[O_D_EXTRACT]		= Op("extract",		"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
-											"%result             = OpVectorExtractDynamic %type_float %vec1 %c_i32_0\n");
-	mo[O_D_INSERT]		= Op("insert",		"%tmpVec             = OpCompositeConstruct %type_float_vec2 %c_float_2 %c_float_2\n"
+											"%result             = OpCompositeExtract %type_float %vec2 0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_COPY]			= Op("copy",		FLOAT_STORAGE_ONLY,
+											"%result             = OpCopyObject %type_float %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_D_EXTRACT]		= Op("extract",		FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpVectorExtractDynamic %type_float %vec1 %c_i32_0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_D_INSERT]		= Op("insert",		FLOAT_ARITHMETIC,
+											"%tmpVec             = OpCompositeConstruct %type_float_vec2 %c_float_2 %c_float_2\n"
 											"%vec1               = OpVectorInsertDynamic %type_float_vec2 %tmpVec %arg1 %c_i32_0\n"
-											"%result             = OpCompositeExtract %type_float %vec1 0\n");
-	mo[O_SHUFFLE]		= Op("shuffle",		"%tmpVec1            = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %vec1 0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SHUFFLE]		= Op("shuffle",		FLOAT_ARITHMETIC,
+											"%tmpVec1            = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%tmpVec2            = OpCompositeConstruct %type_float_vec2 %c_float_2 %c_float_2\n"	// NOTE: its impossible to test shuffle with denorms flushed
 											"%vec1               = OpVectorShuffle %type_float_vec2 %tmpVec1 %tmpVec2 0 2\n"		//       to zero as this will be done by earlier operation
-											"%result             = OpCompositeExtract %type_float %vec1 0\n");						//       (this also applies to few other operations)
-	mo[O_TRANSPOSE]		= Op("transpose",	"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %vec1 0\n",						//       (this also applies to few other operations)
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_TRANSPOSE]		= Op("transpose",	FLOAT_ARITHMETIC,
+											"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%mat                = OpCompositeConstruct %type_float_mat2x2 %col %col\n"
 											"%tmat               = OpTranspose %type_float_mat2x2 %mat\n"
 											"%tcol               = OpCompositeExtract %type_float_vec2 %tmat 0\n"
-											"%result             = OpCompositeExtract %type_float %tcol 0\n");
-	mo[O_RETURN_VAL]	= Op("ret_val",		"",
+											"%result             = OpCompositeExtract %type_float %tcol 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_RETURN_VAL]	= Op("ret_val",		FLOAT_ARITHMETIC,
+											"",
 											"%type_test_fun      = OpTypeFunction %type_float %type_float\n",
+											"",
+											"",
 											"%test_fun = OpFunction %type_float None %type_test_fun\n"
 											"%param = OpFunctionParameter %type_float\n"
 											"%entry = OpLabel\n"
 											"OpReturnValue %param\n"
 											"OpFunctionEnd\n",
-											"",
-											"%result             = OpFunctionCall %type_float %test_fun %arg1\n");
+											"%result             = OpFunctionCall %type_float %test_fun %arg1\n",
+											B_STATEMENT_USAGE_TYPES_TYPE_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
 
 	// conversion operations that are meant to be used only for single output type (defined by the second number in name)
 	const char* convertSource =				"%result             = OpFConvert %type_float %arg1\n";
-	mo[O_CONV_FROM_FP16]	= Op("conv_from_fp16", false, FP16, "", convertSource);
-	mo[O_CONV_FROM_FP32]	= Op("conv_from_fp32", false, FP32, "", convertSource);
-	mo[O_CONV_FROM_FP64]	= Op("conv_from_fp64", false, FP64, "", convertSource);
+	mo[O_CONV_FROM_FP16]	= Op("conv_from_fp16", FLOAT_STORAGE_ONLY, false, FP16, "", convertSource, B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_CONV_FROM_FP32]	= Op("conv_from_fp32", FLOAT_STORAGE_ONLY, false, FP32, "", convertSource, B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_CONV_FROM_FP64]	= Op("conv_from_fp64", FLOAT_STORAGE_ONLY, false, FP64, "", convertSource, B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
 
 	// from all operands supported by OpSpecConstantOp we can only test FConvert opcode with literals as everything
 	// else requires Karnel capability (OpenCL); values of literals used in SPIR-V code must be equiwalent to
 	// V_CONV_FROM_FP32_ARG and V_CONV_FROM_FP64_ARG so we can use same expected rounded values as for regular OpFConvert
 	mo[O_SCONST_CONV_FROM_FP32_TO_FP16]
-						= Op("sconst_conv_from_fp32", true, FP32,
+						= Op("sconst_conv_from_fp32", FLOAT_ARITHMETIC, true, FP32,
 											"%c_arg              = OpConstant %type_f32 1.22334445\n"
 											"%result             = OpSpecConstantOp %type_f16 FConvert %c_arg\n",
-											"");
+											"",
+											B_STATEMENT_USAGE_CONSTS_TYPE_FP16 | B_STATEMENT_USAGE_CONSTS_TYPE_FP32);
 	mo[O_SCONST_CONV_FROM_FP64_TO_FP32]
-						= Op("sconst_conv_from_fp64", true, FP64,
+						= Op("sconst_conv_from_fp64", FLOAT_ARITHMETIC, true, FP64,
 											"%c_arg              = OpConstant %type_f64 1.22334455\n"
 											"%result             = OpSpecConstantOp %type_f32 FConvert %c_arg\n",
-											"");
+											"",
+											B_STATEMENT_USAGE_CONSTS_TYPE_FP32 | B_STATEMENT_USAGE_CONSTS_TYPE_FP64);
 	mo[O_SCONST_CONV_FROM_FP64_TO_FP16]
-						= Op("sconst_conv_from_fp64", true, FP64,
+						= Op("sconst_conv_from_fp64", FLOAT_ARITHMETIC, true, FP64,
 											"%c_arg              = OpConstant %type_f64 1.22334445\n"
 											"%result             = OpSpecConstantOp %type_f16 FConvert %c_arg\n",
-											"");
+											"",
+											B_STATEMENT_USAGE_CONSTS_TYPE_FP16 | B_STATEMENT_USAGE_CONSTS_TYPE_FP64);
 
-	mo[O_ADD]			= Op("add",			"%result             = OpFAdd %type_float %arg1 %arg2\n");
-	mo[O_SUB]			= Op("sub",			"%result             = OpFSub %type_float %arg1 %arg2\n");
-	mo[O_MUL]			= Op("mul",			"%result             = OpFMul %type_float %arg1 %arg2\n");
-	mo[O_DIV]			= Op("div",			"%result             = OpFDiv %type_float %arg1 %arg2\n");
-	mo[O_REM]			= Op("rem",			"%result             = OpFRem %type_float %arg1 %arg2\n");
-	mo[O_MOD]			= Op("mod",			"%result             = OpFMod %type_float %arg1 %arg2\n");
-	mo[O_PHI]			= Op("phi",			"%comp               = OpFOrdGreaterThan %type_bool %arg1 %arg2\n"
+	mo[O_ADD]			= Op("add",			FLOAT_ARITHMETIC, "%result             = OpFAdd %type_float %arg1 %arg2\n", B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SUB]			= Op("sub",			FLOAT_ARITHMETIC, "%result             = OpFSub %type_float %arg1 %arg2\n", B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MUL]			= Op("mul",			FLOAT_ARITHMETIC, "%result             = OpFMul %type_float %arg1 %arg2\n", B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_DIV]			= Op("div",			FLOAT_ARITHMETIC, "%result             = OpFDiv %type_float %arg1 %arg2\n", B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_REM]			= Op("rem",			FLOAT_ARITHMETIC, "%result             = OpFRem %type_float %arg1 %arg2\n", B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MOD]			= Op("mod",			FLOAT_ARITHMETIC, "%result             = OpFMod %type_float %arg1 %arg2\n", B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_PHI]			= Op("phi",			FLOAT_ARITHMETIC,
+											"%comp               = OpFOrdGreaterThan %type_bool %arg1 %arg2\n"
 											"                      OpSelectionMerge %comp_merge None\n"
 											"                      OpBranchConditional %comp %true_branch %false_branch\n"
 											"%true_branch        = OpLabel\n"
@@ -1474,198 +1630,358 @@ void TestCasesBuilder::init()
 											"%false_branch       = OpLabel\n"
 											"                      OpBranch %comp_merge\n"
 											"%comp_merge         = OpLabel\n"
-											"%result             = OpPhi %type_float %arg2 %true_branch %arg1 %false_branch\n");
-	mo[O_SELECT]		= Op("select",		"%always_true        = OpFOrdGreaterThan %type_bool %c_float_1 %c_float_0\n"
-											"%result             = OpSelect %type_float %always_true %arg1 %arg2\n");
-	mo[O_DOT]			= Op("dot",			"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpPhi %type_float %arg2 %true_branch %arg1 %false_branch\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SELECT]		= Op("select",		FLOAT_ARITHMETIC,
+											"%always_true        = OpFOrdGreaterThan %type_bool %c_float_1 %c_float_0\n"
+											"%result             = OpSelect %type_float %always_true %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_DOT]			= Op("dot",			FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%vec2               = OpCompositeConstruct %type_float_vec2 %arg2 %arg2\n"
-											"%result             = OpDot %type_float %vec1 %vec2\n");
-	mo[O_VEC_MUL_S]		= Op("vmuls",		"%vec                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpDot %type_float %vec1 %vec2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_VEC_MUL_S]		= Op("vmuls",		FLOAT_ARITHMETIC,
+											"%vec                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%tmpVec             = OpVectorTimesScalar %type_float_vec2 %vec %arg2\n"
-											"%result             = OpCompositeExtract %type_float %tmpVec 0\n");
-	mo[O_VEC_MUL_M]		= Op("vmulm",		"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %tmpVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_VEC_MUL_M]		= Op("vmulm",		FLOAT_ARITHMETIC,
+											"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%mat                = OpCompositeConstruct %type_float_mat2x2 %col %col\n"
 											"%vec                = OpCompositeConstruct %type_float_vec2 %arg2 %arg2\n"
 											"%tmpVec             = OpVectorTimesMatrix %type_float_vec2 %vec %mat\n"
-											"%result             = OpCompositeExtract %type_float %tmpVec 0\n");
-	mo[O_MAT_MUL_S]		= Op("mmuls",		"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %tmpVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MAT_MUL_S]		= Op("mmuls",		FLOAT_ARITHMETIC,
+											"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%mat                = OpCompositeConstruct %type_float_mat2x2 %col %col\n"
 											"%mulMat             = OpMatrixTimesScalar %type_float_mat2x2 %mat %arg2\n"
 											"%extCol             = OpCompositeExtract %type_float_vec2 %mulMat 0\n"
-											"%result             = OpCompositeExtract %type_float %extCol 0\n");
-	mo[O_MAT_MUL_V]		= Op("mmulv",		"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %extCol 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MAT_MUL_V]		= Op("mmulv",		FLOAT_ARITHMETIC,
+											"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%mat                = OpCompositeConstruct %type_float_mat2x2 %col %col\n"
 											"%vec                = OpCompositeConstruct %type_float_vec2 %arg2 %arg2\n"
 											"%mulVec             = OpMatrixTimesVector %type_float_vec2 %mat %vec\n"
-											"%result             = OpCompositeExtract %type_float %mulVec 0\n");
-	mo[O_MAT_MUL_M]		= Op("mmulm",		"%col1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %mulVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MAT_MUL_M]		= Op("mmulm",		FLOAT_ARITHMETIC,
+											"%col1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%mat1               = OpCompositeConstruct %type_float_mat2x2 %col1 %col1\n"
 											"%col2               = OpCompositeConstruct %type_float_vec2 %arg2 %arg2\n"
 											"%mat2               = OpCompositeConstruct %type_float_mat2x2 %col2 %col2\n"
 											"%mulMat             = OpMatrixTimesMatrix %type_float_mat2x2 %mat1 %mat2\n"
 											"%extCol             = OpCompositeExtract %type_float_vec2 %mulMat 0\n"
-											"%result             = OpCompositeExtract %type_float %extCol 0\n");
-	mo[O_OUT_PROD]		= Op("out_prod",	"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %extCol 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_OUT_PROD]		= Op("out_prod",	FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%vec2               = OpCompositeConstruct %type_float_vec2 %arg2 %arg2\n"
 											"%mulMat             = OpOuterProduct %type_float_mat2x2 %vec1 %vec2\n"
 											"%extCol             = OpCompositeExtract %type_float_vec2 %mulMat 0\n"
-											"%result             = OpCompositeExtract %type_float %extCol 0\n");
+											"%result             = OpCompositeExtract %type_float %extCol 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
 
 	// comparison operations
-	mo[O_ORD_EQ]		= Op("ord_eq",		"%boolVal           = OpFOrdEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_UORD_EQ]		= Op("uord_eq",		"%boolVal           = OpFUnordEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_ORD_NEQ]		= Op("ord_neq",		"%boolVal           = OpFOrdNotEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_UORD_NEQ]		= Op("uord_neq",	"%boolVal           = OpFUnordNotEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_ORD_LS]		= Op("ord_ls",		"%boolVal           = OpFOrdLessThan %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_UORD_LS]		= Op("uord_ls",		"%boolVal           = OpFUnordLessThan %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_ORD_GT]		= Op("ord_gt",		"%boolVal           = OpFOrdGreaterThan %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_UORD_GT]		= Op("uord_gt",		"%boolVal           = OpFUnordGreaterThan %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_ORD_LE]		= Op("ord_le",		"%boolVal           = OpFOrdLessThanEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_UORD_LE]		= Op("uord_le",		"%boolVal           = OpFUnordLessThanEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_ORD_GE]		= Op("ord_ge",		"%boolVal           = OpFOrdGreaterThanEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
-	mo[O_UORD_GE]		= Op("uord_ge",		"%boolVal           = OpFUnordGreaterThanEqual %type_bool %arg1 %arg2\n"
-											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n");
+	mo[O_ORD_EQ]		= Op("ord_eq",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFOrdEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_UORD_EQ]		= Op("uord_eq",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFUnordEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ORD_NEQ]		= Op("ord_neq",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFOrdNotEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_UORD_NEQ]		= Op("uord_neq",	FLOAT_ARITHMETIC,
+											"%boolVal           = OpFUnordNotEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ORD_LS]		= Op("ord_ls",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFOrdLessThan %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_UORD_LS]		= Op("uord_ls",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFUnordLessThan %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ORD_GT]		= Op("ord_gt",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFOrdGreaterThan %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_UORD_GT]		= Op("uord_gt",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFUnordGreaterThan %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ORD_LE]		= Op("ord_le",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFOrdLessThanEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_UORD_LE]		= Op("uord_le",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFUnordLessThanEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ORD_GE]		= Op("ord_ge",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFOrdGreaterThanEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_UORD_GE]		= Op("uord_ge",		FLOAT_ARITHMETIC,
+											"%boolVal           = OpFUnordGreaterThanEqual %type_bool %arg1 %arg2\n"
+											"%result            = OpSelect %type_float %boolVal %c_float_1 %c_float_0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
 
-	mo[O_ATAN2]			= Op("atan2",		"%result             = OpExtInst %type_float %std450 Atan2 %arg1 %arg2\n");
-	mo[O_POW]			= Op("pow",			"%result             = OpExtInst %type_float %std450 Pow %arg1 %arg2\n");
-	mo[O_MIX]			= Op("mix",			"%result             = OpExtInst %type_float %std450 FMix %arg1 %arg2 %c_float_0_5\n");
-	mo[O_FMA]			= Op("fma",			"%result             = OpExtInst %type_float %std450 Fma %arg1 %arg2 %c_float_0_5\n");
-	mo[O_MIN]			= Op("min",			"%result             = OpExtInst %type_float %std450 FMin %arg1 %arg2\n");
-	mo[O_MAX]			= Op("max",			"%result             = OpExtInst %type_float %std450 FMax %arg1 %arg2\n");
-	mo[O_CLAMP]			= Op("clamp",		"%result             = OpExtInst %type_float %std450 FClamp %arg1 %arg2 %arg2\n");
-	mo[O_STEP]			= Op("step",		"%result             = OpExtInst %type_float %std450 Step %arg1 %arg2\n");
-	mo[O_SSTEP]			= Op("sstep",		"%result             = OpExtInst %type_float %std450 SmoothStep %arg1 %arg2 %c_float_0_5\n");
-	mo[O_DIST]			= Op("distance",	"%result             = OpExtInst %type_float %std450 Distance %arg1 %arg2\n");
-	mo[O_CROSS]			= Op("cross",		"%vec1               = OpCompositeConstruct %type_float_vec3 %arg1 %arg1 %arg1\n"
+	mo[O_ATAN2]			= Op("atan2",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Atan2 %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_POW]			= Op("pow",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Pow %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MIX]			= Op("mix",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 FMix %arg1 %arg2 %c_float_0_5\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_FMA]			= Op("fma",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Fma %arg1 %arg2 %c_float_0_5\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MIN]			= Op("min",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 FMin %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MAX]			= Op("max",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 FMax %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_CLAMP]			= Op("clamp",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 FClamp %arg1 %arg2 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_STEP]			= Op("step",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Step %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SSTEP]			= Op("sstep",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 SmoothStep %arg1 %arg2 %c_float_0_5\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_DIST]			= Op("distance",	FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Distance %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_CROSS]			= Op("cross",		FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec3 %arg1 %arg1 %arg1\n"
 											"%vec2               = OpCompositeConstruct %type_float_vec3 %arg2 %arg2 %arg2\n"
 											"%tmpVec             = OpExtInst %type_float_vec3 %std450 Cross %vec1 %vec2\n"
-											"%result             = OpCompositeExtract %type_float %tmpVec 0\n");
-	mo[O_FACE_FWD]		= Op("face_fwd",	"%result             = OpExtInst %type_float %std450 FaceForward %c_float_1 %arg1 %arg2\n");
-	mo[O_NMIN]			= Op("nmin",		"%result             = OpExtInst %type_float %std450 NMin %arg1 %arg2\n");
-	mo[O_NMAX]			= Op("nmax",		"%result             = OpExtInst %type_float %std450 NMax %arg1 %arg2\n");
-	mo[O_NCLAMP]		= Op("nclamp",		"%result             = OpExtInst %type_float %std450 NClamp %arg2 %arg1 %arg2\n");
+											"%result             = OpCompositeExtract %type_float %tmpVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_FACE_FWD]		= Op("face_fwd",	FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 FaceForward %c_float_1 %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_NMIN]			= Op("nmin",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 NMin %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_NMAX]			= Op("nmax",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 NMax %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_NCLAMP]		= Op("nclamp",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 NClamp %arg2 %arg1 %arg2\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
 
-	mo[O_ROUND]			= Op("round",		"%result             = OpExtInst %type_float %std450 Round %arg1\n");
-	mo[O_ROUND_EV]		= Op("round_ev",	"%result             = OpExtInst %type_float %std450 RoundEven %arg1\n");
-	mo[O_TRUNC]			= Op("trunc",		"%result             = OpExtInst %type_float %std450 Trunc %arg1\n");
-	mo[O_ABS]			= Op("abs",			"%result             = OpExtInst %type_float %std450 FAbs %arg1\n");
-	mo[O_SIGN]			= Op("sign",		"%result             = OpExtInst %type_float %std450 FSign %arg1\n");
-	mo[O_FLOOR]			= Op("floor",		"%result             = OpExtInst %type_float %std450 Floor %arg1\n");
-	mo[O_CEIL]			= Op("ceil",		"%result             = OpExtInst %type_float %std450 Ceil %arg1\n");
-	mo[O_FRACT]			= Op("fract",		"%result             = OpExtInst %type_float %std450 Fract %arg1\n");
-	mo[O_RADIANS]		= Op("radians",		"%result             = OpExtInst %type_float %std450 Radians %arg1\n");
-	mo[O_DEGREES]		= Op("degrees",		"%result             = OpExtInst %type_float %std450 Degrees %arg1\n");
-	mo[O_SIN]			= Op("sin",			"%result             = OpExtInst %type_float %std450 Sin %arg1\n");
-	mo[O_COS]			= Op("cos",			"%result             = OpExtInst %type_float %std450 Cos %arg1\n");
-	mo[O_TAN]			= Op("tan",			"%result             = OpExtInst %type_float %std450 Tan %arg1\n");
-	mo[O_ASIN]			= Op("asin",		"%result             = OpExtInst %type_float %std450 Asin %arg1\n");
-	mo[O_ACOS]			= Op("acos",		"%result             = OpExtInst %type_float %std450 Acos %arg1\n");
-	mo[O_ATAN]			= Op("atan",		"%result             = OpExtInst %type_float %std450 Atan %arg1\n");
-	mo[O_SINH]			= Op("sinh",		"%result             = OpExtInst %type_float %std450 Sinh %arg1\n");
-	mo[O_COSH]			= Op("cosh",		"%result             = OpExtInst %type_float %std450 Cosh %arg1\n");
-	mo[O_TANH]			= Op("tanh",		"%result             = OpExtInst %type_float %std450 Tanh %arg1\n");
-	mo[O_ASINH]			= Op("asinh",		"%result             = OpExtInst %type_float %std450 Asinh %arg1\n");
-	mo[O_ACOSH]			= Op("acosh",		"%result             = OpExtInst %type_float %std450 Acosh %arg1\n");
-	mo[O_ATANH]			= Op("atanh",		"%result             = OpExtInst %type_float %std450 Atanh %arg1\n");
-	mo[O_EXP]			= Op("exp",			"%result             = OpExtInst %type_float %std450 Exp %arg1\n");
-	mo[O_LOG]			= Op("log",			"%result             = OpExtInst %type_float %std450 Log %arg1\n");
-	mo[O_EXP2]			= Op("exp2",		"%result             = OpExtInst %type_float %std450 Exp2 %arg1\n");
-	mo[O_LOG2]			= Op("log2",		"%result             = OpExtInst %type_float %std450 Log2 %arg1\n");
-	mo[O_SQRT]			= Op("sqrt",		"%result             = OpExtInst %type_float %std450 Sqrt %arg1\n");
-	mo[O_INV_SQRT]		= Op("inv_sqrt",	"%result             = OpExtInst %type_float %std450 InverseSqrt %arg1\n");
-	mo[O_MODF]			= Op("modf",		"",
+	mo[O_ROUND]			= Op("round",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Round %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ROUND_EV]		= Op("round_ev",	FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 RoundEven %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_TRUNC]			= Op("trunc",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Trunc %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ABS]			= Op("abs",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 FAbs %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SIGN]			= Op("sign",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 FSign %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_FLOOR]			= Op("floor",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Floor %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_CEIL]			= Op("ceil",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Ceil %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_FRACT]			= Op("fract",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Fract %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_RADIANS]		= Op("radians",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Radians %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_DEGREES]		= Op("degrees",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Degrees %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SIN]			= Op("sin",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Sin %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_COS]			= Op("cos",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Cos %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_TAN]			= Op("tan",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Tan %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ASIN]			= Op("asin",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Asin %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ACOS]			= Op("acos",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Acos %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ATAN]			= Op("atan",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Atan %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SINH]			= Op("sinh",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Sinh %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_COSH]			= Op("cosh",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Cosh %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_TANH]			= Op("tanh",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Tanh %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ASINH]			= Op("asinh",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Asinh %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ACOSH]			= Op("acosh",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Acosh %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_ATANH]			= Op("atanh",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Atanh %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_EXP]			= Op("exp",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Exp %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_LOG]			= Op("log",			FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Log %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_EXP2]			= Op("exp2",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Exp2 %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_LOG2]			= Op("log2",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Log2 %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_SQRT]			= Op("sqrt",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Sqrt %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_INV_SQRT]		= Op("inv_sqrt",	FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 InverseSqrt %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MODF]			= Op("modf",		FLOAT_ARITHMETIC,
+											"",
 											"",
 											"",
 											"%tmpVarPtr          = OpVariable %type_float_fptr Function\n",
-											"%result             = OpExtInst %type_float %std450 Modf %arg1 %tmpVarPtr\n");
-	mo[O_MODF_ST]		= Op("modf_st",		"OpMemberDecorate %struct_ff 0 Offset ${float_width}\n"
+											"",
+											"%result             = OpExtInst %type_float %std450 Modf %arg1 %tmpVarPtr\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MODF_ST]		= Op("modf_st",		FLOAT_ARITHMETIC,
+											"OpMemberDecorate %struct_ff 0 Offset ${float_width}\n"
 											"OpMemberDecorate %struct_ff 1 Offset ${float_width}\n",
 											"%struct_ff          = OpTypeStruct %type_float %type_float\n"
 											"%struct_ff_fptr     = OpTypePointer Function %struct_ff\n",
 											"",
 											"%tmpStructPtr       = OpVariable %struct_ff_fptr Function\n",
+											"",
 											"%tmpStruct          = OpExtInst %struct_ff %std450 ModfStruct %arg1\n"
 											"                      OpStore %tmpStructPtr %tmpStruct\n"
 											"%tmpLoc             = OpAccessChain %type_float_fptr %tmpStructPtr %c_i32_0\n"
-											"%result             = OpLoad %type_float %tmpLoc\n");
-	mo[O_FREXP]			= Op("frexp",		"",
+											"%result             = OpLoad %type_float %tmpLoc\n",
+											B_STATEMENT_USAGE_TYPES_TYPE_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_FREXP]			= Op("frexp",		FLOAT_ARITHMETIC,
+											"",
 											"",
 											"",
 											"%tmpVarPtr          = OpVariable %type_i32_fptr Function\n",
-											"%result             = OpExtInst %type_float %std450 Frexp %arg1 %tmpVarPtr\n");
-	mo[O_FREXP_ST]		= Op("frexp_st",	"OpMemberDecorate %struct_fi 0 Offset ${float_width}\n"
+											"",
+											"%result             = OpExtInst %type_float %std450 Frexp %arg1 %tmpVarPtr\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_FREXP_ST]		= Op("frexp_st",	FLOAT_ARITHMETIC,
+											"OpMemberDecorate %struct_fi 0 Offset ${float_width}\n"
 											"OpMemberDecorate %struct_fi 1 Offset 32\n",
 											"%struct_fi          = OpTypeStruct %type_float %type_i32\n"
 											"%struct_fi_fptr     = OpTypePointer Function %struct_fi\n",
 											"",
 											"%tmpStructPtr       = OpVariable %struct_fi_fptr Function\n",
+											"",
 											"%tmpStruct          = OpExtInst %struct_fi %std450 FrexpStruct %arg1\n"
 											"                      OpStore %tmpStructPtr %tmpStruct\n"
 											"%tmpLoc             = OpAccessChain %type_float_fptr %tmpStructPtr %c_i32_0\n"
-											"%result             = OpLoad %type_float %tmpLoc\n");
-	mo[O_LENGHT]		= Op("length",		"%result             = OpExtInst %type_float %std450 Length %arg1\n");
-	mo[O_NORMALIZE]		= Op("normalize",	"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %c_float_2\n"
+											"%result             = OpLoad %type_float %tmpLoc\n",
+											B_STATEMENT_USAGE_TYPES_TYPE_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_LENGHT]		= Op("length",		FLOAT_ARITHMETIC,
+											"%result             = OpExtInst %type_float %std450 Length %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_NORMALIZE]		= Op("normalize",	FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %c_float_2\n"
 											"%tmpVec             = OpExtInst %type_float_vec2 %std450 Normalize %vec1\n"
-											"%result             = OpCompositeExtract %type_float %tmpVec 0\n");
-	mo[O_REFLECT]		= Op("reflect",		"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %tmpVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_REFLECT]		= Op("reflect",		FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%vecN               = OpCompositeConstruct %type_float_vec2 %c_float_0 %c_float_n1\n"
 											"%tmpVec             = OpExtInst %type_float_vec2 %std450 Reflect %vec1 %vecN\n"
-											"%result             = OpCompositeExtract %type_float %tmpVec 0\n");
-	mo[O_REFRACT]		= Op("refract",		"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %tmpVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_REFRACT]		= Op("refract",		FLOAT_ARITHMETIC,
+											"%vec1               = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%vecN               = OpCompositeConstruct %type_float_vec2 %c_float_0 %c_float_n1\n"
 											"%tmpVec             = OpExtInst %type_float_vec2 %std450 Refract %vec1 %vecN %c_float_0_5\n"
-											"%result             = OpCompositeExtract %type_float %tmpVec 0\n");
-	mo[O_MAT_DET]		= Op("mat_det",		"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
+											"%result             = OpCompositeExtract %type_float %tmpVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MAT_DET]		= Op("mat_det",		FLOAT_ARITHMETIC,
+											"%col                = OpCompositeConstruct %type_float_vec2 %arg1 %arg1\n"
 											"%mat                = OpCompositeConstruct %type_float_mat2x2 %col %col\n"
-											"%result             = OpExtInst %type_float %std450 Determinant %mat\n");
-	mo[O_MAT_INV]		= Op("mat_inv",		"%col1               = OpCompositeConstruct %type_float_vec2 %arg1 %c_float_1\n"
+											"%result             = OpExtInst %type_float %std450 Determinant %mat\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
+	mo[O_MAT_INV]		= Op("mat_inv",		FLOAT_ARITHMETIC,
+											"%col1               = OpCompositeConstruct %type_float_vec2 %arg1 %c_float_1\n"
 											"%col2               = OpCompositeConstruct %type_float_vec2 %c_float_1 %c_float_1\n"
 											"%mat                = OpCompositeConstruct %type_float_mat2x2 %col1 %col2\n"
 											"%invMat             = OpExtInst %type_float_mat2x2 %std450 MatrixInverse %mat\n"
 											"%extCol             = OpCompositeExtract %type_float_vec2 %invMat 1\n"
-											"%result             = OpCompositeExtract %type_float %extCol 1\n");
+											"%result             = OpCompositeExtract %type_float %extCol 1\n",
+											B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_TYPE_FLOAT);
 
 	// PackHalf2x16 is a special case as it operates on fp32 vec2 and returns unsigned int,
 	// the verification is done in SPIR-V code (if result is correct 1.0 will be written to SSBO)
-	mo[O_PH_DENORM]		= Op("ph_denorm",	"",
+	mo[O_PH_DENORM]		= Op("ph_denorm",	FLOAT_STORAGE_ONLY,
+											"",
 											"",
 											"%c_fp32_denorm_fp16 = OpConstant %type_f32 6.01e-5\n"		// fp32 representation of fp16 denorm value
 											"%c_ref              = OpConstant %type_u32 66061296\n",
 											"",
+											"",
 											"%srcVec             = OpCompositeConstruct %type_f32_vec2 %c_fp32_denorm_fp16 %c_fp32_denorm_fp16\n"
 											"%packedInt          = OpExtInst %type_u32 %std450 PackHalf2x16 %srcVec\n"
 											"%boolVal            = OpIEqual %type_bool %c_ref %packedInt\n"
-											"%result             = OpSelect %type_f32 %boolVal %c_f32_1 %c_f32_0\n");
+											"%result             = OpSelect %type_f32 %boolVal %c_f32_1 %c_f32_0\n",
+											B_STATEMENT_USAGE_CONSTS_TYPE_FP32 | B_STATEMENT_USAGE_COMMANDS_CONST_FP32 | B_STATEMENT_USAGE_COMMANDS_TYPE_FP32);
 
 	// UnpackHalf2x16 is a special case that operates on uint32 and returns two 32-bit floats,
 	// this function is tested using constants
-	mo[O_UPH_DENORM]	= Op("uph_denorm",	"",
+	mo[O_UPH_DENORM]	= Op("uph_denorm",	FLOAT_STORAGE_ONLY,
+											"",
 											"",
 											"%c_u32_2_16_pack    = OpConstant %type_u32 66061296\n", // == packHalf2x16(vec2(denorm))
 											"",
+											"",
 											"%tmpVec             = OpExtInst %type_f32_vec2 %std450 UnpackHalf2x16 %c_u32_2_16_pack\n"
-											"%result             = OpCompositeExtract %type_f32 %tmpVec 0\n");
+											"%result             = OpCompositeExtract %type_f32 %tmpVec 0\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FP32);
 
 	// PackDouble2x32 is a special case that operates on two uint32 and returns
 	// double, this function is tested using constants
-	mo[O_PD_DENORM]		= Op("pd_denorm",	"",
+	mo[O_PD_DENORM]		= Op("pd_denorm",	FLOAT_STORAGE_ONLY,
+											"",
 											"",
 											"%c_p1               = OpConstant %type_u32 0\n"
 											"%c_p2               = OpConstant %type_u32 262144\n",		// == UnpackDouble2x32(denorm)
 											"",
+											"",
 											"%srcVec             = OpCompositeConstruct %type_u32_vec2 %c_p1 %c_p2\n"
-											"%result             = OpExtInst %type_f64 %std450 PackDouble2x32 %srcVec\n");
+											"%result             = OpExtInst %type_f64 %std450 PackDouble2x32 %srcVec\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FP64);
 
 	// UnpackDouble2x32 is a special case as it operates only on FP64 and returns two ints,
 	// the verification is done in SPIR-V code (if result is correct 1.0 will be written to SSBO)
@@ -1675,29 +1991,35 @@ void TestCasesBuilder::init()
 											"%boolVec2           = OpIEqual %type_bool_vec2 %refVec2 %resVec2\n"
 											"%boolVal            = OpAll %type_bool %boolVec2\n"
 											"%result             = OpSelect %type_f64 %boolVal %c_f64_1 %c_f64_0\n";
-	mo[O_UPD_DENORM_FLUSH]		= Op("upd_denorm",	"",
+	mo[O_UPD_DENORM_FLUSH]		= Op("upd_denorm",	FLOAT_STORAGE_ONLY, "",
 											unpackDouble2x32Types,
 											"%c_p1               = OpConstant %type_u32 0\n"
 											"%c_p2               = OpConstant %type_u32 0\n",
 											"",
-											unpackDouble2x32Source);
-	mo[O_UPD_DENORM_PRESERVE]	= Op("upd_denorm",	"",
+											"",
+											unpackDouble2x32Source,
+											B_STATEMENT_USAGE_COMMANDS_CONST_FP64 | B_STATEMENT_USAGE_COMMANDS_TYPE_FP64);
+	mo[O_UPD_DENORM_PRESERVE]	= Op("upd_denorm",	FLOAT_STORAGE_ONLY, "",
 											unpackDouble2x32Types,
 											"%c_p1               = OpConstant %type_u32 1008\n"
 											"%c_p2               = OpConstant %type_u32 0\n",
 											"",
-											unpackDouble2x32Source);
+											"",
+											unpackDouble2x32Source,
+											B_STATEMENT_USAGE_COMMANDS_CONST_FP64 | B_STATEMENT_USAGE_COMMANDS_TYPE_FP64);
 
-	mo[O_ORTE_ROUND]	= Op("orte_round",	FP32,
+	mo[O_ORTE_ROUND]	= Op("orte_round",	FLOAT_STORAGE_ONLY, FP32,
 											"OpDecorate %result FPRoundingMode RTE\n",
 											"",
 											"",
-											"%result             = OpFConvert %type_f16 %arg1\n");
-	mo[O_ORTZ_ROUND]	= Op("ortz_round",	FP32,
+											"%result             = OpFConvert %type_f16 %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FP16);
+	mo[O_ORTZ_ROUND]	= Op("ortz_round",	FLOAT_STORAGE_ONLY, FP32,
 											"OpDecorate %result FPRoundingMode RTZ\n",
 											"",
 											"",
-											"%result             = OpFConvert %type_f16 %arg1\n");
+											"%result             = OpFConvert %type_f16 %arg1\n",
+											B_STATEMENT_USAGE_COMMANDS_TYPE_FP16);
 }
 
 void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResultsSP typeTestResults, bool argumentsFromInput)
@@ -1714,8 +2036,8 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 		OperationId			operation	= binaryCase.operationId;
 		testCases.push_back(OTC("denorm_op_var_flush_to_zero",		B_DENORM_FLUSH,					 operation, V_DENORM, V_ONE,		binaryCase.opVarResult));
 		testCases.push_back(OTC("denorm_op_denorm_flush_to_zero",	B_DENORM_FLUSH,					 operation, V_DENORM, V_DENORM,		binaryCase.opDenormResult));
-		testCases.push_back(OTC("denorm_op_inf_flush_to_zero",		B_DENORM_FLUSH | B_ZIN_PERSERVE, operation, V_DENORM, V_INF,		binaryCase.opInfResult));
-		testCases.push_back(OTC("denorm_op_nan_flush_to_zero",		B_DENORM_FLUSH | B_ZIN_PERSERVE, operation, V_DENORM, V_NAN,		binaryCase.opNanResult));
+		testCases.push_back(OTC("denorm_op_inf_flush_to_zero",		B_DENORM_FLUSH | B_ZIN_PRESERVE, operation, V_DENORM, V_INF,		binaryCase.opInfResult));
+		testCases.push_back(OTC("denorm_op_nan_flush_to_zero",		B_DENORM_FLUSH | B_ZIN_PRESERVE, operation, V_DENORM, V_NAN,		binaryCase.opNanResult));
 	}
 
 	// Denorm - FlushToZero - unary operations
@@ -1731,10 +2053,10 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 	{
 		const BinaryCase&	binaryCase	= typeTestResults->binaryOpDenormPreserve[i];
 		OperationId			operation	= binaryCase.operationId;
-		testCases.push_back(OTC("denorm_op_var_preserve",			B_DENORM_PERSERVE,					operation, V_DENORM,	V_ONE,		binaryCase.opVarResult));
-		testCases.push_back(OTC("denorm_op_denorm_preserve",		B_DENORM_PERSERVE,					operation, V_DENORM,	V_DENORM,	binaryCase.opDenormResult));
-		testCases.push_back(OTC("denorm_op_inf_preserve",			B_DENORM_PERSERVE | B_ZIN_PERSERVE, operation, V_DENORM,	V_INF,		binaryCase.opInfResult));
-		testCases.push_back(OTC("denorm_op_nan_preserve",			B_DENORM_PERSERVE | B_ZIN_PERSERVE, operation, V_DENORM,	V_NAN,		binaryCase.opNanResult));
+		testCases.push_back(OTC("denorm_op_var_preserve",			B_DENORM_PRESERVE,					operation, V_DENORM,	V_ONE,		binaryCase.opVarResult));
+		testCases.push_back(OTC("denorm_op_denorm_preserve",		B_DENORM_PRESERVE,					operation, V_DENORM,	V_DENORM,	binaryCase.opDenormResult));
+		testCases.push_back(OTC("denorm_op_inf_preserve",			B_DENORM_PRESERVE | B_ZIN_PRESERVE, operation, V_DENORM,	V_INF,		binaryCase.opInfResult));
+		testCases.push_back(OTC("denorm_op_nan_preserve",			B_DENORM_PRESERVE | B_ZIN_PRESERVE, operation, V_DENORM,	V_NAN,		binaryCase.opNanResult));
 	}
 
 	// Denom - Preserve - unary operations
@@ -1742,7 +2064,7 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 	{
 		const UnaryCase&	unaryCase	= typeTestResults->unaryOpDenormPreserve[i];
 		OperationId			operation	= unaryCase.operationId;
-		testCases.push_back(OTC("op_denorm_preserve", B_DENORM_PERSERVE, operation, V_DENORM, V_UNUSED, unaryCase.result));
+		testCases.push_back(OTC("op_denorm_preserve", B_DENORM_PRESERVE, operation, V_DENORM, V_UNUSED, unaryCase.result));
 	}
 
 	struct ZINCase
@@ -1788,11 +2110,11 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 		if (isFP64 && !zc.supportedByFP64)
 			continue;
 
-		testCases.push_back(OTC("zero_op_var_preserve",				B_ZIN_PERSERVE, zc.operationId, V_ZERO,			zc.secondArgument,	zc.preserveZeroResult));
-		testCases.push_back(OTC("signed_zero_op_var_preserve",		B_ZIN_PERSERVE, zc.operationId, V_MINUS_ZERO,	zc.secondArgument,	zc.preserveSZeroResult));
-		testCases.push_back(OTC("inf_op_var_preserve",				B_ZIN_PERSERVE, zc.operationId, V_INF,			zc.secondArgument,	zc.preserveInfResult));
-		testCases.push_back(OTC("signed_inf_op_var_preserve",		B_ZIN_PERSERVE, zc.operationId, V_MINUS_INF,	zc.secondArgument,	zc.preserveSInfResult));
-		testCases.push_back(OTC("nan_op_var_preserve",				B_ZIN_PERSERVE, zc.operationId, V_NAN,			zc.secondArgument,	zc.preserveNanResult));
+		testCases.push_back(OTC("zero_op_var_preserve",				B_ZIN_PRESERVE, zc.operationId, V_ZERO,			zc.secondArgument,	zc.preserveZeroResult));
+		testCases.push_back(OTC("signed_zero_op_var_preserve",		B_ZIN_PRESERVE, zc.operationId, V_MINUS_ZERO,	zc.secondArgument,	zc.preserveSZeroResult));
+		testCases.push_back(OTC("inf_op_var_preserve",				B_ZIN_PRESERVE, zc.operationId, V_INF,			zc.secondArgument,	zc.preserveInfResult));
+		testCases.push_back(OTC("signed_inf_op_var_preserve",		B_ZIN_PRESERVE, zc.operationId, V_MINUS_INF,	zc.secondArgument,	zc.preserveSInfResult));
+		testCases.push_back(OTC("nan_op_var_preserve",				B_ZIN_PRESERVE, zc.operationId, V_NAN,			zc.secondArgument,	zc.preserveNanResult));
 	}
 
 	// Signed Zero Inf Nan - Preserve - unary operations
@@ -1802,11 +2124,11 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 		if (isFP64 && !zc.supportedByFP64)
 			continue;
 
-		testCases.push_back(OTC("op_zero_preserve",			B_ZIN_PERSERVE,zc.operationId, V_ZERO,			V_UNUSED,	zc.preserveZeroResult));
-		testCases.push_back(OTC("op_signed_zero_preserve",	B_ZIN_PERSERVE,zc.operationId, V_MINUS_ZERO,	V_UNUSED,	zc.preserveSZeroResult));
-		testCases.push_back(OTC("op_inf_preserve",			B_ZIN_PERSERVE,zc.operationId, V_INF,			V_UNUSED,	zc.preserveInfResult));
-		testCases.push_back(OTC("op_signed_inf_preserve",	B_ZIN_PERSERVE,zc.operationId, V_MINUS_INF,		V_UNUSED,	zc.preserveSInfResult));
-		testCases.push_back(OTC("op_nan_preserve",			B_ZIN_PERSERVE,zc.operationId, V_NAN,			V_UNUSED,	zc.preserveNanResult));
+		testCases.push_back(OTC("op_zero_preserve",			B_ZIN_PRESERVE,zc.operationId, V_ZERO,			V_UNUSED,	zc.preserveZeroResult));
+		testCases.push_back(OTC("op_signed_zero_preserve",	B_ZIN_PRESERVE,zc.operationId, V_MINUS_ZERO,	V_UNUSED,	zc.preserveSZeroResult));
+		testCases.push_back(OTC("op_inf_preserve",			B_ZIN_PRESERVE,zc.operationId, V_INF,			V_UNUSED,	zc.preserveInfResult));
+		testCases.push_back(OTC("op_signed_inf_preserve",	B_ZIN_PRESERVE,zc.operationId, V_MINUS_INF,		V_UNUSED,	zc.preserveSInfResult));
+		testCases.push_back(OTC("op_nan_preserve",			B_ZIN_PRESERVE,zc.operationId, V_NAN,			V_UNUSED,	zc.preserveNanResult));
 	}
 
 	// comparison operations - tested differently because they return true/false
@@ -1834,7 +2156,7 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 	for (int op = 0 ; op < DE_LENGTH_OF_ARRAY(comparisonCases) ; ++op)
 	{
 		const ComparisonCase& cc = comparisonCases[op];
-		testCases.push_back(OTC("denorm_op_var_preserve", B_DENORM_PERSERVE, cc.operationId, V_DENORM, V_ONE, cc.denormPreserveResult));
+		testCases.push_back(OTC("denorm_op_var_preserve", B_DENORM_PRESERVE, cc.operationId, V_DENORM, V_ONE, cc.denormPreserveResult));
 	}
 
 	if (argumentsFromInput)
@@ -1915,11 +2237,11 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 		else
 		{
 			// PackHalf2x16 - verification done in SPIR-V
-			testCases.push_back(OTC("pack_half_denorm_preserve",		B_DENORM_PERSERVE,	O_PH_DENORM,	V_UNUSED, V_UNUSED, V_ONE));
+			testCases.push_back(OTC("pack_half_denorm_preserve",		B_DENORM_PRESERVE,	O_PH_DENORM,	V_UNUSED, V_UNUSED, V_ONE));
 
 			// UnpackHalf2x16 - custom arguments defined as constants
 			testCases.push_back(OTC("upack_half_denorm_flush_to_zero",	B_DENORM_FLUSH,		O_UPH_DENORM,	V_UNUSED, V_UNUSED, V_ZERO));
-			testCases.push_back(OTC("upack_half_denorm_preserve",		B_DENORM_PERSERVE,	O_UPH_DENORM,	V_UNUSED, V_UNUSED, V_CONV_DENORM_SMALLER));
+			testCases.push_back(OTC("upack_half_denorm_preserve",		B_DENORM_PRESERVE,	O_UPH_DENORM,	V_UNUSED, V_UNUSED, V_CONV_DENORM_SMALLER));
 		}
 
 		createUnaryTestCases(testCases, O_CONV_FROM_FP16, V_CONV_DENORM_SMALLER, V_ZERO_OR_FP16_DENORM_TO_FP32);
@@ -1930,11 +2252,11 @@ void TestCasesBuilder::build(vector<OperationTestCase>& testCases, TypeTestResul
 		if (!argumentsFromInput)
 		{
 			// PackDouble2x32 - custom arguments defined as constants
-			testCases.push_back(OTC("pack_double_denorm_preserve",			B_DENORM_PERSERVE,	O_PD_DENORM,			V_UNUSED, V_UNUSED, V_DENORM));
+			testCases.push_back(OTC("pack_double_denorm_preserve",			B_DENORM_PRESERVE,	O_PD_DENORM,			V_UNUSED, V_UNUSED, V_DENORM));
 
 			// UnpackDouble2x32 - verification done in SPIR-V
 			testCases.push_back(OTC("upack_double_denorm_flush_to_zero",	B_DENORM_FLUSH,		O_UPD_DENORM_FLUSH,		V_DENORM, V_UNUSED, V_ONE));
-			testCases.push_back(OTC("upack_double_denorm_preserve",			B_DENORM_PERSERVE,	O_UPD_DENORM_PRESERVE,	V_DENORM, V_UNUSED, V_ONE));
+			testCases.push_back(OTC("upack_double_denorm_preserve",			B_DENORM_PRESERVE,	O_UPD_DENORM_PRESERVE,	V_DENORM, V_UNUSED, V_ONE));
 		}
 
 		createUnaryTestCases(testCases, O_CONV_FROM_FP16, V_CONV_DENORM_SMALLER, V_ZERO_OR_FP16_DENORM_TO_FP64);
@@ -1950,16 +2272,16 @@ const Operation& TestCasesBuilder::getOperation(OperationId id) const
 void TestCasesBuilder::createUnaryTestCases(vector<OperationTestCase>& testCases, OperationId operationId, ValueId denormPreserveResult, ValueId denormFTZResult) const
 {
 	// Denom - Preserve
-	testCases.push_back(OTC("op_denorm_preserve",		B_DENORM_PERSERVE,	operationId, V_DENORM,	V_UNUSED, denormPreserveResult));
+	testCases.push_back(OTC("op_denorm_preserve",		B_DENORM_PRESERVE,	operationId, V_DENORM,	V_UNUSED, denormPreserveResult));
 
 	// Denorm - FlushToZero
 	testCases.push_back(OTC("op_denorm_flush_to_zero",	B_DENORM_FLUSH,		operationId, V_DENORM,	V_UNUSED, denormFTZResult));
 
 	// Signed Zero Inf Nan - Preserve
-	testCases.push_back(OTC("op_zero_preserve",			B_ZIN_PERSERVE,		operationId, V_ZERO,		V_UNUSED, V_ZERO));
-	testCases.push_back(OTC("op_signed_zero_preserve",	B_ZIN_PERSERVE,		operationId, V_MINUS_ZERO,	V_UNUSED, V_MINUS_ZERO));
-	testCases.push_back(OTC("op_inf_preserve",			B_ZIN_PERSERVE,		operationId, V_INF,			V_UNUSED, V_INF));
-	testCases.push_back(OTC("op_nan_preserve",			B_ZIN_PERSERVE,		operationId, V_NAN,			V_UNUSED, V_NAN));
+	testCases.push_back(OTC("op_zero_preserve",			B_ZIN_PRESERVE,		operationId, V_ZERO,		V_UNUSED, V_ZERO));
+	testCases.push_back(OTC("op_signed_zero_preserve",	B_ZIN_PRESERVE,		operationId, V_MINUS_ZERO,	V_UNUSED, V_MINUS_ZERO));
+	testCases.push_back(OTC("op_inf_preserve",			B_ZIN_PRESERVE,		operationId, V_INF,			V_UNUSED, V_INF));
+	testCases.push_back(OTC("op_nan_preserve",			B_ZIN_PRESERVE,		operationId, V_NAN,			V_UNUSED, V_NAN));
 }
 
 template <typename TYPE, typename FLOAT_TYPE>
@@ -2026,6 +2348,99 @@ bool isCosResultCorrect(const TYPE& returnedFloat, TestLog& log)
 	return false;
 }
 
+template <typename FLOAT_TYPE>
+double getFloatTypeAsDouble(FLOAT_TYPE param)
+{
+	return param;
+}
+template<> double getFloatTypeAsDouble(deFloat16 param)
+{
+	return deFloat16To64(param);
+}
+
+
+double getPrecisionAt(double value, float ulp, int mantissaBits)
+{
+	if (mantissaBits == 23)
+	{
+		FloatFormat fp32Format(-126, 127, 23, true, tcu::MAYBE, tcu::YES, tcu::MAYBE);
+		return fp32Format.ulp(value, ulp);
+	}
+	else if (mantissaBits == 52)
+	{
+		FloatFormat fp32Format(-1022, 1023, 52, true, tcu::MAYBE, tcu::YES, tcu::MAYBE);
+		return fp32Format.ulp(value, ulp);
+	}
+	else
+	{
+		DE_ASSERT(mantissaBits == 10);
+		FloatFormat fp16Format(-14, 15, 10, true, tcu::MAYBE);
+		return fp16Format.ulp(value, ulp);
+	}
+}
+
+template <typename TYPE, typename FLOAT_TYPE, typename REF_FUNCTION>
+bool isLogResultCorrect(const TYPE& returnedFloat, FLOAT_TYPE param, REF_FUNCTION refFunction, TestLog& log)
+{
+	if (returnedFloat.isInf() && returnedFloat.signBit())
+		return true;
+
+	const double expected	= refFunction(getFloatTypeAsDouble(param));
+	const double precision	= getPrecisionAt(expected, 3.0, returnedFloat.MANTISSA_BITS);
+
+	if (deAbs(returnedFloat.asDouble() - expected) < precision)
+		return true;
+
+	log << TestLog::Message << "Expected result to be -INF or in range"
+		<< " (" << expected - precision << ", " << expected + precision << "), got "
+		<< returnedFloat.asDouble() << TestLog::EndMessage;
+	return false;
+}
+
+template <typename TYPE, typename FLOAT_TYPE>
+bool isInverseSqrtResultCorrect(const TYPE& returnedFloat, FLOAT_TYPE param, TestLog& log)
+{
+	if (returnedFloat.isInf() && !returnedFloat.signBit())
+		return true;
+
+	const double expected	= 1.0/ deSqrt(getFloatTypeAsDouble(param));
+	const double precision	= getPrecisionAt(expected, 2.0, returnedFloat.MANTISSA_BITS);
+
+	if (deAbs(returnedFloat.asDouble() - expected) < precision)
+		return true;
+
+	log << TestLog::Message << "Expected result to be INF or in range"
+		<< " (" << expected - precision << ", " << expected + precision << "), got "
+		<< returnedFloat.asDouble() << TestLog::EndMessage;
+	return false;
+}
+
+template <typename TYPE, typename FLOAT_TYPE>
+bool isSqrtResultCorrect(const TYPE& returnedFloat, FLOAT_TYPE param, TestLog& log)
+{
+	if (returnedFloat.isZero() && !returnedFloat.signBit())
+		return true;
+
+
+	const double expected				= deSqrt(getFloatTypeAsDouble(param));
+	const double expectedInverseSqrt	= 1.0 / expected;
+	const double inverseSqrtPrecision	= getPrecisionAt(expectedInverseSqrt, 2.0, returnedFloat.MANTISSA_BITS);
+
+	double expectedMin = deMin(1.0 / (expectedInverseSqrt - inverseSqrtPrecision), 1.0 / (expectedInverseSqrt + inverseSqrtPrecision));
+	double expectedMax = deMax(1.0 / (expectedInverseSqrt - inverseSqrtPrecision), 1.0 / (expectedInverseSqrt + inverseSqrtPrecision));
+
+	expectedMin -= getPrecisionAt(expectedMin, 2.5, returnedFloat.MANTISSA_BITS);
+	expectedMax += getPrecisionAt(expectedMax, 2.5, returnedFloat.MANTISSA_BITS);
+
+	if (returnedFloat.asDouble() >= expectedMin  && returnedFloat.asDouble() <= expectedMax)
+		return true;
+
+	log << TestLog::Message << "Expected result to be +0 or in range"
+		<< " (" << expectedMin << ", " << expectedMax << "), got "
+		<< returnedFloat.asDouble() << TestLog::EndMessage;
+	return false;
+}
+
 // Function used to compare test result with expected output.
 // TYPE can be Float16, Float32 or Float64.
 // FLOAT_TYPE can be deFloat16, float, double.
@@ -2084,6 +2499,8 @@ bool compareBytes(vector<deUint8>& expectedBytes, AllocationSp outputAlloc, Test
 		log << TestLog::Message << "Expected 0 or -0" << TestLog::EndMessage;
 		return false;
 	}
+	if (expectedValueId == V_ZERO_OR_ONE)
+		return isZeroOrOtherValue<TYPE, FLOAT_TYPE>(returnedFloat, V_ONE, log);
 	if ((expectedValueId == V_ZERO_OR_FP16_DENORM_TO_FP32) || (expectedValueId == V_ZERO_OR_FP16_DENORM_TO_FP64))
 		return isZeroOrOtherValue<TYPE, FLOAT_TYPE>(returnedFloat, V_CONV_DENORM_SMALLER, log);
 	if (expectedValueId == V_ZERO_OR_FP32_DENORM_TO_FP64)
@@ -2105,6 +2522,20 @@ bool compareBytes(vector<deUint8>& expectedBytes, AllocationSp outputAlloc, Test
 		return isAcosResultCorrect<TYPE>(returnedFloat, log);
 
 	TypeValues<FLOAT_TYPE> typeValues;
+
+	if (expectedValueId == V_MINUS_INF_OR_LOG_DENORM)
+		return isLogResultCorrect<TYPE>(returnedFloat, typeValues.getValue(V_DENORM), deLog, log);
+
+	if (expectedValueId == V_MINUS_INF_OR_LOG2_DENORM)
+		return isLogResultCorrect<TYPE>(returnedFloat, typeValues.getValue(V_DENORM), deLog2, log);
+
+	if (expectedValueId == V_ZERO_OR_SQRT_DENORM)
+		return isSqrtResultCorrect<TYPE>(returnedFloat, typeValues.getValue(V_DENORM), log);
+
+	if (expectedValueId == V_INF_OR_INV_SQRT_DENORM)
+		return isInverseSqrtResultCorrect<TYPE>(returnedFloat, typeValues.getValue(V_DENORM), log);
+
+
 	typename RawConvert<FLOAT_TYPE, SType>::Value value;
 	value.fp = typeValues.getValue(expectedValueId);
 
@@ -2118,9 +2549,9 @@ bool compareBytes(vector<deUint8>& expectedBytes, AllocationSp outputAlloc, Test
 
 template <typename TYPE, typename FLOAT_TYPE>
 bool checkFloats (const vector<Resource>&		,
-						  const vector<AllocationSp>&	outputAllocs,
-						  const vector<Resource>&		expectedOutputs,
-						  TestLog&						log)
+				  const vector<AllocationSp>&	outputAllocs,
+				  const vector<Resource>&		expectedOutputs,
+				  TestLog&						log)
 {
 	if (outputAllocs.size() != expectedOutputs.size())
 		return false;
@@ -2137,6 +2568,40 @@ bool checkFloats (const vector<Resource>&		,
 	return true;
 }
 
+bool checkMixedFloats (const vector<Resource>&		,
+					   const vector<AllocationSp>&	outputAllocs,
+					   const vector<Resource>&		expectedOutputs,
+					   TestLog&						log)
+{
+	// this function validates buffers containing floats of diferent widths, order is not important
+
+	if (outputAllocs.size() != expectedOutputs.size())
+		return false;
+
+	// create map storing functions that should be used for comparision
+	// depending on float width in bytes; this lets us later to avoid switch in while
+	typedef bool (*compareFun)(vector<deUint8>& expectedBytes, AllocationSp outputAlloc, TestLog& log);
+	const map<size_t, compareFun> compareMap =
+	{
+		{ 2, compareBytes<Float16, deFloat16> },
+		{ 4, compareBytes<Float32, float> },
+		{ 8, compareBytes<Float64, double>},
+	};
+
+	vector<deUint8> expectedBytes;
+	bool			allResultsAreCorrect	= true;
+	int				resultIndex				= static_cast<int>(outputAllocs.size());
+
+	while (resultIndex--)
+	{
+		expectedOutputs[resultIndex].getBytes(expectedBytes);
+		size_t byteWidth		 = expectedOutputs[resultIndex].getByteSize();
+		allResultsAreCorrect	&= compareMap.at(byteWidth)(expectedBytes, outputAllocs[resultIndex], log);
+	}
+
+	return allResultsAreCorrect;
+}
+
 // Base class for ComputeTestGroupBuilder and GrephicstestGroupBuilder classes.
 // It contains all functionalities that are used by both child classes.
 class TestGroupBuilderBase
@@ -2144,20 +2609,21 @@ class TestGroupBuilderBase
 public:
 
 	TestGroupBuilderBase();
-	virtual ~TestGroupBuilderBase() {}
+	virtual ~TestGroupBuilderBase() = default;
 
-	void init();
+	virtual void createOperationTests(TestCaseGroup* parentGroup,
+									  const char* groupName,
+									  FloatType floatType,
+									  bool argumentsFromInput) = 0;
 
-	virtual void createTests(TestCaseGroup* group,
-							 FloatType floatType,
-							 bool argumentsFromInput) = 0;
+	virtual void createSettingsTests(TestCaseGroup* parentGroup) = 0;
 
 protected:
 
 	typedef vector<OperationTestCase> TestCaseVect;
 
-	// Structure containing all data required to create single test.
-	struct TestCaseInfo
+	// Structure containing all data required to create single operation test.
+	struct OperationTestCaseInfo
 	{
 		FloatType					outFloatType;
 		bool						argumentsFromInput;
@@ -2166,8 +2632,38 @@ protected:
 		const OperationTestCase&	testCase;
 	};
 
-	void specializeOperation(const TestCaseInfo&	testCaseInfo,
-							 SpecializedOperation&	specializedOperation) const;
+	// Mode used by SettingsTestCaseInfo to specify what settings do we want to test.
+	enum SettingsMode
+	{
+		SM_ROUNDING			= 0,
+		SM_DENORMS
+	};
+
+	// Enum containing available options. When rounding is tested only SO_RTE and SO_RTZ
+	// should be used. SO_FLUSH and SO_PRESERVE should be used only for denorm tests.
+	enum SettingsOption
+	{
+		SO_UNUSED			= 0,
+		SO_RTE,
+		SO_RTZ,
+		SO_FLUSH,
+		SO_PRESERVE
+	};
+
+	// Structure containing all data required to create single settings test.
+	struct SettingsTestCaseInfo
+	{
+		const char*								name;
+		SettingsMode							testedMode;
+		VkShaderFloatControlsIndependence		independenceSetting;
+
+		SettingsOption							fp16Option;
+		SettingsOption							fp32Option;
+		SettingsOption							fp64Option;
+	};
+
+	void specializeOperation(const OperationTestCaseInfo&	testCaseInfo,
+							 SpecializedOperation&			specializedOperation) const;
 
 	void getBehaviorCapabilityAndExecutionMode(BehaviorFlags behaviorFlags,
 											   const string inBitWidth,
@@ -2213,15 +2709,15 @@ TestGroupBuilderBase::TestGroupBuilderBase()
 	m_typeData[FP64].snippets		= TypeSnippetsSP(new TypeSnippets<double>);
 	m_typeData[FP64].testResults	= TypeTestResultsSP(new TypeTestResults<double>);
 
-	m_behaviorToName[B_DENORM_PERSERVE]	= "DenormPreserve";
+	m_behaviorToName[B_DENORM_PRESERVE]	= "DenormPreserve";
 	m_behaviorToName[B_DENORM_FLUSH]	= "DenormFlushToZero";
-	m_behaviorToName[B_ZIN_PERSERVE]	= "SignedZeroInfNanPreserve";
+	m_behaviorToName[B_ZIN_PRESERVE]	= "SignedZeroInfNanPreserve";
 	m_behaviorToName[B_RTE_ROUNDING]	= "RoundingModeRTE";
 	m_behaviorToName[B_RTZ_ROUNDING]	= "RoundingModeRTZ";
 }
 
-void TestGroupBuilderBase::specializeOperation(const TestCaseInfo&		testCaseInfo,
-											   SpecializedOperation&	specializedOperation) const
+void TestGroupBuilderBase::specializeOperation (const OperationTestCaseInfo&	testCaseInfo,
+												SpecializedOperation&			specializedOperation) const
 {
 	const string		typeToken		= "_float";
 	const string		widthToken		= "${float_width}";
@@ -2241,15 +2737,17 @@ void TestGroupBuilderBase::specializeOperation(const TestCaseInfo&		testCaseInfo
 	const string inTypePrefix	= string("_f") + inTypeSnippets->bitWidth;
 	const string outTypePrefix	= string("_f") + outTypeSnippets->bitWidth;
 
-	specializedOperation.constans		= replace(operation.constants, typeToken, inTypePrefix);
+	specializedOperation.constants		= replace(operation.constants, typeToken, inTypePrefix);
 	specializedOperation.annotations	= replace(operation.annotations, widthToken, outTypeSnippets->bitWidth);
 	specializedOperation.types			= replace(operation.types, typeToken, outTypePrefix);
 	specializedOperation.variables		= replace(operation.variables, typeToken, outTypePrefix);
+	specializedOperation.functions		= replace(operation.functions, typeToken, outTypePrefix);
 	specializedOperation.commands		= replace(operation.commands, typeToken, outTypePrefix);
 
-	specializedOperation.inFloatType		= inFloatType;
-	specializedOperation.inTypeSnippets		= inTypeSnippets;
-	specializedOperation.outTypeSnippets	= outTypeSnippets;
+	specializedOperation.inFloatType				= inFloatType;
+	specializedOperation.inTypeSnippets				= inTypeSnippets;
+	specializedOperation.outTypeSnippets			= outTypeSnippets;
+	specializedOperation.argumentsUsesFloatConstant	= 0;
 
 	if (operation.isSpecConstant)
 		return;
@@ -2268,9 +2766,15 @@ void TestGroupBuilderBase::specializeOperation(const TestCaseInfo&		testCaseInfo
 
 		const ValueId* inputArguments = testCaseInfo.testCase.input;
 		if (inputArguments[0] != V_UNUSED)
-			specializedOperation.arguments  = arg1 + inTypeSnippets->valueIdToSnippetArgMap.at(inputArguments[0]);
+		{
+			specializedOperation.arguments					= arg1 + inTypeSnippets->valueIdToSnippetArgMap.at(inputArguments[0]);
+			specializedOperation.argumentsUsesFloatConstant	|= B_STATEMENT_USAGE_ARGS_CONST_FLOAT;
+		}
 		if (inputArguments[1] != V_UNUSED)
-			specializedOperation.arguments += arg2 + inTypeSnippets->valueIdToSnippetArgMap.at(inputArguments[1]);
+		{
+			specializedOperation.arguments					+= arg2 + inTypeSnippets->valueIdToSnippetArgMap.at(inputArguments[1]);
+			specializedOperation.argumentsUsesFloatConstant	|= B_STATEMENT_USAGE_ARGS_CONST_FLOAT;
+		}
 	}
 }
 
@@ -2340,21 +2844,102 @@ void TestGroupBuilderBase::setupVulkanFeatures(FloatType		inFloatType,
 	switch(inFloatType)
 	{
 	case FP16:
-		floatControls.shaderDenormPreserveFloat16			= behaviorFlags & B_DENORM_PERSERVE;
+		floatControls.shaderDenormPreserveFloat16			= behaviorFlags & B_DENORM_PRESERVE;
 		floatControls.shaderDenormFlushToZeroFloat16		= behaviorFlags & B_DENORM_FLUSH;
-		floatControls.shaderSignedZeroInfNanPreserveFloat16	= behaviorFlags & B_ZIN_PERSERVE;
+		floatControls.shaderSignedZeroInfNanPreserveFloat16	= behaviorFlags & B_ZIN_PRESERVE;
 		return;
 	case FP32:
-		floatControls.shaderDenormPreserveFloat32			= behaviorFlags & B_DENORM_PERSERVE;
+		floatControls.shaderDenormPreserveFloat32			= behaviorFlags & B_DENORM_PRESERVE;
 		floatControls.shaderDenormFlushToZeroFloat32		= behaviorFlags & B_DENORM_FLUSH;
-		floatControls.shaderSignedZeroInfNanPreserveFloat32	= behaviorFlags & B_ZIN_PERSERVE;
+		floatControls.shaderSignedZeroInfNanPreserveFloat32	= behaviorFlags & B_ZIN_PRESERVE;
 		return;
 	case FP64:
-		floatControls.shaderDenormPreserveFloat64			= behaviorFlags & B_DENORM_PERSERVE;
+		floatControls.shaderDenormPreserveFloat64			= behaviorFlags & B_DENORM_PRESERVE;
 		floatControls.shaderDenormFlushToZeroFloat64		= behaviorFlags & B_DENORM_FLUSH;
-		floatControls.shaderSignedZeroInfNanPreserveFloat64	= behaviorFlags & B_ZIN_PERSERVE;
+		floatControls.shaderSignedZeroInfNanPreserveFloat64	= behaviorFlags & B_ZIN_PRESERVE;
 		return;
 	}
+}
+
+// Test case not related to SPIR-V but executed with compute tests. It checks if specified
+// features are set to the same value when specific independence settings are used.
+tcu::TestStatus verifyIndependenceSettings(Context& context)
+{
+	if (!context.isDeviceFunctionalitySupported("VK_KHR_shader_float_controls"))
+		TCU_THROW(NotSupportedError, "VK_KHR_shader_float_controls not supported");
+
+	vk::VkPhysicalDeviceFloatControlsPropertiesKHR	fcProperties;
+	fcProperties.sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES_KHR;
+	fcProperties.pNext	= DE_NULL;
+
+	vk::VkPhysicalDeviceProperties2 deviceProperties;
+	deviceProperties.sType	= VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	deviceProperties.pNext	= &fcProperties;
+
+	auto fail = [](const string& featureGroup)
+	{
+		return tcu::TestStatus::fail(featureGroup + " features should be set to the same value");
+	};
+
+	const VkPhysicalDevice			physicalDevice		= context.getPhysicalDevice();
+	const vk::InstanceInterface&	instanceInterface	= context.getInstanceInterface();
+	instanceInterface.getPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
+
+	if (fcProperties.roundingModeIndependence == VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR)
+	{
+		vk::VkBool32 fp16rte = fcProperties.shaderRoundingModeRTEFloat16;
+		vk::VkBool32 fp32rte = fcProperties.shaderRoundingModeRTEFloat32;
+		vk::VkBool32 fp64rte = fcProperties.shaderRoundingModeRTEFloat64;
+		if ((fp16rte != fp32rte) || (fp32rte != fp64rte))
+			return fail("shaderRoundingModeRTEFloat*");
+
+		vk::VkBool32 fp16rtz = fcProperties.shaderRoundingModeRTZFloat16;
+		vk::VkBool32 fp32rtz = fcProperties.shaderRoundingModeRTZFloat32;
+		vk::VkBool32 fp64rtz = fcProperties.shaderRoundingModeRTZFloat64;
+		if ((fp16rtz != fp32rtz) || (fp32rtz != fp64rtz))
+			return fail("shaderRoundingModeRTZFloat*");
+	}
+	else if (fcProperties.roundingModeIndependence == VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY_KHR)
+	{
+		vk::VkBool32 fp16rte = fcProperties.shaderRoundingModeRTEFloat16;
+		vk::VkBool32 fp64rte = fcProperties.shaderRoundingModeRTEFloat64;
+		if ((fp16rte != fp64rte))
+			return fail("shaderRoundingModeRTEFloat16 and 64");
+
+		vk::VkBool32 fp16rtz = fcProperties.shaderRoundingModeRTZFloat16;
+		vk::VkBool32 fp64rtz = fcProperties.shaderRoundingModeRTZFloat64;
+		if ((fp16rtz != fp64rtz))
+			return fail("shaderRoundingModeRTZFloat16 and 64");
+	}
+
+	if (fcProperties.denormBehaviorIndependence == VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR)
+	{
+		vk::VkBool32 fp16flush = fcProperties.shaderDenormFlushToZeroFloat16;
+		vk::VkBool32 fp32flush = fcProperties.shaderDenormFlushToZeroFloat32;
+		vk::VkBool32 fp64flush = fcProperties.shaderDenormFlushToZeroFloat64;
+		if ((fp16flush != fp32flush) || (fp32flush != fp64flush))
+			return fail("shaderDenormFlushToZeroFloat*");
+
+		vk::VkBool32 fp16preserve = fcProperties.shaderDenormPreserveFloat16;
+		vk::VkBool32 fp32preserve = fcProperties.shaderDenormPreserveFloat32;
+		vk::VkBool32 fp64preserve = fcProperties.shaderDenormPreserveFloat64;
+		if ((fp16preserve != fp32preserve) || (fp32preserve != fp64preserve))
+			return fail("shaderDenormPreserveFloat*");
+	}
+	else if (fcProperties.denormBehaviorIndependence == VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY_KHR)
+	{
+		vk::VkBool32 fp16flush = fcProperties.shaderDenormFlushToZeroFloat16;
+		vk::VkBool32 fp64flush = fcProperties.shaderDenormFlushToZeroFloat64;
+		if ((fp16flush != fp64flush))
+			return fail("shaderDenormFlushToZeroFloat16 and 64");
+
+		vk::VkBool32 fp16preserve = fcProperties.shaderDenormPreserveFloat16;
+		vk::VkBool32 fp64preserve = fcProperties.shaderDenormPreserveFloat64;
+		if ((fp16preserve != fp64preserve))
+			return fail("shaderDenormPreserveFloat16 and 64");
+	}
+
+	return tcu::TestStatus::pass("Pass");
 }
 
 // ComputeTestGroupBuilder contains logic that creates compute shaders
@@ -2366,27 +2951,35 @@ public:
 
 	void init();
 
-	void createTests(TestCaseGroup* group, FloatType floatType, bool argumentsFromInput);
+	void createOperationTests(TestCaseGroup* parentGroup,
+							  const char* groupName,
+							  FloatType floatType,
+							  bool argumentsFromInput) override;
+
+	void createSettingsTests(TestCaseGroup* parentGroup) override;
 
 protected:
 
-	void fillShaderSpec(const TestCaseInfo&		testCaseInfo,
-						ComputeShaderSpec&		csSpec) const;
+	void fillShaderSpec(const OperationTestCaseInfo&	testCaseInfo,
+						ComputeShaderSpec&				csSpec) const;
+	void fillShaderSpec(const SettingsTestCaseInfo&		testCaseInfo,
+						ComputeShaderSpec&				csSpec) const;
 
 private:
 
 
-	StringTemplate		m_shaderTemplate;
-	TestCasesBuilder	m_testCaseBuilder;
+	StringTemplate		m_operationShaderTemplate;
+	StringTemplate		m_settingsShaderTemplate;
+	TestCasesBuilder	m_operationTestCaseBuilder;
 };
 
 void ComputeTestGroupBuilder::init()
 {
-	m_testCaseBuilder.init();
+	m_operationTestCaseBuilder.init();
 
-	// geenric compute shader template that has code common for all
+	// generic compute shader template with common code for all
 	// float types and all possible operations listed in OperationId enum
-	m_shaderTemplate.setString(
+	m_operationShaderTemplate.setString(
 		"OpCapability Shader\n"
 		"${capabilities}"
 
@@ -2431,10 +3024,12 @@ void ComputeTestGroupBuilder::init()
 		"%id                   = OpVariable %type_u32_vec3_ptr Input\n"
 
 		// set of default constants per float type is placed here,
-		// operation tests can also define additional constants;
-		// note that O_RETURN_VAL defines function here and becouse
-		// of that this token needs to be directly before main function
+		// operation tests can also define additional constants.
 		"${constants}"
+
+		// O_RETURN_VAL defines function here and becouse
+		// of that this token needs to be directly before main function
+		"${functions}"
 
 		"%main                 = OpFunction %type_void None %type_voidf\n"
 		"%label                = OpLabel\n"
@@ -2453,13 +3048,72 @@ void ComputeTestGroupBuilder::init()
 
 		"OpReturn\n"
 		"OpFunctionEnd\n");
+
+	m_settingsShaderTemplate.setString(
+		"OpCapability Shader\n"
+		"${capabilities}"
+
+		"OpExtension \"SPV_KHR_float_controls\"\n"
+		"${extensions}"
+
+		"%std450 = OpExtInstImport \"GLSL.std.450\"\n"
+		"OpMemoryModel Logical GLSL450\n"
+		"OpEntryPoint GLCompute %main \"main\" %id\n"
+		"OpExecutionMode %main LocalSize 1 1 1\n"
+		"${execution_modes}"
+
+		// annotations
+		"OpDecorate %SSBO_in BufferBlock\n"
+		"OpDecorate %ssbo_in DescriptorSet 0\n"
+		"OpDecorate %ssbo_in Binding 0\n"
+		"OpDecorate %ssbo_in NonWritable\n"
+		"${io_annotations}"
+
+		"OpDecorate %id BuiltIn GlobalInvocationId\n"
+
+		// types
+		"%type_void            = OpTypeVoid\n"
+		"%type_voidf           = OpTypeFunction %type_void\n"
+		"%type_u32             = OpTypeInt 32 0\n"
+		"%type_i32             = OpTypeInt 32 1\n"
+		"%type_i32_fptr        = OpTypePointer Function %type_i32\n"
+		"%type_u32_vec3        = OpTypeVector %type_u32 3\n"
+		"%type_u32_vec3_ptr    = OpTypePointer Input %type_u32_vec3\n"
+
+		"%c_i32_0              = OpConstant %type_i32 0\n"
+		"%c_i32_1              = OpConstant %type_i32 1\n"
+		"%c_i32_2              = OpConstant %type_i32 2\n"
+
+		"${types}"
+
+		// in SSBO definition
+		"%SSBO_in              = OpTypeStruct ${in_struct}\n"
+		"%up_SSBO_in           = OpTypePointer Uniform %SSBO_in\n"
+		"%ssbo_in              = OpVariable %up_SSBO_in Uniform\n"
+
+		// out SSBO definitions
+		"${out_definitions}"
+
+		"%id                   = OpVariable %type_u32_vec3_ptr Input\n"
+		"%main                 = OpFunction %type_void None %type_voidf\n"
+		"%label                = OpLabel\n"
+
+		"${commands}"
+
+		"${save_result}"
+
+		"OpReturn\n"
+		"OpFunctionEnd\n");
 }
 
-void ComputeTestGroupBuilder::createTests(TestCaseGroup* group, FloatType floatType, bool argumentsFromInput)
+void ComputeTestGroupBuilder::createOperationTests(TestCaseGroup* parentGroup, const char* groupName, FloatType floatType, bool argumentsFromInput)
 {
-	TestContext& testCtx = group->getTestContext();
+	TestContext&	testCtx	= parentGroup->getTestContext();
+	TestCaseGroup*	group	= new TestCaseGroup(testCtx, groupName, "");
+	parentGroup->addChild(group);
+
 	TestCaseVect testCases;
-	m_testCaseBuilder.build(testCases, m_typeData[floatType].testResults, argumentsFromInput);
+	m_operationTestCaseBuilder.build(testCases, m_typeData[floatType].testResults, argumentsFromInput);
 
 	TestCaseVect::const_iterator currTestCase = testCases.begin();
 	TestCaseVect::const_iterator lastTestCase = testCases.end();
@@ -2472,12 +3126,12 @@ void ComputeTestGroupBuilder::createTests(TestCaseGroup* group, FloatType floatT
 		if (testCase.expectedOutput == V_UNUSED)
 			continue;
 
-		TestCaseInfo testCaseInfo =
+		OperationTestCaseInfo testCaseInfo =
 		{
 			floatType,
 			argumentsFromInput,
 			VK_SHADER_STAGE_COMPUTE_BIT,
-			m_testCaseBuilder.getOperation(testCase.operationId),
+			m_operationTestCaseBuilder.getOperation(testCase.operationId),
 			testCase
 		};
 
@@ -2490,8 +3144,77 @@ void ComputeTestGroupBuilder::createTests(TestCaseGroup* group, FloatType floatT
 	}
 }
 
-void ComputeTestGroupBuilder::fillShaderSpec(const TestCaseInfo& testCaseInfo,
-											 ComputeShaderSpec& csSpec) const
+void ComputeTestGroupBuilder::createSettingsTests(TestCaseGroup* parentGroup)
+{
+	TestContext&	testCtx	= parentGroup->getTestContext();
+	TestCaseGroup*	group	= new TestCaseGroup(testCtx, "independence_settings", "");
+	parentGroup->addChild(group);
+
+	using SFCI = VkShaderFloatControlsIndependence;
+	const SFCI independence32	= VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY_KHR;
+	const SFCI independenceAll	= VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL_KHR;
+
+	vector<SettingsTestCaseInfo> testCases =
+	{
+		// name															mode			independenceSetting		fp16Option		fp32Option		fp64Option
+
+		// test rounding modes when only two float widths are available
+		{ "rounding_ind_all_fp16_rte_fp32_rtz",							SM_ROUNDING,	independenceAll,		SO_RTE,			SO_RTZ,			SO_UNUSED },
+		{ "rounding_ind_all_fp16_rtz_fp32_rte",							SM_ROUNDING,	independenceAll,		SO_RTZ,			SO_RTE,			SO_UNUSED },
+		{ "rounding_ind_32_fp16_rte_fp32_rtz",							SM_ROUNDING,	independence32,			SO_RTE,			SO_RTZ,			SO_UNUSED },
+		{ "rounding_ind_32_fp16_rtz_fp32_rte",							SM_ROUNDING,	independence32,			SO_RTZ,			SO_RTE,			SO_UNUSED },
+		{ "rounding_ind_all_fp16_rte_fp64_rtz",							SM_ROUNDING,	independenceAll,		SO_RTE,			SO_UNUSED,		SO_RTZ },
+		{ "rounding_ind_all_fp16_rtz_fp64_rte",							SM_ROUNDING,	independenceAll,		SO_RTZ,			SO_UNUSED,		SO_RTE },
+		{ "rounding_ind_all_fp32_rte_fp64_rtz",							SM_ROUNDING,	independenceAll,		SO_UNUSED,		SO_RTE,			SO_RTZ },
+		{ "rounding_ind_all_fp32_rtz_fp64_rte",							SM_ROUNDING,	independenceAll,		SO_UNUSED,		SO_RTZ,			SO_RTE },
+		{ "rounding_ind_32_fp32_rte_fp64_rtz",							SM_ROUNDING,	independence32,			SO_UNUSED,		SO_RTE,			SO_RTZ },
+		{ "rounding_ind_32_fp32_rtz_fp64_rte",							SM_ROUNDING,	independence32,			SO_UNUSED,		SO_RTZ,			SO_RTE },
+
+		// test rounding modes when three widths are available
+		{ "rounding_ind_all_fp16_rtz_fp32_rte_fp64_rtz",				SM_ROUNDING,	independenceAll,		SO_RTZ,			SO_RTE,			SO_RTZ },
+		{ "rounding_ind_32_fp16_rtz_fp32_rte_fp64_rtz",					SM_ROUNDING,	independence32,			SO_RTZ,			SO_RTE,			SO_RTZ },
+		{ "rounding_ind_all_fp16_rte_fp32_rtz_fp64_rte",				SM_ROUNDING,	independenceAll,		SO_RTE,			SO_RTZ,			SO_RTE },
+		{ "rounding_ind_32_fp16_rte_fp32_rtz_fp64_rte",					SM_ROUNDING,	independence32,			SO_RTE,			SO_RTZ,			SO_RTE },
+		{ "rounding_ind_all_fp16_rtz_fp32_rtz_fp64_rte",				SM_ROUNDING,	independenceAll,		SO_RTZ,			SO_RTZ,			SO_RTE },
+		{ "rounding_ind_all_fp16_rtz_fp32_rte_fp64_rte",				SM_ROUNDING,	independenceAll,		SO_RTZ,			SO_RTE,			SO_RTE },
+		{ "rounding_ind_all_fp16_rte_fp32_rte_fp64_rtz",				SM_ROUNDING,	independenceAll,		SO_RTE,			SO_RTE,			SO_RTZ },
+		{ "rounding_ind_all_fp16_rte_fp32_rtz_fp64_rtz",				SM_ROUNDING,	independenceAll,		SO_RTE,			SO_RTZ,			SO_RTZ },
+
+		// test denorm settings when only two float widths are available
+		{ "denorm_ind_all_fp16_flush_fp32_preserve",					SM_DENORMS,		independenceAll,		SO_FLUSH,		SO_PRESERVE,	SO_UNUSED },
+		{ "denorm_ind_all_fp16_preserve_fp32_flush",					SM_DENORMS,		independenceAll,		SO_PRESERVE,	SO_FLUSH,		SO_UNUSED },
+		{ "denorm_ind_32_fp16_flush_fp32_preserve",						SM_DENORMS,		independence32,			SO_FLUSH,		SO_PRESERVE,	SO_UNUSED },
+		{ "denorm_ind_32_fp16_preserve_fp32_flush",						SM_DENORMS,		independence32,			SO_PRESERVE,	SO_FLUSH,		SO_UNUSED },
+		{ "denorm_ind_all_fp16_flush_fp64_preserve",					SM_DENORMS,		independenceAll,		SO_FLUSH,		SO_UNUSED,		SO_PRESERVE },
+		{ "denorm_ind_all_fp16_preserve_fp64_flush",					SM_DENORMS,		independenceAll,		SO_PRESERVE,	SO_UNUSED,		SO_FLUSH },
+		{ "denorm_ind_all_fp32_flush_fp64_preserve",					SM_DENORMS,		independenceAll,		SO_UNUSED,		SO_FLUSH,		SO_PRESERVE },
+		{ "denorm_ind_all_fp32_preserve_fp64_flush",					SM_DENORMS,		independenceAll,		SO_UNUSED,		SO_PRESERVE,	SO_FLUSH },
+		{ "denorm_ind_32_fp32_flush_fp64_preserve",						SM_DENORMS,		independence32,			SO_UNUSED,		SO_FLUSH,		SO_PRESERVE },
+		{ "denorm_ind_32_fp32_preserve_fp64_flush",						SM_DENORMS,		independence32,			SO_UNUSED,		SO_PRESERVE,	SO_FLUSH },
+
+		// test denorm settings when three widths are available
+		{ "denorm_ind_all_fp16_preserve_fp32_flush_fp64_preserve",		SM_DENORMS,		independenceAll,		SO_PRESERVE,	SO_FLUSH,		SO_PRESERVE },
+		{ "denorm_ind_32_fp16_preserve_fp32_flush_fp64_preserve",		SM_DENORMS,		independence32,			SO_PRESERVE,	SO_FLUSH,		SO_PRESERVE },
+		{ "denorm_ind_all_fp16_flush_fp32_preserve_fp64_flush",			SM_DENORMS,		independenceAll,		SO_FLUSH,		SO_PRESERVE,	SO_FLUSH },
+		{ "denorm_ind_32_fp16_flush_fp32_preserve_fp64_flush",			SM_DENORMS,		independence32,			SO_FLUSH,		SO_PRESERVE,	SO_FLUSH },
+		{ "denorm_ind_all_fp16_preserve_fp32_preserve_fp64_flush",		SM_DENORMS,		independenceAll,		SO_PRESERVE,	SO_PRESERVE,	SO_FLUSH },
+		{ "denorm_ind_all_fp16_preserve_fp32_flush_fp64_flush",			SM_DENORMS,		independenceAll,		SO_PRESERVE,	SO_FLUSH,		SO_FLUSH },
+		{ "denorm_ind_all_fp16_flush_fp32_flush_fp64_preserve",			SM_DENORMS,		independenceAll,		SO_FLUSH,		SO_FLUSH,		SO_PRESERVE },
+		{ "denorm_ind_all_fp16_flush_fp32_preserve_fp64_preserve",		SM_DENORMS,		independenceAll,		SO_FLUSH,		SO_PRESERVE,	SO_PRESERVE }
+	};
+
+	for(const auto& testCase : testCases)
+	{
+		ComputeShaderSpec	csSpec;
+		fillShaderSpec(testCase, csSpec);
+		group->addChild(new SpvAsmComputeShaderCase(testCtx, testCase.name, "", csSpec));
+	}
+
+	addFunctionCase(group, "independence_settings", "", verifyIndependenceSettings);
+}
+
+void ComputeTestGroupBuilder::fillShaderSpec(const OperationTestCaseInfo&	testCaseInfo,
+											 ComputeShaderSpec&				csSpec) const
 {
 	// LUT storing functions used to verify test results
 	const VerifyIOFunc checkFloatsLUT[] =
@@ -2538,6 +3261,9 @@ void ComputeTestGroupBuilder::fillShaderSpec(const TestCaseInfo& testCaseInfo,
 	string constants		= outTypeSnippets->constantsDefinitionsSnippet;
 	string ioDefinitions	= inTypeSnippets->inputDefinitionsSnippet + outTypeSnippets->outputDefinitionsSnippet;
 
+	bool outFp16TypeUsage	= outTypeSnippets->loadStoreRequiresShaderFloat16;
+	bool inFp16TypeUsage	= false;
+
 	if (testOperation.isInputTypeRestricted)
 	{
 		annotations		+= inTypeSnippets->typeAnnotationsSnippet;
@@ -2545,23 +3271,53 @@ void ComputeTestGroupBuilder::fillShaderSpec(const TestCaseInfo& testCaseInfo,
 		extensions		+= inTypeSnippets->extensions;
 		types			+= inTypeSnippets->typeDefinitionsSnippet;
 		constants		+= inTypeSnippets->constantsDefinitionsSnippet;
+
+		inFp16TypeUsage	= inTypeSnippets->loadStoreRequiresShaderFloat16;
 	}
 
 	map<string, string> specializations;
-	specializations["capabilities"]		= capabilities;
 	specializations["extensions"]		= extensions;
 	specializations["execution_mode"]	= behaviorExecutionMode;
 	specializations["annotations"]		= annotations + specOpData.annotations;
 	specializations["types"]			= types + specOpData.types;
-	specializations["constants"]		= constants + specOpData.constans;
 	specializations["io_definitions"]	= ioDefinitions;
-	specializations["arguments"]		= specOpData.arguments;
 	specializations["variables"]		= specOpData.variables;
-	specializations["commands"]			= specOpData.commands;
+	specializations["functions"]		= specOpData.functions;
 	specializations["save_result"]		= outTypeSnippets->storeResultsSnippet;
+	specializations["arguments"]		= specOpData.arguments;
+	specializations["commands"]			= specOpData.commands;
+
+	// Build constants. They are only needed sometimes.
+	const FloatStatementUsageFlags	argsAnyFloatConstMask				= B_STATEMENT_USAGE_ARGS_CONST_FLOAT | B_STATEMENT_USAGE_ARGS_CONST_FP16 | B_STATEMENT_USAGE_ARGS_CONST_FP32 | B_STATEMENT_USAGE_ARGS_CONST_FP64;
+	const bool						argsUseFPConstants					= (specOpData.argumentsUsesFloatConstant & argsAnyFloatConstMask) != 0;
+	const FloatStatementUsageFlags	commandsAnyFloatConstMask			= B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_CONST_FP16 | B_STATEMENT_USAGE_COMMANDS_CONST_FP32 | B_STATEMENT_USAGE_COMMANDS_CONST_FP64;
+	const bool						commandsUseFPConstants				= (testCaseInfo.operation.statementUsageFlags & commandsAnyFloatConstMask) != 0;
+	const bool						needConstants						= argsUseFPConstants || commandsUseFPConstants;
+	const FloatStatementUsageFlags	constsFloatTypeMask					= B_STATEMENT_USAGE_CONSTS_TYPE_FLOAT | B_STATEMENT_USAGE_CONSTS_TYPE_FP16;
+	const bool						constsUsesFP16Type					= (testCaseInfo.operation.statementUsageFlags & constsFloatTypeMask) != 0;
+	const bool						loadStoreRequiresShaderFloat16		= inFp16TypeUsage || outFp16TypeUsage;
+	const bool						usesFP16Constants					= constsUsesFP16Type || (needConstants && loadStoreRequiresShaderFloat16);
+
+	specializations["constants"]		= "";
+	if (needConstants)
+	{
+		specializations["constants"]	= constants;
+	}
+	specializations["constants"]		+= specOpData.constants;
+
+	// check which format features are needed
+	bool float16FeatureRequired = (outFloatType == FP16) || (inFloatType == FP16);
+	bool float64FeatureRequired = (outFloatType == FP64) || (inFloatType == FP64);
+
+	// Determine required capabilities.
+	if ((testOperation.floatUsage == FLOAT_ARITHMETIC && float16FeatureRequired) || usesFP16Constants)
+	{
+		capabilities += "OpCapability Float16\n";
+	}
+	specializations["capabilities"]		= capabilities;
 
 	// specialize shader
-	const string shaderCode = m_shaderTemplate.specialize(specializations);
+	const string shaderCode = m_operationShaderTemplate.specialize(specializations);
 
 	// construct input and output buffers of proper types
 	TypeValuesSP inTypeValues	= m_typeData.at(inFloatType).values;
@@ -2572,9 +3328,6 @@ void ComputeTestGroupBuilder::fillShaderSpec(const TestCaseInfo& testCaseInfo,
 	csSpec.outputs.push_back(Resource(outBufferSp));
 
 	// check which format features are needed
-	bool float16FeatureRequired = (outFloatType == FP16) || (inFloatType == FP16);
-	bool float64FeatureRequired = (outFloatType == FP64) || (inFloatType == FP64);
-
 	setupVulkanFeatures(inFloatTypeForCaps,		// usualy same as inFloatType - different only for UnpackHalf2x16
 						outFloatType,
 						testCase.behaviorFlags,
@@ -2586,13 +3339,237 @@ void ComputeTestGroupBuilder::fillShaderSpec(const TestCaseInfo& testCaseInfo,
 	csSpec.verifyIO			= checkFloatsLUT[outFloatType];
 
 	csSpec.extensions.push_back("VK_KHR_shader_float_controls");
+	bool needShaderFloat16 = false;
 	if (float16FeatureRequired)
 	{
 		csSpec.extensions.push_back("VK_KHR_16bit_storage");
 		csSpec.requestedVulkanFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
+		needShaderFloat16 |= testOperation.floatUsage == FLOAT_ARITHMETIC;
+	}
+	needShaderFloat16 |= usesFP16Constants;
+	if (needShaderFloat16)
+	{
+		csSpec.extensions.push_back("VK_KHR_shader_float16_int8");
+		csSpec.requestedVulkanFeatures.extFloat16Int8 = EXTFLOAT16INT8FEATURES_FLOAT16;
 	}
 	if (float64FeatureRequired)
 		csSpec.requestedVulkanFeatures.coreFeatures.shaderFloat64 = VK_TRUE;
+}
+
+void ComputeTestGroupBuilder::fillShaderSpec(const SettingsTestCaseInfo&	testCaseInfo,
+											 ComputeShaderSpec&				csSpec) const
+{
+	string		capabilities;
+	string		fp16behaviorName;
+	string		fp32behaviorName;
+	string		fp64behaviorName;
+
+	ValueId		addArgs[2];
+	ValueId		fp16resultValue;
+	ValueId		fp32resultValue;
+	ValueId		fp64resultValue;
+
+	ExtensionFloatControlsFeatures& floatControls = csSpec.requestedVulkanFeatures.floatControlsProperties;
+	bool fp16Required	= testCaseInfo.fp16Option != SO_UNUSED;
+	bool fp32Required	= testCaseInfo.fp32Option != SO_UNUSED;
+	bool fp64Required	= testCaseInfo.fp64Option != SO_UNUSED;
+
+	if (testCaseInfo.testedMode == SM_ROUNDING)
+	{
+		// make sure that only rounding options are used
+		DE_ASSERT((testCaseInfo.fp16Option != SO_FLUSH) ||
+				  (testCaseInfo.fp16Option != SO_PRESERVE) ||
+				  (testCaseInfo.fp32Option != SO_FLUSH) ||
+				  (testCaseInfo.fp32Option != SO_PRESERVE) ||
+				  (testCaseInfo.fp64Option != SO_FLUSH) ||
+				  (testCaseInfo.fp64Option != SO_PRESERVE));
+
+		bool fp16RteRounding	= testCaseInfo.fp16Option == SO_RTE;
+		bool fp32RteRounding	= testCaseInfo.fp32Option == SO_RTE;
+		bool fp64RteRounding	= testCaseInfo.fp64Option == SO_RTE;
+
+		const string& rte		= m_behaviorToName.at(B_RTE_ROUNDING);
+		const string& rtz		= m_behaviorToName.at(B_RTZ_ROUNDING);
+
+		fp16behaviorName		= fp16RteRounding ? rte : rtz;
+		fp32behaviorName		= fp32RteRounding ? rte : rtz;
+		fp64behaviorName		= fp64RteRounding ? rte : rtz;
+
+		addArgs[0]				= V_ADD_ARG_A;
+		addArgs[1]				= V_ADD_ARG_B;
+		fp16resultValue			= fp16RteRounding ? V_ADD_RTE_RESULT : V_ADD_RTZ_RESULT;
+		fp32resultValue			= fp32RteRounding ? V_ADD_RTE_RESULT : V_ADD_RTZ_RESULT;
+		fp64resultValue			= fp64RteRounding ? V_ADD_RTE_RESULT : V_ADD_RTZ_RESULT;
+
+		capabilities			= "OpCapability " + rte + "\n"
+								  "OpCapability " + rtz + "\n";
+
+		floatControls.roundingModeIndependence		= testCaseInfo.independenceSetting;
+		floatControls.denormBehaviorIndependence	= VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR;
+		floatControls.shaderRoundingModeRTEFloat16	= fp16RteRounding;
+		floatControls.shaderRoundingModeRTZFloat16	= fp16Required && !fp16RteRounding;
+		floatControls.shaderRoundingModeRTEFloat32	= fp32RteRounding;
+		floatControls.shaderRoundingModeRTZFloat32	= fp32Required && !fp32RteRounding;
+		floatControls.shaderRoundingModeRTEFloat64	= fp64RteRounding;
+		floatControls.shaderRoundingModeRTZFloat64	= fp64Required && !fp64RteRounding;
+	}
+	else // SM_DENORMS
+	{
+		// make sure that only denorm options are used
+		DE_ASSERT((testCaseInfo.fp16Option != SO_RTE) ||
+				  (testCaseInfo.fp16Option != SO_RTZ) ||
+				  (testCaseInfo.fp32Option != SO_RTE) ||
+				  (testCaseInfo.fp32Option != SO_RTZ) ||
+				  (testCaseInfo.fp64Option != SO_RTE) ||
+				  (testCaseInfo.fp64Option != SO_RTZ));
+
+		bool fp16DenormPreserve		= testCaseInfo.fp16Option == SO_PRESERVE;
+		bool fp32DenormPreserve		= testCaseInfo.fp32Option == SO_PRESERVE;
+		bool fp64DenormPreserve		= testCaseInfo.fp64Option == SO_PRESERVE;
+
+		const string& preserve		= m_behaviorToName.at(B_DENORM_PRESERVE);
+		const string& flush			= m_behaviorToName.at(B_DENORM_FLUSH);
+
+		fp16behaviorName			= fp16DenormPreserve ? preserve : flush;
+		fp32behaviorName			= fp32DenormPreserve ? preserve : flush;
+		fp64behaviorName			= fp64DenormPreserve ? preserve : flush;
+
+		addArgs[0]					= V_DENORM;
+		addArgs[1]					= V_DENORM;
+		fp16resultValue				= fp16DenormPreserve ? V_DENORM_TIMES_TWO : V_ZERO;
+		fp32resultValue				= fp32DenormPreserve ? V_DENORM_TIMES_TWO : V_ZERO;
+		fp64resultValue				= fp64DenormPreserve ? V_DENORM_TIMES_TWO : V_ZERO;
+
+		capabilities				= "OpCapability " + preserve + "\n"
+									  "OpCapability " + flush + "\n";
+
+		floatControls.denormBehaviorIndependence		= testCaseInfo.independenceSetting;
+		floatControls.roundingModeIndependence			= VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR;
+		floatControls.shaderDenormPreserveFloat16		= fp16DenormPreserve;
+		floatControls.shaderDenormFlushToZeroFloat16	= fp16Required && !fp16DenormPreserve;
+		floatControls.shaderDenormPreserveFloat32		= fp32DenormPreserve;
+		floatControls.shaderDenormFlushToZeroFloat32	= fp32Required && !fp32DenormPreserve;
+		floatControls.shaderDenormPreserveFloat64		= fp64DenormPreserve;
+		floatControls.shaderDenormFlushToZeroFloat64	= fp64Required && !fp64DenormPreserve;
+	}
+
+	const auto&	fp64Data			= m_typeData.at(FP64);
+	const auto&	fp32Data			= m_typeData.at(FP32);
+	const auto&	fp16Data			= m_typeData.at(FP16);
+
+	deUint32	attributeIndex		= 0;
+	deUint32	attributeOffset		= 0;
+	string		attribute;
+	string		extensions			= "";
+	string		executionModes		= "";
+	string		ioAnnotations		= "";
+	string		types				= "";
+	string		inStruct			= "";
+	string		outDefinitions		= "";
+	string		commands			= "";
+	string		saveResult			= "";
+
+	// construct single input buffer containing arguments for all float widths
+	// (maxPerStageDescriptorStorageBuffers can be min 4 and we need 3 for outputs)
+	deUint32				inputOffset	= 0;
+	std::vector<deUint8>	inputData	((fp64Required * sizeof(double) + sizeof(float) + fp16Required * sizeof(deFloat16)) * 2);
+
+	// to follow storage buffer layout rules we store data in ssbo in order 64 -> 16
+	if (fp64Required)
+	{
+		capabilities	+= fp64Data.snippets->capabilities;
+		executionModes	+= "OpExecutionMode %main " + fp64behaviorName + " 64\n";
+		attribute		 = to_string(attributeIndex);
+		ioAnnotations	+= "OpMemberDecorate %SSBO_in " + attribute + " Offset " + to_string(attributeOffset) +"\n" +
+						   fp64Data.snippets->multiOutputAnnotationsSnippet +
+						   "OpDecorate %ssbo_f64_out Binding " + to_string(attributeIndex+1) + "\n";
+		types			+= fp64Data.snippets->minTypeDefinitionsSnippet;
+		inStruct		+= " %type_f64_arr_2";
+		outDefinitions	+= fp64Data.snippets->multiOutputDefinitionsSnippet;
+		commands		+= replace(fp64Data.snippets->multiArgumentsFromInputSnippet, "${attr}", attribute) +
+						   "%result64             = OpFAdd %type_f64 %arg1_f64 %arg2_f64\n";
+		saveResult		+= fp64Data.snippets->multiStoreResultsSnippet;
+		attributeOffset += 2 * static_cast<deUint32>(sizeof(double));
+		attributeIndex++;
+
+		fp64Data.values->fillInputData(addArgs, inputData, inputOffset);
+
+		// construct separate buffers for outputs to make validation easier
+		BufferSp fp64OutBufferSp = fp64Data.values->constructOutputBuffer(fp64resultValue);
+		csSpec.outputs.push_back(Resource(fp64OutBufferSp));
+
+		csSpec.requestedVulkanFeatures.coreFeatures.shaderFloat64 = VK_TRUE;
+	}
+	if (fp32Required)
+	{
+		executionModes		+= "OpExecutionMode %main " + fp32behaviorName + " 32\n";
+		attribute			 = to_string(attributeIndex);
+		ioAnnotations		+= "OpMemberDecorate %SSBO_in " + attribute + " Offset " + to_string(attributeOffset) +"\n" +
+							   fp32Data.snippets->multiOutputAnnotationsSnippet +
+							   "OpDecorate %ssbo_f32_out Binding " + to_string(attributeIndex+1) + "\n";
+		types				+= fp32Data.snippets->minTypeDefinitionsSnippet;
+		inStruct			+= " %type_f32_arr_2";
+		outDefinitions		+= fp32Data.snippets->multiOutputDefinitionsSnippet;
+		commands			+= replace(fp32Data.snippets->multiArgumentsFromInputSnippet, "${attr}", attribute) +
+							   "%result32             = OpFAdd %type_f32 %arg1_f32 %arg2_f32\n";
+		saveResult			+= fp32Data.snippets->multiStoreResultsSnippet;
+		attributeOffset		+= 2 * static_cast<deUint32>(sizeof(float));
+		attributeIndex++;
+
+		fp32Data.values->fillInputData(addArgs, inputData, inputOffset);
+
+		BufferSp fp32OutBufferSp = fp32Data.values->constructOutputBuffer(fp32resultValue);
+		csSpec.outputs.push_back(Resource(fp32OutBufferSp));
+	}
+	if (fp16Required)
+	{
+		capabilities	+= fp16Data.snippets->capabilities +
+						   "OpCapability Float16\n";
+		extensions		+= fp16Data.snippets->extensions;
+		executionModes	+= "OpExecutionMode %main " + fp16behaviorName + " 16\n";
+		attribute		 = to_string(attributeIndex);
+		ioAnnotations	+= "OpMemberDecorate %SSBO_in " + attribute + " Offset " + to_string(attributeOffset) +"\n" +
+						   fp16Data.snippets->multiOutputAnnotationsSnippet +
+						   "OpDecorate %ssbo_f16_out Binding " + to_string(attributeIndex+1) + "\n";
+		types			+= fp16Data.snippets->minTypeDefinitionsSnippet;
+		inStruct		+= " %type_f16_arr_2";
+		outDefinitions	+= fp16Data.snippets->multiOutputDefinitionsSnippet;
+		commands		+= replace(fp16Data.snippets->multiArgumentsFromInputSnippet, "${attr}", attribute) +
+						   "%result16             = OpFAdd %type_f16 %arg1_f16 %arg2_f16\n";
+		saveResult		+= fp16Data.snippets->multiStoreResultsSnippet;
+
+		fp16Data.values->fillInputData(addArgs, inputData, inputOffset);
+
+		BufferSp fp16OutBufferSp = fp16Data.values->constructOutputBuffer(fp16resultValue);
+		csSpec.outputs.push_back(Resource(fp16OutBufferSp));
+
+		csSpec.extensions.push_back("VK_KHR_16bit_storage");
+		csSpec.requestedVulkanFeatures.ext16BitStorage = EXT16BITSTORAGEFEATURES_UNIFORM_BUFFER_BLOCK;
+	}
+
+	BufferSp inBufferSp(new Buffer<deUint8>(inputData));
+	csSpec.inputs.push_back(Resource(inBufferSp, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER));
+
+	map<string, string> specializations =
+	{
+		{ "capabilities",		capabilities },
+		{ "extensions",			extensions },
+		{ "execution_modes",	executionModes },
+		{ "io_annotations",		ioAnnotations },
+		{ "types",				types },
+		{ "in_struct",			inStruct },
+		{ "out_definitions",	outDefinitions },
+		{ "commands",			commands },
+		{ "save_result",		saveResult }
+	};
+
+	// specialize shader
+	const string shaderCode = m_settingsShaderTemplate.specialize(specializations);
+
+	csSpec.assembly			= shaderCode;
+	csSpec.numWorkGroups	= IVec3(1, 1, 1);
+	csSpec.verifyIO			= checkMixedFloats;
+	csSpec.extensions.push_back("VK_KHR_shader_float_controls");
 }
 
 void getGraphicsShaderCode (vk::SourceCollections& dst, InstanceContext context)
@@ -2669,10 +3646,12 @@ void getGraphicsShaderCode (vk::SourceCollections& dst, InstanceContext context)
 		"%BP_vertex_color      = OpVariable %type_f32_vec4_optr Output\n"
 
 		// set of default constants per float type is placed here,
-		// operation tests can also define additional constants;
-		// note that O_RETURN_VAL defines function here and because
-		// of that this token needs to be directly before main function
+		// operation tests can also define additional constants.
 		"${vert_constants}"
+
+		// O_RETURN_VAL defines function here and because
+		// of that this token needs to be directly before main function.
+		"${vert_functions}"
 
 		"%main                 = OpFunction %type_void None %type_voidf\n"
 		"%label                = OpLabel\n"
@@ -2754,10 +3733,12 @@ void getGraphicsShaderCode (vk::SourceCollections& dst, InstanceContext context)
 		"${frag_io_definitions}"
 
 		// set of default constants per float type is placed here,
-		// operation tests can also define additional constants;
-		// note that O_RETURN_VAL defines function here and because
-		// of that this token needs to be directly before main function
+		// operation tests can also define additional constants.
 		"${frag_constants}"
+
+		// O_RETURN_VAL defines function here and because
+		// of that this token needs to be directly before main function.
+		"${frag_functions}"
 
 		"%main                 = OpFunction %type_void None %type_voidf\n"
 		"%label                = OpLabel\n"
@@ -2805,11 +3786,12 @@ public:
 
 	void init();
 
-	void createTests(TestCaseGroup* group, FloatType floatType, bool argumentsFromInput);
+	void createOperationTests(TestCaseGroup* parentGroup, const char* groupName, FloatType floatType, bool argumentsFromInput) override;
+	void createSettingsTests(TestCaseGroup* parentGroup) override;
 
 protected:
 
-	InstanceContext createInstanceContext(const TestCaseInfo& testCaseInfo) const;
+	InstanceContext createInstanceContext(const OperationTestCaseInfo& testCaseInfo) const;
 
 private:
 
@@ -2821,8 +3803,12 @@ void GraphicsTestGroupBuilder::init()
 	m_testCaseBuilder.init();
 }
 
-void GraphicsTestGroupBuilder::createTests(TestCaseGroup* group, FloatType floatType, bool argumentsFromInput)
+void GraphicsTestGroupBuilder::createOperationTests(TestCaseGroup* parentGroup, const char* groupName, FloatType floatType, bool argumentsFromInput)
 {
+	TestContext&	testCtx	= parentGroup->getTestContext();
+	TestCaseGroup*	group	= new TestCaseGroup(testCtx, groupName, "");
+	parentGroup->addChild(group);
+
 	// create test cases for vertex stage
 	TestCaseVect testCases;
 	m_testCaseBuilder.build(testCases, m_typeData[floatType].testResults, argumentsFromInput);
@@ -2845,7 +3831,7 @@ void GraphicsTestGroupBuilder::createTests(TestCaseGroup* group, FloatType float
 		if ((testCase.operationId == O_ORTZ_ROUND) || (testCase.operationId == O_ORTE_ROUND))
 			continue;
 
-		TestCaseInfo testCaseInfo =
+		OperationTestCaseInfo testCaseInfo =
 		{
 			floatType,
 			argumentsFromInput,
@@ -2875,7 +3861,7 @@ void GraphicsTestGroupBuilder::createTests(TestCaseGroup* group, FloatType float
 		if (testCase.expectedOutput == V_UNUSED)
 			continue;
 
-		TestCaseInfo testCaseInfo =
+		OperationTestCaseInfo testCaseInfo =
 		{
 			floatType,
 			argumentsFromInput,
@@ -2891,7 +3877,14 @@ void GraphicsTestGroupBuilder::createTests(TestCaseGroup* group, FloatType float
 	}
 }
 
-InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseInfo& testCaseInfo) const
+void GraphicsTestGroupBuilder::createSettingsTests(TestCaseGroup* parentGroup)
+{
+	DE_UNREF(parentGroup);
+
+	// WG decided that testing settings only for compute stage is sufficient
+}
+
+InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const OperationTestCaseInfo& testCaseInfo) const
 {
 	// LUT storing functions used to verify test results
 	const VerifyIOFunc checkFloatsLUT[] =
@@ -2927,6 +3920,11 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 	TypeSnippetsSP	outTypeSnippets		= specOpData.outTypeSnippets;
 	FloatType		inFloatType			= specOpData.inFloatType;
 
+	// There may be several reasons why we need the shaderFloat16 Vulkan feature.
+	bool needsShaderFloat16 = false;
+	// There are some weird cases where we need the constants, but would otherwise drop them.
+	bool needsSpecialConstants = false;
+
 	// UnpackHalf2x16 is a corner case - it returns two 32-bit floats but
 	// internaly operates on fp16 and this type should be used by float controls
 	FloatType		inFloatTypeForCaps		= inFloatType;
@@ -2961,6 +3959,8 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 	string fragTypes;
 	string vertConstants;
 	string fragConstants;
+	string vertFunctions;
+	string fragFunctions;
 	string vertIODefinitions;
 	string fragIODefinitions;
 	string vertArguments;
@@ -2977,6 +3977,7 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 	{
 		vertAnnotations = inTypeSnippets->inputAnnotationsSnippet + inTypeSnippets->typeAnnotationsSnippet;
 		fragAnnotations = outTypeSnippets->outputAnnotationsSnippet + outTypeSnippets->typeAnnotationsSnippet;
+		vertFunctions = specOpData.functions;
 
 		// check if input type is different from tested type (conversion operations)
 		if (testOperation.isInputTypeRestricted)
@@ -3001,7 +4002,7 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 			vertTypes			= outTypeSnippets->typeDefinitionsSnippet + outTypeSnippets->varyingsTypesSnippet;
 			fragTypes			= vertTypes;
 			vertConstants		= outTypeSnippets->constantsDefinitionsSnippet;
-			fragConstants		= vertConstants;
+			fragConstants		= outTypeSnippets->constantsDefinitionsSnippet;
 		}
 
 		if (outFloatType != FP32)
@@ -3011,9 +4012,9 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 				vertTypes += f32TypeMinimalRequired;
 		}
 
-		vertAnnotations += specOpData.annotations;
+		vertAnnotations	+= specOpData.annotations;
 		vertTypes		+= specOpData.types;
-		vertConstants	+= specOpData.constans;
+		vertConstants	+= specOpData.constants;
 
 		vertExecutionMode		= behaviorExecutionMode;
 		fragExecutionMode		= "";
@@ -3027,9 +4028,11 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 		fragCommands			= "";
 		vertProcessResult		= outTypeSnippets->storeVertexResultSnippet;
 		fragProcessResult		= outTypeSnippets->loadVertexResultSnippet + outTypeSnippets->storeResultsSnippet;
+		needsShaderFloat16		|= outTypeSnippets->loadStoreRequiresShaderFloat16;
 	}
 	else // perform test in fragment stage - vertex stage is empty
 	{
+		fragFunctions = specOpData.functions;
 		// check if input type is different from tested type
 		if (testOperation.isInputTypeRestricted)
 		{
@@ -3067,7 +4070,7 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 
 		fragAnnotations += specOpData.annotations;
 		fragTypes		+= specOpData.types;
-		fragConstants	+= specOpData.constans;
+		fragConstants	+= specOpData.constants;
 
 		vertExecutionMode	= "";
 		fragExecutionMode	= behaviorExecutionMode;
@@ -3082,6 +4085,52 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 		fragCommands		= specOpData.commands;
 		vertProcessResult	= "";
 		fragProcessResult	= outTypeSnippets->storeResultsSnippet;
+
+		if (!testCaseInfo.argumentsFromInput)
+		{
+			switch(testCaseInfo.testCase.operationId)
+			{
+				case O_CONV_FROM_FP32:
+				case O_CONV_FROM_FP64:
+					needsSpecialConstants = true;
+					break;
+				default:
+					break;
+			}
+		}
+	}
+
+	// Another reason we need shaderFloat16 is the executable instructions uses fp16
+	// in a way not supported by the 16bit storage extension.
+	needsShaderFloat16 |= float16FeatureRequired && testOperation.floatUsage == FLOAT_ARITHMETIC;
+
+	// Constants are only needed sometimes.  Drop them in the fp16 case if the code doesn't need
+	// them, and if we don't otherwise need shaderFloat16.
+	bool needsFP16Constants = needsShaderFloat16 || needsSpecialConstants;
+
+	if (!needsFP16Constants && float16FeatureRequired)
+	{
+		// Check various code fragments
+		const FloatStatementUsageFlags	commandsFloatConstMask				= B_STATEMENT_USAGE_COMMANDS_CONST_FLOAT | B_STATEMENT_USAGE_COMMANDS_CONST_FP16;
+		const bool						commandsUsesFloatConstant			= (testCaseInfo.operation.statementUsageFlags & commandsFloatConstMask) != 0;;
+		const FloatStatementUsageFlags	argumentsFloatConstMask				= B_STATEMENT_USAGE_ARGS_CONST_FLOAT | B_STATEMENT_USAGE_ARGS_CONST_FP16;
+		const bool						argumentsUsesFloatConstant			= (specOpData.argumentsUsesFloatConstant & argumentsFloatConstMask) != 0;
+		bool							hasFP16ConstsInCommandsOrArguments	= commandsUsesFloatConstant || argumentsUsesFloatConstant;
+
+		needsFP16Constants |= hasFP16ConstsInCommandsOrArguments;
+
+		if (!needsFP16Constants)
+		{
+			vertConstants = "";
+			fragConstants = "";
+		}
+	}
+	needsShaderFloat16 |= needsFP16Constants;
+
+	if (needsShaderFloat16)
+	{
+		vertCapabilities += "OpCapability Float16\n";
+		fragCapabilities += "OpCapability Float16\n";
 	}
 
 	map<string, string> specializations;
@@ -3094,6 +4143,7 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 	specializations["vert_io_definitions"]	= vertIODefinitions;
 	specializations["vert_arguments"]		= vertArguments;
 	specializations["vert_variables"]		= vertVariables;
+	specializations["vert_functions"]		= vertFunctions;
 	specializations["vert_commands"]		= vertCommands;
 	specializations["vert_process_result"]	= vertProcessResult;
 	specializations["frag_capabilities"]	= fragCapabilities;
@@ -3102,6 +4152,7 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 	specializations["frag_annotations"]		= fragAnnotations;
 	specializations["frag_types"]			= fragTypes;
 	specializations["frag_constants"]		= fragConstants;
+	specializations["frag_functions"]		= fragFunctions;
 	specializations["frag_io_definitions"]	= fragIODefinitions;
 	specializations["frag_arguments"]		= fragArguments;
 	specializations["frag_variables"]		= fragVariables;
@@ -3136,6 +4187,11 @@ InstanceContext GraphicsTestGroupBuilder::createInstanceContext(const TestCaseIn
 
 	vector<string> extensions;
 	extensions.push_back("VK_KHR_shader_float_controls");
+	if (needsShaderFloat16)
+	{
+		extensions.push_back("VK_KHR_shader_float16_int8");
+		vulkanFeatures.extFloat16Int8 = EXTFLOAT16INT8FEATURES_FLOAT16;
+	}
 	if (float16FeatureRequired)
 	{
 		extensions.push_back("VK_KHR_16bit_storage");
@@ -3187,14 +4243,11 @@ tcu::TestCaseGroup* createFloatControlsTestGroup (TestContext& testCtx, TestGrou
 		TestCaseGroup* typeGroup = new TestCaseGroup(testCtx, testGroup.groupName, "");
 		group->addChild(typeGroup);
 
-		TestCaseGroup* inputArgsGroup = new TestCaseGroup(testCtx, "input_args", "");
-		groupBuilder->createTests(inputArgsGroup, testGroup.floatType, true);
-		typeGroup->addChild(inputArgsGroup);
-
-		TestCaseGroup* generatedArgsGroup = new TestCaseGroup(testCtx, "generated_args", "");
-		groupBuilder->createTests(generatedArgsGroup, testGroup.floatType, false);
-		typeGroup->addChild(generatedArgsGroup);
+		groupBuilder->createOperationTests(typeGroup, "input_args", testGroup.floatType, true);
+		groupBuilder->createOperationTests(typeGroup, "generated_args", testGroup.floatType, false);
 	}
+
+	groupBuilder->createSettingsTests(group.get());
 
 	return group.release();
 }

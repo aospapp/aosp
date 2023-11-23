@@ -521,7 +521,6 @@ public class TestSupplementalInfo extends TestFmwkPlus {
             { "cy", "two", "0" }, // n is 2
             { "ga", "two", "0" }, // n is 2
             { "iu", "two", "0" }, // n is 2
-            { "kw", "two", "0" }, // n is 2
             { "naq", "two", "0" }, // n is 2
             { "se", "two", "0" }, // n is 2
             { "sma", "two", "0" }, // n is 2
@@ -554,6 +553,8 @@ public class TestSupplementalInfo extends TestFmwkPlus {
             // 4,6,9
             { "dsb", "one", "0,00,000,0000" }, // v = 0 and i % 100 = 1 or f
             // % 100 = 1
+            {"kw", "many", "00,000,0000"},  // n != 1 and n % 100 = 1,21,41,61,81
+            {"kw", "zero", "0"},    // n = 0
         };
         // parse out the exceptions
         Map<PluralInfo, Relation<Count, Integer>> exceptions = new HashMap<PluralInfo, Relation<Count, Integer>>();
@@ -817,9 +818,9 @@ public class TestSupplementalInfo extends TestFmwkPlus {
                     if (item != preferredAndAllowedHour.preferred) {
                         String message = "Inconsistent values for " + region + ": preferred=" + preferredAndAllowedHour.preferred
                             + " but that isn't the first " + oldSchool + " in allowed: " + preferredAndAllowedHour.allowed;
-                        if (!logKnownIssue("cldrbug:11448", message)) {
+                        //if (!logKnownIssue("cldrbug:11448", message)) {
                             errln(message);
-                        }
+                        //}
                     }
                     break;
                 }
@@ -904,8 +905,9 @@ public class TestSupplementalInfo extends TestFmwkPlus {
         // if we have a case like CA, where en uses 12/24 but fr uses 24, remove
         // it for safety
         only24region.removeAll(either24or12region);
-        // There are always exceptions... Remove VA (Vatican), since it allows 12/24
-        // but the de facto langauge is Italian.
+        // There are always exceptions... Remove SM (San Marino) and VA (Vatican),
+        // since they allows 12/24 but the de facto langauge is Italian.
+        only24region.remove("SM");
         only24region.remove("VA");
         // also remove all the regions where 'h' is preferred
         only24region.removeAll(current12preferred);
@@ -976,7 +978,7 @@ public class TestSupplementalInfo extends TestFmwkPlus {
                 }
             }
 
-            Set<R3<String, List<String>, List<String>>> failures = new TreeSet<R3<String, List<String>, List<String>>>();
+            Set<R3<String, List<String>, List<String>>> failures = new LinkedHashSet<R3<String, List<String>, List<String>>>();
             Set<String> nullReplacements = new TreeSet<String>();
             for (Entry<String, R2<List<String>, String>> codeRep : codeReplacement
                 .entrySet()) {
@@ -1251,6 +1253,7 @@ public class TestSupplementalInfo extends TestFmwkPlus {
             // if there are primary scripts, they must include script (if not
             // empty)
             Set<String> primaryScripts = Collections.emptySet();
+            Set<String> secondaryScripts = Collections.emptySet();
             Map<Type, BasicLanguageData> basicData = SUPPLEMENTAL
                 .getBasicLanguageDataMap(base);
             if (basicData != null) {
@@ -1259,13 +1262,18 @@ public class TestSupplementalInfo extends TestFmwkPlus {
                 if (s != null) {
                     primaryScripts = s.getScripts();
                 }
+                s = basicData.get(BasicLanguageData.Type.secondary);
+                if (s != null) {
+                    secondaryScripts = s.getScripts();
+                }
             }
 
             // do some consistency tests; if there is a script, it must be in
-            // primaryScripts
-            if (!script.isEmpty() && !primaryScripts.contains(script)) {
+            // primaryScripts or secondaryScripts
+            if (!script.isEmpty() && !primaryScripts.contains(script) && !secondaryScripts.contains(script)) {
                 errln(base + ": Script found in territory data (" + script
-                    + ") is not in primary scripts :\t" + primaryScripts);
+                    + ") is not in primary scripts :\t" + primaryScripts
+                    + " and not in secondary scripts :\t" + secondaryScripts);
             }
 
             // if there are multiple primary scripts, they will be in

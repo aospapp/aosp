@@ -34,85 +34,6 @@ namespace tessellation
 
 using namespace vk;
 
-VkBufferCreateInfo makeBufferCreateInfo (const VkDeviceSize			bufferSize,
-										 const VkBufferUsageFlags	usage)
-{
-	const VkBufferCreateInfo bufferCreateInfo =
-	{
-		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType		sType;
-		DE_NULL,								// const void*			pNext;
-		(VkBufferCreateFlags)0,					// VkBufferCreateFlags	flags;
-		bufferSize,								// VkDeviceSize			size;
-		usage,									// VkBufferUsageFlags	usage;
-		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode		sharingMode;
-		0u,										// deUint32				queueFamilyIndexCount;
-		DE_NULL,								// const deUint32*		pQueueFamilyIndices;
-	};
-	return bufferCreateInfo;
-}
-
-Move<VkCommandPool> makeCommandPool (const DeviceInterface& vk, const VkDevice device, const deUint32 queueFamilyIndex)
-{
-	const VkCommandPoolCreateInfo info =
-	{
-		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,			// VkStructureType			sType;
-		DE_NULL,											// const void*				pNext;
-		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,	// VkCommandPoolCreateFlags	flags;
-		queueFamilyIndex,									// deUint32					queueFamilyIndex;
-	};
-	return createCommandPool(vk, device, &info);
-}
-
-
-Move<VkDescriptorSet> makeDescriptorSet (const DeviceInterface&			vk,
-										 const VkDevice					device,
-										 const VkDescriptorPool			descriptorPool,
-										 const VkDescriptorSetLayout	setLayout)
-{
-	const VkDescriptorSetAllocateInfo info =
-	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,		// VkStructureType				sType;
-		DE_NULL,											// const void*					pNext;
-		descriptorPool,										// VkDescriptorPool				descriptorPool;
-		1u,													// deUint32						descriptorSetCount;
-		&setLayout,											// const VkDescriptorSetLayout*	pSetLayouts;
-	};
-	return allocateDescriptorSet(vk, device, &info);
-}
-
-Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
-										   const VkDevice				device,
-										   const VkDescriptorSetLayout	descriptorSetLayout)
-{
-	const VkPipelineLayoutCreateInfo info =
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType				sType;
-		DE_NULL,											// const void*					pNext;
-		(VkPipelineLayoutCreateFlags)0,						// VkPipelineLayoutCreateFlags	flags;
-		1u,													// deUint32						setLayoutCount;
-		&descriptorSetLayout,								// const VkDescriptorSetLayout*	pSetLayouts;
-		0u,													// deUint32						pushConstantRangeCount;
-		DE_NULL,											// const VkPushConstantRange*	pPushConstantRanges;
-	};
-	return createPipelineLayout(vk, device, &info);
-}
-
-Move<VkPipelineLayout> makePipelineLayoutWithoutDescriptors (const DeviceInterface&		vk,
-															 const VkDevice				device)
-{
-	const VkPipelineLayoutCreateInfo info =
-	{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType				sType;
-		DE_NULL,											// const void*					pNext;
-		(VkPipelineLayoutCreateFlags)0,						// VkPipelineLayoutCreateFlags	flags;
-		0u,													// deUint32						setLayoutCount;
-		DE_NULL,											// const VkDescriptorSetLayout*	pSetLayouts;
-		0u,													// deUint32						pushConstantRangeCount;
-		DE_NULL,											// const VkPushConstantRange*	pPushConstantRanges;
-	};
-	return createPipelineLayout(vk, device, &info);
-}
-
 Move<VkPipeline> makeComputePipeline (const DeviceInterface&		vk,
 									  const VkDevice				device,
 									  const VkPipelineLayout		pipelineLayout,
@@ -165,42 +86,6 @@ VkImageCreateInfo makeImageCreateInfo (const tcu::IVec2& size, const VkFormat fo
 	return imageInfo;
 }
 
-Move<VkImageView> makeImageView (const DeviceInterface&			vk,
-								 const VkDevice					vkDevice,
-								 const VkImage					image,
-								 const VkImageViewType			viewType,
-								 const VkFormat					format,
-								 const VkImageSubresourceRange	subresourceRange)
-{
-	const VkImageViewCreateInfo imageViewParams =
-	{
-		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,		// VkStructureType			sType;
-		DE_NULL,										// const void*				pNext;
-		(VkImageViewCreateFlags)0,						// VkImageViewCreateFlags	flags;
-		image,											// VkImage					image;
-		viewType,										// VkImageViewType			viewType;
-		format,											// VkFormat					format;
-		makeComponentMappingRGBA(),						// VkComponentMapping		components;
-		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
-	};
-	return createImageView(vk, vkDevice, &imageViewParams);
-}
-
-VkBufferImageCopy makeBufferImageCopy (const VkExtent3D					extent,
-									   const VkImageSubresourceLayers	subresourceLayers)
-{
-	const VkBufferImageCopy copyParams =
-	{
-		0ull,										//	VkDeviceSize				bufferOffset;
-		0u,											//	deUint32					bufferRowLength;
-		0u,											//	deUint32					bufferImageHeight;
-		subresourceLayers,							//	VkImageSubresourceLayers	imageSubresource;
-		makeOffset3D(0, 0, 0),						//	VkOffset3D					imageOffset;
-		extent,										//	VkExtent3D					imageExtent;
-	};
-	return copyParams;
-}
-
 void beginRenderPassWithRasterizationDisabled (const DeviceInterface&	vk,
 											   const VkCommandBuffer	commandBuffer,
 											   const VkRenderPass		renderPass,
@@ -246,48 +131,6 @@ Move<VkRenderPass> makeRenderPassWithoutAttachments (const DeviceInterface&	vk,
 	};
 
 	return createRenderPass(vk, device, &renderPassInfo);
-}
-
-Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&		vk,
-									 const VkDevice				device,
-									 const VkRenderPass			renderPass,
-									 const VkImageView			colorAttachment,
-									 const deUint32				width,
-									 const deUint32				height,
-									 const deUint32				layers)
-{
-	const VkFramebufferCreateInfo framebufferInfo = {
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,		// VkStructureType                             sType;
-		DE_NULL,										// const void*                                 pNext;
-		(VkFramebufferCreateFlags)0,					// VkFramebufferCreateFlags                    flags;
-		renderPass,										// VkRenderPass                                renderPass;
-		1u,												// uint32_t                                    attachmentCount;
-		&colorAttachment,								// const VkImageView*                          pAttachments;
-		width,											// uint32_t                                    width;
-		height,											// uint32_t                                    height;
-		layers,											// uint32_t                                    layers;
-	};
-
-	return createFramebuffer(vk, device, &framebufferInfo);
-}
-
-Move<VkFramebuffer> makeFramebufferWithoutAttachments (const DeviceInterface&		vk,
-													   const VkDevice				device,
-													   const VkRenderPass			renderPass)
-{
-	const VkFramebufferCreateInfo framebufferInfo = {
-		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,		// VkStructureType                             sType;
-		DE_NULL,										// const void*                                 pNext;
-		(VkFramebufferCreateFlags)0,					// VkFramebufferCreateFlags                    flags;
-		renderPass,										// VkRenderPass                                renderPass;
-		0u,												// uint32_t                                    attachmentCount;
-		DE_NULL,										// const VkImageView*                          pAttachments;
-		1u,												// uint32_t                                    width;
-		1u,												// uint32_t                                    height;
-		1u,												// uint32_t                                    layers;
-	};
-
-	return createFramebuffer(vk, device, &framebufferInfo);
 }
 
 GraphicsPipelineBuilder& GraphicsPipelineBuilder::setShader (const DeviceInterface&			vk,

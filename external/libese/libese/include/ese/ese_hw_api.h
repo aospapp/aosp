@@ -18,7 +18,7 @@
 #define ESE_HW_API_H_ 1
 
 #include "ese_sg.h"
-#include "../../../libese-sysdeps/include/ese/sysdeps.h"
+#include <ese/sysdeps.h>
 
 #ifdef __cplusplus
 extern "C" {

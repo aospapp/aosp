@@ -22,9 +22,9 @@ cd $AUTOTEST
 GET_GSURI="
 import common
 from autotest_lib.client.common_lib import utils
-print utils.get_offload_gsuri().strip('/')
+print(utils.get_offload_gsuri().strip('/'))
 "
-GSURI=$(cd .. ; python -c "$GET_GSURI")
+GSURI=$(cd .. ; python2 -c "$GET_GSURI")
 (
   gsutil ls -R "$GSURI/$DIR/*" | sed "s=^$GSURI/==p"
   find $DIR -type f

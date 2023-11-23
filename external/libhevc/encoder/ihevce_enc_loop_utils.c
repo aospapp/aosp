@@ -845,6 +845,57 @@ void ihevce_compute_cu_level_QP(
     }
 }
 
+void ihevce_update_cu_level_qp_lamda(
+    ihevce_enc_loop_ctxt_t *ps_ctxt, cu_analyse_t *ps_cu_analyse, WORD32 trans_size, WORD32 is_intra)
+{
+    WORD32 i4_act_counter = 0, i4_act_counter_lamda = 0;
+
+    if(ps_cu_analyse->u1_cu_size == 64)
+    {
+        ASSERT((trans_size == 32) || (trans_size == 16) || (trans_size == 8) || (trans_size == 4));
+        i4_act_counter = (trans_size == 16) + 2 * ((trans_size == 8) || (trans_size == 4));
+        i4_act_counter_lamda = 3;
+    }
+    else if(ps_cu_analyse->u1_cu_size == 32)
+    {
+        ASSERT((trans_size == 32) || (trans_size == 16) || (trans_size == 8) || (trans_size == 4));
+        i4_act_counter = (trans_size == 16) + 2 * ((trans_size == 8) || (trans_size == 4));
+        i4_act_counter_lamda = 0;
+    }
+    else if(ps_cu_analyse->u1_cu_size == 16)
+    {
+        ASSERT((trans_size == 16) || (trans_size == 8) || (trans_size == 4));
+        i4_act_counter = (trans_size == 8) || (trans_size == 4);
+        i4_act_counter_lamda = 0;
+    }
+    else if(ps_cu_analyse->u1_cu_size == 8)
+    {
+        ASSERT((trans_size == 8) || (trans_size == 4));
+        i4_act_counter = 1;
+        i4_act_counter_lamda = 0;
+    }
+    else
+    {
+        ASSERT(0);
+    }
+
+    if(ps_ctxt->i4_use_ctb_level_lamda)
+    {
+        ihevce_compute_cu_level_QP(
+            ps_ctxt, ps_cu_analyse->i4_act_factor[i4_act_counter][is_intra], -1, 0);
+    }
+    else
+    {
+        ihevce_compute_cu_level_QP(
+            ps_ctxt,
+            ps_cu_analyse->i4_act_factor[i4_act_counter][is_intra],
+            ps_cu_analyse->i4_act_factor[i4_act_counter_lamda][is_intra],
+            0);
+    }
+
+    ps_cu_analyse->i1_cu_qp = ps_ctxt->i4_cu_qp;
+}
+
 /**
 *******************************************************************************
 * \if Function name : ihevce_scan_coeffs \endif
@@ -2986,53 +3037,9 @@ LWORD64 ihevce_intra_rdopt_cu_ntu(
 
     if(ps_ctxt->i1_cu_qp_delta_enable)
     {
-        WORD32 i4_act_counter = 0, i4_act_counter_lamda = 0;
-        if(ps_cu_analyse->u1_cu_size == 64)
-        {
-            ASSERT(
-                (trans_size == 32) || (trans_size == 16) || (trans_size == 8) || (trans_size == 4));
-            i4_act_counter = (trans_size == 16) + 2 * ((trans_size == 8) || (trans_size == 4));
-            i4_act_counter_lamda = 3;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 32)
-        {
-            ASSERT(
-                (trans_size == 32) || (trans_size == 16) || (trans_size == 8) || (trans_size == 4));
-            i4_act_counter = (trans_size == 16) + 2 * ((trans_size == 8) || (trans_size == 4));
-            i4_act_counter_lamda = 0;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 16)
-        {
-            ASSERT((trans_size == 16) || (trans_size == 8) || (trans_size == 4));
-            i4_act_counter = (trans_size == 8) || (trans_size == 4);
-            i4_act_counter_lamda = 0;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 8)
-        {
-            ASSERT((trans_size == 8) || (trans_size == 4));
-            i4_act_counter = 1;
-            i4_act_counter_lamda = 0;
-        }
-        else
-        {
-            ASSERT(0);
-        }
-        if(ps_ctxt->i4_use_ctb_level_lamda)
-        {
-            ihevce_compute_cu_level_QP(
-                ps_ctxt, ps_cu_analyse->i4_act_factor[i4_act_counter][1], -1, 0);
-        }
-        else
-        {
-            ihevce_compute_cu_level_QP(
-                ps_ctxt,
-                ps_cu_analyse->i4_act_factor[i4_act_counter][1],
-                ps_cu_analyse->i4_act_factor[i4_act_counter_lamda][1],
-                0);
-        }
-
-        ps_cu_analyse->i1_cu_qp = ps_ctxt->i4_cu_qp;
+        ihevce_update_cu_level_qp_lamda(ps_ctxt, ps_cu_analyse, trans_size, 1);
     }
+
     if(u1_is_cu_noisy && !ps_ctxt->u1_enable_psyRDOPT)
     {
         ps_ctxt->i8_cl_ssd_lambda_qf =
@@ -4371,59 +4378,9 @@ LWORD64 ihevce_inter_rdopt_cu_ntu(
 
     if(ps_ctxt->i1_cu_qp_delta_enable)
     {
-        WORD32 i4_act_counter = 0, i4_act_counter_lamda = 0;
-
-        if(ps_cu_analyse->u1_cu_size == 64)
-        {
-            ASSERT(
-                (i4_min_trans_size == 32) || (i4_min_trans_size == 16) ||
-                (i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = (i4_min_trans_size == 16) +
-                             2 * ((i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter_lamda = 3;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 32)
-        {
-            ASSERT(
-                (i4_min_trans_size == 32) || (i4_min_trans_size == 16) ||
-                (i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = (i4_min_trans_size == 16) +
-                             2 * ((i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter_lamda = 0;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 16)
-        {
-            ASSERT(
-                (i4_min_trans_size == 16) || (i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = (i4_min_trans_size == 8) || (i4_min_trans_size == 4);
-            i4_act_counter_lamda = 0;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 8)
-        {
-            ASSERT((i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = 1;
-            i4_act_counter_lamda = 0;
-        }
-        else
-        {
-            ASSERT(0);
-        }
-        if(ps_ctxt->i4_use_ctb_level_lamda)
-        {
-            ihevce_compute_cu_level_QP(
-                ps_ctxt, ps_cu_analyse->i4_act_factor[i4_act_counter][0], -1, 0);
-        }
-        else
-        {
-            ihevce_compute_cu_level_QP(
-                ps_ctxt,
-                ps_cu_analyse->i4_act_factor[i4_act_counter][0],
-                ps_cu_analyse->i4_act_factor[i4_act_counter_lamda][0],
-                0);
-        }
-
-        ps_cu_analyse->i1_cu_qp = ps_ctxt->i4_cu_qp;
+        ihevce_update_cu_level_qp_lamda(ps_ctxt, ps_cu_analyse, i4_min_trans_size, 0);
     }
+
     if(u1_is_cu_noisy && !ps_ctxt->u1_enable_psyRDOPT)
     {
         ps_ctxt->i8_cl_ssd_lambda_qf =
@@ -5243,57 +5200,7 @@ LWORD64 ihevce_inter_tu_tree_selector_and_rdopt_cost_computer(
 
     if(ps_ctxt->i1_cu_qp_delta_enable)
     {
-        WORD32 i4_act_counter = 0, i4_act_counter_lamda = 0;
-        if(ps_cu_analyse->u1_cu_size == 64)
-        {
-            ASSERT(
-                (i4_min_trans_size == 32) || (i4_min_trans_size == 16) ||
-                (i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = (i4_min_trans_size == 16) +
-                             2 * ((i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter_lamda = 3;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 32)
-        {
-            ASSERT(
-                (i4_min_trans_size == 32) || (i4_min_trans_size == 16) ||
-                (i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = (i4_min_trans_size == 16) +
-                             2 * ((i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter_lamda = 0;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 16)
-        {
-            ASSERT(
-                (i4_min_trans_size == 16) || (i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = (i4_min_trans_size == 8) || (i4_min_trans_size == 4);
-            i4_act_counter_lamda = 0;
-        }
-        else if(ps_cu_analyse->u1_cu_size == 8)
-        {
-            ASSERT((i4_min_trans_size == 8) || (i4_min_trans_size == 4));
-            i4_act_counter = 1;
-            i4_act_counter_lamda = 0;
-        }
-        else
-        {
-            ASSERT(0);
-        }
-        if(ps_ctxt->i4_use_ctb_level_lamda)
-        {
-            ihevce_compute_cu_level_QP(
-                ps_ctxt, ps_cu_analyse->i4_act_factor[i4_act_counter][0], -1, 0);
-        }
-        else
-        {
-            ihevce_compute_cu_level_QP(
-                ps_ctxt,
-                ps_cu_analyse->i4_act_factor[i4_act_counter][0],
-                ps_cu_analyse->i4_act_factor[i4_act_counter_lamda][0],
-                0);
-        }
-
-        ps_cu_analyse->i1_cu_qp = ps_ctxt->i4_cu_qp;
+        ihevce_update_cu_level_qp_lamda(ps_ctxt, ps_cu_analyse, i4_min_trans_size, 0);
     }
 
     if(u1_is_cu_noisy && !ps_ctxt->u1_enable_psyRDOPT)
@@ -6564,57 +6471,7 @@ void ihevce_intra_chroma_pred_mode_selector(
 
         if(ps_ctxt->i1_cu_qp_delta_enable)
         {
-            WORD32 i4_act_counter = 0, i4_act_counter_lamda = 0;
-            if(ps_cu_analyse->u1_cu_size == 64)
-            {
-                ASSERT(
-                    (luma_trans_size == 32) || (luma_trans_size == 16) || (luma_trans_size == 8) ||
-                    (luma_trans_size == 4));
-                i4_act_counter = (luma_trans_size == 16) +
-                                 2 * ((luma_trans_size == 8) || (luma_trans_size == 4));
-                i4_act_counter_lamda = 3;
-            }
-            else if(ps_cu_analyse->u1_cu_size == 32)
-            {
-                ASSERT(
-                    (luma_trans_size == 32) || (luma_trans_size == 16) || (luma_trans_size == 8) ||
-                    (luma_trans_size == 4));
-                i4_act_counter = (luma_trans_size == 16) +
-                                 2 * ((luma_trans_size == 8) || (luma_trans_size == 4));
-                i4_act_counter_lamda = 0;
-            }
-            else if(ps_cu_analyse->u1_cu_size == 16)
-            {
-                ASSERT((luma_trans_size == 16) || (luma_trans_size == 8) || (luma_trans_size == 4));
-                i4_act_counter = (luma_trans_size == 8) || (luma_trans_size == 4);
-                i4_act_counter_lamda = 0;
-            }
-            else if(ps_cu_analyse->u1_cu_size == 8)
-            {
-                ASSERT((luma_trans_size == 8) || (luma_trans_size == 4));
-                i4_act_counter = 1;
-                i4_act_counter_lamda = 0;
-            }
-            else
-            {
-                ASSERT(0);
-            }
-            /*assumption is that control comes here for intras*/
-            if(ps_ctxt->i4_use_ctb_level_lamda)
-            {
-                ihevce_compute_cu_level_QP(
-                    ps_ctxt, ps_cu_analyse->i4_act_factor[i4_act_counter][1], -1, 0);
-            }
-            else
-            {
-                ihevce_compute_cu_level_QP(
-                    ps_ctxt,
-                    ps_cu_analyse->i4_act_factor[i4_act_counter][1],
-                    ps_cu_analyse->i4_act_factor[i4_act_counter_lamda][1],
-                    0);
-            }
-
-            ps_cu_analyse->i1_cu_qp = ps_ctxt->i4_cu_qp;
+            ihevce_update_cu_level_qp_lamda(ps_ctxt, ps_cu_analyse, luma_trans_size, 1);
         }
 
         u1_compute_spatial_ssd = (ps_ctxt->i4_cu_qp <= MAX_QP_WHERE_SPATIAL_SSD_ENABLED) &&
